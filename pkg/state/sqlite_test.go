@@ -318,3 +318,335 @@ func TestSQLiteStore_Ping(t *testing.T) {
 		t.Errorf("Ping failed: %v", err)
 	}
 }
+
+func TestNewStore_SQLite(t *testing.T) {
+	tmpFile := "/tmp/test-titan-anvil-newstore-" + time.Now().Format("20060102150405") + ".db"
+	defer os.Remove(tmpFile)
+
+	config := &Config{
+		Backend:    "sqlite",
+		SQLitePath: tmpFile,
+	}
+
+	store, err := NewStore(config)
+	if err != nil {
+		t.Fatalf("NewStore failed for SQLite: %v", err)
+	}
+	defer store.Close()
+
+	if store == nil {
+		t.Error("Expected non-nil store")
+	}
+}
+
+func TestNewStore_PostgreSQL(t *testing.T) {
+	config := &Config{
+		Backend: "postgresql",
+	}
+
+	_, err := NewStore(config)
+	if err == nil {
+		t.Error("Expected error for unimplemented PostgreSQL backend")
+	}
+	if err.Error() != "PostgreSQL backend not yet implemented" {
+		t.Errorf("Expected 'PostgreSQL backend not yet implemented' error, got: %v", err)
+	}
+}
+
+func TestNewStore_InvalidBackend(t *testing.T) {
+	config := &Config{
+		Backend: "invalid-backend",
+	}
+
+	_, err := NewStore(config)
+	if err == nil {
+		t.Error("Expected error for invalid backend")
+	}
+	expectedError := "unsupported backend: invalid-backend"
+	if err.Error() != expectedError {
+		t.Errorf("Expected '%s' error, got: %v", expectedError, err)
+	}
+}
+
+func TestSQLiteStore_ListCommands_WithFilters(t *testing.T) {
+	tmpFile := "/tmp/test-titan-anvil-cmdfilter-" + time.Now().Format("20060102150405") + ".db"
+	defer os.Remove(tmpFile)
+
+	config := &Config{
+		Backend:    "sqlite",
+		SQLitePath: tmpFile,
+	}
+
+	store, err := NewSQLiteStore(config)
+	if err != nil {
+		t.Fatalf("Failed to create store: %v", err)
+	}
+	defer store.Close()
+
+	ctx := context.Background()
+
+	// Create agents
+	agent1 := &AgentRecord{
+		ID:            "agent-1",
+		Hostname:      "host-1",
+		OS:            "linux",
+		Architecture:  "amd64",
+		Status:        pb.AgentStatus_AGENT_STATUS_ONLINE,
+		LastHeartbeat: time.Now(),
+		RegisteredAt:  time.Now(),
+		UpdatedAt:     time.Now(),
+	}
+	store.SaveAgent(ctx, agent1)
+
+	agent2 := &AgentRecord{
+		ID:            "agent-2",
+		Hostname:      "host-2",
+		OS:            "linux",
+		Architecture:  "amd64",
+		Status:        pb.AgentStatus_AGENT_STATUS_ONLINE,
+		LastHeartbeat: time.Now(),
+		RegisteredAt:  time.Now(),
+		UpdatedAt:     time.Now(),
+	}
+	store.SaveAgent(ctx, agent2)
+
+	// Create commands for different agents with different statuses and times
+	now := time.Now()
+	commands := []*CommandRecord{
+		{
+			ID:        "cmd-1",
+			AgentID:   "agent-1",
+			Command:   "echo",
+			Args:      []string{"test1"},
+			Status:    pb.CommandStatus_COMMAND_STATUS_PENDING,
+			CreatedAt: now.Add(-10 * time.Minute),
+		},
+		{
+			ID:        "cmd-2",
+			AgentID:   "agent-1",
+			Command:   "echo",
+			Args:      []string{"test2"},
+			Status:    pb.CommandStatus_COMMAND_STATUS_RUNNING,
+			CreatedAt: now.Add(-5 * time.Minute),
+		},
+		{
+			ID:        "cmd-3",
+			AgentID:   "agent-2",
+			Command:   "echo",
+			Args:      []string{"test3"},
+			Status:    pb.CommandStatus_COMMAND_STATUS_COMPLETED,
+			CreatedAt: now.Add(-2 * time.Minute),
+		},
+		{
+			ID:        "cmd-4",
+			AgentID:   "agent-2",
+			Command:   "echo",
+			Args:      []string{"test4"},
+			Status:    pb.CommandStatus_COMMAND_STATUS_FAILED,
+			CreatedAt: now,
+		},
+	}
+
+	for _, cmd := range commands {
+		err := store.SaveCommand(ctx, cmd)
+		if err != nil {
+			t.Fatalf("Failed to save command %s: %v", cmd.ID, err)
+		}
+	}
+
+	// Test 1: Filter by AgentID
+	t.Run("FilterByAgentID", func(t *testing.T) {
+		filter := &CommandFilter{
+			AgentID: "agent-1",
+		}
+
+		result, err := store.ListCommands(ctx, filter)
+		if err != nil {
+			t.Fatalf("Failed to list commands with agent filter: %v", err)
+		}
+
+		if len(result) != 2 {
+			t.Errorf("Expected 2 commands for agent-1, got %d", len(result))
+		}
+	})
+
+	// Test 2: Filter by Status
+	t.Run("FilterByStatus", func(t *testing.T) {
+		status := pb.CommandStatus_COMMAND_STATUS_COMPLETED
+		filter := &CommandFilter{
+			Status: &status,
+		}
+
+		result, err := store.ListCommands(ctx, filter)
+		if err != nil {
+			t.Fatalf("Failed to list commands with status filter: %v", err)
+		}
+
+		if len(result) != 1 {
+			t.Errorf("Expected 1 completed command, got %d", len(result))
+		}
+
+		if result[0].Status != pb.CommandStatus_COMMAND_STATUS_COMPLETED {
+			t.Errorf("Expected status COMPLETED, got %v", result[0].Status)
+		}
+	})
+
+	// Test 3: Filter by StartTime
+	t.Run("FilterByStartTime", func(t *testing.T) {
+		startTime := now.Add(-6 * time.Minute)
+		filter := &CommandFilter{
+			StartTime: &startTime,
+		}
+
+		result, err := store.ListCommands(ctx, filter)
+		if err != nil {
+			t.Fatalf("Failed to list commands with start time filter: %v", err)
+		}
+
+		// Should get cmd-2, cmd-3, cmd-4 (created after -6 minutes)
+		if len(result) != 3 {
+			t.Errorf("Expected 3 commands after start time, got %d", len(result))
+		}
+	})
+
+	// Test 4: Filter by EndTime
+	t.Run("FilterByEndTime", func(t *testing.T) {
+		endTime := now.Add(-3 * time.Minute)
+		filter := &CommandFilter{
+			EndTime: &endTime,
+		}
+
+		result, err := store.ListCommands(ctx, filter)
+		if err != nil {
+			t.Fatalf("Failed to list commands with end time filter: %v", err)
+		}
+
+		// Should get cmd-1, cmd-2 (created before -3 minutes)
+		if len(result) != 2 {
+			t.Errorf("Expected 2 commands before end time, got %d", len(result))
+		}
+	})
+
+	// Test 5: Sort by different fields
+	t.Run("SortByCreatedAt", func(t *testing.T) {
+		filter := &CommandFilter{
+			SortBy:    "created_at",
+			SortOrder: "ASC",
+		}
+
+		result, err := store.ListCommands(ctx, filter)
+		if err != nil {
+			t.Fatalf("Failed to list commands with sort: %v", err)
+		}
+
+		if len(result) < 2 {
+			t.Fatal("Need at least 2 commands for sort test")
+		}
+
+		// First should be oldest (cmd-1)
+		if result[0].ID != "cmd-1" {
+			t.Errorf("Expected first command to be cmd-1, got %s", result[0].ID)
+		}
+	})
+
+	// Test 6: Pagination with Limit
+	t.Run("PaginationLimit", func(t *testing.T) {
+		filter := &CommandFilter{
+			Limit: 2,
+		}
+
+		result, err := store.ListCommands(ctx, filter)
+		if err != nil {
+			t.Fatalf("Failed to list commands with limit: %v", err)
+		}
+
+		if len(result) != 2 {
+			t.Errorf("Expected 2 commands with limit, got %d", len(result))
+		}
+	})
+
+	// Test 7: Pagination with Limit and Offset
+	t.Run("PaginationLimitAndOffset", func(t *testing.T) {
+		filter := &CommandFilter{
+			Limit:  2,
+			Offset: 1,
+		}
+
+		result, err := store.ListCommands(ctx, filter)
+		if err != nil {
+			t.Fatalf("Failed to list commands with limit and offset: %v", err)
+		}
+
+		if len(result) != 2 {
+			t.Errorf("Expected 2 commands with limit and offset, got %d", len(result))
+		}
+	})
+
+	// Test 8: Combined filters
+	t.Run("CombinedFilters", func(t *testing.T) {
+		status := pb.CommandStatus_COMMAND_STATUS_RUNNING
+		filter := &CommandFilter{
+			AgentID: "agent-1",
+			Status:  &status,
+		}
+
+		result, err := store.ListCommands(ctx, filter)
+		if err != nil {
+			t.Fatalf("Failed to list commands with combined filters: %v", err)
+		}
+
+		if len(result) != 1 {
+			t.Errorf("Expected 1 running command for agent-1, got %d", len(result))
+		}
+
+		if result[0].ID != "cmd-2" {
+			t.Errorf("Expected cmd-2, got %s", result[0].ID)
+		}
+	})
+}
+
+func TestSQLiteStore_GetAgent_NotFound(t *testing.T) {
+	tmpFile := "/tmp/test-titan-anvil-notfound-" + time.Now().Format("20060102150405") + ".db"
+	defer os.Remove(tmpFile)
+
+	config := &Config{
+		Backend:    "sqlite",
+		SQLitePath: tmpFile,
+	}
+
+	store, err := NewSQLiteStore(config)
+	if err != nil {
+		t.Fatalf("Failed to create store: %v", err)
+	}
+	defer store.Close()
+
+	ctx := context.Background()
+
+	_, err = store.GetAgent(ctx, "nonexistent-agent")
+	if err == nil {
+		t.Error("Expected error when getting nonexistent agent")
+	}
+}
+
+func TestSQLiteStore_GetCommand_NotFound(t *testing.T) {
+	tmpFile := "/tmp/test-titan-anvil-cmdnotfound-" + time.Now().Format("20060102150405") + ".db"
+	defer os.Remove(tmpFile)
+
+	config := &Config{
+		Backend:    "sqlite",
+		SQLitePath: tmpFile,
+	}
+
+	store, err := NewSQLiteStore(config)
+	if err != nil {
+		t.Fatalf("Failed to create store: %v", err)
+	}
+	defer store.Close()
+
+	ctx := context.Background()
+
+	_, err = store.GetCommand(ctx, "nonexistent-command")
+	if err == nil {
+		t.Error("Expected error when getting nonexistent command")
+	}
+}
