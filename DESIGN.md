@@ -292,6 +292,223 @@ Single command → Execute across K8s pods, VMs, bare metal, edge devices
 - **Observability**: Prometheus, OpenTelemetry, Grafana
 - **Secrets**: HashiCorp Vault, cloud KMS providers
 
+## Security Model
+
+TitanAnvil follows the same "simple → production" philosophy for security as it does for NATS and storage. Two security modes are supported, allowing users to start simple and upgrade to zero-trust as they scale.
+
+### Manual TLS Mode (Default)
+
+**Purpose**: Zero dependencies for getting started, development, testing, and small deployments.
+
+**How it works:**
+- Static CA and certificates generated via `pkg/security/tls.go`
+- Control plane generates CA on first startup
+- Agents receive signed certificates during registration
+- Certificates stored on disk, manually rotated
+- Traditional mTLS between agents and control plane
+
+**Best for:**
+- Development and testing environments
+- Small deployments (<100 nodes)
+- Air-gapped environments without external dependencies
+- Quick proof-of-concept deployments
+
+**Configuration:**
+```yaml
+security:
+  mode: manual
+  manual:
+    ca_cert: /etc/titan/ca.pem
+    ca_key: /etc/titan/ca-key.pem
+    server_cert: /etc/titan/server.pem
+    server_key: /etc/titan/server-key.pem
+    cert_validity: 8760h  # 1 year
+```
+
+**Limitations:**
+- Manual certificate rotation required
+- No automatic identity attestation
+- Static credentials (compromise risk)
+- Certificate distribution to agents needed
+
+### SPIFFE/SPIRE Mode (Production)
+
+**Purpose**: Zero-trust security with automatic identity provisioning and rotation for production deployments.
+
+**How it works:**
+- SPIRE server runs alongside TitanAnvil control plane
+- SPIRE agents run alongside TitanAnvil agents
+- Workload attestation proves agent identity without secrets
+- SVIDs (SPIFFE Verifiable Identity Documents) auto-rotate every 1 hour
+- Cryptographic identities encode agent metadata (role, labels, environment)
+
+**Best for:**
+- Production deployments (100+ nodes)
+- Compliance-required environments (SOC2, PCI-DSS, HIPAA)
+- Multi-cloud and hybrid infrastructure
+- Service mesh integration (Istio, Linkerd, Consul)
+- Plugin system with privileged modules (Epic 9)
+
+**Configuration:**
+```yaml
+security:
+  mode: spire
+  spire:
+    server_address: unix:///tmp/spire-server/api.sock
+    trust_domain: titananvil.local
+
+    # Workload attestation method (platform-specific)
+    node_attestor: k8s_sat  # Kubernetes Service Account Token
+    # Alternatives: aws_iid (AWS Instance Identity)
+    #               gcp_iit (GCP Instance Identity)
+    #               unix (Unix process UID/GID)
+    #               x509pop (X.509 Proof of Possession)
+
+    # SPIFFE ID template for agents
+    agent_spiffe_id_template: "spiffe://{{.TrustDomain}}/agent/{{.AgentID}}"
+```
+
+**Benefits:**
+- **Automatic rotation**: SVIDs rotate every hour without downtime
+- **No secret distribution**: Agents prove identity via platform attestation
+- **Zero-trust by default**: Every connection requires valid SPIFFE identity
+- **Service mesh ready**: Native integration with Istio, Linkerd, Consul
+- **Cryptographic identity**: SPIFFE IDs encode role, environment, labels
+- **Immediate revocation**: Compromised identities revoked in real-time
+- **Audit compliance**: Full identity lifecycle logging
+
+**SPIFFE Identity Examples:**
+```
+# Control plane server
+spiffe://titananvil.local/server/control-plane
+
+# Agent on Kubernetes node
+spiffe://titananvil.local/agent/k8s-node-123
+  selectors:
+    - k8s:ns:kube-system
+    - k8s:sa:titananvil-agent
+    - label:env=prod
+    - label:region=us-east-1
+
+# Agent on AWS EC2 instance
+spiffe://titananvil.local/agent/i-0abc123def456
+  selectors:
+    - aws:account-id:123456789
+    - aws:instance-id:i-0abc123def456
+    - label:env=staging
+    - label:vpc=vpc-xyz
+
+# Plugin module with restricted capabilities
+spiffe://titananvil.local/module/vendor/firewall-manager
+  selectors:
+    - capability:network.configure
+    - label:role=network-admin
+```
+
+**Workload Attestation by Platform:**
+
+| Platform | Attestation Method | Identity Proof |
+|----------|-------------------|----------------|
+| Kubernetes | Service Account Token | K8s API validates token |
+| AWS | Instance Identity Document | AWS API validates signature |
+| GCP | Instance Identity Token | GCP API validates JWT |
+| Azure | Managed Service Identity | Azure API validates token |
+| Unix/VM | Process UID/GID | Kernel process inspection |
+| SSH | Certificate | SSH CA signature verification |
+
+### Security Mode Comparison
+
+| Feature | Manual TLS | SPIFFE/SPIRE |
+|---------|-----------|--------------|
+| **Setup Complexity** | Low (single binary) | Medium (SPIRE server + agents) |
+| **External Dependencies** | None | SPIRE server/agent |
+| **Credential Rotation** | Manual | Automatic (hourly) |
+| **Identity Attestation** | None | Platform-based |
+| **Zero-Trust Ready** | No | Yes |
+| **Service Mesh Integration** | Manual | Native |
+| **Certificate Lifetime** | 1 year | 1 hour |
+| **Revocation** | CRL/OCSP (slow) | Immediate |
+| **Compliance** | Basic | Advanced (SOC2, PCI-DSS) |
+| **Plugin Security** | Basic TLS | SPIFFE identity + selectors |
+| **Best For** | Dev, testing, <100 nodes | Production, 100+ nodes |
+
+### Migration Path
+
+TitanAnvil is designed to start simple and upgrade as you scale:
+
+**Development → Production:**
+```
+Manual TLS          →    SPIFFE/SPIRE
+Embedded NATS      →    External NATS cluster
+SQLite             →    PostgreSQL
+```
+
+**Migration steps:**
+1. Deploy SPIRE server alongside control plane
+2. Deploy SPIRE agents alongside TitanAnvil agents
+3. Update configuration: `security.mode: spire`
+4. Restart control plane (picks up SPIRE workload API)
+5. Agents auto-register with SPIRE-issued SVIDs
+6. Old manual TLS certificates expire naturally
+
+**Zero-downtime migration:**
+- Control plane accepts both manual TLS and SPIRE connections during migration
+- Agents migrate on rolling restart basis
+- Configuration flag: `security.allow_legacy_tls: true`
+
+### Security Integration Points
+
+**1. Agent Authentication (Epic 1)**
+- Agents authenticate to control plane via mTLS
+- SPIRE mode: Agent identity proven via platform attestation
+- Manual mode: Agent uses static certificate
+
+**2. Command Authorization (Epic 2)**
+- Commands authorized based on agent identity
+- SPIRE selectors enable fine-grained RBAC
+- Example: Only agents with `label:role=db-admin` can run database commands
+
+**3. Policy Enforcement (Epic 6)**
+- Policies reference SPIFFE identities and selectors
+- Example policy: "Agents without `label:compliant=true` cannot execute privileged commands"
+
+**4. Module System (Epic 9)**
+- Modules must present valid SPIFFE identity to load
+- Control plane validates module signature AND SPIFFE selectors
+- Example: Firewall module requires `capability:network.configure` selector
+
+**5. Service Mesh Integration (Epic 8)**
+- TitanAnvil shares SPIRE trust domain with Istio/Linkerd
+- Agents can authenticate to mesh services
+- Unified zero-trust across infrastructure and application layers
+
+### Security Recommendations
+
+**Development/Testing:**
+- Use `manual` mode for speed and simplicity
+- Embedded NATS + SQLite + manual TLS = single binary, no dependencies
+
+**Production (<100 nodes):**
+- Consider `manual` mode if:
+  - No compliance requirements
+  - Air-gapped environment
+  - Simplified operations preferred
+- Implement certificate rotation automation
+
+**Production (100+ nodes, compliance required):**
+- Use `spire` mode for:
+  - Zero-trust security posture
+  - Automatic credential rotation
+  - Compliance requirements (SOC2, PCI-DSS, HIPAA)
+  - Service mesh integration
+  - Plugin system with privileged modules
+
+**Enterprise:**
+- SPIRE mode required
+- External NATS cluster for HA
+- PostgreSQL with replication
+- Multi-region SPIRE federation
+
 ## Success Metrics
 
 ### Adoption Metrics

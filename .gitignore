@@ -27,3 +27,22 @@ go.work.sum
 
 /t
 *.bak
+
+# TitanAnvil specific
+bin/
+data/
+*.db
+*.db-shm
+*.db-wal
+titan-anvil.yaml
+titan-anvil-agent.yaml
+*.creds
+*.pem
+*.key
+*.crt
+*.csr
+.DS_Store
+tmp/
+temp/
+*.tmp
+coverage.out

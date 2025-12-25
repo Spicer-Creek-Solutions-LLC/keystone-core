@@ -1,0 +1,187 @@
+syntax = "proto3";
+
+package titan.anvil.v1;
+
+option go_package = "github.com/titananvil/titan-anvil/pkg/api/v1;v1";
+
+import "google/protobuf/timestamp.proto";
+import "agent.proto";
+
+// ControlPlaneService defines the control plane API
+service ControlPlaneService {
+  // ListAgents lists all registered agents
+  rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse);
+
+  // GetAgent retrieves information about a specific agent
+  rpc GetAgent(GetAgentRequest) returns (GetAgentResponse);
+
+  // ExecuteCommand executes a command on one or more agents
+  rpc ExecuteCommand(ExecuteCommandRequest) returns (stream ExecuteCommandResponse);
+
+  // GetCommandStatus retrieves the status of a command execution
+  rpc GetCommandStatus(GetCommandStatusRequest) returns (GetCommandStatusResponse);
+
+  // ListCommands lists command execution history
+  rpc ListCommands(ListCommandsRequest) returns (ListCommandsResponse);
+}
+
+// ListAgentsRequest requests a list of agents
+message ListAgentsRequest {
+  // Filter by status (optional)
+  AgentStatus status = 1;
+
+  // Filter by labels (optional)
+  map<string, string> labels = 2;
+
+  // Pagination
+  int32 page_size = 3;
+  string page_token = 4;
+}
+
+// ListAgentsResponse returns a list of agents
+message ListAgentsResponse {
+  // List of agents
+  repeated AgentInfo agents = 1;
+
+  // Next page token
+  string next_page_token = 2;
+
+  // Total count
+  int32 total_count = 3;
+}
+
+// AgentInfo contains detailed agent information
+message AgentInfo {
+  // Agent ID
+  string agent_id = 1;
+
+  // Agent metadata
+  AgentMetadata metadata = 2;
+
+  // Current status
+  AgentStatus status = 3;
+
+  // Last heartbeat timestamp
+  google.protobuf.Timestamp last_heartbeat = 4;
+
+  // Registration timestamp
+  google.protobuf.Timestamp registered_at = 5;
+
+  // System metrics
+  SystemMetrics metrics = 6;
+}
+
+// GetAgentRequest requests agent information
+message GetAgentRequest {
+  // Agent ID
+  string agent_id = 1;
+}
+
+// GetAgentResponse returns agent information
+message GetAgentResponse {
+  // Agent information
+  AgentInfo agent = 1;
+}
+
+// GetCommandStatusRequest requests command execution status
+message GetCommandStatusRequest {
+  // Command ID
+  string command_id = 1;
+}
+
+// GetCommandStatusResponse returns command execution status
+message GetCommandStatusResponse {
+  // Command ID
+  string command_id = 1;
+
+  // Command status
+  CommandStatus status = 2;
+
+  // Target agent ID
+  string agent_id = 3;
+
+  // Command details
+  string command = 4;
+  repeated string args = 5;
+
+  // Execution results
+  int32 exit_code = 6;
+  string stdout = 7;
+  string stderr = 8;
+  string error = 9;
+
+  // Timestamps
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp started_at = 11;
+  google.protobuf.Timestamp completed_at = 12;
+
+  // Duration in milliseconds
+  int64 duration_ms = 13;
+}
+
+// CommandStatus represents the status of a command execution
+enum CommandStatus {
+  COMMAND_STATUS_UNSPECIFIED = 0;
+  COMMAND_STATUS_PENDING = 1;
+  COMMAND_STATUS_RUNNING = 2;
+  COMMAND_STATUS_COMPLETED = 3;
+  COMMAND_STATUS_FAILED = 4;
+  COMMAND_STATUS_TIMEOUT = 5;
+  COMMAND_STATUS_CANCELLED = 6;
+}
+
+// ListCommandsRequest requests command execution history
+message ListCommandsRequest {
+  // Filter by agent ID (optional)
+  string agent_id = 1;
+
+  // Filter by status (optional)
+  CommandStatus status = 2;
+
+  // Filter by time range (optional)
+  google.protobuf.Timestamp start_time = 3;
+  google.protobuf.Timestamp end_time = 4;
+
+  // Pagination
+  int32 page_size = 5;
+  string page_token = 6;
+}
+
+// ListCommandsResponse returns command execution history
+message ListCommandsResponse {
+  // List of commands
+  repeated CommandInfo commands = 1;
+
+  // Next page token
+  string next_page_token = 2;
+
+  // Total count
+  int32 total_count = 3;
+}
+
+// CommandInfo contains command execution information
+message CommandInfo {
+  // Command ID
+  string command_id = 1;
+
+  // Target agent ID
+  string agent_id = 2;
+
+  // Command details
+  string command = 3;
+  repeated string args = 4;
+
+  // Status
+  CommandStatus status = 5;
+
+  // Exit code
+  int32 exit_code = 6;
+
+  // Timestamps
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp started_at = 8;
+  google.protobuf.Timestamp completed_at = 9;
+
+  // Duration in milliseconds
+  int64 duration_ms = 10;
+}

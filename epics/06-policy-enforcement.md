@@ -17,6 +17,9 @@ Implement a comprehensive policy enforcement system that provides continuous com
 - [ ] Audit logging for all policy evaluations
 - [ ] Support for custom policies
 - [ ] Policy evaluation latency <100ms
+- [ ] SPIFFE/SPIRE integration for zero-trust authentication
+- [ ] Identity-based authorization using SPIFFE selectors
+- [ ] Support for both manual TLS and SPIRE security modes
 
 ## Architecture
 
@@ -590,6 +593,99 @@ Monitoring compliance drift...
 - Syslog integration
 - Custom webhook integration
 
+### Phase 7: SPIFFE/SPIRE Security Integration (Week 9-10)
+
+**T7.1: SPIRE Client Integration**
+- Integrate SPIRE Workload API client library
+- Implement X.509 SVID fetching from SPIRE agent
+- Handle automatic SVID rotation (1-hour lifetime)
+- Configure trust bundle updates
+- Implement fallback to manual TLS mode
+
+**T7.2: Identity-Based Authorization**
+- Extract SPIFFE ID from agent connections
+- Parse and validate SPIFFE selectors (labels, roles, platform attributes)
+- Implement authorization policies based on SPIFFE identity
+- Support for multi-tenant SPIFFE trust domains
+- Policy examples:
+  ```rego
+  # Only allow agents with prod label to execute privileged commands
+  allow {
+    input.agent.spiffe_id.selectors["label:env"] == "prod"
+    input.command.privileged == true
+  }
+
+  # Only allow K8s agents from specific namespace
+  allow {
+    input.agent.spiffe_id.selectors["k8s:ns"] == "kube-system"
+    input.operation == "read-secrets"
+  }
+  ```
+
+**T7.3: Platform Attestation Support**
+- Configure node attestation plugins:
+  - Kubernetes: Service Account Token validation
+  - AWS: Instance Identity Document verification
+  - GCP: Instance Identity Token verification
+  - Azure: Managed Service Identity validation
+  - Unix: Process UID/GID verification
+- Implement workload attestation for TitanAnvil services
+- Configure attestation policies per environment
+
+**T7.4: SPIRE-Based Policy Enforcement**
+- Policies reference SPIFFE selectors instead of static agent IDs
+- Dynamic policy evaluation based on agent attestation
+- Revoke access immediately when SPIFFE identity expires
+- Audit trail includes SPIFFE identity for all actions
+- Example policies:
+  - "Only agents with `role=db-admin` can execute database commands"
+  - "Agents without `compliant=true` cannot load privileged modules"
+  - "Cross-region commands require `federated=true` selector"
+
+**T7.5: mTLS Configuration**
+- Configure gRPC server to use SPIRE-provided SVIDs
+- Configure gRPC client to validate SPIRE trust bundle
+- Implement automatic TLS certificate rotation from SPIRE
+- Support for both SPIRE mode and manual TLS mode simultaneously (migration)
+- Configuration:
+  ```yaml
+  security:
+    mode: spire  # or "manual"
+    spire:
+      server_address: unix:///tmp/spire-server/api.sock
+      trust_domain: titananvil.local
+      node_attestor: k8s_sat
+      agent_spiffe_id_template: "spiffe://{{.TrustDomain}}/agent/{{.AgentID}}"
+    allow_legacy_tls: true  # For migration period
+  ```
+
+**T7.6: Module System Security (Integration with Epic 9)**
+- Require SPIFFE identity for module loading
+- Validate module SPIFFE selectors against required capabilities
+- Example: Firewall module requires `capability:network.configure` selector
+- Policy enforcement:
+  ```rego
+  # Only load module if SPIFFE identity has required capability
+  allow_module_load {
+    input.module.name == "vendor/firewall-manager"
+    input.agent.spiffe_id.selectors["capability:network.configure"]
+    input.agent.spiffe_id.selectors["role:network-admin"]
+  }
+  ```
+
+**T7.7: Service Mesh Integration**
+- Share SPIRE trust domain with Istio/Linkerd
+- Enable TitanAnvil agents to authenticate to mesh services
+- Mutual authentication between TitanAnvil and service mesh
+- Unified zero-trust policy across infrastructure and applications
+
+**T7.8: SPIRE Deployment Automation**
+- Helm chart for SPIRE server deployment
+- DaemonSet for SPIRE agents
+- Automatic registration entries for TitanAnvil components
+- SPIRE federation for multi-region/multi-cloud
+- Monitoring and alerting for SPIRE health
+
 ## Dependencies
 
 - **Epic 2**: Remote Execution (for remediation)
@@ -600,6 +696,11 @@ Monitoring compliance drift...
   - `github.com/google/cel-go` - CEL engine
   - `k8s.io/client-go` - Kubernetes client
   - Cloud SDKs (AWS, GCP, Azure)
+  - `github.com/spiffe/go-spiffe/v2` - SPIRE Workload API client
+  - `github.com/spiffe/spire-api-sdk` - SPIRE API SDK
+- **External Services** (optional, for production):
+  - SPIRE Server - Identity and attestation service
+  - SPIRE Agents - Workload identity distribution
 
 ## Risks & Mitigations
 

@@ -1,0 +1,229 @@
+syntax = "proto3";
+
+package titan.anvil.v1;
+
+option go_package = "github.com/titananvil/titan-anvil/pkg/api/v1;v1";
+
+import "google/protobuf/timestamp.proto";
+
+// AgentService defines the agent communication protocol
+service AgentService {
+  // Register registers an agent with the control plane
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+
+  // Heartbeat sends periodic health status
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+
+  // ExecuteCommand executes a command on the agent
+  rpc ExecuteCommand(ExecuteCommandRequest) returns (stream ExecuteCommandResponse);
+
+  // GetAgentInfo retrieves agent information
+  rpc GetAgentInfo(GetAgentInfoRequest) returns (GetAgentInfoResponse);
+}
+
+// RegisterRequest contains agent registration information
+message RegisterRequest {
+  // Agent ID (empty for auto-generation)
+  string agent_id = 1;
+
+  // Agent metadata
+  AgentMetadata metadata = 2;
+
+  // Authentication credentials
+  AgentCredentials credentials = 3;
+}
+
+// RegisterResponse contains registration confirmation
+message RegisterResponse {
+  // Assigned agent ID
+  string agent_id = 1;
+
+  // Registration timestamp
+  google.protobuf.Timestamp registered_at = 2;
+
+  // Configuration from control plane
+  AgentConfig config = 3;
+}
+
+// AgentMetadata contains system information about the agent
+message AgentMetadata {
+  // Hostname
+  string hostname = 1;
+
+  // Operating system (linux, darwin, windows)
+  string os = 2;
+
+  // Architecture (amd64, arm64)
+  string arch = 3;
+
+  // IP addresses
+  repeated string ip_addresses = 4;
+
+  // Platform version (kernel version, OS version)
+  string platform_version = 5;
+
+  // TitanAnvil agent version
+  string agent_version = 6;
+
+  // Custom labels/tags
+  map<string, string> labels = 7;
+}
+
+// AgentCredentials contains authentication information
+message AgentCredentials {
+  // Pre-shared key
+  string psk = 1;
+
+  // Certificate (PEM encoded)
+  bytes certificate = 2;
+
+  // Token
+  string token = 3;
+}
+
+// AgentConfig contains configuration sent from control plane to agent
+message AgentConfig {
+  // Heartbeat interval (seconds)
+  int32 heartbeat_interval = 1;
+
+  // Command timeout (seconds)
+  int32 command_timeout = 2;
+
+  // Metadata collection interval (seconds)
+  int32 metadata_interval = 3;
+}
+
+// HeartbeatRequest contains agent health information
+message HeartbeatRequest {
+  // Agent ID
+  string agent_id = 1;
+
+  // Current timestamp
+  google.protobuf.Timestamp timestamp = 2;
+
+  // Agent status
+  AgentStatus status = 3;
+
+  // System metrics
+  SystemMetrics metrics = 4;
+}
+
+// HeartbeatResponse acknowledges the heartbeat
+message HeartbeatResponse {
+  // Acknowledged timestamp
+  google.protobuf.Timestamp timestamp = 1;
+
+  // Configuration updates (if any)
+  AgentConfig config = 2;
+}
+
+// AgentStatus represents the agent's current status
+enum AgentStatus {
+  AGENT_STATUS_UNSPECIFIED = 0;
+  AGENT_STATUS_ONLINE = 1;
+  AGENT_STATUS_OFFLINE = 2;
+  AGENT_STATUS_DEGRADED = 3;
+}
+
+// SystemMetrics contains system resource usage
+message SystemMetrics {
+  // CPU usage percentage (0-100)
+  float cpu_percent = 1;
+
+  // Memory usage percentage (0-100)
+  float memory_percent = 2;
+
+  // Disk usage percentage (0-100)
+  float disk_percent = 3;
+
+  // Load average (1min, 5min, 15min)
+  repeated float load_average = 4;
+
+  // Active connections
+  int32 active_connections = 5;
+}
+
+// ExecuteCommandRequest contains command execution details
+message ExecuteCommandRequest {
+  // Command ID (for tracking)
+  string command_id = 1;
+
+  // Target agent ID
+  string agent_id = 2;
+
+  // Command to execute
+  string command = 3;
+
+  // Command arguments
+  repeated string args = 4;
+
+  // Environment variables
+  map<string, string> env = 5;
+
+  // Working directory
+  string working_dir = 6;
+
+  // Execution timeout (seconds)
+  int32 timeout = 7;
+
+  // Run as user
+  string user = 8;
+}
+
+// ExecuteCommandResponse streams command output and status
+message ExecuteCommandResponse {
+  // Command ID
+  string command_id = 1;
+
+  // Response type
+  CommandResponseType type = 2;
+
+  // Output data (stdout or stderr)
+  bytes data = 3;
+
+  // Exit code (only for COMPLETED or FAILED)
+  int32 exit_code = 4;
+
+  // Error message (only for FAILED)
+  string error = 5;
+
+  // Timestamp
+  google.protobuf.Timestamp timestamp = 6;
+}
+
+// CommandResponseType indicates the type of command response
+enum CommandResponseType {
+  COMMAND_RESPONSE_TYPE_UNSPECIFIED = 0;
+  COMMAND_RESPONSE_TYPE_STDOUT = 1;
+  COMMAND_RESPONSE_TYPE_STDERR = 2;
+  COMMAND_RESPONSE_TYPE_COMPLETED = 3;
+  COMMAND_RESPONSE_TYPE_FAILED = 4;
+  COMMAND_RESPONSE_TYPE_TIMEOUT = 5;
+}
+
+// GetAgentInfoRequest requests information about an agent
+message GetAgentInfoRequest {
+  // Agent ID
+  string agent_id = 1;
+}
+
+// GetAgentInfoResponse contains agent information
+message GetAgentInfoResponse {
+  // Agent ID
+  string agent_id = 1;
+
+  // Agent metadata
+  AgentMetadata metadata = 2;
+
+  // Current status
+  AgentStatus status = 3;
+
+  // Last heartbeat timestamp
+  google.protobuf.Timestamp last_heartbeat = 4;
+
+  // Registration timestamp
+  google.protobuf.Timestamp registered_at = 5;
+
+  // System metrics
+  SystemMetrics metrics = 6;
+}

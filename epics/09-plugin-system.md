@@ -35,6 +35,9 @@ Implement a secure, sandboxed plugin system that enables users to extend TitanAn
   - [ ] Minimal, audited host capability interfaces
   - [ ] Policy-controlled capability grants
   - [ ] Resource isolation (CPU, memory, execution time limits)
+  - [ ] SPIFFE identity-based module authentication (Epic 6 integration)
+  - [ ] SPIFFE selector validation for capability grants
+  - [ ] Module attestation via SPIRE workload API
 - [ ] **Developer Experience**:
   - [ ] Module CLI (init, build, sign, publish, resolve, install)
   - [ ] SDKs for Starlark and Rust
