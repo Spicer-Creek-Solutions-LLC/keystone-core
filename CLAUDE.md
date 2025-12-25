@@ -17,10 +17,10 @@ This repository contains working implementations of **Epic 1: Core Infrastructur
 - SQLite-based state management
 - Git-style plugin architecture for CLI extensibility
 - Cross-platform remote execution with targeting
-- Declarative state management foundation (Epic 3 Week 1)
+- Declarative state management with drift detection and CLI (Epic 3 complete)
 - Comprehensive test suite (>80% coverage across all core packages)
 
-**Current Status**: Epic 1 COMPLETE ✅ | Epic 2 COMPLETE ✅ | Epic 3 IN PROGRESS (Week 2/4 complete)
+**Current Status**: Epic 1 COMPLETE ✅ | Epic 2 COMPLETE ✅ | Epic 3 COMPLETE ✅
 
 ## Repository Structure
 
@@ -107,9 +107,9 @@ TitanAnvil fills the gap between declarative GitOps tools and runtime operations
 - Complete titananvil-exec plugin with streaming output
 - Comprehensive integration tests
 
-### Epic 3: State Management & Configuration 🚧 IN PROGRESS
+### Epic 3: State Management & Configuration ✅ COMPLETE
 
-**Implementation Plan:** 4 weeks
+**All 4 weeks completed:**
 
 **Week 1: State Definition & Parsing ✅ COMPLETE**
 - Complete type system (pkg/statemgmt/types.go)
@@ -149,24 +149,68 @@ TitanAnvil fills the gap between declarative GitOps tools and runtime operations
   - Integration tests (full workflow, dependencies, error handling, performance)
   - Performance: 5,196 states/sec (100 states in 19ms)
 
-**Week 3: Dependency Resolution & Templating (PENDING)**
-- Dependency graph construction
-- Topological sorting for execution order
-- Template rendering engine
-- Variable substitution
+**Week 3: Dependency Resolution & Templating ✅ COMPLETE**
+- Dependency graph construction (pkg/statemgmt/dependency.go)
+  - DAG builder with adjacency list representation
+  - Kahn's algorithm for topological sort
+  - DFS for circular dependency detection with full cycle paths
+  - Execution level tracking for parallel execution opportunities
+  - Support for all requisite types: require, require_in, watch, watch_in, prereq, prereq_in, onchanges, onchanges_in
+- Template rendering engine (pkg/statemgmt/template.go)
+  - Go text/template integration
+  - Custom template functions: upper, lower, title, trim, split, join, replace, contains, hasPrefix, hasSuffix, default, ternary
+  - TemplateContext with vars and facts
+  - RenderStateFile for complete state file rendering
+- Vars system (configuration data)
+  - LoadVarsFromYAML for loading from YAML
+  - Merge support for variable composition
+  - Environment-scoped vars
+- Facts system (agent metadata)
+  - Auto-collection of system facts (OS, arch, CPU count, Go version)
+  - Custom fact registration
+  - Type-safe accessors (GetString, etc.)
+- Updated executor (pkg/statemgmt/executor.go)
+  - Dependency-ordered execution via ResolveExecutionOrder
+  - Respects all requisite relationships during execution
+- Test coverage: 40.8% (85 tests passing)
+  - 8 comprehensive dependency resolution tests
+  - 12 template rendering and vars/facts tests
+  - All edge cases covered: simple chains, parallel execution, circular dependencies, all requisite types
 
-**Week 4: Drift Detection & CLI (PENDING)**
-- State comparison engine
-- Drift reporting
-- titananvil-state plugin CLI
-- Integration with control plane
+**Week 4: Drift Detection & CLI ✅ COMPLETE**
+- State comparison/diff engine (pkg/statemgmt/diff.go)
+  - StateDiffer for comparing desired vs actual state
+  - DriftStatus tracking with severity levels (none, low, medium, high, critical)
+  - Difference detection with field-level granularity
+  - Severity calculation based on field criticality (mode, owner, contents, etc.)
+  - DriftReport with summary statistics
+  - FormatDriftReport for human-readable output
+  - CompareStates for state-to-state comparison
+- titananvil-state CLI plugin (cmd/titananvil-state)
+  - `titanctl state apply` - Apply state declarations
+  - `titanctl state check` - Check without applying (dry-run)
+  - `titanctl state drift` - Detect configuration drift
+  - Variables file support (--vars flag)
+  - Template rendering integration
+  - Color-coded output (✓/✗ status indicators)
+  - Summary statistics (total, succeeded, failed, changed, unchanged)
+  - Proper exit codes (0 for success, 1 for failure/drift)
+- Integration tests (cmd/titananvil-state/integration_test.go)
+  - End-to-end CLI workflow testing
+  - Check, apply, drift command tests
+  - Idempotency verification
+  - Drift detection with/without changes
+  - Version command test
+- Test coverage: 44.2% (107 tests passing)
+  - 20 drift detection tests
+  - 6 integration tests (5 workflow + 1 version)
 
 ## Epic Dependencies
 
 Implementation order:
 1. **Epic 1** (Core Infrastructure) - ✅ COMPLETE
 2. **Epic 2** (Remote Execution) - ✅ COMPLETE
-3. **Epic 3** (State Management) - 🚧 IN PROGRESS (Week 1/4 complete) - Depends on Epic 1, 2
+3. **Epic 3** (State Management) - ✅ COMPLETE
 4. **Epic 4** (Event System) - Depends on Epic 1
 5. **Epic 5** (GitOps Integration) - Depends on Epic 2, 3, 4
 6. **Epic 6** (Policy Enforcement) - Depends on Epic 2, 3, 4

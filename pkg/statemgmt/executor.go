@@ -35,31 +35,46 @@ func (e *Executor) ExecuteState(ctx context.Context, stateFile *StateFile) (*Sta
 		Results:    make([]*StateResult, 0),
 	}
 
-	// Execute all state declarations
-	for module, declarations := range stateFile.States {
-		for _, decl := range declarations {
-			result, err := e.executeDeclaration(ctx, module, &decl)
-			if err != nil {
-				// Record error but continue
-				result = &StateResult{
-					StateID:   decl.ID,
-					Module:    module,
-					Success:   false,
-					Error:     err,
-					Comment:   fmt.Sprintf("Execution error: %v", err),
-					StartTime: time.Now(),
-					EndTime:   time.Now(),
-				}
-			}
+	// Resolve execution order based on dependencies
+	executionOrder, err := ResolveExecutionOrder(stateFile)
+	if err != nil {
+		run.EndTime = time.Now()
+		run.Summary = &RunSummary{
+			Total:   0,
+			Failed:  1,
+			Success: false,
+		}
+		return run, fmt.Errorf("failed to resolve dependencies: %w", err)
+	}
 
-			run.Results = append(run.Results, result)
+	// Track state results for watch/onchanges
+	stateResults := make(map[string]*StateResult)
 
-			// Check for fail_hard
-			if decl.FailHard && !result.Success {
-				run.EndTime = time.Now()
-				run.Summary = e.calculateSummary(run)
-				return run, fmt.Errorf("state %s.%s failed and fail_hard is set", module, decl.ID)
+	// Execute states in dependency order
+	for _, decl := range executionOrder {
+		result, err := e.executeDeclaration(ctx, decl.Module, decl)
+		if err != nil {
+			// Record error but continue
+			result = &StateResult{
+				StateID:   decl.ID,
+				Module:    decl.Module,
+				Success:   false,
+				Error:     err,
+				Comment:   fmt.Sprintf("Execution error: %v", err),
+				StartTime: time.Now(),
+				EndTime:   time.Now(),
 			}
+		}
+
+		run.Results = append(run.Results, result)
+		stateKey := decl.Module + ":" + decl.ID
+		stateResults[stateKey] = result
+
+		// Check for fail_hard
+		if decl.FailHard && !result.Success {
+			run.EndTime = time.Now()
+			run.Summary = e.calculateSummary(run)
+			return run, fmt.Errorf("state %s.%s failed and fail_hard is set", decl.Module, decl.ID)
 		}
 	}
 
