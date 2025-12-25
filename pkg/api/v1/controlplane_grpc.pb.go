@@ -19,11 +19,14 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ControlPlaneService_ListAgents_FullMethodName       = "/titan.anvil.v1.ControlPlaneService/ListAgents"
-	ControlPlaneService_GetAgent_FullMethodName         = "/titan.anvil.v1.ControlPlaneService/GetAgent"
-	ControlPlaneService_ExecuteCommand_FullMethodName   = "/titan.anvil.v1.ControlPlaneService/ExecuteCommand"
-	ControlPlaneService_GetCommandStatus_FullMethodName = "/titan.anvil.v1.ControlPlaneService/GetCommandStatus"
-	ControlPlaneService_ListCommands_FullMethodName     = "/titan.anvil.v1.ControlPlaneService/ListCommands"
+	ControlPlaneService_ListAgents_FullMethodName          = "/titan.anvil.v1.ControlPlaneService/ListAgents"
+	ControlPlaneService_GetAgent_FullMethodName            = "/titan.anvil.v1.ControlPlaneService/GetAgent"
+	ControlPlaneService_ExecuteCommand_FullMethodName      = "/titan.anvil.v1.ControlPlaneService/ExecuteCommand"
+	ControlPlaneService_GetCommandStatus_FullMethodName    = "/titan.anvil.v1.ControlPlaneService/GetCommandStatus"
+	ControlPlaneService_ListCommands_FullMethodName        = "/titan.anvil.v1.ControlPlaneService/ListCommands"
+	ControlPlaneService_BatchExecuteCommand_FullMethodName = "/titan.anvil.v1.ControlPlaneService/BatchExecuteCommand"
+	ControlPlaneService_GetBatchJobStatus_FullMethodName   = "/titan.anvil.v1.ControlPlaneService/GetBatchJobStatus"
+	ControlPlaneService_ListBatchJobs_FullMethodName       = "/titan.anvil.v1.ControlPlaneService/ListBatchJobs"
 )
 
 // ControlPlaneServiceClient is the client API for ControlPlaneService service.
@@ -42,6 +45,12 @@ type ControlPlaneServiceClient interface {
 	GetCommandStatus(ctx context.Context, in *GetCommandStatusRequest, opts ...grpc.CallOption) (*GetCommandStatusResponse, error)
 	// ListCommands lists command execution history
 	ListCommands(ctx context.Context, in *ListCommandsRequest, opts ...grpc.CallOption) (*ListCommandsResponse, error)
+	// BatchExecuteCommand executes a command across multiple agents using a target expression
+	BatchExecuteCommand(ctx context.Context, in *BatchExecuteCommandRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[BatchExecuteCommandResponse], error)
+	// GetBatchJobStatus retrieves the status of a batch job
+	GetBatchJobStatus(ctx context.Context, in *GetBatchJobStatusRequest, opts ...grpc.CallOption) (*GetBatchJobStatusResponse, error)
+	// ListBatchJobs lists batch job execution history
+	ListBatchJobs(ctx context.Context, in *ListBatchJobsRequest, opts ...grpc.CallOption) (*ListBatchJobsResponse, error)
 }
 
 type controlPlaneServiceClient struct {
@@ -111,6 +120,45 @@ func (c *controlPlaneServiceClient) ListCommands(ctx context.Context, in *ListCo
 	return out, nil
 }
 
+func (c *controlPlaneServiceClient) BatchExecuteCommand(ctx context.Context, in *BatchExecuteCommandRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[BatchExecuteCommandResponse], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &ControlPlaneService_ServiceDesc.Streams[1], ControlPlaneService_BatchExecuteCommand_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[BatchExecuteCommandRequest, BatchExecuteCommandResponse]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ControlPlaneService_BatchExecuteCommandClient = grpc.ServerStreamingClient[BatchExecuteCommandResponse]
+
+func (c *controlPlaneServiceClient) GetBatchJobStatus(ctx context.Context, in *GetBatchJobStatusRequest, opts ...grpc.CallOption) (*GetBatchJobStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetBatchJobStatusResponse)
+	err := c.cc.Invoke(ctx, ControlPlaneService_GetBatchJobStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlPlaneServiceClient) ListBatchJobs(ctx context.Context, in *ListBatchJobsRequest, opts ...grpc.CallOption) (*ListBatchJobsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListBatchJobsResponse)
+	err := c.cc.Invoke(ctx, ControlPlaneService_ListBatchJobs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ControlPlaneServiceServer is the server API for ControlPlaneService service.
 // All implementations must embed UnimplementedControlPlaneServiceServer
 // for forward compatibility.
@@ -127,6 +175,12 @@ type ControlPlaneServiceServer interface {
 	GetCommandStatus(context.Context, *GetCommandStatusRequest) (*GetCommandStatusResponse, error)
 	// ListCommands lists command execution history
 	ListCommands(context.Context, *ListCommandsRequest) (*ListCommandsResponse, error)
+	// BatchExecuteCommand executes a command across multiple agents using a target expression
+	BatchExecuteCommand(*BatchExecuteCommandRequest, grpc.ServerStreamingServer[BatchExecuteCommandResponse]) error
+	// GetBatchJobStatus retrieves the status of a batch job
+	GetBatchJobStatus(context.Context, *GetBatchJobStatusRequest) (*GetBatchJobStatusResponse, error)
+	// ListBatchJobs lists batch job execution history
+	ListBatchJobs(context.Context, *ListBatchJobsRequest) (*ListBatchJobsResponse, error)
 	mustEmbedUnimplementedControlPlaneServiceServer()
 }
 
@@ -151,6 +205,15 @@ func (UnimplementedControlPlaneServiceServer) GetCommandStatus(context.Context, 
 }
 func (UnimplementedControlPlaneServiceServer) ListCommands(context.Context, *ListCommandsRequest) (*ListCommandsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListCommands not implemented")
+}
+func (UnimplementedControlPlaneServiceServer) BatchExecuteCommand(*BatchExecuteCommandRequest, grpc.ServerStreamingServer[BatchExecuteCommandResponse]) error {
+	return status.Error(codes.Unimplemented, "method BatchExecuteCommand not implemented")
+}
+func (UnimplementedControlPlaneServiceServer) GetBatchJobStatus(context.Context, *GetBatchJobStatusRequest) (*GetBatchJobStatusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetBatchJobStatus not implemented")
+}
+func (UnimplementedControlPlaneServiceServer) ListBatchJobs(context.Context, *ListBatchJobsRequest) (*ListBatchJobsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListBatchJobs not implemented")
 }
 func (UnimplementedControlPlaneServiceServer) mustEmbedUnimplementedControlPlaneServiceServer() {}
 func (UnimplementedControlPlaneServiceServer) testEmbeddedByValue()                             {}
@@ -256,6 +319,53 @@ func _ControlPlaneService_ListCommands_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ControlPlaneService_BatchExecuteCommand_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(BatchExecuteCommandRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ControlPlaneServiceServer).BatchExecuteCommand(m, &grpc.GenericServerStream[BatchExecuteCommandRequest, BatchExecuteCommandResponse]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ControlPlaneService_BatchExecuteCommandServer = grpc.ServerStreamingServer[BatchExecuteCommandResponse]
+
+func _ControlPlaneService_GetBatchJobStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetBatchJobStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlPlaneServiceServer).GetBatchJobStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlPlaneService_GetBatchJobStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlPlaneServiceServer).GetBatchJobStatus(ctx, req.(*GetBatchJobStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ControlPlaneService_ListBatchJobs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListBatchJobsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlPlaneServiceServer).ListBatchJobs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlPlaneService_ListBatchJobs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlPlaneServiceServer).ListBatchJobs(ctx, req.(*ListBatchJobsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ControlPlaneService_ServiceDesc is the grpc.ServiceDesc for ControlPlaneService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -279,11 +389,24 @@ var ControlPlaneService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "ListCommands",
 			Handler:    _ControlPlaneService_ListCommands_Handler,
 		},
+		{
+			MethodName: "GetBatchJobStatus",
+			Handler:    _ControlPlaneService_GetBatchJobStatus_Handler,
+		},
+		{
+			MethodName: "ListBatchJobs",
+			Handler:    _ControlPlaneService_ListBatchJobs_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "ExecuteCommand",
 			Handler:       _ControlPlaneService_ExecuteCommand_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "BatchExecuteCommand",
+			Handler:       _ControlPlaneService_BatchExecuteCommand_Handler,
 			ServerStreams: true,
 		},
 	},

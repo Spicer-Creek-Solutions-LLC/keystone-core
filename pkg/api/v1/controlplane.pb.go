@@ -84,6 +84,133 @@ func (CommandStatus) EnumDescriptor() ([]byte, []int) {
 	return file_controlplane_proto_rawDescGZIP(), []int{0}
 }
 
+// BatchResponseType indicates the type of batch response
+type BatchResponseType int32
+
+const (
+	BatchResponseType_BATCH_RESPONSE_TYPE_UNSPECIFIED    BatchResponseType = 0
+	BatchResponseType_BATCH_RESPONSE_TYPE_BATCH_START    BatchResponseType = 1 // Batch job started
+	BatchResponseType_BATCH_RESPONSE_TYPE_AGENT_START    BatchResponseType = 2 // Agent execution started
+	BatchResponseType_BATCH_RESPONSE_TYPE_AGENT_OUTPUT   BatchResponseType = 3 // Agent output (stdout/stderr)
+	BatchResponseType_BATCH_RESPONSE_TYPE_AGENT_COMPLETE BatchResponseType = 4 // Agent execution completed
+	BatchResponseType_BATCH_RESPONSE_TYPE_AGENT_FAILED   BatchResponseType = 5 // Agent execution failed
+	BatchResponseType_BATCH_RESPONSE_TYPE_PROGRESS       BatchResponseType = 6 // Progress update
+	BatchResponseType_BATCH_RESPONSE_TYPE_BATCH_COMPLETE BatchResponseType = 7 // Batch job completed
+	BatchResponseType_BATCH_RESPONSE_TYPE_BATCH_FAILED   BatchResponseType = 8 // Batch job failed
+)
+
+// Enum value maps for BatchResponseType.
+var (
+	BatchResponseType_name = map[int32]string{
+		0: "BATCH_RESPONSE_TYPE_UNSPECIFIED",
+		1: "BATCH_RESPONSE_TYPE_BATCH_START",
+		2: "BATCH_RESPONSE_TYPE_AGENT_START",
+		3: "BATCH_RESPONSE_TYPE_AGENT_OUTPUT",
+		4: "BATCH_RESPONSE_TYPE_AGENT_COMPLETE",
+		5: "BATCH_RESPONSE_TYPE_AGENT_FAILED",
+		6: "BATCH_RESPONSE_TYPE_PROGRESS",
+		7: "BATCH_RESPONSE_TYPE_BATCH_COMPLETE",
+		8: "BATCH_RESPONSE_TYPE_BATCH_FAILED",
+	}
+	BatchResponseType_value = map[string]int32{
+		"BATCH_RESPONSE_TYPE_UNSPECIFIED":    0,
+		"BATCH_RESPONSE_TYPE_BATCH_START":    1,
+		"BATCH_RESPONSE_TYPE_AGENT_START":    2,
+		"BATCH_RESPONSE_TYPE_AGENT_OUTPUT":   3,
+		"BATCH_RESPONSE_TYPE_AGENT_COMPLETE": 4,
+		"BATCH_RESPONSE_TYPE_AGENT_FAILED":   5,
+		"BATCH_RESPONSE_TYPE_PROGRESS":       6,
+		"BATCH_RESPONSE_TYPE_BATCH_COMPLETE": 7,
+		"BATCH_RESPONSE_TYPE_BATCH_FAILED":   8,
+	}
+)
+
+func (x BatchResponseType) Enum() *BatchResponseType {
+	p := new(BatchResponseType)
+	*p = x
+	return p
+}
+
+func (x BatchResponseType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (BatchResponseType) Descriptor() protoreflect.EnumDescriptor {
+	return file_controlplane_proto_enumTypes[1].Descriptor()
+}
+
+func (BatchResponseType) Type() protoreflect.EnumType {
+	return &file_controlplane_proto_enumTypes[1]
+}
+
+func (x BatchResponseType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use BatchResponseType.Descriptor instead.
+func (BatchResponseType) EnumDescriptor() ([]byte, []int) {
+	return file_controlplane_proto_rawDescGZIP(), []int{1}
+}
+
+// BatchJobStatus represents the status of a batch job
+type BatchJobStatus int32
+
+const (
+	BatchJobStatus_BATCH_JOB_STATUS_UNSPECIFIED BatchJobStatus = 0
+	BatchJobStatus_BATCH_JOB_STATUS_PENDING     BatchJobStatus = 1
+	BatchJobStatus_BATCH_JOB_STATUS_RUNNING     BatchJobStatus = 2
+	BatchJobStatus_BATCH_JOB_STATUS_COMPLETED   BatchJobStatus = 3
+	BatchJobStatus_BATCH_JOB_STATUS_FAILED      BatchJobStatus = 4
+	BatchJobStatus_BATCH_JOB_STATUS_CANCELLED   BatchJobStatus = 5
+)
+
+// Enum value maps for BatchJobStatus.
+var (
+	BatchJobStatus_name = map[int32]string{
+		0: "BATCH_JOB_STATUS_UNSPECIFIED",
+		1: "BATCH_JOB_STATUS_PENDING",
+		2: "BATCH_JOB_STATUS_RUNNING",
+		3: "BATCH_JOB_STATUS_COMPLETED",
+		4: "BATCH_JOB_STATUS_FAILED",
+		5: "BATCH_JOB_STATUS_CANCELLED",
+	}
+	BatchJobStatus_value = map[string]int32{
+		"BATCH_JOB_STATUS_UNSPECIFIED": 0,
+		"BATCH_JOB_STATUS_PENDING":     1,
+		"BATCH_JOB_STATUS_RUNNING":     2,
+		"BATCH_JOB_STATUS_COMPLETED":   3,
+		"BATCH_JOB_STATUS_FAILED":      4,
+		"BATCH_JOB_STATUS_CANCELLED":   5,
+	}
+)
+
+func (x BatchJobStatus) Enum() *BatchJobStatus {
+	p := new(BatchJobStatus)
+	*p = x
+	return p
+}
+
+func (x BatchJobStatus) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (BatchJobStatus) Descriptor() protoreflect.EnumDescriptor {
+	return file_controlplane_proto_enumTypes[2].Descriptor()
+}
+
+func (BatchJobStatus) Type() protoreflect.EnumType {
+	return &file_controlplane_proto_enumTypes[2]
+}
+
+func (x BatchJobStatus) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use BatchJobStatus.Descriptor instead.
+func (BatchJobStatus) EnumDescriptor() ([]byte, []int) {
+	return file_controlplane_proto_rawDescGZIP(), []int{2}
+}
+
 // ListAgentsRequest requests a list of agents
 type ListAgentsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -874,6 +1001,884 @@ func (x *CommandInfo) GetDurationMs() int64 {
 	return 0
 }
 
+// BatchExecuteCommandRequest executes a command across multiple agents
+type BatchExecuteCommandRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Batch job ID (optional, auto-generated if not provided)
+	BatchJobId string `protobuf:"bytes,1,opt,name=batch_job_id,json=batchJobId,proto3" json:"batch_job_id,omitempty"`
+	// Target expression to select agents (e.g., "os:linux and role:web")
+	Target string `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"`
+	// Command to execute
+	Command string `protobuf:"bytes,3,opt,name=command,proto3" json:"command,omitempty"`
+	// Command arguments
+	Args []string `protobuf:"bytes,4,rep,name=args,proto3" json:"args,omitempty"`
+	// Environment variables
+	Env map[string]string `protobuf:"bytes,5,rep,name=env,proto3" json:"env,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Working directory
+	WorkingDir string `protobuf:"bytes,6,opt,name=working_dir,json=workingDir,proto3" json:"working_dir,omitempty"`
+	// Execution timeout (seconds)
+	Timeout int32 `protobuf:"varint,7,opt,name=timeout,proto3" json:"timeout,omitempty"`
+	// Run as user
+	User string `protobuf:"bytes,8,opt,name=user,proto3" json:"user,omitempty"`
+	// Maximum concurrency (number of parallel executions)
+	Concurrency int32 `protobuf:"varint,9,opt,name=concurrency,proto3" json:"concurrency,omitempty"`
+	// Whether to continue on failure (default: true)
+	ContinueOnFailure bool `protobuf:"varint,10,opt,name=continue_on_failure,json=continueOnFailure,proto3" json:"continue_on_failure,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *BatchExecuteCommandRequest) Reset() {
+	*x = BatchExecuteCommandRequest{}
+	mi := &file_controlplane_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BatchExecuteCommandRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BatchExecuteCommandRequest) ProtoMessage() {}
+
+func (x *BatchExecuteCommandRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_controlplane_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BatchExecuteCommandRequest.ProtoReflect.Descriptor instead.
+func (*BatchExecuteCommandRequest) Descriptor() ([]byte, []int) {
+	return file_controlplane_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *BatchExecuteCommandRequest) GetBatchJobId() string {
+	if x != nil {
+		return x.BatchJobId
+	}
+	return ""
+}
+
+func (x *BatchExecuteCommandRequest) GetTarget() string {
+	if x != nil {
+		return x.Target
+	}
+	return ""
+}
+
+func (x *BatchExecuteCommandRequest) GetCommand() string {
+	if x != nil {
+		return x.Command
+	}
+	return ""
+}
+
+func (x *BatchExecuteCommandRequest) GetArgs() []string {
+	if x != nil {
+		return x.Args
+	}
+	return nil
+}
+
+func (x *BatchExecuteCommandRequest) GetEnv() map[string]string {
+	if x != nil {
+		return x.Env
+	}
+	return nil
+}
+
+func (x *BatchExecuteCommandRequest) GetWorkingDir() string {
+	if x != nil {
+		return x.WorkingDir
+	}
+	return ""
+}
+
+func (x *BatchExecuteCommandRequest) GetTimeout() int32 {
+	if x != nil {
+		return x.Timeout
+	}
+	return 0
+}
+
+func (x *BatchExecuteCommandRequest) GetUser() string {
+	if x != nil {
+		return x.User
+	}
+	return ""
+}
+
+func (x *BatchExecuteCommandRequest) GetConcurrency() int32 {
+	if x != nil {
+		return x.Concurrency
+	}
+	return 0
+}
+
+func (x *BatchExecuteCommandRequest) GetContinueOnFailure() bool {
+	if x != nil {
+		return x.ContinueOnFailure
+	}
+	return false
+}
+
+// BatchExecuteCommandResponse streams batch execution progress
+type BatchExecuteCommandResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Batch job ID
+	BatchJobId string `protobuf:"bytes,1,opt,name=batch_job_id,json=batchJobId,proto3" json:"batch_job_id,omitempty"`
+	// Response type
+	Type BatchResponseType `protobuf:"varint,2,opt,name=type,proto3,enum=titan.anvil.v1.BatchResponseType" json:"type,omitempty"`
+	// Agent ID (for AGENT_START, AGENT_OUTPUT, AGENT_COMPLETE, AGENT_FAILED)
+	AgentId string `protobuf:"bytes,3,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	// Output data (for AGENT_OUTPUT)
+	Data []byte `protobuf:"bytes,4,opt,name=data,proto3" json:"data,omitempty"`
+	// Exit code (for AGENT_COMPLETE, AGENT_FAILED)
+	ExitCode int32 `protobuf:"varint,5,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
+	// Error message (for AGENT_FAILED, BATCH_FAILED)
+	Error string `protobuf:"bytes,6,opt,name=error,proto3" json:"error,omitempty"`
+	// Progress information (for PROGRESS)
+	Progress *BatchProgress `protobuf:"bytes,7,opt,name=progress,proto3" json:"progress,omitempty"`
+	// Summary (for BATCH_COMPLETE)
+	Summary *BatchSummary `protobuf:"bytes,8,opt,name=summary,proto3" json:"summary,omitempty"`
+	// Timestamp
+	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BatchExecuteCommandResponse) Reset() {
+	*x = BatchExecuteCommandResponse{}
+	mi := &file_controlplane_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BatchExecuteCommandResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BatchExecuteCommandResponse) ProtoMessage() {}
+
+func (x *BatchExecuteCommandResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_controlplane_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BatchExecuteCommandResponse.ProtoReflect.Descriptor instead.
+func (*BatchExecuteCommandResponse) Descriptor() ([]byte, []int) {
+	return file_controlplane_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *BatchExecuteCommandResponse) GetBatchJobId() string {
+	if x != nil {
+		return x.BatchJobId
+	}
+	return ""
+}
+
+func (x *BatchExecuteCommandResponse) GetType() BatchResponseType {
+	if x != nil {
+		return x.Type
+	}
+	return BatchResponseType_BATCH_RESPONSE_TYPE_UNSPECIFIED
+}
+
+func (x *BatchExecuteCommandResponse) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+func (x *BatchExecuteCommandResponse) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+func (x *BatchExecuteCommandResponse) GetExitCode() int32 {
+	if x != nil {
+		return x.ExitCode
+	}
+	return 0
+}
+
+func (x *BatchExecuteCommandResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *BatchExecuteCommandResponse) GetProgress() *BatchProgress {
+	if x != nil {
+		return x.Progress
+	}
+	return nil
+}
+
+func (x *BatchExecuteCommandResponse) GetSummary() *BatchSummary {
+	if x != nil {
+		return x.Summary
+	}
+	return nil
+}
+
+func (x *BatchExecuteCommandResponse) GetTimestamp() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Timestamp
+	}
+	return nil
+}
+
+// BatchProgress represents batch execution progress
+type BatchProgress struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Total number of agents
+	Total int32 `protobuf:"varint,1,opt,name=total,proto3" json:"total,omitempty"`
+	// Number of completed agents
+	Completed int32 `protobuf:"varint,2,opt,name=completed,proto3" json:"completed,omitempty"`
+	// Number of successful agents
+	Successful int32 `protobuf:"varint,3,opt,name=successful,proto3" json:"successful,omitempty"`
+	// Number of failed agents
+	Failed int32 `protobuf:"varint,4,opt,name=failed,proto3" json:"failed,omitempty"`
+	// Success rate percentage (0-100)
+	SuccessRate   float32 `protobuf:"fixed32,5,opt,name=success_rate,json=successRate,proto3" json:"success_rate,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BatchProgress) Reset() {
+	*x = BatchProgress{}
+	mi := &file_controlplane_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BatchProgress) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BatchProgress) ProtoMessage() {}
+
+func (x *BatchProgress) ProtoReflect() protoreflect.Message {
+	mi := &file_controlplane_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BatchProgress.ProtoReflect.Descriptor instead.
+func (*BatchProgress) Descriptor() ([]byte, []int) {
+	return file_controlplane_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *BatchProgress) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *BatchProgress) GetCompleted() int32 {
+	if x != nil {
+		return x.Completed
+	}
+	return 0
+}
+
+func (x *BatchProgress) GetSuccessful() int32 {
+	if x != nil {
+		return x.Successful
+	}
+	return 0
+}
+
+func (x *BatchProgress) GetFailed() int32 {
+	if x != nil {
+		return x.Failed
+	}
+	return 0
+}
+
+func (x *BatchProgress) GetSuccessRate() float32 {
+	if x != nil {
+		return x.SuccessRate
+	}
+	return 0
+}
+
+// BatchSummary contains batch execution summary
+type BatchSummary struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Total number of agents
+	Total int32 `protobuf:"varint,1,opt,name=total,proto3" json:"total,omitempty"`
+	// Number of successful agents
+	Successful int32 `protobuf:"varint,2,opt,name=successful,proto3" json:"successful,omitempty"`
+	// Number of failed agents
+	Failed int32 `protobuf:"varint,3,opt,name=failed,proto3" json:"failed,omitempty"`
+	// Success rate percentage (0-100)
+	SuccessRate float32 `protobuf:"fixed32,4,opt,name=success_rate,json=successRate,proto3" json:"success_rate,omitempty"`
+	// Total duration in milliseconds
+	DurationMs int64 `protobuf:"varint,5,opt,name=duration_ms,json=durationMs,proto3" json:"duration_ms,omitempty"`
+	// Agent results
+	AgentResults  []*BatchAgentResult `protobuf:"bytes,6,rep,name=agent_results,json=agentResults,proto3" json:"agent_results,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BatchSummary) Reset() {
+	*x = BatchSummary{}
+	mi := &file_controlplane_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BatchSummary) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BatchSummary) ProtoMessage() {}
+
+func (x *BatchSummary) ProtoReflect() protoreflect.Message {
+	mi := &file_controlplane_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BatchSummary.ProtoReflect.Descriptor instead.
+func (*BatchSummary) Descriptor() ([]byte, []int) {
+	return file_controlplane_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *BatchSummary) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *BatchSummary) GetSuccessful() int32 {
+	if x != nil {
+		return x.Successful
+	}
+	return 0
+}
+
+func (x *BatchSummary) GetFailed() int32 {
+	if x != nil {
+		return x.Failed
+	}
+	return 0
+}
+
+func (x *BatchSummary) GetSuccessRate() float32 {
+	if x != nil {
+		return x.SuccessRate
+	}
+	return 0
+}
+
+func (x *BatchSummary) GetDurationMs() int64 {
+	if x != nil {
+		return x.DurationMs
+	}
+	return 0
+}
+
+func (x *BatchSummary) GetAgentResults() []*BatchAgentResult {
+	if x != nil {
+		return x.AgentResults
+	}
+	return nil
+}
+
+// BatchAgentResult contains per-agent execution result
+type BatchAgentResult struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Agent ID
+	AgentId string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	// Success status
+	Success bool `protobuf:"varint,2,opt,name=success,proto3" json:"success,omitempty"`
+	// Exit code
+	ExitCode int32 `protobuf:"varint,3,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
+	// Error message (if failed)
+	Error string `protobuf:"bytes,4,opt,name=error,proto3" json:"error,omitempty"`
+	// Duration in milliseconds
+	DurationMs    int64 `protobuf:"varint,5,opt,name=duration_ms,json=durationMs,proto3" json:"duration_ms,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BatchAgentResult) Reset() {
+	*x = BatchAgentResult{}
+	mi := &file_controlplane_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BatchAgentResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BatchAgentResult) ProtoMessage() {}
+
+func (x *BatchAgentResult) ProtoReflect() protoreflect.Message {
+	mi := &file_controlplane_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BatchAgentResult.ProtoReflect.Descriptor instead.
+func (*BatchAgentResult) Descriptor() ([]byte, []int) {
+	return file_controlplane_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *BatchAgentResult) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+func (x *BatchAgentResult) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *BatchAgentResult) GetExitCode() int32 {
+	if x != nil {
+		return x.ExitCode
+	}
+	return 0
+}
+
+func (x *BatchAgentResult) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *BatchAgentResult) GetDurationMs() int64 {
+	if x != nil {
+		return x.DurationMs
+	}
+	return 0
+}
+
+// GetBatchJobStatusRequest requests batch job status
+type GetBatchJobStatusRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Batch job ID
+	BatchJobId    string `protobuf:"bytes,1,opt,name=batch_job_id,json=batchJobId,proto3" json:"batch_job_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetBatchJobStatusRequest) Reset() {
+	*x = GetBatchJobStatusRequest{}
+	mi := &file_controlplane_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetBatchJobStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetBatchJobStatusRequest) ProtoMessage() {}
+
+func (x *GetBatchJobStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_controlplane_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetBatchJobStatusRequest.ProtoReflect.Descriptor instead.
+func (*GetBatchJobStatusRequest) Descriptor() ([]byte, []int) {
+	return file_controlplane_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *GetBatchJobStatusRequest) GetBatchJobId() string {
+	if x != nil {
+		return x.BatchJobId
+	}
+	return ""
+}
+
+// GetBatchJobStatusResponse returns batch job status
+type GetBatchJobStatusResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Batch job information
+	Job           *BatchJobInfo `protobuf:"bytes,1,opt,name=job,proto3" json:"job,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetBatchJobStatusResponse) Reset() {
+	*x = GetBatchJobStatusResponse{}
+	mi := &file_controlplane_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetBatchJobStatusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetBatchJobStatusResponse) ProtoMessage() {}
+
+func (x *GetBatchJobStatusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_controlplane_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetBatchJobStatusResponse.ProtoReflect.Descriptor instead.
+func (*GetBatchJobStatusResponse) Descriptor() ([]byte, []int) {
+	return file_controlplane_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *GetBatchJobStatusResponse) GetJob() *BatchJobInfo {
+	if x != nil {
+		return x.Job
+	}
+	return nil
+}
+
+// BatchJobInfo contains batch job information
+type BatchJobInfo struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Batch job ID
+	BatchJobId string `protobuf:"bytes,1,opt,name=batch_job_id,json=batchJobId,proto3" json:"batch_job_id,omitempty"`
+	// Target expression
+	Target string `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"`
+	// Command details
+	Command string   `protobuf:"bytes,3,opt,name=command,proto3" json:"command,omitempty"`
+	Args    []string `protobuf:"bytes,4,rep,name=args,proto3" json:"args,omitempty"`
+	// Job status
+	Status BatchJobStatus `protobuf:"varint,5,opt,name=status,proto3,enum=titan.anvil.v1.BatchJobStatus" json:"status,omitempty"`
+	// Progress
+	Progress *BatchProgress `protobuf:"bytes,6,opt,name=progress,proto3" json:"progress,omitempty"`
+	// Summary (available when completed)
+	Summary *BatchSummary `protobuf:"bytes,7,opt,name=summary,proto3" json:"summary,omitempty"`
+	// Timestamps
+	CreatedAt   *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	StartedAt   *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
+	CompletedAt *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=completed_at,json=completedAt,proto3" json:"completed_at,omitempty"`
+	// Duration in milliseconds
+	DurationMs    int64 `protobuf:"varint,11,opt,name=duration_ms,json=durationMs,proto3" json:"duration_ms,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BatchJobInfo) Reset() {
+	*x = BatchJobInfo{}
+	mi := &file_controlplane_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BatchJobInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BatchJobInfo) ProtoMessage() {}
+
+func (x *BatchJobInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_controlplane_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BatchJobInfo.ProtoReflect.Descriptor instead.
+func (*BatchJobInfo) Descriptor() ([]byte, []int) {
+	return file_controlplane_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *BatchJobInfo) GetBatchJobId() string {
+	if x != nil {
+		return x.BatchJobId
+	}
+	return ""
+}
+
+func (x *BatchJobInfo) GetTarget() string {
+	if x != nil {
+		return x.Target
+	}
+	return ""
+}
+
+func (x *BatchJobInfo) GetCommand() string {
+	if x != nil {
+		return x.Command
+	}
+	return ""
+}
+
+func (x *BatchJobInfo) GetArgs() []string {
+	if x != nil {
+		return x.Args
+	}
+	return nil
+}
+
+func (x *BatchJobInfo) GetStatus() BatchJobStatus {
+	if x != nil {
+		return x.Status
+	}
+	return BatchJobStatus_BATCH_JOB_STATUS_UNSPECIFIED
+}
+
+func (x *BatchJobInfo) GetProgress() *BatchProgress {
+	if x != nil {
+		return x.Progress
+	}
+	return nil
+}
+
+func (x *BatchJobInfo) GetSummary() *BatchSummary {
+	if x != nil {
+		return x.Summary
+	}
+	return nil
+}
+
+func (x *BatchJobInfo) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *BatchJobInfo) GetStartedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StartedAt
+	}
+	return nil
+}
+
+func (x *BatchJobInfo) GetCompletedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CompletedAt
+	}
+	return nil
+}
+
+func (x *BatchJobInfo) GetDurationMs() int64 {
+	if x != nil {
+		return x.DurationMs
+	}
+	return 0
+}
+
+// ListBatchJobsRequest requests batch job history
+type ListBatchJobsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Filter by status (optional)
+	Status BatchJobStatus `protobuf:"varint,1,opt,name=status,proto3,enum=titan.anvil.v1.BatchJobStatus" json:"status,omitempty"`
+	// Filter by target expression (optional)
+	Target string `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"`
+	// Filter by time range (optional)
+	StartTime *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=start_time,json=startTime,proto3" json:"start_time,omitempty"`
+	EndTime   *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=end_time,json=endTime,proto3" json:"end_time,omitempty"`
+	// Pagination
+	PageSize      int32  `protobuf:"varint,5,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	PageToken     string `protobuf:"bytes,6,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListBatchJobsRequest) Reset() {
+	*x = ListBatchJobsRequest{}
+	mi := &file_controlplane_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListBatchJobsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListBatchJobsRequest) ProtoMessage() {}
+
+func (x *ListBatchJobsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_controlplane_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListBatchJobsRequest.ProtoReflect.Descriptor instead.
+func (*ListBatchJobsRequest) Descriptor() ([]byte, []int) {
+	return file_controlplane_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *ListBatchJobsRequest) GetStatus() BatchJobStatus {
+	if x != nil {
+		return x.Status
+	}
+	return BatchJobStatus_BATCH_JOB_STATUS_UNSPECIFIED
+}
+
+func (x *ListBatchJobsRequest) GetTarget() string {
+	if x != nil {
+		return x.Target
+	}
+	return ""
+}
+
+func (x *ListBatchJobsRequest) GetStartTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StartTime
+	}
+	return nil
+}
+
+func (x *ListBatchJobsRequest) GetEndTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.EndTime
+	}
+	return nil
+}
+
+func (x *ListBatchJobsRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *ListBatchJobsRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
+// ListBatchJobsResponse returns batch job history
+type ListBatchJobsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// List of batch jobs
+	Jobs []*BatchJobInfo `protobuf:"bytes,1,rep,name=jobs,proto3" json:"jobs,omitempty"`
+	// Next page token
+	NextPageToken string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
+	// Total count
+	TotalCount    int32 `protobuf:"varint,3,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListBatchJobsResponse) Reset() {
+	*x = ListBatchJobsResponse{}
+	mi := &file_controlplane_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListBatchJobsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListBatchJobsResponse) ProtoMessage() {}
+
+func (x *ListBatchJobsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_controlplane_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListBatchJobsResponse.ProtoReflect.Descriptor instead.
+func (*ListBatchJobsResponse) Descriptor() ([]byte, []int) {
+	return file_controlplane_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *ListBatchJobsResponse) GetJobs() []*BatchJobInfo {
+	if x != nil {
+		return x.Jobs
+	}
+	return nil
+}
+
+func (x *ListBatchJobsResponse) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
+}
+
+func (x *ListBatchJobsResponse) GetTotalCount() int32 {
+	if x != nil {
+		return x.TotalCount
+	}
+	return 0
+}
+
 var File_controlplane_proto protoreflect.FileDescriptor
 
 const file_controlplane_proto_rawDesc = "" +
@@ -955,7 +1960,96 @@ const file_controlplane_proto_rawDesc = "" +
 	"\fcompleted_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\vcompletedAt\x12\x1f\n" +
 	"\vduration_ms\x18\n" +
 	" \x01(\x03R\n" +
-	"durationMs*\xda\x01\n" +
+	"durationMs\"\xa4\x03\n" +
+	"\x1aBatchExecuteCommandRequest\x12 \n" +
+	"\fbatch_job_id\x18\x01 \x01(\tR\n" +
+	"batchJobId\x12\x16\n" +
+	"\x06target\x18\x02 \x01(\tR\x06target\x12\x18\n" +
+	"\acommand\x18\x03 \x01(\tR\acommand\x12\x12\n" +
+	"\x04args\x18\x04 \x03(\tR\x04args\x12E\n" +
+	"\x03env\x18\x05 \x03(\v23.titan.anvil.v1.BatchExecuteCommandRequest.EnvEntryR\x03env\x12\x1f\n" +
+	"\vworking_dir\x18\x06 \x01(\tR\n" +
+	"workingDir\x12\x18\n" +
+	"\atimeout\x18\a \x01(\x05R\atimeout\x12\x12\n" +
+	"\x04user\x18\b \x01(\tR\x04user\x12 \n" +
+	"\vconcurrency\x18\t \x01(\x05R\vconcurrency\x12.\n" +
+	"\x13continue_on_failure\x18\n" +
+	" \x01(\bR\x11continueOnFailure\x1a6\n" +
+	"\bEnvEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x85\x03\n" +
+	"\x1bBatchExecuteCommandResponse\x12 \n" +
+	"\fbatch_job_id\x18\x01 \x01(\tR\n" +
+	"batchJobId\x125\n" +
+	"\x04type\x18\x02 \x01(\x0e2!.titan.anvil.v1.BatchResponseTypeR\x04type\x12\x19\n" +
+	"\bagent_id\x18\x03 \x01(\tR\aagentId\x12\x12\n" +
+	"\x04data\x18\x04 \x01(\fR\x04data\x12\x1b\n" +
+	"\texit_code\x18\x05 \x01(\x05R\bexitCode\x12\x14\n" +
+	"\x05error\x18\x06 \x01(\tR\x05error\x129\n" +
+	"\bprogress\x18\a \x01(\v2\x1d.titan.anvil.v1.BatchProgressR\bprogress\x126\n" +
+	"\asummary\x18\b \x01(\v2\x1c.titan.anvil.v1.BatchSummaryR\asummary\x128\n" +
+	"\ttimestamp\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\"\x9e\x01\n" +
+	"\rBatchProgress\x12\x14\n" +
+	"\x05total\x18\x01 \x01(\x05R\x05total\x12\x1c\n" +
+	"\tcompleted\x18\x02 \x01(\x05R\tcompleted\x12\x1e\n" +
+	"\n" +
+	"successful\x18\x03 \x01(\x05R\n" +
+	"successful\x12\x16\n" +
+	"\x06failed\x18\x04 \x01(\x05R\x06failed\x12!\n" +
+	"\fsuccess_rate\x18\x05 \x01(\x02R\vsuccessRate\"\xe7\x01\n" +
+	"\fBatchSummary\x12\x14\n" +
+	"\x05total\x18\x01 \x01(\x05R\x05total\x12\x1e\n" +
+	"\n" +
+	"successful\x18\x02 \x01(\x05R\n" +
+	"successful\x12\x16\n" +
+	"\x06failed\x18\x03 \x01(\x05R\x06failed\x12!\n" +
+	"\fsuccess_rate\x18\x04 \x01(\x02R\vsuccessRate\x12\x1f\n" +
+	"\vduration_ms\x18\x05 \x01(\x03R\n" +
+	"durationMs\x12E\n" +
+	"\ragent_results\x18\x06 \x03(\v2 .titan.anvil.v1.BatchAgentResultR\fagentResults\"\x9b\x01\n" +
+	"\x10BatchAgentResult\x12\x19\n" +
+	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12\x18\n" +
+	"\asuccess\x18\x02 \x01(\bR\asuccess\x12\x1b\n" +
+	"\texit_code\x18\x03 \x01(\x05R\bexitCode\x12\x14\n" +
+	"\x05error\x18\x04 \x01(\tR\x05error\x12\x1f\n" +
+	"\vduration_ms\x18\x05 \x01(\x03R\n" +
+	"durationMs\"<\n" +
+	"\x18GetBatchJobStatusRequest\x12 \n" +
+	"\fbatch_job_id\x18\x01 \x01(\tR\n" +
+	"batchJobId\"K\n" +
+	"\x19GetBatchJobStatusResponse\x12.\n" +
+	"\x03job\x18\x01 \x01(\v2\x1c.titan.anvil.v1.BatchJobInfoR\x03job\"\xf7\x03\n" +
+	"\fBatchJobInfo\x12 \n" +
+	"\fbatch_job_id\x18\x01 \x01(\tR\n" +
+	"batchJobId\x12\x16\n" +
+	"\x06target\x18\x02 \x01(\tR\x06target\x12\x18\n" +
+	"\acommand\x18\x03 \x01(\tR\acommand\x12\x12\n" +
+	"\x04args\x18\x04 \x03(\tR\x04args\x126\n" +
+	"\x06status\x18\x05 \x01(\x0e2\x1e.titan.anvil.v1.BatchJobStatusR\x06status\x129\n" +
+	"\bprogress\x18\x06 \x01(\v2\x1d.titan.anvil.v1.BatchProgressR\bprogress\x126\n" +
+	"\asummary\x18\a \x01(\v2\x1c.titan.anvil.v1.BatchSummaryR\asummary\x129\n" +
+	"\n" +
+	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"started_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\x12=\n" +
+	"\fcompleted_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\vcompletedAt\x12\x1f\n" +
+	"\vduration_ms\x18\v \x01(\x03R\n" +
+	"durationMs\"\x94\x02\n" +
+	"\x14ListBatchJobsRequest\x126\n" +
+	"\x06status\x18\x01 \x01(\x0e2\x1e.titan.anvil.v1.BatchJobStatusR\x06status\x12\x16\n" +
+	"\x06target\x18\x02 \x01(\tR\x06target\x129\n" +
+	"\n" +
+	"start_time\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tstartTime\x125\n" +
+	"\bend_time\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\aendTime\x12\x1b\n" +
+	"\tpage_size\x18\x05 \x01(\x05R\bpageSize\x12\x1d\n" +
+	"\n" +
+	"page_token\x18\x06 \x01(\tR\tpageToken\"\x92\x01\n" +
+	"\x15ListBatchJobsResponse\x120\n" +
+	"\x04jobs\x18\x01 \x03(\v2\x1c.titan.anvil.v1.BatchJobInfoR\x04jobs\x12&\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +
+	"\vtotal_count\x18\x03 \x01(\x05R\n" +
+	"totalCount*\xda\x01\n" +
 	"\rCommandStatus\x12\x1e\n" +
 	"\x1aCOMMAND_STATUS_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16COMMAND_STATUS_PENDING\x10\x01\x12\x1a\n" +
@@ -963,14 +2057,34 @@ const file_controlplane_proto_rawDesc = "" +
 	"\x18COMMAND_STATUS_COMPLETED\x10\x03\x12\x19\n" +
 	"\x15COMMAND_STATUS_FAILED\x10\x04\x12\x1a\n" +
 	"\x16COMMAND_STATUS_TIMEOUT\x10\x05\x12\x1c\n" +
-	"\x18COMMAND_STATUS_CANCELLED\x10\x062\xde\x03\n" +
+	"\x18COMMAND_STATUS_CANCELLED\x10\x06*\xe6\x02\n" +
+	"\x11BatchResponseType\x12#\n" +
+	"\x1fBATCH_RESPONSE_TYPE_UNSPECIFIED\x10\x00\x12#\n" +
+	"\x1fBATCH_RESPONSE_TYPE_BATCH_START\x10\x01\x12#\n" +
+	"\x1fBATCH_RESPONSE_TYPE_AGENT_START\x10\x02\x12$\n" +
+	" BATCH_RESPONSE_TYPE_AGENT_OUTPUT\x10\x03\x12&\n" +
+	"\"BATCH_RESPONSE_TYPE_AGENT_COMPLETE\x10\x04\x12$\n" +
+	" BATCH_RESPONSE_TYPE_AGENT_FAILED\x10\x05\x12 \n" +
+	"\x1cBATCH_RESPONSE_TYPE_PROGRESS\x10\x06\x12&\n" +
+	"\"BATCH_RESPONSE_TYPE_BATCH_COMPLETE\x10\a\x12$\n" +
+	" BATCH_RESPONSE_TYPE_BATCH_FAILED\x10\b*\xcb\x01\n" +
+	"\x0eBatchJobStatus\x12 \n" +
+	"\x1cBATCH_JOB_STATUS_UNSPECIFIED\x10\x00\x12\x1c\n" +
+	"\x18BATCH_JOB_STATUS_PENDING\x10\x01\x12\x1c\n" +
+	"\x18BATCH_JOB_STATUS_RUNNING\x10\x02\x12\x1e\n" +
+	"\x1aBATCH_JOB_STATUS_COMPLETED\x10\x03\x12\x1b\n" +
+	"\x17BATCH_JOB_STATUS_FAILED\x10\x04\x12\x1e\n" +
+	"\x1aBATCH_JOB_STATUS_CANCELLED\x10\x052\x98\x06\n" +
 	"\x13ControlPlaneService\x12S\n" +
 	"\n" +
 	"ListAgents\x12!.titan.anvil.v1.ListAgentsRequest\x1a\".titan.anvil.v1.ListAgentsResponse\x12M\n" +
 	"\bGetAgent\x12\x1f.titan.anvil.v1.GetAgentRequest\x1a .titan.anvil.v1.GetAgentResponse\x12a\n" +
 	"\x0eExecuteCommand\x12%.titan.anvil.v1.ExecuteCommandRequest\x1a&.titan.anvil.v1.ExecuteCommandResponse0\x01\x12e\n" +
 	"\x10GetCommandStatus\x12'.titan.anvil.v1.GetCommandStatusRequest\x1a(.titan.anvil.v1.GetCommandStatusResponse\x12Y\n" +
-	"\fListCommands\x12#.titan.anvil.v1.ListCommandsRequest\x1a$.titan.anvil.v1.ListCommandsResponseB1Z/github.com/titananvil/titan-anvil/pkg/api/v1;v1b\x06proto3"
+	"\fListCommands\x12#.titan.anvil.v1.ListCommandsRequest\x1a$.titan.anvil.v1.ListCommandsResponse\x12p\n" +
+	"\x13BatchExecuteCommand\x12*.titan.anvil.v1.BatchExecuteCommandRequest\x1a+.titan.anvil.v1.BatchExecuteCommandResponse0\x01\x12h\n" +
+	"\x11GetBatchJobStatus\x12(.titan.anvil.v1.GetBatchJobStatusRequest\x1a).titan.anvil.v1.GetBatchJobStatusResponse\x12\\\n" +
+	"\rListBatchJobs\x12$.titan.anvil.v1.ListBatchJobsRequest\x1a%.titan.anvil.v1.ListBatchJobsResponseB1Z/github.com/titananvil/titan-anvil/pkg/api/v1;v1b\x06proto3"
 
 var (
 	file_controlplane_proto_rawDescOnce sync.Once
@@ -984,65 +2098,101 @@ func file_controlplane_proto_rawDescGZIP() []byte {
 	return file_controlplane_proto_rawDescData
 }
 
-var file_controlplane_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_controlplane_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_controlplane_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_controlplane_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
 var file_controlplane_proto_goTypes = []any{
-	(CommandStatus)(0),               // 0: titan.anvil.v1.CommandStatus
-	(*ListAgentsRequest)(nil),        // 1: titan.anvil.v1.ListAgentsRequest
-	(*ListAgentsResponse)(nil),       // 2: titan.anvil.v1.ListAgentsResponse
-	(*AgentInfo)(nil),                // 3: titan.anvil.v1.AgentInfo
-	(*GetAgentRequest)(nil),          // 4: titan.anvil.v1.GetAgentRequest
-	(*GetAgentResponse)(nil),         // 5: titan.anvil.v1.GetAgentResponse
-	(*GetCommandStatusRequest)(nil),  // 6: titan.anvil.v1.GetCommandStatusRequest
-	(*GetCommandStatusResponse)(nil), // 7: titan.anvil.v1.GetCommandStatusResponse
-	(*ListCommandsRequest)(nil),      // 8: titan.anvil.v1.ListCommandsRequest
-	(*ListCommandsResponse)(nil),     // 9: titan.anvil.v1.ListCommandsResponse
-	(*CommandInfo)(nil),              // 10: titan.anvil.v1.CommandInfo
-	nil,                              // 11: titan.anvil.v1.ListAgentsRequest.LabelsEntry
-	(AgentStatus)(0),                 // 12: titan.anvil.v1.AgentStatus
-	(*AgentMetadata)(nil),            // 13: titan.anvil.v1.AgentMetadata
-	(*timestamppb.Timestamp)(nil),    // 14: google.protobuf.Timestamp
-	(*SystemMetrics)(nil),            // 15: titan.anvil.v1.SystemMetrics
-	(*ExecuteCommandRequest)(nil),    // 16: titan.anvil.v1.ExecuteCommandRequest
-	(*ExecuteCommandResponse)(nil),   // 17: titan.anvil.v1.ExecuteCommandResponse
+	(CommandStatus)(0),                  // 0: titan.anvil.v1.CommandStatus
+	(BatchResponseType)(0),              // 1: titan.anvil.v1.BatchResponseType
+	(BatchJobStatus)(0),                 // 2: titan.anvil.v1.BatchJobStatus
+	(*ListAgentsRequest)(nil),           // 3: titan.anvil.v1.ListAgentsRequest
+	(*ListAgentsResponse)(nil),          // 4: titan.anvil.v1.ListAgentsResponse
+	(*AgentInfo)(nil),                   // 5: titan.anvil.v1.AgentInfo
+	(*GetAgentRequest)(nil),             // 6: titan.anvil.v1.GetAgentRequest
+	(*GetAgentResponse)(nil),            // 7: titan.anvil.v1.GetAgentResponse
+	(*GetCommandStatusRequest)(nil),     // 8: titan.anvil.v1.GetCommandStatusRequest
+	(*GetCommandStatusResponse)(nil),    // 9: titan.anvil.v1.GetCommandStatusResponse
+	(*ListCommandsRequest)(nil),         // 10: titan.anvil.v1.ListCommandsRequest
+	(*ListCommandsResponse)(nil),        // 11: titan.anvil.v1.ListCommandsResponse
+	(*CommandInfo)(nil),                 // 12: titan.anvil.v1.CommandInfo
+	(*BatchExecuteCommandRequest)(nil),  // 13: titan.anvil.v1.BatchExecuteCommandRequest
+	(*BatchExecuteCommandResponse)(nil), // 14: titan.anvil.v1.BatchExecuteCommandResponse
+	(*BatchProgress)(nil),               // 15: titan.anvil.v1.BatchProgress
+	(*BatchSummary)(nil),                // 16: titan.anvil.v1.BatchSummary
+	(*BatchAgentResult)(nil),            // 17: titan.anvil.v1.BatchAgentResult
+	(*GetBatchJobStatusRequest)(nil),    // 18: titan.anvil.v1.GetBatchJobStatusRequest
+	(*GetBatchJobStatusResponse)(nil),   // 19: titan.anvil.v1.GetBatchJobStatusResponse
+	(*BatchJobInfo)(nil),                // 20: titan.anvil.v1.BatchJobInfo
+	(*ListBatchJobsRequest)(nil),        // 21: titan.anvil.v1.ListBatchJobsRequest
+	(*ListBatchJobsResponse)(nil),       // 22: titan.anvil.v1.ListBatchJobsResponse
+	nil,                                 // 23: titan.anvil.v1.ListAgentsRequest.LabelsEntry
+	nil,                                 // 24: titan.anvil.v1.BatchExecuteCommandRequest.EnvEntry
+	(AgentStatus)(0),                    // 25: titan.anvil.v1.AgentStatus
+	(*AgentMetadata)(nil),               // 26: titan.anvil.v1.AgentMetadata
+	(*timestamppb.Timestamp)(nil),       // 27: google.protobuf.Timestamp
+	(*SystemMetrics)(nil),               // 28: titan.anvil.v1.SystemMetrics
+	(*ExecuteCommandRequest)(nil),       // 29: titan.anvil.v1.ExecuteCommandRequest
+	(*ExecuteCommandResponse)(nil),      // 30: titan.anvil.v1.ExecuteCommandResponse
 }
 var file_controlplane_proto_depIdxs = []int32{
-	12, // 0: titan.anvil.v1.ListAgentsRequest.status:type_name -> titan.anvil.v1.AgentStatus
-	11, // 1: titan.anvil.v1.ListAgentsRequest.labels:type_name -> titan.anvil.v1.ListAgentsRequest.LabelsEntry
-	3,  // 2: titan.anvil.v1.ListAgentsResponse.agents:type_name -> titan.anvil.v1.AgentInfo
-	13, // 3: titan.anvil.v1.AgentInfo.metadata:type_name -> titan.anvil.v1.AgentMetadata
-	12, // 4: titan.anvil.v1.AgentInfo.status:type_name -> titan.anvil.v1.AgentStatus
-	14, // 5: titan.anvil.v1.AgentInfo.last_heartbeat:type_name -> google.protobuf.Timestamp
-	14, // 6: titan.anvil.v1.AgentInfo.registered_at:type_name -> google.protobuf.Timestamp
-	15, // 7: titan.anvil.v1.AgentInfo.metrics:type_name -> titan.anvil.v1.SystemMetrics
-	3,  // 8: titan.anvil.v1.GetAgentResponse.agent:type_name -> titan.anvil.v1.AgentInfo
+	25, // 0: titan.anvil.v1.ListAgentsRequest.status:type_name -> titan.anvil.v1.AgentStatus
+	23, // 1: titan.anvil.v1.ListAgentsRequest.labels:type_name -> titan.anvil.v1.ListAgentsRequest.LabelsEntry
+	5,  // 2: titan.anvil.v1.ListAgentsResponse.agents:type_name -> titan.anvil.v1.AgentInfo
+	26, // 3: titan.anvil.v1.AgentInfo.metadata:type_name -> titan.anvil.v1.AgentMetadata
+	25, // 4: titan.anvil.v1.AgentInfo.status:type_name -> titan.anvil.v1.AgentStatus
+	27, // 5: titan.anvil.v1.AgentInfo.last_heartbeat:type_name -> google.protobuf.Timestamp
+	27, // 6: titan.anvil.v1.AgentInfo.registered_at:type_name -> google.protobuf.Timestamp
+	28, // 7: titan.anvil.v1.AgentInfo.metrics:type_name -> titan.anvil.v1.SystemMetrics
+	5,  // 8: titan.anvil.v1.GetAgentResponse.agent:type_name -> titan.anvil.v1.AgentInfo
 	0,  // 9: titan.anvil.v1.GetCommandStatusResponse.status:type_name -> titan.anvil.v1.CommandStatus
-	14, // 10: titan.anvil.v1.GetCommandStatusResponse.created_at:type_name -> google.protobuf.Timestamp
-	14, // 11: titan.anvil.v1.GetCommandStatusResponse.started_at:type_name -> google.protobuf.Timestamp
-	14, // 12: titan.anvil.v1.GetCommandStatusResponse.completed_at:type_name -> google.protobuf.Timestamp
+	27, // 10: titan.anvil.v1.GetCommandStatusResponse.created_at:type_name -> google.protobuf.Timestamp
+	27, // 11: titan.anvil.v1.GetCommandStatusResponse.started_at:type_name -> google.protobuf.Timestamp
+	27, // 12: titan.anvil.v1.GetCommandStatusResponse.completed_at:type_name -> google.protobuf.Timestamp
 	0,  // 13: titan.anvil.v1.ListCommandsRequest.status:type_name -> titan.anvil.v1.CommandStatus
-	14, // 14: titan.anvil.v1.ListCommandsRequest.start_time:type_name -> google.protobuf.Timestamp
-	14, // 15: titan.anvil.v1.ListCommandsRequest.end_time:type_name -> google.protobuf.Timestamp
-	10, // 16: titan.anvil.v1.ListCommandsResponse.commands:type_name -> titan.anvil.v1.CommandInfo
+	27, // 14: titan.anvil.v1.ListCommandsRequest.start_time:type_name -> google.protobuf.Timestamp
+	27, // 15: titan.anvil.v1.ListCommandsRequest.end_time:type_name -> google.protobuf.Timestamp
+	12, // 16: titan.anvil.v1.ListCommandsResponse.commands:type_name -> titan.anvil.v1.CommandInfo
 	0,  // 17: titan.anvil.v1.CommandInfo.status:type_name -> titan.anvil.v1.CommandStatus
-	14, // 18: titan.anvil.v1.CommandInfo.created_at:type_name -> google.protobuf.Timestamp
-	14, // 19: titan.anvil.v1.CommandInfo.started_at:type_name -> google.protobuf.Timestamp
-	14, // 20: titan.anvil.v1.CommandInfo.completed_at:type_name -> google.protobuf.Timestamp
-	1,  // 21: titan.anvil.v1.ControlPlaneService.ListAgents:input_type -> titan.anvil.v1.ListAgentsRequest
-	4,  // 22: titan.anvil.v1.ControlPlaneService.GetAgent:input_type -> titan.anvil.v1.GetAgentRequest
-	16, // 23: titan.anvil.v1.ControlPlaneService.ExecuteCommand:input_type -> titan.anvil.v1.ExecuteCommandRequest
-	6,  // 24: titan.anvil.v1.ControlPlaneService.GetCommandStatus:input_type -> titan.anvil.v1.GetCommandStatusRequest
-	8,  // 25: titan.anvil.v1.ControlPlaneService.ListCommands:input_type -> titan.anvil.v1.ListCommandsRequest
-	2,  // 26: titan.anvil.v1.ControlPlaneService.ListAgents:output_type -> titan.anvil.v1.ListAgentsResponse
-	5,  // 27: titan.anvil.v1.ControlPlaneService.GetAgent:output_type -> titan.anvil.v1.GetAgentResponse
-	17, // 28: titan.anvil.v1.ControlPlaneService.ExecuteCommand:output_type -> titan.anvil.v1.ExecuteCommandResponse
-	7,  // 29: titan.anvil.v1.ControlPlaneService.GetCommandStatus:output_type -> titan.anvil.v1.GetCommandStatusResponse
-	9,  // 30: titan.anvil.v1.ControlPlaneService.ListCommands:output_type -> titan.anvil.v1.ListCommandsResponse
-	26, // [26:31] is the sub-list for method output_type
-	21, // [21:26] is the sub-list for method input_type
-	21, // [21:21] is the sub-list for extension type_name
-	21, // [21:21] is the sub-list for extension extendee
-	0,  // [0:21] is the sub-list for field type_name
+	27, // 18: titan.anvil.v1.CommandInfo.created_at:type_name -> google.protobuf.Timestamp
+	27, // 19: titan.anvil.v1.CommandInfo.started_at:type_name -> google.protobuf.Timestamp
+	27, // 20: titan.anvil.v1.CommandInfo.completed_at:type_name -> google.protobuf.Timestamp
+	24, // 21: titan.anvil.v1.BatchExecuteCommandRequest.env:type_name -> titan.anvil.v1.BatchExecuteCommandRequest.EnvEntry
+	1,  // 22: titan.anvil.v1.BatchExecuteCommandResponse.type:type_name -> titan.anvil.v1.BatchResponseType
+	15, // 23: titan.anvil.v1.BatchExecuteCommandResponse.progress:type_name -> titan.anvil.v1.BatchProgress
+	16, // 24: titan.anvil.v1.BatchExecuteCommandResponse.summary:type_name -> titan.anvil.v1.BatchSummary
+	27, // 25: titan.anvil.v1.BatchExecuteCommandResponse.timestamp:type_name -> google.protobuf.Timestamp
+	17, // 26: titan.anvil.v1.BatchSummary.agent_results:type_name -> titan.anvil.v1.BatchAgentResult
+	20, // 27: titan.anvil.v1.GetBatchJobStatusResponse.job:type_name -> titan.anvil.v1.BatchJobInfo
+	2,  // 28: titan.anvil.v1.BatchJobInfo.status:type_name -> titan.anvil.v1.BatchJobStatus
+	15, // 29: titan.anvil.v1.BatchJobInfo.progress:type_name -> titan.anvil.v1.BatchProgress
+	16, // 30: titan.anvil.v1.BatchJobInfo.summary:type_name -> titan.anvil.v1.BatchSummary
+	27, // 31: titan.anvil.v1.BatchJobInfo.created_at:type_name -> google.protobuf.Timestamp
+	27, // 32: titan.anvil.v1.BatchJobInfo.started_at:type_name -> google.protobuf.Timestamp
+	27, // 33: titan.anvil.v1.BatchJobInfo.completed_at:type_name -> google.protobuf.Timestamp
+	2,  // 34: titan.anvil.v1.ListBatchJobsRequest.status:type_name -> titan.anvil.v1.BatchJobStatus
+	27, // 35: titan.anvil.v1.ListBatchJobsRequest.start_time:type_name -> google.protobuf.Timestamp
+	27, // 36: titan.anvil.v1.ListBatchJobsRequest.end_time:type_name -> google.protobuf.Timestamp
+	20, // 37: titan.anvil.v1.ListBatchJobsResponse.jobs:type_name -> titan.anvil.v1.BatchJobInfo
+	3,  // 38: titan.anvil.v1.ControlPlaneService.ListAgents:input_type -> titan.anvil.v1.ListAgentsRequest
+	6,  // 39: titan.anvil.v1.ControlPlaneService.GetAgent:input_type -> titan.anvil.v1.GetAgentRequest
+	29, // 40: titan.anvil.v1.ControlPlaneService.ExecuteCommand:input_type -> titan.anvil.v1.ExecuteCommandRequest
+	8,  // 41: titan.anvil.v1.ControlPlaneService.GetCommandStatus:input_type -> titan.anvil.v1.GetCommandStatusRequest
+	10, // 42: titan.anvil.v1.ControlPlaneService.ListCommands:input_type -> titan.anvil.v1.ListCommandsRequest
+	13, // 43: titan.anvil.v1.ControlPlaneService.BatchExecuteCommand:input_type -> titan.anvil.v1.BatchExecuteCommandRequest
+	18, // 44: titan.anvil.v1.ControlPlaneService.GetBatchJobStatus:input_type -> titan.anvil.v1.GetBatchJobStatusRequest
+	21, // 45: titan.anvil.v1.ControlPlaneService.ListBatchJobs:input_type -> titan.anvil.v1.ListBatchJobsRequest
+	4,  // 46: titan.anvil.v1.ControlPlaneService.ListAgents:output_type -> titan.anvil.v1.ListAgentsResponse
+	7,  // 47: titan.anvil.v1.ControlPlaneService.GetAgent:output_type -> titan.anvil.v1.GetAgentResponse
+	30, // 48: titan.anvil.v1.ControlPlaneService.ExecuteCommand:output_type -> titan.anvil.v1.ExecuteCommandResponse
+	9,  // 49: titan.anvil.v1.ControlPlaneService.GetCommandStatus:output_type -> titan.anvil.v1.GetCommandStatusResponse
+	11, // 50: titan.anvil.v1.ControlPlaneService.ListCommands:output_type -> titan.anvil.v1.ListCommandsResponse
+	14, // 51: titan.anvil.v1.ControlPlaneService.BatchExecuteCommand:output_type -> titan.anvil.v1.BatchExecuteCommandResponse
+	19, // 52: titan.anvil.v1.ControlPlaneService.GetBatchJobStatus:output_type -> titan.anvil.v1.GetBatchJobStatusResponse
+	22, // 53: titan.anvil.v1.ControlPlaneService.ListBatchJobs:output_type -> titan.anvil.v1.ListBatchJobsResponse
+	46, // [46:54] is the sub-list for method output_type
+	38, // [38:46] is the sub-list for method input_type
+	38, // [38:38] is the sub-list for extension type_name
+	38, // [38:38] is the sub-list for extension extendee
+	0,  // [0:38] is the sub-list for field type_name
 }
 
 func init() { file_controlplane_proto_init() }
@@ -1056,8 +2206,8 @@ func file_controlplane_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_controlplane_proto_rawDesc), len(file_controlplane_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   11,
+			NumEnums:      3,
+			NumMessages:   22,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

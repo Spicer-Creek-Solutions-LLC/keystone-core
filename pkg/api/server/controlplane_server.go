@@ -14,17 +14,19 @@ import (
 // ControlPlaneServer implements the ControlPlaneService
 type ControlPlaneServer struct {
 	pb.UnimplementedControlPlaneServiceServer
-	connMgr    *controlplane.ConnectionManager
-	dispatcher *controlplane.CommandDispatcher
-	store      state.Store
+	connMgr         *controlplane.ConnectionManager
+	dispatcher      *controlplane.CommandDispatcher
+	batchDispatcher *controlplane.BatchDispatcher
+	store           state.Store
 }
 
 // NewControlPlaneServer creates a new control plane API server
-func NewControlPlaneServer(connMgr *controlplane.ConnectionManager, dispatcher *controlplane.CommandDispatcher, store state.Store) *ControlPlaneServer {
+func NewControlPlaneServer(connMgr *controlplane.ConnectionManager, dispatcher *controlplane.CommandDispatcher, batchDispatcher *controlplane.BatchDispatcher, store state.Store) *ControlPlaneServer {
 	return &ControlPlaneServer{
-		connMgr:    connMgr,
-		dispatcher: dispatcher,
-		store:      store,
+		connMgr:         connMgr,
+		dispatcher:      dispatcher,
+		batchDispatcher: batchDispatcher,
+		store:           store,
 	}
 }
 
@@ -163,6 +165,51 @@ func (s *ControlPlaneServer) ListCommands(ctx context.Context, req *pb.ListComma
 	return &pb.ListCommandsResponse{
 		Commands:   pbCommands,
 		TotalCount: int32(len(pbCommands)),
+	}, nil
+}
+
+// BatchExecuteCommand executes a command across multiple agents using a target expression
+func (s *ControlPlaneServer) BatchExecuteCommand(req *pb.BatchExecuteCommandRequest, stream pb.ControlPlaneService_BatchExecuteCommandServer) error {
+	// Execute batch command
+	responseChan, err := s.batchDispatcher.ExecuteBatch(stream.Context(), req)
+	if err != nil {
+		return fmt.Errorf("failed to execute batch command: %w", err)
+	}
+
+	// Stream responses back to client
+	for resp := range responseChan {
+		if err := stream.Send(resp); err != nil {
+			return fmt.Errorf("failed to send response: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// GetBatchJobStatus retrieves the status of a batch job
+func (s *ControlPlaneServer) GetBatchJobStatus(ctx context.Context, req *pb.GetBatchJobStatusRequest) (*pb.GetBatchJobStatusResponse, error) {
+	info, err := s.batchDispatcher.GetBatchJobStatus(req.BatchJobId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get batch job status: %w", err)
+	}
+
+	return &pb.GetBatchJobStatusResponse{
+		Job: info,
+	}, nil
+}
+
+// ListBatchJobs lists batch jobs with optional filtering
+func (s *ControlPlaneServer) ListBatchJobs(ctx context.Context, req *pb.ListBatchJobsRequest) (*pb.ListBatchJobsResponse, error) {
+	limit := int(req.PageSize)
+	if limit == 0 {
+		limit = 100 // Default limit
+	}
+
+	jobs := s.batchDispatcher.ListBatchJobs(req.Status, limit)
+
+	return &pb.ListBatchJobsResponse{
+		Jobs:       jobs,
+		TotalCount: int32(len(jobs)),
 	}, nil
 }
 

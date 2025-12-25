@@ -23,6 +23,15 @@ service ControlPlaneService {
 
   // ListCommands lists command execution history
   rpc ListCommands(ListCommandsRequest) returns (ListCommandsResponse);
+
+  // BatchExecuteCommand executes a command across multiple agents using a target expression
+  rpc BatchExecuteCommand(BatchExecuteCommandRequest) returns (stream BatchExecuteCommandResponse);
+
+  // GetBatchJobStatus retrieves the status of a batch job
+  rpc GetBatchJobStatus(GetBatchJobStatusRequest) returns (GetBatchJobStatusResponse);
+
+  // ListBatchJobs lists batch job execution history
+  rpc ListBatchJobs(ListBatchJobsRequest) returns (ListBatchJobsResponse);
 }
 
 // ListAgentsRequest requests a list of agents
@@ -184,4 +193,218 @@ message CommandInfo {
 
   // Duration in milliseconds
   int64 duration_ms = 10;
+}
+
+// BatchExecuteCommandRequest executes a command across multiple agents
+message BatchExecuteCommandRequest {
+  // Batch job ID (optional, auto-generated if not provided)
+  string batch_job_id = 1;
+
+  // Target expression to select agents (e.g., "os:linux and role:web")
+  string target = 2;
+
+  // Command to execute
+  string command = 3;
+
+  // Command arguments
+  repeated string args = 4;
+
+  // Environment variables
+  map<string, string> env = 5;
+
+  // Working directory
+  string working_dir = 6;
+
+  // Execution timeout (seconds)
+  int32 timeout = 7;
+
+  // Run as user
+  string user = 8;
+
+  // Maximum concurrency (number of parallel executions)
+  int32 concurrency = 9;
+
+  // Whether to continue on failure (default: true)
+  bool continue_on_failure = 10;
+}
+
+// BatchExecuteCommandResponse streams batch execution progress
+message BatchExecuteCommandResponse {
+  // Batch job ID
+  string batch_job_id = 1;
+
+  // Response type
+  BatchResponseType type = 2;
+
+  // Agent ID (for AGENT_START, AGENT_OUTPUT, AGENT_COMPLETE, AGENT_FAILED)
+  string agent_id = 3;
+
+  // Output data (for AGENT_OUTPUT)
+  bytes data = 4;
+
+  // Exit code (for AGENT_COMPLETE, AGENT_FAILED)
+  int32 exit_code = 5;
+
+  // Error message (for AGENT_FAILED, BATCH_FAILED)
+  string error = 6;
+
+  // Progress information (for PROGRESS)
+  BatchProgress progress = 7;
+
+  // Summary (for BATCH_COMPLETE)
+  BatchSummary summary = 8;
+
+  // Timestamp
+  google.protobuf.Timestamp timestamp = 9;
+}
+
+// BatchResponseType indicates the type of batch response
+enum BatchResponseType {
+  BATCH_RESPONSE_TYPE_UNSPECIFIED = 0;
+  BATCH_RESPONSE_TYPE_BATCH_START = 1;      // Batch job started
+  BATCH_RESPONSE_TYPE_AGENT_START = 2;      // Agent execution started
+  BATCH_RESPONSE_TYPE_AGENT_OUTPUT = 3;     // Agent output (stdout/stderr)
+  BATCH_RESPONSE_TYPE_AGENT_COMPLETE = 4;   // Agent execution completed
+  BATCH_RESPONSE_TYPE_AGENT_FAILED = 5;     // Agent execution failed
+  BATCH_RESPONSE_TYPE_PROGRESS = 6;         // Progress update
+  BATCH_RESPONSE_TYPE_BATCH_COMPLETE = 7;   // Batch job completed
+  BATCH_RESPONSE_TYPE_BATCH_FAILED = 8;     // Batch job failed
+}
+
+// BatchProgress represents batch execution progress
+message BatchProgress {
+  // Total number of agents
+  int32 total = 1;
+
+  // Number of completed agents
+  int32 completed = 2;
+
+  // Number of successful agents
+  int32 successful = 3;
+
+  // Number of failed agents
+  int32 failed = 4;
+
+  // Success rate percentage (0-100)
+  float success_rate = 5;
+}
+
+// BatchSummary contains batch execution summary
+message BatchSummary {
+  // Total number of agents
+  int32 total = 1;
+
+  // Number of successful agents
+  int32 successful = 2;
+
+  // Number of failed agents
+  int32 failed = 3;
+
+  // Success rate percentage (0-100)
+  float success_rate = 4;
+
+  // Total duration in milliseconds
+  int64 duration_ms = 5;
+
+  // Agent results
+  repeated BatchAgentResult agent_results = 6;
+}
+
+// BatchAgentResult contains per-agent execution result
+message BatchAgentResult {
+  // Agent ID
+  string agent_id = 1;
+
+  // Success status
+  bool success = 2;
+
+  // Exit code
+  int32 exit_code = 3;
+
+  // Error message (if failed)
+  string error = 4;
+
+  // Duration in milliseconds
+  int64 duration_ms = 5;
+}
+
+// GetBatchJobStatusRequest requests batch job status
+message GetBatchJobStatusRequest {
+  // Batch job ID
+  string batch_job_id = 1;
+}
+
+// GetBatchJobStatusResponse returns batch job status
+message GetBatchJobStatusResponse {
+  // Batch job information
+  BatchJobInfo job = 1;
+}
+
+// BatchJobInfo contains batch job information
+message BatchJobInfo {
+  // Batch job ID
+  string batch_job_id = 1;
+
+  // Target expression
+  string target = 2;
+
+  // Command details
+  string command = 3;
+  repeated string args = 4;
+
+  // Job status
+  BatchJobStatus status = 5;
+
+  // Progress
+  BatchProgress progress = 6;
+
+  // Summary (available when completed)
+  BatchSummary summary = 7;
+
+  // Timestamps
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp started_at = 9;
+  google.protobuf.Timestamp completed_at = 10;
+
+  // Duration in milliseconds
+  int64 duration_ms = 11;
+}
+
+// BatchJobStatus represents the status of a batch job
+enum BatchJobStatus {
+  BATCH_JOB_STATUS_UNSPECIFIED = 0;
+  BATCH_JOB_STATUS_PENDING = 1;
+  BATCH_JOB_STATUS_RUNNING = 2;
+  BATCH_JOB_STATUS_COMPLETED = 3;
+  BATCH_JOB_STATUS_FAILED = 4;
+  BATCH_JOB_STATUS_CANCELLED = 5;
+}
+
+// ListBatchJobsRequest requests batch job history
+message ListBatchJobsRequest {
+  // Filter by status (optional)
+  BatchJobStatus status = 1;
+
+  // Filter by target expression (optional)
+  string target = 2;
+
+  // Filter by time range (optional)
+  google.protobuf.Timestamp start_time = 3;
+  google.protobuf.Timestamp end_time = 4;
+
+  // Pagination
+  int32 page_size = 5;
+  string page_token = 6;
+}
+
+// ListBatchJobsResponse returns batch job history
+message ListBatchJobsResponse {
+  // List of batch jobs
+  repeated BatchJobInfo jobs = 1;
+
+  // Next page token
+  string next_page_token = 2;
+
+  // Total count
+  int32 total_count = 3;
 }

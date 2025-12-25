@@ -141,10 +141,14 @@ func runServer(cmd *cobra.Command, args []string) {
 	fmt.Println("Initializing command dispatcher...")
 	dispatcher := controlplane.NewCommandDispatcher(connMgr, stateStore)
 
+	// Initialize batch dispatcher
+	fmt.Println("Initializing batch dispatcher...")
+	batchDispatcher := controlplane.NewBatchDispatcher(connMgr, dispatcher, stateStore)
+
 	// Initialize gRPC API server
 	fmt.Println("Initializing gRPC API server...")
 	grpcServer := grpc.NewServer()
-	apiServer := server.NewControlPlaneServer(connMgr, dispatcher, stateStore)
+	apiServer := server.NewControlPlaneServer(connMgr, dispatcher, batchDispatcher, stateStore)
 	pb.RegisterControlPlaneServiceServer(grpcServer, apiServer)
 
 	// Start gRPC server

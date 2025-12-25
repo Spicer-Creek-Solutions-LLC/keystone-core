@@ -47,3 +47,14 @@ temp/
 *.tmp
 coverage.out
 .idea
+
+# TitanAnvil binaries (in case built to root)
+titananvil-server
+titananvil-agent
+titananvil-exec
+titananvil-module
+titananvil-state
+titananvil-policy
+titananvil-gitops
+titananvil-registry
+titanctl

@@ -24,6 +24,14 @@ type Store interface {
 	UpdateCommandStatus(ctx context.Context, commandID string, status pb.CommandStatus) error
 	UpdateCommandResult(ctx context.Context, commandID string, result *CommandResult) error
 
+	// Batch job operations
+	SaveBatchJob(ctx context.Context, job *BatchJobRecord) error
+	GetBatchJob(ctx context.Context, batchJobID string) (*BatchJobRecord, error)
+	ListBatchJobs(ctx context.Context, filter *BatchJobFilter) ([]*BatchJobRecord, error)
+	UpdateBatchJobStatus(ctx context.Context, batchJobID string, status pb.BatchJobStatus) error
+	UpdateBatchJobProgress(ctx context.Context, batchJobID string, progress *BatchJobProgress) error
+	SaveBatchAgentResult(ctx context.Context, batchJobID string, result *BatchAgentResultRecord) error
+
 	// Health and lifecycle
 	Ping(ctx context.Context) error
 	Close() error
@@ -104,6 +112,69 @@ type CommandResult struct {
 	StartedAt   time.Time
 	CompletedAt time.Time
 	DurationMs  int64
+}
+
+// BatchJobRecord represents a batch job in the database
+type BatchJobRecord struct {
+	ID          string
+	Target      string
+	Command     string
+	Args        []string
+	Env         map[string]string
+	WorkingDir  string
+	User        string
+	Timeout     int32
+	Concurrency int32
+	Status      pb.BatchJobStatus
+	CreatedAt   time.Time
+	StartedAt   *time.Time
+	CompletedAt *time.Time
+	DurationMs  int64
+
+	// Progress
+	TotalAgents      int32
+	CompletedAgents  int32
+	SuccessfulAgents int32
+	FailedAgents     int32
+	SuccessRate      float32
+
+	// Results
+	AgentResults []*BatchAgentResultRecord
+}
+
+// BatchAgentResultRecord represents a per-agent result in a batch job
+type BatchAgentResultRecord struct {
+	BatchJobID string
+	AgentID    string
+	Success    bool
+	ExitCode   int32
+	Error      string
+	DurationMs int64
+	CreatedAt  time.Time
+}
+
+// BatchJobFilter defines filter criteria for listing batch jobs
+type BatchJobFilter struct {
+	Status    *pb.BatchJobStatus
+	Target    string
+	StartTime *time.Time
+	EndTime   *time.Time
+	Limit     int
+	Offset    int
+	SortBy    string
+	SortOrder string // "asc" or "desc"
+}
+
+// BatchJobProgress represents batch job progress update
+type BatchJobProgress struct {
+	TotalAgents      int32
+	CompletedAgents  int32
+	SuccessfulAgents int32
+	FailedAgents     int32
+	SuccessRate      float32
+	StartedAt        *time.Time
+	CompletedAt      *time.Time
+	DurationMs       int64
 }
 
 // Config holds database configuration

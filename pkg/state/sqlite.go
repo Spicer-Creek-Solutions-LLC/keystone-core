@@ -122,6 +122,48 @@ func (s *SQLiteStore) initSchema() error {
 	CREATE INDEX IF NOT EXISTS idx_commands_agent_id ON commands(agent_id);
 	CREATE INDEX IF NOT EXISTS idx_commands_status ON commands(status);
 	CREATE INDEX IF NOT EXISTS idx_commands_created_at ON commands(created_at);
+
+	CREATE TABLE IF NOT EXISTS batch_jobs (
+		id TEXT PRIMARY KEY,
+		target TEXT NOT NULL,
+		command TEXT NOT NULL,
+		args TEXT,
+		env TEXT,
+		working_dir TEXT,
+		user TEXT,
+		timeout INTEGER,
+		concurrency INTEGER,
+		status INTEGER NOT NULL,
+		created_at TIMESTAMP NOT NULL,
+		started_at TIMESTAMP,
+		completed_at TIMESTAMP,
+		duration_ms INTEGER,
+		total_agents INTEGER DEFAULT 0,
+		completed_agents INTEGER DEFAULT 0,
+		successful_agents INTEGER DEFAULT 0,
+		failed_agents INTEGER DEFAULT 0,
+		success_rate REAL DEFAULT 0.0
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_batch_jobs_status ON batch_jobs(status);
+	CREATE INDEX IF NOT EXISTS idx_batch_jobs_created_at ON batch_jobs(created_at);
+	CREATE INDEX IF NOT EXISTS idx_batch_jobs_target ON batch_jobs(target);
+
+	CREATE TABLE IF NOT EXISTS batch_agent_results (
+		batch_job_id TEXT NOT NULL,
+		agent_id TEXT NOT NULL,
+		success INTEGER NOT NULL,
+		exit_code INTEGER,
+		error TEXT,
+		duration_ms INTEGER,
+		created_at TIMESTAMP NOT NULL,
+		PRIMARY KEY (batch_job_id, agent_id),
+		FOREIGN KEY (batch_job_id) REFERENCES batch_jobs(id),
+		FOREIGN KEY (agent_id) REFERENCES agents(id)
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_batch_agent_results_batch_job_id ON batch_agent_results(batch_job_id);
+	CREATE INDEX IF NOT EXISTS idx_batch_agent_results_agent_id ON batch_agent_results(agent_id);
 	`
 
 	_, err := s.db.Exec(schema)
@@ -455,6 +497,285 @@ func (s *SQLiteStore) UpdateCommandResult(ctx context.Context, commandID string,
 		result.Status, result.ExitCode, result.Stdout, result.Stderr, result.Error,
 		result.StartedAt, result.CompletedAt, result.DurationMs, commandID,
 	)
+	return err
+}
+
+// SaveBatchJob saves a batch job record
+func (s *SQLiteStore) SaveBatchJob(ctx context.Context, job *BatchJobRecord) error {
+	args, _ := json.Marshal(job.Args)
+	env, _ := json.Marshal(job.Env)
+
+	query := `
+		INSERT INTO batch_jobs (
+			id, target, command, args, env, working_dir, user, timeout,
+			concurrency, status, created_at, started_at, completed_at,
+			duration_ms, total_agents, completed_agents, successful_agents,
+			failed_agents, success_rate
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(id) DO UPDATE SET
+			status = excluded.status,
+			started_at = excluded.started_at,
+			completed_at = excluded.completed_at,
+			duration_ms = excluded.duration_ms,
+			total_agents = excluded.total_agents,
+			completed_agents = excluded.completed_agents,
+			successful_agents = excluded.successful_agents,
+			failed_agents = excluded.failed_agents,
+			success_rate = excluded.success_rate
+	`
+
+	_, err := s.db.ExecContext(ctx, query,
+		job.ID, job.Target, job.Command, string(args), string(env),
+		job.WorkingDir, job.User, job.Timeout, job.Concurrency,
+		job.Status, job.CreatedAt, job.StartedAt, job.CompletedAt,
+		job.DurationMs, job.TotalAgents, job.CompletedAgents,
+		job.SuccessfulAgents, job.FailedAgents, job.SuccessRate,
+	)
+
+	return err
+}
+
+// GetBatchJob retrieves a batch job by ID
+func (s *SQLiteStore) GetBatchJob(ctx context.Context, batchJobID string) (*BatchJobRecord, error) {
+	query := `
+		SELECT id, target, command, args, env, working_dir, user, timeout,
+			   concurrency, status, created_at, started_at, completed_at,
+			   duration_ms, total_agents, completed_agents, successful_agents,
+			   failed_agents, success_rate
+		FROM batch_jobs
+		WHERE id = ?
+	`
+
+	var job BatchJobRecord
+	var args, env sql.NullString
+	var startedAt, completedAt sql.NullTime
+
+	err := s.db.QueryRowContext(ctx, query, batchJobID).Scan(
+		&job.ID, &job.Target, &job.Command, &args, &env,
+		&job.WorkingDir, &job.User, &job.Timeout, &job.Concurrency,
+		&job.Status, &job.CreatedAt, &startedAt, &completedAt,
+		&job.DurationMs, &job.TotalAgents, &job.CompletedAgents,
+		&job.SuccessfulAgents, &job.FailedAgents, &job.SuccessRate,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("batch job not found: %s", batchJobID)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if args.Valid {
+		json.Unmarshal([]byte(args.String), &job.Args)
+	}
+	if env.Valid {
+		json.Unmarshal([]byte(env.String), &job.Env)
+	}
+	if startedAt.Valid {
+		t := startedAt.Time
+		job.StartedAt = &t
+	}
+	if completedAt.Valid {
+		t := completedAt.Time
+		job.CompletedAt = &t
+	}
+
+	// Load agent results
+	resultsQuery := `
+		SELECT agent_id, success, exit_code, error, duration_ms, created_at
+		FROM batch_agent_results
+		WHERE batch_job_id = ?
+		ORDER BY created_at
+	`
+
+	rows, err := s.db.QueryContext(ctx, resultsQuery, batchJobID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var result BatchAgentResultRecord
+		var errorStr sql.NullString
+
+		err := rows.Scan(
+			&result.AgentID, &result.Success, &result.ExitCode,
+			&errorStr, &result.DurationMs, &result.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		result.BatchJobID = batchJobID
+		if errorStr.Valid {
+			result.Error = errorStr.String
+		}
+
+		job.AgentResults = append(job.AgentResults, &result)
+	}
+
+	return &job, rows.Err()
+}
+
+// ListBatchJobs lists batch jobs with optional filtering
+func (s *SQLiteStore) ListBatchJobs(ctx context.Context, filter *BatchJobFilter) ([]*BatchJobRecord, error) {
+	query := `
+		SELECT id, target, command, args, env, working_dir, user, timeout,
+			   concurrency, status, created_at, started_at, completed_at,
+			   duration_ms, total_agents, completed_agents, successful_agents,
+			   failed_agents, success_rate
+		FROM batch_jobs
+		WHERE 1=1
+	`
+
+	args := []interface{}{}
+
+	if filter.Status != nil {
+		query += " AND status = ?"
+		args = append(args, *filter.Status)
+	}
+
+	if filter.Target != "" {
+		query += " AND target LIKE ?"
+		args = append(args, "%"+filter.Target+"%")
+	}
+
+	if filter.StartTime != nil {
+		query += " AND created_at >= ?"
+		args = append(args, *filter.StartTime)
+	}
+
+	if filter.EndTime != nil {
+		query += " AND created_at <= ?"
+		args = append(args, *filter.EndTime)
+	}
+
+	// Sorting
+	sortBy := "created_at"
+	if filter.SortBy != "" {
+		sortBy = filter.SortBy
+	}
+	sortOrder := "DESC"
+	if filter.SortOrder == "asc" {
+		sortOrder = "ASC"
+	}
+	query += fmt.Sprintf(" ORDER BY %s %s", sortBy, sortOrder)
+
+	// Pagination
+	if filter.Limit > 0 {
+		query += " LIMIT ?"
+		args = append(args, filter.Limit)
+	}
+	if filter.Offset > 0 {
+		query += " OFFSET ?"
+		args = append(args, filter.Offset)
+	}
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var jobs []*BatchJobRecord
+
+	for rows.Next() {
+		var job BatchJobRecord
+		var argsStr, envStr sql.NullString
+		var startedAt, completedAt sql.NullTime
+
+		err := rows.Scan(
+			&job.ID, &job.Target, &job.Command, &argsStr, &envStr,
+			&job.WorkingDir, &job.User, &job.Timeout, &job.Concurrency,
+			&job.Status, &job.CreatedAt, &startedAt, &completedAt,
+			&job.DurationMs, &job.TotalAgents, &job.CompletedAgents,
+			&job.SuccessfulAgents, &job.FailedAgents, &job.SuccessRate,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if argsStr.Valid {
+			json.Unmarshal([]byte(argsStr.String), &job.Args)
+		}
+		if envStr.Valid {
+			json.Unmarshal([]byte(envStr.String), &job.Env)
+		}
+		if startedAt.Valid {
+			t := startedAt.Time
+			job.StartedAt = &t
+		}
+		if completedAt.Valid {
+			t := completedAt.Time
+			job.CompletedAt = &t
+		}
+
+		jobs = append(jobs, &job)
+	}
+
+	return jobs, rows.Err()
+}
+
+// UpdateBatchJobStatus updates the status of a batch job
+func (s *SQLiteStore) UpdateBatchJobStatus(ctx context.Context, batchJobID string, status pb.BatchJobStatus) error {
+	query := `UPDATE batch_jobs SET status = ? WHERE id = ?`
+	_, err := s.db.ExecContext(ctx, query, status, batchJobID)
+	return err
+}
+
+// UpdateBatchJobProgress updates the progress of a batch job
+func (s *SQLiteStore) UpdateBatchJobProgress(ctx context.Context, batchJobID string, progress *BatchJobProgress) error {
+	query := `
+		UPDATE batch_jobs
+		SET total_agents = ?,
+		    completed_agents = ?,
+		    successful_agents = ?,
+		    failed_agents = ?,
+		    success_rate = ?,
+		    started_at = ?,
+		    completed_at = ?,
+		    duration_ms = ?
+		WHERE id = ?
+	`
+
+	_, err := s.db.ExecContext(ctx, query,
+		progress.TotalAgents,
+		progress.CompletedAgents,
+		progress.SuccessfulAgents,
+		progress.FailedAgents,
+		progress.SuccessRate,
+		progress.StartedAt,
+		progress.CompletedAt,
+		progress.DurationMs,
+		batchJobID,
+	)
+
+	return err
+}
+
+// SaveBatchAgentResult saves a batch agent result
+func (s *SQLiteStore) SaveBatchAgentResult(ctx context.Context, batchJobID string, result *BatchAgentResultRecord) error {
+	query := `
+		INSERT INTO batch_agent_results (
+			batch_job_id, agent_id, success, exit_code, error, duration_ms, created_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(batch_job_id, agent_id) DO UPDATE SET
+			success = excluded.success,
+			exit_code = excluded.exit_code,
+			error = excluded.error,
+			duration_ms = excluded.duration_ms
+	`
+
+	_, err := s.db.ExecContext(ctx, query,
+		batchJobID,
+		result.AgentID,
+		result.Success,
+		result.ExitCode,
+		result.Error,
+		result.DurationMs,
+		result.CreatedAt,
+	)
+
 	return err
 }
 
