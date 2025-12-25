@@ -10,14 +10,17 @@ This is the **design documentation repository** for TitanAnvil, a cloud-native r
 
 ## Project Status
 
-This repository contains the **complete implementation of Epic 1: Core Infrastructure**. The project has transitioned from design-only to a working implementation with:
+This repository contains working implementations of **Epic 1: Core Infrastructure** and **Epic 2: Remote Execution**. The project has transitioned from design-only to a working implementation with:
 
 - Full NATS integration (embedded, external, and leaf modes)
 - Working agent system with registration, heartbeat, and command execution
 - SQLite-based state management
+- Git-style plugin architecture for CLI extensibility
+- Cross-platform remote execution with targeting
+- Declarative state management foundation (Epic 3 Week 1)
 - Comprehensive test suite (>80% coverage across all core packages)
 
-**Current Status**: Epic 1 COMPLETE ✅ | Epic 2 IN PROGRESS (Week 1/4 complete)
+**Current Status**: Epic 1 COMPLETE ✅ | Epic 2 COMPLETE ✅ | Epic 3 IN PROGRESS (Week 1/4 complete)
 
 ## Repository Structure
 
@@ -82,49 +85,72 @@ TitanAnvil fills the gap between declarative GitOps tools and runtime operations
 - Production-ready state persistence
 - Extensive test coverage across all core packages
 
-### Epic 2: Remote Execution 🚧 IN PROGRESS
+### Epic 2: Remote Execution ✅ COMPLETE
 
-**Implementation Plan:** Phases 1-2 (Core Execution + Targeting System) over 4 weeks
+**All 4 weeks completed:**
+- Week 1: Foundation (plugin system, shell abstraction, enhanced executor)
+- Week 2: Targeting System (expression parser, agent matcher, batch execution)
+- Week 3: Integration (protobuf definitions, control plane dispatch, job tracking)
+- Week 4: CLI & E2E Testing (titananvil-exec plugin, integration tests)
 
-**Week 1: Foundation ✅ COMPLETE**
-- Plugin discovery system (pkg/plugin/)
-  - Automatic discovery of titananvil-* binaries in PATH
-  - Plugin execution with streaming I/O
-  - Test coverage: 82.7%
-- Shell abstraction layer (pkg/execution/shell.go)
-  - Cross-platform shell support (Bash, Sh, PowerShell, Cmd)
-  - Automatic default shell detection per OS
-  - Test coverage: 82.6%
-- Enhanced executor (pkg/execution/executor.go)
-  - Shell-based command execution
-  - Retry logic with configurable attempts and delays
-  - Improved cancellation (SIGTERM → SIGKILL with grace period)
-  - Test coverage: 84.1%
-- titanctl plugin integration
-  - Dynamic command discovery and dispatch
+**Test Coverage Achieved:**
+- pkg/plugin: 82.7%
+- pkg/execution: 82.6%
+- pkg/targeting: 84.2%
+- E2E integration tests: 100% pass rate
 
-**Week 2: Targeting System (PENDING)**
-- Target expression parser (pkg/targeting/parser.go)
-- Agent matcher with filtering (pkg/targeting/matcher.go)
-- Batch execution engine (pkg/targeting/batch.go)
-- Dependencies: github.com/expr-lang/expr, github.com/gobwas/glob
+**Key Achievements:**
+- Git-style plugin architecture for CLI extensibility
+- Cross-platform shell abstraction (Bash, PowerShell, Cmd)
+- Flexible targeting with glob and expression-based filtering
+- Parallel batch execution across multiple agents
+- Complete titananvil-exec plugin with streaming output
+- Comprehensive integration tests
 
-**Week 3: Integration (PENDING)**
-- Protobuf definitions for multi-agent execution
-- Control plane enhancements for parallel dispatch
-- State management extensions for job tracking
+### Epic 3: State Management & Configuration 🚧 IN PROGRESS
 
-**Week 4: CLI & E2E (PENDING)**
-- titananvil-exec plugin binary
-- End-to-end integration tests
-- Multi-agent execution scenarios
+**Implementation Plan:** 4 weeks
+
+**Week 1: State Definition & Parsing ✅ COMPLETE**
+- Complete type system (pkg/statemgmt/types.go)
+  - StateFile, StateDeclaration, Requisites structures
+  - StateResult, StateRun, RunSummary for execution tracking
+  - ValidationError, SourceType, StateFileFormat enums
+- YAML parser with includes (pkg/statemgmt/parser.go)
+  - Metadata, variables, and module-specific parameters
+  - Recursive include loading with circular dependency detection
+  - Source type abstraction (file://, http://, template://)
+- Schema-based validation (pkg/statemgmt/validator.go)
+  - Six module types: file, package, service, user, group, cmd
+  - Parameter validation (file mode, etc.)
+  - Requisite reference validation
+- Test coverage: 82.0% (22 tests passing)
+
+**Week 2: State Modules & Execution (PENDING)**
+- Idempotent state module implementations
+- File module (present, absent, directory, symlink)
+- Package module (installed, removed, latest, purged)
+- Service module (running, stopped, enabled, disabled)
+- User and group modules
+
+**Week 3: Dependency Resolution & Templating (PENDING)**
+- Dependency graph construction
+- Topological sorting for execution order
+- Template rendering engine
+- Variable substitution
+
+**Week 4: Drift Detection & CLI (PENDING)**
+- State comparison engine
+- Drift reporting
+- titananvil-state plugin CLI
+- Integration with control plane
 
 ## Epic Dependencies
 
 Implementation order:
 1. **Epic 1** (Core Infrastructure) - ✅ COMPLETE
-2. **Epic 2** (Remote Execution) - 🚧 IN PROGRESS (Week 1/4 complete) - Depends on Epic 1
-3. **Epic 3** (State Management) - Depends on Epic 1, 2
+2. **Epic 2** (Remote Execution) - ✅ COMPLETE
+3. **Epic 3** (State Management) - 🚧 IN PROGRESS (Week 1/4 complete) - Depends on Epic 1, 2
 4. **Epic 4** (Event System) - Depends on Epic 1
 5. **Epic 5** (GitOps Integration) - Depends on Epic 2, 3, 4
 6. **Epic 6** (Policy Enforcement) - Depends on Epic 2, 3, 4
