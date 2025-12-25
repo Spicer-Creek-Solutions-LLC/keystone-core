@@ -2,7 +2,7 @@
 
 ## Overview
 
-Implement declarative state management system that enables idempotent configuration of infrastructure, inspired by SaltStack states but with modern improvements for cloud-native environments.
+Implement declarative state management system that enables idempotent configuration of infrastructure, inspired by Salt Project states but with modern improvements for cloud-native environments.
 
 **Goal**: Provide a powerful, declarative configuration management system that can maintain desired state across diverse infrastructure with built-in idempotency, drift detection, and reconciliation.
 
@@ -488,7 +488,7 @@ k8s_deployments:
 - [ ] Dependency management guide
 - [ ] Drift detection setup
 - [ ] State organization patterns
-- [ ] Migration guide from SaltStack/Ansible
+- [ ] Migration guide from Salt Project/Ansible
 
 ## Definition of Done
 

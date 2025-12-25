@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Purpose
 
-This is the **design documentation repository** for TitanAnvil, a cloud-native runtime infrastructure control plane. TitanAnvil is positioned as the operational layer between GitOps/IaC deployments and runtime infrastructure, inspired by SaltStack but modernized for cloud-native environments.
+This is the **design documentation repository** for TitanAnvil, a cloud-native runtime infrastructure control plane. TitanAnvil is positioned as the operational layer between GitOps/IaC deployments and runtime infrastructure, inspired by Salt Project but modernized for cloud-native environments.
 
 **Key Concept**: "GitOps deploys it. We keep it running."
 
@@ -17,7 +17,7 @@ This repository contains the **complete implementation of Epic 1: Core Infrastru
 - SQLite-based state management
 - Comprehensive test suite (>80% coverage across all core packages)
 
-**Current Status**: Epic 1 COMPLETE ✅ | Ready for Epic 2 (Remote Execution)
+**Current Status**: Epic 1 COMPLETE ✅ | Epic 2 IN PROGRESS (Week 1/4 complete)
 
 ## Repository Structure
 
@@ -82,11 +82,48 @@ TitanAnvil fills the gap between declarative GitOps tools and runtime operations
 - Production-ready state persistence
 - Extensive test coverage across all core packages
 
+### Epic 2: Remote Execution 🚧 IN PROGRESS
+
+**Implementation Plan:** Phases 1-2 (Core Execution + Targeting System) over 4 weeks
+
+**Week 1: Foundation ✅ COMPLETE**
+- Plugin discovery system (pkg/plugin/)
+  - Automatic discovery of titananvil-* binaries in PATH
+  - Plugin execution with streaming I/O
+  - Test coverage: 82.7%
+- Shell abstraction layer (pkg/execution/shell.go)
+  - Cross-platform shell support (Bash, Sh, PowerShell, Cmd)
+  - Automatic default shell detection per OS
+  - Test coverage: 82.6%
+- Enhanced executor (pkg/execution/executor.go)
+  - Shell-based command execution
+  - Retry logic with configurable attempts and delays
+  - Improved cancellation (SIGTERM → SIGKILL with grace period)
+  - Test coverage: 84.1%
+- titanctl plugin integration
+  - Dynamic command discovery and dispatch
+
+**Week 2: Targeting System (PENDING)**
+- Target expression parser (pkg/targeting/parser.go)
+- Agent matcher with filtering (pkg/targeting/matcher.go)
+- Batch execution engine (pkg/targeting/batch.go)
+- Dependencies: github.com/expr-lang/expr, github.com/gobwas/glob
+
+**Week 3: Integration (PENDING)**
+- Protobuf definitions for multi-agent execution
+- Control plane enhancements for parallel dispatch
+- State management extensions for job tracking
+
+**Week 4: CLI & E2E (PENDING)**
+- titananvil-exec plugin binary
+- End-to-end integration tests
+- Multi-agent execution scenarios
+
 ## Epic Dependencies
 
-Implementation order (Epic 1 complete, ready for Epic 2):
+Implementation order:
 1. **Epic 1** (Core Infrastructure) - ✅ COMPLETE
-2. **Epic 2** (Remote Execution) - Depends on Epic 1
+2. **Epic 2** (Remote Execution) - 🚧 IN PROGRESS (Week 1/4 complete) - Depends on Epic 1
 3. **Epic 3** (State Management) - Depends on Epic 1, 2
 4. **Epic 4** (Event System) - Depends on Epic 1
 5. **Epic 5** (GitOps Integration) - Depends on Epic 2, 3, 4
@@ -97,7 +134,7 @@ Implementation order (Epic 1 complete, ready for Epic 2):
 
 ## Key Architectural Patterns
 
-### SaltStack-Like Features (Modernized)
+### Salt Project-Like Features (Modernized)
 - Remote execution with flexible targeting
 - Declarative state management (idempotent)
 - Event-driven reactor system

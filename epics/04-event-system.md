@@ -2,7 +2,7 @@
 
 ## Overview
 
-Implement a comprehensive event-driven automation system that enables reactive operations based on infrastructure events, inspired by SaltStack's reactor system but extended for cloud-native environments.
+Implement a comprehensive event-driven automation system that enables reactive operations based on infrastructure events, inspired by Salt Project's reactor system but extended for cloud-native environments.
 
 **Goal**: Create a powerful event bus and reactor system that enables automated responses to infrastructure events, integrating with external systems and enabling complex automation workflows.
 

@@ -4,7 +4,7 @@
 
 Implement a high-performance remote execution system that enables running commands, scripts, and executables across distributed infrastructure with real-time output streaming, targeting flexibility, and execution control.
 
-**Goal**: Provide a SaltStack-like remote execution experience with modern performance, security, and usability improvements.
+**Goal**: Provide a Salt Project-like remote execution experience with modern performance, security, and usability improvements.
 
 ## Success Criteria
 

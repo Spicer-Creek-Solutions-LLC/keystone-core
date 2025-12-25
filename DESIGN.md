@@ -212,9 +212,9 @@ TitanAnvil provides flexible storage options following the same zero-dependencie
 
 ## Feature Categories
 
-TitanAnvil combines proven SaltStack-like capabilities with modern cloud-native features:
+TitanAnvil combines proven Salt Project-like capabilities with modern cloud-native features:
 
-### Core SaltStack-Like Features
+### Core Salt Project-Like Features
 
 1. **Remote Execution** - Run commands across infrastructure instantly
 2. **State Management** - Declarative configuration with idempotent execution
@@ -566,7 +566,7 @@ SQLite             →    PostgreSQL
 - Event-driven automation
 - Better GitOps integration
 
-**vs. SaltStack**
+**vs. Salt Project**
 - Modern Go implementation (single binary)
 - Cloud-native first (K8s, service mesh)
 - Active development and community
