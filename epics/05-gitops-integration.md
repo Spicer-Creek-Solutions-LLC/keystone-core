@@ -25,7 +25,7 @@ Integrate TitanAnvil with GitOps workflows to provide runtime operations, deploy
 │              Git Repository (Source of Truth)            │
 │  • Application manifests (ArgoCD/Flux)                   │
 │  • TitanAnvil states and reactors                        │
-│  • Configuration and pillar data                         │
+│  • Configuration and vars data                           │
 └─────────────────┬────────────────────────────────────────┘
                   │
         ┌─────────┴─────────┐
@@ -195,7 +195,7 @@ git_repositories:
     sync_interval: 5m
     paths:
       states: states/
-      pillars: pillars/
+      vars: vars/
       reactors: reactors/
 
   - name: production-config
@@ -458,7 +458,7 @@ Deployment to production approved.
 **T4.2: Configuration Sync**
 - Load states from Git
 - Load reactors from Git
-- Load pillar data from Git
+- Load vars data from Git
 - Validate configurations
 - Hot-reload on changes
 

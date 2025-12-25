@@ -71,7 +71,7 @@ packages:
 files:
   /etc/nginx/nginx.conf:
     state: present
-    source: salt://nginx/nginx.conf
+    source: titan://nginx/nginx.conf
     user: root
     group: root
     mode: "0644"
@@ -133,7 +133,7 @@ Result: Reloaded (watched file changed)
 files:
   /app/config.yml:
     state: present
-    source: salt://app/config.yml
+    source: titan://app/config.yml
 
 services:
   app:
@@ -206,8 +206,8 @@ titanctl state drift --fix  # Auto-remediate
 **Acceptance Criteria**:
 - Template engine support (Go templates, Jinja2-like)
 - Variable substitution from multiple sources
-- Pillar data (secure configuration)
-- Grains (agent metadata)
+- Vars (configuration data)
+- Facts (agent metadata)
 - Environment-specific overrides
 - Conditional logic in templates
 
@@ -219,19 +219,19 @@ files:
     state: present
     contents: |
       database:
-        host: {{ pillar.db_host }}
-        port: {{ pillar.db_port }}
-      environment: {{ grains.environment }}
-      replicas: {{ pillar.replicas | default(3) }}
+        host: {{ vars.db_host }}
+        port: {{ vars.db_port }}
+      environment: {{ facts.environment }}
+      replicas: {{ vars.replicas | default(3) }}
 ```
 
 ```yaml
-# pillar/production.yaml
+# vars/production.yaml
 db_host: db.prod.example.com
 db_port: 5432
 replicas: 5
 
-# pillar/staging.yaml
+# vars/staging.yaml
 db_host: db.staging.example.com
 db_port: 5432
 replicas: 2
@@ -322,19 +322,19 @@ k8s_deployments:
 - Implement template caching
 - Add template debugging
 
-**T2.2: Pillar System**
-- Design pillar data structure
-- Implement pillar rendering
-- Support environment-based pillars
-- Add pillar encryption (optional)
-- Create pillar merging logic
+**T2.2: Vars System**
+- Design vars data structure
+- Implement vars rendering
+- Support environment-based vars
+- Add vars encryption (optional)
+- Create vars merging logic
 
-**T2.3: Grains System**
+**T2.3: Facts System**
 - Collect agent metadata (OS, arch, IP, etc.)
-- Support custom grains
-- Implement grain matching for targeting
-- Cache grains data
-- Allow grain refresh
+- Support custom facts
+- Implement fact matching for targeting
+- Cache facts data
+- Allow fact refresh
 
 ### Phase 3: State Modules (Week 4-5)
 
@@ -412,13 +412,13 @@ k8s_deployments:
 - `titanctl state compile` - Compile and validate
 - `titanctl state drift` - Detect drift
 - `titanctl state show` - Show compiled state
-- `titanctl pillar get` - View pillar data
+- `titanctl vars get` - View vars data
 
 **T6.2: API Endpoints**
 - `POST /api/v1/state/apply` - Apply state
 - `GET /api/v1/state/drift` - Get drift report
 - `POST /api/v1/state/compile` - Compile state
-- `GET /api/v1/pillar` - Get pillar data
+- `GET /api/v1/vars` - Get vars data
 
 ## Dependencies
 
@@ -439,7 +439,7 @@ k8s_deployments:
 | Circular dependencies | High | Low | Detect at compile time, clear errors |
 | State execution performance | Medium | Medium | Parallel execution, caching, profiling |
 | Module compatibility across OS | High | High | Extensive cross-platform testing |
-| Pillar data security | Critical | Medium | Encryption at rest, access controls |
+| Vars data security | Critical | Medium | Encryption at rest, access controls |
 
 ## Metrics & Monitoring
 
@@ -471,7 +471,7 @@ k8s_deployments:
 - Multi-state application
 - Cross-module dependencies
 - Drift detection and remediation
-- Template + pillar + grains integration
+- Template + vars + facts integration
 - Error scenarios
 
 ### Platform Tests
@@ -484,7 +484,7 @@ k8s_deployments:
 - [ ] State syntax reference
 - [ ] Module documentation for each module
 - [ ] Templating guide with examples
-- [ ] Pillar best practices
+- [ ] Vars best practices
 - [ ] Dependency management guide
 - [ ] Drift detection setup
 - [ ] State organization patterns

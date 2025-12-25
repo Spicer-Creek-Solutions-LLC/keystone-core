@@ -219,8 +219,8 @@ TitanAnvil combines proven Salt Project-like capabilities with modern cloud-nati
 1. **Remote Execution** - Run commands across infrastructure instantly
 2. **State Management** - Declarative configuration with idempotent execution
 3. **Event System** - Pub/sub event bus for system events
-4. **Targeting** - Flexible node selection (grains, roles, attributes)
-5. **Pillar System** - Secure configuration data distribution
+4. **Targeting** - Flexible node selection (facts, roles, attributes)
+5. **Vars System** - Configuration data distribution
 
 ### Modern Cloud-Native Features
 
