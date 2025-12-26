@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/titananvil/titan-anvil/pkg/events"
 )
 
 // DriftSeverity indicates the severity level of drift
@@ -106,6 +108,12 @@ type DriftSummary struct {
 type StateDiffer struct {
 	// Registry contains available modules
 	Registry *ModuleRegistry
+
+	// EventPublisher publishes events (optional)
+	EventPublisher events.EventPublisher
+
+	// EventSource identifies the source of events
+	EventSource string
 }
 
 // NewStateDiffer creates a new state differ
@@ -154,6 +162,11 @@ func (d *StateDiffer) CheckDrift(stateFile *StateFile) (*DriftReport, error) {
 		}
 
 		report.States = append(report.States, status)
+
+		// Emit drift event if drift detected
+		if status.HasDrift {
+			d.emitDriftEvent(report.RunID, status)
+		}
 	}
 
 	report.Duration = time.Since(startTime)
@@ -439,6 +452,63 @@ func CompareStates(desired, actual *StateDeclaration) []Difference {
 	}
 
 	return differences
+}
+
+// emitDriftEvent emits a drift event if EventPublisher is configured
+func (d *StateDiffer) emitDriftEvent(runID string, status *DriftStatus) {
+	if d.EventPublisher == nil {
+		return
+	}
+
+	source := d.EventSource
+	if source == "" {
+		source = "/state-manager"
+	}
+
+	// Map drift severity to event severity
+	eventSeverity := events.SeverityInfo
+	switch status.Severity {
+	case DriftCritical:
+		eventSeverity = events.SeverityCritical
+	case DriftHigh:
+		eventSeverity = events.SeverityError
+	case DriftMedium:
+		eventSeverity = events.SeverityWarning
+	case DriftLow:
+		eventSeverity = events.SeverityInfo
+	}
+
+	// Build differences data
+	diffs := make([]map[string]interface{}, 0, len(status.Differences))
+	for _, diff := range status.Differences {
+		diffs = append(diffs, map[string]interface{}{
+			"path":     diff.Path,
+			"desired":  diff.Desired,
+			"actual":   diff.Actual,
+			"severity": string(diff.Severity),
+			"message":  diff.Message,
+		})
+	}
+
+	event := events.NewEvent(events.EventTypeStateDrift).
+		Source(source).
+		Severity(eventSeverity).
+		Tag("state_id", status.StateID).
+		Tag("module", status.Module).
+		Tag("drift_severity", string(status.Severity)).
+		Data("run_id", runID).
+		Data("state_id", status.StateID).
+		Data("module", status.Module).
+		Data("has_drift", status.HasDrift).
+		Data("severity", string(status.Severity)).
+		Data("differences", diffs).
+		Data("checked_at", status.CheckedAt).
+		Build()
+
+	// Use async publish to avoid blocking drift detection
+	if err := d.EventPublisher.PublishAsync(event); err != nil {
+		fmt.Printf("Warning: failed to emit drift event: %v\n", err)
+	}
 }
 
 // generateRunID generates a unique run ID

@@ -8,6 +8,7 @@ import (
 
 	"github.com/nats-io/nats.go"
 	natsmgr "github.com/titananvil/titan-anvil/pkg/nats"
+	"github.com/titananvil/titan-anvil/pkg/events"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -38,6 +39,9 @@ type ConnectionManager struct {
 	// Configuration
 	heartbeatTimeout time.Duration
 	staleThreshold   int
+
+	// Event publishing
+	eventPublisher events.EventPublisher
 }
 
 // NewConnectionManager creates a new connection manager
@@ -148,6 +152,18 @@ func (cm *ConnectionManager) handleRegistration(msg *nats.Msg) {
 	info.HeartbeatMissed = 0
 	cm.mu.Unlock()
 
+	// Emit agent.connect event
+	if !exists {
+		cm.emitEvent(events.EventTypeAgentConnect, events.SeverityInfo, map[string]interface{}{
+			"agent_id":         req.AgentId,
+			"hostname":         req.Metadata.Hostname,
+			"os":               req.Metadata.Os,
+			"arch":             req.Metadata.Arch,
+			"ip_addresses":     req.Metadata.IpAddresses,
+			"platform_version": req.Metadata.PlatformVersion,
+		})
+	}
+
 	// Send registration response
 	resp := &pb.RegisterResponse{
 		AgentId:      req.AgentId,
@@ -230,7 +246,17 @@ func (cm *ConnectionManager) checkAgentHealth() {
 			if info.HeartbeatMissed >= cm.staleThreshold {
 				if info.Status != pb.AgentStatus_AGENT_STATUS_OFFLINE {
 					fmt.Printf("Agent %s marked as OFFLINE (no heartbeat for %s)\n", id, timeSinceHeartbeat)
+					previousStatus := info.Status
 					info.Status = pb.AgentStatus_AGENT_STATUS_OFFLINE
+
+					// Emit agent.disconnect event
+					cm.emitEvent(events.EventTypeAgentDisconnect, events.SeverityWarning, map[string]interface{}{
+						"agent_id":             id,
+						"hostname":             info.Metadata.GetHostname(),
+						"previous_status":      previousStatus.String(),
+						"heartbeat_missed":     info.HeartbeatMissed,
+						"time_since_heartbeat": timeSinceHeartbeat.Seconds(),
+					})
 				}
 			} else if info.Status != pb.AgentStatus_AGENT_STATUS_DEGRADED {
 				fmt.Printf("Agent %s marked as DEGRADED (heartbeat delayed)\n", id)
@@ -316,4 +342,41 @@ func (cm *ConnectionManager) SendCommand(agentID string, command *pb.ExecuteComm
 
 	fmt.Printf("Command %s sent to agent %s\n", command.CommandId, agentID)
 	return nil
+}
+
+// SetEventPublisher sets the event publisher for emitting events
+func (cm *ConnectionManager) SetEventPublisher(publisher events.EventPublisher) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	cm.eventPublisher = publisher
+}
+
+// emitEvent emits an event if EventPublisher is configured
+func (cm *ConnectionManager) emitEvent(eventType events.EventType, severity events.Severity, data map[string]interface{}) {
+	if cm.eventPublisher == nil {
+		return
+	}
+
+	// Extract correlation ID from data if present (use agent_id as correlation for agent events)
+	correlationID := ""
+	if aid, ok := data["agent_id"].(string); ok {
+		correlationID = "agent-" + aid
+	}
+
+	eventBuilder := events.NewEvent(eventType).
+		Source("/control-plane").
+		Severity(severity).
+		DataMap(data)
+
+	// Set correlation ID if available
+	if correlationID != "" {
+		eventBuilder = eventBuilder.CorrelationID(correlationID)
+	}
+
+	event := eventBuilder.Build()
+
+	// Use async publish to avoid blocking
+	if err := cm.eventPublisher.PublishAsync(event); err != nil {
+		fmt.Printf("Warning: failed to emit event %s: %v\n", eventType, err)
+	}
 }

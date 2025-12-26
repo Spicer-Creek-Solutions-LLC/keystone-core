@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/titananvil/titan-anvil/pkg/events"
 )
 
 // Executor executes state declarations
@@ -15,6 +16,12 @@ type Executor struct {
 
 	// DryRun indicates whether to only preview changes
 	DryRun bool
+
+	// EventPublisher publishes events (optional)
+	EventPublisher events.EventPublisher
+
+	// EventSource identifies the source of events
+	EventSource string
 }
 
 // NewExecutor creates a new executor
@@ -35,6 +42,13 @@ func (e *Executor) ExecuteState(ctx context.Context, stateFile *StateFile) (*Sta
 		Results:    make([]*StateResult, 0),
 	}
 
+	// Emit state.apply.start event
+	e.emitEvent(events.EventTypeStateApplyStart, events.SeverityInfo, map[string]interface{}{
+		"run_id":     run.RunID,
+		"state_file": stateFile.Path,
+		"dry_run":    e.DryRun,
+	})
+
 	// Resolve execution order based on dependencies
 	executionOrder, err := ResolveExecutionOrder(stateFile)
 	if err != nil {
@@ -44,6 +58,15 @@ func (e *Executor) ExecuteState(ctx context.Context, stateFile *StateFile) (*Sta
 			Failed:  1,
 			Success: false,
 		}
+
+		// Emit state.apply.fail event
+		e.emitEvent(events.EventTypeStateApplyFail, events.SeverityError, map[string]interface{}{
+			"run_id":     run.RunID,
+			"state_file": stateFile.Path,
+			"error":      err.Error(),
+			"reason":     "dependency resolution failed",
+		})
+
 		return run, fmt.Errorf("failed to resolve dependencies: %w", err)
 	}
 
@@ -70,16 +93,56 @@ func (e *Executor) ExecuteState(ctx context.Context, stateFile *StateFile) (*Sta
 		stateKey := decl.Module + ":" + decl.ID
 		stateResults[stateKey] = result
 
+		// Emit state.change event if state was changed
+		if result.Changed {
+			e.emitEvent(events.EventTypeStateChange, events.SeverityInfo, map[string]interface{}{
+				"run_id":   run.RunID,
+				"state_id": result.StateID,
+				"module":   result.Module,
+				"success":  result.Success,
+				"changed":  result.Changed,
+				"comment":  result.Comment,
+			})
+		}
+
 		// Check for fail_hard
 		if decl.FailHard && !result.Success {
 			run.EndTime = time.Now()
 			run.Summary = e.calculateSummary(run)
+
+			// Emit state.apply.fail event
+			e.emitEvent(events.EventTypeStateApplyFail, events.SeverityError, map[string]interface{}{
+				"run_id":     run.RunID,
+				"state_file": stateFile.Path,
+				"failed_state": result.StateID,
+				"error":      result.Error.Error(),
+				"reason":     "fail_hard triggered",
+			})
+
 			return run, fmt.Errorf("state %s.%s failed and fail_hard is set", decl.Module, decl.ID)
 		}
 	}
 
 	run.EndTime = time.Now()
 	run.Summary = e.calculateSummary(run)
+
+	// Emit state.apply.done event
+	severity := events.SeverityInfo
+	if run.Summary.Failed > 0 {
+		severity = events.SeverityWarning
+	}
+
+	e.emitEvent(events.EventTypeStateApplyDone, severity, map[string]interface{}{
+		"run_id":       run.RunID,
+		"state_file":   stateFile.Path,
+		"total":        run.Summary.Total,
+		"succeeded":    run.Summary.Succeeded,
+		"failed":       run.Summary.Failed,
+		"changed":      run.Summary.Changed,
+		"unchanged":    run.Summary.Unchanged,
+		"duration_ms":  run.EndTime.Sub(run.StartTime).Milliseconds(),
+		"dry_run":      e.DryRun,
+	})
 
 	return run, nil
 }
@@ -230,6 +293,42 @@ func (e *Executor) calculateSummary(run *StateRun) *RunSummary {
 	summary.Success = (summary.Failed == 0)
 
 	return summary
+}
+
+// emitEvent emits an event if EventPublisher is configured
+func (e *Executor) emitEvent(eventType events.EventType, severity events.Severity, data map[string]interface{}) {
+	if e.EventPublisher == nil {
+		return
+	}
+
+	source := e.EventSource
+	if source == "" {
+		source = "/state-manager"
+	}
+
+	// Extract correlation ID from data if present
+	correlationID := ""
+	if cid, ok := data["run_id"].(string); ok {
+		correlationID = cid
+	}
+
+	eventBuilder := events.NewEvent(eventType).
+		Source(source).
+		Severity(severity).
+		DataMap(data)
+
+	// Set correlation ID if available
+	if correlationID != "" {
+		eventBuilder = eventBuilder.CorrelationID(correlationID)
+	}
+
+	event := eventBuilder.Build()
+
+	// Use async publish to avoid blocking state execution
+	if err := e.EventPublisher.PublishAsync(event); err != nil {
+		// Log error but don't fail state execution
+		fmt.Printf("Warning: failed to emit event %s: %v\n", eventType, err)
+	}
 }
 
 // ApplyState is a convenience function to execute a state file

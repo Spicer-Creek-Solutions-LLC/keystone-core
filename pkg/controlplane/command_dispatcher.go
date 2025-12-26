@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	pb "github.com/titananvil/titan-anvil/pkg/api/v1"
+	"github.com/titananvil/titan-anvil/pkg/events"
 	"github.com/titananvil/titan-anvil/pkg/state"
 )
 
@@ -20,6 +21,9 @@ type CommandDispatcher struct {
 	mu               sync.RWMutex
 	pendingCommands  map[string]*CommandExecution
 	commandCallbacks map[string][]chan *pb.ExecuteCommandResponse
+
+	// Event publishing
+	eventPublisher events.EventPublisher
 }
 
 // CommandExecution tracks a command's execution state
@@ -112,6 +116,17 @@ func (cd *CommandDispatcher) ExecuteCommand(ctx context.Context, req *pb.Execute
 	// Update status to running
 	cd.store.UpdateCommandStatus(ctx, req.CommandId, pb.CommandStatus_COMMAND_STATUS_RUNNING)
 
+	// Emit job.start event
+	cd.emitEvent(events.EventTypeJobStart, events.SeverityInfo, map[string]interface{}{
+		"job_id":      req.CommandId,
+		"agent_id":    req.AgentId,
+		"command":     req.Command,
+		"args":        req.Args,
+		"working_dir": req.WorkingDir,
+		"user":        req.User,
+		"timeout":     req.Timeout,
+	})
+
 	fmt.Printf("Command %s dispatched to agent %s\n", req.CommandId, req.AgentId)
 
 	return responseChan, nil
@@ -189,6 +204,32 @@ func (cd *CommandDispatcher) HandleCommandResponse(resp *pb.ExecuteCommandRespon
 			fmt.Printf("Failed to update command result: %v\n", err)
 		}
 
+		// Emit job completion or failure event
+		if status == pb.CommandStatus_COMMAND_STATUS_COMPLETED {
+			cd.emitEvent(events.EventTypeJobComplete, events.SeverityInfo, map[string]interface{}{
+				"job_id":      resp.CommandId,
+				"agent_id":    exec.AgentID,
+				"exit_code":   resp.ExitCode,
+				"duration_ms": result.DurationMs,
+				"stdout_len":  len(stdout),
+				"stderr_len":  len(stderr),
+			})
+		} else {
+			severity := events.SeverityError
+			if status == pb.CommandStatus_COMMAND_STATUS_TIMEOUT {
+				severity = events.SeverityWarning
+			}
+
+			cd.emitEvent(events.EventTypeJobFail, severity, map[string]interface{}{
+				"job_id":      resp.CommandId,
+				"agent_id":    exec.AgentID,
+				"exit_code":   resp.ExitCode,
+				"error":       resp.Error,
+				"status":      status.String(),
+				"duration_ms": result.DurationMs,
+			})
+		}
+
 		fmt.Printf("Command %s completed with status: %s\n", resp.CommandId, status)
 	} else {
 		cd.mu.Unlock()
@@ -203,4 +244,41 @@ func (cd *CommandDispatcher) GetCommand(ctx context.Context, commandID string) (
 // ListCommands lists command history
 func (cd *CommandDispatcher) ListCommands(ctx context.Context, filter *state.CommandFilter) ([]*state.CommandRecord, error) {
 	return cd.store.ListCommands(ctx, filter)
+}
+
+// SetEventPublisher sets the event publisher for emitting events
+func (cd *CommandDispatcher) SetEventPublisher(publisher events.EventPublisher) {
+	cd.mu.Lock()
+	defer cd.mu.Unlock()
+	cd.eventPublisher = publisher
+}
+
+// emitEvent emits an event if EventPublisher is configured
+func (cd *CommandDispatcher) emitEvent(eventType events.EventType, severity events.Severity, data map[string]interface{}) {
+	if cd.eventPublisher == nil {
+		return
+	}
+
+	// Extract correlation ID from data if present (use job_id as correlation)
+	correlationID := ""
+	if jid, ok := data["job_id"].(string); ok {
+		correlationID = jid
+	}
+
+	eventBuilder := events.NewEvent(eventType).
+		Source("/control-plane").
+		Severity(severity).
+		DataMap(data)
+
+	// Set correlation ID if available
+	if correlationID != "" {
+		eventBuilder = eventBuilder.CorrelationID(correlationID)
+	}
+
+	event := eventBuilder.Build()
+
+	// Use async publish to avoid blocking
+	if err := cd.eventPublisher.PublishAsync(event); err != nil {
+		fmt.Printf("Warning: failed to emit event %s: %v\n", eventType, err)
+	}
 }

@@ -18,9 +18,10 @@ This repository contains working implementations of **Epic 1: Core Infrastructur
 - Git-style plugin architecture for CLI extensibility
 - Cross-platform remote execution with targeting
 - Declarative state management with drift detection and CLI (Epic 3 complete)
-- Comprehensive test suite (>80% coverage across all core packages)
+- Event-driven automation with filtering, routing, enrichment, reactors, external integration, persistent storage, and monitoring (Epic 4 complete)
+- Comprehensive test suite (>79% coverage across all core packages)
 
-**Current Status**: Epic 1 COMPLETE ✅ | Epic 2 COMPLETE ✅ | Epic 3 COMPLETE ✅
+**Current Status**: Epic 1 COMPLETE ✅ | Epic 2 COMPLETE ✅ | Epic 3 COMPLETE ✅ | Epic 4 COMPLETE ✅
 
 ## Repository Structure
 
@@ -205,13 +206,305 @@ TitanAnvil fills the gap between declarative GitOps tools and runtime operations
   - 20 drift detection tests
   - 6 integration tests (5 workflow + 1 version)
 
+### Epic 4: Event-Driven Automation System ✅ COMPLETE
+
+**Implementation Plan:** 8 weeks (All weeks complete)
+
+**Week 1: Event Bus Foundation (Part 1) ✅ COMPLETE**
+- Event schema definition (pkg/events/types.go)
+  - 15 event types across 4 categories (agent, job, state, user, system)
+  - 5 severity levels (debug, info, warning, error, critical)
+  - Event structure with ID, type, source, time, severity, correlation ID, tags, data
+  - Event filtering with multiple criteria (type, source, tags, severity, time range)
+  - Event builder with fluent API
+- Test coverage: 11 tests passing
+  - Event builder functionality
+  - Type, source, tag, severity, time range filtering
+  - Multiple criteria filtering
+  - Severity level comparison
+
+**Week 1: Event Bus Foundation (Part 2) ✅ COMPLETE**
+- NATS JetStream integration (pkg/events/publisher.go, subscriber.go, manager.go)
+  - JetStreamPublisher with sync/async publish
+  - JetStreamSubscriber with wildcard and queue subscriptions
+  - Automatic stream creation and configuration
+  - Durable consumers with manual ack and retry
+  - Event filtering at subscriber level
+- JSON serialization for events
+- Event Manager for simplified API
+- Test coverage: 80.7% (36 tests passing)
+  - Publisher tests (9 tests)
+  - Subscriber tests (8 tests)
+  - Integration tests (8 tests)
+  - Types tests (11 tests from Part 1)
+
+**CloudEvents adapter - DEFERRED to Week 3**
+
+**Week 2: Event Emission from Operations ✅ COMPLETE**
+- State management event emission (pkg/statemgmt/executor.go, diff.go) ✅
+  - state.apply.start - emitted when state execution begins
+  - state.apply.done - emitted when execution completes (with summary)
+  - state.apply.fail - emitted on execution failure
+  - state.change - emitted when state resources change
+  - state.drift - emitted when drift is detected (with severity mapping)
+- Control plane event emission (pkg/controlplane/connection_manager.go) ✅
+  - agent.connect - emitted when agents register (with full metadata)
+  - agent.disconnect - emitted when agents go offline (with diagnostics)
+- Job execution event emission (pkg/controlplane/command_dispatcher.go) ✅
+  - job.start - emitted when command is dispatched
+  - job.complete - emitted when command succeeds
+  - job.fail - emitted when command fails/times out
+- Event correlation IDs ✅
+  - State operations: correlated by run_id
+  - Job operations: correlated by job_id
+  - Agent operations: correlated by agent-{agent_id}
+- Async publishing used throughout to avoid blocking operations
+
+**Week 3: Event Filtering and Routing ✅ COMPLETE**
+- Advanced filter expression parser (pkg/events/filter_expression.go) ✅
+  - Comparison operators: ==, !=, >, >=, <, <=, =~, ~~, contains
+  - Logical operators: AND, OR, NOT with proper precedence
+  - Field access: type, source, severity, correlation_id, tags.*, data.*
+  - Regex and glob pattern matching
+  - Severity level comparison (debug < info < warning < error < critical)
+- Event router with routing rules (pkg/events/router.go) ✅
+  - Rule-based event routing with filters
+  - Priority-based rule ordering
+  - Enable/disable rules dynamically
+  - StopOnMatch for routing control
+  - Comprehensive routing metrics (events processed/matched/unmatched, per-rule stats)
+  - Async routing support
+- Fan-out patterns for multiple consumers ✅
+  - FanOut - synchronous fan-out to multiple handlers
+  - FanOutAsync - parallel async fan-out
+  - FilterHandler - conditional handler execution
+  - ConditionalHandler - if/else handler logic
+  - ChainHandlers - sequential handler composition
+- Event enrichment pipeline (pkg/events/enrichment.go) ✅
+  - TagEnricher - add static tags to events
+  - DataEnricher - add static data fields
+  - FunctionEnricher - custom enrichment logic
+  - ConditionalEnricher - conditional enrichment based on filters
+  - TimestampEnricher - add timestamp fields
+  - HostnameEnricher - add hostname information
+  - SequenceNumberEnricher - add sequence numbers
+  - ContextEnricher - extract from context.Context
+  - ChainEnrichers - compose multiple enrichers
+  - EnrichedPublisher - wrapper for automatic enrichment
+- Test coverage: 83.7% (95 tests passing)
+  - Filter expression tests (35 tests)
+  - Router tests (13 tests)
+  - Fan-out and composition tests (6 tests)
+  - Enrichment tests (25 tests)
+  - Integration tests (16 tests from Week 1-2)
+
+**Week 4-5: Reactor System ✅ COMPLETE**
+- Reactor engine for automated event responses (pkg/events/reactor.go) ✅
+  - Rule-based event processing with filter expressions
+  - Priority-based reactor ordering
+  - Enable/disable reactors dynamically
+  - Concurrent execution control (MaxConcurrent)
+  - Timeout support for action execution
+  - Error handling strategies (continue, stop, retry)
+  - Advanced conditions: OnlyIf, Unless, Throttle, Debounce, MaxExecutions
+  - Comprehensive metrics tracking (per-reactor and global)
+  - Event emission for reactor execution (reactor.execute, reactor.action)
+- Built-in actions (pkg/events/actions.go) ✅
+  - LogAction - log event information
+  - EventAction - emit new events
+  - WebhookAction - HTTP POST to external services
+  - CommandAction - execute shell commands
+  - FunctionAction - custom function execution
+  - ConditionalAction - conditional execution based on filters
+  - SequenceAction - execute actions in sequence
+  - ParallelAction - execute actions in parallel
+  - DelayAction - introduce delays
+  - RetryAction - retry failed actions with exponential backoff
+- Throttling and debouncing ✅
+  - Throttle - minimum time between executions
+  - Debounce - wait for quiet period before executing
+  - Per-reactor execution limits and time windows
+- Test coverage: 81.8% (30 reactor tests + 16 action tests)
+  - Reactor engine tests (14 tests)
+  - Reactor conditions tests (throttle, debounce, concurrent, error handling)
+  - Action tests (16 tests covering all action types)
+  - Integration with filter expressions and event system
+
+**Week 6: External Integration ✅ COMPLETE**
+- CloudEvents 1.0 adapter (pkg/events/cloudevents.go)
+  - CloudEvent struct with required/optional attributes and extensions
+  - Custom JSON marshaling/unmarshaling for extension attributes
+  - ToCloudEvent/FromCloudEvent conversion functions
+  - CloudEventPublisher/CloudEventSubscriber wrappers
+  - HTTPCloudEventHandler for receiving CloudEvents via HTTP
+  - ValidateCloudEvent for spec compliance
+  - CloudEventBatch for batch operations
+  - 12 tests covering conversion, validation, round-trips, JSON marshaling
+- Kafka publisher and subscriber (pkg/events/kafka.go)
+  - KafkaPublisher with sync and async publishing
+  - KafkaSubscriber with consumer group support
+  - Support for both CloudEvents and native format
+  - SASL/TLS authentication support
+  - Configurable compression (Snappy, LZ4, Gzip)
+  - 10 tests covering publishing, subscribing, parsing, configuration
+- Event bridge for external systems (pkg/events/bridge.go)
+  - Bridge for routing events between different systems
+  - Support for filtering and transformation
+  - Retry logic with exponential backoff
+  - BridgeManager for managing multiple bridges
+  - Comprehensive metrics tracking
+  - 12 tests covering forwarding, filtering, transformation, retry, manager
+- HTTP event receiver for webhooks (pkg/events/http.go)
+  - HTTPReceiver with support for single and batch events
+  - Support for both CloudEvents and native format
+  - HMAC signature verification for security
+  - Health check and metrics endpoints
+  - HTTPSender for sending events via HTTP
+  - 17 tests covering receiver, sender, signatures, integration
+- Test coverage: 75.8% (60 new tests across all integration components)
+
+**Week 7: Event Storage and Query ✅ COMPLETE**
+- Event storage interfaces (pkg/events/storage.go)
+  - EventStore interface for persistence operations
+  - EventQuery with fluent API for building queries
+  - RetentionPolicy with age, count, and severity-based retention
+  - StorageMetrics for tracking storage statistics
+  - EventReplay interface for event replay capabilities
+- SQLite event store implementation (pkg/events/storage_sqlite.go)
+  - Schema with indexes on type, source, severity, time, correlation_id
+  - Store/StoreBatch for efficient event persistence
+  - Query with multiple filters: type, source, severity, correlation ID, time range
+  - Pagination and sorting support
+  - Retention policy application (MaxAge, MaxCount, MinSeverity)
+  - Auto-retention background goroutine
+  - GetMetrics for storage statistics
+  - Event replay functionality
+- Comprehensive query API
+  - Filter by event type, source, severity, tags, correlation ID
+  - Time range queries with start/end times
+  - Pagination with limit/offset
+  - Sorting by time, type, severity (asc/desc)
+  - Count queries for aggregations
+- Retention policies
+  - Time-based retention (MaxAge)
+  - Count-based retention (MaxCount - keeps most recent)
+  - Severity-based retention (MinSeverity - delete low severity events)
+  - Per-type retention policies
+  - Automatic background retention with configurable interval
+- Event replay capabilities
+  - Replay events matching query criteria
+  - Replay from specific time
+  - Replay within time range
+  - Custom event handler for replay processing
+- Test coverage: 76.3% (20 comprehensive tests covering all storage operations)
+  - Store/batch operations
+  - Query filtering (type, source, severity, time, correlation ID)
+  - Pagination and sorting
+  - Delete operations
+  - All retention policies
+  - Metrics collection
+  - Event replay
+  - Auto-retention background process
+  - Benchmarks for store and query operations
+
+**Week 8: Monitoring and Observability ✅ COMPLETE**
+- Metrics collection system (pkg/events/metrics.go)
+  - MetricsCollector interface for recording all event operations
+  - DefaultMetricsCollector implementation with comprehensive tracking
+  - Metrics struct tracking:
+    - Event counts (published, received, processed, failed by type)
+    - Events by severity (debug, info, warning, error, critical)
+    - Publisher/subscriber errors and active subscribers
+    - Reactor executions, failures, and durations
+    - Action executions, failures, and durations
+    - Storage operations, failures, and durations
+    - Processing duration statistics (min, max, avg, P50, P95, P99)
+    - System stats (uptime, event rate, last event time)
+  - DurationStats with percentile calculations (P50, P95, P99)
+    - Rolling window of last 1000 durations for accurate percentiles
+    - Min, max, avg, total tracking
+    - Concurrent-safe with RWMutex
+- Health check system (pkg/events/metrics.go)
+  - HealthChecker interface for component health monitoring
+  - HealthMonitor for managing multiple health checks
+  - Health statuses: healthy, degraded, unhealthy
+  - EventSystemHealthCheck - monitors event system health
+    - Check for recent events (age threshold)
+    - Monitor error rates (publisher/subscriber errors)
+    - Configurable thresholds
+  - StorageHealthCheck - monitors storage backend health
+    - Query timeout protection (5 second timeout)
+    - Detects database connectivity issues
+    - Goroutine-based health check with timeout
+- Prometheus metrics exporter (pkg/events/prometheus.go)
+  - PrometheusExporter for standard Prometheus text format
+  - All metrics exported with HELP and TYPE comments
+  - Counter metrics:
+    - titananvil_events_published_total (by type)
+    - titananvil_events_received_total (by type)
+    - titananvil_events_processed_total (by type)
+    - titananvil_events_failed_total (by type)
+    - titananvil_events_severity_total (by severity)
+    - titananvil_publisher_errors_total
+    - titananvil_subscriber_errors_total
+    - titananvil_reactor_executions_total (by reactor)
+    - titananvil_reactor_failures_total (by reactor)
+    - titananvil_action_executions_total (by type and name)
+    - titananvil_action_failures_total (by type and name)
+    - titananvil_storage_operations_total (by operation)
+    - titananvil_storage_failures_total (by operation)
+  - Summary metrics with quantiles (P50, P95, P99):
+    - titananvil_reactor_duration_seconds (by reactor)
+    - titananvil_event_processing_duration_seconds
+  - Gauge metrics:
+    - titananvil_active_subscribers
+    - titananvil_uptime_seconds
+    - titananvil_event_rate (events/sec)
+    - titananvil_last_event_timestamp_seconds
+  - ExportString() for easy string output
+- Human-readable metrics summary (pkg/events/prometheus.go)
+  - MetricsSummary with aggregated statistics
+  - Top 10 event types by count (sorted descending)
+  - Error rate calculation (failed / total attempted * 100)
+  - Average processing time
+  - FormatSummary for formatted text output
+- Test coverage: 79.3% (58 new tests)
+  - Metrics collector tests (15 tests)
+    - All recording methods (events, reactors, actions, storage)
+    - Uptime and event rate calculations
+    - Concurrency safety tests
+  - Duration statistics tests (3 tests)
+    - Record tracking (min/max/avg/total)
+    - Percentile calculations (P50, P95, P99)
+    - Rolling window management (1000 recent values)
+  - Health monitoring tests (8 tests)
+    - Health check registration/unregistration
+    - Overall status aggregation
+    - Event system health checks (healthy/degraded states)
+    - Storage health checks (healthy/unhealthy states)
+  - Prometheus exporter tests (14 tests)
+    - All metric types exported correctly
+    - Proper Prometheus format with HELP/TYPE comments
+    - Summary metrics with quantiles
+    - Edge cases (empty metrics, missing data)
+  - Metrics summary tests (5 tests)
+    - Summary calculation and aggregation
+    - Top event types sorting and limiting
+    - Error rate calculation
+    - Formatted output
+  - Benchmark tests (13 tests)
+    - Metrics recording performance
+    - Duration stats recording
+    - Prometheus export performance
+    - Summary generation performance
+
 ## Epic Dependencies
 
 Implementation order:
 1. **Epic 1** (Core Infrastructure) - ✅ COMPLETE
 2. **Epic 2** (Remote Execution) - ✅ COMPLETE
 3. **Epic 3** (State Management) - ✅ COMPLETE
-4. **Epic 4** (Event System) - Depends on Epic 1
+4. **Epic 4** (Event System) - ✅ COMPLETE (All 8 weeks) - Depends on Epic 1
 5. **Epic 5** (GitOps Integration) - Depends on Epic 2, 3, 4
 6. **Epic 6** (Policy Enforcement) - Depends on Epic 2, 3, 4
 7. **Epic 7** (Observability) - Instruments all epics
