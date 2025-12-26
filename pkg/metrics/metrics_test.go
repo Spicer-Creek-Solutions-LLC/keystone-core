@@ -1,0 +1,367 @@
+package metrics
+
+import (
+	"testing"
+	"time"
+
+	"github.com/prometheus/client_golang/prometheus/testutil"
+	"strings"
+)
+
+func TestPrometheusCollectorCounter(t *testing.T) {
+	collector := NewPrometheusCollector()
+
+	// Register a counter
+	err := collector.RegisterMetric(MetricDefinition{
+		Name:   "test_counter_total",
+		Type:   MetricTypeCounter,
+		Help:   "Test counter",
+		Labels: []string{"label1", "label2"},
+	})
+	if err != nil {
+		t.Fatalf("Failed to register counter: %v", err)
+	}
+
+	// Increment counter
+	collector.IncCounter("test_counter_total", map[string]string{
+		"label1": "value1",
+		"label2": "value2",
+	})
+
+	// Add to counter
+	collector.AddCounter("test_counter_total", 5.0, map[string]string{
+		"label1": "value1",
+		"label2": "value2",
+	})
+
+	// Verify counter value
+	expected := `
+		# HELP test_counter_total Test counter
+		# TYPE test_counter_total counter
+		test_counter_total{label1="value1",label2="value2"} 6
+	`
+	if err := testutil.CollectAndCompare(collector.registry, strings.NewReader(expected), "test_counter_total"); err != nil {
+		t.Errorf("Counter mismatch: %v", err)
+	}
+}
+
+func TestPrometheusCollectorGauge(t *testing.T) {
+	collector := NewPrometheusCollector()
+
+	// Register a gauge
+	err := collector.RegisterMetric(MetricDefinition{
+		Name:   "test_gauge",
+		Type:   MetricTypeGauge,
+		Help:   "Test gauge",
+		Labels: []string{"label"},
+	})
+	if err != nil {
+		t.Fatalf("Failed to register gauge: %v", err)
+	}
+
+	// Set gauge
+	collector.SetGauge("test_gauge", 10.5, map[string]string{"label": "value"})
+
+	// Increment gauge
+	collector.IncGauge("test_gauge", map[string]string{"label": "value"})
+
+	// Decrement gauge
+	collector.DecGauge("test_gauge", map[string]string{"label": "value"})
+
+	// Verify gauge value (10.5 + 1 - 1 = 10.5)
+	expected := `
+		# HELP test_gauge Test gauge
+		# TYPE test_gauge gauge
+		test_gauge{label="value"} 10.5
+	`
+	if err := testutil.CollectAndCompare(collector.registry, strings.NewReader(expected), "test_gauge"); err != nil {
+		t.Errorf("Gauge mismatch: %v", err)
+	}
+}
+
+func TestPrometheusCollectorHistogram(t *testing.T) {
+	collector := NewPrometheusCollector()
+
+	// Register a histogram
+	err := collector.RegisterMetric(MetricDefinition{
+		Name:    "test_histogram_seconds",
+		Type:    MetricTypeHistogram,
+		Help:    "Test histogram",
+		Labels:  []string{"status"},
+		Buckets: []float64{0.1, 0.5, 1.0, 5.0},
+	})
+	if err != nil {
+		t.Fatalf("Failed to register histogram: %v", err)
+	}
+
+	// Observe values
+	collector.ObserveHistogram("test_histogram_seconds", 0.05, map[string]string{"status": "success"})
+	collector.ObserveHistogram("test_histogram_seconds", 0.3, map[string]string{"status": "success"})
+	collector.ObserveHistogram("test_histogram_seconds", 0.7, map[string]string{"status": "success"})
+
+	// Count buckets
+	count := testutil.CollectAndCount(collector.registry, "test_histogram_seconds")
+	if count == 0 {
+		t.Error("Histogram not collected")
+	}
+}
+
+func TestPrometheusCollectorDuration(t *testing.T) {
+	collector := NewPrometheusCollector()
+
+	// Register a histogram for duration
+	err := collector.RegisterMetric(MetricDefinition{
+		Name:   "test_duration_seconds",
+		Type:   MetricTypeHistogram,
+		Help:   "Test duration",
+		Labels: []string{"operation"},
+	})
+	if err != nil {
+		t.Fatalf("Failed to register histogram: %v", err)
+	}
+
+	// Record duration
+	duration := 250 * time.Millisecond
+	collector.RecordDuration("test_duration_seconds", duration, map[string]string{
+		"operation": "test",
+	})
+
+	// Verify histogram was recorded
+	count := testutil.CollectAndCount(collector.registry, "test_duration_seconds")
+	if count == 0 {
+		t.Error("Duration not recorded")
+	}
+}
+
+func TestTimer(t *testing.T) {
+	collector := NewPrometheusCollector()
+
+	// Register metric
+	err := collector.RegisterMetric(MetricDefinition{
+		Name:   "test_operation_seconds",
+		Type:   MetricTypeHistogram,
+		Help:   "Test operation duration",
+		Labels: []string{"status"},
+	})
+	if err != nil {
+		t.Fatalf("Failed to register metric: %v", err)
+	}
+
+	// Create and use timer
+	timer := NewTimer(collector, "test_operation_seconds", map[string]string{})
+	time.Sleep(10 * time.Millisecond)
+	timer.ObserveDurationWithLabels(map[string]string{"status": "success"})
+
+	// Verify timer recorded
+	count := testutil.CollectAndCount(collector.registry, "test_operation_seconds")
+	if count == 0 {
+		t.Error("Timer duration not recorded")
+	}
+}
+
+func TestControlPlaneCollector(t *testing.T) {
+	promCollector := NewPrometheusCollector()
+	if err := InitializeStandardMetrics(promCollector); err != nil {
+		t.Fatalf("Failed to initialize metrics: %v", err)
+	}
+
+	cpCollector := NewControlPlaneCollector(promCollector)
+
+	// Record API request
+	cpCollector.RecordAPIRequest("GET", "/api/v1/agents", "200", 50*time.Millisecond)
+
+	// Set agents connected
+	cpCollector.SetAgentsConnected("us-east-1", "web", 10)
+
+	// Record agent disconnect
+	cpCollector.RecordAgentDisconnect()
+
+	// Record command execution
+	cpCollector.RecordCommandExecution("success", 2*time.Second)
+
+	// Record state application
+	cpCollector.RecordStateApplication("success", 5*time.Second)
+
+	// Record policy evaluation
+	cpCollector.RecordPolicyEvaluation("security-policy", "allowed")
+
+	// Record events
+	cpCollector.RecordEventPublished("agent.connect")
+	cpCollector.RecordEventProcessed("agent.connect")
+
+	// Verify metrics were recorded
+	count := testutil.CollectAndCount(promCollector.registry)
+	if count == 0 {
+		t.Error("No metrics collected")
+	}
+}
+
+func TestAgentCollector(t *testing.T) {
+	promCollector := NewPrometheusCollector()
+	if err := InitializeStandardMetrics(promCollector); err != nil {
+		t.Fatalf("Failed to initialize metrics: %v", err)
+	}
+
+	agentCollector := NewAgentCollector(promCollector)
+
+	agentID := "agent-001"
+
+	// Record heartbeat
+	agentCollector.RecordHeartbeat(agentID)
+
+	// Record resource usage
+	agentCollector.RecordCPUUsage(agentID, 45.5)
+	agentCollector.RecordMemoryUsage(agentID, 1024*1024*512) // 512 MB
+	agentCollector.RecordDiskUsage(agentID, 1024*1024*1024*10) // 10 GB
+
+	// Record operations
+	agentCollector.RecordCommandExecuted(agentID, "success")
+	agentCollector.RecordStateApplied(agentID, "success")
+
+	// Verify metrics
+	count := testutil.CollectAndCount(promCollector.registry)
+	if count == 0 {
+		t.Error("No agent metrics collected")
+	}
+}
+
+func TestStateCollector(t *testing.T) {
+	promCollector := NewPrometheusCollector()
+	if err := InitializeStandardMetrics(promCollector); err != nil {
+		t.Fatalf("Failed to initialize metrics: %v", err)
+	}
+
+	stateCollector := NewStateCollector(promCollector)
+
+	// Set resource count
+	stateCollector.SetResourceCount("file", "applied", 50)
+
+	// Record drift detection
+	stateCollector.RecordDriftDetection("nginx-config")
+
+	// Record state change
+	stateCollector.RecordStateChange("file")
+
+	// Verify metrics
+	count := testutil.CollectAndCount(promCollector.registry)
+	if count == 0 {
+		t.Error("No state metrics collected")
+	}
+}
+
+func TestGitOpsCollector(t *testing.T) {
+	promCollector := NewPrometheusCollector()
+	if err := InitializeStandardMetrics(promCollector); err != nil {
+		t.Fatalf("Failed to initialize metrics: %v", err)
+	}
+
+	gitopsCollector := NewGitOpsCollector(promCollector)
+
+	// Record webhook
+	gitopsCollector.RecordWebhookReceived("argocd")
+
+	// Record verification
+	gitopsCollector.RecordDeploymentVerified("success")
+
+	// Record rollback
+	gitopsCollector.RecordRollbackTriggered()
+
+	// Verify metrics
+	count := testutil.CollectAndCount(promCollector.registry)
+	if count == 0 {
+		t.Error("No GitOps metrics collected")
+	}
+}
+
+func TestPolicyCollector(t *testing.T) {
+	promCollector := NewPrometheusCollector()
+	if err := InitializeStandardMetrics(promCollector); err != nil {
+		t.Fatalf("Failed to initialize metrics: %v", err)
+	}
+
+	policyCollector := NewPolicyCollector(promCollector)
+
+	// Record violation
+	policyCollector.RecordViolation("security-001", "high")
+
+	// Record remediation
+	policyCollector.RecordRemediation("security-001", "success")
+
+	// Set compliance score
+	policyCollector.SetComplianceScore("PCI-DSS", 95.5)
+
+	// Verify metrics
+	count := testutil.CollectAndCount(promCollector.registry)
+	if count == 0 {
+		t.Error("No policy metrics collected")
+	}
+}
+
+func TestDuplicateMetricRegistration(t *testing.T) {
+	collector := NewPrometheusCollector()
+
+	def := MetricDefinition{
+		Name:   "test_duplicate",
+		Type:   MetricTypeCounter,
+		Help:   "Test duplicate",
+		Labels: []string{},
+	}
+
+	// Register once - should succeed
+	err := collector.RegisterMetric(def)
+	if err != nil {
+		t.Fatalf("First registration failed: %v", err)
+	}
+
+	// Register again - should fail
+	err = collector.RegisterMetric(def)
+	if err == nil {
+		t.Error("Expected error on duplicate registration")
+	}
+}
+
+func TestUnknownMetricType(t *testing.T) {
+	collector := NewPrometheusCollector()
+
+	def := MetricDefinition{
+		Name:   "test_unknown",
+		Type:   MetricType("unknown"),
+		Help:   "Test unknown type",
+		Labels: []string{},
+	}
+
+	err := collector.RegisterMetric(def)
+	if err == nil {
+		t.Error("Expected error for unknown metric type")
+	}
+}
+
+func TestCounterIncNonExistent(t *testing.T) {
+	collector := NewPrometheusCollector()
+
+	// Try to increment non-existent counter - should not panic
+	collector.IncCounter("non_existent", map[string]string{})
+}
+
+func TestGaugeSetNonExistent(t *testing.T) {
+	collector := NewPrometheusCollector()
+
+	// Try to set non-existent gauge - should not panic
+	collector.SetGauge("non_existent", 10.0, map[string]string{})
+}
+
+func TestHistogramObserveNonExistent(t *testing.T) {
+	collector := NewPrometheusCollector()
+
+	// Try to observe non-existent histogram - should not panic
+	collector.ObserveHistogram("non_existent", 1.0, map[string]string{})
+}
+
+func TestMetricHandler(t *testing.T) {
+	collector := NewPrometheusCollector()
+
+	handler := collector.Handler()
+	if handler == nil {
+		t.Error("Expected non-nil handler")
+	}
+}

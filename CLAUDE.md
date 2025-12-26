@@ -875,6 +875,131 @@ TitanAnvil fills the gap between declarative GitOps tools and runtime operations
   - Top violations ranking
   - Policy aggregation and statistics
 
+### Epic 7: Observability & Monitoring 🚧 IN PROGRESS
+
+**Implementation Plan:** 6 phases
+
+**Phase 1: Metrics ✅ COMPLETE**
+- Metrics infrastructure (pkg/metrics/types.go)
+  - Collector interface for metrics collection
+  - IncCounter(), AddCounter(), SetGauge(), IncGauge(), DecGauge()
+  - ObserveHistogram(), ObserveSummary(), RecordDuration()
+  - MetricType enum (counter, gauge, histogram, summary)
+  - MetricDefinition with name, type, help, labels, buckets, objectives
+  - MetricRegistry interface for metric management
+  - Timer helper for timing operations
+  - DefaultBuckets for histograms (1ms to 10s)
+  - DefaultObjectives for summaries (P50, P90, P95, P99)
+- Prometheus implementation (pkg/metrics/prometheus.go)
+  - PrometheusCollector implementing Collector interface
+  - RegisterMetric() for metric registration with Prometheus
+  - Thread-safe operations with mutex locks
+  - Support for CounterVec, GaugeVec, HistogramVec, SummaryVec
+  - Handler() for /metrics HTTP endpoint
+  - Registry() for accessing underlying Prometheus registry
+  - Automatic default buckets/objectives
+- Standard metrics (pkg/metrics/collectors.go)
+  - 28 standard TitanAnvil metrics defined
+  - Control plane metrics: API requests, agents, commands, states, policies, events
+  - Agent metrics: heartbeat, CPU/memory/disk usage, commands, states
+  - State management metrics: resources, drift, changes
+  - GitOps metrics: webhooks, verifications, rollbacks
+  - Policy metrics: violations, remediations, compliance score
+  - InitializeStandardMetrics() for bulk registration
+- Specialized collectors (pkg/metrics/collectors.go)
+  - ControlPlaneCollector for control plane operations
+    - RecordAPIRequest(), SetAgentsConnected(), RecordAgentDisconnect()
+    - RecordCommandExecution(), RecordStateApplication()
+    - RecordPolicyEvaluation(), RecordEventPublished/Processed()
+  - AgentCollector for agent operations
+    - RecordHeartbeat(), RecordCPUUsage(), RecordMemoryUsage(), RecordDiskUsage()
+    - RecordCommandExecuted(), RecordStateApplied()
+  - StateCollector for state management
+    - SetResourceCount(), RecordDriftDetection(), RecordStateChange()
+  - GitOpsCollector for GitOps operations
+    - RecordWebhookReceived(), RecordDeploymentVerified(), RecordRollbackTriggered()
+  - PolicyCollector for policy operations
+    - RecordViolation(), RecordRemediation(), SetComplianceScore()
+- Test coverage: 82.5% (16 tests passing)
+  - Counter, gauge, histogram, summary operations
+  - Duration recording and timer functionality
+  - All specialized collectors (control plane, agent, state, GitOps, policy)
+  - Duplicate registration handling
+  - Unknown metric type handling
+  - Non-existent metric operations (graceful degradation)
+  - HTTP handler functionality
+
+**Phase 2: Logging ✅ COMPLETE**
+- Logging infrastructure (pkg/logging/types.go)
+  - Logger interface for structured logging
+  - Debug(), Info(), Warn(), Error() methods
+  - WithFields(), WithCorrelationID(), WithContext() for logger chaining
+  - SetLevel(), GetLevel() for log level management
+  - Level enum (Debug, Info, Warn, Error) with String() and ParseLevel()
+  - Entry structure with timestamp, level, logger, message, correlation ID, fields
+  - Field structure for key-value pairs
+  - Field constructors: String(), Int(), Int64(), Float64(), Bool(), Duration(), Time(), Error(), Any()
+  - Fields() helper for bulk field creation from key-value pairs
+  - Formatter interface for pluggable formatters
+  - Output interface for pluggable outputs
+  - WriterOutput wrapping io.Writer
+  - SamplingConfig for high-volume log sampling
+  - Config with level, name, formatter, outputs, sampling, caller info
+- Formatters (pkg/logging/formatters.go)
+  - JSONFormatter: JSON format with optional pretty-printing
+  - LogfmtFormatter: logfmt format (key=value pairs)
+  - TextFormatter: Human-readable text with optional colors
+  - ANSI color support for different log levels (red=error, yellow=warn, blue=info, gray=debug)
+  - Automatic quoting in logfmt for values with spaces/special chars
+  - Sorted field output for consistent formatting
+- Correlation ID management (pkg/logging/correlation.go)
+  - GenerateCorrelationID(): Generate unique correlation IDs
+  - ContextWithCorrelationID(): Add correlation ID to context
+  - CorrelationIDFromContext(): Extract correlation ID from context
+  - EnsureCorrelationID(): Get or generate correlation ID
+  - Crypto-random ID generation with counter fallback
+- Structured logger implementation (pkg/logging/logger.go)
+  - StructuredLogger implementing Logger interface
+  - NewLogger() with full configuration
+  - NewDefaultLogger() with sensible defaults
+  - Thread-safe operations with read/write mutex
+  - Log level filtering
+  - Sampling support for high-volume scenarios
+  - Multiple output support (write to multiple destinations)
+  - Base field inheritance for child loggers
+  - Context-aware logging with correlation ID extraction
+  - Close() for cleanup
+  - Global default logger with package-level functions
+  - SetDefault(), Default() for global logger management
+- Package-level logging functions
+  - Debug(), Info(), Warn(), ErrorLog() using default logger
+  - WithFields(), WithCorrelationID(), WithContext() shortcuts
+- Test coverage: 75.2% (20 tests passing)
+  - Log level string conversion and parsing
+  - JSON formatter (with and without correlation ID)
+  - Logfmt formatter
+  - Text formatter
+  - Correlation ID generation and context management
+  - Structured logger operations (all log levels)
+  - Log level filtering
+  - Logger chaining with fields
+  - Logger with correlation ID
+  - Logger with context
+  - Field constructors (all types)
+  - Error field handling
+  - Fields helper
+  - WriterOutput
+  - Default logger operations
+  - SetLevel/GetLevel
+
+**Phase 3: Tracing** (Pending)
+
+**Phase 4: Dashboards** (Pending)
+
+**Phase 5: Health & Status** (Pending)
+
+**Phase 6: Advanced Features** (Pending)
+
 ## Epic Dependencies
 
 Implementation order:
