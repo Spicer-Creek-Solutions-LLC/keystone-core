@@ -7,7 +7,10 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/titananvil/titan-anvil/cmd/titananvil-monitor/client"
 	"github.com/titananvil/titan-anvil/cmd/titananvil-monitor/config"
+	monitorEvents "github.com/titananvil/titan-anvil/cmd/titananvil-monitor/events"
+	"github.com/titananvil/titan-anvil/pkg/events"
 )
 
 // View represents the different views in the TUI
@@ -26,8 +29,10 @@ const (
 
 // Model is the main Bubble Tea model
 type Model struct {
-	ctx    context.Context
-	config *config.Config
+	ctx             context.Context
+	config          *config.Config
+	client          *client.Client
+	eventSubscriber *monitorEvents.Subscriber
 
 	// Current view
 	currentView View
@@ -56,19 +61,26 @@ type Model struct {
 
 // NewProgram creates a new Bubble Tea program
 func NewProgram(ctx context.Context, cfg *config.Config) (*tea.Program, error) {
+	// Create gRPC client for control plane
+	cli, err := client.New(ctx, cfg.ControlPlane)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to control plane: %w", err)
+	}
+
 	model := &Model{
 		ctx:         ctx,
 		config:      cfg,
+		client:      cli,
 		currentView: ViewDashboard,
 	}
 
 	// Initialize view models
-	model.dashboard = NewDashboardModel(cfg)
-	model.agents = NewAgentsModel(cfg)
+	model.dashboard = NewDashboardModel(cfg, cli)
+	model.agents = NewAgentsModel(cfg, cli)
 	model.events = NewEventsModel(cfg)
 	model.stateDrift = NewStateDriftModel(cfg)
 	model.policyViolations = NewPolicyViolationsModel(cfg)
-	model.jobs = NewJobsModel(cfg)
+	model.jobs = NewJobsModel(cfg, cli)
 	model.logs = NewLogsModel(cfg)
 	model.metrics = NewMetricsModel(cfg)
 
@@ -78,6 +90,20 @@ func NewProgram(ctx context.Context, cfg *config.Config) (*tea.Program, error) {
 		tea.WithAltScreen(),       // Use alternate screen buffer
 		tea.WithMouseCellMotion(), // Enable mouse support
 	)
+
+	// Create event subscriber (needs program reference for sending events)
+	eventSub, err := monitorEvents.New(ctx, cfg.NATSURL, p)
+	if err != nil {
+		// Log warning but don't fail - events are optional
+		fmt.Printf("Warning: failed to create event subscriber: %v\n", err)
+	} else {
+		model.eventSubscriber = eventSub
+
+		// Subscribe to all events
+		if err := eventSub.Subscribe("*"); err != nil {
+			fmt.Printf("Warning: failed to subscribe to events: %v\n", err)
+		}
+	}
 
 	return p, nil
 }
@@ -100,6 +126,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
+			// Clean up connections
+			if m.client != nil {
+				m.client.Close()
+			}
+			if m.eventSubscriber != nil {
+				m.eventSubscriber.Close()
+			}
 			return m, tea.Quit
 
 		case "?":
@@ -150,6 +183,24 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case errMsg:
 		m.err = error(msg)
+		return m, nil
+
+	case monitorEvents.EventMsg:
+		// Forward event to all views that need it
+		if msg.Event != nil {
+			// Dashboard gets all events for recent events display
+			m.dashboard.AddEvent(msg.Event)
+
+			// Events view gets all events
+			m.events.Update(msg)
+
+			// Agents view gets agent events for real-time updates
+			if msg.Event.Type == events.EventTypeAgentConnect ||
+				msg.Event.Type == events.EventTypeAgentDisconnect ||
+				msg.Event.Type == events.EventTypeAgentHeartbeat {
+				m.agents.Update(msg)
+			}
+		}
 		return m, nil
 	}
 
