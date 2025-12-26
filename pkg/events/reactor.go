@@ -6,6 +6,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/titananvil/titan-anvil/pkg/tracing"
 )
 
 // Action represents an automated action that can be executed in response to an event
@@ -311,6 +313,18 @@ func (e *ReactorEngine) DisableReactor(id string) error {
 
 // ProcessEvent processes an event through all reactors
 func (e *ReactorEngine) ProcessEvent(event *Event) error {
+	// Start tracing span for event processing
+	ctx, span := tracing.StartEventSpan(e.ctx, tracing.SpanEventProcess,
+		tracing.StringAttr(tracing.AttrEventType, string(event.Type)),
+		tracing.StringAttr("event.source", event.Source),
+	)
+	defer span.End()
+
+	// Add correlation ID if present
+	if event.CorrelationID != "" {
+		tracing.SetAttributes(span, tracing.StringAttr("event.correlation_id", event.CorrelationID))
+	}
+
 	atomic.AddUint64(&e.metrics.EventsEvaluated, 1)
 
 	e.mu.RLock()
@@ -322,15 +336,20 @@ func (e *ReactorEngine) ProcessEvent(event *Event) error {
 	}
 	e.mu.RUnlock()
 
+	tracing.SetAttributes(span, tracing.IntAttr("event.reactors_count", len(reactors)))
+
 	// Sort by priority (highest first)
 	sortReactorsByPriority(reactors)
 
+	matchedCount := 0
 	var lastErr error
 	for _, reactor := range reactors {
 		// Check if event matches filter
 		if !reactor.Filter.Matches(event) {
 			continue
 		}
+
+		matchedCount++
 
 		// Track matched event
 		e.metrics.mu.RLock()
@@ -339,16 +358,32 @@ func (e *ReactorEngine) ProcessEvent(event *Event) error {
 		atomic.AddUint64(&metrics.EventsMatched, 1)
 
 		// Execute reactor
-		if err := e.executeReactor(reactor, event); err != nil {
+		if err := e.executeReactor(ctx, reactor, event); err != nil {
 			lastErr = err
 		}
+	}
+
+	tracing.SetAttributes(span, tracing.IntAttr("event.reactors_matched", matchedCount))
+
+	if lastErr != nil {
+		tracing.RecordError(span, lastErr)
+	} else {
+		tracing.RecordSuccess(span, fmt.Sprintf("processed event with %d reactor matches", matchedCount))
 	}
 
 	return lastErr
 }
 
 // executeReactor executes a single reactor for an event
-func (e *ReactorEngine) executeReactor(reactor *Reactor, event *Event) error {
+func (e *ReactorEngine) executeReactor(ctx context.Context, reactor *Reactor, event *Event) error {
+	// Start tracing span for reactor execution
+	ctx, span := tracing.StartEventSpan(ctx, tracing.SpanReactorExecute,
+		tracing.StringAttr("reactor.id", reactor.ID),
+		tracing.StringAttr("reactor.name", reactor.Name),
+		tracing.IntAttr("reactor.priority", reactor.Priority),
+	)
+	defer span.End()
+
 	e.executionMu.RLock()
 	exec := e.executions[reactor.ID]
 	e.executionMu.RUnlock()

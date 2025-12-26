@@ -10,6 +10,7 @@ import (
 	pb "github.com/titananvil/titan-anvil/pkg/api/v1"
 	"github.com/titananvil/titan-anvil/pkg/events"
 	"github.com/titananvil/titan-anvil/pkg/state"
+	"github.com/titananvil/titan-anvil/pkg/tracing"
 )
 
 // CommandDispatcher handles command execution and tracking
@@ -54,15 +55,42 @@ func (cd *CommandDispatcher) ExecuteCommand(ctx context.Context, req *pb.Execute
 		req.CommandId = uuid.New().String()
 	}
 
+	// Start tracing span
+	ctx, span := tracing.StartControlPlaneSpan(ctx, tracing.SpanCommandExecute,
+		tracing.StringAttr(tracing.AttrAgentID, req.AgentId),
+		tracing.StringAttr(tracing.AttrJobID, req.CommandId),
+		tracing.StringAttr(tracing.AttrJobCommand, req.Command),
+	)
+	defer span.End()
+
+	// Add additional attributes
+	if len(req.Args) > 0 {
+		tracing.SetAttributes(span, tracing.StringSliceAttr("command.args", req.Args))
+	}
+	if req.WorkingDir != "" {
+		tracing.SetAttributes(span, tracing.StringAttr("command.working_dir", req.WorkingDir))
+	}
+	if req.Timeout > 0 {
+		tracing.SetAttributes(span, tracing.Int64Attr("command.timeout", int64(req.Timeout)))
+	}
+
 	// Validate agent exists and is online
 	agent, err := cd.connMgr.GetAgent(req.AgentId)
 	if err != nil {
+		tracing.RecordError(span, err)
 		return nil, fmt.Errorf("agent not found: %w", err)
 	}
 
 	if agent.Status == pb.AgentStatus_AGENT_STATUS_OFFLINE {
-		return nil, fmt.Errorf("agent %s is offline", req.AgentId)
+		err := fmt.Errorf("agent %s is offline", req.AgentId)
+		tracing.RecordError(span, err)
+		return nil, err
 	}
+
+	tracing.SetAttributes(span,
+		tracing.StringAttr(tracing.AttrAgentHostname, agent.Metadata.GetHostname()),
+		tracing.StringAttr("agent.status", agent.Status.String()),
+	)
 
 	// Create command record
 	cmdRecord := &state.CommandRecord{
@@ -80,8 +108,11 @@ func (cd *CommandDispatcher) ExecuteCommand(ctx context.Context, req *pb.Execute
 
 	// Save to database
 	if err := cd.store.SaveCommand(ctx, cmdRecord); err != nil {
-		return nil, fmt.Errorf("failed to save command: %w", err)
+		err = fmt.Errorf("failed to save command: %w", err)
+		tracing.RecordError(span, err)
+		return nil, err
 	}
+	tracing.AddEvent(span, "command_saved_to_db")
 
 	// Track execution
 	exec := &CommandExecution{
@@ -103,18 +134,21 @@ func (cd *CommandDispatcher) ExecuteCommand(ctx context.Context, req *pb.Execute
 	cd.commandCallbacks[req.CommandId] = append(cd.commandCallbacks[req.CommandId], responseChan)
 	cd.mu.Unlock()
 
-	// Send command to agent
-	if err := cd.connMgr.SendCommand(req.AgentId, req); err != nil {
+	// Send command to agent (pass context for tracing)
+	if err := cd.connMgr.SendCommandWithContext(ctx, req.AgentId, req); err != nil {
 		cd.mu.Lock()
 		delete(cd.pendingCommands, req.CommandId)
 		delete(cd.commandCallbacks, req.CommandId)
 		cd.mu.Unlock()
 		close(responseChan)
+		tracing.RecordError(span, err)
 		return nil, fmt.Errorf("failed to send command: %w", err)
 	}
+	tracing.AddEvent(span, "command_sent_to_agent")
 
 	// Update status to running
 	cd.store.UpdateCommandStatus(ctx, req.CommandId, pb.CommandStatus_COMMAND_STATUS_RUNNING)
+	tracing.RecordSuccess(span, "command dispatched successfully")
 
 	// Emit job.start event
 	cd.emitEvent(events.EventTypeJobStart, events.SeverityInfo, map[string]interface{}{
@@ -134,13 +168,29 @@ func (cd *CommandDispatcher) ExecuteCommand(ctx context.Context, req *pb.Execute
 
 // HandleCommandResponse processes command responses from agents
 func (cd *CommandDispatcher) HandleCommandResponse(resp *pb.ExecuteCommandResponse) {
+	cd.HandleCommandResponseWithContext(context.Background(), resp)
+}
+
+// HandleCommandResponseWithContext processes command responses from agents with context
+func (cd *CommandDispatcher) HandleCommandResponseWithContext(ctx context.Context, resp *pb.ExecuteCommandResponse) {
+	ctx, span := tracing.StartControlPlaneSpan(ctx, "command.response",
+		tracing.StringAttr(tracing.AttrJobID, resp.CommandId),
+		tracing.StringAttr("response.type", resp.Type.String()),
+	)
+	defer span.End()
+
 	cd.mu.Lock()
 	exec, exists := cd.pendingCommands[resp.CommandId]
 	if !exists {
 		cd.mu.Unlock()
 		fmt.Printf("Received response for unknown command: %s\n", resp.CommandId)
+		tracing.AddEvent(span, "unknown_command")
 		return
 	}
+
+	tracing.SetAttributes(span,
+		tracing.StringAttr(tracing.AttrAgentID, exec.AgentID),
+	)
 
 	exec.Results = append(exec.Results, resp)
 
@@ -170,6 +220,8 @@ func (cd *CommandDispatcher) HandleCommandResponse(resp *pb.ExecuteCommandRespon
 
 		cd.mu.Unlock()
 
+		tracing.AddEvent(span, "command_completed")
+
 		// Update database
 		status := pb.CommandStatus_COMMAND_STATUS_COMPLETED
 		if resp.Type == pb.CommandResponseType_COMMAND_RESPONSE_TYPE_FAILED {
@@ -177,6 +229,11 @@ func (cd *CommandDispatcher) HandleCommandResponse(resp *pb.ExecuteCommandRespon
 		} else if resp.Type == pb.CommandResponseType_COMMAND_RESPONSE_TYPE_TIMEOUT {
 			status = pb.CommandStatus_COMMAND_STATUS_TIMEOUT
 		}
+
+		tracing.SetAttributes(span,
+			tracing.StringAttr(tracing.AttrJobStatus, status.String()),
+			tracing.IntAttr(tracing.AttrJobExitCode, int(resp.ExitCode)),
+		)
 
 		// Collect all output
 		var stdout, stderr string
@@ -199,9 +256,13 @@ func (cd *CommandDispatcher) HandleCommandResponse(resp *pb.ExecuteCommandRespon
 			DurationMs:  time.Since(exec.CreatedAt).Milliseconds(),
 		}
 
-		ctx := context.Background()
+		tracing.SetAttributes(span,
+			tracing.Int64Attr(tracing.AttrJobDuration, result.DurationMs),
+		)
+
 		if err := cd.store.UpdateCommandResult(ctx, resp.CommandId, result); err != nil {
 			fmt.Printf("Failed to update command result: %v\n", err)
+			tracing.RecordError(span, err)
 		}
 
 		// Emit job completion or failure event
@@ -214,6 +275,7 @@ func (cd *CommandDispatcher) HandleCommandResponse(resp *pb.ExecuteCommandRespon
 				"stdout_len":  len(stdout),
 				"stderr_len":  len(stderr),
 			})
+			tracing.RecordSuccess(span, "command completed successfully")
 		} else {
 			severity := events.SeverityError
 			if status == pb.CommandStatus_COMMAND_STATUS_TIMEOUT {
@@ -228,6 +290,17 @@ func (cd *CommandDispatcher) HandleCommandResponse(resp *pb.ExecuteCommandRespon
 				"status":      status.String(),
 				"duration_ms": result.DurationMs,
 			})
+
+			// Record error for failed/timeout commands
+			if status == pb.CommandStatus_COMMAND_STATUS_FAILED {
+				if resp.Error != "" {
+					tracing.RecordErrorWithMessage(span, fmt.Errorf("command failed"), resp.Error)
+				} else {
+					tracing.RecordErrorWithMessage(span, fmt.Errorf("command failed"), fmt.Sprintf("exit code %d", resp.ExitCode))
+				}
+			} else if status == pb.CommandStatus_COMMAND_STATUS_TIMEOUT {
+				tracing.RecordErrorWithMessage(span, fmt.Errorf("command timeout"), "command exceeded timeout")
+			}
 		}
 
 		fmt.Printf("Command %s completed with status: %s\n", resp.CommandId, status)

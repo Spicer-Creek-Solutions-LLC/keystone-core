@@ -9,6 +9,7 @@ import (
 	"github.com/nats-io/nats.go"
 	natsmgr "github.com/titananvil/titan-anvil/pkg/nats"
 	"github.com/titananvil/titan-anvil/pkg/events"
+	"github.com/titananvil/titan-anvil/pkg/tracing"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -123,12 +124,25 @@ func (cm *ConnectionManager) subscribeToHeartbeats() error {
 
 // handleRegistration processes agent registration requests
 func (cm *ConnectionManager) handleRegistration(msg *nats.Msg) {
+	// Extract trace context from NATS message
+	ctx := tracing.ExtractTraceContext(cm.ctx, msg)
+	ctx, span := tracing.StartControlPlaneSpan(ctx, tracing.SpanAgentConnect)
+	defer span.End()
+
 	// Parse registration request
 	var req pb.RegisterRequest
 	if err := proto.Unmarshal(msg.Data, &req); err != nil {
 		fmt.Printf("Failed to unmarshal registration request: %v\n", err)
+		tracing.RecordError(span, err)
 		return
 	}
+
+	// Add span attributes
+	tracing.SetAttributes(span,
+		tracing.StringAttr(tracing.AttrAgentID, req.AgentId),
+		tracing.StringAttr(tracing.AttrAgentHostname, req.Metadata.GetHostname()),
+		tracing.StringAttr(tracing.AttrAgentOS, req.Metadata.GetOs()),
+	)
 
 	fmt.Printf("Agent registration request: ID=%s, Hostname=%s\n", req.AgentId, req.Metadata.Hostname)
 
@@ -183,26 +197,50 @@ func (cm *ConnectionManager) handleRegistration(msg *nats.Msg) {
 
 	// Reply to registration request
 	if msg.Reply != "" {
-		if err := cm.nats.Publish(msg.Reply, data); err != nil {
+		// Create reply message with trace context
+		replyMsg := &nats.Msg{
+			Subject: msg.Reply,
+			Data:    data,
+			Header:  nats.Header{},
+		}
+		tracing.InjectTraceContext(ctx, replyMsg)
+
+		if err := cm.nats.Conn().PublishMsg(replyMsg); err != nil {
 			fmt.Printf("Failed to send registration response: %v\n", err)
+			tracing.RecordError(span, err)
+		} else {
+			tracing.RecordSuccess(span, "agent registered successfully")
 		}
 	}
 }
 
 // handleHeartbeat processes agent heartbeat messages
 func (cm *ConnectionManager) handleHeartbeat(msg *nats.Msg) {
+	// Extract trace context from NATS message
+	ctx := tracing.ExtractTraceContext(cm.ctx, msg)
+	ctx, span := tracing.StartControlPlaneSpan(ctx, tracing.SpanAgentHeartbeat)
+	defer span.End()
+
 	// Parse heartbeat request
 	var req pb.HeartbeatRequest
 	if err := proto.Unmarshal(msg.Data, &req); err != nil {
 		fmt.Printf("Failed to unmarshal heartbeat: %v\n", err)
+		tracing.RecordError(span, err)
 		return
 	}
+
+	// Add span attributes
+	tracing.SetAttributes(span,
+		tracing.StringAttr(tracing.AttrAgentID, req.AgentId),
+		tracing.StringAttr("agent.status", req.Status.String()),
+	)
 
 	cm.mu.Lock()
 	info, exists := cm.agents[req.AgentId]
 	if !exists {
 		cm.mu.Unlock()
 		fmt.Printf("Heartbeat from unknown agent: %s\n", req.AgentId)
+		tracing.AddEvent(span, "unknown_agent")
 		return
 	}
 
@@ -212,6 +250,8 @@ func (cm *ConnectionManager) handleHeartbeat(msg *nats.Msg) {
 	info.LastMetrics = req.Metrics
 	info.HeartbeatMissed = 0
 	cm.mu.Unlock()
+
+	tracing.RecordSuccess(span, "heartbeat processed")
 }
 
 // monitorAgents periodically checks agent health
@@ -318,29 +358,61 @@ func (cm *ConnectionManager) GetOnlineAgentCount() int {
 
 // SendCommand sends a command to a specific agent
 func (cm *ConnectionManager) SendCommand(agentID string, command *pb.ExecuteCommandRequest) error {
+	return cm.SendCommandWithContext(cm.ctx, agentID, command)
+}
+
+// SendCommandWithContext sends a command to a specific agent with context
+func (cm *ConnectionManager) SendCommandWithContext(ctx context.Context, agentID string, command *pb.ExecuteCommandRequest) error {
+	ctx, span := tracing.StartControlPlaneSpan(ctx, tracing.SpanCommandDispatch,
+		tracing.StringAttr(tracing.AttrAgentID, agentID),
+		tracing.StringAttr(tracing.AttrJobID, command.CommandId),
+		tracing.StringAttr(tracing.AttrJobCommand, command.Command),
+	)
+	defer span.End()
+
 	// Check if agent exists and is online
 	info, err := cm.GetAgent(agentID)
 	if err != nil {
+		tracing.RecordError(span, err)
 		return err
 	}
 
 	if info.Status == pb.AgentStatus_AGENT_STATUS_OFFLINE {
-		return fmt.Errorf("agent %s is offline", agentID)
+		err := fmt.Errorf("agent %s is offline", agentID)
+		tracing.RecordError(span, err)
+		return err
 	}
+
+	tracing.SetAttributes(span,
+		tracing.StringAttr(tracing.AttrAgentHostname, info.Metadata.GetHostname()),
+		tracing.StringAttr("agent.status", info.Status.String()),
+	)
 
 	// Serialize command
 	data, err := proto.Marshal(command)
 	if err != nil {
-		return fmt.Errorf("failed to marshal command: %w", err)
+		err = fmt.Errorf("failed to marshal command: %w", err)
+		tracing.RecordError(span, err)
+		return err
 	}
 
-	// Send command to agent-specific subject
+	// Send command to agent-specific subject with trace context
 	subject := fmt.Sprintf("titan.agent.%s.command", agentID)
-	if err := cm.nats.Publish(subject, data); err != nil {
-		return fmt.Errorf("failed to send command: %w", err)
+	msg := &nats.Msg{
+		Subject: subject,
+		Data:    data,
+		Header:  nats.Header{},
+	}
+	tracing.InjectTraceContext(ctx, msg)
+
+	if err := cm.nats.Conn().PublishMsg(msg); err != nil {
+		err = fmt.Errorf("failed to send command: %w", err)
+		tracing.RecordError(span, err)
+		return err
 	}
 
 	fmt.Printf("Command %s sent to agent %s\n", command.CommandId, agentID)
+	tracing.RecordSuccess(span, "command dispatched to agent")
 	return nil
 }
 

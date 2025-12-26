@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
+	"github.com/titananvil/titan-anvil/pkg/tracing"
 )
 
 const (
@@ -97,6 +98,19 @@ func (p *JetStreamPublisher) Publish(event *Event) error {
 		return fmt.Errorf("event is nil")
 	}
 
+	// Start tracing span
+	ctx, span := tracing.StartEventSpan(p.ctx, tracing.SpanEventPublish,
+		tracing.StringAttr(tracing.AttrEventType, string(event.Type)),
+		tracing.StringAttr("event.source", event.Source),
+		tracing.StringAttr("event.severity", string(event.Severity)),
+	)
+	defer span.End()
+
+	// Add correlation ID if present
+	if event.CorrelationID != "" {
+		tracing.SetAttributes(span, tracing.StringAttr("event.correlation_id", event.CorrelationID))
+	}
+
 	// Set subject if not already set
 	if event.Subject == "" {
 		event.Subject = buildSubject(event.Type)
@@ -105,16 +119,23 @@ func (p *JetStreamPublisher) Publish(event *Event) error {
 	// Serialize event to JSON
 	data, err := json.Marshal(event)
 	if err != nil {
+		tracing.RecordError(span, err)
 		return fmt.Errorf("failed to marshal event: %w", err)
 	}
 
 	// Publish to JetStream
 	subject := fmt.Sprintf("%s.%s", SubjectPrefix, event.Subject)
+	tracing.SetAttributes(span, tracing.StringAttr("event.subject", subject))
+
 	_, err = p.js.Publish(subject, data)
 	if err != nil {
+		tracing.RecordError(span, err)
 		return fmt.Errorf("failed to publish event to %s: %w", subject, err)
 	}
 
+	tracing.RecordSuccess(span, "event published successfully")
+	// Extract context for potential propagation
+	_ = ctx
 	return nil
 }
 
@@ -131,6 +152,19 @@ func (p *JetStreamPublisher) PublishAsync(event *Event) error {
 		return fmt.Errorf("event is nil")
 	}
 
+	// Start tracing span
+	ctx, span := tracing.StartEventSpan(p.ctx, "event.publish.async",
+		tracing.StringAttr(tracing.AttrEventType, string(event.Type)),
+		tracing.StringAttr("event.source", event.Source),
+		tracing.StringAttr("event.severity", string(event.Severity)),
+	)
+	defer span.End()
+
+	// Add correlation ID if present
+	if event.CorrelationID != "" {
+		tracing.SetAttributes(span, tracing.StringAttr("event.correlation_id", event.CorrelationID))
+	}
+
 	// Set subject if not already set
 	if event.Subject == "" {
 		event.Subject = buildSubject(event.Type)
@@ -139,15 +173,23 @@ func (p *JetStreamPublisher) PublishAsync(event *Event) error {
 	// Serialize event to JSON
 	data, err := json.Marshal(event)
 	if err != nil {
+		tracing.RecordError(span, err)
 		return fmt.Errorf("failed to marshal event: %w", err)
 	}
 
 	// Publish asynchronously to JetStream
 	subject := fmt.Sprintf("%s.%s", SubjectPrefix, event.Subject)
+	tracing.SetAttributes(span, tracing.StringAttr("event.subject", subject))
+
 	_, err = p.js.PublishAsync(subject, data)
 	if err != nil {
+		tracing.RecordError(span, err)
 		return fmt.Errorf("failed to publish event asynchronously to %s: %w", subject, err)
 	}
+
+	tracing.RecordSuccess(span, "event queued for async publish")
+	// Extract context for potential propagation
+	_ = ctx
 
 	return nil
 }

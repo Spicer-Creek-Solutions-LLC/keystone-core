@@ -879,7 +879,7 @@ TitanAnvil fills the gap between declarative GitOps tools and runtime operations
 
 ### Epic 7: Observability & Monitoring 🚧 IN PROGRESS
 
-**Implementation Plan:** 6 phases
+**Implementation Plan:** 7 phases (10 weeks total)
 
 **Phase 1: Metrics ✅ COMPLETE**
 - Metrics infrastructure (pkg/metrics/types.go)
@@ -994,13 +994,35 @@ TitanAnvil fills the gap between declarative GitOps tools and runtime operations
   - Default logger operations
   - SetLevel/GetLevel
 
-**Phase 3: Tracing** (Pending)
+**Phase 3: Tracing** (Week 4) - Pending
+- OpenTelemetry integration
+- Distributed trace context propagation
+- Span collection and export (OTLP, Jaeger, Zipkin)
+- Trace sampling strategies
 
-**Phase 4: Dashboards** (Pending)
+**Phase 4: TUI Monitor** (Week 5-6) - Pending
+- Terminal-based real-time monitoring tool (`titananvil-monitor`)
+- 8 interactive views: Dashboard, Agents, Events, State Drift, Policy Violations, Jobs, Logs, Metrics
+- Vim-style keyboard navigation
+- Real-time updates via event bus and API polling
+- Filter/search capabilities, export functionality
+- Multiple themes, SSH-friendly
+- Built with Bubble Tea framework
 
-**Phase 5: Health & Status** (Pending)
+**Phase 5: Dashboards** (Week 7-8) - Pending
+- Pre-built Grafana dashboards
+- Alert rule templates
+- Dashboard automation
 
-**Phase 6: Advanced Features** (Pending)
+**Phase 6: Health & Status** (Week 9) - Pending
+- Health check endpoints (liveness/readiness)
+- Status API
+- Self-healing capabilities
+
+**Phase 7: Advanced Features** (Week 10) - Pending
+- Performance profiling (pprof)
+- Infrastructure visualization (web UI)
+- Query API for metrics/logs/traces
 
 ## Epic Dependencies
 
@@ -1253,6 +1275,12 @@ TitanAnvil will have the following executables:
   - `run`, `async`, `status`, `output`
   - Execute commands across infrastructure
 
+- **`titananvil-monitor`** - Real-time TUI monitoring (Epic 7)
+  - Terminal-based dashboard for live system monitoring
+  - 8 views: Dashboard, Agents, Events, State, Policy, Jobs, Logs, Metrics
+  - Vim-style navigation, filtering, export
+  - SSH-friendly, zero web dependencies
+
 - **`titananvil-policy`** (optional, Epic 6) - Policy enforcement
   - `check`, `enforce`, `audit`, `report`
   - OPA/CEL policy evaluation
@@ -1268,7 +1296,7 @@ TitanAnvil will have the following executables:
   - `titananvil-migrate` → `titanctl migrate`
   - Community extensions without forking core
 
-**Total Core Binaries**: 7 (1 CLI + 3 servers + 3 built-in plugins)
+**Total Core Binaries**: 8 (1 CLI + 3 servers + 4 built-in plugins)
 **Extensible**: Unlimited via third-party `titananvil-*` plugins
 
 ## Future Implementation Repository
@@ -1283,6 +1311,7 @@ titan-anvil/
 │   ├── titananvil-module/     # Module commands (invoked via titanctl)
 │   ├── titananvil-state/      # State commands (invoked via titanctl)
 │   ├── titananvil-exec/       # Execution commands (invoked via titanctl)
+│   ├── titananvil-monitor/    # TUI monitor (invoked via titanctl)
 │   └── titananvil-registry/   # Registry server (OCI + HTTP proxy)
 ├── pkg/
 │   ├── api/               # gRPC/REST API

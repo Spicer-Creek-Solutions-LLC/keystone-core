@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/titananvil/titan-anvil/pkg/events"
+	"github.com/titananvil/titan-anvil/pkg/tracing"
 )
 
 // Executor executes state declarations
@@ -42,6 +43,14 @@ func (e *Executor) ExecuteState(ctx context.Context, stateFile *StateFile) (*Sta
 		Results:    make([]*StateResult, 0),
 	}
 
+	// Start tracing span
+	ctx, span := tracing.StartStateSpan(ctx, tracing.SpanStateExecute,
+		tracing.StringAttr(tracing.AttrStateID, run.RunID),
+		tracing.StringAttr("state.file", stateFile.Path),
+		tracing.BoolAttr("state.dry_run", e.DryRun),
+	)
+	defer span.End()
+
 	// Emit state.apply.start event
 	e.emitEvent(events.EventTypeStateApplyStart, events.SeverityInfo, map[string]interface{}{
 		"run_id":     run.RunID,
@@ -59,6 +68,9 @@ func (e *Executor) ExecuteState(ctx context.Context, stateFile *StateFile) (*Sta
 			Success: false,
 		}
 
+		// Record error in trace
+		tracing.RecordError(span, err)
+
 		// Emit state.apply.fail event
 		e.emitEvent(events.EventTypeStateApplyFail, events.SeverityError, map[string]interface{}{
 			"run_id":     run.RunID,
@@ -69,6 +81,8 @@ func (e *Executor) ExecuteState(ctx context.Context, stateFile *StateFile) (*Sta
 
 		return run, fmt.Errorf("failed to resolve dependencies: %w", err)
 	}
+
+	tracing.AddEvent(span, "dependency_resolution_complete")
 
 	// Track state results for watch/onchanges
 	stateResults := make(map[string]*StateResult)
@@ -110,6 +124,10 @@ func (e *Executor) ExecuteState(ctx context.Context, stateFile *StateFile) (*Sta
 			run.EndTime = time.Now()
 			run.Summary = e.calculateSummary(run)
 
+			// Record error in trace
+			failErr := fmt.Errorf("state %s.%s failed and fail_hard is set", decl.Module, decl.ID)
+			tracing.RecordError(span, failErr)
+
 			// Emit state.apply.fail event
 			e.emitEvent(events.EventTypeStateApplyFail, events.SeverityError, map[string]interface{}{
 				"run_id":     run.RunID,
@@ -119,12 +137,22 @@ func (e *Executor) ExecuteState(ctx context.Context, stateFile *StateFile) (*Sta
 				"reason":     "fail_hard triggered",
 			})
 
-			return run, fmt.Errorf("state %s.%s failed and fail_hard is set", decl.Module, decl.ID)
+			return run, failErr
 		}
 	}
 
 	run.EndTime = time.Now()
 	run.Summary = e.calculateSummary(run)
+
+	// Add summary attributes to span
+	tracing.SetAttributes(span,
+		tracing.IntAttr("state.total", run.Summary.Total),
+		tracing.IntAttr("state.succeeded", run.Summary.Succeeded),
+		tracing.IntAttr("state.failed", run.Summary.Failed),
+		tracing.IntAttr("state.changed", run.Summary.Changed),
+		tracing.IntAttr("state.unchanged", run.Summary.Unchanged),
+		tracing.Int64Attr("state.duration_ms", run.EndTime.Sub(run.StartTime).Milliseconds()),
+	)
 
 	// Emit state.apply.done event
 	severity := events.SeverityInfo
@@ -144,19 +172,37 @@ func (e *Executor) ExecuteState(ctx context.Context, stateFile *StateFile) (*Sta
 		"dry_run":      e.DryRun,
 	})
 
+	// Record success or warning
+	if run.Summary.Failed > 0 {
+		tracing.RecordErrorWithMessage(span, fmt.Errorf("state execution completed with failures"), fmt.Sprintf("%d of %d states failed", run.Summary.Failed, run.Summary.Total))
+	} else {
+		tracing.RecordSuccess(span, "state execution completed successfully")
+	}
+
 	return run, nil
 }
 
 // executeDeclaration executes a single state declaration
 func (e *Executor) executeDeclaration(ctx context.Context, moduleName string, decl *StateDeclaration) (*StateResult, error) {
+	// Start tracing span for individual state execution
+	ctx, span := tracing.StartStateSpan(ctx, "state.declaration",
+		tracing.StringAttr("state.id", decl.ID),
+		tracing.StringAttr("state.module", moduleName),
+		tracing.StringAttr("state.state", decl.State),
+	)
+	defer span.End()
+
 	// Get the module
 	module, err := e.Registry.Get(moduleName)
 	if err != nil {
+		tracing.RecordError(span, err)
 		return nil, fmt.Errorf("module not found: %w", err)
 	}
 
 	// Check conditions
 	if !e.shouldRun(ctx, decl) {
+		tracing.AddEvent(span, "state_skipped_condition")
+		tracing.RecordSuccess(span, "skipped due to condition")
 		return &StateResult{
 			StateID:   decl.ID,
 			Module:    moduleName,
@@ -170,11 +216,15 @@ func (e *Executor) executeDeclaration(ctx context.Context, moduleName string, de
 
 	// If dry-run, only check
 	if e.DryRun {
+		tracing.AddEvent(span, "dry_run_check")
 		checkResult, err := module.Check(ctx, decl)
 		if err != nil {
+			tracing.RecordError(span, err)
 			return nil, fmt.Errorf("check failed: %w", err)
 		}
 
+		tracing.SetAttributes(span, tracing.BoolAttr("state.would_change", !checkResult.Matches))
+		tracing.RecordSuccess(span, "dry run check completed")
 		return &StateResult{
 			StateID:   decl.ID,
 			Module:    moduleName,
@@ -196,6 +246,8 @@ func (e *Executor) executeDeclaration(ctx context.Context, moduleName string, de
 		attempts = decl.Retry.Attempts
 	}
 
+	tracing.SetAttributes(span, tracing.IntAttr("state.retry_attempts", attempts))
+
 	delay := time.Second
 	if decl.Retry != nil && decl.Retry.Delay > 0 {
 		delay = decl.Retry.Delay
@@ -203,6 +255,7 @@ func (e *Executor) executeDeclaration(ctx context.Context, moduleName string, de
 
 	for attempt := 0; attempt < attempts; attempt++ {
 		if attempt > 0 {
+			tracing.AddEvent(span, fmt.Sprintf("retry_attempt_%d", attempt+1))
 			// Apply backoff
 			if decl.Retry != nil && decl.Retry.BackoffMultiplier > 0 {
 				delay = time.Duration(float64(delay) * decl.Retry.BackoffMultiplier)
@@ -213,6 +266,7 @@ func (e *Executor) executeDeclaration(ctx context.Context, moduleName string, de
 
 			select {
 			case <-ctx.Done():
+				tracing.RecordError(span, ctx.Err())
 				return nil, ctx.Err()
 			case <-time.After(delay):
 			}
@@ -225,7 +279,20 @@ func (e *Executor) executeDeclaration(ctx context.Context, moduleName string, de
 	}
 
 	if applyErr != nil {
+		tracing.RecordError(span, applyErr)
 		return nil, applyErr
+	}
+
+	// Record result attributes
+	tracing.SetAttributes(span,
+		tracing.BoolAttr("state.success", result.Success),
+		tracing.BoolAttr("state.changed", result.Changed),
+	)
+
+	if result.Success {
+		tracing.RecordSuccess(span, "state applied successfully")
+	} else {
+		tracing.RecordErrorWithMessage(span, fmt.Errorf("state apply failed"), result.Comment)
 	}
 
 	return result, nil

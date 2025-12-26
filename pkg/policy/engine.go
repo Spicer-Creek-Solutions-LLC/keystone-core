@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/titananvil/titan-anvil/pkg/tracing"
 )
 
 // PolicyEngine coordinates policy evaluation across different evaluators
@@ -26,17 +28,35 @@ func NewPolicyEngine(registry *Registry) *PolicyEngine {
 
 // Evaluate evaluates a single policy against input
 func (e *PolicyEngine) Evaluate(ctx context.Context, policyID string, input *EvaluationInput) (*EvaluationResult, error) {
+	// Start tracing span
+	ctx, span := tracing.StartPolicySpan(ctx, tracing.SpanPolicyEvaluate,
+		tracing.StringAttr(tracing.AttrPolicyID, policyID),
+		tracing.StringAttr("policy.action", input.Action),
+		tracing.StringAttr("policy.user", input.User),
+	)
+	defer span.End()
+
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 
 	// Get policy from registry
 	policy, ok := e.registry.GetPolicy(policyID)
 	if !ok {
-		return nil, fmt.Errorf("policy not found: %s", policyID)
+		err := fmt.Errorf("policy not found: %s", policyID)
+		tracing.RecordError(span, err)
+		return nil, err
 	}
+
+	tracing.SetAttributes(span,
+		tracing.StringAttr("policy.name", policy.Name),
+		tracing.StringAttr("policy.type", string(policy.Type)),
+		tracing.StringAttr("policy.category", string(policy.Category)),
+	)
 
 	// Check if policy is enabled
 	if !policy.Enabled {
+		tracing.AddEvent(span, "policy_disabled")
+		tracing.RecordSuccess(span, "policy disabled, skipped evaluation")
 		return &EvaluationResult{
 			PolicyID:    policyID,
 			PolicyName:  policy.Name,
@@ -49,22 +69,58 @@ func (e *PolicyEngine) Evaluate(ctx context.Context, policyID string, input *Eva
 	}
 
 	// Select evaluator based on policy type
-	return e.evaluatePolicy(ctx, policy, input)
+	result, err := e.evaluatePolicy(ctx, policy, input)
+	if err != nil {
+		tracing.RecordError(span, err)
+		return result, err
+	}
+
+	// Record result
+	tracing.SetAttributes(span,
+		tracing.BoolAttr("policy.allowed", result.Allowed),
+		tracing.IntAttr("policy.violations_count", len(result.Violations)),
+		tracing.Int64Attr("policy.duration_ms", result.Duration.Milliseconds()),
+	)
+
+	if result.Allowed {
+		tracing.RecordSuccess(span, "policy evaluation passed")
+	} else {
+		tracing.RecordErrorWithMessage(span, fmt.Errorf("policy evaluation denied"), result.Message)
+	}
+
+	return result, nil
 }
 
 // EvaluatePolicySet evaluates all policies in a policy set
 func (e *PolicyEngine) EvaluatePolicySet(ctx context.Context, setID string, input *EvaluationInput) (*PolicyResult, error) {
+	// Start tracing span
+	ctx, span := tracing.StartPolicySpan(ctx, "policy.set.evaluate",
+		tracing.StringAttr("policy.set_id", setID),
+		tracing.StringAttr("policy.action", input.Action),
+		tracing.StringAttr("policy.user", input.User),
+	)
+	defer span.End()
+
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 
 	// Get policy set
 	set, ok := e.registry.GetPolicySet(setID)
 	if !ok {
-		return nil, fmt.Errorf("policy set not found: %s", setID)
+		err := fmt.Errorf("policy set not found: %s", setID)
+		tracing.RecordError(span, err)
+		return nil, err
 	}
+
+	tracing.SetAttributes(span,
+		tracing.StringAttr("policy.set_name", set.Name),
+		tracing.IntAttr("policy.set_policy_count", len(set.Policies)),
+	)
 
 	// Check if set is enabled
 	if !set.Enabled {
+		tracing.AddEvent(span, "policy_set_disabled")
+		tracing.RecordSuccess(span, "policy set disabled, skipped evaluation")
 		return &PolicyResult{
 			Allowed:       true,
 			Results:       make([]*EvaluationResult, 0),
@@ -106,7 +162,24 @@ func (e *PolicyEngine) EvaluatePolicySet(ctx context.Context, setID string, inpu
 	}
 
 	// Aggregate results
-	return e.aggregateResults(setID, results, set.EnforcementMode), nil
+	policyResult := e.aggregateResults(setID, results, set.EnforcementMode)
+
+	// Record result
+	tracing.SetAttributes(span,
+		tracing.BoolAttr("policy.allowed", policyResult.Allowed),
+		tracing.IntAttr("policy.total_violations", policyResult.Summary.TotalViolations),
+		tracing.IntAttr("policy.total_policies", policyResult.Summary.TotalPolicies),
+		tracing.IntAttr("policy.denied_policies", policyResult.Summary.DeniedPolicies),
+		tracing.Int64Attr("policy.duration_ms", policyResult.TotalDuration.Milliseconds()),
+	)
+
+	if policyResult.Allowed {
+		tracing.RecordSuccess(span, "policy set evaluation passed")
+	} else {
+		tracing.RecordErrorWithMessage(span, fmt.Errorf("policy set evaluation denied"), fmt.Sprintf("%d policies denied", policyResult.Summary.DeniedPolicies))
+	}
+
+	return policyResult, nil
 }
 
 // EvaluateForResource evaluates all policies bound to a resource type

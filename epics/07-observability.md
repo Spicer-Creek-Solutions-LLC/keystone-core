@@ -11,6 +11,7 @@ Implement comprehensive observability features including metrics, logging, traci
 - [ ] Prometheus metrics for all operations
 - [ ] Structured logging with multiple output formats
 - [ ] Distributed tracing with OpenTelemetry
+- [ ] Terminal-based real-time monitoring tool (TUI)
 - [ ] Pre-built Grafana dashboards
 - [ ] Health check endpoints
 - [ ] Performance profiling capabilities
@@ -238,7 +239,266 @@ tracing:
     deployment.environment: production
 ```
 
-### US7.4: Grafana Dashboards
+### US7.4: Real-Time TUI Monitor
+**As an** operator
+**I want to** a terminal-based dashboard for monitoring TitanAnvil
+**So that** I can quickly check system status without web UI dependencies
+
+**Acceptance Criteria**:
+- Terminal-based interface (TUI) with multiple views
+- Real-time updates from event bus and API polling
+- Works over SSH connections
+- Keyboard navigation and vim-style keybindings
+- Filter and search capabilities in all views
+- Export current view to file
+- Configurable refresh rates
+- Color themes (dark/light/custom)
+- Zero dependencies (no web server required)
+
+**Views and Features**:
+
+1. **Dashboard Overview** (default view)
+   ```
+   ┌────────────────────────────────────────────────────────────────┐
+   │ TitanAnvil Monitor                    [q] quit [?] help       │
+   ├────────────────────────────────────────────────────────────────┤
+   │ System                                                          │
+   │   Uptime: 3d 12h 45m      API Req/s: 1,234    Events/s: 567   │
+   │   Version: 1.0.0          Memory: 2.3GB       Goroutines: 145 │
+   │                                                                 │
+   │ Agents                                                          │
+   │   Connected: 1,245 / 1,250    Disconnected: 5                 │
+   │   Recent: ↑ web-05 (2s)  ↓ db-12 (15s)                        │
+   │                                                                 │
+   │ Jobs (last 5m)                                                 │
+   │   Running: 12      Queued: 3       Completed: 456             │
+   │   Failed: 2        Avg Duration: 2.3s                          │
+   │                                                                 │
+   │ State                                                          │
+   │   Resources: 15,234        Drift: 12 (🔴 2  🟡 6  🟢 4)       │
+   │   Last Check: 30s ago      Changes: 45 (last hour)            │
+   │                                                                 │
+   │ Policy                                                         │
+   │   Violations: 18 (🔴 3  🟡 8  🟢 7)                            │
+   │   Compliance: 94.2%        Last Eval: 15s ago                  │
+   │                                                                 │
+   │ Recent Events                                                  │
+   │   10:45:23 ERROR  state.drift  Resource /etc/nginx.conf       │
+   │   10:45:18 INFO   agent.connect  Agent web-05 connected       │
+   │   10:45:12 WARN   policy.violation  Security policy SVC-001   │
+   │   10:45:05 INFO   job.complete  Command finished (2.1s)       │
+   └────────────────────────────────────────────────────────────────┘
+   ```
+
+2. **Agent List** (press '1')
+   ```
+   ┌─ Agents (1,250) ─────────────────────── [/] filter [s] sort ─┐
+   │ ID          Hostname      OS      Status    Last HB  CPU  Mem │
+   ├────────────────────────────────────────────────────────────────┤
+   │ web-01      prod-web-01   Linux   ✓ Online  2s       45%  62% │
+   │ web-02      prod-web-02   Linux   ✓ Online  1s       52%  58% │
+   │ web-03      prod-web-03   Linux   ⚠ Drift   3s       38%  55% │
+   │ api-01      prod-api-01   Linux   ✓ Online  2s       67%  71% │
+   │ api-02      prod-api-02   Linux   ❌ Offline 45s      --   --  │
+   │ db-01       prod-db-01    Linux   ✓ Online  1s       89%  82% │
+   │ ...                                                             │
+   │                                                                 │
+   │ [↑/↓] navigate  [Enter] details  [f] filter  [Esc] back       │
+   └────────────────────────────────────────────────────────────────┘
+   ```
+
+3. **Event Stream** (press '2')
+   ```
+   ┌─ Event Stream (live) ────────────────── [/] filter [p] pause ─┐
+   │ Time     Level    Type              Source         Message     │
+   ├────────────────────────────────────────────────────────────────┤
+   │ 10:45:23 ERROR    state.drift       state-mgr      Resource... │
+   │ 10:45:18 INFO     agent.connect     conn-mgr       Agent we... │
+   │ 10:45:12 WARN     policy.violation  policy-eng     Security... │
+   │ 10:45:05 INFO     job.complete      cmd-dispatch   Command ... │
+   │ 10:44:58 INFO     state.apply.done  state-mgr      Applied ... │
+   │ 10:44:45 DEBUG    agent.heartbeat   agent-web-05   Heartbe... │
+   │ ...                                                             │
+   │ ⬇ LIVE (auto-scroll)                                           │
+   │                                                                 │
+   │ [p] pause  [c] clear  [e] export  [Enter] expand  [Esc] back  │
+   └────────────────────────────────────────────────────────────────┘
+   ```
+
+4. **State Drift** (press '3')
+   ```
+   ┌─ State Drift (12 resources) ──────────────── [r] refresh ─────┐
+   │ Resource                  Agent      Severity  Last Check      │
+   ├────────────────────────────────────────────────────────────────┤
+   │ /etc/nginx/nginx.conf     web-03     🔴 High   30s             │
+   │ service:nginx             web-03     🟡 Med    30s             │
+   │ /var/www/app/config.php   api-05     🔴 High   45s             │
+   │ user:appuser              api-05     🟢 Low    45s             │
+   │ package:docker            db-02      🟡 Med    1m              │
+   │ ...                                                             │
+   │                                                                 │
+   │ Summary: 2 critical, 6 medium, 4 low                           │
+   │                                                                 │
+   │ [↑/↓] navigate  [Enter] details  [a] apply  [Esc] back        │
+   └────────────────────────────────────────────────────────────────┘
+   ```
+
+5. **Policy Violations** (press '4')
+   ```
+   ┌─ Policy Violations (18) ──────────────────── [g] group by ────┐
+   │ Policy              Resource         Severity  Time            │
+   ├────────────────────────────────────────────────────────────────┤
+   │ SEC-SSH-001         /etc/ssh/config  🔴 Crit   2m              │
+   │ SEC-SUDO-002        /etc/sudoers     🔴 Crit   5m              │
+   │ CMP-PCI-045         service:mysql    🔴 Crit   8m              │
+   │ SEC-FILE-010        /tmp/sensitive   🟡 Med    12m             │
+   │ OPS-DISK-001        /var/log         🟡 Med    15m             │
+   │ ...                                                             │
+   │                                                                 │
+   │ Compliance: 94.2% (1,245/1,320 checks passed)                 │
+   │                                                                 │
+   │ [↑/↓] navigate  [Enter] details  [r] remediate  [Esc] back    │
+   └────────────────────────────────────────────────────────────────┘
+   ```
+
+6. **Jobs/Execution** (press '5')
+   ```
+   ┌─ Jobs ───────────────────────────────────── [f] filter ────────┐
+   │ Job ID     Target      Command          Status      Duration   │
+   ├────────────────────────────────────────────────────────────────┤
+   │ job-a3f2   role:web    systemctl...     ✓ Done      2.1s       │
+   │ job-b7c1   db-*        apt update       🔄 Running   15s        │
+   │ job-c9d4   api-05      cat /etc/...     ✓ Done      0.5s       │
+   │ job-d2e8   *           uptime           ❌ Failed    1.2s       │
+   │ ...                                                             │
+   │                                                                 │
+   │ Running: 3   Queued: 1   Completed: 456   Failed: 2            │
+   │                                                                 │
+   │ [↑/↓] navigate  [Enter] output  [k] kill  [Esc] back          │
+   └────────────────────────────────────────────────────────────────┘
+   ```
+
+7. **Logs Tail** (press '6')
+   ```
+   ┌─ Logs (live) ─────────────────────────── [/] filter [l] level ─┐
+   │ 10:45:23 state-mgr    ERROR  Drift detected: /etc/nginx.conf   │
+   │ 10:45:18 conn-mgr     INFO   Agent web-05 registered           │
+   │ 10:45:12 policy-eng   WARN   Policy violation: SEC-SSH-001     │
+   │ 10:45:05 cmd-dispatch INFO   Command job-a3f2 completed        │
+   │ 10:44:58 state-mgr    INFO   Applied 12 state changes          │
+   │ 10:44:45 agent-web-05 DEBUG  Heartbeat sent                    │
+   │ ...                                                             │
+   │ ⬇ LIVE (auto-scroll)                                           │
+   │                                                                 │
+   │ [l] level  [c] clear  [e] export  [/] filter  [Esc] back      │
+   └────────────────────────────────────────────────────────────────┘
+   ```
+
+8. **Metrics** (press '7')
+   ```
+   ┌─ Metrics ──────────────────────────────────── [r] refresh ─────┐
+   │                                                                 │
+   │ API Requests/sec          ▂▃▅▇█▇▅▃▂ 1,234 req/s               │
+   │ Command Execution Rate    ▂▂▃▄▅▄▃▂▂   145 cmd/s               │
+   │ Event Processing Rate     ▃▄▆▇█▇▆▄▃   567 evt/s               │
+   │                                                                 │
+   │ CPU Usage                 ██████▒▒▒▒ 65%                       │
+   │ Memory Usage              ████████▒▒ 82%                       │
+   │ Goroutines                ████▒▒▒▒▒▒ 145 / 500                 │
+   │                                                                 │
+   │ Latency (p95)                                                  │
+   │   Command Exec:  2.3s  ████████▒▒                             │
+   │   State Apply:   1.8s  ██████▒▒▒▒                             │
+   │   API Request:   45ms  █▒▒▒▒▒▒▒▒▒                             │
+   │                                                                 │
+   │ [↑/↓] navigate  [e] export  [Esc] back                        │
+   └────────────────────────────────────────────────────────────────┘
+   ```
+
+**Keyboard Navigation**:
+- `1-8` - Switch to specific view
+- `Tab` / `Shift+Tab` - Next/previous view
+- `j/k` or `↑/↓` - Navigate lists
+- `gg` / `G` - Top/bottom of list
+- `Ctrl+d` / `Ctrl+u` - Page down/up
+- `/` - Search/filter
+- `n` / `N` - Next/previous search result
+- `r` - Refresh current view
+- `p` - Pause/resume live updates
+- `e` - Export current view
+- `c` - Clear (logs/events)
+- `Enter` - View details
+- `Esc` - Back/cancel
+- `?` - Help
+- `q` - Quit
+
+**Configuration**:
+```yaml
+# ~/.titananvil/monitor.yaml
+monitor:
+  # Connection
+  control_plane: localhost:8080
+  tls:
+    enabled: true
+    ca_cert: /path/to/ca.pem
+    client_cert: /path/to/client.pem
+    client_key: /path/to/client-key.pem
+
+  # Refresh rates
+  refresh:
+    dashboard: 2s
+    agents: 5s
+    events: realtime
+    state: 10s
+    policy: 10s
+    jobs: 3s
+    logs: realtime
+    metrics: 5s
+
+  # Display
+  theme: dark  # dark, light, solarized, monokai
+  date_format: "15:04:05"
+  timezone: "America/New_York"
+
+  # Filters (persist across sessions)
+  filters:
+    log_level: info  # minimum level
+    event_types: []  # empty = all
+    agent_status: []  # empty = all
+
+  # Limits
+  max_rows:
+    events: 1000
+    logs: 1000
+    agents: 10000
+
+  # Export
+  export_dir: ~/titananvil-exports
+```
+
+**CLI Usage**:
+```bash
+# Basic usage (connects to default control plane)
+titanctl monitor
+
+# Connect to specific control plane
+titanctl monitor --endpoint prod-titan.example.com:8080
+
+# Start with specific view
+titanctl monitor --view agents
+
+# Custom config
+titanctl monitor --config /path/to/monitor.yaml
+
+# Export mode (capture and exit)
+titanctl monitor --export --duration 30s --output snapshot.json
+
+# Filter from command line
+titanctl monitor --filter "level>=warn"
+titanctl monitor --view agents --filter "status=offline"
+```
+
+### US7.5: Grafana Dashboards
 **As an** SRE
 **I want to** pre-built Grafana dashboards
 **So that** I can visualize TitanAnvil operations
@@ -296,7 +556,7 @@ tracing:
    - Deployment verification duration
    - Failed verifications by application
 
-### US7.5: Health Checks
+### US7.6: Health Checks
 **As a** platform engineer
 **I want to** health check endpoints
 **So that** I can monitor system availability
@@ -359,7 +619,7 @@ GET /health/status
 }
 ```
 
-### US7.6: Performance Profiling
+### US7.7: Performance Profiling
 **As a** developer
 **I want to** profile TitanAnvil performance
 **So that** I can identify and fix bottlenecks
@@ -390,7 +650,7 @@ curl http://titan:6060/debug/pprof/goroutine > goroutine.prof
 titanctl debug profile --type cpu --duration 30s --output cpu.prof
 ```
 
-### US7.7: Infrastructure State Visualization
+### US7.8: Infrastructure State Visualization
 **As a** platform engineer
 **I want to** visualize infrastructure state in real-time
 **So that** I can understand system topology
@@ -496,61 +756,374 @@ Legend:
 - Cross-service correlation
 - Performance overhead optimization
 
-### Phase 4: Dashboards (Week 5-6)
+### Phase 4: TUI Monitor (Week 5-6)
 
-**T4.1: Grafana Dashboard Development**
+**Week 1: Core Framework & Basic Views**
+
+**T4.1: TUI Framework Setup**
+- Add Bubble Tea, Lip Gloss, Bubbles dependencies
+- Create basic TUI application structure
+- Implement view switching (tabs)
+- Set up keyboard navigation (vim-style)
+- Implement help system (? key)
+- Add quit handler (q key)
+- Create base model/update/view architecture
+- Terminal detection and fallback handling
+
+**T4.2: Configuration System**
+- Define configuration schema (monitor.yaml)
+- Implement config file loading (~/.titananvil/monitor.yaml)
+- Command-line flag parsing
+  - `--endpoint` - control plane address
+  - `--view` - starting view
+  - `--config` - config file path
+  - `--filter` - initial filter
+  - `--theme` - color theme
+- Environment variable support
+- Config validation
+- Default values for all settings
+
+**T4.3: Control Plane Client**
+- gRPC client for TitanAnvil API
+- Authentication (TLS client certs)
+- Connection management (reconnect logic)
+- API methods:
+  - GetSystemStatus() - uptime, version, metrics
+  - ListAgents() - agent list with status
+  - GetAgentDetails(id) - detailed agent info
+  - ListJobs() - active and recent jobs
+  - GetJobOutput(id) - job execution output
+  - GetStateStatus() - drift summary, resource counts
+  - GetPolicyStatus() - violations, compliance score
+  - StreamMetrics() - real-time metrics stream
+- Error handling and retries
+- Connection status indicator
+
+**T4.4: Event Bus Subscriber**
+- NATS JetStream subscriber
+- Subscribe to all event types
+- Event filtering on client side
+- Ring buffer for recent events (configurable size)
+- Event parsing and formatting
+- Correlation ID extraction
+- Real-time event updates to UI
+- Backpressure handling
+
+**T4.5: Dashboard Overview View**
+- Main dashboard layout (default view)
+- System section:
+  - Uptime display
+  - Version information
+  - API request rate
+  - Event processing rate
+  - Memory usage
+  - Goroutine count
+- Agent summary (connected/total, recent changes)
+- Job summary (running/queued/completed/failed)
+- State summary (resources, drift count by severity)
+- Policy summary (violations by severity, compliance %)
+- Recent events (last 5-10 events with severity colors)
+- Auto-refresh every N seconds (configurable)
+- Status indicators with emoji/colors (✓/⚠/❌)
+
+**Week 2: Detailed Views & Advanced Features**
+
+**T4.6: Agent List View**
+- Sortable table component
+  - Columns: ID, Hostname, OS, Status, Last Heartbeat, CPU, Memory
+  - Sort by any column (click column header or hotkey)
+  - Color-coded status (green=online, yellow=drift, red=offline)
+- Pagination (for large fleets)
+- Filtering:
+  - By status (online/offline/drift)
+  - By hostname/ID (fuzzy search)
+  - By resource usage thresholds
+- Agent detail modal (press Enter)
+  - Full metadata
+  - Recent commands
+  - State application history
+  - Policy violations
+- Keyboard navigation (j/k, gg, G)
+- Sparkline charts for CPU/Memory trends
+
+**T4.7: Event Stream View**
+- Live-scrolling event feed
+- Syntax highlighting by severity
+- Auto-scroll toggle (pause/resume with 'p')
+- Filtering:
+  - By event type
+  - By severity level
+  - By source component
+  - By correlation ID
+  - Search in event data
+- Event expansion (press Enter)
+  - Full JSON view
+  - Pretty-printed with syntax highlighting
+  - Copy to clipboard option
+- Clear buffer ('c' key)
+- Export to file ('e' key)
+- Tail mode (follow last N events)
+- Max buffer size (prevent memory exhaustion)
+
+**T4.8: State Drift View**
+- Table of drifted resources
+  - Columns: Resource, Agent, Severity, Last Check
+  - Severity color coding (red=high, yellow=medium, green=low)
+- Drift summary statistics
+- Group by:
+  - Agent
+  - Resource type
+  - Severity
+- Drill down to details (press Enter)
+  - Expected vs actual state
+  - Diff visualization
+  - Remediation suggestions
+- Quick apply action ('a' key)
+  - Confirm dialog
+  - Apply state to fix drift
+  - Show progress
+- Filter by severity
+- Sort by last check time
+
+**T4.9: Policy Violations View**
+- Table of violations
+  - Columns: Policy, Resource, Severity, Time
+  - Severity indicators
+- Compliance score display (% and bar chart)
+- Group by:
+  - Policy ID
+  - Resource type
+  - Severity
+- Violation details (press Enter)
+  - Full violation message
+  - Policy code snippet
+  - Remediation steps
+  - Related resources
+- Remediation action ('r' key)
+  - Trigger automated remediation
+  - Show progress
+- Filter by severity/policy
+- Sort by time/severity
+
+**T4.10: Jobs/Execution View**
+- Table of jobs
+  - Columns: Job ID, Target, Command, Status, Duration
+  - Status indicators (✓/🔄/❌)
+- Job filtering:
+  - By status (running/completed/failed)
+  - By target expression
+  - Time range
+- Job output viewer (press Enter)
+  - Real-time streaming output for running jobs
+  - Full output for completed jobs
+  - ANSI color support
+  - Scrollable output
+- Job actions:
+  - Kill running job ('k' key)
+  - Retry failed job ('r' key)
+- Summary statistics (count by status, avg duration)
+
+**T4.11: Logs Tail View**
+- Live log stream from control plane
+- Log level filtering (debug/info/warn/error)
+- Source filtering (by logger name)
+- Correlation ID filtering
+- Search/highlight
+- ANSI color support
+- Auto-scroll toggle
+- Clear buffer
+- Export to file
+- Adjustable buffer size
+
+**T4.12: Metrics View**
+- ASCII sparkline charts for time-series metrics
+- Gauge visualizations (progress bars)
+- Key metrics:
+  - API requests/sec (sparkline)
+  - Command execution rate (sparkline)
+  - Event processing rate (sparkline)
+  - CPU usage (gauge)
+  - Memory usage (gauge)
+  - Goroutine count (gauge)
+  - Latency percentiles (horizontal bars)
+- Auto-refresh
+- Export current metrics snapshot
+
+**Week 3: Polish & Advanced Features**
+
+**T4.13: Theme System**
+- Define color schemes:
+  - Dark (default)
+  - Light
+  - Solarized Dark/Light
+  - Monokai
+  - Custom (user-defined in config)
+- Apply theme to all views
+- Runtime theme switching ('t' key)
+- Respect terminal capabilities (256 color, true color)
+- Fallback to basic colors if needed
+
+**T4.14: Search & Filter Engine**
+- Unified filter syntax across all views
+- Filter expression parser:
+  - Comparison operators: =, !=, >, <, >=, <=
+  - Logical operators: AND, OR, NOT
+  - Field access: status=online, cpu>80, severity=error
+  - Regex support: name~"web-.*"
+- Filter UI component (/ key to activate)
+- Filter history (up/down arrows)
+- Persistent filters (saved in config)
+- Clear filter (Esc)
+- Visual filter indicator (show active filters)
+
+**T4.15: Export & Snapshot**
+- Export current view to file
+- Export formats:
+  - JSON (structured data)
+  - CSV (table views)
+  - Text (formatted output)
+  - Markdown (for documentation)
+- Export to configurable directory
+- Filename includes timestamp
+- Snapshot mode (--export flag)
+  - Capture current state
+  - Exit immediately
+  - Useful for scripts/automation
+- Compression for large exports (gzip)
+
+**T4.16: Performance Optimization**
+- Efficient rendering (only redraw changed areas)
+- Debounce rapid updates
+- Limit refresh rates per view
+- Background data fetching (don't block UI)
+- Memory-efficient ring buffers
+- Pagination for large datasets
+- Lazy loading for details views
+- Connection pooling for API calls
+- Goroutine management (prevent leaks)
+
+**Week 4: Testing, Documentation & Integration**
+
+**T4.17: Unit Tests**
+- Config loading and validation tests
+- Filter expression parser tests
+- Data model tests
+- API client tests (with mock server)
+- Event subscriber tests (with mock NATS)
+- View rendering tests (basic)
+- Keyboard handler tests
+- Theme system tests
+- Export functionality tests
+- Target coverage: >75%
+
+**T4.18: Integration Tests**
+- End-to-end TUI tests
+- Test with real control plane (Docker Compose)
+- View switching and navigation
+- Live event streaming
+- API polling
+- Filter and search
+- Export functionality
+- Theme switching
+- Configuration loading
+- Error handling (network failures, etc.)
+
+**T4.19: Documentation**
+- User guide:
+  - Installation
+  - Quick start
+  - View descriptions
+  - Keyboard shortcuts reference
+  - Configuration guide
+  - Filtering syntax
+  - Export usage
+  - Troubleshooting
+- Developer guide:
+  - Architecture overview
+  - Adding new views
+  - Extending filters
+  - Custom themes
+- Man page (titanctl-monitor.1)
+- Built-in help system (? key)
+- Example configurations
+
+**T4.20: CLI Plugin Integration**
+- Create `titananvil-monitor` binary
+- Integrate with titanctl plugin system
+- Command-line argument parsing
+- Proper exit codes
+- Signal handling (Ctrl+C, SIGTERM)
+- Version command (--version)
+- Help text (--help)
+- Package for distribution
+
+**T4.21: Polish & User Experience**
+- Loading indicators for slow operations
+- Error messages (user-friendly, actionable)
+- Confirmation dialogs for destructive actions
+- Responsive layout (adapt to terminal size)
+- Graceful degradation (small terminals)
+- Status bar with hints (context-sensitive)
+- Smooth transitions between views
+- Visual feedback for actions
+- Accessibility considerations (screen readers)
+- Demo mode (generate fake data for screenshots)
+
+### Phase 5: Dashboards (Week 7-8)
+
+**T5.1: Grafana Dashboard Development**
 - Create dashboard templates
 - Define panels and visualizations
 - Add variables for filtering
 - Export dashboards as JSON
 - Documentation for dashboards
 
-**T4.2: Alert Rules**
+**T5.2: Alert Rules**
 - Prometheus alert rules
 - Alert rule templates
 - Integration with Alertmanager
 - Alert documentation
 
-**T4.3: Dashboard Automation**
+**T5.3: Dashboard Automation**
 - Auto-import dashboards on deployment
 - Dashboard versioning
 - Custom dashboard support
 
-### Phase 5: Health & Status (Week 7)
+### Phase 6: Health & Status (Week 9)
 
-**T5.1: Health Check Endpoints**
+**T6.1: Health Check Endpoints**
 - Implement liveness probe
 - Implement readiness probe
 - Detailed status endpoint
 - Dependency health checks
 
-**T5.2: Status API**
+**T6.2: Status API**
 - Component status reporting
 - Version information
 - Uptime tracking
 - System diagnostics
 
-**T5.3: Self-Healing**
+**T6.3: Self-Healing**
 - Automatic component restart on failure
 - Circuit breakers
 - Graceful degradation
 - Recovery metrics
 
-### Phase 6: Advanced Features (Week 8)
+### Phase 7: Advanced Features (Week 10)
 
-**T6.1: Performance Profiling**
+**T7.1: Performance Profiling**
 - Enable pprof endpoints
 - Continuous profiling support
 - Profile storage and analysis
 - Profile visualization
 
-**T6.2: Infrastructure Visualization**
+**T7.2: Infrastructure Visualization**
 - Web UI for topology
 - Real-time agent status
 - Interactive graph visualization
 - Export capabilities
 
-**T6.3: Query API**
+**T7.3: Query API**
 - Metrics query API
 - Logs query API
 - Trace query API
@@ -562,7 +1135,10 @@ Legend:
 - **Go Libraries**:
   - `github.com/prometheus/client_golang` - Prometheus client
   - `go.opentelemetry.io/otel` - OpenTelemetry
-  - `go.uber.org/zap` - Structured logging
+  - Structured logging (implemented in pkg/logging)
+  - `github.com/charmbracelet/bubbletea` - TUI framework
+  - `github.com/charmbracelet/lipgloss` - TUI styling
+  - `github.com/charmbracelet/bubbles` - TUI components
   - `github.com/grafana/grafana-api-golang-client` - Grafana API
   - `net/http/pprof` - Performance profiling
 
@@ -597,25 +1173,44 @@ Legend:
 - Metric registration and collection
 - Log formatting
 - Span creation and attributes
+- TUI component logic (views, filters, themes)
+- TUI configuration parsing
 - Health check logic
 
 ### Integration Tests
 - End-to-end metric collection
 - Log forwarding to aggregators
 - Trace propagation across services
+- TUI end-to-end testing with real control plane
+- TUI event streaming and API polling
 - Dashboard functionality
 
 ### Load Tests
 - High-volume metric collection
 - High-volume log generation
 - Trace sampling under load
+- TUI performance with large datasets (10k+ agents)
 - Health check under load
+
+### Manual Tests
+- TUI usability testing across different terminals
+- TUI responsiveness with various screen sizes
+- Keyboard navigation and shortcuts
+- Theme rendering in different terminal emulators
 
 ## Documentation Requirements
 
 - [ ] Metrics reference guide
 - [ ] Logging configuration guide
 - [ ] Tracing setup guide
+- [ ] TUI monitor user guide
+  - [ ] Installation and quick start
+  - [ ] Keyboard shortcuts reference
+  - [ ] Configuration guide
+  - [ ] Filtering syntax
+  - [ ] Export functionality
+  - [ ] Troubleshooting
+- [ ] TUI monitor developer guide
 - [ ] Dashboard user guide
 - [ ] Alert rule reference
 - [ ] Troubleshooting with observability
@@ -628,6 +1223,13 @@ Legend:
 - [ ] Metrics exposed and documented
 - [ ] Structured logging operational
 - [ ] Distributed tracing working
+- [ ] TUI monitor fully functional
+  - [ ] All 8 views implemented
+  - [ ] Real-time updates working
+  - [ ] Filtering and search operational
+  - [ ] Export functionality working
+  - [ ] Multiple themes supported
+  - [ ] Works across major terminal emulators
 - [ ] Grafana dashboards available
 - [ ] Health checks implemented
 - [ ] Profiling enabled
