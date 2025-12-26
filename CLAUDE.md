@@ -881,6 +881,8 @@ TitanAnvil fills the gap between declarative GitOps tools and runtime operations
 
 **Implementation Plan:** 7 phases (10 weeks total)
 
+**Current Status**: Phases 1-4 COMPLETE ✅ | Phases 5-7 Pending
+
 **Phase 1: Metrics ✅ COMPLETE**
 - Metrics infrastructure (pkg/metrics/types.go)
   - Collector interface for metrics collection
@@ -994,20 +996,43 @@ TitanAnvil fills the gap between declarative GitOps tools and runtime operations
   - Default logger operations
   - SetLevel/GetLevel
 
-**Phase 3: Tracing** (Week 4) - Pending
-- OpenTelemetry integration
-- Distributed trace context propagation
-- Span collection and export (OTLP, Jaeger, Zipkin)
-- Trace sampling strategies
+**Phase 3: Tracing ✅ COMPLETE**
+- OpenTelemetry integration (pkg/tracing/)
+  - Tracer initialization with OTLP exporter
+  - Distributed trace context propagation
+  - Span creation and instrumentation helpers
+  - Trace sampling strategies (always, never, ratio-based)
+- Instrumentation of core components
+  - Control plane API instrumentation
+  - State management operation tracing
+  - Event system tracing
+  - Policy evaluation tracing
+- Test coverage with mock exporters
 
-**Phase 4: TUI Monitor** (Week 5-6) - Pending
+**Phase 4: TUI Monitor ✅ COMPLETE**
 - Terminal-based real-time monitoring tool (`titananvil-monitor`)
-- 8 interactive views: Dashboard, Agents, Events, State Drift, Policy Violations, Jobs, Logs, Metrics
-- Vim-style keyboard navigation
-- Real-time updates via event bus and API polling
-- Filter/search capabilities, export functionality
-- Multiple themes, SSH-friendly
-- Built with Bubble Tea framework
+- 8 fully functional interactive views:
+  - **Dashboard** (View 1): System overview with metrics, agent counts, job stats, recent events
+  - **Agents** (View 2): Interactive table with live agent status, metadata, and heartbeats
+  - **Events** (View 3): Real-time event stream with filtering, search, pause/resume
+  - **State Drift** (View 4): Configuration drift detection and monitoring interface
+  - **Policy Violations** (View 5): Compliance tracking and violation alerts
+  - **Jobs** (View 6): Command and batch job execution history with dual-mode table
+  - **Logs** (View 7): Structured log streaming interface
+  - **Metrics** (View 8): Performance metrics and resource utilization overview
+- Built with Bubble Tea framework (charmbracelet)
+- Real-time updates via NATS JetStream and gRPC API
+- Keyboard navigation (1-8: switch views, ↑/↓: scroll, r: refresh, q: quit)
+- Search/filter capabilities across all views
+- Color-coded status indicators and severity levels
+- Responsive layout with window resizing
+- Thread-safe data handling
+- Components:
+  - cmd/titananvil-monitor/main.go - CLI entry with Cobra
+  - cmd/titananvil-monitor/config/ - Configuration management
+  - cmd/titananvil-monitor/client/ - gRPC client wrapper
+  - cmd/titananvil-monitor/events/ - NATS JetStream subscriber
+  - cmd/titananvil-monitor/ui/ - All 8 view implementations
 
 **Phase 5: Dashboards** (Week 7-8) - Pending
 - Pre-built Grafana dashboards
