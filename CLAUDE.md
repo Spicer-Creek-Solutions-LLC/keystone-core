@@ -40,7 +40,8 @@ This repository contains working implementations of **Epic 1-5**. The project ha
     ├── 07-observability.md            # Metrics, logging, tracing
     ├── 08-multi-environment.md        # K8s, VMs, bare metal, edge
     ├── 09-plugin-system.md            # Starlark/WASM plugin architecture
-    └── 10-documentation.md            # Hugo + Docsy comprehensive documentation
+    ├── 10-documentation.md            # Hugo + Docsy comprehensive documentation
+    └── 11-clustering.md               # High availability clustering with etcd
 ```
 
 ## Architecture Overview
@@ -1014,6 +1015,7 @@ Implementation order:
 8. **Epic 8** (Multi-Environment) - Depends on Epic 1, 2, 3
 9. **Epic 9** (Plugin System) - Depends on Epic 3, 4, 5, 6 (extends all major subsystems)
 10. **Epic 10** (Documentation) - Documents Epic 1-6, partial Epic 7 (Hugo + Docsy, comprehensive user/admin docs)
+11. **Epic 11** (Clustering) - Depends on Epic 1, 7 (etcd-based HA clustering, automatic failover, work distribution)
 
 ## Key Architectural Patterns
 
