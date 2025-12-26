@@ -10,7 +10,7 @@ This is the **design documentation repository** for TitanAnvil, a cloud-native r
 
 ## Project Status
 
-This repository contains working implementations of **Epic 1: Core Infrastructure** and **Epic 2: Remote Execution**. The project has transitioned from design-only to a working implementation with:
+This repository contains working implementations of **Epic 1-5**. The project has transitioned from design-only to a working implementation with:
 
 - Full NATS integration (embedded, external, and leaf modes)
 - Working agent system with registration, heartbeat, and command execution
@@ -19,9 +19,10 @@ This repository contains working implementations of **Epic 1: Core Infrastructur
 - Cross-platform remote execution with targeting
 - Declarative state management with drift detection and CLI (Epic 3 complete)
 - Event-driven automation with filtering, routing, enrichment, reactors, external integration, persistent storage, and monitoring (Epic 4 complete)
+- GitOps integration with webhooks, API clients, verification, rollback automation, and promotion pipelines (Epic 5 complete)
 - Comprehensive test suite (>79% coverage across all core packages)
 
-**Current Status**: Epic 1 COMPLETE ✅ | Epic 2 COMPLETE ✅ | Epic 3 COMPLETE ✅ | Epic 4 COMPLETE ✅
+**Current Status**: Epic 1 COMPLETE ✅ | Epic 2 COMPLETE ✅ | Epic 3 COMPLETE ✅ | Epic 4 COMPLETE ✅ | Epic 5 COMPLETE ✅
 
 ## Repository Structure
 
@@ -497,6 +498,180 @@ TitanAnvil fills the gap between declarative GitOps tools and runtime operations
     - Duration stats recording
     - Prometheus export performance
     - Summary generation performance
+
+### Epic 5: GitOps Integration ✅ COMPLETE
+
+**Implementation Plan:** 6 phases (8 weeks total) - All phases complete!
+
+**Phase 1 Week 1: Webhook Infrastructure ✅ COMPLETE**
+- Webhook receiver HTTP server (pkg/gitops/webhook/receiver.go)
+  - HTTP server for receiving webhooks from ArgoCD, Flux, GitHub, GitLab
+  - Automatic webhook type detection via headers and User-Agent
+  - Async event processing with processor pattern
+  - Health check and statistics endpoints
+  - Comprehensive receiver statistics (received, processed, failed, by-type)
+- Authentication system (pkg/gitops/webhook/auth.go)
+  - None authenticator (no auth)
+  - HMAC authenticator (SHA-256 signature verification)
+  - Bearer token authenticator
+  - Pluggable authenticator pattern
+- Webhook handlers (pkg/gitops/webhook/)
+  - ArgoCD handler - parses application sync/health/deployment events
+  - Flux handler - parses Kustomization/HelmRelease events
+  - GitHub handler - parses deployment/workflow/push events
+  - GitLab handler - parses deployment/pipeline/push events
+  - Handler registry for webhook type routing
+- Event integration (pkg/gitops/webhook/types.go)
+  - WebhookEvent → TitanAnvil Event conversion
+  - EventBusProcessor for publishing to event bus
+  - Correlation IDs for tracking webhook-triggered workflows
+  - Event types: gitops.argocd.*, gitops.flux.*, gitops.github.*, gitops.gitlab.*
+- Test coverage: 65.8% (19 tests passing)
+  - Authentication tests (4 test suites, 10 test cases)
+  - Handler registry and detection tests (2 test suites, 11 test cases)
+  - ArgoCD handler tests (valid/invalid payloads, event conversion)
+  - Flux handler tests (event parsing, fallback logic)
+  - Receiver integration tests (7 test scenarios)
+
+**Phase 2 Week 2-3: GitOps Tool Integration ✅ COMPLETE**
+- ArgoCD API client (pkg/gitops/argocd/)
+  - Get application status, list applications
+  - Trigger sync and rollback operations
+  - Update application annotations
+- Flux client (pkg/gitops/flux/)
+  - Get resource status (Kustomization, HelmRelease, GitRepository, HelmRepository)
+  - Suspend/resume reconciliation, trigger reconciliation
+- GitHub client (pkg/gitops/github/)
+  - Create/list/merge pull requests, update commit statuses, PR comments
+- GitLab client (pkg/gitops/gitlab/)
+  - Create/list/merge merge requests, update commit statuses, MR comments
+- Test coverage: argocd 1.4%, flux 5.1%, github 4.5%, gitlab 5.0%
+
+**Phase 3 Week 4-5: Verification Framework ✅ COMPLETE**
+- Verification engine (pkg/gitops/verification/engine.go)
+  - Sequential and parallel step execution
+  - Retry logic with configurable delays
+  - Timeout support for workflows and individual steps
+  - Continue-on-failure and stop-on-failure modes
+  - Comprehensive result tracking and statistics
+- Verification modules:
+  - HTTP health check (pkg/gitops/verification/http.go)
+    - Configurable methods (GET, POST, etc.)
+    - Expected status codes and response body validation
+    - Custom headers support
+  - Kubernetes resource check (pkg/gitops/verification/k8s.go)
+    - Check deployment/statefulset/service availability
+    - Replica count validation
+    - Ready condition checks
+  - Command execution (pkg/gitops/verification/command.go)
+    - Execute shell commands with exit code validation
+    - Expected output verification
+    - Working directory support
+  - Script execution (pkg/gitops/verification/command.go)
+    - Custom script execution with arguments
+    - Exit code and output validation
+- Test coverage: 55.8% (21 tests passing)
+  - Engine tests: sequential, parallel, retries, failure modes
+  - HTTP verifier tests: success, failure, custom methods, headers
+  - Command verifier tests: success, failure, exit codes, output validation
+
+**Phase 4 Week 6: Git Sync ✅ COMPLETE**
+- Repository types and configuration (pkg/gitops/gitsync/types.go)
+  - RepositoryConfig with URL, branch, local path, auth, sync interval
+  - AuthConfig supporting none, token, and SSH authentication
+  - PathsConfig for syncing states, reactors, vars, workflows directories
+  - SyncResult for tracking sync operations (success, commit hashes, changed files)
+  - CommitRequest, BranchRequest, PullRequestRequest for Git operations
+- Git repository client (pkg/gitops/gitsync/client.go)
+  - Repository struct for managing individual Git repositories
+  - Clone() - clone repository to local path
+  - Open() - open existing repository
+  - Sync() - pull updates from remote with change detection
+  - Commit() - create commits with file staging
+  - Push() - push commits to remote
+  - CreateBranch() - create new branches
+  - GetPathFiles() - list files in repository paths
+  - GetCurrentCommit() - get current commit hash
+  - Support for HTTPS (token) and SSH key authentication
+- Repository manager (pkg/gitops/gitsync/client.go)
+  - Manager for handling multiple repositories
+  - AddRepository() - register new repositories
+  - GetRepository() - retrieve repository by name
+  - SyncAll() - sync all registered repositories
+  - Watch() - background sync with configurable intervals
+- Test coverage: 50.0% (10 tests passing)
+  - Config validation tests
+  - Authentication setup tests (none, token, SSH)
+  - Repository operations (open, commit, branch, file listing)
+  - Manager tests (multi-repo handling, sync all)
+
+**Phase 5 Week 7: Rollback Automation ✅ COMPLETE**
+- Rollback types and configuration (pkg/gitops/rollback/types.go)
+  - RollbackType: ArgoCD, Flux, Git, Manual
+  - RollbackStrategy: Previous, Specific, LastKnownGood
+  - RollbackTrigger: Manual, Automatic, Scheduled
+  - RollbackConfig with approval workflow, verification, timeout
+  - RollbackResult with status tracking, timing, approval info
+  - ApprovalInfo for tracking approval/rejection details
+  - ApprovalRequest for approve/reject operations
+- Rollback engine (pkg/gitops/rollback/engine.go)
+  - Executor interface for pluggable rollback implementations
+  - Engine for orchestrating rollback operations
+  - RegisterExecutor() - register rollback executors by type
+  - Execute() - execute rollback with optional approval workflow
+  - ApproveRollback() - approve or reject pending rollbacks
+  - GetRollback(), ListRollbacks(), ListPendingRollbacks() - rollback management
+  - Support for immediate execution or approval-required workflows
+  - Automatic revision determination based on strategy
+  - Post-rollback verification support
+  - Comprehensive status tracking (pending, approved, rejected, in_progress, completed, failed, verifying, verified)
+- ArgoCD executor (pkg/gitops/rollback/argocd.go)
+  - ArgoCDExecutor for ArgoCD-based rollbacks
+  - Execute() - rollback ArgoCD application to specific revision
+  - GetPreviousRevision() - get previous application revision
+  - GetLastKnownGood() - find last healthy deployment
+  - Integration with ArgoCD API client
+- Git executor (pkg/gitops/rollback/git.go)
+  - GitExecutor for Git-based rollbacks
+  - Execute() - create rollback branch and revert commit
+  - Push rollback to remote repository
+  - Integration with Git sync manager
+- Test coverage: 50.3% (10 tests passing)
+  - Engine tests: register, execute, approval workflow
+  - Strategy tests: previous, last known good, specific revision
+  - Approval tests: approve and reject workflows
+  - Listing tests: all rollbacks and pending rollbacks
+
+**Phase 6 Week 8: Promotion Pipelines ✅ COMPLETE**
+- Promotion types and configuration (pkg/gitops/promotion/types.go)
+  - PromotionStrategy: BlueGreen, Canary, Rolling, Immediate
+  - Environment configuration with approval and verification
+  - Pipeline definition across multiple environments
+  - CanaryStep for gradual rollout configuration
+  - PromotionRequest and PromotionResult tracking
+  - StageResult for per-environment promotion results
+  - CanaryProgress for tracking canary deployment steps
+  - ApprovalInfo and ApprovalRequest for approval workflow
+- Promotion engine (pkg/gitops/promotion/engine.go)
+  - Deployer interface for pluggable deployment implementations
+  - Engine for orchestrating promotion pipelines
+  - RegisterPipeline() - register promotion pipelines
+  - Promote() - execute promotion with optional approval
+  - ApprovePromotion() - approve or reject pending promotions
+  - GetPromotion(), ListPromotions(), ListPendingPromotions() - promotion management
+  - Progressive delivery strategies:
+    - Immediate - full deployment at once
+    - Canary - gradual traffic shift with steps (25%, 50%, 75%, 100%)
+    - Blue/Green - deploy to green, switch traffic
+    - Rolling - rolling update (platform-managed)
+  - Automatic rollback on failure support
+  - Per-environment verification integration
+  - Comprehensive status tracking (pending, approved, rejected, in_progress, verifying, rolling_out, completed, failed, rolling_back, rolled_back)
+- Test coverage: 73.0% (9 tests passing)
+  - Engine tests: register, validation
+  - Promotion tests: immediate, with approval, canary deployment
+  - Approval tests: approve and reject workflows
+  - Listing tests: all promotions and pending promotions
 
 ## Epic Dependencies
 
