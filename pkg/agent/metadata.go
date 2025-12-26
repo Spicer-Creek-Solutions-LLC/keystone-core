@@ -6,6 +6,8 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/titananvil/titan-anvil/pkg/hardware"
+	"github.com/titananvil/titan-anvil/pkg/platform"
 	"github.com/titananvil/titan-anvil/pkg/version"
 )
 
@@ -18,6 +20,27 @@ type Metadata struct {
 	PlatformVersion string
 	AgentVersion    string
 	Labels          map[string]string
+	// Platform detection information
+	Distro             string
+	DistroVersion      string
+	PackageManager     string
+	InitSystem         string
+	KernelVersion      string
+	IsVirtual          bool
+	VirtualizationType string
+	IsContainer        bool
+	ContainerType      string
+	// Hardware information
+	CPUModel       string
+	CPUCores       int
+	CPUThreads     int
+	MemoryTotal    uint64 // bytes
+	MemoryAvailable uint64 // bytes
+	DiskCount      int
+	NetworkCount   int
+	SystemVendor   string
+	SystemProduct  string
+	SystemUUID     string
 }
 
 // CollectMetadata gathers system information about the agent
@@ -47,6 +70,47 @@ func CollectMetadata() (*Metadata, error) {
 		ipAddresses = []string{}
 	}
 	metadata.IPAddresses = ipAddresses
+
+	// Collect platform information using platform detection
+	platformInfo, err := platform.Detect()
+	if err != nil {
+		// Don't fail, just log warning
+		fmt.Printf("Warning: failed to detect platform: %v\n", err)
+	} else {
+		metadata.Distro = platformInfo.Distro.String()
+		metadata.DistroVersion = platformInfo.Version
+		metadata.PackageManager = platformInfo.PackageManager.String()
+		metadata.InitSystem = platformInfo.InitSystem.String()
+		metadata.KernelVersion = platformInfo.KernelVersion
+		metadata.IsVirtual = platformInfo.IsVirtual
+		metadata.VirtualizationType = platformInfo.VirtualizationType
+		metadata.IsContainer = platformInfo.IsContainer
+		metadata.ContainerType = platformInfo.ContainerType
+	}
+
+	// Collect hardware information using hardware detection
+	hwInfo, err := hardware.Detect()
+	if err != nil {
+		// Don't fail, just log warning
+		fmt.Printf("Warning: failed to detect hardware: %v\n", err)
+	} else {
+		if hwInfo.CPU != nil {
+			metadata.CPUModel = hwInfo.CPU.Model
+			metadata.CPUCores = hwInfo.CPU.Cores
+			metadata.CPUThreads = hwInfo.CPU.Threads
+		}
+		if hwInfo.Memory != nil {
+			metadata.MemoryTotal = hwInfo.Memory.Total
+			metadata.MemoryAvailable = hwInfo.Memory.Available
+		}
+		metadata.DiskCount = len(hwInfo.Disks)
+		metadata.NetworkCount = len(hwInfo.Network)
+		if hwInfo.System != nil {
+			metadata.SystemVendor = hwInfo.System.Manufacturer
+			metadata.SystemProduct = hwInfo.System.ProductName
+			metadata.SystemUUID = hwInfo.System.UUID
+		}
+	}
 
 	return metadata, nil
 }

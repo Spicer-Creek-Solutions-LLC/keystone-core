@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/titananvil/titan-anvil/pkg/platform"
 )
 
 // ServiceModule implements service management
@@ -176,16 +178,24 @@ func (m *ServiceModule) Test(ctx context.Context, decl *StateDeclaration) (bool,
 type ServiceManager string
 
 const (
-	SMUnknown   ServiceManager = "unknown"
-	SMSystemd   ServiceManager = "systemd"
-	SMInitD     ServiceManager = "init.d"
-	SMLaunchd   ServiceManager = "launchd"
-	SMOpenRC    ServiceManager = "openrc"
-	SMUpstart   ServiceManager = "upstart"
+	SMUnknown        ServiceManager = "unknown"
+	SMSystemd        ServiceManager = "systemd"
+	SMInitD          ServiceManager = "init.d"
+	SMLaunchd        ServiceManager = "launchd"
+	SMOpenRC         ServiceManager = "openrc"
+	SMUpstart        ServiceManager = "upstart"
+	SMWindowsService ServiceManager = "windows_service"
 )
 
-// detectServiceManager detects the available service manager
+// detectServiceManager detects the available service manager using platform detection
 func (m *ServiceModule) detectServiceManager() (ServiceManager, error) {
+	// Use platform detection for accurate init system detection
+	initSys, err := platform.DetectInitSystem()
+	if err == nil && initSys != platform.InitUnknown {
+		return convertPlatformInitSystem(initSys), nil
+	}
+
+	// Fallback to manual detection
 	// Check for systemd
 	if _, err := exec.LookPath("systemctl"); err == nil {
 		return SMSystemd, nil
@@ -195,6 +205,13 @@ func (m *ServiceModule) detectServiceManager() (ServiceManager, error) {
 	if runtime.GOOS == "darwin" {
 		if _, err := exec.LookPath("launchctl"); err == nil {
 			return SMLaunchd, nil
+		}
+	}
+
+	// Check for Windows Service Manager
+	if runtime.GOOS == "windows" {
+		if _, err := exec.LookPath("sc.exe"); err == nil {
+			return SMWindowsService, nil
 		}
 	}
 
@@ -216,6 +233,26 @@ func (m *ServiceModule) detectServiceManager() (ServiceManager, error) {
 	return SMUnknown, fmt.Errorf("no supported service manager found on %s", runtime.GOOS)
 }
 
+// convertPlatformInitSystem converts platform.InitSystem to ServiceManager
+func convertPlatformInitSystem(initSys platform.InitSystem) ServiceManager {
+	switch initSys {
+	case platform.InitSystemd:
+		return SMSystemd
+	case platform.InitUpstart:
+		return SMUpstart
+	case platform.InitSysV:
+		return SMInitD
+	case platform.InitOpenRC:
+		return SMOpenRC
+	case platform.InitLaunchd:
+		return SMLaunchd
+	case platform.InitWindowsService:
+		return SMWindowsService
+	default:
+		return SMUnknown
+	}
+}
+
 // isServiceRunning checks if a service is running
 func (m *ServiceModule) isServiceRunning(ctx context.Context, sm ServiceManager, serviceName string) (bool, error) {
 	var cmd *exec.Cmd
@@ -231,6 +268,8 @@ func (m *ServiceModule) isServiceRunning(ctx context.Context, sm ServiceManager,
 		cmd = exec.CommandContext(ctx, "service", serviceName, "status")
 	case SMUpstart:
 		cmd = exec.CommandContext(ctx, "status", serviceName)
+	case SMWindowsService:
+		cmd = exec.CommandContext(ctx, "sc.exe", "query", serviceName)
 	default:
 		return false, fmt.Errorf("unsupported service manager: %s", sm)
 	}
@@ -256,6 +295,9 @@ func (m *ServiceModule) isServiceRunning(ctx context.Context, sm ServiceManager,
 			strings.Contains(strings.ToLower(outputStr), "active"), nil
 	case SMUpstart:
 		return strings.Contains(outputStr, "start/running"), nil
+	case SMWindowsService:
+		// Windows: check for "RUNNING" in output
+		return strings.Contains(outputStr, "RUNNING"), nil
 	}
 
 	return false, nil
@@ -270,6 +312,8 @@ func (m *ServiceModule) isServiceEnabled(ctx context.Context, sm ServiceManager,
 		cmd = exec.CommandContext(ctx, "systemctl", "is-enabled", serviceName)
 	case SMOpenRC:
 		cmd = exec.CommandContext(ctx, "rc-update", "show")
+	case SMWindowsService:
+		cmd = exec.CommandContext(ctx, "sc.exe", "qc", serviceName)
 	default:
 		// Not all service managers support enable/disable
 		return false, fmt.Errorf("enable/disable not supported for %s", sm)
@@ -288,6 +332,9 @@ func (m *ServiceModule) isServiceEnabled(ctx context.Context, sm ServiceManager,
 	case SMOpenRC:
 		// Check if service is in the output
 		return strings.Contains(outputStr, serviceName), nil
+	case SMWindowsService:
+		// Windows: check for AUTO_START
+		return strings.Contains(outputStr, "AUTO_START"), nil
 	}
 
 	return false, nil
@@ -309,6 +356,8 @@ func (m *ServiceModule) startService(ctx context.Context, sm ServiceManager, dec
 		cmd = exec.CommandContext(ctx, "service", serviceName, "start")
 	case SMUpstart:
 		cmd = exec.CommandContext(ctx, "start", serviceName)
+	case SMWindowsService:
+		cmd = exec.CommandContext(ctx, "sc.exe", "start", serviceName)
 	default:
 		return fmt.Errorf("unsupported service manager: %s", sm)
 	}
@@ -347,6 +396,8 @@ func (m *ServiceModule) stopService(ctx context.Context, sm ServiceManager, decl
 		cmd = exec.CommandContext(ctx, "service", serviceName, "stop")
 	case SMUpstart:
 		cmd = exec.CommandContext(ctx, "stop", serviceName)
+	case SMWindowsService:
+		cmd = exec.CommandContext(ctx, "sc.exe", "stop", serviceName)
 	default:
 		return fmt.Errorf("unsupported service manager: %s", sm)
 	}
@@ -370,6 +421,8 @@ func (m *ServiceModule) enableService(ctx context.Context, sm ServiceManager, de
 		cmd = exec.CommandContext(ctx, "systemctl", "enable", serviceName)
 	case SMOpenRC:
 		cmd = exec.CommandContext(ctx, "rc-update", "add", serviceName)
+	case SMWindowsService:
+		cmd = exec.CommandContext(ctx, "sc.exe", "config", serviceName, "start=", "auto")
 	default:
 		return fmt.Errorf("enable not supported for %s", sm)
 	}
@@ -393,6 +446,8 @@ func (m *ServiceModule) disableService(ctx context.Context, sm ServiceManager, d
 		cmd = exec.CommandContext(ctx, "systemctl", "disable", serviceName)
 	case SMOpenRC:
 		cmd = exec.CommandContext(ctx, "rc-update", "del", serviceName)
+	case SMWindowsService:
+		cmd = exec.CommandContext(ctx, "sc.exe", "config", serviceName, "start=", "disabled")
 	default:
 		return fmt.Errorf("disable not supported for %s", sm)
 	}

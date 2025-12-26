@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/titananvil/titan-anvil/pkg/platform"
 )
 
 // PackageModule implements package management
@@ -170,11 +172,19 @@ const (
 	PMBrew      PackageManager = "brew"
 	PMPacman    PackageManager = "pacman"
 	PMZypper    PackageManager = "zypper"
+	PMChoco     PackageManager = "chocolatey"
+	PMWinget    PackageManager = "winget"
 )
 
-// detectPackageManager detects the available package manager
+// detectPackageManager detects the available package manager using platform detection
 func (m *PackageModule) detectPackageManager() (PackageManager, error) {
-	// Check for common package managers
+	// Use platform detection for more accurate detection
+	platformPM, err := platform.DetectPackageManager()
+	if err == nil && platformPM != platform.PackageManagerUnknown {
+		return convertPlatformPM(platformPM), nil
+	}
+
+	// Fallback to manual detection
 	managers := []struct {
 		name    PackageManager
 		command string
@@ -186,6 +196,8 @@ func (m *PackageModule) detectPackageManager() (PackageManager, error) {
 		{PMPacman, "pacman"},
 		{PMZypper, "zypper"},
 		{PMBrew, "brew"},
+		{PMChoco, "choco"},
+		{PMWinget, "winget"},
 	}
 
 	for _, mgr := range managers {
@@ -195,6 +207,32 @@ func (m *PackageModule) detectPackageManager() (PackageManager, error) {
 	}
 
 	return PMUnknown, fmt.Errorf("no supported package manager found on %s", runtime.GOOS)
+}
+
+// convertPlatformPM converts platform.PackageManager to statemgmt.PackageManager
+func convertPlatformPM(pm platform.PackageManager) PackageManager {
+	switch pm {
+	case platform.PackageManagerAPT:
+		return PMApt
+	case platform.PackageManagerYum:
+		return PMYum
+	case platform.PackageManagerDNF:
+		return PMDNF
+	case platform.PackageManagerZypper:
+		return PMZypper
+	case platform.PackageManagerPacman:
+		return PMPacman
+	case platform.PackageManagerAPK:
+		return PMApk
+	case platform.PackageManagerBrew:
+		return PMBrew
+	case platform.PackageManagerChocolatey:
+		return PMChoco
+	case platform.PackageManagerWinget:
+		return PMWinget
+	default:
+		return PMUnknown
+	}
 }
 
 // isPackageInstalled checks if a package is installed

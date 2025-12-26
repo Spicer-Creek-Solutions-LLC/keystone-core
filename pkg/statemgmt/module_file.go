@@ -7,7 +7,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -24,6 +26,31 @@ func NewFileModule() *FileModule {
 	}
 }
 
+// normalizePath normalizes a path for the current operating system
+func (m *FileModule) normalizePath(path string) string {
+	// Convert forward slashes to backslashes on Windows
+	if runtime.GOOS == "windows" {
+		// Replace Unix-style paths with Windows-style
+		path = strings.ReplaceAll(path, "/", "\\")
+	}
+
+	// Use filepath.Clean to normalize the path
+	return filepath.Clean(path)
+}
+
+// isOwnershipSupported checks if the OS supports owner/group operations
+func (m *FileModule) isOwnershipSupported() bool {
+	// Windows doesn't use Unix-style owner/group
+	return runtime.GOOS != "windows"
+}
+
+// isSymlinkSupported checks if symlinks are supported and practical
+func (m *FileModule) isSymlinkSupported() bool {
+	// Symlinks work on Unix-like systems
+	// On Windows, they require elevated privileges and are less common
+	return runtime.GOOS != "windows"
+}
+
 // Check checks the current state of a file/directory
 func (m *FileModule) Check(ctx context.Context, decl *StateDeclaration) (*ModuleCheckResult, error) {
 	result := &ModuleCheckResult{
@@ -31,8 +58,11 @@ func (m *FileModule) Check(ctx context.Context, decl *StateDeclaration) (*Module
 		Metadata: make(map[string]interface{}),
 	}
 
+	// Normalize path for the current OS
+	normalizedPath := m.normalizePath(decl.ID)
+
 	// Check if file exists
-	info, err := os.Lstat(decl.ID)
+	info, err := os.Lstat(normalizedPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			result.Present = false
@@ -40,7 +70,7 @@ func (m *FileModule) Check(ctx context.Context, decl *StateDeclaration) (*Module
 			result.Matches = (decl.State == "absent")
 			return result, nil
 		}
-		return nil, fmt.Errorf("failed to stat %s: %w", decl.ID, err)
+		return nil, fmt.Errorf("failed to stat %s: %w", normalizedPath, err)
 	}
 
 	result.Present = true
@@ -51,7 +81,7 @@ func (m *FileModule) Check(ctx context.Context, decl *StateDeclaration) (*Module
 	switch {
 	case info.Mode()&os.ModeSymlink != 0:
 		result.CurrentState = "symlink"
-		target, _ := os.Readlink(decl.ID)
+		target, _ := os.Readlink(normalizedPath)
 		result.Metadata["target"] = target
 	case info.IsDir():
 		result.CurrentState = "directory"
@@ -72,7 +102,7 @@ func (m *FileModule) Check(ctx context.Context, decl *StateDeclaration) (*Module
 			result.Diff["type"] = map[string]string{"current": "directory", "desired": "file"}
 		}
 		// Check mode, owner, group, content
-		if !m.checkAttributes(decl, info, result) {
+		if !m.checkAttributes(normalizedPath, decl, info, result) {
 			result.Matches = false
 		}
 
@@ -82,22 +112,28 @@ func (m *FileModule) Check(ctx context.Context, decl *StateDeclaration) (*Module
 			result.Diff["type"] = map[string]string{"current": "file", "desired": "directory"}
 		} else {
 			// Check mode, owner, group
-			if !m.checkAttributes(decl, info, result) {
+			if !m.checkAttributes(normalizedPath, decl, info, result) {
 				result.Matches = false
 			}
 		}
 
 	case "symlink":
-		result.Matches = (info.Mode()&os.ModeSymlink != 0)
-		if !result.Matches {
-			result.Diff["type"] = map[string]string{"current": result.CurrentState, "desired": "symlink"}
+		// Check if symlinks are supported on this platform
+		if !m.isSymlinkSupported() {
+			result.Matches = false
+			result.Diff["platform"] = "symlinks not supported on Windows without elevated privileges"
 		} else {
-			// Check target
-			target, _ := os.Readlink(decl.ID)
-			desiredTarget := getStringParameter(decl, "target", "")
-			if desiredTarget != "" && target != desiredTarget {
-				result.Matches = false
-				result.Diff["target"] = map[string]string{"current": target, "desired": desiredTarget}
+			result.Matches = (info.Mode()&os.ModeSymlink != 0)
+			if !result.Matches {
+				result.Diff["type"] = map[string]string{"current": result.CurrentState, "desired": "symlink"}
+			} else {
+				// Check target
+				target, _ := os.Readlink(normalizedPath)
+				desiredTarget := getStringParameter(decl, "target", "")
+				if desiredTarget != "" && target != desiredTarget {
+					result.Matches = false
+					result.Diff["target"] = map[string]string{"current": target, "desired": desiredTarget}
+				}
 			}
 		}
 	}
@@ -106,7 +142,7 @@ func (m *FileModule) Check(ctx context.Context, decl *StateDeclaration) (*Module
 }
 
 // checkAttributes checks file attributes (mode, owner, content)
-func (m *FileModule) checkAttributes(decl *StateDeclaration, info os.FileInfo, result *ModuleCheckResult) bool {
+func (m *FileModule) checkAttributes(path string, decl *StateDeclaration, info os.FileInfo, result *ModuleCheckResult) bool {
 	matches := true
 
 	// Check mode
@@ -124,26 +160,28 @@ func (m *FileModule) checkAttributes(decl *StateDeclaration, info os.FileInfo, r
 		}
 	}
 
-	// Check owner/group (Unix only)
-	if stat, ok := info.Sys().(*syscall.Stat_t); ok {
-		// Check user
-		if user := getStringParameter(decl, "user", ""); user != "" {
-			result.Metadata["uid"] = stat.Uid
-			// Would need to resolve username to UID for comparison
-			// For now, just store it
-		}
+	// Check owner/group (Unix only - skip on Windows)
+	if m.isOwnershipSupported() {
+		if stat, ok := info.Sys().(*syscall.Stat_t); ok {
+			// Check user
+			if user := getStringParameter(decl, "user", ""); user != "" {
+				result.Metadata["uid"] = stat.Uid
+				// Would need to resolve username to UID for comparison
+				// For now, just store it
+			}
 
-		// Check group
-		if group := getStringParameter(decl, "group", ""); group != "" {
-			result.Metadata["gid"] = stat.Gid
-			// Would need to resolve group name to GID for comparison
+			// Check group
+			if group := getStringParameter(decl, "group", ""); group != "" {
+				result.Metadata["gid"] = stat.Gid
+				// Would need to resolve group name to GID for comparison
+			}
 		}
 	}
 
 	// Check content hash for files
 	if !info.IsDir() && decl.State == "present" {
 		if contents := getStringParameter(decl, "contents", ""); contents != "" {
-			currentHash, err := m.hashFile(decl.ID)
+			currentHash, err := m.hashFile(path)
 			if err == nil {
 				desiredHash := m.hashString(contents)
 				if currentHash != desiredHash {
@@ -157,9 +195,10 @@ func (m *FileModule) checkAttributes(decl *StateDeclaration, info os.FileInfo, r
 		if source := getStringParameter(decl, "source", ""); source != "" {
 			sourceType, sourcePath := ParseSource(source)
 			if sourceType == SourceTypeFile {
-				sourceHash, err := m.hashFile(sourcePath)
+				normalizedSourcePath := m.normalizePath(sourcePath)
+				sourceHash, err := m.hashFile(normalizedSourcePath)
 				if err == nil {
-					currentHash, err := m.hashFile(decl.ID)
+					currentHash, err := m.hashFile(path)
 					if err == nil && currentHash != sourceHash {
 						matches = false
 						result.Diff["contents"] = "differs from source"
@@ -183,6 +222,9 @@ func (m *FileModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 		Changes:   make(map[string]interface{}),
 		StartTime: startTime,
 	}
+
+	// Normalize path for the current OS
+	normalizedPath := m.normalizePath(decl.ID)
 
 	// Check current state first
 	checkResult, err := m.Check(ctx, decl)
@@ -208,13 +250,13 @@ func (m *FileModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 	var applyErr error
 	switch decl.State {
 	case "absent":
-		applyErr = m.applyAbsent(decl, result)
+		applyErr = m.applyAbsent(normalizedPath, decl, result)
 	case "present":
-		applyErr = m.applyPresent(decl, result)
+		applyErr = m.applyPresent(normalizedPath, decl, result)
 	case "directory":
-		applyErr = m.applyDirectory(decl, result)
+		applyErr = m.applyDirectory(normalizedPath, decl, result)
 	case "symlink":
-		applyErr = m.applySymlink(decl, result)
+		applyErr = m.applySymlink(normalizedPath, decl, result)
 	default:
 		applyErr = fmt.Errorf("unsupported state: %s", decl.State)
 	}
@@ -235,8 +277,8 @@ func (m *FileModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 }
 
 // applyAbsent removes a file/directory
-func (m *FileModule) applyAbsent(decl *StateDeclaration, result *StateResult) error {
-	info, err := os.Lstat(decl.ID)
+func (m *FileModule) applyAbsent(path string, decl *StateDeclaration, result *StateResult) error {
+	info, err := os.Lstat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			result.Comment = "Already absent"
@@ -246,12 +288,12 @@ func (m *FileModule) applyAbsent(decl *StateDeclaration, result *StateResult) er
 	}
 
 	if info.IsDir() {
-		if err := os.RemoveAll(decl.ID); err != nil {
+		if err := os.RemoveAll(path); err != nil {
 			return fmt.Errorf("failed to remove directory: %w", err)
 		}
 		result.Comment = "Directory removed"
 	} else {
-		if err := os.Remove(decl.ID); err != nil {
+		if err := os.Remove(path); err != nil {
 			return fmt.Errorf("failed to remove file: %w", err)
 		}
 		result.Comment = "File removed"
@@ -261,10 +303,10 @@ func (m *FileModule) applyAbsent(decl *StateDeclaration, result *StateResult) er
 }
 
 // applyPresent creates or updates a file
-func (m *FileModule) applyPresent(decl *StateDeclaration, result *StateResult) error {
+func (m *FileModule) applyPresent(path string, decl *StateDeclaration, result *StateResult) error {
 	// Create parent directories if needed
 	if getBoolParameter(decl, "makedirs", false) {
-		dir := filepath.Dir(decl.ID)
+		dir := filepath.Dir(path)
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return fmt.Errorf("failed to create parent directories: %w", err)
 		}
@@ -279,7 +321,8 @@ func (m *FileModule) applyPresent(decl *StateDeclaration, result *StateResult) e
 	} else if source := getStringParameter(decl, "source", ""); source != "" {
 		sourceType, sourcePath := ParseSource(source)
 		if sourceType == SourceTypeFile {
-			content, err = os.ReadFile(sourcePath)
+			normalizedSourcePath := m.normalizePath(sourcePath)
+			content, err = os.ReadFile(normalizedSourcePath)
 			if err != nil {
 				return fmt.Errorf("failed to read source file: %w", err)
 			}
@@ -292,22 +335,22 @@ func (m *FileModule) applyPresent(decl *StateDeclaration, result *StateResult) e
 	if content != nil {
 		// Backup existing file if requested
 		if getBoolParameter(decl, "backup", false) {
-			if _, err := os.Stat(decl.ID); err == nil {
-				backupPath := decl.ID + ".backup"
-				if err := os.Rename(decl.ID, backupPath); err != nil {
+			if _, err := os.Stat(path); err == nil {
+				backupPath := path + ".backup"
+				if err := os.Rename(path, backupPath); err != nil {
 					return fmt.Errorf("failed to backup file: %w", err)
 				}
 			}
 		}
 
-		if err := os.WriteFile(decl.ID, content, 0644); err != nil {
+		if err := os.WriteFile(path, content, 0644); err != nil {
 			return fmt.Errorf("failed to write file: %w", err)
 		}
 		result.Comment = "File created/updated"
 	} else {
 		// Just create empty file if it doesn't exist
-		if _, err := os.Stat(decl.ID); os.IsNotExist(err) {
-			if err := os.WriteFile(decl.ID, []byte{}, 0644); err != nil {
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			if err := os.WriteFile(path, []byte{}, 0644); err != nil {
 				return fmt.Errorf("failed to create file: %w", err)
 			}
 			result.Comment = "Empty file created"
@@ -320,7 +363,7 @@ func (m *FileModule) applyPresent(decl *StateDeclaration, result *StateResult) e
 		if err != nil {
 			return fmt.Errorf("invalid mode: %w", err)
 		}
-		if err := os.Chmod(decl.ID, os.FileMode(mode)); err != nil {
+		if err := os.Chmod(path, os.FileMode(mode)); err != nil {
 			return fmt.Errorf("failed to set mode: %w", err)
 		}
 	}
@@ -329,7 +372,7 @@ func (m *FileModule) applyPresent(decl *StateDeclaration, result *StateResult) e
 }
 
 // applyDirectory creates a directory
-func (m *FileModule) applyDirectory(decl *StateDeclaration, result *StateResult) error {
+func (m *FileModule) applyDirectory(path string, decl *StateDeclaration, result *StateResult) error {
 	// Get desired mode
 	mode := os.FileMode(0755)
 	if modeStr := getStringParameter(decl, "mode", ""); modeStr != "" {
@@ -341,7 +384,7 @@ func (m *FileModule) applyDirectory(decl *StateDeclaration, result *StateResult)
 	}
 
 	// Create directory
-	if err := os.MkdirAll(decl.ID, mode); err != nil {
+	if err := os.MkdirAll(path, mode); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
@@ -350,25 +393,33 @@ func (m *FileModule) applyDirectory(decl *StateDeclaration, result *StateResult)
 }
 
 // applySymlink creates a symlink
-func (m *FileModule) applySymlink(decl *StateDeclaration, result *StateResult) error {
+func (m *FileModule) applySymlink(path string, decl *StateDeclaration, result *StateResult) error {
+	// Check if symlinks are supported
+	if !m.isSymlinkSupported() {
+		return fmt.Errorf("symlinks are not supported on Windows without elevated privileges")
+	}
+
 	target := getStringParameter(decl, "target", "")
 	if target == "" {
 		return fmt.Errorf("symlink requires 'target' parameter")
 	}
 
+	// Normalize the target path as well
+	normalizedTarget := m.normalizePath(target)
+
 	// Remove existing file if it exists
-	if _, err := os.Lstat(decl.ID); err == nil {
-		if err := os.Remove(decl.ID); err != nil {
+	if _, err := os.Lstat(path); err == nil {
+		if err := os.Remove(path); err != nil {
 			return fmt.Errorf("failed to remove existing file: %w", err)
 		}
 	}
 
 	// Create symlink
-	if err := os.Symlink(target, decl.ID); err != nil {
+	if err := os.Symlink(normalizedTarget, path); err != nil {
 		return fmt.Errorf("failed to create symlink: %w", err)
 	}
 
-	result.Comment = fmt.Sprintf("Symlink created to %s", target)
+	result.Comment = fmt.Sprintf("Symlink created to %s", normalizedTarget)
 	return nil
 }
 

@@ -52,6 +52,7 @@ coverage.out
 titananvil-server
 titananvil-agent
 titananvil-exec
+titananvil-monitor
 titananvil-module
 titananvil-state
 titananvil-policy

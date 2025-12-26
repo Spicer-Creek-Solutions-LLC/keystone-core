@@ -19,6 +19,7 @@ help:
 	@echo "  agent              - Build titananvil-agent binary"
 	@echo "  cli                - Build titanctl binary"
 	@echo "  exec               - Build titananvil-exec plugin"
+	@echo "  monitor            - Build titananvil-monitor TUI"
 	@echo "  test               - Run tests"
 	@echo "  clean              - Remove build artifacts"
 	@echo "  deps               - Install/update dependencies"
@@ -37,7 +38,7 @@ proto:
 	       api/proto/*.proto
 	@echo "Protobuf code generated successfully"
 
-build: server agent cli exec
+build: server agent cli exec monitor
 
 server:
 	@echo "Building titananvil-server..."
@@ -58,6 +59,11 @@ exec:
 	@echo "Building titananvil-exec..."
 	go build -ldflags "$(LDFLAGS)" -o bin/titananvil-exec ./cmd/titananvil-exec
 	@echo "Built: bin/titananvil-exec"
+
+monitor:
+	@echo "Building titananvil-monitor..."
+	go build -ldflags "$(LDFLAGS)" -o bin/titananvil-monitor ./cmd/titananvil-monitor
+	@echo "Built: bin/titananvil-monitor"
 
 test:
 	go test -v -race -coverprofile=coverage.out ./...
@@ -83,10 +89,12 @@ build-linux:
 	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/linux/amd64/titananvil-server ./cmd/titananvil-server
 	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/linux/amd64/titananvil-agent ./cmd/titananvil-agent
 	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/linux/amd64/titananvil-exec ./cmd/titananvil-exec
+	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/linux/amd64/titananvil-monitor ./cmd/titananvil-monitor
 	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/linux/amd64/titanctl ./cmd/titanctl
 	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o bin/linux/arm64/titananvil-server ./cmd/titananvil-server
 	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o bin/linux/arm64/titananvil-agent ./cmd/titananvil-agent
 	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o bin/linux/arm64/titananvil-exec ./cmd/titananvil-exec
+	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o bin/linux/arm64/titananvil-monitor ./cmd/titananvil-monitor
 	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o bin/linux/arm64/titanctl ./cmd/titanctl
 	@echo "Linux builds complete"
 
@@ -96,10 +104,12 @@ build-darwin:
 	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/darwin/amd64/titananvil-server ./cmd/titananvil-server
 	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/darwin/amd64/titananvil-agent ./cmd/titananvil-agent
 	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/darwin/amd64/titananvil-exec ./cmd/titananvil-exec
+	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/darwin/amd64/titananvil-monitor ./cmd/titananvil-monitor
 	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/darwin/amd64/titanctl ./cmd/titanctl
 	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o bin/darwin/arm64/titananvil-server ./cmd/titananvil-server
 	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o bin/darwin/arm64/titananvil-agent ./cmd/titananvil-agent
 	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o bin/darwin/arm64/titananvil-exec ./cmd/titananvil-exec
+	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o bin/darwin/arm64/titananvil-monitor ./cmd/titananvil-monitor
 	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o bin/darwin/arm64/titanctl ./cmd/titanctl
 	@echo "macOS builds complete"
 
@@ -109,5 +119,6 @@ build-windows:
 	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/windows/amd64/titananvil-server.exe ./cmd/titananvil-server
 	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/windows/amd64/titananvil-agent.exe ./cmd/titananvil-agent
 	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/windows/amd64/titananvil-exec.exe ./cmd/titananvil-exec
+	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/windows/amd64/titananvil-monitor.exe ./cmd/titananvil-monitor
 	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/windows/amd64/titanctl.exe ./cmd/titanctl
 	@echo "Windows builds complete"
