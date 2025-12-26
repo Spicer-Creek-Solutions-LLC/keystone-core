@@ -39,7 +39,8 @@ This repository contains working implementations of **Epic 1-5**. The project ha
     ├── 06-policy-enforcement.md       # OPA/CEL policy engine
     ├── 07-observability.md            # Metrics, logging, tracing
     ├── 08-multi-environment.md        # K8s, VMs, bare metal, edge
-    └── 09-plugin-system.md            # Starlark/WASM plugin architecture
+    ├── 09-plugin-system.md            # Starlark/WASM plugin architecture
+    └── 10-documentation.md            # Hugo + Docsy comprehensive documentation
 ```
 
 ## Architecture Overview
@@ -1012,6 +1013,7 @@ Implementation order:
 7. **Epic 7** (Observability) - Instruments all epics
 8. **Epic 8** (Multi-Environment) - Depends on Epic 1, 2, 3
 9. **Epic 9** (Plugin System) - Depends on Epic 3, 4, 5, 6 (extends all major subsystems)
+10. **Epic 10** (Documentation) - Documents Epic 1-6, partial Epic 7 (Hugo + Docsy, comprehensive user/admin docs)
 
 ## Key Architectural Patterns
 
