@@ -1,0 +1,437 @@
+{
+  "dashboard": {
+    "title": "TitanAnvil Policy Compliance",
+    "uid": "titananvil-policy-compliance",
+    "tags": ["titananvil", "policy", "compliance", "security"],
+    "timezone": "browser",
+    "schemaVersion": 36,
+    "version": 1,
+    "refresh": "1m",
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    },
+    "timepicker": {
+      "refresh_intervals": ["30s", "1m", "5m", "15m", "30m", "1h"]
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "framework",
+          "type": "query",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "query": "label_values(titananvil_policy_compliance_score, framework)",
+          "refresh": 1,
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*"
+        },
+        {
+          "name": "environment",
+          "type": "query",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "query": "label_values(titananvil_policy_violations_total, environment)",
+          "refresh": 1,
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*"
+        }
+      ]
+    },
+    "panels": [
+      {
+        "title": "Overall Compliance Score",
+        "type": "gauge",
+        "gridPos": {"h": 8, "w": 8, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "avg(titananvil_policy_compliance_score{framework=~\"$framework\",environment=~\"$environment\"})",
+            "legendFormat": "Compliance"
+          }
+        ],
+        "options": {
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 70, "color": "orange"},
+                {"value": 85, "color": "yellow"},
+                {"value": 95, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Total Violations",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 8, "x": 8, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(titananvil_policy_violations_total{framework=~\"$framework\",environment=~\"$environment\"})",
+            "legendFormat": "Total"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "yellow"},
+                {"value": 10, "color": "orange"},
+                {"value": 50, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Remediation Success Rate",
+        "type": "gauge",
+        "gridPos": {"h": 4, "w": 8, "x": 16, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(titananvil_policy_remediation_successful_total{framework=~\"$framework\",environment=~\"$environment\"}) / sum(titananvil_policy_remediation_attempted_total{framework=~\"$framework\",environment=~\"$environment\"}) * 100",
+            "legendFormat": "Success %"
+          }
+        ],
+        "options": {
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 70, "color": "yellow"},
+                {"value": 90, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Critical Violations",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 8, "x": 8, "y": 4},
+        "targets": [
+          {
+            "expr": "sum(titananvil_policy_violations_total{severity=\"critical\",framework=~\"$framework\",environment=~\"$environment\"})",
+            "legendFormat": "Critical"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "fixed", "fixedColor": "red"},
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "High Severity Violations",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 8, "x": 16, "y": 4},
+        "targets": [
+          {
+            "expr": "sum(titananvil_policy_violations_total{severity=\"high\",framework=~\"$framework\",environment=~\"$environment\"})",
+            "legendFormat": "High"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "fixed", "fixedColor": "orange"},
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "orange"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Violations by Severity",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+        "targets": [
+          {
+            "expr": "sum by (severity) (titananvil_policy_violations_total{framework=~\"$framework\",environment=~\"$environment\"})",
+            "legendFormat": "{{severity}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Violations",
+            "format": "short",
+            "decimals": 0
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "values": true,
+          "current": true,
+          "max": true
+        },
+        "lines": true,
+        "fill": 2,
+        "linewidth": 2,
+        "stack": true
+      },
+      {
+        "title": "Compliance Score by Framework",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+        "targets": [
+          {
+            "expr": "titananvil_policy_compliance_score{framework=~\"$framework\",environment=~\"$environment\"}",
+            "legendFormat": "{{framework}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Score %",
+            "format": "percent",
+            "decimals": 1,
+            "min": 0,
+            "max": 100
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "values": true,
+          "avg": true,
+          "current": true,
+          "min": true
+        },
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2
+      },
+      {
+        "title": "Top Violated Policies",
+        "type": "bargraph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+        "targets": [
+          {
+            "expr": "topk(10, sum by (policy) (titananvil_policy_violations_total{framework=~\"$framework\",environment=~\"$environment\"}))",
+            "legendFormat": "{{policy}}",
+            "instant": true
+          }
+        ],
+        "options": {
+          "orientation": "horizontal",
+          "showValue": "always",
+          "legend": {
+            "displayMode": "hidden"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 5, "color": "yellow"},
+                {"value": 10, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Remediation Success Over Time",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+        "targets": [
+          {
+            "expr": "sum(rate(titananvil_policy_remediation_successful_total{framework=~\"$framework\",environment=~\"$environment\"}[5m]))",
+            "legendFormat": "Successful"
+          },
+          {
+            "expr": "sum(rate(titananvil_policy_remediation_failed_total{framework=~\"$framework\",environment=~\"$environment\"}[5m]))",
+            "legendFormat": "Failed"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Remediations/sec",
+            "format": "short",
+            "decimals": 3
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "values": true,
+          "avg": true,
+          "current": true
+        },
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2
+      },
+      {
+        "title": "Policy Evaluation Rate",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+        "targets": [
+          {
+            "expr": "sum(rate(titananvil_policy_evaluations_total{framework=~\"$framework\",environment=~\"$environment\"}[5m]))",
+            "legendFormat": "Evaluations/sec"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Evaluations/sec",
+            "format": "short",
+            "decimals": 2
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "legend": {
+          "show": true,
+          "values": true,
+          "avg": true,
+          "current": true
+        },
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2
+      },
+      {
+        "title": "Policy Evaluation Duration (p95)",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum by (le) (rate(titananvil_policy_evaluation_duration_seconds_bucket{framework=~\"$framework\",environment=~\"$environment\"}[5m])))",
+            "legendFormat": "p95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum by (le) (rate(titananvil_policy_evaluation_duration_seconds_bucket{framework=~\"$framework\",environment=~\"$environment\"}[5m])))",
+            "legendFormat": "p99"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Duration",
+            "format": "s",
+            "decimals": 3
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "values": true,
+          "avg": true,
+          "current": true,
+          "max": true
+        },
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2
+      },
+      {
+        "title": "Compliance Trend (7d)",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 32},
+        "targets": [
+          {
+            "expr": "avg_over_time(titananvil_policy_compliance_score{framework=~\"$framework\",environment=~\"$environment\"}[7d])",
+            "legendFormat": "7-day average"
+          },
+          {
+            "expr": "titananvil_policy_compliance_score{framework=~\"$framework\",environment=~\"$environment\"}",
+            "legendFormat": "Current"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Compliance %",
+            "format": "percent",
+            "decimals": 1,
+            "min": 0,
+            "max": 100
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "values": true,
+          "avg": true,
+          "current": true,
+          "min": true,
+          "max": true
+        },
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2
+      }
+    ]
+  },
+  "overwrite": true,
+  "inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "Prometheus data source",
+      "type": "datasource",
+      "pluginId": "prometheus"
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: TitanAnvil Alerts
+    receivers:
+      - uid: titananvil-slack
+        type: slack
+        settings:
+          url: ${SLACK_WEBHOOK_URL}
+          username: TitanAnvil
+          icon_emoji: ":warning:"
+          title: '{{ .GroupLabels.alertname }}'
+          text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+        disableResolveMessage: false
+      - uid: titananvil-email
+        type: email
+        settings:
+          addresses: ${ALERT_EMAIL_ADDRESSES}
+          subject: '[TitanAnvil] {{ .GroupLabels.alertname }}'
+        disableResolveMessage: false
+
+policies:
+  - orgId: 1
+    receiver: TitanAnvil Alerts
+    group_by: ['alertname', 'component']
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h
+    matchers:
+      - severity =~ "warning|critical"
+    routes:
+      - receiver: TitanAnvil Alerts
+        matchers:
+          - severity = critical
+        group_wait: 10s
+        group_interval: 1m
+        repeat_interval: 1h
+        continue: false

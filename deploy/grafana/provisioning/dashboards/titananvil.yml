@@ -1,0 +1,13 @@
+apiVersion: 1
+
+providers:
+  - name: 'TitanAnvil Dashboards'
+    orgId: 1
+    folder: 'TitanAnvil'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/titananvil
+      foldersFromFilesStructure: false

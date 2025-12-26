@@ -1,0 +1,429 @@
+{
+  "dashboard": {
+    "title": "TitanAnvil Control Plane Health",
+    "uid": "titananvil-control-plane",
+    "tags": ["titananvil", "control-plane", "health"],
+    "timezone": "browser",
+    "schemaVersion": 36,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "timepicker": {
+      "refresh_intervals": ["10s", "30s", "1m", "5m", "15m", "30m", "1h"]
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "instance",
+          "type": "query",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "query": "label_values(titananvil_api_requests_total, instance)",
+          "refresh": 1,
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*"
+        }
+      ]
+    },
+    "panels": [
+      {
+        "title": "Control Plane Status",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "up{job=\"titananvil-server\",instance=~\"$instance\"}",
+            "legendFormat": "{{instance}}"
+          }
+        ],
+        "options": {
+          "graphMode": "none",
+          "colorMode": "background",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {"type": "value", "value": "0", "text": "DOWN"},
+              {"type": "value", "value": "1", "text": "UP"}
+            ],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 1, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Uptime",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+        "targets": [
+          {
+            "expr": "time() - process_start_time_seconds{job=\"titananvil-server\",instance=~\"$instance\"}",
+            "legendFormat": "{{instance}}"
+          }
+        ],
+        "options": {
+          "graphMode": "none",
+          "colorMode": "value",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "decimals": 0
+          }
+        }
+      },
+      {
+        "title": "Memory Usage",
+        "type": "gauge",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+        "targets": [
+          {
+            "expr": "process_resident_memory_bytes{job=\"titananvil-server\",instance=~\"$instance\"} / 1024 / 1024",
+            "legendFormat": "{{instance}}"
+          }
+        ],
+        "options": {
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "decmbytes",
+            "min": 0,
+            "max": 2048,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1024, "color": "yellow"},
+                {"value": 1536, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Goroutines",
+        "type": "gauge",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+        "targets": [
+          {
+            "expr": "go_goroutines{job=\"titananvil-server\",instance=~\"$instance\"}",
+            "legendFormat": "{{instance}}"
+          }
+        ],
+        "options": {
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "min": 0,
+            "max": 1000,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 500, "color": "yellow"},
+                {"value": 800, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "API Request Rate",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+        "targets": [
+          {
+            "expr": "sum by (endpoint) (rate(titananvil_api_requests_total{instance=~\"$instance\"}[5m]))",
+            "legendFormat": "{{endpoint}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Requests/sec",
+            "format": "short",
+            "decimals": 2
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "values": true,
+          "avg": true,
+          "current": true,
+          "max": true
+        },
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2
+      },
+      {
+        "title": "API Request Latency (p95)",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum by (endpoint, le) (rate(titananvil_api_request_duration_seconds_bucket{instance=~\"$instance\"}[5m])))",
+            "legendFormat": "p95 {{endpoint}}"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum by (endpoint, le) (rate(titananvil_api_request_duration_seconds_bucket{instance=~\"$instance\"}[5m])))",
+            "legendFormat": "p99 {{endpoint}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Latency",
+            "format": "s",
+            "decimals": 3
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "values": true,
+          "avg": true,
+          "current": true,
+          "max": true
+        },
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2
+      },
+      {
+        "title": "NATS Message Throughput",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+        "targets": [
+          {
+            "expr": "sum(rate(nats_varz_in_msgs{instance=~\"$instance\"}[5m]))",
+            "legendFormat": "Messages In/sec"
+          },
+          {
+            "expr": "sum(rate(nats_varz_out_msgs{instance=~\"$instance\"}[5m]))",
+            "legendFormat": "Messages Out/sec"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Messages/sec",
+            "format": "short",
+            "decimals": 2
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "values": true,
+          "avg": true,
+          "current": true
+        },
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2
+      },
+      {
+        "title": "NATS Bandwidth",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+        "targets": [
+          {
+            "expr": "sum(rate(nats_varz_in_bytes{instance=~\"$instance\"}[5m]))",
+            "legendFormat": "Bytes In/sec"
+          },
+          {
+            "expr": "sum(rate(nats_varz_out_bytes{instance=~\"$instance\"}[5m]))",
+            "legendFormat": "Bytes Out/sec"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Bytes/sec",
+            "format": "Bps",
+            "decimals": 2
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "values": true,
+          "avg": true,
+          "current": true
+        },
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2
+      },
+      {
+        "title": "State Backend Query Latency",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum by (operation, le) (rate(titananvil_state_query_duration_seconds_bucket{instance=~\"$instance\"}[5m])))",
+            "legendFormat": "p95 {{operation}}"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum by (operation, le) (rate(titananvil_state_query_duration_seconds_bucket{instance=~\"$instance\"}[5m])))",
+            "legendFormat": "p99 {{operation}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Latency",
+            "format": "s",
+            "decimals": 3
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "values": true,
+          "avg": true,
+          "current": true,
+          "max": true
+        },
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2
+      },
+      {
+        "title": "Error Rates by Component",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20},
+        "targets": [
+          {
+            "expr": "sum by (component) (rate(titananvil_errors_total{instance=~\"$instance\"}[5m]))",
+            "legendFormat": "{{component}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Errors/sec",
+            "format": "short",
+            "decimals": 2
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "values": true,
+          "avg": true,
+          "current": true,
+          "max": true
+        },
+        "lines": true,
+        "fill": 2,
+        "linewidth": 2,
+        "stack": true,
+        "bars": false
+      },
+      {
+        "title": "CPU Usage",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 28},
+        "targets": [
+          {
+            "expr": "rate(process_cpu_seconds_total{job=\"titananvil-server\",instance=~\"$instance\"}[5m]) * 100",
+            "legendFormat": "{{instance}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "CPU %",
+            "format": "percent",
+            "decimals": 1,
+            "max": 100
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "values": true,
+          "avg": true,
+          "current": true,
+          "max": true
+        },
+        "lines": true,
+        "fill": 2,
+        "linewidth": 2
+      },
+      {
+        "title": "Memory Usage Over Time",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 28},
+        "targets": [
+          {
+            "expr": "process_resident_memory_bytes{job=\"titananvil-server\",instance=~\"$instance\"} / 1024 / 1024",
+            "legendFormat": "RSS {{instance}}"
+          },
+          {
+            "expr": "go_memstats_heap_alloc_bytes{job=\"titananvil-server\",instance=~\"$instance\"} / 1024 / 1024",
+            "legendFormat": "Heap {{instance}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Memory",
+            "format": "decmbytes",
+            "decimals": 1
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "values": true,
+          "avg": true,
+          "current": true,
+          "max": true
+        },
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2
+      }
+    ]
+  },
+  "overwrite": true,
+  "inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "Prometheus data source",
+      "type": "datasource",
+      "pluginId": "prometheus"
+    }
+  ]
+}

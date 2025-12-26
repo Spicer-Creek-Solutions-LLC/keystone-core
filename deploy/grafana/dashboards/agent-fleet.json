@@ -1,0 +1,410 @@
+{
+  "dashboard": {
+    "title": "TitanAnvil Agent Fleet",
+    "uid": "titananvil-agent-fleet",
+    "tags": ["titananvil", "agents", "fleet"],
+    "timezone": "browser",
+    "schemaVersion": 36,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "timepicker": {
+      "refresh_intervals": ["10s", "30s", "1m", "5m", "15m", "30m", "1h"]
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "datacenter",
+          "type": "query",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "query": "label_values(titananvil_agents_total, datacenter)",
+          "refresh": 1,
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*"
+        },
+        {
+          "name": "role",
+          "type": "query",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "query": "label_values(titananvil_agents_total{datacenter=~\"$datacenter\"}, role)",
+          "refresh": 1,
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*"
+        },
+        {
+          "name": "agent_id",
+          "type": "query",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "query": "label_values(titananvil_agent_heartbeat{datacenter=~\"$datacenter\",role=~\"$role\"}, agent_id)",
+          "refresh": 1,
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*"
+        }
+      ]
+    },
+    "panels": [
+      {
+        "title": "Total Agents",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "count(titananvil_agent_heartbeat{datacenter=~\"$datacenter\",role=~\"$role\"})",
+            "legendFormat": "Total"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 1, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Healthy Agents",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(titananvil_agents_by_status{status=\"online\",datacenter=~\"$datacenter\",role=~\"$role\"})",
+            "legendFormat": "Healthy"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 1, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Degraded Agents",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(titananvil_agents_by_status{status=\"degraded\",datacenter=~\"$datacenter\",role=~\"$role\"})",
+            "legendFormat": "Degraded"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "yellow"},
+                {"value": 5, "color": "orange"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Offline Agents",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(titananvil_agents_by_status{status=\"offline\",datacenter=~\"$datacenter\",role=~\"$role\"})",
+            "legendFormat": "Offline"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "yellow"},
+                {"value": 10, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Agent Distribution by Datacenter",
+        "type": "piechart",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+        "targets": [
+          {
+            "expr": "sum by (datacenter) (titananvil_agents_total{role=~\"$role\"})",
+            "legendFormat": "{{datacenter}}"
+          }
+        ],
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "values": ["value", "percent"]
+          },
+          "pieType": "pie"
+        }
+      },
+      {
+        "title": "Agent Distribution by Role",
+        "type": "piechart",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+        "targets": [
+          {
+            "expr": "sum by (role) (titananvil_agents_total{datacenter=~\"$datacenter\"})",
+            "legendFormat": "{{role}}"
+          }
+        ],
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "values": ["value", "percent"]
+          },
+          "pieType": "pie"
+        }
+      },
+      {
+        "title": "Agent Health Status Over Time",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 12},
+        "targets": [
+          {
+            "expr": "sum by (status) (titananvil_agents_by_status{datacenter=~\"$datacenter\",role=~\"$role\"})",
+            "legendFormat": "{{status}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Agents",
+            "format": "short",
+            "decimals": 0
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "values": true,
+          "avg": true,
+          "current": true,
+          "max": true
+        },
+        "lines": true,
+        "fill": 2,
+        "linewidth": 2,
+        "stack": true
+      },
+      {
+        "title": "Command Execution Success Rate by Agent",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+        "targets": [
+          {
+            "expr": "sum by (agent_id) (rate(titananvil_agent_commands_successful{datacenter=~\"$datacenter\",role=~\"$role\",agent_id=~\"$agent_id\"}[5m])) / sum by (agent_id) (rate(titananvil_agent_commands_total{datacenter=~\"$datacenter\",role=~\"$role\",agent_id=~\"$agent_id\"}[5m])) * 100",
+            "legendFormat": "{{agent_id}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Success %",
+            "format": "percent",
+            "decimals": 1,
+            "max": 100
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "values": true,
+          "avg": true,
+          "current": true,
+          "max": true
+        },
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2
+      },
+      {
+        "title": "Agent Version Distribution",
+        "type": "bargraph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20},
+        "targets": [
+          {
+            "expr": "count by (version) (titananvil_agent_info{datacenter=~\"$datacenter\",role=~\"$role\"})",
+            "legendFormat": "{{version}}",
+            "instant": true
+          }
+        ],
+        "options": {
+          "orientation": "horizontal",
+          "showValue": "always",
+          "legend": {
+            "displayMode": "hidden"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "blue"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Agent CPU Usage",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 28},
+        "targets": [
+          {
+            "expr": "titananvil_agent_cpu_usage{datacenter=~\"$datacenter\",role=~\"$role\",agent_id=~\"$agent_id\"}",
+            "legendFormat": "{{agent_id}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "CPU %",
+            "format": "percent",
+            "decimals": 1,
+            "max": 100
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "values": true,
+          "avg": true,
+          "current": true,
+          "max": true
+        },
+        "lines": true,
+        "fill": 1,
+        "linewidth": 1
+      },
+      {
+        "title": "Agent Memory Usage",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 28},
+        "targets": [
+          {
+            "expr": "titananvil_agent_memory_usage{datacenter=~\"$datacenter\",role=~\"$role\",agent_id=~\"$agent_id\"}",
+            "legendFormat": "{{agent_id}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Memory %",
+            "format": "percent",
+            "decimals": 1,
+            "max": 100
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "values": true,
+          "avg": true,
+          "current": true,
+          "max": true
+        },
+        "lines": true,
+        "fill": 1,
+        "linewidth": 1
+      },
+      {
+        "title": "Agent Disk Usage",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 36},
+        "targets": [
+          {
+            "expr": "titananvil_agent_disk_usage{datacenter=~\"$datacenter\",role=~\"$role\",agent_id=~\"$agent_id\"}",
+            "legendFormat": "{{agent_id}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Disk %",
+            "format": "percent",
+            "decimals": 1,
+            "max": 100
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "values": true,
+          "avg": true,
+          "current": true,
+          "max": true
+        },
+        "lines": true,
+        "fill": 1,
+        "linewidth": 1
+      }
+    ]
+  },
+  "overwrite": true,
+  "inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "Prometheus data source",
+      "type": "datasource",
+      "pluginId": "prometheus"
+    }
+  ]
+}

@@ -1,0 +1,339 @@
+{
+  "dashboard": {
+    "title": "TitanAnvil Overview",
+    "uid": "titananvil-overview",
+    "tags": ["titananvil", "overview"],
+    "timezone": "browser",
+    "schemaVersion": 36,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "timepicker": {
+      "refresh_intervals": ["10s", "30s", "1m", "5m", "15m", "30m", "1h"]
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "environment",
+          "type": "query",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "query": "label_values(titananvil_agents_total, environment)",
+          "refresh": 1,
+          "multi": false,
+          "includeAll": true,
+          "allValue": ".*"
+        },
+        {
+          "name": "datacenter",
+          "type": "query",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "query": "label_values(titananvil_agents_total{environment=~\"$environment\"}, datacenter)",
+          "refresh": 1,
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*"
+        }
+      ]
+    },
+    "panels": [
+      {
+        "title": "Total Agents",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(titananvil_agents_total{environment=~\"$environment\",datacenter=~\"$datacenter\"})",
+            "legendFormat": "Total"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "orientation": "auto",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 1, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Connected Agents",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(titananvil_agents_connected{environment=~\"$environment\",datacenter=~\"$datacenter\"})",
+            "legendFormat": "Connected"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "orientation": "auto",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "percentage",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 50, "color": "yellow"},
+                {"value": 80, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Disconnected Agents",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(titananvil_agents_disconnected{environment=~\"$environment\",datacenter=~\"$datacenter\"})",
+            "legendFormat": "Disconnected"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "orientation": "auto",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "yellow"},
+                {"value": 10, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Policy Violations",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(titananvil_policy_violations_total{environment=~\"$environment\",datacenter=~\"$datacenter\"})",
+            "legendFormat": "Violations"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "orientation": "auto",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "yellow"},
+                {"value": 10, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Commands Per Second",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+        "targets": [
+          {
+            "expr": "sum(rate(titananvil_commands_executed_total{environment=~\"$environment\",datacenter=~\"$datacenter\"}[5m]))",
+            "legendFormat": "Commands/sec"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Commands/sec",
+            "format": "short",
+            "decimals": 2
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2,
+        "points": false,
+        "bars": false,
+        "stack": false
+      },
+      {
+        "title": "State Applications Per Hour",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+        "targets": [
+          {
+            "expr": "sum(increase(titananvil_state_applications_total{environment=~\"$environment\",datacenter=~\"$datacenter\"}[1h]))",
+            "legendFormat": "State Apps/hour"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Applications",
+            "format": "short",
+            "decimals": 0
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2,
+        "points": false,
+        "bars": true,
+        "stack": false
+      },
+      {
+        "title": "Agent Status Distribution",
+        "type": "piechart",
+        "gridPos": {"h": 8, "w": 8, "x": 0, "y": 12},
+        "targets": [
+          {
+            "expr": "sum by (status) (titananvil_agents_by_status{environment=~\"$environment\",datacenter=~\"$datacenter\"})",
+            "legendFormat": "{{status}}"
+          }
+        ],
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "values": ["value", "percent"]
+          },
+          "pieType": "donut"
+        }
+      },
+      {
+        "title": "Command Success Rate",
+        "type": "gauge",
+        "gridPos": {"h": 8, "w": 8, "x": 8, "y": 12},
+        "targets": [
+          {
+            "expr": "sum(rate(titananvil_commands_successful_total{environment=~\"$environment\",datacenter=~\"$datacenter\"}[5m])) / sum(rate(titananvil_commands_executed_total{environment=~\"$environment\",datacenter=~\"$datacenter\"}[5m])) * 100",
+            "legendFormat": "Success %"
+          }
+        ],
+        "options": {
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 90, "color": "yellow"},
+                {"value": 95, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "State Application Success Rate",
+        "type": "gauge",
+        "gridPos": {"h": 8, "w": 8, "x": 16, "y": 12},
+        "targets": [
+          {
+            "expr": "sum(rate(titananvil_state_successful_total{environment=~\"$environment\",datacenter=~\"$datacenter\"}[5m])) / sum(rate(titananvil_state_applications_total{environment=~\"$environment\",datacenter=~\"$datacenter\"}[5m])) * 100",
+            "legendFormat": "Success %"
+          }
+        ],
+        "options": {
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 95, "color": "yellow"},
+                {"value": 98, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Recent Events Timeline",
+        "type": "table",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 20},
+        "targets": [
+          {
+            "expr": "sort_desc(topk(50, titananvil_events_total{environment=~\"$environment\",datacenter=~\"$datacenter\"}))",
+            "legendFormat": "",
+            "format": "table",
+            "instant": true
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {},
+              "indexByName": {},
+              "renameByName": {
+                "Time": "Timestamp",
+                "event_type": "Event Type",
+                "severity": "Severity",
+                "source": "Source",
+                "Value": "Count"
+              }
+            }
+          }
+        ],
+        "options": {
+          "showHeader": true,
+          "sortBy": [{"displayName": "Timestamp", "desc": true}]
+        }
+      }
+    ]
+  },
+  "overwrite": true,
+  "inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "Prometheus data source",
+      "type": "datasource",
+      "pluginId": "prometheus"
+    }
+  ]
+}

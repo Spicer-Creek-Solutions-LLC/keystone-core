@@ -1,0 +1,394 @@
+{
+  "dashboard": {
+    "title": "TitanAnvil State Management",
+    "uid": "titananvil-state-management",
+    "tags": ["titananvil", "state", "configuration"],
+    "timezone": "browser",
+    "schemaVersion": 36,
+    "version": 1,
+    "refresh": "1m",
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    },
+    "timepicker": {
+      "refresh_intervals": ["30s", "1m", "5m", "15m", "30m", "1h"]
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "environment",
+          "type": "query",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "query": "label_values(titananvil_state_applications_total, environment)",
+          "refresh": 1,
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*"
+        },
+        {
+          "name": "module",
+          "type": "query",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "query": "label_values(titananvil_state_changes_total, module)",
+          "refresh": 1,
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*"
+        }
+      ]
+    },
+    "panels": [
+      {
+        "title": "State Applications (Total)",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(titananvil_state_applications_total{environment=~\"$environment\"})",
+            "legendFormat": "Total"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "textMode": "value_and_name"
+        }
+      },
+      {
+        "title": "Successful Applications",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(titananvil_state_successful_total{environment=~\"$environment\"})",
+            "legendFormat": "Successful"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "fixed", "fixedColor": "green"}
+          }
+        }
+      },
+      {
+        "title": "Failed Applications",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(titananvil_state_failed_total{environment=~\"$environment\"})",
+            "legendFormat": "Failed"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "yellow"},
+                {"value": 10, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Drift Events",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(increase(titananvil_drift_detected_total{environment=~\"$environment\"}[1h]))",
+            "legendFormat": "Drift (1h)"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "yellow"},
+                {"value": 10, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "State Applications Over Time",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+        "targets": [
+          {
+            "expr": "sum(rate(titananvil_state_applications_total{environment=~\"$environment\"}[5m])) * 60",
+            "legendFormat": "Applications/min"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Applications/min",
+            "format": "short",
+            "decimals": 2
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "legend": {
+          "show": true,
+          "values": true,
+          "avg": true,
+          "current": true
+        },
+        "lines": true,
+        "fill": 2,
+        "linewidth": 2
+      },
+      {
+        "title": "State Success Rate",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+        "targets": [
+          {
+            "expr": "sum(rate(titananvil_state_successful_total{environment=~\"$environment\"}[5m])) / sum(rate(titananvil_state_applications_total{environment=~\"$environment\"}[5m])) * 100",
+            "legendFormat": "Success %"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Success %",
+            "format": "percent",
+            "decimals": 1,
+            "min": 0,
+            "max": 100
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "legend": {
+          "show": true,
+          "values": true,
+          "avg": true,
+          "current": true,
+          "min": true
+        },
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2
+      },
+      {
+        "title": "State Changes by Module",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+        "targets": [
+          {
+            "expr": "sum by (module) (rate(titananvil_state_changes_total{environment=~\"$environment\",module=~\"$module\"}[5m]))",
+            "legendFormat": "{{module}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Changes/sec",
+            "format": "short",
+            "decimals": 3
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "values": true,
+          "avg": true,
+          "current": true,
+          "max": true
+        },
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2,
+        "stack": true
+      },
+      {
+        "title": "Drift Detection Events",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+        "targets": [
+          {
+            "expr": "sum by (severity) (rate(titananvil_drift_detected_total{environment=~\"$environment\"}[5m]))",
+            "legendFormat": "{{severity}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Drift Events/sec",
+            "format": "short",
+            "decimals": 3
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "values": true,
+          "avg": true,
+          "current": true,
+          "max": true
+        },
+        "lines": true,
+        "fill": 2,
+        "linewidth": 2,
+        "stack": true
+      },
+      {
+        "title": "State Application Duration (p95)",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum by (le) (rate(titananvil_state_duration_seconds_bucket{environment=~\"$environment\"}[5m])))",
+            "legendFormat": "p95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum by (le) (rate(titananvil_state_duration_seconds_bucket{environment=~\"$environment\"}[5m])))",
+            "legendFormat": "p99"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Duration",
+            "format": "s",
+            "decimals": 2
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "values": true,
+          "avg": true,
+          "current": true,
+          "max": true
+        },
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2
+      },
+      {
+        "title": "Failed State Applications",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20},
+        "targets": [
+          {
+            "expr": "sum by (reason) (rate(titananvil_state_failed_total{environment=~\"$environment\"}[5m]))",
+            "legendFormat": "{{reason}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Failures/sec",
+            "format": "short",
+            "decimals": 3
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "values": true,
+          "avg": true,
+          "current": true,
+          "max": true
+        },
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2,
+        "stack": true
+      },
+      {
+        "title": "Resources Under Management",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 28},
+        "targets": [
+          {
+            "expr": "sum by (type) (titananvil_state_resources_total{environment=~\"$environment\"})",
+            "legendFormat": "{{type}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Resources",
+            "format": "short",
+            "decimals": 0
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "values": true,
+          "current": true
+        },
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2,
+        "stack": true
+      },
+      {
+        "title": "Drift by Severity",
+        "type": "piechart",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 28},
+        "targets": [
+          {
+            "expr": "sum by (severity) (titananvil_drift_detected_total{environment=~\"$environment\"})",
+            "legendFormat": "{{severity}}"
+          }
+        ],
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "values": ["value", "percent"]
+          },
+          "pieType": "donut"
+        }
+      }
+    ]
+  },
+  "overwrite": true,
+  "inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "Prometheus data source",
+      "type": "datasource",
+      "pluginId": "prometheus"
+    }
+  ]
+}

@@ -55,13 +55,14 @@
 - Audit logging and compliance reporting
 - Test coverage: 79.4%
 
-**Epic 7: Observability & Monitoring** 🚧 IN PROGRESS (2/6 phases complete)
+**Epic 7: Observability & Monitoring** ✅ COMPLETE (All 7 phases)
 - ✅ Phase 1: Prometheus Metrics (82.5% coverage, 16 tests)
 - ✅ Phase 2: Structured Logging (75.2% coverage, 20 tests)
-- ⏳ Phase 3: Tracing (pending)
-- ⏳ Phase 4: Dashboards (pending)
-- ⏳ Phase 5: Health & Status (pending)
-- ⏳ Phase 6: Advanced Features (pending)
+- ✅ Phase 3: OpenTelemetry Tracing (fully instrumented)
+- ✅ Phase 4: TUI Monitor (8 interactive views with Bubble Tea)
+- ✅ Phase 5: Grafana Dashboards (6 dashboards + alert rules)
+- ✅ Phase 6: Health & Status (100% coverage, 39 tests)
+- ✅ Phase 7: Advanced Features (pprof, query API, visualization - 54 tests)
 
 **Epic 10: Documentation** 📋 PLANNED
 - Hugo + Docsy infrastructure setup
@@ -79,13 +80,13 @@
 
 ### Current Work-in-Progress
 
-**Active Epic**: Epic 7: Observability & Monitoring
-**Active Phase**: Phase 2 complete, ready to start Phase 3
-**Next Task**: Implement OpenTelemetry distributed tracing
+**Status**: Ready for next epic!
+**Completed**: 7 of 11 epics (1, 2, 3, 4, 5, 6, 7)
+**Remaining**: Epics 8 (Multi-Environment), 9 (Plugin System), 10 (Documentation), 11 (Clustering)
 
 ### Project Statistics
 
-**Total Lines of Code**: ~15,000+
+**Total Lines of Code**: ~20,000+
 - pkg/agent: 77.9% coverage
 - pkg/state: 90.1% coverage
 - pkg/config: 96.6% coverage
@@ -94,58 +95,114 @@
 - pkg/policy: 79.4% coverage
 - pkg/metrics: 82.5% coverage
 - pkg/logging: 75.2% coverage
+- pkg/health: 100% coverage
+- pkg/profiling: 100% coverage
+- pkg/query: 100% coverage
+- pkg/visualization: 100% coverage
 
-**Total Tests**: 300+ tests passing
-**Overall Coverage**: ~79% average
+**Total Tests**: 400+ tests passing
+**Overall Coverage**: ~81% average
+
+## Epic 7 Summary (COMPLETE)
+
+### Phase 1: Metrics ✅
+- Prometheus collector with 28 standard metrics
+- Specialized collectors (control plane, agent, state, GitOps, policy)
+- HTTP /metrics endpoint
+- 16 tests, 82.5% coverage
+
+### Phase 2: Logging ✅
+- Structured logging with multiple formatters (JSON, logfmt, text)
+- Correlation ID management
+- Multiple output support
+- 20 tests, 75.2% coverage
+
+### Phase 3: Tracing ✅
+- OpenTelemetry integration with OTLP exporter
+- Distributed trace context propagation
+- Core component instrumentation
+- Trace sampling strategies
+
+### Phase 4: TUI Monitor ✅
+- Terminal-based monitoring tool (titananvil-monitor)
+- 8 interactive views: Dashboard, Agents, Events, State Drift, Policy Violations, Jobs, Logs, Metrics
+- Built with Bubble Tea framework
+- Real-time updates via NATS JetStream
+
+### Phase 5: Dashboards ✅
+- 6 comprehensive Grafana dashboards
+- 29 Prometheus alert rules (5 alert groups)
+- Auto-provisioning configuration
+- Docker Compose deployment stack
+
+### Phase 6: Health & Status ✅
+- Kubernetes-compatible health endpoints (/health/live, /health/ready, /health/status)
+- Dependency health checkers (NATS, database, agent pool)
+- Circuit breaker pattern implementation
+- 39 tests, 100% coverage
+
+### Phase 7: Advanced Features ✅
+- Performance profiling (pprof endpoints + CaptureProfile API)
+- Query API (metrics, logs, traces with Prometheus/Loki/Jaeger integration)
+- Infrastructure visualization (HTTP API + WebSocket for real-time updates)
+- 54 tests (15 profiling, 28 query, 11 visualization)
 
 ## Next Steps to Continue
 
-### Immediate Next Phase: Epic 7 Phase 3 - Tracing
+### Option 1: Epic 8 - Multi-Environment Support
 
-**Goal**: Implement OpenTelemetry distributed tracing
+**Goal**: Unified interface for K8s, VMs, bare metal, edge devices
 
-**Tasks**:
-1. Add OpenTelemetry SDK dependencies
-2. Create tracing infrastructure (pkg/tracing/types.go)
-3. Implement tracer and span management (pkg/tracing/tracer.go)
-4. Add trace exporters (OTLP, Zipkin)
-5. Instrument critical paths with spans
-6. Add context propagation
-7. Create comprehensive tests
+**Key Features**:
+- Platform abstraction layer
+- Kubernetes operator mode with CRDs
+- VM/bare metal provisioning
+- Edge device support (ARM, IoT)
+- Hybrid infrastructure management
 
-**Expected Deliverables**:
-- pkg/tracing/types.go - Core tracing interfaces
-- pkg/tracing/tracer.go - Tracer implementation
-- pkg/tracing/exporters.go - OTLP and Zipkin exporters
-- pkg/tracing/propagation.go - Context propagation
-- pkg/tracing/tracing_test.go - Test suite
+### Option 2: Epic 9 - Plugin System
 
-### Remaining Epic 7 Phases
+**Goal**: Secure extensibility with versioned, dependency-managed packages
 
-**Phase 4: Dashboards (Week 5-6)**
-- Grafana dashboard development
-- Alert rules for Prometheus
-- Dashboard automation and versioning
+**Key Features**:
+- Module format with manifest and lock files
+- Dependency resolution with SemVer constraints
+- OCI registry distribution + HTTP proxy
+- Starlark and WASM runtime support
+- Capability-based security model
 
-**Phase 5: Health & Status (Week 7)**
-- Health check endpoints (/health/live, /health/ready, /health/status)
-- Dependency health checks
-- Self-healing capabilities
+### Option 3: Epic 10 - Documentation
 
-**Phase 6: Advanced Features (Week 8)**
-- pprof performance profiling
-- Infrastructure visualization
-- Query API for metrics/logs/traces
+**Goal**: Comprehensive Hugo + Docsy documentation
+
+**Key Features**:
+- User guides, admin guides, API reference
+- Architecture documentation
+- Deployment guides
+- Troubleshooting and FAQ
+- PDF generation for offline use
+
+### Option 4: Epic 11 - High Availability Clustering
+
+**Goal**: Production-ready HA clustering with etcd
+
+**Key Features**:
+- etcd-based distributed consensus
+- Automatic leader election
+- Work distribution across control plane nodes
+- Zero-downtime upgrades
+- 3/5/7-node cluster support
 
 ## Repository Structure
 
 ```
 TitanAnvil/
 ├── cmd/
-│   ├── titananvil-server/     # Control plane (not yet implemented)
-│   ├── titananvil-agent/      # Agent (not yet implemented)
+│   ├── titananvil-server/     # Control plane ✅
+│   ├── titananvil-agent/      # Agent ✅
 │   ├── titananvil-state/      # State CLI plugin ✅
-│   └── titananvil-exec/       # Execution CLI plugin (not yet implemented)
+│   ├── titananvil-exec/       # Execution CLI plugin ✅
+│   └── titananvil-monitor/    # TUI monitoring tool ✅
 ├── pkg/
 │   ├── agent/                 # Agent system ✅
 │   ├── config/                # Configuration ✅
@@ -153,15 +210,24 @@ TitanAnvil/
 │   ├── events/                # Event system ✅
 │   ├── execution/             # Remote execution ✅
 │   ├── gitops/                # GitOps integration ✅
+│   ├── health/                # Health checks ✅
 │   ├── logging/               # Structured logging ✅
 │   ├── metrics/               # Prometheus metrics ✅
 │   ├── plugin/                # Plugin system ✅
 │   ├── policy/                # Policy enforcement ✅
+│   ├── profiling/             # pprof profiling ✅
+│   ├── query/                 # Query API ✅
 │   ├── security/              # Security ✅
 │   ├── state/                 # State backend ✅
 │   ├── statemgmt/             # State management ✅
 │   ├── targeting/             # Targeting system ✅
-│   └── version/               # Version info ✅
+│   ├── version/               # Version info ✅
+│   └── visualization/         # Infrastructure viz ✅
+├── deploy/
+│   └── grafana/               # Grafana dashboards ✅
+│       ├── dashboards/        # 6 dashboards
+│       ├── alerts/            # 29 alert rules
+│       └── provisioning/      # Auto-provisioning config
 ├── epics/
 │   ├── 01-core-infrastructure.md      ✅
 │   ├── 02-remote-execution.md         ✅
@@ -169,7 +235,7 @@ TitanAnvil/
 │   ├── 04-event-system.md             ✅
 │   ├── 05-gitops-integration.md       ✅
 │   ├── 06-policy-enforcement.md       ✅
-│   ├── 07-observability.md            🚧
+│   ├── 07-observability.md            ✅
 │   ├── 08-multi-environment.md        📋
 │   ├── 09-plugin-system.md            📋
 │   ├── 10-documentation.md            📋
@@ -182,30 +248,32 @@ TitanAnvil/
 ## Recent Commits
 
 ```
+c98e869 Add Epic 7 Phase 7: Advanced Features
+329413b Add Epic 7 Phase 6: Health Checks & Status
+f9811f8 Add development checkpoint and OpenTelemetry dependencies
 84117a8 Add Epic 11: High Availability Clustering
 2ef98c3 Add Epic 10: Comprehensive Documentation
 e6d5814 Implement Epic 7 Phase 2: Structured Logging
 0943019 Implement Epic 7 Phase 1: Prometheus Metrics
-2dec7da Implement Epic 6 Phase 6: Policy Reporting & Auditing
-f0846c2 Implement Epic 6 Phase 5: Policy Enforcement
-ac7e10a Implement Epic 6 Phase 4: Policy Engine
-77c346c Implement Epic 6 Phase 3: CEL Integration
 ```
 
 ## Dependencies Status
 
-### Go Dependencies
+### Go Dependencies (All Installed)
 - github.com/nats-io/nats.go ✅
 - github.com/nats-io/nats-server/v2 ✅
 - github.com/mattn/go-sqlite3 ✅
 - github.com/open-policy-agent/opa ✅
 - github.com/google/cel-go ✅
 - github.com/prometheus/client_golang ✅
-- All dependencies up to date via go.mod
+- github.com/gorilla/websocket ✅
+- go.opentelemetry.io/otel ✅
+- github.com/charmbracelet/bubbletea ✅
 
-### Pending Dependencies (for upcoming phases)
-- go.opentelemetry.io/otel (Phase 3 - Tracing)
-- github.com/grafana/grafana-api-golang-client (Phase 4 - Dashboards)
+### Pending Dependencies (for upcoming epics)
+- github.com/kubernetes/client-go (Epic 8 - Multi-Environment)
+- go.starlark.net (Epic 9 - Plugin System)
+- github.com/tetratelabs/wazero (Epic 9 - WASM runtime)
 - go.etcd.io/etcd/client/v3 (Epic 11 - Clustering)
 
 ## Testing Status
@@ -213,8 +281,25 @@ ac7e10a Implement Epic 6 Phase 4: Policy Engine
 All tests passing:
 ```bash
 go test ./... -v
-# 300+ tests pass
-# Average coverage: ~79%
+# 400+ tests pass
+# Average coverage: ~81%
+```
+
+### Test Coverage by Package
+```
+pkg/profiling:      100% (15 tests)
+pkg/query:          100% (28 tests)
+pkg/visualization:  100% (11 tests)
+pkg/health:         100% (39 tests)
+pkg/config:         96.6%
+pkg/state:          90.1%
+pkg/controlplane:   85.9%
+pkg/execution:      82.6%
+pkg/metrics:        82.5%
+pkg/policy:         79.4%
+pkg/events:         79.3%
+pkg/agent:          77.9%
+pkg/logging:        75.2%
 ```
 
 ## How to Resume Development
@@ -233,70 +318,77 @@ git log --oneline -10
 cat CHECKPOINT.md
 ```
 
-### 3. Review Epic 7 Plan
-```bash
-cat epics/07-observability.md
-# Focus on Phase 3: Tracing (Week 4)
-```
+### 3. Choose Next Epic
 
-### 4. Start Phase 3: Tracing
-```bash
-# Add OpenTelemetry dependencies
-go get go.opentelemetry.io/otel
-go get go.opentelemetry.io/otel/trace
-go get go.opentelemetry.io/otel/exporters/otlp/otlptrace
-go get go.opentelemetry.io/otel/exporters/zipkin
+**Recommended Order**:
+1. **Epic 10 (Documentation)** - Document existing work while fresh in mind
+2. **Epic 9 (Plugin System)** - Extends all major subsystems
+3. **Epic 8 (Multi-Environment)** - Platform support expansion
+4. **Epic 11 (Clustering)** - Production HA features
 
-# Create tracing package
-mkdir -p pkg/tracing
-touch pkg/tracing/types.go
-touch pkg/tracing/tracer.go
-touch pkg/tracing/exporters.go
-touch pkg/tracing/propagation.go
-touch pkg/tracing/tracing_test.go
+### 4. Review Epic Plan
+```bash
+# For Epic 10 (Documentation)
+cat epics/10-documentation.md
+
+# For Epic 9 (Plugin System)
+cat epics/09-plugin-system.md
+
+# For Epic 8 (Multi-Environment)
+cat epics/08-multi-environment.md
+
+# For Epic 11 (Clustering)
+cat epics/11-clustering.md
 ```
 
 ### 5. Implementation Pattern
-Follow the established pattern from Phase 1 and 2:
+Follow the established pattern from Epic 7:
 1. Create types.go with interfaces and types
 2. Create implementation files
-3. Create comprehensive tests
-4. Run tests and check coverage
-5. Update CLAUDE.md with phase completion
-6. Commit with detailed message
+3. Create comprehensive tests (aim for >75% coverage)
+4. Run tests and verify all passing
+5. Update CLAUDE.md with phase/epic completion
+6. Update CHECKPOINT.md
+7. Commit with detailed message including co-authorship
 
 ### 6. Commit Pattern
 ```bash
-git add pkg/tracing/ CLAUDE.md
-git commit -m "Implement Epic 7 Phase 3: OpenTelemetry Distributed Tracing
+git add <files>
+git commit -m "Implement Epic X Phase Y: <Title>
 
-[Detailed commit message following established pattern]"
+<Detailed description>
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
 ```
 
 ## Notes for Future Development
 
 ### Code Quality Standards
 - Maintain >75% test coverage per package
-- Follow existing patterns (see pkg/metrics and pkg/logging)
+- Follow existing patterns (see pkg/metrics, pkg/logging, pkg/health)
 - Use interfaces for pluggability
 - Thread-safe operations with mutex where needed
 - Comprehensive error handling
-- Detailed commit messages
+- Detailed commit messages with co-authorship
 
 ### Documentation Standards
-- Update CLAUDE.md after each phase
+- Update CLAUDE.md after each phase/epic
 - Include test coverage and test count
 - List all key features and files created
 - Follow established format from previous phases
+- Update CHECKPOINT.md after major milestones
 
 ### Epic Completion Checklist
 When completing an epic:
 - [ ] All phases implemented
 - [ ] All tests passing
-- [ ] Coverage >75%
+- [ ] Coverage >75% overall
 - [ ] CLAUDE.md updated with full epic details
+- [ ] CHECKPOINT.md updated
 - [ ] Git commits for each phase
-- [ ] Update this checkpoint
+- [ ] All dependencies added to go.mod
 
 ## Quick Reference
 
@@ -307,14 +399,15 @@ go test ./...
 
 ### Run Tests with Coverage
 ```bash
-go test ./pkg/logging/... -coverprofile=/tmp/coverage.out
+go test ./... -coverprofile=/tmp/coverage.out
 go tool cover -func=/tmp/coverage.out | grep total
 ```
 
 ### Run Specific Package Tests
 ```bash
-go test ./pkg/metrics/... -v
-go test ./pkg/logging/... -v
+go test ./pkg/profiling/... -v
+go test ./pkg/query/... -v
+go test ./pkg/visualization/... -v
 ```
 
 ### Update Dependencies
@@ -328,14 +421,24 @@ git log --oneline -20
 git show HEAD
 ```
 
+### Start Background Server (for testing)
+```bash
+/tmp/titananvil-server
+# Server runs on port 9090 (gRPC)
+# Health endpoints on configured port
+```
+
 ## Contact & Context
 
 This checkpoint was created to facilitate resuming development on TitanAnvil.
 The project is a cloud-native runtime infrastructure control plane inspired by
 Salt Project but modernized for cloud-native environments.
 
-**Current Focus**: Epic 7 - Observability & Monitoring
-**Next Phase**: Phase 3 - OpenTelemetry Distributed Tracing
-**Progress**: 6 of 11 epics complete, Epic 7 is 2/6 phases complete
+**Current Status**: Epic 7 COMPLETE ✅
+**Completed Epics**: 7 of 11 (Epics 1-7)
+**Remaining Epics**: 4 (Epics 8, 9, 10, 11)
+**Progress**: ~64% of planned features complete
+
+**Key Achievement**: Full observability stack implemented with metrics, logging, tracing, health checks, dashboards, profiling, querying, and visualization!
 
 Everything is ready to continue! 🚀

@@ -1,0 +1,391 @@
+{
+  "dashboard": {
+    "title": "TitanAnvil GitOps Operations",
+    "uid": "titananvil-gitops-operations",
+    "tags": ["titananvil", "gitops", "deployments"],
+    "timezone": "browser",
+    "schemaVersion": 36,
+    "version": 1,
+    "refresh": "1m",
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    },
+    "timepicker": {
+      "refresh_intervals": ["30s", "1m", "5m", "15m", "30m", "1h"]
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "application",
+          "type": "query",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "query": "label_values(titananvil_gitops_deployments_total, application)",
+          "refresh": 1,
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*"
+        },
+        {
+          "name": "environment",
+          "type": "query",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "query": "label_values(titananvil_gitops_deployments_total{application=~\"$application\"}, environment)",
+          "refresh": 1,
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*"
+        }
+      ]
+    },
+    "panels": [
+      {
+        "title": "Total Deployments",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(titananvil_gitops_deployments_total{application=~\"$application\",environment=~\"$environment\"})",
+            "legendFormat": "Total"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "textMode": "value_and_name"
+        }
+      },
+      {
+        "title": "Deployments Verified",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(titananvil_gitops_verifications_successful_total{application=~\"$application\",environment=~\"$environment\"})",
+            "legendFormat": "Verified"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "fixed", "fixedColor": "green"}
+          }
+        }
+      },
+      {
+        "title": "Failed Verifications",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(titananvil_gitops_verifications_failed_total{application=~\"$application\",environment=~\"$environment\"})",
+            "legendFormat": "Failed"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "yellow"},
+                {"value": 5, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Rollbacks Triggered",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(increase(titananvil_gitops_rollbacks_total{application=~\"$application\",environment=~\"$environment\"}[6h]))",
+            "legendFormat": "Rollbacks (6h)"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "yellow"},
+                {"value": 3, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Deployments Per Hour",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+        "targets": [
+          {
+            "expr": "sum(increase(titananvil_gitops_deployments_total{application=~\"$application\",environment=~\"$environment\"}[1h]))",
+            "legendFormat": "Deployments/hour"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Deployments",
+            "format": "short",
+            "decimals": 0
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "legend": {
+          "show": true,
+          "values": true,
+          "avg": true,
+          "current": true
+        },
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2,
+        "bars": true
+      },
+      {
+        "title": "Verification Success Rate",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+        "targets": [
+          {
+            "expr": "sum(rate(titananvil_gitops_verifications_successful_total{application=~\"$application\",environment=~\"$environment\"}[5m])) / sum(rate(titananvil_gitops_verifications_total{application=~\"$application\",environment=~\"$environment\"}[5m])) * 100",
+            "legendFormat": "Success %"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Success %",
+            "format": "percent",
+            "decimals": 1,
+            "min": 0,
+            "max": 100
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "legend": {
+          "show": true,
+          "values": true,
+          "avg": true,
+          "current": true,
+          "min": true
+        },
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2
+      },
+      {
+        "title": "Deployment Verification Duration (p95)",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum by (le) (rate(titananvil_gitops_verification_duration_seconds_bucket{application=~\"$application\",environment=~\"$environment\"}[5m])))",
+            "legendFormat": "p95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum by (le) (rate(titananvil_gitops_verification_duration_seconds_bucket{application=~\"$application\",environment=~\"$environment\"}[5m])))",
+            "legendFormat": "p99"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Duration",
+            "format": "s",
+            "decimals": 2
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "values": true,
+          "avg": true,
+          "current": true,
+          "max": true
+        },
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2
+      },
+      {
+        "title": "Rollback Frequency",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+        "targets": [
+          {
+            "expr": "sum by (reason) (rate(titananvil_gitops_rollbacks_total{application=~\"$application\",environment=~\"$environment\"}[5m]))",
+            "legendFormat": "{{reason}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Rollbacks/sec",
+            "format": "short",
+            "decimals": 3
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "values": true,
+          "avg": true,
+          "current": true,
+          "max": true
+        },
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2,
+        "stack": true
+      },
+      {
+        "title": "Failed Verifications by Application",
+        "type": "bargraph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+        "targets": [
+          {
+            "expr": "topk(10, sum by (application) (titananvil_gitops_verifications_failed_total{environment=~\"$environment\"}))",
+            "legendFormat": "{{application}}",
+            "instant": true
+          }
+        ],
+        "options": {
+          "orientation": "horizontal",
+          "showValue": "always",
+          "legend": {
+            "displayMode": "hidden"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "fixed", "fixedColor": "red"}
+          }
+        }
+      },
+      {
+        "title": "Deployments by Environment",
+        "type": "piechart",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20},
+        "targets": [
+          {
+            "expr": "sum by (environment) (titananvil_gitops_deployments_total{application=~\"$application\"})",
+            "legendFormat": "{{environment}}"
+          }
+        ],
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "values": ["value", "percent"]
+          },
+          "pieType": "donut"
+        }
+      },
+      {
+        "title": "Webhook Events Received",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 28},
+        "targets": [
+          {
+            "expr": "sum by (source) (rate(titananvil_gitops_webhooks_total{application=~\"$application\",environment=~\"$environment\"}[5m]))",
+            "legendFormat": "{{source}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Webhooks/sec",
+            "format": "short",
+            "decimals": 2
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "values": true,
+          "avg": true,
+          "current": true
+        },
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2,
+        "stack": true
+      },
+      {
+        "title": "Rollback Duration (p95)",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 28},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum by (le) (rate(titananvil_gitops_rollback_duration_seconds_bucket{application=~\"$application\",environment=~\"$environment\"}[5m])))",
+            "legendFormat": "p95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum by (le) (rate(titananvil_gitops_rollback_duration_seconds_bucket{application=~\"$application\",environment=~\"$environment\"}[5m])))",
+            "legendFormat": "p99"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Duration",
+            "format": "s",
+            "decimals": 2
+          },
+          {"show": false}
+        ],
+        "xaxis": {"mode": "time", "show": true},
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "values": true,
+          "avg": true,
+          "current": true,
+          "max": true
+        },
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2
+      }
+    ]
+  },
+  "overwrite": true,
+  "inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "Prometheus data source",
+      "type": "datasource",
+      "pluginId": "prometheus"
+    }
+  ]
+}

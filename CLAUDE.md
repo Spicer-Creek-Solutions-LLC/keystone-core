@@ -877,11 +877,11 @@ TitanAnvil fills the gap between declarative GitOps tools and runtime operations
   - Top violations ranking
   - Policy aggregation and statistics
 
-### Epic 7: Observability & Monitoring 🚧 IN PROGRESS
+### Epic 7: Observability & Monitoring ✅ COMPLETE
 
 **Implementation Plan:** 7 phases (10 weeks total)
 
-**Current Status**: Phases 1-4 COMPLETE ✅ | Phases 5-7 Pending
+**Current Status**: Phases 1-7 COMPLETE ✅
 
 **Phase 1: Metrics ✅ COMPLETE**
 - Metrics infrastructure (pkg/metrics/types.go)
@@ -1034,20 +1034,149 @@ TitanAnvil fills the gap between declarative GitOps tools and runtime operations
   - cmd/titananvil-monitor/events/ - NATS JetStream subscriber
   - cmd/titananvil-monitor/ui/ - All 8 view implementations
 
-**Phase 5: Dashboards** (Week 7-8) - Pending
-- Pre-built Grafana dashboards
-- Alert rule templates
-- Dashboard automation
+**Phase 5: Dashboards ✅ COMPLETE**
+- Six comprehensive Grafana dashboards (deploy/grafana/dashboards/)
+  - TitanAnvil Overview (titananvil-overview.json)
+    - System-wide metrics, agent counts, command rates, policy violations
+    - Environment and datacenter filtering variables
+    - Agent status distribution, success rates, recent events timeline
+  - Control Plane Health (control-plane-health.json)
+    - Control plane status, uptime, resource utilization
+    - API request rate and latency (p95/p99)
+    - NATS message throughput and bandwidth
+    - State backend query latency
+    - Error rates by component
+    - CPU and memory usage over time
+  - Agent Fleet (agent-fleet.json)
+    - Fleet health status (total, healthy, degraded, offline)
+    - Agent distribution by datacenter and role
+    - Command execution success rate per agent
+    - Agent resource utilization (CPU, memory, disk)
+    - Agent version distribution
+    - Filtering by datacenter, role, and agent ID
+  - State Management (state-management.json)
+    - State applications, success/failure rates
+    - Drift detection events by severity
+    - State changes by module
+    - Application duration percentiles
+    - Resources under management
+    - Environment and module filtering
+  - Policy Compliance (policy-compliance.json)
+    - Overall compliance score gauge
+    - Violations by severity (critical, high, medium, low)
+    - Remediation success rate
+    - Top violated policies
+    - Compliance trends (7-day average)
+    - Policy evaluation rate and duration
+    - Framework and environment filtering
+  - GitOps Operations (gitops-operations.json)
+    - Deployment verification metrics
+    - Verification success rate
+    - Rollback frequency and reasons
+    - Deployment duration percentiles
+    - Failed verifications by application
+    - Webhook events by source
+    - Application and environment filtering
+- Prometheus alert rules (deploy/grafana/alerts/titananvil-alerts.yml)
+  - 5 alert groups covering all TitanAnvil components
+  - Control plane alerts (5 rules): down, high memory, high goroutines, high latency, high error rate
+  - Agent fleet alerts (7 rules): low/critical availability, multiple offline, high resource usage, command failures
+  - State management alerts (4 rules): high/critical failure rates, high drift detection, slow performance
+  - Policy alerts (5 rules): critical/high violations, low compliance score, remediation failures
+  - GitOps alerts (4 rules): verification failures, high rollback rate, slow performance, webhook errors
+  - NATS alerts (4 rules): high memory, slow consumers, high connections, storage usage
+- Grafana provisioning configuration
+  - Datasource provisioning (provisioning/datasources/prometheus.yml)
+  - Dashboard provisioning (provisioning/dashboards/titananvil.yml)
+  - Alerting provisioning (provisioning/alerting/titananvil.yml)
+  - Auto-import on Grafana startup
+- Docker Compose deployment (docker-compose.yml)
+  - Prometheus + Grafana stack
+  - Auto-configured with all dashboards
+  - Environment variable support for alert notifications
+- Comprehensive documentation (README.md)
+  - Dashboard descriptions and use cases
+  - Alert rule reference
+  - Metrics reference (70+ metrics documented)
+  - Quick start guide
+  - Customization instructions
+  - Troubleshooting guide
 
-**Phase 6: Health & Status** (Week 9) - Pending
-- Health check endpoints (liveness/readiness)
-- Status API
-- Self-healing capabilities
+**Phase 6: Health & Status ✅ COMPLETE**
+- Health check types and interfaces (pkg/health/types.go)
+  - Status enum (Healthy, Degraded, Unhealthy, Unknown)
+  - CheckResult structure with timestamp, duration, details
+  - Checker interface for pluggable health checks
+  - ComponentStatus for individual component health
+  - LivenessResponse, ReadinessResponse, StatusResponse
+  - Config with check intervals, timeouts, startup grace period
+- Health check manager (pkg/health/manager.go)
+  - Manager for registering and running health checks
+  - Background check loop with configurable intervals
+  - Readiness tracking with required checks
+  - Liveness probe (always healthy if process running)
+  - Readiness probe (checks required dependencies)
+  - Detailed status reporting with component breakdown
+  - Startup grace period handling
+  - Thread-safe concurrent check execution
+- Dependency health checkers (pkg/health/checkers.go)
+  - NATSChecker - NATS connection health with reconnect tracking
+  - DatabaseChecker - database ping with latency and connection pool stats
+  - AgentPoolChecker - agent availability with configurable thresholds
+  - FunctionChecker - custom health check functions
+  - AlwaysHealthyChecker - testing helper
+- Circuit breaker pattern (pkg/health/circuitbreaker.go)
+  - CircuitBreaker for fault tolerance and self-healing
+  - States: Closed, Open, HalfOpen with automatic transitions
+  - Configurable failure/success thresholds
+  - Timeout-based recovery attempts
+  - Execute wrapper for protected function calls
+  - State change callbacks for monitoring
+  - Comprehensive statistics tracking
+- HTTP handlers (pkg/health/http.go)
+  - LivenessHandler - GET /health/live (always 200 if running)
+  - ReadinessHandler - GET /health/ready (503 if not ready)
+  - StatusHandler - GET /health/status (detailed component info)
+  - RegisterRoutes for standard /health/* paths
+  - RegisterRoutesWithPrefix for custom prefixes
+  - Kubernetes-compatible probe endpoints
+- Test coverage: 100% (39 tests passing)
+  - Manager tests (11 tests): registration, readiness, status, lifecycle
+  - Checker tests (8 tests): all checker types, healthy/degraded/unhealthy states
+  - Circuit breaker tests (13 tests): state transitions, thresholds, execute, callbacks
+  - HTTP handler tests (7 tests): all endpoints, method validation, status codes
 
-**Phase 7: Advanced Features** (Week 10) - Pending
-- Performance profiling (pprof)
-- Infrastructure visualization (web UI)
-- Query API for metrics/logs/traces
+**Phase 7: Advanced Features ✅ COMPLETE**
+- Performance profiling (pkg/profiling/)
+  - ProfileServer with built-in pprof endpoints (/debug/pprof/*)
+  - CaptureProfile API for all profile types (CPU, heap, goroutine, mutex, block, threads, allocs, trace)
+  - ProfileStats for runtime statistics (goroutines, memory, CPU count)
+  - Configurable profiling rates (block, mutex)
+  - HTTP server for pprof endpoints
+  - Test coverage: 15 tests passing (server lifecycle, all profile types, stats)
+- Query API (pkg/query/)
+  - Unified API for metrics, logs, and traces
+  - PrometheusQuerier for metrics (instant and range queries)
+  - InMemoryLogsQuerier for logs (with time range, filters, direction, limit)
+  - InMemoryTracesQuerier for traces (by service, operation, tags, duration, time range)
+  - Graph and topology builders
+  - Placeholder for Loki and Jaeger integration
+  - ErrorResponse with proper error handling
+  - Test coverage: 28 tests passing (all queriers, filters, API)
+- Infrastructure visualization (pkg/visualization/)
+  - AgentProvider interface for agent data
+  - HTTP API endpoints:
+    - GET /api/agents - list agents with filtering
+    - GET /api/agents/{id} - get specific agent
+    - GET /api/topology - hierarchical topology tree
+    - GET /api/graph - graph representation with nodes/edges
+  - WebSocket support for real-time updates (/ws/topology)
+  - TopologyNode hierarchical structure (datacenter → environment → role → agent)
+  - Graph visualization with nodes and edges
+  - Agent status tracking (healthy, degraded, offline, unknown)
+  - Filter options (datacenter, environment, role, status, tags)
+  - Real-time topology updates via WebSocket
+  - Test coverage: 11 tests passing (all endpoints, topology building, graph building, filtering)
 
 ## Epic Dependencies
 
