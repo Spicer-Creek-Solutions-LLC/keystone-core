@@ -37,6 +37,10 @@ const (
 	EventTypeSystemStartup  EventType = "system.startup"
 	EventTypeSystemShutdown EventType = "system.shutdown"
 	EventTypeSystemError    EventType = "system.error"
+
+	// Policy events
+	EventTypePolicyPass      EventType = "policy.pass"
+	EventTypePolicyViolation EventType = "policy.violation"
 )
 
 // Severity levels for events

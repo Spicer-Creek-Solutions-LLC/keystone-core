@@ -20,9 +20,10 @@ This repository contains working implementations of **Epic 1-5**. The project ha
 - Declarative state management with drift detection and CLI (Epic 3 complete)
 - Event-driven automation with filtering, routing, enrichment, reactors, external integration, persistent storage, and monitoring (Epic 4 complete)
 - GitOps integration with webhooks, API clients, verification, rollback automation, and promotion pipelines (Epic 5 complete)
+- Policy enforcement with OPA/CEL engines, auditing, and compliance reporting (Epic 6 complete)
 - Comprehensive test suite (>79% coverage across all core packages)
 
-**Current Status**: Epic 1 COMPLETE ✅ | Epic 2 COMPLETE ✅ | Epic 3 COMPLETE ✅ | Epic 4 COMPLETE ✅ | Epic 5 COMPLETE ✅
+**Current Status**: Epic 1 COMPLETE ✅ | Epic 2 COMPLETE ✅ | Epic 3 COMPLETE ✅ | Epic 4 COMPLETE ✅ | Epic 5 COMPLETE ✅ | Epic 6 COMPLETE ✅
 
 ## Repository Structure
 
@@ -672,6 +673,207 @@ TitanAnvil fills the gap between declarative GitOps tools and runtime operations
   - Promotion tests: immediate, with approval, canary deployment
   - Approval tests: approve and reject workflows
   - Listing tests: all promotions and pending promotions
+
+### Epic 6: Policy Enforcement ✅ COMPLETE
+
+**Implementation Plan:** 6 phases (All phases complete!)
+
+**Phase 1: Policy Definition & Types ✅ COMPLETE**
+- Policy types and enums (pkg/policy/types.go)
+  - PolicyType: OPA (Rego), CEL, Builtin
+  - PolicyCategory: Security, Compliance, Operational, Cost, Custom
+  - Severity levels: Low, Medium, High, Critical
+  - EnforcementMode: Audit, Enforce, Warn
+- Policy structure (pkg/policy/types.go)
+  - Policy definition with ID, name, description, code
+  - EvaluationInput for policy evaluation context
+  - EvaluationResult with violations and warnings
+  - Violation details with rule, message, severity, path, remediation
+- Policy organization (pkg/policy/types.go)
+  - PolicySet for grouping related policies
+  - PolicyBinding for attaching policies to resources
+  - PolicyResult for aggregated evaluation results
+  - PolicySummary with violation statistics
+- Policy registry (pkg/policy/registry.go)
+  - Registry for managing policies, sets, and bindings
+  - RegisterPolicy(), GetPolicy(), ListPolicies()
+  - ListPoliciesByCategory(), ListPoliciesByType()
+  - UpdatePolicy(), DeletePolicy()
+  - Policy set management (register, get, list, delete)
+  - Policy binding management with resource filtering
+  - ListBindingsForResource() for resource-specific policies
+  - Thread-safe operations with mutex locks
+- Test coverage: 81.0% (11 tests passing)
+  - Policy registration and validation
+  - Update and delete operations
+  - List by category and type
+  - Policy set operations
+  - Binding operations and validation
+  - Resource-specific binding queries
+
+**Phase 2: OPA Integration ✅ COMPLETE**
+- OPA evaluator (pkg/policy/opa.go)
+  - OPAEvaluator for evaluating Rego policies
+  - Evaluate() - evaluate policy with allow/deny decision
+  - EvaluateWithDeny() - evaluate with explicit deny rules
+  - extractViolations() - extract violation details from results
+  - parseViolationsFromData() - parse violations from OPA bindings
+  - ValidatePolicy() - syntax validation for Rego code
+  - Package name parsing from policy code
+  - Package name sanitization (hyphens to underscores)
+- Policy evaluation features
+  - Allow/deny decision logic
+  - Violation extraction with severity, path, remediation
+  - Warning collection
+  - Duration tracking for performance monitoring
+  - Support for complex Rego policies with multiple rules
+- Test coverage: 73.6% (6 OPA tests + 11 registry tests = 17 tests passing)
+  - Simple allow/deny policies
+  - Complex multi-condition policies
+  - Explicit deny with violations
+  - Invalid policy handling
+  - Policy validation
+  - Duration and timestamp tracking
+
+**Phase 3: CEL Integration ✅ COMPLETE**
+- CEL evaluator (pkg/policy/cel.go)
+  - CELEvaluator for evaluating Common Expression Language policies
+  - Evaluate() - evaluate CEL expressions with boolean results
+  - EvaluateWithDetails() - evaluate with detailed violation extraction
+  - extractViolationsFromDetails() - extract violation details from evaluation state
+  - ValidatePolicy() - syntax validation for CEL expressions
+  - Standard variable declarations (input, resource, action, user, context)
+  - Type-safe evaluation with boolean return type validation
+- Policy evaluation features
+  - Allow/deny decision based on CEL expression evaluation
+  - Support for complex expressions with logical operators (&&, ||)
+  - Resource access patterns (resource.owner, resource.public, etc.)
+  - Context-based policies (context.environment, etc.)
+  - Violation generation on policy denial
+  - Duration tracking for performance monitoring
+  - Error handling for compilation and evaluation failures
+- Test coverage: 70.1% (8 CEL tests + 6 OPA tests + 11 registry tests = 25 tests passing)
+  - Simple allow/deny expressions
+  - Complex multi-condition policies with OR/AND logic
+  - Resource ownership and sharing patterns
+  - Context-based conditional policies
+  - Invalid policy syntax handling
+  - Policy validation tests
+  - Duration and timestamp tracking
+  - Detailed evaluation with violation extraction
+
+**Phase 4: Policy Engine ✅ COMPLETE**
+- Policy engine orchestration (pkg/policy/engine.go)
+  - PolicyEngine coordinates evaluation across OPA and CEL evaluators
+  - Evaluate() - evaluate single policy by ID with registry lookup
+  - EvaluatePolicySet() - evaluate all policies in a set with aggregation
+  - EvaluateForResource() - evaluate all policies bound to a resource type
+  - EvaluateBatch() - serial batch evaluation of multiple inputs
+  - EvaluateBatchParallel() - parallel batch evaluation with goroutines
+  - ValidatePolicy() - pre-registration policy validation
+  - Enforcement mode support (Enforce, Audit, Warn)
+  - Automatic evaluator selection based on policy type
+  - Disabled policy/set handling (skip with warnings)
+- Evaluation features
+  - Registry integration for policy and binding management
+  - Action filtering in bindings (evaluate only matching actions)
+  - Aggregated results with summary statistics
+  - Violation counting by severity (using ViolationsBySeverity map)
+  - Total duration tracking across multiple evaluations
+  - Error handling with fallback violation generation
+  - Thread-safe operations with mutex locks
+- Test coverage: 74.3% (91 total tests passing)
+  - Single policy evaluation (OPA and CEL)
+  - Policy set evaluation and aggregation
+  - Resource-bound policy evaluation with action filtering
+  - Disabled policy and policy set handling
+  - Batch evaluation (serial and parallel)
+  - Policy validation (all policy types)
+  - Enforcement mode testing (Enforce, Audit, Warn)
+  - Violation severity aggregation
+  - Error handling (non-existent policies and sets)
+
+**Phase 5: Policy Enforcement ✅ COMPLETE**
+- Policy enforcement layer (pkg/policy/enforcement.go)
+  - PolicyEnforcer coordinates policy enforcement across the system
+  - EnforcementPoint types (pre_execution, post_execution, on_change, on_drift, on_event)
+  - EnforcementAction types (block, warn, audit, remediate)
+  - EnforcementConfig for configurable enforcement behavior
+  - EnforceForResource() evaluates all policies bound to a resource type
+  - EnforcePolicy() evaluates and enforces a specific policy
+  - Resource type scoping for targeted enforcement
+  - Custom violation handlers for extensibility
+  - Event emission for policy evaluations (pass/violation events)
+- Integration features
+  - StateEnforcementHook() creates hooks for state management integration
+  - EventEnforcementReactor() creates reactors for event-driven enforcement
+  - PolicyEnforcementAction implements events.Action interface
+  - Event-based policy triggers with context propagation
+  - Configurable enforcement actions per policy
+  - Violation handling pipeline with custom handlers
+- Event integration (pkg/events/types.go)
+  - Added EventTypePolicyPass for successful policy evaluations
+  - Added EventTypePolicyViolation for policy violations
+  - Severity mapping from policy to event severities
+  - Detailed violation data in event payloads
+- Test coverage: 76.0% (114 tests passing)
+  - Resource enforcement with scoping
+  - Enforcement action modes (Block, Warn, Audit)
+  - Event emission and publishing
+  - Custom violation handlers
+  - Single policy enforcement
+  - State hook integration
+  - Event reactor integration
+  - Severity conversion
+
+**Phase 6: Policy Reporting & Auditing ✅ COMPLETE**
+- Policy auditing system (pkg/policy/audit.go)
+  - PolicyAuditor for recording and managing audit entries
+  - RecordEvaluation() - record single policy evaluation
+  - RecordPolicyResult() - record multi-policy evaluation result
+  - GetEntries() - retrieve audit entries with filtering
+  - GetSummary() - generate statistical summary of evaluations
+  - Clear() - clear all audit entries
+  - Ring buffer behavior with configurable max size (default 10,000)
+  - Thread-safe operations with mutex locks
+- Audit filtering and querying
+  - AuditFilter with multiple criteria (policy, resource, allowed status, time range, user, action)
+  - Time range filtering (start/end times)
+  - Boolean filtering (allowed/denied evaluations)
+  - Limit support for pagination
+  - Matches() - evaluate if entry matches filter criteria
+- Audit summaries and statistics
+  - AuditSummary with comprehensive statistics
+  - Total, allowed, and denied evaluation counts
+  - Total violations count
+  - Violations grouped by severity (Low, Medium, High, Critical)
+  - Violations grouped by policy ID
+  - Evaluations grouped by resource type
+  - Average evaluation duration calculation
+- Compliance reporting (pkg/policy/audit.go)
+  - ComplianceReporter for generating compliance reports
+  - GenerateReport() - create compliance report for time period
+  - ComplianceReport with period-based analysis
+  - Compliance rate calculation (compliant/total * 100)
+  - Policy-level statistics (total, compliant, violating policies)
+  - Top violations tracking by policy
+  - Severity distribution analysis
+- Compliance analysis features
+  - ReportPeriod with start/end times
+  - PolicySummary for individual policy statistics
+  - ViolationSummary with policy name, count, severity
+  - Top N violations sorted by count
+  - Per-policy compliance tracking
+- Test coverage: 79.4% (58 tests passing)
+  - Audit entry recording (single and batch)
+  - Ring buffer capacity management
+  - Filtering by policy, resource, allowed status, time range, user, action
+  - Limit and pagination
+  - Summary generation with statistics
+  - Clear operations
+  - Compliance report generation
+  - Top violations ranking
+  - Policy aggregation and statistics
 
 ## Epic Dependencies
 
