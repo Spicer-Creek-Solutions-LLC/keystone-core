@@ -339,7 +339,7 @@ Keystone Core follows [Semantic Versioning](https://semver.org/):
 
 Have an idea? We'd love to hear it:
 
-1. **Check existing issues**: Search [GitHub Issues](https://github.com/kscore/keystone-core/issues) for similar requests
+1. **Check existing issues**: Search [GitHub Issues](https://github.com/shawnbutts/keystone-core/issues) for similar requests
 2. **Open a feature request**: Use the feature request template
 3. **Discuss on Discord**: Join the `#feature-requests` channel
 4. **Submit an RFC**: For major features, write a design document
@@ -356,7 +356,7 @@ Help prioritize development:
 
 Ready to contribute?
 
-1. Check [good first issues](https://github.com/kscore/keystone-core/labels/good%20first%20issue) for starter tasks
+1. Check [good first issues](https://github.com/shawnbutts/keystone-core/labels/good%20first%20issue) for starter tasks
 2. Claim an issue by commenting
 3. Follow the [Contributing Guide](../contributing/)
 4. Submit a pull request
@@ -385,7 +385,7 @@ The roadmap is reviewed and updated monthly. Major changes are announced on Disc
 
 ## Stay Updated
 
-- **GitHub Releases**: Watch the [repository](https://github.com/kscore/keystone-core) for release notifications
+- **GitHub Releases**: Watch the [repository](https://github.com/shawnbutts/keystone-core) for release notifications
 - **Discord**: Join for real-time updates and discussions
 - **Twitter**: Follow [@kscore](https://twitter.com/kscore) for announcements
 - **Blog**: Subscribe to the blog for detailed release notes and feature announcements

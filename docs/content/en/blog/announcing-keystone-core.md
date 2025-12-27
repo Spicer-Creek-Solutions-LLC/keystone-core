@@ -198,7 +198,7 @@ Keystone Core has reached feature completeness for its core capabilities:
 
 Keystone Core is open source and we welcome contributions:
 
-- **GitHub**: [github.com/kscore/keystone-core](https://github.com/kscore/keystone-core)
+- **GitHub**: [github.com/shawnbutts/keystone-core](https://github.com/shawnbutts/keystone-core)
 - **Discord**: [discord.gg/kscore](https://discord.gg/kscore)
 - **Twitter**: [@kscore](https://twitter.com/kscore)
 

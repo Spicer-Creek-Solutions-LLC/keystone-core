@@ -11,7 +11,7 @@ Thank you for your interest in contributing to Keystone Core! This guide will he
 
 ### Report Bugs
 
-Found a bug? Please [open an issue](https://github.com/kscore/keystone-core/issues/new?template=bug_report.md) with:
+Found a bug? Please [open an issue](https://github.com/shawnbutts/keystone-core/issues/new?template=bug_report.md) with:
 
 - **Clear title**: Descriptive summary of the issue
 - **Steps to reproduce**: Detailed steps to trigger the bug
@@ -43,7 +43,7 @@ Logs:
 
 ### Suggest Features
 
-Have an idea? [Open a feature request](https://github.com/kscore/keystone-core/issues/new?template=feature_request.md) with:
+Have an idea? [Open a feature request](https://github.com/shawnbutts/keystone-core/issues/new?template=feature_request.md) with:
 
 - **Use case**: What problem does this solve?
 - **Proposed solution**: How should it work?
@@ -75,7 +75,7 @@ git clone https://github.com/YOUR_USERNAME/keystone-core.git
 cd keystone-core
 
 # Add upstream remote
-git remote add upstream https://github.com/kscore/keystone-core.git
+git remote add upstream https://github.com/shawnbutts/keystone-core.git
 ```
 
 ### 2. Create a Branch
@@ -214,7 +214,7 @@ return err
 Use structured logging with `pkg/logging`:
 
 ```go
-import "github.com/kscore/keystone-core/pkg/logging"
+import "github.com/shawnbutts/keystone-core/pkg/logging"
 
 // Create logger
 log := logging.NewLogger(logging.Config{
@@ -422,7 +422,7 @@ Contributors are recognized in:
 ## Next Steps
 
 - **Set up your development environment**: See [Development Guide](development/)
-- **Find an issue to work on**: Browse [good first issues](https://github.com/kscore/keystone-core/labels/good%20first%20issue)
+- **Find an issue to work on**: Browse [good first issues](https://github.com/shawnbutts/keystone-core/labels/good%20first%20issue)
 - **Join the community**: Say hello on [Discord](https://discord.gg/kscore)
 
 Thank you for contributing to Keystone Core! 🚀

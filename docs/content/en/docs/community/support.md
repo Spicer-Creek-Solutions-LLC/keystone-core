@@ -23,8 +23,8 @@ Before reaching out for help, please:
 | Resource | Purpose | Link |
 |----------|---------|------|
 | Documentation | User guides and reference | [docs.kscore.dev](/) |
-| GitHub Issues | Bug reports and feature requests | [github.com/kscore/keystone-core/issues](https://github.com/kscore/keystone-core/issues) |
-| GitHub Discussions | Q&A and community discussions | [github.com/kscore/keystone-core/discussions](https://github.com/kscore/keystone-core/discussions) |
+| GitHub Issues | Bug reports and feature requests | [github.com/shawnbutts/keystone-core/issues](https://github.com/shawnbutts/keystone-core/issues) |
+| GitHub Discussions | Q&A and community discussions | [github.com/shawnbutts/keystone-core/discussions](https://github.com/shawnbutts/keystone-core/discussions) |
 | Discord | Real-time community chat | [discord.gg/kscore](https://discord.gg/kscore) |
 
 ---
@@ -155,7 +155,7 @@ export KSCORE_LOG_LEVEL=debug
 
 Found a bug? Report it on GitHub:
 
-**[Create a Bug Report](https://github.com/kscore/keystone-core/issues/new?template=bug_report.md)**
+**[Create a Bug Report](https://github.com/shawnbutts/keystone-core/issues/new?template=bug_report.md)**
 
 **Required information:**
 - Clear title describing the bug
@@ -206,7 +206,7 @@ Error: "module 'service' not found"
 
 Have an idea? Request it on GitHub:
 
-**[Create a Feature Request](https://github.com/kscore/keystone-core/issues/new?template=feature_request.md)**
+**[Create a Feature Request](https://github.com/shawnbutts/keystone-core/issues/new?template=feature_request.md)**
 
 **Include:**
 - Use case description
@@ -224,7 +224,7 @@ For security issues, please:
 2. **Include**: Detailed description, reproduction steps, impact assessment
 3. **Wait**: We'll respond within 48 hours
 
-See our [Security Policy](https://github.com/kscore/keystone-core/security/policy) for more details.
+See our [Security Policy](https://github.com/shawnbutts/keystone-core/security/policy) for more details.
 
 ---
 
@@ -352,7 +352,7 @@ Available professional services:
 
 ### Code of Conduct
 
-All community interactions are governed by our [Code of Conduct](https://github.com/kscore/keystone-core/blob/main/CODE_OF_CONDUCT.md).
+All community interactions are governed by our [Code of Conduct](https://github.com/shawnbutts/keystone-core/blob/main/CODE_OF_CONDUCT.md).
 
 **Key principles:**
 - Be respectful and inclusive
@@ -406,7 +406,7 @@ Active community members can become recognized experts:
 Found an error or have a suggestion?
 
 - **Edit on GitHub**: Use the "Edit this page" link
-- **Open an issue**: [Documentation Issues](https://github.com/kscore/keystone-core/issues/new?labels=documentation)
+- **Open an issue**: [Documentation Issues](https://github.com/shawnbutts/keystone-core/issues/new?labels=documentation)
 - **Discuss**: Join `#documentation` on Discord
 
 ### Product Feedback

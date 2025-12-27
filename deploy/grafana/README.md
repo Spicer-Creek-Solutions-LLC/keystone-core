@@ -512,7 +512,7 @@ To contribute improvements to Keystone Core dashboards:
 ## Support
 
 For issues or questions:
-- **GitHub Issues**: [Keystone Core Repository](https://github.com/kscore/keystone-core/issues)
+- **GitHub Issues**: [Keystone Core Repository](https://github.com/shawnbutts/keystone-core/issues)
 - **Documentation**: See main Keystone Core documentation
 - **Metrics Reference**: Epic 7 (Observability) in project epics
 

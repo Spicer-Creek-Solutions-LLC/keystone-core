@@ -79,13 +79,13 @@ sudo mv hugo /usr/local/bin/
 
 ```bash
 # Clone the main repository
-git clone https://github.com/kscore/keystone-core.git
+git clone https://github.com/shawnbutts/keystone-core.git
 cd keystone-core
 
 # Or clone your fork
 git clone https://github.com/YOUR_USERNAME/keystone-core.git
 cd keystone-core
-git remote add upstream https://github.com/kscore/keystone-core.git
+git remote add upstream https://github.com/shawnbutts/keystone-core.git
 ```
 
 ### Repository Structure
@@ -771,5 +771,5 @@ export LOG_PKG_NATS=trace
 
 - **Start Contributing**: See [Contributing Guide](../contributing/)
 - **Explore the Codebase**: Read through `pkg/` directories
-- **Pick an Issue**: Browse [good first issues](https://github.com/kscore/keystone-core/labels/good%20first%20issue)
+- **Pick an Issue**: Browse [good first issues](https://github.com/shawnbutts/keystone-core/labels/good%20first%20issue)
 - **Join the Community**: Connect on [Discord](https://discord.gg/kscore)

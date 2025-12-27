@@ -179,7 +179,7 @@ type Event struct {
 Publish events from Go code:
 
 ```go
-import "github.com/kscore/keystone-core/pkg/events"
+import "github.com/shawnbutts/keystone-core/pkg/events"
 
 // Create event
 event := events.NewEvent().

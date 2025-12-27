@@ -17,7 +17,7 @@ This directory contains the source files for the Keystone Core documentation sit
 
 1. **Clone the repository** (if you haven't already):
    ```bash
-   git clone https://github.com/kscore/keystone-core.git
+   git clone https://github.com/shawnbutts/keystone-core.git
    cd keystone-core
    ```
 

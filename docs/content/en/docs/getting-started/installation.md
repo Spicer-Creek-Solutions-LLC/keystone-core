@@ -30,19 +30,19 @@ Download the latest release from GitHub:
 
 ```bash
 # Linux (amd64)
-curl -LO https://github.com/kscore/keystone-core/releases/latest/download/kscore-linux-amd64.tar.gz
+curl -LO https://github.com/shawnbutts/keystone-core/releases/latest/download/kscore-linux-amd64.tar.gz
 tar xzf kscore-linux-amd64.tar.gz
 sudo mv kscore-* /usr/local/bin/
 sudo mv kscorectl /usr/local/bin/
 
 # macOS (amd64)
-curl -LO https://github.com/kscore/keystone-core/releases/latest/download/kscore-darwin-amd64.tar.gz
+curl -LO https://github.com/shawnbutts/keystone-core/releases/latest/download/kscore-darwin-amd64.tar.gz
 tar xzf kscore-darwin-amd64.tar.gz
 sudo mv kscore-* /usr/local/bin/
 sudo mv kscorectl /usr/local/bin/
 
 # macOS (arm64 / Apple Silicon)
-curl -LO https://github.com/kscore/keystone-core/releases/latest/download/kscore-darwin-arm64.tar.gz
+curl -LO https://github.com/shawnbutts/keystone-core/releases/latest/download/kscore-darwin-arm64.tar.gz
 tar xzf kscore-darwin-arm64.tar.gz
 sudo mv kscore-* /usr/local/bin/
 sudo mv kscorectl /usr/local/bin/
@@ -64,9 +64,9 @@ Download and install DEB or RPM packages directly from GitHub releases:
 
 ```bash
 # Download packages
-curl -LO https://github.com/kscore/keystone-core/releases/latest/download/kscore-server_0.10.0_linux_amd64.deb
-curl -LO https://github.com/kscore/keystone-core/releases/latest/download/kscore-agent_0.10.0_linux_amd64.deb
-curl -LO https://github.com/kscore/keystone-core/releases/latest/download/kscore-cli_0.10.0_linux_amd64.deb
+curl -LO https://github.com/shawnbutts/keystone-core/releases/latest/download/kscore-server_0.10.0_linux_amd64.deb
+curl -LO https://github.com/shawnbutts/keystone-core/releases/latest/download/kscore-agent_0.10.0_linux_amd64.deb
+curl -LO https://github.com/shawnbutts/keystone-core/releases/latest/download/kscore-cli_0.10.0_linux_amd64.deb
 
 # Install packages
 sudo dpkg -i kscore-server_*.deb
@@ -82,9 +82,9 @@ sudo systemctl start kscore-server
 
 ```bash
 # Download packages
-curl -LO https://github.com/kscore/keystone-core/releases/latest/download/kscore-server-0.10.0.x86_64.rpm
-curl -LO https://github.com/kscore/keystone-core/releases/latest/download/kscore-agent-0.10.0.x86_64.rpm
-curl -LO https://github.com/kscore/keystone-core/releases/latest/download/kscore-cli-0.10.0.x86_64.rpm
+curl -LO https://github.com/shawnbutts/keystone-core/releases/latest/download/kscore-server-0.10.0.x86_64.rpm
+curl -LO https://github.com/shawnbutts/keystone-core/releases/latest/download/kscore-agent-0.10.0.x86_64.rpm
+curl -LO https://github.com/shawnbutts/keystone-core/releases/latest/download/kscore-cli-0.10.0.x86_64.rpm
 
 # Install packages
 sudo rpm -i kscore-server-*.rpm
@@ -110,7 +110,7 @@ Clone and build:
 
 ```bash
 # Clone repository
-git clone https://github.com/kscore/keystone-core.git
+git clone https://github.com/shawnbutts/keystone-core.git
 cd keystone-core
 
 # Build all binaries
@@ -221,7 +221,7 @@ helm install kscore-agent kscore/agent \
 Or use kubectl with manifests:
 
 ```bash
-kubectl apply -f https://github.com/kscore/keystone-core/releases/latest/download/kscore-k8s.yaml
+kubectl apply -f https://github.com/shawnbutts/keystone-core/releases/latest/download/kscore-k8s.yaml
 ```
 
 ## Configuration

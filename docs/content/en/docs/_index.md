@@ -41,8 +41,8 @@ Production deployment guides, monitoring setup, troubleshooting, backup/restore,
 
 ## Need Help?
 
-- **GitHub Issues**: [Report bugs or request features](https://github.com/kscore/keystone-core/issues)
-- **Discussions**: [Ask questions and share ideas](https://github.com/kscore/keystone-core/discussions)
+- **GitHub Issues**: [Report bugs or request features](https://github.com/shawnbutts/keystone-core/issues)
+- **Discussions**: [Ask questions and share ideas](https://github.com/shawnbutts/keystone-core/discussions)
 - **Documentation**: You're already here!
 
 ## Project Status

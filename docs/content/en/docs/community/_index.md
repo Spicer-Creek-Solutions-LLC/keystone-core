@@ -35,9 +35,9 @@ Get help, ask questions, and connect with other Keystone Core users.
 
 ## Quick Links
 
-- **GitHub Repository**: [github.com/kscore/keystone-core](https://github.com/kscore/keystone-core)
-- **Issue Tracker**: [github.com/kscore/keystone-core/issues](https://github.com/kscore/keystone-core/issues)
-- **Discussions**: [github.com/kscore/keystone-core/discussions](https://github.com/kscore/keystone-core/discussions)
+- **GitHub Repository**: [github.com/shawnbutts/keystone-core](https://github.com/shawnbutts/keystone-core)
+- **Issue Tracker**: [github.com/shawnbutts/keystone-core/issues](https://github.com/shawnbutts/keystone-core/issues)
+- **Discussions**: [github.com/shawnbutts/keystone-core/discussions](https://github.com/shawnbutts/keystone-core/discussions)
 - **Discord**: [discord.gg/kscore](https://discord.gg/kscore)
 - **Twitter**: [@kscore](https://twitter.com/kscore)
 

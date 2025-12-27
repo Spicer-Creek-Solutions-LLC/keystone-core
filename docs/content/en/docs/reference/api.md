@@ -855,7 +855,7 @@ Official client libraries:
 ### Go
 
 ```go
-import "github.com/kscore/keystone-core/pkg/client"
+import "github.com/shawnbutts/keystone-core/pkg/client"
 
 client := client.New("http://control-plane:8080", apiKey)
 agents, err := client.Agents().List(ctx, &client.ListAgentsOptions{

@@ -2,12 +2,14 @@
 title: "Keystone Core"
 ---
 
-{{< blocks/cover title="Keystone Core" image_anchor="top" height="full" >}}
-<p class="lead mt-5">Cloud-Native Runtime Infrastructure Control Plane</p>
+{{< blocks/cover title="" image_anchor="top" height="full" >}}
+<img src="/images/logo.svg" alt="Keystone Core" style="max-width: 400px; margin-bottom: 1rem;">
+<h1 class="display-1 fw-bold">Keystone Core</h1>
+<p class="lead mt-3">Cloud-Native Runtime Infrastructure Control Plane</p>
 <a class="btn btn-lg btn-primary me-3 mb-4" href="/docs/">
   Learn More <i class="fas fa-arrow-alt-circle-right ms-2"></i>
 </a>
-<a class="btn btn-lg btn-secondary me-3 mb-4" href="https://github.com/kscore/keystone-core">
+<a class="btn btn-lg btn-secondary me-3 mb-4" href="https://github.com/shawnbutts/keystone-core">
   Download <i class="fab fa-github ms-2 "></i>
 </a>
 <p class="lead mt-5">GitOps deploys it. We keep it running.</p>

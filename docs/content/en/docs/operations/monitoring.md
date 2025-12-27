@@ -907,4 +907,4 @@ curl http://localhost:3100/metrics | grep loki_ingester
 - [Deployment Guide](deployment/) - Deploy monitoring stack
 - [Troubleshooting Guide](troubleshooting/) - Debug monitoring issues
 - [Metrics Reference](/docs/reference/metrics/) - Complete metrics catalog
-- [Grafana Dashboards](https://github.com/kscore/grafana-dashboards) - Dashboard repository
+- [Grafana Dashboards](https://github.com/shawnbutts/grafana-dashboards) - Dashboard repository

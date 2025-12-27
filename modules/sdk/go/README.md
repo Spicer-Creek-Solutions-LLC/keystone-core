@@ -13,7 +13,7 @@ The official Go SDK for building Keystone Core modules that compile to WebAssemb
 ## Installation
 
 ```bash
-go get github.com/kscore/titan-module-sdk-go
+go get github.com/shawnbutts/titan-module-sdk-go
 ```
 
 ## Requirements
@@ -40,7 +40,7 @@ choco install tinygo
 package main
 
 import (
-    titansdk "github.com/kscore/titan-module-sdk-go"
+    titansdk "github.com/shawnbutts/titan-module-sdk-go"
 )
 
 func main() {
@@ -65,7 +65,7 @@ tinygo build -o module.wasm -target wasm32-wasi -opt=z .
 ### Filesystem
 
 ```go
-import titansdk "github.com/kscore/titan-module-sdk-go"
+import titansdk "github.com/shawnbutts/titan-module-sdk-go"
 
 // Read file as bytes
 data, err := titansdk.ReadFile("/path/to/file")
@@ -171,7 +171,7 @@ hash, err := titansdk.SHA256String("my string")
 ## Error Handling
 
 ```go
-import titansdk "github.com/kscore/titan-module-sdk-go"
+import titansdk "github.com/shawnbutts/titan-module-sdk-go"
 
 func myFunction() error {
     // Filesystem error
@@ -242,7 +242,7 @@ package main
 
 import (
     "testing"
-    titansdk "github.com/kscore/titan-module-sdk-go"
+    titansdk "github.com/shawnbutts/titan-module-sdk-go"
 )
 
 func TestModule(t *testing.T) {

@@ -24,7 +24,7 @@ Technical deep-dives into Keystone Core's architecture, design decisions, and im
 
 ## Stay Updated
 
-- **GitHub Releases**: Watch the [repository](https://github.com/kscore/keystone-core) for release notifications
+- **GitHub Releases**: Watch the [repository](https://github.com/shawnbutts/keystone-core) for release notifications
 - **Discord**: Join our [Discord server](https://discord.gg/kscore) for real-time updates
 - **Twitter**: Follow [@kscore](https://twitter.com/kscore) for announcements
 

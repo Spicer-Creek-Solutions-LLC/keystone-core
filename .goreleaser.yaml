@@ -180,7 +180,7 @@ nfpms:
     ids:
       - kscore-server
     vendor: Keystone Core
-    homepage: https://github.com/kscore/keystone-core
+    homepage: https://github.com/shawnbutts/keystone-core
     maintainer: Keystone Core Team <team@kscore.dev>
     description: |
       Keystone Core Control Plane Server
@@ -229,7 +229,7 @@ nfpms:
     ids:
       - kscore-agent
     vendor: Keystone Core
-    homepage: https://github.com/kscore/keystone-core
+    homepage: https://github.com/shawnbutts/keystone-core
     maintainer: Keystone Core Team <team@kscore.dev>
     description: |
       Keystone Core Agent
@@ -276,7 +276,7 @@ nfpms:
       - kscore-state
       - kscore-monitor
     vendor: Keystone Core
-    homepage: https://github.com/kscore/keystone-core
+    homepage: https://github.com/shawnbutts/keystone-core
     maintainer: Keystone Core Team <team@kscore.dev>
     description: |
       Keystone Core CLI Tools
