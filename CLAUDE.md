@@ -23,7 +23,7 @@ This repository contains working implementations of **Epic 1-5**. The project ha
 - Policy enforcement with OPA/CEL engines, auditing, and compliance reporting (Epic 6 complete)
 - Comprehensive test suite (>79% coverage across all core packages)
 
-**Current Status**: Epic 1-10 COMPLETE ✅ | Epic 11 (Clustering) NEXT
+**Current Status**: Epic 1-10 COMPLETE ✅ | Epic 11 Phase 1 COMPLETE ✅ (Clustering IN PROGRESS)
 
 ## Repository Structure
 
@@ -2146,6 +2146,54 @@ Keystone Core fills the gap between declarative GitOps tools and runtime operati
 - Total lines of documentation: ~21,500
 - Sections completed: Getting Started, Core Concepts, Reference, Operations, Community, Blog
 - All phases complete with no build warnings
+
+### Epic 11: High Availability Clustering 🚧 IN PROGRESS
+
+**Implementation Plan:** 8 phases (16 weeks total)
+
+**Current Status**: Phase 1 COMPLETE ✅
+
+**Phase 1 Week 1-2: etcd Integration & Cluster Formation ✅ COMPLETE**
+- etcd client integration (pkg/cluster/etcd.go)
+  - etcd v3 client wrapper with connection management
+  - Support for embedded and external etcd modes
+  - Session management with TTL-based leases
+  - Transaction support with compare-and-swap
+  - Retry logic with exponential backoff
+  - TLS configuration support
+- Cluster membership management (pkg/cluster/membership.go)
+  - Member registration on startup
+  - Heartbeat mechanism (configurable intervals)
+  - Member discovery from etcd
+  - Member health monitoring with status transitions
+  - Automatic member removal on timeout
+  - Observer pattern for membership changes
+  - Quorum calculation and tracking
+- Cluster configuration (pkg/cluster/config.go)
+  - Comprehensive configuration structures
+  - Validation for all settings
+  - Support for embedded/external etcd modes
+  - TLS configuration
+  - Heartbeat/election timeout settings
+- Cluster state storage (pkg/cluster/state.go)
+  - StateStore for general cluster state
+  - ClusterConfigStore for distributed configuration
+  - ShardStore for agent-to-member assignments
+  - DistributedLock for coordination
+  - CoordinationStore with barriers and elections
+  - Counter for distributed atomic counters
+- Test coverage: 48.6% (91 tests passing)
+  - Comprehensive unit tests for all components
+  - Configuration validation tests
+  - Error handling tests
+
+**Phase 2: Leader Election & Work Distribution** - PENDING
+**Phase 3: Failover & Recovery** - PENDING
+**Phase 4: Data Consistency & Replication** - PENDING
+**Phase 5: Cluster Operations & Management** - PENDING
+**Phase 6: Observability & Monitoring** - PENDING
+**Phase 7: Testing & Validation** - PENDING
+**Phase 8: Documentation Update** - PENDING
 
 ## Epic Dependencies
 
