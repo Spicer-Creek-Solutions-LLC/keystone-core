@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/titananvil/titan-anvil/pkg/module/manifest"
+	"github.com/shawnbutts/keystone-core/pkg/module/manifest"
 )
 
 // Mock registry client for testing

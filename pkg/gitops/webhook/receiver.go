@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/titananvil/titan-anvil/pkg/events"
+	"github.com/shawnbutts/keystone-core/pkg/events"
 )
 
 // EventProcessor handles webhook events
@@ -260,7 +260,7 @@ func NewEventBusProcessor(publisher events.EventPublisher) *EventBusProcessor {
 
 // ProcessEvent publishes webhook events to the event bus
 func (p *EventBusProcessor) ProcessEvent(ctx context.Context, webhook *WebhookEvent) error {
-	// Convert webhook to TitanAnvil event
+	// Convert webhook to Keystone Core event
 	event := webhook.ToTitanEvent()
 
 	// Publish to event bus

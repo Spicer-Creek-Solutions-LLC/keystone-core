@@ -60,7 +60,7 @@ func Load(path string) (*Config, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to get home directory: %w", err)
 		}
-		path = filepath.Join(home, ".titananvil", "monitor.yaml")
+		path = filepath.Join(home, ".kscore", "monitor.yaml")
 	}
 
 	// If file doesn't exist, return default config
@@ -88,7 +88,7 @@ func (c *Config) Save(path string) error {
 		if err != nil {
 			return fmt.Errorf("failed to get home directory: %w", err)
 		}
-		path = filepath.Join(home, ".titananvil", "monitor.yaml")
+		path = filepath.Join(home, ".kscore", "monitor.yaml")
 	}
 
 	// Ensure directory exists

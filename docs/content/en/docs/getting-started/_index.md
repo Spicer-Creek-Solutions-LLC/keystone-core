@@ -3,16 +3,16 @@ title: "Getting Started"
 linkTitle: "Getting Started"
 weight: 1
 description: >
-  Get up and running with TitanAnvil in minutes
+  Get up and running with Keystone Core in minutes
 ---
 
-This section helps you get started with TitanAnvil quickly.
+This section helps you get started with Keystone Core quickly.
 
-## What is TitanAnvil?
+## What is Keystone Core?
 
-TitanAnvil is a cloud-native runtime infrastructure control plane. Think of it as the operational layer that sits between your GitOps deployments and your live infrastructure.
+Keystone Core is a cloud-native runtime infrastructure control plane. Think of it as the operational layer that sits between your GitOps deployments and your live infrastructure.
 
-**Key analogy**: If Kubernetes is the orchestrator for containers, TitanAnvil is the orchestrator for infrastructure operations.
+**Key analogy**: If Kubernetes is the orchestrator for containers, Keystone Core is the orchestrator for infrastructure operations.
 
 ## Core Philosophy
 
@@ -27,11 +27,11 @@ GitOps tools (ArgoCD, Flux) excel at deploying applications declaratively from G
 - Rollbacks may be necessary
 - Compliance must be maintained
 
-TitanAnvil handles all of this.
+Keystone Core handles all of this.
 
 ## Inspired By, Modernized For
 
-TitanAnvil takes inspiration from **Salt Project** (formerly SaltStack) but reimagines it for cloud-native environments:
+Keystone Core takes inspiration from **Salt Project** (formerly SaltStack) but reimagines it for cloud-native environments:
 
 ### From Salt:
 - Declarative state management
@@ -47,9 +47,9 @@ TitanAnvil takes inspiration from **Salt Project** (formerly SaltStack) but reim
 - **Plugin System**: Starlark/WASM modules with cryptographic verification
 - **Modern Stack**: Go, NATS, gRPC, Prometheus, OpenTelemetry
 
-## When to Use TitanAnvil
+## When to Use Keystone Core
 
-✅ **Use TitanAnvil when**:
+✅ **Use Keystone Core when**:
 - You have GitOps workflows and need runtime operations
 - You need configuration drift detection and remediation
 - You want event-driven infrastructure automation
@@ -57,7 +57,7 @@ TitanAnvil takes inspiration from **Salt Project** (formerly SaltStack) but reim
 - You manage heterogeneous infrastructure (K8s + VMs + cloud + edge)
 - You need deployment verification and automated rollback
 
-❌ **Don't use TitanAnvil when**:
+❌ **Don't use Keystone Core when**:
 - You only need basic configuration management (use Ansible)
 - You only need container orchestration (use Kubernetes)
 - You only need GitOps deployment (use ArgoCD/Flux alone)
@@ -66,7 +66,7 @@ TitanAnvil takes inspiration from **Salt Project** (formerly SaltStack) but reim
 ## Quick Navigation
 
 1. **[Overview](overview/)** - Detailed introduction and use cases
-2. **[Installation](installation/)** - Install TitanAnvil on your system
+2. **[Installation](installation/)** - Install Keystone Core on your system
 3. **[Quick Start](quick-start/)** - 5-minute deployment guide
 4. **[Architecture](architecture/)** - System architecture overview
 

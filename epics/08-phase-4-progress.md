@@ -7,7 +7,7 @@
 
 ## Overview
 
-Phase 4 of Epic 8 implements edge computing support, enabling TitanAnvil agents to operate in resource-constrained environments with intermittent connectivity, including ARM devices, IoT gateways, and remote edge locations.
+Phase 4 of Epic 8 implements edge computing support, enabling Keystone Core agents to operate in resource-constrained environments with intermittent connectivity, including ARM devices, IoT gateways, and remote edge locations.
 
 ## Completed Components
 
@@ -64,7 +64,7 @@ File-based cache for offline operation:
 
 **Cache Operations**:
 ```go
-cache := NewFileCache("/var/lib/titananvil/cache")
+cache := NewFileCache("/var/lib/kscore/cache")
 
 // Store entry
 entry := &CacheEntry{
@@ -389,6 +389,6 @@ Phase 4 is complete with comprehensive edge computing support. The system now:
 - **Supports edge scenarios** including retail, manufacturing, and remote monitoring
 - **Cross-platform** support including ARM for edge devices
 
-The edge support system enables TitanAnvil to extend beyond traditional datacenter environments into edge computing, IoT, and remote locations with unreliable connectivity.
+The edge support system enables Keystone Core to extend beyond traditional datacenter environments into edge computing, IoT, and remote locations with unreliable connectivity.
 
 **Phase 4 Status**: ✅ **100% COMPLETE** (All core edge features implemented)

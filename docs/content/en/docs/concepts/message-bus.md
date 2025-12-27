@@ -7,7 +7,7 @@ description: >
 
 ## Overview
 
-TitanAnvil uses [NATS](https://nats.io/) as its message bus, providing the communication backbone between the control plane and agent fleet. NATS offers:
+Keystone Core uses [NATS](https://nats.io/) as its message bus, providing the communication backbone between the control plane and agent fleet. NATS offers:
 
 - **High Performance**: Millions of messages per second
 - **Low Latency**: Sub-millisecond message delivery
@@ -62,7 +62,7 @@ We chose NATS over alternatives (Kafka, RabbitMQ, Redis) because:
 
 ## Deployment Modes
 
-TitanAnvil supports three NATS deployment modes:
+Keystone Core supports three NATS deployment modes:
 
 ### 1. Embedded Mode (Development/Small Deployments)
 
@@ -81,7 +81,7 @@ nats:
   listen: "0.0.0.0:4222"
   jetstream:
     enabled: true
-    store_dir: /var/lib/titananvil/nats
+    store_dir: /var/lib/kscore/nats
     max_memory: "1GB"
     max_file: "10GB"
 ```
@@ -115,10 +115,10 @@ nats:
     - nats://nats1.example.com:4222
     - nats://nats2.example.com:4222
     - nats://nats3.example.com:4222
-  credentials: /etc/titananvil/nats.creds
+  credentials: /etc/kscore/nats.creds
   tls:
     enabled: true
-    ca_file: /etc/titananvil/ca.crt
+    ca_file: /etc/kscore/ca.crt
 ```
 
 **NATS Cluster Setup**:
@@ -169,7 +169,7 @@ nats:
   leaf:
     remotes:
       - url: "nats://central-nats-cluster:7422"
-        credentials: /etc/titananvil/leaf.creds
+        credentials: /etc/kscore/leaf.creds
 ```
 
 **Characteristics**:
@@ -180,7 +180,7 @@ nats:
 
 ## NATS Subjects (Topics)
 
-TitanAnvil uses a structured subject namespace:
+Keystone Core uses a structured subject namespace:
 
 ### Agent Communication
 
@@ -225,7 +225,7 @@ JetStream provides persistence for events:
 
 ### Streams
 
-TitanAnvil creates these JetStream streams:
+Keystone Core creates these JetStream streams:
 
 **Events Stream**:
 ```
@@ -284,7 +284,7 @@ Measured on single NATS server (4 cores, 8GB RAM):
 - **JetStream Publish**: 1 million msgs/sec
 - **JetStream Subscribe**: 500k msgs/sec
 
-Real-world TitanAnvil workload (clustered NATS):
+Real-world Keystone Core workload (clustered NATS):
 - **Heartbeats**: 100k agents × 2 msgs/min = 3,333 msgs/sec
 - **Commands**: 10k commands/sec (bursts to 50k)
 - **Events**: 50k events/sec
@@ -316,7 +316,7 @@ Real-world TitanAnvil workload (clustered NATS):
 **NATS Credentials (JWT)**:
 ```bash
 # Generate credentials
-nsc add user -a titananvil agent1
+nsc add user -a kscore agent1
 # Produces agent1.creds file with:
 # - User JWT (identity)
 # - NKEY (signing key)
@@ -325,7 +325,7 @@ nsc add user -a titananvil agent1
 Agent config:
 ```yaml
 nats:
-  credentials: /etc/titananvil/agent1.creds
+  credentials: /etc/kscore/agent1.creds
 ```
 
 **Token Authentication**:
@@ -372,14 +372,14 @@ tls {
 }
 ```
 
-TitanAnvil client:
+Keystone Core client:
 ```yaml
 nats:
   tls:
     enabled: true
-    ca_file: /etc/titananvil/ca.crt
-    cert_file: /etc/titananvil/client.crt
-    key_file: /etc/titananvil/client.key
+    ca_file: /etc/kscore/ca.crt
+    cert_file: /etc/kscore/client.crt
+    key_file: /etc/kscore/client.key
     verify_server: true
 ```
 
@@ -403,7 +403,7 @@ server_name: nats1
 
 # Clustering
 cluster {
-  name: titananvil
+  name: kscore
   port: 6222
   routes: [
     nats://nats1:6222

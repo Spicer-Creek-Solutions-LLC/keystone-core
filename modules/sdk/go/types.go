@@ -1,4 +1,4 @@
-// Package titansdk provides the Go SDK for building TitanAnvil modules that compile to WebAssembly.
+// Package titansdk provides the Go SDK for building Keystone Core modules that compile to WebAssembly.
 package titansdk
 
 // Capability represents a capability that a module can request

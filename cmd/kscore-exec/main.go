@@ -11,8 +11,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	pb "github.com/titananvil/titan-anvil/pkg/api/v1"
-	"github.com/titananvil/titan-anvil/pkg/version"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
+	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
 var (
@@ -27,16 +27,16 @@ var (
 
 Examples:
   # Execute on all web servers
-  titanctl exec run "role:web" -- echo "hello"
+  kscorectl exec run "role:web" -- echo "hello"
 
   # Execute with specific concurrency
-  titanctl exec run "os:linux and env:prod" --concurrency 5 -- apt-get update
+  kscorectl exec run "os:linux and env:prod" --concurrency 5 -- apt-get update
 
   # Get batch job status
-  titanctl exec status <job-id>
+  kscorectl exec status <job-id>
 
   # List recent batch jobs
-  titanctl exec list --status completed`,
+  kscorectl exec list --status completed`,
 	}
 
 	versionCmd = &cobra.Command{
@@ -51,7 +51,7 @@ Examples:
 
 func init() {
 	// Global flags
-	rootCmd.PersistentFlags().StringVar(&serverAddr, "server", "localhost:50051", "TitanAnvil server address")
+	rootCmd.PersistentFlags().StringVar(&serverAddr, "server", "localhost:50051", "Keystone Core server address")
 	rootCmd.PersistentFlags().DurationVar(&timeout, "timeout", 5*time.Minute, "Request timeout")
 
 	// Add subcommands
@@ -115,16 +115,16 @@ Target expressions support:
 
 Examples:
   # Execute on all Linux web servers
-  titanctl exec run "os:linux and role:web" -- systemctl restart nginx
+  kscorectl exec run "os:linux and role:web" -- systemctl restart nginx
 
   # Execute on specific hostname pattern
-  titanctl exec run "hostname:web-*" -- apt-get update
+  kscorectl exec run "hostname:web-*" -- apt-get update
 
   # Execute with environment variables
-  titanctl exec run "role:db" --env DB_HOST=localhost -- ./backup.sh
+  kscorectl exec run "role:db" --env DB_HOST=localhost -- ./backup.sh
 
   # Execute with custom concurrency
-  titanctl exec run "env:prod" --concurrency 10 -- uptime`,
+  kscorectl exec run "env:prod" --concurrency 10 -- uptime`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: runExecute,
 }
@@ -300,8 +300,8 @@ var statusCmd = &cobra.Command{
 	Long: `Retrieve detailed status information about a batch job.
 
 Examples:
-  titanctl exec status abc123
-  titanctl exec status --server prod-server:50051 abc123`,
+  kscorectl exec status abc123
+  kscorectl exec status --server prod-server:50051 abc123`,
 	Args: cobra.ExactArgs(1),
 	RunE: statusExecute,
 }
@@ -389,16 +389,16 @@ var listCmd = &cobra.Command{
 
 Examples:
   # List all jobs
-  titanctl exec list
+  kscorectl exec list
 
   # List only completed jobs
-  titanctl exec list --status completed
+  kscorectl exec list --status completed
 
   # List only running jobs
-  titanctl exec list --status running
+  kscorectl exec list --status running
 
   # List with custom page size
-  titanctl exec list --page-size 50`,
+  kscorectl exec list --page-size 50`,
 	RunE: listExecute,
 }
 

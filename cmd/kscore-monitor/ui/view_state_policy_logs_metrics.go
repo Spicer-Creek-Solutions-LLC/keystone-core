@@ -6,7 +6,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/titananvil/titan-anvil/cmd/titananvil-monitor/config"
+	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/config"
 )
 
 // StateDriftModel represents the state drift view

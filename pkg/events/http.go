@@ -43,7 +43,7 @@ func DefaultHTTPReceiverConfig() *HTTPReceiverConfig {
 		Path:                 "/events",
 		ReadTimeout:          30 * time.Second,
 		WriteTimeout:         30 * time.Second,
-		SignatureHeader:      "X-TitanAnvil-Signature",
+		SignatureHeader:      "X-Keystone Core-Signature",
 		SignatureRequired:    false,
 		AcceptCloudEvents:    true,
 		AcceptNative:         true,
@@ -400,7 +400,7 @@ func (s *HTTPSender) Send(event *Event) error {
 		mac := hmac.New(sha256.New, []byte(s.secret))
 		mac.Write(body)
 		signature := "sha256=" + hex.EncodeToString(mac.Sum(nil))
-		req.Header.Set("X-TitanAnvil-Signature", signature)
+		req.Header.Set("X-Keystone Core-Signature", signature)
 	}
 
 	resp, err := s.httpClient.Do(req)
@@ -453,7 +453,7 @@ func (s *HTTPSender) SendBatch(events []*Event) error {
 		mac := hmac.New(sha256.New, []byte(s.secret))
 		mac.Write(body)
 		signature := "sha256=" + hex.EncodeToString(mac.Sum(nil))
-		req.Header.Set("X-TitanAnvil-Signature", signature)
+		req.Header.Set("X-Keystone Core-Signature", signature)
 	}
 
 	resp, err := s.httpClient.Do(req)

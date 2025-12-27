@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/titananvil/titan-anvil/pkg/module/manifest"
-	policypkg "github.com/titananvil/titan-anvil/pkg/policy"
+	"github.com/shawnbutts/keystone-core/pkg/module/manifest"
+	policypkg "github.com/shawnbutts/keystone-core/pkg/policy"
 )
 
 func TestDefaultCapabilityPolicyConfig(t *testing.T) {

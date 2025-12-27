@@ -9,6 +9,6 @@ capabilities: []  # No capabilities required
 entrypoint: states/main.star
 
 metadata:
-  author: TitanAnvil Contributors
+  author: Keystone Core Contributors
   license: MIT
   category: stdlib

@@ -1,6 +1,6 @@
-# TitanAnvil Documentation
+# Keystone Core Documentation
 
-This directory contains the source files for the TitanAnvil documentation site, built with [Hugo](https://gohugo.io/) and the [Docsy](https://www.docsy.dev/) theme.
+This directory contains the source files for the Keystone Core documentation site, built with [Hugo](https://gohugo.io/) and the [Docsy](https://www.docsy.dev/) theme.
 
 ## Prerequisites
 
@@ -17,8 +17,8 @@ This directory contains the source files for the TitanAnvil documentation site, 
 
 1. **Clone the repository** (if you haven't already):
    ```bash
-   git clone https://github.com/titananvil/titan-anvil.git
-   cd titan-anvil
+   git clone https://github.com/kscore/keystone-core.git
+   cd keystone-core
    ```
 
 2. **Initialize the Docsy theme submodule**:
@@ -199,13 +199,13 @@ npm run generate-pdfs       # Generate PDFs
 
 ### Generated PDFs
 
-PDFs are created in `docs/pdfs/`:
-- `titananvil-getting-started.pdf` - Getting Started guide
-- `titananvil-concepts.pdf` - Core Concepts documentation
-- `titananvil-reference.pdf` - Complete API/CLI reference
-- `titananvil-operations.pdf` - Operations guide
-- `titananvil-community.pdf` - Community guide
-- `titananvil-complete.pdf` - Complete documentation
+PDFs are created in `build/pdfs/`:
+- `kscore-getting-started.pdf` - Getting Started guide
+- `kscore-concepts.pdf` - Core Concepts documentation
+- `kscore-reference.pdf` - Complete API/CLI reference
+- `kscore-operations.pdf` - Operations guide
+- `kscore-community.pdf` - Community guide
+- `kscore-complete.pdf` - Complete documentation
 
 ### Browser Print (Alternative)
 
@@ -238,5 +238,5 @@ When adding or updating documentation:
 
 - [Hugo Documentation](https://gohugo.io/documentation/)
 - [Docsy Theme Documentation](https://www.docsy.dev/docs/)
-- [TitanAnvil Design Documents](../DESIGN.md)
-- [TitanAnvil Epic Plans](../epics/)
+- [Keystone Core Design Documents](../DESIGN.md)
+- [Keystone Core Epic Plans](../epics/)

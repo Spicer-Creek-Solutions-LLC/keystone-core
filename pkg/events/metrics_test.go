@@ -582,7 +582,7 @@ func TestFormatSummary(t *testing.T) {
 	}
 
 	// Check for key elements
-	if !contains(output, "TitanAnvil Event System Metrics") {
+	if !contains(output, "Keystone Core Event System Metrics") {
 		t.Error("Expected header in output")
 	}
 

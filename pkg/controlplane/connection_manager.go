@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
-	natsmgr "github.com/titananvil/titan-anvil/pkg/nats"
-	"github.com/titananvil/titan-anvil/pkg/events"
-	"github.com/titananvil/titan-anvil/pkg/tracing"
+	natsmgr "github.com/shawnbutts/keystone-core/pkg/nats"
+	"github.com/shawnbutts/keystone-core/pkg/events"
+	"github.com/shawnbutts/keystone-core/pkg/tracing"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	pb "github.com/titananvil/titan-anvil/pkg/api/v1"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 )
 
 // AgentInfo represents information about a connected agent

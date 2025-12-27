@@ -2,12 +2,12 @@
 title: "Deployment Guide"
 weight: 1
 description: >
-  Production deployment patterns and strategies for TitanAnvil across different environments
+  Production deployment patterns and strategies for Keystone Core across different environments
 ---
 
 ## Overview
 
-TitanAnvil supports multiple deployment patterns to match your infrastructure needs. This guide covers deployment options from simple single-node setups to highly-available production clusters across Kubernetes, VMs, and bare metal.
+Keystone Core supports multiple deployment patterns to match your infrastructure needs. This guide covers deployment options from simple single-node setups to highly-available production clusters across Kubernetes, VMs, and bare metal.
 
 **Deployment Spectrum:**
 - **Development** → Single-node with embedded NATS and SQLite
@@ -25,7 +25,7 @@ Perfect for development, testing, and small deployments (<50 managed nodes).
 │  Single Server                      │
 │                                     │
 │  ┌──────────────────────────────┐  │
-│  │  titananvil-server           │  │
+│  │  kscore-server           │  │
 │  │  - API Server                │  │
 │  │  - State Manager             │  │
 │  │  - Event Engine              │  │
@@ -53,17 +53,17 @@ Perfect for development, testing, and small deployments (<50 managed nodes).
 **Install Binary:**
 ```bash
 # Download latest release
-wget https://github.com/titananvil/titananvil/releases/latest/download/titananvil-server-linux-amd64
-chmod +x titananvil-server-linux-amd64
-sudo mv titananvil-server-linux-amd64 /usr/local/bin/titananvil-server
+wget https://github.com/shawnbutts/keystone-core/releases/latest/download/kscore-server-linux-amd64
+chmod +x kscore-server-linux-amd64
+sudo mv kscore-server-linux-amd64 /usr/local/bin/kscore-server
 
 # Verify installation
-titananvil-server version
+kscore-server version
 ```
 
 **Configuration:**
 ```yaml
-# /etc/titananvil/server.yaml
+# /etc/kscore/server.yaml
 api:
   listen: "0.0.0.0:8080"
 
@@ -73,12 +73,12 @@ nats:
     port: 4222
     jetstream:
       enabled: true
-      store_dir: /var/lib/titananvil/jetstream
+      store_dir: /var/lib/kscore/jetstream
 
 storage:
   type: sqlite
   sqlite:
-    path: /var/lib/titananvil/state.db
+    path: /var/lib/kscore/state.db
 
 logging:
   level: info
@@ -87,16 +87,16 @@ logging:
 
 **Systemd Service:**
 ```ini
-# /etc/systemd/system/titananvil-server.service
+# /etc/systemd/system/kscore-server.service
 [Unit]
-Description=TitanAnvil Control Plane
+Description=Keystone Core Control Plane
 After=network.target
 
 [Service]
 Type=simple
-User=titananvil
-Group=titananvil
-ExecStart=/usr/local/bin/titananvil-server --config /etc/titananvil/server.yaml
+User=kscore
+Group=kscore
+ExecStart=/usr/local/bin/kscore-server --config /etc/kscore/server.yaml
 Restart=on-failure
 RestartSec=5s
 
@@ -107,17 +107,17 @@ WantedBy=multi-user.target
 **Start Service:**
 ```bash
 # Create user and directories
-sudo useradd --system --no-create-home titananvil
-sudo mkdir -p /var/lib/titananvil /etc/titananvil
-sudo chown titananvil:titananvil /var/lib/titananvil
+sudo useradd --system --no-create-home kscore
+sudo mkdir -p /var/lib/kscore /etc/kscore
+sudo chown kscore:kscore /var/lib/kscore
 
 # Start service
 sudo systemctl daemon-reload
-sudo systemctl enable titananvil-server
-sudo systemctl start titananvil-server
+sudo systemctl enable kscore-server
+sudo systemctl start kscore-server
 
 # Check status
-sudo systemctl status titananvil-server
+sudo systemctl status kscore-server
 ```
 
 ### Limitations
@@ -185,7 +185,7 @@ port: 4222
 server_name: nats1
 
 cluster {
-  name: titananvil
+  name: kscore
   listen: 0.0.0.0:6222
   routes: [
     nats://nats1:6222
@@ -204,7 +204,7 @@ accounts {
   TITAN: {
     jetstream: enabled
     users: [
-      {user: "titananvil", password: "$NATS_PASSWORD"}
+      {user: "kscore", password: "$NATS_PASSWORD"}
     ]
   }
 }
@@ -238,8 +238,8 @@ sudo apt-get install postgresql-14 postgresql-14-contrib
 **Configure Primary:**
 ```sql
 -- Create database and user
-CREATE USER titananvil WITH PASSWORD 'secure_password';
-CREATE DATABASE titananvil OWNER titananvil;
+CREATE USER kscore WITH PASSWORD 'secure_password';
+CREATE DATABASE kscore OWNER titananvil;
 
 -- Configure replication user
 CREATE USER replicator WITH REPLICATION PASSWORD 'repl_password';
@@ -259,7 +259,7 @@ hot_standby = on
 ```
 # /etc/postgresql/14/main/pg_hba.conf
 host    replication     replicator      10.0.0.0/8              md5
-host    titananvil      titananvil      10.0.0.0/8              md5
+host    kscore      kscore      10.0.0.0/8              md5
 ```
 
 **Set up Replicas:**
@@ -271,7 +271,7 @@ pg_basebackup -h primary_host -D /var/lib/postgresql/14/main -U replicator -P --
 ### Control Plane Configuration
 
 ```yaml
-# /etc/titananvil/server.yaml
+# /etc/kscore/server.yaml
 api:
   listen: "0.0.0.0:8080"
 
@@ -283,7 +283,7 @@ nats:
       - "nats://nats2:4222"
       - "nats://nats3:4222"
     credentials:
-      username: "titananvil"
+      username: "kscore"
       password: "$NATS_PASSWORD"
 
 storage:
@@ -291,8 +291,8 @@ storage:
   postgresql:
     host: "postgres-primary"
     port: 5432
-    database: "titananvil"
-    username: "titananvil"
+    database: "kscore"
+    username: "kscore"
     password: "$POSTGRES_PASSWORD"
     pool:
       max_connections: 50
@@ -318,12 +318,12 @@ logging:
 **HAProxy Configuration:**
 ```
 # /etc/haproxy/haproxy.cfg
-frontend titananvil_api
+frontend kscore_api
     bind *:8080
     mode http
-    default_backend titananvil_servers
+    default_backend kscore_servers
 
-backend titananvil_servers
+backend kscore_servers
     mode http
     balance roundrobin
     option httpchk GET /health/ready
@@ -337,7 +337,7 @@ backend titananvil_servers
 
 ```bash
 # Check cluster health
-titanctl cluster status
+kscorectl cluster status
 
 # Expected output:
 # NODE      STATUS    ROLE      UPTIME
@@ -349,7 +349,7 @@ titanctl cluster status
 nats-server --routes_check
 
 # Check PostgreSQL replication
-psql -U titananvil -c "SELECT * FROM pg_stat_replication;"
+psql -U kscore -c "SELECT * FROM pg_stat_replication;"
 ```
 
 ## Kubernetes Deployment
@@ -367,11 +367,11 @@ Native Kubernetes deployment with Helm charts.
 
 ```
 Kubernetes Cluster
-├── Namespace: titananvil
-├── Deployment: titananvil-server (3 replicas)
+├── Namespace: kscore
+├── Deployment: kscore-server (3 replicas)
 ├── StatefulSet: nats (3 replicas)
 ├── StatefulSet: postgresql (1 primary + 2 replicas)
-├── Service: titananvil-api (LoadBalancer)
+├── Service: kscore-api (LoadBalancer)
 ├── Service: nats (ClusterIP)
 ├── Service: postgresql (ClusterIP)
 ├── ConfigMap: server-config
@@ -382,19 +382,19 @@ Kubernetes Cluster
 
 **Add Helm Repository:**
 ```bash
-helm repo add titananvil https://charts.titananvil.io
+helm repo add titananvil https://charts.kscore.io
 helm repo update
 ```
 
 **Create Namespace:**
 ```bash
-kubectl create namespace titananvil
+kubectl create namespace kscore
 ```
 
 **Install Chart:**
 ```bash
-helm install titananvil titananvil/titananvil \
-  --namespace titananvil \
+helm install titananvil titananvil/kscore \
+  --namespace kscore \
   --set server.replicas=3 \
   --set nats.cluster.enabled=true \
   --set nats.cluster.replicas=3 \
@@ -408,7 +408,7 @@ helm install titananvil titananvil/titananvil \
 server:
   replicas: 3
   image:
-    repository: titananvil/server
+    repository: kscore/server
     tag: "v1.0.0"
 
   resources:
@@ -436,9 +436,9 @@ nats:
 postgresql:
   enabled: true
   auth:
-    username: titananvil
+    username: kscore
     password: "" # Set via secret
-    database: titananvil
+    database: kscore
 
   primary:
     resources:
@@ -459,20 +459,20 @@ ingress:
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
   hosts:
-    - host: titananvil.example.com
+    - host: kscore.example.com
       paths:
         - path: /
           pathType: Prefix
   tls:
-    - secretName: titananvil-tls
+    - secretName: kscore-tls
       hosts:
-        - titananvil.example.com
+        - kscore.example.com
 ```
 
 **Install with Custom Values:**
 ```bash
-helm install titananvil titananvil/titananvil \
-  --namespace titananvil \
+helm install titananvil titananvil/kscore \
+  --namespace kscore \
   --values values.yaml
 ```
 
@@ -482,25 +482,25 @@ helm install titananvil titananvil/titananvil \
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: titananvil-agent
-  namespace: titananvil
+  name: kscore-agent
+  namespace: kscore
 spec:
   selector:
     matchLabels:
-      app: titananvil-agent
+      app: kscore-agent
   template:
     metadata:
       labels:
-        app: titananvil-agent
+        app: kscore-agent
     spec:
       hostNetwork: true
       hostPID: true
       containers:
       - name: agent
-        image: titananvil/agent:v1.0.0
+        image: kscore/agent:v1.0.0
         env:
         - name: TITAN_SERVER_URL
-          value: "nats://titananvil-nats:4222"
+          value: "nats://kscore-nats:4222"
         - name: TITAN_AGENT_ID
           valueFrom:
             fieldRef:
@@ -521,26 +521,26 @@ spec:
 
 ```bash
 # Check pods
-kubectl get pods -n titananvil
+kubectl get pods -n kscore
 
 # Expected output:
 # NAME                                 READY   STATUS    RESTARTS
-# titananvil-server-0                  1/1     Running   0
-# titananvil-server-1                  1/1     Running   0
-# titananvil-server-2                  1/1     Running   0
+# kscore-server-0                  1/1     Running   0
+# kscore-server-1                  1/1     Running   0
+# kscore-server-2                  1/1     Running   0
 # nats-0                               1/1     Running   0
 # nats-1                               1/1     Running   0
 # nats-2                               1/1     Running   0
 # postgresql-0                         1/1     Running   0
 # postgresql-read-0                    1/1     Running   0
 # postgresql-read-1                    1/1     Running   0
-# titananvil-agent-xxxxx               1/1     Running   0
+# kscore-agent-xxxxx               1/1     Running   0
 
 # Check services
-kubectl get svc -n titananvil
+kubectl get svc -n kscore
 
 # Access API
-kubectl port-forward -n titananvil svc/titananvil-api 8080:8080
+kubectl port-forward -n kscore svc/kscore-api 8080:8080
 ```
 
 ## Docker Compose Deployment
@@ -557,7 +557,7 @@ services:
   nats:
     image: nats:2.10-alpine
     command:
-      - "--cluster_name=titananvil"
+      - "--cluster_name=kscore"
       - "--jetstream"
       - "--store_dir=/data/jetstream"
     ports:
@@ -575,21 +575,21 @@ services:
   postgres:
     image: postgres:14-alpine
     environment:
-      POSTGRES_DB: titananvil
-      POSTGRES_USER: titananvil
+      POSTGRES_DB: kscore
+      POSTGRES_USER: kscore
       POSTGRES_PASSWORD: password
     ports:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U titananvil"]
+      test: ["CMD-SHELL", "pg_isready -U kscore"]
       interval: 10s
       timeout: 5s
       retries: 3
 
   server:
-    image: titananvil/server:latest
+    image: kscore/server:latest
     depends_on:
       nats:
         condition: service_healthy
@@ -601,10 +601,10 @@ services:
       TITAN_NATS_URL: "nats://nats:4222"
       TITAN_STORAGE_TYPE: postgresql
       TITAN_POSTGRES_HOST: postgres
-      TITAN_POSTGRES_USER: titananvil
+      TITAN_POSTGRES_USER: kscore
       TITAN_POSTGRES_PASSWORD: password
     volumes:
-      - ./config:/etc/titananvil
+      - ./config:/etc/kscore
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health/ready"]
       interval: 10s
@@ -668,7 +668,7 @@ docker-compose down -v
 **Control Plane Scaling:**
 ```bash
 # Add new control plane node
-# 1. Install titananvil-server
+# 1. Install kscore-server
 # 2. Use same configuration (NATS, PostgreSQL endpoints)
 # 3. Enable clustering with etcd
 # 4. Add to load balancer pool
@@ -738,7 +738,7 @@ nats:
 **3. Migrate JetStream data** (if needed):
 ```bash
 # Backup embedded JetStream
-nats-server --signal backup --jetstream /var/lib/titananvil/jetstream
+nats-server --signal backup --jetstream /var/lib/kscore/jetstream
 
 # Restore to cluster
 nats stream restore --dir /backup/jetstream
@@ -746,12 +746,12 @@ nats stream restore --dir /backup/jetstream
 
 **4. Restart control plane:**
 ```bash
-sudo systemctl restart titananvil-server
+sudo systemctl restart kscore-server
 ```
 
 **5. Verify agents reconnect:**
 ```bash
-titanctl agent list
+kscorectl agent list
 ```
 
 ### SQLite → PostgreSQL Migration
@@ -760,16 +760,16 @@ titanctl agent list
 
 **2. Export SQLite data:**
 ```bash
-titananvil-migrate export \
-  --source sqlite:///var/lib/titananvil/state.db \
+kscore-migrate export \
+  --source sqlite:///var/lib/kscore/state.db \
   --output /tmp/state-export.sql
 ```
 
 **3. Import to PostgreSQL:**
 ```bash
-titananvil-migrate import \
+kscore-migrate import \
   --input /tmp/state-export.sql \
-  --target postgres://titananvil:password@localhost/titananvil
+  --target postgres://kscore:password@localhost/kscore
 ```
 
 **4. Update configuration:**
@@ -778,15 +778,15 @@ storage:
   type: postgresql
   postgresql:
     host: "localhost"
-    database: "titananvil"
-    username: "titananvil"
+    database: "kscore"
+    username: "kscore"
     password: "$POSTGRES_PASSWORD"
 ```
 
 **5. Restart and verify:**
 ```bash
-sudo systemctl restart titananvil-server
-titanctl state list  # Verify state is accessible
+sudo systemctl restart kscore-server
+kscorectl state list  # Verify state is accessible
 ```
 
 ## Best Practices
@@ -822,7 +822,7 @@ titanctl state list  # Verify state is accessible
 
 **Check logs:**
 ```bash
-sudo journalctl -u titananvil-server -f
+sudo journalctl -u kscore-server -f
 ```
 
 **Common issues:**
@@ -835,7 +835,7 @@ sudo journalctl -u titananvil-server -f
 
 **Check agent logs:**
 ```bash
-sudo journalctl -u titananvil-agent -f
+sudo journalctl -u kscore-agent -f
 ```
 
 **Common issues:**

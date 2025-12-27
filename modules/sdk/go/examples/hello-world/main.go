@@ -1,6 +1,6 @@
-// Hello World TitanAnvil Module (Go/TinyGo)
+// Hello World Keystone Core Module (Go/TinyGo)
 //
-// This example module demonstrates the TitanAnvil Go SDK by:
+// This example module demonstrates the Keystone Core Go SDK by:
 // - Getting the CPU make and model
 // - Computing a SHA256 hash of the CPU information
 // - Writing the results to a file in the temp directory
@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"runtime"
 
-	titansdk "github.com/titananvil/titan-module-sdk-go"
+	titansdk "github.com/shawnbutts/kscore-module-sdk-go"
 )
 
 type HelloWorldResult struct {
@@ -51,7 +51,7 @@ func main() {
 		tempDir = "/tmp"
 	}
 
-	filePath := fmt.Sprintf("%s/hello-from-titananvil-go.txt", tempDir)
+	filePath := fmt.Sprintf("%s/hello-from-kscore-go.txt", tempDir)
 
 	// Create file contents
 	contents := fmt.Sprintf("CPU: %s\nSHA256: %s\n", cpuInfo, hash)

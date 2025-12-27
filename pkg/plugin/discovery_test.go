@@ -27,15 +27,15 @@ func TestDiscovery_Discover(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create mock plugin binaries
-	createMockPlugin(t, tmpDir, "titananvil-exec")
-	createMockPlugin(t, tmpDir, "titananvil-state")
-	createMockPlugin(t, tmpDir, "titananvil-module")
+	createMockPlugin(t, tmpDir, "kscore-exec")
+	createMockPlugin(t, tmpDir, "kscore-state")
+	createMockPlugin(t, tmpDir, "kscore-module")
 
 	// Create a non-plugin binary (should be ignored)
 	createMockPlugin(t, tmpDir, "other-tool")
 
 	// Create a non-executable file (should be ignored)
-	nonExecPath := filepath.Join(tmpDir, "titananvil-nonexec")
+	nonExecPath := filepath.Join(tmpDir, "kscore-nonexec")
 	if err := os.WriteFile(nonExecPath, []byte("not executable"), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +103,7 @@ func TestDiscovery_Get_NotCached(t *testing.T) {
 
 func TestDiscovery_Get_NotFound(t *testing.T) {
 	tmpDir := t.TempDir()
-	createMockPlugin(t, tmpDir, "titananvil-exec")
+	createMockPlugin(t, tmpDir, "kscore-exec")
 
 	oldPath := os.Getenv("PATH")
 	defer os.Setenv("PATH", oldPath)
@@ -146,8 +146,8 @@ func TestDiscovery_PathPriority(t *testing.T) {
 	tmpDir1 := t.TempDir()
 	tmpDir2 := t.TempDir()
 
-	createMockPlugin(t, tmpDir1, "titananvil-exec")
-	createMockPlugin(t, tmpDir2, "titananvil-exec")
+	createMockPlugin(t, tmpDir1, "kscore-exec")
+	createMockPlugin(t, tmpDir2, "kscore-exec")
 
 	// Set PATH with tmpDir1 first (should take priority)
 	oldPath := os.Getenv("PATH")
@@ -174,7 +174,7 @@ func TestExecutor_Execute(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create a simple echo plugin
-	pluginPath := filepath.Join(tmpDir, "titananvil-echo")
+	pluginPath := filepath.Join(tmpDir, "kscore-echo")
 	pluginScript := `#!/bin/sh
 echo "Hello from plugin"
 echo "$@"
@@ -216,7 +216,7 @@ func TestExecutor_ExecuteWithOutput(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create a plugin that writes to both stdout and stderr
-	pluginPath := filepath.Join(tmpDir, "titananvil-both")
+	pluginPath := filepath.Join(tmpDir, "kscore-both")
 	pluginScript := `#!/bin/sh
 echo "stdout message"
 echo "stderr message" >&2
@@ -249,7 +249,7 @@ func TestExecutor_ExecuteWithContext_Cancellation(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create a plugin that sleeps for a long time
-	pluginPath := filepath.Join(tmpDir, "titananvil-sleep")
+	pluginPath := filepath.Join(tmpDir, "kscore-sleep")
 	pluginScript := `#!/bin/sh
 sleep 10
 `
@@ -288,7 +288,7 @@ func TestExecutor_ExecuteWithError(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create a plugin that exits with error
-	pluginPath := filepath.Join(tmpDir, "titananvil-fail")
+	pluginPath := filepath.Join(tmpDir, "kscore-fail")
 	pluginScript := `#!/bin/sh
 echo "error message" >&2
 exit 1

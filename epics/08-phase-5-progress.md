@@ -7,7 +7,7 @@
 
 ## Overview
 
-Phase 5 of Epic 8 implements comprehensive cloud provider integration, enabling TitanAnvil agents to automatically detect and collect metadata from AWS, GCP, and Azure environments. This includes support for VMs, containers, Kubernetes, and serverless functions across all three major cloud providers.
+Phase 5 of Epic 8 implements comprehensive cloud provider integration, enabling Keystone Core agents to automatically detect and collect metadata from AWS, GCP, and Azure environments. This includes support for VMs, containers, Kubernetes, and serverless functions across all three major cloud providers.
 
 ## Completed Components
 
@@ -485,19 +485,19 @@ targets := []string{
 ### 1. **Cloud-Aware Targeting**
 ```bash
 # Execute command on all AWS EC2 instances in us-east-1
-titanctl exec --target "cloud_provider:aws AND cloud_region:us-east-1" "uptime"
+kscorectl exec --target "cloud_provider:aws AND cloud_region:us-east-1" "uptime"
 
 # Apply state to all GCP production VMs
-titanctl state apply --target "cloud_provider:gcp AND tags.env:production" nginx.yaml
+kscorectl state apply --target "cloud_provider:gcp AND tags.env:production" nginx.yaml
 ```
 
 ### 2. **Multi-Cloud Inventory**
 ```bash
 # List all agents by cloud provider
-titanctl agents list --filter "cloud_provider:*"
+kscorectl agents list --filter "cloud_provider:*"
 
 # Find all Kubernetes pods across clouds
-titanctl agents list --filter "environment_type:kubernetes"
+kscorectl agents list --filter "environment_type:kubernetes"
 ```
 
 ### 3. **Cloud-Specific Policies**
@@ -516,20 +516,20 @@ deny[msg] {
 ### 4. **Cost Optimization**
 ```bash
 # Find oversized instances in development
-titanctl agents list --filter "tags.env:dev AND cloud_instance_type:~*large*"
+kscorectl agents list --filter "tags.env:dev AND cloud_instance_type:~*large*"
 
 # Report on cloud usage by region
-titanctl agents report --group-by cloud_region
+kscorectl agents report --group-by cloud_region
 ```
 
 ### 5. **Compliance Reporting**
 ```bash
 # Audit all serverless functions
-titanctl agents list --filter "environment_type:serverless" \
+kscorectl agents list --filter "environment_type:serverless" \
     --output json | jq '.[] | {name, provider, region, runtime}'
 
 # Check Kubernetes cluster distribution
-titanctl agents list --filter "environment_type:kubernetes" \
+kscorectl agents list --filter "environment_type:kubernetes" \
     --output csv --fields cloud_provider,cloud_region,k8s_cluster_name
 ```
 
@@ -604,6 +604,6 @@ Phase 5 is complete with comprehensive cloud provider integration. The system no
 - **Supports hybrid deployments** with multi-cloud and Kubernetes
 - **Caches metadata** efficiently to reduce API calls
 
-The cloud integration enables TitanAnvil to operate seamlessly across any cloud environment, from traditional VMs to modern serverless functions, with automatic discovery and rich context for intelligent operations.
+The cloud integration enables Keystone Core to operate seamlessly across any cloud environment, from traditional VMs to modern serverless functions, with automatic discovery and rich context for intelligent operations.
 
 **Phase 5 Status**: ✅ **100% COMPLETE** (All cloud integration features implemented)

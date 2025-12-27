@@ -9,11 +9,11 @@ import (
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/titananvil/titan-anvil/cmd/titananvil-monitor/client"
-	"github.com/titananvil/titan-anvil/cmd/titananvil-monitor/config"
-	monitorEvents "github.com/titananvil/titan-anvil/cmd/titananvil-monitor/events"
-	pb "github.com/titananvil/titan-anvil/pkg/api/v1"
-	"github.com/titananvil/titan-anvil/pkg/events"
+	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/client"
+	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/config"
+	monitorEvents "github.com/shawnbutts/keystone-core/cmd/kscore-monitor/events"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
+	"github.com/shawnbutts/keystone-core/pkg/events"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 

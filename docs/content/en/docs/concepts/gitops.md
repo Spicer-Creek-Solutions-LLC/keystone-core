@@ -7,7 +7,7 @@ description: >
 
 ## Overview
 
-TitanAnvil integrates with GitOps tools to bridge the gap between declarative deployment and runtime operations. While GitOps handles deployment, TitanAnvil verifies the runtime state, enables automated rollback, and manages progressive delivery across environments.
+Keystone Core integrates with GitOps tools to bridge the gap between declarative deployment and runtime operations. While GitOps handles deployment, Keystone Core verifies the runtime state, enables automated rollback, and manages progressive delivery across environments.
 
 **Key Concept**: "GitOps deploys it. We keep it running."
 
@@ -33,7 +33,7 @@ TitanAnvil integrates with GitOps tools to bridge the gap between declarative de
         │             │             │
         ↓             ↓             ↓
 ┌─────────────────────────────────────────────┐
-│      TitanAnvil Webhook Receiver            │
+│      Keystone Core Webhook Receiver            │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  │
 │  │  ArgoCD  │  │   Flux   │  │ GitHub/  │  │
 │  │ Handler  │  │ Handler  │  │  GitLab  │  │
@@ -66,7 +66,7 @@ TitanAnvil integrates with GitOps tools to bridge the gap between declarative de
 
 ### Supported Webhook Sources
 
-TitanAnvil receives webhooks from:
+Keystone Core receives webhooks from:
 
 1. **ArgoCD**: Application sync, health, deployment events
 2. **Flux**: Kustomization, HelmRelease reconciliation events
@@ -102,8 +102,8 @@ kind: ConfigMap
 metadata:
   name: argocd-notifications-cm
 data:
-  service.webhook.titananvil: |
-    url: http://titananvil-server:8090/webhooks/argocd
+  service.webhook.kscore: |
+    url: http://kscore-server:8090/webhooks/argocd
     headers:
     - name: X-ArgoCD-Secret
       value: $secret
@@ -137,10 +137,10 @@ data:
 apiVersion: notification.toolkit.fluxcd.io/v1beta1
 kind: Provider
 metadata:
-  name: titananvil
+  name: kscore
 spec:
   type: generic
-  address: http://titananvil-server:8090/webhooks/flux
+  address: http://kscore-server:8090/webhooks/flux
   secretRef:
     name: webhook-secret
 ```
@@ -168,7 +168,7 @@ spec:
 ### GitHub Webhook
 
 **Configure GitHub** (repository settings):
-- Payload URL: `http://titananvil-server:8090/webhooks/github`
+- Payload URL: `http://kscore-server:8090/webhooks/github`
 - Content type: `application/json`
 - Secret: `your-webhook-secret`
 - Events: Deployments, Workflow runs, Pushes
@@ -181,7 +181,7 @@ spec:
 ### GitLab Webhook
 
 **Configure GitLab** (repository settings):
-- URL: `http://titananvil-server:8090/webhooks/gitlab`
+- URL: `http://kscore-server:8090/webhooks/gitlab`
 - Secret token: `your-webhook-secret`
 - Trigger: Deployment events, Pipeline events, Push events
 
@@ -454,13 +454,13 @@ rollback_policy:
 **Approve rollback**:
 ```bash
 # List pending rollbacks
-titanctl rollback list --status pending
+kscorectl rollback list --status pending
 
 # Approve
-titanctl rollback approve abc123 --message "Approved by ops team"
+kscorectl rollback approve abc123 --message "Approved by ops team"
 
 # Reject
-titanctl rollback reject abc123 --message "False alarm, deployment is healthy"
+kscorectl rollback reject abc123 --message "False alarm, deployment is healthy"
 ```
 
 ## Promotion Pipelines
@@ -562,7 +562,7 @@ rolling:
 
 **Manual**:
 ```bash
-titanctl promote myapp --from staging --to production
+kscorectl promote myapp --from staging --to production
 ```
 
 **Automatic** (on verification success):
@@ -609,7 +609,7 @@ git_sync:
       # Authentication
       auth:
         type: ssh
-        ssh_key_path: /etc/titananvil/id_rsa
+        ssh_key_path: /etc/kscore/id_rsa
 
       # What to sync
       paths:
@@ -674,7 +674,7 @@ workflows/
 2. **Detect Changes**: Compare local and remote commits
 3. **Pull**: Pull changes if commit hash differs
 4. **Validate**: Validate YAML syntax and schema
-5. **Apply**: Apply changes to TitanAnvil
+5. **Apply**: Apply changes to Keystone Core
 6. **Event**: Emit `git.sync` event with changed files
 
 ### Instant Sync via Webhook
@@ -682,11 +682,11 @@ workflows/
 Configure Git webhook to trigger instant sync:
 
 **GitHub**:
-- Payload URL: `http://titananvil-server:8090/webhooks/git-sync`
+- Payload URL: `http://kscore-server:8090/webhooks/git-sync`
 - Events: Push events
 
 **GitLab**:
-- URL: `http://titananvil-server:8090/webhooks/git-sync`
+- URL: `http://kscore-server:8090/webhooks/git-sync`
 - Events: Push events
 
 ## Reactor Integration
@@ -781,23 +781,23 @@ notify_deployments:
 
 ```
 # Webhooks
-titananvil_gitops_webhooks_received_total{source}
-titananvil_gitops_webhooks_failed_total{source}
+kscore_gitops_webhooks_received_total{source}
+kscore_gitops_webhooks_failed_total{source}
 
 # Verifications
-titananvil_gitops_verifications_total{status}
-titananvil_gitops_verification_duration_seconds{quantile}
+kscore_gitops_verifications_total{status}
+kscore_gitops_verification_duration_seconds{quantile}
 
 # Rollbacks
-titananvil_gitops_rollbacks_total{type,status}
-titananvil_gitops_rollback_duration_seconds{quantile}
+kscore_gitops_rollbacks_total{type,status}
+kscore_gitops_rollback_duration_seconds{quantile}
 
 # Promotions
-titananvil_gitops_promotions_total{pipeline,status}
+kscore_gitops_promotions_total{pipeline,status}
 
 # Git Sync
-titananvil_gitops_sync_total{repository,status}
-titananvil_gitops_sync_duration_seconds{quantile}
+kscore_gitops_sync_total{repository,status}
+kscore_gitops_sync_duration_seconds{quantile}
 ```
 
 ### Events
@@ -821,15 +821,15 @@ titananvil_gitops_sync_duration_seconds{quantile}
 Check:
 ```bash
 # Check webhook endpoint is accessible
-curl -X POST http://titananvil-server:8090/webhooks/argocd \
+curl -X POST http://kscore-server:8090/webhooks/argocd \
   -H "Content-Type: application/json" \
   -d '{"test":"payload"}'
 
 # Check webhook metrics
-curl http://titananvil-server:8080/metrics | grep gitops_webhooks
+curl http://kscore-server:8080/metrics | grep gitops_webhooks
 
 # Check logs
-titanctl logs --filter "component == 'webhook-receiver'"
+kscorectl logs --filter "component == 'webhook-receiver'"
 ```
 
 ### Verification Failing
@@ -839,10 +839,10 @@ titanctl logs --filter "component == 'webhook-receiver'"
 Debug:
 ```bash
 # Run verification manually
-titanctl verify run myapp-verification --namespace production
+kscorectl verify run myapp-verification --namespace production
 
 # Check verification logs
-titanctl verify logs myapp-verification --limit 10
+kscorectl verify logs myapp-verification --limit 10
 
 # Test individual steps
 curl http://myapp.production.svc.cluster.local/health
@@ -855,13 +855,13 @@ curl http://myapp.production.svc.cluster.local/health
 Check:
 ```bash
 # Verify rollback policy is enabled
-titanctl rollback policy show myapp
+kscorectl rollback policy show myapp
 
 # Check rollback triggers
-titanctl rollback triggers myapp
+kscorectl rollback triggers myapp
 
 # Manual rollback
-titanctl rollback execute myapp --namespace production --strategy previous
+kscorectl rollback execute myapp --namespace production --strategy previous
 ```
 
 ### Git Sync Not Working
@@ -871,16 +871,16 @@ titanctl rollback execute myapp --namespace production --strategy previous
 Check:
 ```bash
 # Check Git sync status
-titanctl git-sync status infrastructure-config
+kscorectl git-sync status infrastructure-config
 
 # Manual sync
-titanctl git-sync trigger infrastructure-config
+kscorectl git-sync trigger infrastructure-config
 
 # Check authentication
 ssh -T git@github.com
 
 # Check logs
-titanctl logs --filter "component == 'git-sync'"
+kscorectl logs --filter "component == 'git-sync'"
 ```
 
 ## Next Steps

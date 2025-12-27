@@ -3,12 +3,12 @@ title: "Architecture"
 linkTitle: "Architecture"
 weight: 4
 description: >
-  Understanding TitanAnvil's architecture and design
+  Understanding Keystone Core's architecture and design
 ---
 
 ## High-Level Architecture
 
-TitanAnvil follows a **control plane + agent** architecture, similar to Kubernetes but designed for infrastructure operations rather than container orchestration.
+Keystone Core follows a **control plane + agent** architecture, similar to Kubernetes but designed for infrastructure operations rather than container orchestration.
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
@@ -24,7 +24,7 @@ TitanAnvil follows a **control plane + agent** architecture, similar to Kubernet
           │              │             │             │
           ↓              ↓             ↓             ↓
 ┌────────────────────────────────────────────────────────────────┐
-│                    TitanAnvil Control Plane                     │
+│                    Keystone Core Control Plane                     │
 │                                                                 │
 │  ┌──────────────────────────────────────────────────────────┐  │
 │  │                      API Layer                            │  │
@@ -309,7 +309,7 @@ Lightweight Go binaries running on managed nodes.
 ### 1. Command Execution Flow
 
 ```
-User → titanctl → API Server → Command Dispatcher
+User → kscorectl → API Server → Command Dispatcher
                                       ↓
                         NATS (titan.agent.{id}.command)
                                       ↓
@@ -329,7 +329,7 @@ User → titanctl → API Server → Command Dispatcher
 ### 2. State Application Flow
 
 ```
-User → titanctl state apply → API Server → State Manager
+User → kscorectl state apply → API Server → State Manager
                                                  ↓
                               Parse and Validate State File
                                                  ↓

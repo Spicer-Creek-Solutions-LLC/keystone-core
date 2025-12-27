@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/titananvil/titan-anvil/pkg/k8s"
+	"github.com/shawnbutts/keystone-core/pkg/k8s"
 )
 
 // K8sBaseModule provides common functionality for Kubernetes state modules

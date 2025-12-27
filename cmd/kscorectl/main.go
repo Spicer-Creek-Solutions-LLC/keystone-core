@@ -6,16 +6,16 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/titananvil/titan-anvil/pkg/plugin"
-	"github.com/titananvil/titan-anvil/pkg/version"
+	"github.com/shawnbutts/keystone-core/pkg/plugin"
+	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "titanctl",
-	Short: "TitanAnvil command-line interface",
-	Long: `titanctl is the main CLI for interacting with TitanAnvil.
+	Use:   "kscorectl",
+	Short: "Keystone Core command-line interface",
+	Long: `kscorectl is the main CLI for interacting with Keystone Core.
 It uses a Git-style plugin architecture where subcommands are
-implemented as separate binaries (titananvil-*).`,
+implemented as separate binaries (kscore-*).`,
 }
 
 var versionCmd = &cobra.Command{

@@ -71,7 +71,7 @@ func DefaultEdgeConfig() *Config {
 	return &Config{
 		EnableOfflineMode:           true,
 		EnableLightweightMode:       false,
-		LocalCachePath:              "/var/lib/titananvil/cache",
+		LocalCachePath:              "/var/lib/kscore/cache",
 		MaxCacheSize:                100 * 1024 * 1024, // 100 MB
 		MaxCacheAge:                 24 * time.Hour,
 		ReconnectInterval:           30 * time.Second,

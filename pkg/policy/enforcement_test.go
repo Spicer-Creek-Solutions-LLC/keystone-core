@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/titananvil/titan-anvil/pkg/events"
+	"github.com/shawnbutts/keystone-core/pkg/events"
 )
 
 // mockEventPublisher implements a simple mock publisher for testing

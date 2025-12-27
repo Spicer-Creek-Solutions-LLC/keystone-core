@@ -3,7 +3,7 @@ package version
 import "fmt"
 
 var (
-	// Version is the semantic version of TitanAnvil (set by build flags)
+	// Version is the semantic version of Keystone Core (set by build flags)
 	Version = "dev"
 	// GitCommit is the git commit hash (set by build flags)
 	GitCommit = "unknown"
@@ -29,5 +29,5 @@ func Get() Info {
 
 // String returns a formatted version string
 func (i Info) String() string {
-	return fmt.Sprintf("TitanAnvil %s (commit: %s, built: %s)", i.Version, i.GitCommit, i.BuildDate)
+	return fmt.Sprintf("Keystone Core %s (commit: %s, built: %s)", i.Version, i.GitCommit, i.BuildDate)
 }

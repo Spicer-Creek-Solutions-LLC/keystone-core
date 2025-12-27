@@ -3,12 +3,12 @@ title: "Installation"
 linkTitle: "Installation"
 weight: 2
 description: >
-  How to install TitanAnvil on your system
+  How to install Keystone Core on your system
 ---
 
 ## Prerequisites
 
-Before installing TitanAnvil, ensure you have:
+Before installing Keystone Core, ensure you have:
 
 ### System Requirements
 - **Operating System**: Linux, macOS, or Windows
@@ -30,30 +30,30 @@ Download the latest release from GitHub:
 
 ```bash
 # Linux (amd64)
-curl -LO https://github.com/titananvil/titan-anvil/releases/latest/download/titananvil-linux-amd64.tar.gz
-tar xzf titananvil-linux-amd64.tar.gz
-sudo mv titananvil-* /usr/local/bin/
-sudo mv titanctl /usr/local/bin/
+curl -LO https://github.com/kscore/keystone-core/releases/latest/download/kscore-linux-amd64.tar.gz
+tar xzf kscore-linux-amd64.tar.gz
+sudo mv kscore-* /usr/local/bin/
+sudo mv kscorectl /usr/local/bin/
 
 # macOS (amd64)
-curl -LO https://github.com/titananvil/titan-anvil/releases/latest/download/titananvil-darwin-amd64.tar.gz
-tar xzf titananvil-darwin-amd64.tar.gz
-sudo mv titananvil-* /usr/local/bin/
-sudo mv titanctl /usr/local/bin/
+curl -LO https://github.com/kscore/keystone-core/releases/latest/download/kscore-darwin-amd64.tar.gz
+tar xzf kscore-darwin-amd64.tar.gz
+sudo mv kscore-* /usr/local/bin/
+sudo mv kscorectl /usr/local/bin/
 
 # macOS (arm64 / Apple Silicon)
-curl -LO https://github.com/titananvil/titan-anvil/releases/latest/download/titananvil-darwin-arm64.tar.gz
-tar xzf titananvil-darwin-arm64.tar.gz
-sudo mv titananvil-* /usr/local/bin/
-sudo mv titanctl /usr/local/bin/
+curl -LO https://github.com/kscore/keystone-core/releases/latest/download/kscore-darwin-arm64.tar.gz
+tar xzf kscore-darwin-arm64.tar.gz
+sudo mv kscore-* /usr/local/bin/
+sudo mv kscorectl /usr/local/bin/
 ```
 
 Verify installation:
 
 ```bash
-titanctl version
-titananvil-server --version
-titananvil-agent --version
+kscorectl version
+kscore-server --version
+kscore-agent --version
 ```
 
 ### Method 2: Build from Source
@@ -62,8 +62,8 @@ Clone and build:
 
 ```bash
 # Clone repository
-git clone https://github.com/titananvil/titan-anvil.git
-cd titan-anvil
+git clone https://github.com/kscore/keystone-core.git
+cd keystone-core
 
 # Build all binaries
 make build
@@ -78,9 +78,9 @@ make install PREFIX=$HOME/.local
 Build individual components:
 
 ```bash
-make build-server   # Build titananvil-server
-make build-agent    # Build titananvil-agent
-make build-cli      # Build titanctl
+make build-server   # Build kscore-server
+make build-agent    # Build kscore-agent
+make build-cli      # Build kscorectl
 make build-plugins  # Build all plugins
 ```
 
@@ -89,40 +89,40 @@ make build-plugins  # Build all plugins
 #### Homebrew (macOS/Linux)
 
 ```bash
-brew tap titananvil/tap
-brew install titananvil
+brew tap kscore/tap
+brew install kscore
 ```
 
 #### APT (Debian/Ubuntu)
 
 ```bash
 # Add repository
-curl -fsSL https://apt.titananvil.dev/gpg | sudo gpg --dearmor -o /usr/share/keyrings/titananvil.gpg
-echo "deb [signed-by=/usr/share/keyrings/titananvil.gpg] https://apt.titananvil.dev stable main" | \
-  sudo tee /etc/apt/sources.list.d/titananvil.list
+curl -fsSL https://apt.kscore.dev/gpg | sudo gpg --dearmor -o /usr/share/keyrings/kscore.gpg
+echo "deb [signed-by=/usr/share/keyrings/kscore.gpg] https://apt.kscore.dev stable main" | \
+  sudo tee /etc/apt/sources.list.d/kscore.list
 
 # Install
 sudo apt update
-sudo apt install titananvil
+sudo apt install kscore
 ```
 
 #### YUM/DNF (RHEL/CentOS/Fedora)
 
 ```bash
 # Add repository
-sudo tee /etc/yum.repos.d/titananvil.repo <<EOF
-[titananvil]
-name=TitanAnvil Repository
-baseurl=https://yum.titananvil.dev/stable/\$basearch
+sudo tee /etc/yum.repos.d/kscore.repo <<EOF
+[kscore]
+name=Keystone Core Repository
+baseurl=https://yum.kscore.dev/stable/\$basearch
 enabled=1
 gpgcheck=1
-gpgkey=https://yum.titananvil.dev/gpg
+gpgkey=https://yum.kscore.dev/gpg
 EOF
 
 # Install
-sudo yum install titananvil
+sudo yum install kscore
 # or
-sudo dnf install titananvil
+sudo dnf install kscore
 ```
 
 ### Method 4: Docker
@@ -131,24 +131,24 @@ Run the control plane in Docker:
 
 ```bash
 # Pull image
-docker pull titananvil/control-plane:latest
+docker pull kscore/control-plane:latest
 
 # Run control plane
 docker run -d \
-  --name titananvil-control-plane \
+  --name kscore-control-plane \
   -p 4222:4222 \
   -p 8080:8080 \
-  -v titananvil-data:/data \
-  titananvil/control-plane:latest
+  -v kscore-data:/data \
+  kscore/control-plane:latest
 ```
 
 Run an agent:
 
 ```bash
 docker run -d \
-  --name titananvil-agent \
+  --name kscore-agent \
   -e CONTROL_PLANE_URL=nats://control-plane:4222 \
-  titananvil/agent:latest
+  kscore/agent:latest
 ```
 
 ### Method 5: Kubernetes
@@ -157,30 +157,30 @@ Deploy using Helm:
 
 ```bash
 # Add Helm repository
-helm repo add titananvil https://charts.titananvil.dev
+helm repo add titananvil https://charts.kscore.dev
 helm repo update
 
 # Install control plane
-helm install titananvil-control-plane titananvil/control-plane \
-  --namespace titananvil-system \
+helm install kscore-control-plane kscore/control-plane \
+  --namespace kscore-system \
   --create-namespace
 
 # Install agent (DaemonSet)
-helm install titananvil-agent titananvil/agent \
-  --namespace titananvil-system
+helm install kscore-agent kscore/agent \
+  --namespace kscore-system
 ```
 
 Or use kubectl with manifests:
 
 ```bash
-kubectl apply -f https://github.com/titananvil/titan-anvil/releases/latest/download/titananvil-k8s.yaml
+kubectl apply -f https://github.com/kscore/keystone-core/releases/latest/download/kscore-k8s.yaml
 ```
 
 ## Configuration
 
 ### Control Plane Configuration
 
-Create `/etc/titananvil/server.yaml`:
+Create `/etc/kscore/server.yaml`:
 
 ```yaml
 # Minimal configuration (uses embedded NATS and SQLite)
@@ -193,7 +193,7 @@ api:
 
 storage:
   type: sqlite
-  path: /var/lib/titananvil/state.db
+  path: /var/lib/kscore/state.db
 ```
 
 Advanced configuration (external NATS, PostgreSQL):
@@ -205,23 +205,23 @@ nats:
     - nats://nats1.example.com:4222
     - nats://nats2.example.com:4222
     - nats://nats3.example.com:4222
-  credentials: /etc/titananvil/nats.creds
+  credentials: /etc/kscore/nats.creds
 
 api:
   listen: "0.0.0.0:8080"
   tls:
     enabled: true
-    cert_file: /etc/titananvil/tls/server.crt
-    key_file: /etc/titananvil/tls/server.key
+    cert_file: /etc/kscore/tls/server.crt
+    key_file: /etc/kscore/tls/server.key
 
 storage:
   type: postgresql
-  connection_string: "postgres://user:pass@postgres.example.com:5432/titananvil?sslmode=require"
+  connection_string: "postgres://user:pass@postgres.example.com:5432/kscore?sslmode=require"
 ```
 
 ### Agent Configuration
 
-Create `/etc/titananvil/agent.yaml`:
+Create `/etc/kscore/agent.yaml`:
 
 ```yaml
 control_plane:
@@ -237,17 +237,17 @@ agent:
     - "frontend"
 ```
 
-## Running TitanAnvil
+## Running Keystone Core
 
 ### Start Control Plane
 
 ```bash
 # Foreground (for testing)
-titananvil-server --config /etc/titananvil/server.yaml
+kscore-server --config /etc/kscore/server.yaml
 
 # Background (systemd)
-sudo systemctl start titananvil-server
-sudo systemctl enable titananvil-server
+sudo systemctl start kscore-server
+sudo systemctl enable kscore-server
 
 # Docker
 docker-compose up -d control-plane
@@ -257,32 +257,32 @@ docker-compose up -d control-plane
 
 ```bash
 # Foreground
-titananvil-agent --config /etc/titananvil/agent.yaml
+kscore-agent --config /etc/kscore/agent.yaml
 
 # Background (systemd)
-sudo systemctl start titananvil-agent
-sudo systemctl enable titananvil-agent
+sudo systemctl start kscore-agent
+sudo systemctl enable kscore-agent
 
 # Kubernetes (automatic via DaemonSet)
-kubectl rollout status daemonset/titananvil-agent -n titananvil-system
+kubectl rollout status daemonset/kscore-agent -n kscore-system
 ```
 
 ## Systemd Service Files
 
 ### Control Plane Service
 
-Create `/etc/systemd/system/titananvil-server.service`:
+Create `/etc/systemd/system/kscore-server.service`:
 
 ```ini
 [Unit]
-Description=TitanAnvil Control Plane
+Description=Keystone Core Control Plane
 After=network.target
 
 [Service]
 Type=simple
-User=titananvil
-Group=titananvil
-ExecStart=/usr/local/bin/titananvil-server --config /etc/titananvil/server.yaml
+User=kscore
+Group=kscore
+ExecStart=/usr/local/bin/kscore-server --config /etc/kscore/server.yaml
 Restart=on-failure
 RestartSec=5s
 
@@ -292,16 +292,16 @@ WantedBy=multi-user.target
 
 ### Agent Service
 
-Create `/etc/systemd/system/titananvil-agent.service`:
+Create `/etc/systemd/system/kscore-agent.service`:
 
 ```ini
 [Unit]
-Description=TitanAnvil Agent
+Description=Keystone Core Agent
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/titananvil-agent --config /etc/titananvil/agent.yaml
+ExecStart=/usr/local/bin/kscore-agent --config /etc/kscore/agent.yaml
 Restart=on-failure
 RestartSec=5s
 
@@ -313,8 +313,8 @@ Enable and start:
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable titananvil-server titananvil-agent
-sudo systemctl start titananvil-server titananvil-agent
+sudo systemctl enable kscore-server kscore-agent
+sudo systemctl start kscore-server kscore-agent
 ```
 
 ## Verification
@@ -327,14 +327,14 @@ curl http://localhost:8080/health/live
 curl http://localhost:8080/health/ready
 
 # List connected agents
-titanctl agent list
+kscorectl agent list
 
 # Check agent status
-systemctl status titananvil-agent
+systemctl status kscore-agent
 
 # View logs
-journalctl -u titananvil-server -f
-journalctl -u titananvil-agent -f
+journalctl -u kscore-server -f
+journalctl -u kscore-agent -f
 ```
 
 ## Troubleshooting
@@ -343,7 +343,7 @@ journalctl -u titananvil-agent -f
 
 ```bash
 # Check logs
-journalctl -u titananvil-server -n 50
+journalctl -u kscore-server -n 50
 
 # Common issues:
 # - Port 4222 already in use (NATS conflict)
@@ -352,14 +352,14 @@ journalctl -u titananvil-server -n 50
 # - NATS connection failed (external NATS not reachable)
 
 # Test configuration
-titananvil-server --config /etc/titananvil/server.yaml --test-config
+kscore-server --config /etc/kscore/server.yaml --test-config
 ```
 
 ### Agent Won't Connect
 
 ```bash
 # Check logs
-journalctl -u titananvil-agent -n 50
+journalctl -u kscore-agent -n 50
 
 # Common issues:
 # - Control plane URL incorrect
@@ -384,7 +384,7 @@ echo 'export PATH="/usr/local/bin:$PATH"' >> ~/.bashrc
 
 ## Next Steps
 
-Now that TitanAnvil is installed:
+Now that Keystone Core is installed:
 
 1. **[Quick Start](../quick-start/)** - Deploy your first agent and run commands
 2. **[Architecture](../architecture/)** - Understand how the components work together

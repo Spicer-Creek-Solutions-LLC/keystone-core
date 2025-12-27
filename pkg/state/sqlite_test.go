@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/titananvil/titan-anvil/pkg/api/v1"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 )
 
 func TestSQLiteStore_AgentOperations(t *testing.T) {
 	// Create temporary database
-	tmpFile := "/tmp/test-titan-anvil-" + time.Now().Format("20060102150405") + ".db"
+	tmpFile := "/tmp/test-keystone-core-" + time.Now().Format("20060102150405") + ".db"
 	defer os.Remove(tmpFile)
 
 	config := &Config{
@@ -122,7 +122,7 @@ func TestSQLiteStore_AgentOperations(t *testing.T) {
 }
 
 func TestSQLiteStore_CommandOperations(t *testing.T) {
-	tmpFile := "/tmp/test-titan-anvil-cmd-" + time.Now().Format("20060102150405") + ".db"
+	tmpFile := "/tmp/test-keystone-core-cmd-" + time.Now().Format("20060102150405") + ".db"
 	defer os.Remove(tmpFile)
 
 	config := &Config{
@@ -232,7 +232,7 @@ func TestSQLiteStore_CommandOperations(t *testing.T) {
 }
 
 func TestSQLiteStore_ListAgents_WithFilters(t *testing.T) {
-	tmpFile := "/tmp/test-titan-anvil-filter-" + time.Now().Format("20060102150405") + ".db"
+	tmpFile := "/tmp/test-keystone-core-filter-" + time.Now().Format("20060102150405") + ".db"
 	defer os.Remove(tmpFile)
 
 	config := &Config{
@@ -298,7 +298,7 @@ func TestSQLiteStore_ListAgents_WithFilters(t *testing.T) {
 }
 
 func TestSQLiteStore_Ping(t *testing.T) {
-	tmpFile := "/tmp/test-titan-anvil-ping-" + time.Now().Format("20060102150405") + ".db"
+	tmpFile := "/tmp/test-keystone-core-ping-" + time.Now().Format("20060102150405") + ".db"
 	defer os.Remove(tmpFile)
 
 	config := &Config{
@@ -320,7 +320,7 @@ func TestSQLiteStore_Ping(t *testing.T) {
 }
 
 func TestNewStore_SQLite(t *testing.T) {
-	tmpFile := "/tmp/test-titan-anvil-newstore-" + time.Now().Format("20060102150405") + ".db"
+	tmpFile := "/tmp/test-keystone-core-newstore-" + time.Now().Format("20060102150405") + ".db"
 	defer os.Remove(tmpFile)
 
 	config := &Config{
@@ -369,7 +369,7 @@ func TestNewStore_InvalidBackend(t *testing.T) {
 }
 
 func TestSQLiteStore_ListCommands_WithFilters(t *testing.T) {
-	tmpFile := "/tmp/test-titan-anvil-cmdfilter-" + time.Now().Format("20060102150405") + ".db"
+	tmpFile := "/tmp/test-keystone-core-cmdfilter-" + time.Now().Format("20060102150405") + ".db"
 	defer os.Remove(tmpFile)
 
 	config := &Config{
@@ -606,7 +606,7 @@ func TestSQLiteStore_ListCommands_WithFilters(t *testing.T) {
 }
 
 func TestSQLiteStore_GetAgent_NotFound(t *testing.T) {
-	tmpFile := "/tmp/test-titan-anvil-notfound-" + time.Now().Format("20060102150405") + ".db"
+	tmpFile := "/tmp/test-keystone-core-notfound-" + time.Now().Format("20060102150405") + ".db"
 	defer os.Remove(tmpFile)
 
 	config := &Config{
@@ -629,7 +629,7 @@ func TestSQLiteStore_GetAgent_NotFound(t *testing.T) {
 }
 
 func TestSQLiteStore_GetCommand_NotFound(t *testing.T) {
-	tmpFile := "/tmp/test-titan-anvil-cmdnotfound-" + time.Now().Format("20060102150405") + ".db"
+	tmpFile := "/tmp/test-keystone-core-cmdnotfound-" + time.Now().Format("20060102150405") + ".db"
 	defer os.Remove(tmpFile)
 
 	config := &Config{

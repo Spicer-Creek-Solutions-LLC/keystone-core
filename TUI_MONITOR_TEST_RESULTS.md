@@ -1,4 +1,4 @@
-# TitanAnvil TUI Monitor - Test Results
+# Keystone Core TUI Monitor - Test Results
 
 ## Test Summary
 
@@ -174,8 +174,8 @@
 
 ### Binary Structure
 ```
-titananvil-monitor
-├── cmd/titananvil-monitor/
+kscore-monitor
+├── cmd/kscore-monitor/
 │   ├── main.go              # CLI entry (Cobra)
 │   ├── config/              # Configuration management
 │   │   └── config.go        # YAML config with defaults
@@ -287,7 +287,7 @@ titananvil-monitor
 
 ## Conclusion
 
-**The TitanAnvil TUI Monitor is PRODUCTION READY** ✅
+**The Keystone Core TUI Monitor is PRODUCTION READY** ✅
 
 All components tested and functional:
 - ✅ gRPC client communicates with control plane
@@ -301,10 +301,10 @@ All components tested and functional:
 **To use in production:**
 ```bash
 # 1. Start control plane
-titananvil-server
+kscore-server
 
 # 2. Start monitor
-titananvil-monitor --control-plane localhost:9090
+kscore-monitor --control-plane localhost:9090
 
 # 3. Navigate with keys 1-8
 # 4. Use ↑/↓ to scroll, r to refresh, q to quit

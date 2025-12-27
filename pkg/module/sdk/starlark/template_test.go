@@ -17,8 +17,8 @@ func TestDefaultTemplate(t *testing.T) {
 		t.Errorf("Version = %s, want 0.1.0", template.Version)
 	}
 
-	if template.Description != "A TitanAnvil module" {
-		t.Errorf("Description = %s, want 'A TitanAnvil module'", template.Description)
+	if template.Description != "A Keystone Core module" {
+		t.Errorf("Description = %s, want 'A Keystone Core module'", template.Description)
 	}
 }
 

@@ -2,19 +2,19 @@
 
 ## Overview
 
-Integrate TitanAnvil with GitOps workflows to provide runtime operations, deployment verification, and automated rollback capabilities that complement declarative deployment tools like ArgoCD and Flux.
+Integrate Keystone Core with GitOps workflows to provide runtime operations, deployment verification, and automated rollback capabilities that complement declarative deployment tools like ArgoCD and Flux.
 
-**Goal**: Position TitanAnvil as the operational control plane that bridges the gap between GitOps deployments and runtime infrastructure management.
+**Goal**: Position Keystone Core as the operational control plane that bridges the gap between GitOps deployments and runtime infrastructure management.
 
 ## Success Criteria
 
 - [ ] Receive and process webhooks from ArgoCD, Flux, GitLab, GitHub
 - [ ] Automated deployment verification workflows
-- [ ] Trigger GitOps rollbacks from TitanAnvil
-- [ ] Bi-directional integration (TitanAnvil ↔ GitOps)
-- [ ] Git repository as source of truth for TitanAnvil configs
+- [ ] Trigger GitOps rollbacks from Keystone Core
+- [ ] Bi-directional integration (Keystone Core ↔ GitOps)
+- [ ] Git repository as source of truth for Keystone Core configs
 - [ ] Deployment promotion workflows
-- [ ] GitOps event forwarding to TitanAnvil event bus
+- [ ] GitOps event forwarding to Keystone Core event bus
 - [ ] Health check and smoke test automation
 - [ ] Integration with multiple GitOps tools
 
@@ -24,7 +24,7 @@ Integrate TitanAnvil with GitOps workflows to provide runtime operations, deploy
 ┌──────────────────────────────────────────────────────────┐
 │              Git Repository (Source of Truth)            │
 │  • Application manifests (ArgoCD/Flux)                   │
-│  • TitanAnvil states and reactors                        │
+│  • Keystone Core states and reactors                        │
 │  • Configuration and vars data                           │
 └─────────────────┬────────────────────────────────────────┘
                   │
@@ -32,7 +32,7 @@ Integrate TitanAnvil with GitOps workflows to provide runtime operations, deploy
         │                   │
         ▼                   ▼
 ┌──────────────┐    ┌──────────────┐
-│   ArgoCD/    │    │  TitanAnvil  │
+│   ArgoCD/    │    │  Keystone Core  │
 │    Flux      │    │   Watcher    │
 │              │    │  (Git sync)  │
 └──────┬───────┘    └──────┬───────┘
@@ -41,7 +41,7 @@ Integrate TitanAnvil with GitOps workflows to provide runtime operations, deploy
        │                   │
        ▼                   ▼
 ┌──────────────────────────────────┐
-│       TitanAnvil Control Plane   │
+│       Keystone Core Control Plane   │
 │  ┌────────────┐  ┌────────────┐ │
 │  │  Webhook   │  │   GitOps   │ │
 │  │  Receiver  │  │   Engine   │ │
@@ -62,23 +62,23 @@ Integrate TitanAnvil with GitOps workflows to provide runtime operations, deploy
 
 ### US5.1: ArgoCD Integration
 **As a** platform engineer
-**I want to** integrate TitanAnvil with ArgoCD
+**I want to** integrate Keystone Core with ArgoCD
 **So that** deployments are verified and can be rolled back automatically
 
 **Acceptance Criteria**:
 - Receive ArgoCD webhooks (sync, health, deployment events)
 - Parse ArgoCD application status
 - Trigger verification workflows on sync completion
-- Update ArgoCD application status from TitanAnvil
+- Update ArgoCD application status from Keystone Core
 - Support ArgoCD progressive delivery (Rollouts)
 
 **Workflow**:
 ```yaml
 # ArgoCD triggers webhook on sync
-ArgoCD: Deployment synced → TitanAnvil webhook
+ArgoCD: Deployment synced → Keystone Core webhook
 
-# TitanAnvil verifies deployment
-TitanAnvil:
+# Keystone Core verifies deployment
+Keystone Core:
   1. Run health checks on new pods
   2. Execute smoke tests
   3. Check error rates in logs
@@ -86,8 +86,8 @@ TitanAnvil:
 
 # On failure, trigger rollback
 If verification fails:
-  → TitanAnvil creates Git PR to revert
-  → OR TitanAnvil calls ArgoCD API to rollback
+  → Keystone Core creates Git PR to revert
+  → OR Keystone Core calls ArgoCD API to rollback
   → Alert on-call team
 ```
 
@@ -130,7 +130,7 @@ argocd:
 
 ### US5.2: Flux Integration
 **As a** platform engineer
-**I want to** integrate TitanAnvil with Flux
+**I want to** integrate Keystone Core with Flux
 **So that** GitOps workflows include runtime verification
 
 **Acceptance Criteria**:
@@ -173,7 +173,7 @@ flux:
 
 ### US5.3: Git Repository Sync
 **As a** platform engineer
-**I want to** store TitanAnvil configurations in Git
+**I want to** store Keystone Core configurations in Git
 **So that** all infrastructure automation is version controlled
 
 **Acceptance Criteria**:
@@ -351,20 +351,20 @@ promotion_pipeline:
 ### US5.7: GitHub/GitLab Integration
 **As a** platform engineer
 **I want to** integrate with GitHub/GitLab
-**So that** TitanAnvil can interact with Git workflows
+**So that** Keystone Core can interact with Git workflows
 
 **Acceptance Criteria**:
-- Create pull requests from TitanAnvil
+- Create pull requests from Keystone Core
 - Comment on PRs with verification results
 - Update commit statuses
-- Trigger TitanAnvil from GitHub Actions / GitLab CI
+- Trigger Keystone Core from GitHub Actions / GitLab CI
 - Support GitHub/GitLab webhooks
 - Authenticate via GitHub/GitLab apps
 
 **Example**:
 ```yaml
 # GitHub PR comment after verification
-TitanAnvil Bot commented:
+Keystone Core Bot commented:
 ✅ Deployment verification passed
 
 **Verification Results:**
@@ -395,7 +395,7 @@ Deployment to production approved.
 - ArgoCD token validation
 
 **T1.3: Event Processing**
-- Convert webhooks to TitanAnvil events
+- Convert webhooks to Keystone Core events
 - Trigger reactors from webhooks
 - Queue webhook processing
 - Retry failed webhook processing

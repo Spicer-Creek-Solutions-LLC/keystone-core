@@ -7,10 +7,10 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/titananvil/titan-anvil/cmd/titananvil-monitor/client"
-	"github.com/titananvil/titan-anvil/cmd/titananvil-monitor/config"
-	monitorEvents "github.com/titananvil/titan-anvil/cmd/titananvil-monitor/events"
-	"github.com/titananvil/titan-anvil/pkg/events"
+	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/client"
+	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/config"
+	monitorEvents "github.com/shawnbutts/keystone-core/cmd/kscore-monitor/events"
+	"github.com/shawnbutts/keystone-core/pkg/events"
 )
 
 // View represents the different views in the TUI
@@ -325,7 +325,7 @@ func (m *Model) renderHelp() string {
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("62"))
 
-	help := `TitanAnvil Monitor - Keyboard Shortcuts
+	help := `Keystone Core Monitor - Keyboard Shortcuts
 
 Navigation:
   1-8           Switch between views

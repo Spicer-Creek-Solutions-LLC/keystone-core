@@ -7,7 +7,7 @@ description: >
 
 ## Overview
 
-TitanAnvil includes 6 built-in state modules for declarative configuration management. All modules are idempotent and cross-platform where applicable.
+Keystone Core includes 6 built-in state modules for declarative configuration management. All modules are idempotent and cross-platform where applicable.
 
 **Modules**:
 - [file](#file-module) - Manage files and directories
@@ -904,7 +904,7 @@ error: "Detailed error message"
 
 1. **Use Requisites**: Always declare dependencies
 2. **Idempotent Commands**: Make cmd module commands idempotent
-3. **Test First**: Use `titanctl state check` before apply
+3. **Test First**: Use `kscorectl state check` before apply
 4. **Version Packages**: Pin package versions in production
 5. **Meaningful IDs**: Use descriptive state IDs
 6. **Group Related States**: Keep related states together
@@ -913,4 +913,4 @@ error: "Detailed error message"
 
 - [State Management Concepts](../../concepts/state-management/) - State management overview
 - [Configuration Reference](../configuration/#state-file-configuration) - State file configuration
-- [CLI Reference](../cli/#titananvil-state-state-management) - State CLI commands
+- [CLI Reference](../cli/#kscore-state-state-management) - State CLI commands

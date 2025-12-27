@@ -1,4 +1,4 @@
-# TitanAnvil Testing Documentation
+# Keystone Core Testing Documentation
 
 ## Test Coverage Summary
 
@@ -104,7 +104,7 @@ go test -race ./pkg/...
 
 All state storage tests use temporary SQLite databases that are automatically cleaned up:
 ```go
-tmpFile := "/tmp/test-titan-anvil-" + time.Now().Format("20060102150405") + ".db"
+tmpFile := "/tmp/test-keystone-core-" + time.Now().Format("20060102150405") + ".db"
 defer os.Remove(tmpFile)
 ```
 

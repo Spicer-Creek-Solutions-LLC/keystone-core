@@ -7,7 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/nats-io/nats.go"
-	"github.com/titananvil/titan-anvil/pkg/events"
+	"github.com/shawnbutts/keystone-core/pkg/events"
 )
 
 // EventMsg is a Bubble Tea message containing an event
@@ -30,7 +30,7 @@ type Subscriber struct {
 func New(ctx context.Context, natsURL string, program *tea.Program) (*Subscriber, error) {
 	// Connect to NATS
 	nc, err := nats.Connect(natsURL,
-		nats.Name("titananvil-monitor"),
+		nats.Name("kscore-monitor"),
 		nats.MaxReconnects(-1),  // Infinite reconnects
 		nats.ReconnectWait(1000), // 1 second between reconnects
 	)

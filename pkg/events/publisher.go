@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
-	"github.com/titananvil/titan-anvil/pkg/tracing"
+	"github.com/shawnbutts/keystone-core/pkg/tracing"
 )
 
 const (
-	// StreamName is the JetStream stream name for TitanAnvil events
+	// StreamName is the JetStream stream name for Keystone Core events
 	StreamName = "TITAN_EVENTS"
 
 	// StreamSubjects defines the subject pattern for all events
@@ -66,7 +66,7 @@ func (p *JetStreamPublisher) ensureStream() error {
 	// Create the stream
 	streamConfig := &nats.StreamConfig{
 		Name:        StreamName,
-		Description: "TitanAnvil event stream",
+		Description: "Keystone Core event stream",
 		Subjects:    []string{StreamSubjects},
 		Retention:   nats.LimitsPolicy,
 		MaxAge:      7 * 24 * time.Hour, // Keep events for 7 days

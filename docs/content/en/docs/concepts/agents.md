@@ -7,7 +7,7 @@ description: >
 
 ## Overview
 
-TitanAnvil agents are lightweight Go binaries that run on every managed node in your infrastructure. They provide the execution layer for all TitanAnvil operations.
+Keystone Core agents are lightweight Go binaries that run on every managed node in your infrastructure. They provide the execution layer for all Keystone Core operations.
 
 **Key Characteristics**:
 - **Lightweight**: <50MB binary, <100MB memory footprint
@@ -77,7 +77,7 @@ TitanAnvil agents are lightweight Go binaries that run on every managed node in 
 
 ```
 ┌─────────────────────────────────────────────┐
-│              TitanAnvil Agent                │
+│              Keystone Core Agent                │
 │                                              │
 │  ┌────────────────────────────────────────┐  │
 │  │         Message Handler                 │  │
@@ -181,12 +181,12 @@ Agents automatically collect system metadata:
 # Control Plane Connection
 control_plane:
   url: "nats://control-plane.example.com:4222"
-  credentials: /etc/titananvil/agent.creds  # Optional NATS auth
+  credentials: /etc/kscore/agent.creds  # Optional NATS auth
   tls:
     enabled: false
-    ca_file: /etc/titananvil/ca.crt
-    cert_file: /etc/titananvil/agent.crt
-    key_file: /etc/titananvil/agent.key
+    ca_file: /etc/kscore/ca.crt
+    cert_file: /etc/kscore/agent.crt
+    key_file: /etc/kscore/agent.key
 
 # Agent Identity
 agent:
@@ -208,12 +208,12 @@ heartbeat:
 logging:
   level: "info"               # debug, info, warn, error
   format: "json"              # json, logfmt, text
-  file: "/var/log/titananvil/agent.log"
+  file: "/var/log/kscore/agent.log"
 
 # Local Cache (for edge/offline mode)
 cache:
   enabled: false
-  directory: "/var/lib/titananvil/cache"
+  directory: "/var/lib/kscore/cache"
   max_size: "1GB"
 ```
 
@@ -229,7 +229,7 @@ execution:
 
 # State Management
 state:
-  modules_dir: "/var/lib/titananvil/modules"
+  modules_dir: "/var/lib/kscore/modules"
   cache_enabled: true
   dry_run: false
 
@@ -258,27 +258,27 @@ security:
 
 ### Systemd Service (Linux)
 
-Create `/etc/systemd/system/titananvil-agent.service`:
+Create `/etc/systemd/system/kscore-agent.service`:
 
 ```ini
 [Unit]
-Description=TitanAnvil Agent
+Description=Keystone Core Agent
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/titananvil-agent --config /etc/titananvil/agent.yaml
+ExecStart=/usr/local/bin/kscore-agent --config /etc/kscore/agent.yaml
 Restart=on-failure
 RestartSec=5s
-User=titananvil
-Group=titananvil
+User=kscore
+Group=kscore
 
 # Security hardening
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/titananvil /var/log/titananvil
+ReadWritePaths=/var/lib/kscore /var/log/kscore
 
 [Install]
 WantedBy=multi-user.target
@@ -287,22 +287,22 @@ WantedBy=multi-user.target
 Enable and start:
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable titananvil-agent
-sudo systemctl start titananvil-agent
+sudo systemctl enable kscore-agent
+sudo systemctl start kscore-agent
 ```
 
 ### Docker Container
 
 ```bash
 docker run -d \
-  --name titananvil-agent \
+  --name kscore-agent \
   --restart unless-stopped \
   -e CONTROL_PLANE_URL=nats://control-plane:4222 \
   -e AGENT_DATACENTER=us-east-1 \
   -e AGENT_ENVIRONMENT=production \
   -e AGENT_ROLE=web \
   -v /var/run/docker.sock:/var/run/docker.sock:ro \
-  titananvil/agent:latest
+  kscore/agent:latest
 ```
 
 ### Kubernetes DaemonSet
@@ -311,24 +311,24 @@ docker run -d \
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: titananvil-agent
-  namespace: titananvil-system
+  name: kscore-agent
+  namespace: kscore-system
 spec:
   selector:
     matchLabels:
-      app: titananvil-agent
+      app: kscore-agent
   template:
     metadata:
       labels:
-        app: titananvil-agent
+        app: kscore-agent
     spec:
-      serviceAccountName: titananvil-agent
+      serviceAccountName: kscore-agent
       containers:
       - name: agent
-        image: titananvil/agent:latest
+        image: kscore/agent:latest
         env:
         - name: CONTROL_PLANE_URL
-          value: "nats://titananvil-nats:4222"
+          value: "nats://kscore-nats:4222"
         - name: AGENT_DATACENTER
           valueFrom:
             fieldRef:
@@ -450,7 +450,7 @@ offline:
 
 cache:
   enabled: true
-  directory: "/var/lib/titananvil/cache"
+  directory: "/var/lib/kscore/cache"
   max_size: "1GB"
 ```
 
@@ -498,19 +498,19 @@ Exposed via internal metrics (scraped by control plane):
 
 ```
 # Resource Usage
-titananvil_agent_cpu_usage_percent
-titananvil_agent_memory_usage_bytes
-titananvil_agent_disk_usage_bytes
+kscore_agent_cpu_usage_percent
+kscore_agent_memory_usage_bytes
+kscore_agent_disk_usage_bytes
 
 # Operations
-titananvil_agent_commands_executed_total
-titananvil_agent_states_applied_total
-titananvil_agent_events_emitted_total
+kscore_agent_commands_executed_total
+kscore_agent_states_applied_total
+kscore_agent_events_emitted_total
 
 # Connection
-titananvil_agent_heartbeat_sent_total
-titananvil_agent_reconnections_total
-titananvil_agent_connected{status="online|offline"}
+kscore_agent_heartbeat_sent_total
+kscore_agent_reconnections_total
+kscore_agent_connected{status="online|offline"}
 ```
 
 ### Health Checks
@@ -528,7 +528,7 @@ Agents support health checks:
 **Problem**: Agent process fails to start
 
 Check:
-- Config file syntax: `titananvil-agent --config agent.yaml --test-config`
+- Config file syntax: `kscore-agent --config agent.yaml --test-config`
 - Permissions: Agent user has access to config file and directories
 - Dependencies: NATS URL is accessible
 
@@ -544,7 +544,7 @@ Check:
 
 Debug:
 ```bash
-titananvil-agent --config agent.yaml --log-level debug
+kscore-agent --config agent.yaml --log-level debug
 ```
 
 ### High CPU Usage

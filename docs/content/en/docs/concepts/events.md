@@ -7,7 +7,7 @@ description: >
 
 ## Overview
 
-TitanAnvil's event system enables event-driven automation by capturing, routing, and storing all infrastructure events. Everything that happens in your infrastructure generates events that can trigger automated responses.
+Keystone Core's event system enables event-driven automation by capturing, routing, and storing all infrastructure events. Everything that happens in your infrastructure generates events that can trigger automated responses.
 
 **Key Features**:
 - **15 Event Types**: Comprehensive coverage of all operations
@@ -19,7 +19,7 @@ TitanAnvil's event system enables event-driven automation by capturing, routing,
 
 ## Event Types
 
-TitanAnvil defines 15 standard event types across 5 categories:
+Keystone Core defines 15 standard event types across 5 categories:
 
 ### Agent Events
 
@@ -179,7 +179,7 @@ type Event struct {
 Publish events from Go code:
 
 ```go
-import "github.com/titananvil/titan-anvil/pkg/events"
+import "github.com/kscore/keystone-core/pkg/events"
 
 // Create event
 event := events.NewEvent().
@@ -204,7 +204,7 @@ publisher.Publish(ctx, event)
 Emit custom events:
 
 ```bash
-titanctl event emit \
+kscorectl event emit \
   --type user.custom \
   --source "maintenance-script" \
   --severity info \
@@ -354,19 +354,19 @@ CREATE TABLE events (
 **CLI**:
 ```bash
 # List recent events
-titanctl event list
+kscorectl event list
 
 # Filter by type
-titanctl event list --type agent.connect
+kscorectl event list --type agent.connect
 
 # Filter by time range
-titanctl event list --since 1h --until now
+kscorectl event list --since 1h --until now
 
 # Filter by severity
-titanctl event list --severity warning,error,critical
+kscorectl event list --severity warning,error,critical
 
 # Query with expression
-titanctl event query "type == 'job.fail' and severity == 'error'"
+kscorectl event query "type == 'job.fail' and severity == 'error'"
 ```
 
 **API**:
@@ -486,7 +486,7 @@ kafka:
   brokers:
     - kafka1.example.com:9092
     - kafka2.example.com:9092
-  topic: titananvil-events
+  topic: kscore-events
   compression: snappy
 ```
 
@@ -500,10 +500,10 @@ publisher.Publish(ctx, event)
 Convert to CloudEvents format:
 
 ```go
-// TitanAnvil Event → CloudEvent
+// Keystone Core Event → CloudEvent
 cloudEvent := events.ToCloudEvent(event)
 
-// CloudEvent → TitanAnvil Event
+// CloudEvent → Keystone Core Event
 event := events.FromCloudEvent(cloudEvent)
 ```
 
@@ -621,21 +621,21 @@ replay.Replay(ctx, query)
 
 ```
 # Publishing
-titananvil_events_published_total{type}
-titananvil_events_publish_errors_total
+kscore_events_published_total{type}
+kscore_events_publish_errors_total
 
 # Subscribing
-titananvil_events_received_total{type}
-titananvil_events_processing_errors_total
+kscore_events_received_total{type}
+kscore_events_processing_errors_total
 
 # Storage
-titananvil_events_stored_total
-titananvil_events_storage_errors_total
-titananvil_events_count{type}  # Current count
+kscore_events_stored_total
+kscore_events_storage_errors_total
+kscore_events_count{type}  # Current count
 
 # Performance
-titananvil_event_processing_duration_seconds{quantile}
-titananvil_event_lag_seconds
+kscore_event_processing_duration_seconds{quantile}
+kscore_event_lag_seconds
 ```
 
 ### Health Checks
@@ -662,7 +662,7 @@ curl http://control-plane:8080/metrics | grep events_published
 nats stream info TITAN_EVENTS
 
 # Check subscriber status
-titanctl event subscribers
+kscorectl event subscribers
 ```
 
 ### High Event Lag
@@ -686,13 +686,13 @@ Fix:
 Fix:
 ```bash
 # Check storage usage
-titanctl event storage-stats
+kscorectl event storage-stats
 
 # Apply retention policy manually
-titanctl event prune --older-than 30d
+kscorectl event prune --older-than 30d
 
 # Archive to cold storage
-titanctl event archive --since 90d --output s3://bucket/events/
+kscorectl event archive --since 90d --output s3://bucket/events/
 ```
 
 ## Next Steps

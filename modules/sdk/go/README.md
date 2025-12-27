@@ -1,11 +1,11 @@
-# TitanAnvil Go SDK
+# Keystone Core Go SDK
 
-The official Go SDK for building TitanAnvil modules that compile to WebAssembly using TinyGo.
+The official Go SDK for building Keystone Core modules that compile to WebAssembly using TinyGo.
 
 ## Features
 
 - **TinyGo-optimized**: Designed for small WASM binaries
-- **Type-safe API**: Fully typed Go interfaces for all TitanAnvil capabilities
+- **Type-safe API**: Fully typed Go interfaces for all Keystone Core capabilities
 - **Cross-platform**: Works on Linux, macOS, and Windows
 - **Capability-based security**: Only access what you're granted
 - **Simple API**: Idiomatic Go code
@@ -13,7 +13,7 @@ The official Go SDK for building TitanAnvil modules that compile to WebAssembly 
 ## Installation
 
 ```bash
-go get github.com/titananvil/titan-module-sdk-go
+go get github.com/kscore/titan-module-sdk-go
 ```
 
 ## Requirements
@@ -40,17 +40,17 @@ choco install tinygo
 package main
 
 import (
-    titansdk "github.com/titananvil/titan-module-sdk-go"
+    titansdk "github.com/kscore/titan-module-sdk-go"
 )
 
 func main() {
-    titansdk.LogInfo("Hello from TitanAnvil!")
+    titansdk.LogInfo("Hello from Keystone Core!")
 }
 ```
 
 ## Building
 
-TitanAnvil modules target `wasm32-wasi`:
+Keystone Core modules target `wasm32-wasi`:
 
 ```bash
 # Build your module
@@ -65,7 +65,7 @@ tinygo build -o module.wasm -target wasm32-wasi -opt=z .
 ### Filesystem
 
 ```go
-import titansdk "github.com/titananvil/titan-module-sdk-go"
+import titansdk "github.com/kscore/titan-module-sdk-go"
 
 // Read file as bytes
 data, err := titansdk.ReadFile("/path/to/file")
@@ -171,7 +171,7 @@ hash, err := titansdk.SHA256String("my string")
 ## Error Handling
 
 ```go
-import titansdk "github.com/titananvil/titan-module-sdk-go"
+import titansdk "github.com/kscore/titan-module-sdk-go"
 
 func myFunction() error {
     // Filesystem error
@@ -200,7 +200,7 @@ Create a `module.yaml` to describe your module:
 ```yaml
 name: myorg/mymodule
 version: 1.0.0
-description: My TitanAnvil module
+description: My Keystone Core module
 
 type: wasm
 
@@ -242,7 +242,7 @@ package main
 
 import (
     "testing"
-    titansdk "github.com/titananvil/titan-module-sdk-go"
+    titansdk "github.com/kscore/titan-module-sdk-go"
 )
 
 func TestModule(t *testing.T) {
@@ -254,7 +254,7 @@ func TestModule(t *testing.T) {
 }
 ```
 
-For integration testing, use the TitanAnvil test framework with a WASM runtime.
+For integration testing, use the Keystone Core test framework with a WASM runtime.
 
 ## Optimization
 

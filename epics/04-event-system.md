@@ -68,7 +68,7 @@ Implement a comprehensive event-driven automation system that enables reactive o
 **So that** I can monitor and react to system changes
 
 **Acceptance Criteria**:
-- All TitanAnvil operations emit events
+- All Keystone Core operations emit events
 - Events published to NATS topics
 - Structured event format (JSON/CloudEvents)
 - Event tagging (severity, source, type)
@@ -103,13 +103,13 @@ user.error         # User action failed
 **Example Usage**:
 ```bash
 # Subscribe to all events
-titanctl events subscribe '*'
+kscorectl events subscribe '*'
 
 # Subscribe to specific events
-titanctl events subscribe 'state.change'
+kscorectl events subscribe 'state.change'
 
 # Subscribe with filter
-titanctl events subscribe 'agent.*' --filter 'datacenter=us-east-1'
+kscorectl events subscribe 'agent.*' --filter 'datacenter=us-east-1'
 ```
 
 ### US4.2: Event Filtering and Routing
@@ -204,25 +204,25 @@ reactors:
 **Example**:
 ```bash
 # Query events
-titanctl events query --type "state.drift" --since "24h"
+kscorectl events query --type "state.drift" --since "24h"
 
 # Replay events (testing reactors)
-titanctl events replay --id "evt-12345" --reactor "auto-remediate"
+kscorectl events replay --id "evt-12345" --reactor "auto-remediate"
 
 # Export events
-titanctl events export --since "7d" --format json > events.json
+kscorectl events export --since "7d" --format json > events.json
 ```
 
 ### US4.5: Webhook Integration
 **As a** platform engineer
 **I want to** receive events from external systems via webhooks
-**So that** TitanAnvil can react to external triggers
+**So that** Keystone Core can react to external triggers
 
 **Acceptance Criteria**:
 - HTTP webhook receiver endpoint
 - Support various webhook formats (GitHub, GitLab, ArgoCD, etc.)
 - Webhook authentication (HMAC, bearer token)
-- Transform webhooks to TitanAnvil events
+- Transform webhooks to Keystone Core events
 - Webhook validation and error handling
 
 **Example Webhooks**:
@@ -236,7 +236,7 @@ POST /webhooks/argocd
   "environment": "production"
 }
 
-# Triggers TitanAnvil reactor:
+# Triggers Keystone Core reactor:
 # - Run smoke tests
 # - Verify deployment health
 # - Update monitoring dashboards
@@ -245,10 +245,10 @@ POST /webhooks/argocd
 ### US4.6: CloudEvents Support
 **As a** platform engineer
 **I want to** integrate with CloudEvents standard
-**So that** TitanAnvil works with cloud-native event systems
+**So that** Keystone Core works with cloud-native event systems
 
 **Acceptance Criteria**:
-- Publish TitanAnvil events as CloudEvents
+- Publish Keystone Core events as CloudEvents
 - Consume CloudEvents from external sources
 - Support CloudEvents HTTP and NATS bindings
 - Event schema registration
@@ -258,7 +258,7 @@ POST /webhooks/argocd
 ```json
 {
   "specversion": "1.0",
-  "type": "com.titananvil.state.drift",
+  "type": "com.kscore.state.drift",
   "source": "/agents/web-01",
   "id": "evt-12345",
   "time": "2024-01-15T10:30:00Z",
@@ -314,7 +314,7 @@ Correlation ID: deploy-abc123
 - Configure retention policies
 
 **T1.3: Event Emission**
-- Emit events from all TitanAnvil operations
+- Emit events from all Keystone Core operations
 - Add structured logging correlation
 - Implement event batching
 - Add event sampling for high-frequency events

@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/titananvil/titan-anvil/pkg/version"
+	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
 // Manager manages health checks for the application

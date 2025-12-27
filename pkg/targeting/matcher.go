@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	pb "github.com/titananvil/titan-anvil/pkg/api/v1"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 )
 
 // Matcher filters agents based on target expressions
@@ -66,7 +66,7 @@ func (m *Matcher) MatchIDs(agents []*AgentInfo) ([]string, error) {
 //   - os: Operating system (linux, darwin, windows)
 //   - arch: Architecture (amd64, arm64)
 //   - platform_version: Platform/kernel version
-//   - agent_version: TitanAnvil agent version
+//   - agent_version: Keystone Core agent version
 //   - status: Current agent status (online, offline, degraded)
 //   - ip: Any of the agent's IP addresses (matches if pattern matches any IP)
 //   - All custom labels from agent metadata labels map

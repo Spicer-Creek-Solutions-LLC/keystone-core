@@ -2,11 +2,11 @@
 name = "titan-module-sdk"
 version = "0.1.0"
 edition = "2021"
-authors = ["TitanAnvil Contributors"]
-description = "SDK for building TitanAnvil modules in Rust that compile to WebAssembly"
+authors = ["Keystone Core Contributors"]
+description = "SDK for building Keystone Core modules in Rust that compile to WebAssembly"
 license = "MIT"
-repository = "https://github.com/titananvil/titan-anvil"
-keywords = ["titananvil", "wasm", "plugin", "module"]
+repository = "https://github.com/shawnbutts/keystone-core"
+keywords = ["kscore", "wasm", "plugin", "module"]
 categories = ["wasm", "api-bindings"]
 
 [lib]

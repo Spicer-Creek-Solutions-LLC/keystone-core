@@ -32,8 +32,8 @@ func TestGenerateCA(t *testing.T) {
 		t.Errorf("Expected CommonName 'Test CA', got '%s'", cert.Subject.CommonName)
 	}
 
-	if len(cert.Subject.Organization) == 0 || cert.Subject.Organization[0] != "TitanAnvil" {
-		t.Error("Expected Organization 'TitanAnvil'")
+	if len(cert.Subject.Organization) == 0 || cert.Subject.Organization[0] != "Keystone Core" {
+		t.Error("Expected Organization 'Keystone Core'")
 	}
 
 	if !cert.IsCA {

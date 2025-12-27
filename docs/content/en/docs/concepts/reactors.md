@@ -7,10 +7,10 @@ description: >
 
 ## Overview
 
-TitanAnvil's reactor system enables automated responses to infrastructure events. Reactors subscribe to events, filter based on criteria, and execute actions—enabling self-healing, compliance remediation, and operational automation.
+Keystone Core's reactor system enables automated responses to infrastructure events. Reactors subscribe to events, filter based on criteria, and execute actions—enabling self-healing, compliance remediation, and operational automation.
 
 **Key Features**:
-- **Event-Driven**: Triggered by any of the 15 TitanAnvil event types
+- **Event-Driven**: Triggered by any of the 15 Keystone Core event types
 - **Filter Expressions**: CEL-based filtering for precise event matching
 - **10+ Action Types**: Command execution, webhooks, state application, custom functions
 - **Orchestration**: Sequential, parallel, conditional, retry logic
@@ -155,7 +155,7 @@ Reactors can execute multiple actions in sequence or parallel:
 **State Apply Action**:
 ```yaml
 - type: state_apply
-  state_file: "/etc/titananvil/states/web-server.yaml"
+  state_file: "/etc/kscore/states/web-server.yaml"
   target: "role:web and datacenter:{{ event.data.datacenter }}"
   check_only: false
 ```
@@ -522,16 +522,16 @@ Track reactor performance:
 
 ```
 # Executions
-titananvil_reactor_executions_total{reactor="drift_remediation"}
+kscore_reactor_executions_total{reactor="drift_remediation"}
 
 # Failures
-titananvil_reactor_failures_total{reactor="drift_remediation"}
+kscore_reactor_failures_total{reactor="drift_remediation"}
 
 # Duration
-titananvil_reactor_duration_seconds{reactor="drift_remediation",quantile="0.95"}
+kscore_reactor_duration_seconds{reactor="drift_remediation",quantile="0.95"}
 
 # Active reactors
-titananvil_active_reactors
+kscore_active_reactors
 ```
 
 ### Reactor Events
@@ -643,16 +643,16 @@ if !result.Success {
 Check:
 ```bash
 # Verify reactor is registered
-titanctl reactor list
+kscorectl reactor list
 
 # Check reactor is enabled
-titanctl reactor status drift_remediation
+kscorectl reactor status drift_remediation
 
 # Test filter expression
-titanctl event query "type == 'state.drift' and severity == 'critical'"
+kscorectl event query "type == 'state.drift' and severity == 'critical'"
 
 # Check throttle/debounce limits
-titanctl reactor stats drift_remediation
+kscorectl reactor stats drift_remediation
 ```
 
 ### Action Failures
@@ -662,13 +662,13 @@ titanctl reactor stats drift_remediation
 Check:
 ```bash
 # View reactor execution history
-titanctl reactor history drift_remediation --limit 10
+kscorectl reactor history drift_remediation --limit 10
 
 # Check action logs
-titanctl logs --filter "reactor_name == 'drift_remediation'"
+kscorectl logs --filter "reactor_name == 'drift_remediation'"
 
 # Test action manually
-titanctl exec run "systemctl restart nginx" --target "web-01"
+kscorectl exec run "systemctl restart nginx" --target "web-01"
 ```
 
 ### High Reactor Latency

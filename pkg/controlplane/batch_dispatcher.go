@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	pb "github.com/titananvil/titan-anvil/pkg/api/v1"
-	"github.com/titananvil/titan-anvil/pkg/state"
-	"github.com/titananvil/titan-anvil/pkg/targeting"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
+	"github.com/shawnbutts/keystone-core/pkg/state"
+	"github.com/shawnbutts/keystone-core/pkg/targeting"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 

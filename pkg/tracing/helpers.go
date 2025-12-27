@@ -125,16 +125,16 @@ func WithSpanAsync(ctx context.Context, tracerName, spanName string, fn func(con
 	}()
 }
 
-// Tracer names for different TitanAnvil components
+// Tracer names for different Keystone Core components
 const (
-	TracerControlPlane  = "titananvil.controlplane"
-	TracerAgent         = "titananvil.agent"
-	TracerState         = "titananvil.state"
-	TracerExecution     = "titananvil.execution"
-	TracerEvents        = "titananvil.events"
-	TracerPolicy        = "titananvil.policy"
-	TracerGitOps        = "titananvil.gitops"
-	TracerNATS          = "titananvil.nats"
+	TracerControlPlane  = "kscore.controlplane"
+	TracerAgent         = "kscore.agent"
+	TracerState         = "kscore.state"
+	TracerExecution     = "kscore.execution"
+	TracerEvents        = "kscore.events"
+	TracerPolicy        = "kscore.policy"
+	TracerGitOps        = "kscore.gitops"
+	TracerNATS          = "kscore.nats"
 )
 
 // Common span operation names

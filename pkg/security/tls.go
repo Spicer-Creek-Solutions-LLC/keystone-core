@@ -40,7 +40,7 @@ func GenerateCA(commonName string, validFor time.Duration) (*CertificateAuthorit
 		SerialNumber: serialNumber,
 		Subject: pkix.Name{
 			CommonName:   commonName,
-			Organization: []string{"TitanAnvil"},
+			Organization: []string{"Keystone Core"},
 		},
 		NotBefore:             notBefore,
 		NotAfter:              notAfter,
@@ -89,7 +89,7 @@ func (ca *CertificateAuthority) GenerateServerCert(commonName string, dnsNames [
 		SerialNumber: serialNumber,
 		Subject: pkix.Name{
 			CommonName:   commonName,
-			Organization: []string{"TitanAnvil"},
+			Organization: []string{"Keystone Core"},
 		},
 		NotBefore:   notBefore,
 		NotAfter:    notAfter,
@@ -134,7 +134,7 @@ func (ca *CertificateAuthority) GenerateClientCert(commonName string, validFor t
 		SerialNumber: serialNumber,
 		Subject: pkix.Name{
 			CommonName:   commonName,
-			Organization: []string{"TitanAnvil"},
+			Organization: []string{"Keystone Core"},
 		},
 		NotBefore:   notBefore,
 		NotAfter:    notAfter,

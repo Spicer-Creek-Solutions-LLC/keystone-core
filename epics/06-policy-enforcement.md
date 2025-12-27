@@ -88,7 +88,7 @@ deny[msg] {
 **Example CEL Policy**:
 ```yaml
 # policies/resource-limits.yaml
-apiVersion: policy.titananvil.io/v1
+apiVersion: policy.kscore.io/v1
 kind: Policy
 metadata:
   name: enforce-resource-limits
@@ -147,13 +147,13 @@ policies:
 **Example Usage**:
 ```bash
 # Run all policies against current state
-titanctl policy eval --all
+kscorectl policy eval --all
 
 # Run specific policy
-titanctl policy eval no-root-containers --target "k8s:namespace=production"
+kscorectl policy eval no-root-containers --target "k8s:namespace=production"
 
 # Schedule continuous evaluation
-titanctl policy schedule --policy security-baseline --interval 5m
+kscorectl policy schedule --policy security-baseline --interval 5m
 ```
 
 ### US6.3: Automated Remediation
@@ -172,7 +172,7 @@ titanctl policy schedule --policy security-baseline --interval 5m
 **Remediation Strategies**:
 ```yaml
 # policies/file-permissions.yaml
-apiVersion: policy.titananvil.io/v1
+apiVersion: policy.kscore.io/v1
 kind: Policy
 metadata:
   name: secure-file-permissions
@@ -195,7 +195,7 @@ spec:
 
 ---
 # policies/pod-security.yaml
-apiVersion: policy.titananvil.io/v1
+apiVersion: policy.kscore.io/v1
 kind: Policy
 metadata:
   name: pod-security-standards
@@ -236,7 +236,7 @@ spec:
 **Example**:
 ```yaml
 # policies/cis-benchmark.yaml
-apiVersion: policy.titananvil.io/v1
+apiVersion: policy.kscore.io/v1
 kind: PolicyBundle
 metadata:
   name: cis-kubernetes-benchmark-v1.8
@@ -272,7 +272,7 @@ spec:
 
 **Compliance Report**:
 ```bash
-titanctl compliance report --framework cis-k8s-1.8
+kscorectl compliance report --framework cis-k8s-1.8
 
 CIS Kubernetes Benchmark v1.8.0
 Compliance Report - 2024-01-15
@@ -360,13 +360,13 @@ test_allow_nonroot_container {
 
 ```bash
 # Run policy tests
-titanctl policy test policies/
+kscorectl policy test policies/
 
 # Test policy against live cluster (dry-run)
-titanctl policy eval no-root-containers --dry-run --target k8s:production
+kscorectl policy eval no-root-containers --dry-run --target k8s:production
 
 # Show what would be remediated
-titanctl policy remediate --dry-run --all
+kscorectl policy remediate --dry-run --all
 ```
 
 ### US6.6: Drift Detection for Compliance
@@ -385,7 +385,7 @@ titanctl policy remediate --dry-run --all
 **Example**:
 ```yaml
 # Compliance drift monitoring
-titanctl policy monitor --policy pci-dss --auto-remediate
+kscorectl policy monitor --policy pci-dss --auto-remediate
 
 Monitoring compliance drift...
 
@@ -629,7 +629,7 @@ Monitoring compliance drift...
   - GCP: Instance Identity Token verification
   - Azure: Managed Service Identity validation
   - Unix: Process UID/GID verification
-- Implement workload attestation for TitanAnvil services
+- Implement workload attestation for Keystone Core services
 - Configure attestation policies per environment
 
 **T7.4: SPIRE-Based Policy Enforcement**
@@ -653,7 +653,7 @@ Monitoring compliance drift...
     mode: spire  # or "manual"
     spire:
       server_address: unix:///tmp/spire-server/api.sock
-      trust_domain: titananvil.local
+      trust_domain: kscore.local
       node_attestor: k8s_sat
       agent_spiffe_id_template: "spiffe://{{.TrustDomain}}/agent/{{.AgentID}}"
     allow_legacy_tls: true  # For migration period
@@ -675,14 +675,14 @@ Monitoring compliance drift...
 
 **T7.7: Service Mesh Integration**
 - Share SPIRE trust domain with Istio/Linkerd
-- Enable TitanAnvil agents to authenticate to mesh services
-- Mutual authentication between TitanAnvil and service mesh
+- Enable Keystone Core agents to authenticate to mesh services
+- Mutual authentication between Keystone Core and service mesh
 - Unified zero-trust policy across infrastructure and applications
 
 **T7.8: SPIRE Deployment Automation**
 - Helm chart for SPIRE server deployment
 - DaemonSet for SPIRE agents
-- Automatic registration entries for TitanAnvil components
+- Automatic registration entries for Keystone Core components
 - SPIRE federation for multi-region/multi-cloud
 - Monitoring and alerting for SPIRE health
 

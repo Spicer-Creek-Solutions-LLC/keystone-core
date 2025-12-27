@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Purpose
 
-This is the **design documentation repository** for TitanAnvil, a cloud-native runtime infrastructure control plane. TitanAnvil is positioned as the operational layer between GitOps/IaC deployments and runtime infrastructure, inspired by Salt Project but modernized for cloud-native environments.
+This is the **design documentation repository** for Keystone Core, a cloud-native runtime infrastructure control plane. Keystone Core is positioned as the operational layer between GitOps/IaC deployments and runtime infrastructure, inspired by Salt Project but modernized for cloud-native environments.
 
 **Key Concept**: "GitOps deploys it. We keep it running."
 
@@ -46,7 +46,7 @@ This repository contains working implementations of **Epic 1-5**. The project ha
 
 ## Architecture Overview
 
-TitanAnvil fills the gap between declarative GitOps tools and runtime operations:
+Keystone Core fills the gap between declarative GitOps tools and runtime operations:
 
 **Core Architecture Components:**
 - **Control Plane**: API Server, State Manager, Event/Reactor Engine
@@ -96,7 +96,7 @@ TitanAnvil fills the gap between declarative GitOps tools and runtime operations
 - Week 1: Foundation (plugin system, shell abstraction, enhanced executor)
 - Week 2: Targeting System (expression parser, agent matcher, batch execution)
 - Week 3: Integration (protobuf definitions, control plane dispatch, job tracking)
-- Week 4: CLI & E2E Testing (titananvil-exec plugin, integration tests)
+- Week 4: CLI & E2E Testing (kscore-exec plugin, integration tests)
 
 **Test Coverage Achieved:**
 - pkg/plugin: 82.7%
@@ -109,7 +109,7 @@ TitanAnvil fills the gap between declarative GitOps tools and runtime operations
 - Cross-platform shell abstraction (Bash, PowerShell, Cmd)
 - Flexible targeting with glob and expression-based filtering
 - Parallel batch execution across multiple agents
-- Complete titananvil-exec plugin with streaming output
+- Complete kscore-exec plugin with streaming output
 - Comprehensive integration tests
 
 ### Epic 3: State Management & Configuration ✅ COMPLETE
@@ -191,16 +191,16 @@ TitanAnvil fills the gap between declarative GitOps tools and runtime operations
   - DriftReport with summary statistics
   - FormatDriftReport for human-readable output
   - CompareStates for state-to-state comparison
-- titananvil-state CLI plugin (cmd/titananvil-state)
-  - `titanctl state apply` - Apply state declarations
-  - `titanctl state check` - Check without applying (dry-run)
-  - `titanctl state drift` - Detect configuration drift
+- kscore-state CLI plugin (cmd/kscore-state)
+  - `kscorectl state apply` - Apply state declarations
+  - `kscorectl state check` - Check without applying (dry-run)
+  - `kscorectl state drift` - Detect configuration drift
   - Variables file support (--vars flag)
   - Template rendering integration
   - Color-coded output (✓/✗ status indicators)
   - Summary statistics (total, succeeded, failed, changed, unchanged)
   - Proper exit codes (0 for success, 1 for failure/drift)
-- Integration tests (cmd/titananvil-state/integration_test.go)
+- Integration tests (cmd/kscore-state/integration_test.go)
   - End-to-end CLI workflow testing
   - Check, apply, drift command tests
   - Idempotency verification
@@ -444,27 +444,27 @@ TitanAnvil fills the gap between declarative GitOps tools and runtime operations
   - PrometheusExporter for standard Prometheus text format
   - All metrics exported with HELP and TYPE comments
   - Counter metrics:
-    - titananvil_events_published_total (by type)
-    - titananvil_events_received_total (by type)
-    - titananvil_events_processed_total (by type)
-    - titananvil_events_failed_total (by type)
-    - titananvil_events_severity_total (by severity)
-    - titananvil_publisher_errors_total
-    - titananvil_subscriber_errors_total
-    - titananvil_reactor_executions_total (by reactor)
-    - titananvil_reactor_failures_total (by reactor)
-    - titananvil_action_executions_total (by type and name)
-    - titananvil_action_failures_total (by type and name)
-    - titananvil_storage_operations_total (by operation)
-    - titananvil_storage_failures_total (by operation)
+    - kscore_events_published_total (by type)
+    - kscore_events_received_total (by type)
+    - kscore_events_processed_total (by type)
+    - kscore_events_failed_total (by type)
+    - kscore_events_severity_total (by severity)
+    - kscore_publisher_errors_total
+    - kscore_subscriber_errors_total
+    - kscore_reactor_executions_total (by reactor)
+    - kscore_reactor_failures_total (by reactor)
+    - kscore_action_executions_total (by type and name)
+    - kscore_action_failures_total (by type and name)
+    - kscore_storage_operations_total (by operation)
+    - kscore_storage_failures_total (by operation)
   - Summary metrics with quantiles (P50, P95, P99):
-    - titananvil_reactor_duration_seconds (by reactor)
-    - titananvil_event_processing_duration_seconds
+    - kscore_reactor_duration_seconds (by reactor)
+    - kscore_event_processing_duration_seconds
   - Gauge metrics:
-    - titananvil_active_subscribers
-    - titananvil_uptime_seconds
-    - titananvil_event_rate (events/sec)
-    - titananvil_last_event_timestamp_seconds
+    - kscore_active_subscribers
+    - kscore_uptime_seconds
+    - kscore_event_rate (events/sec)
+    - kscore_last_event_timestamp_seconds
   - ExportString() for easy string output
 - Human-readable metrics summary (pkg/events/prometheus.go)
   - MetricsSummary with aggregated statistics
@@ -525,7 +525,7 @@ TitanAnvil fills the gap between declarative GitOps tools and runtime operations
   - GitLab handler - parses deployment/pipeline/push events
   - Handler registry for webhook type routing
 - Event integration (pkg/gitops/webhook/types.go)
-  - WebhookEvent → TitanAnvil Event conversion
+  - WebhookEvent → Keystone Core Event conversion
   - EventBusProcessor for publishing to event bus
   - Correlation IDs for tracking webhook-triggered workflows
   - Event types: gitops.argocd.*, gitops.flux.*, gitops.github.*, gitops.gitlab.*
@@ -903,7 +903,7 @@ TitanAnvil fills the gap between declarative GitOps tools and runtime operations
   - Registry() for accessing underlying Prometheus registry
   - Automatic default buckets/objectives
 - Standard metrics (pkg/metrics/collectors.go)
-  - 28 standard TitanAnvil metrics defined
+  - 28 standard Keystone Core metrics defined
   - Control plane metrics: API requests, agents, commands, states, policies, events
   - Agent metrics: heartbeat, CPU/memory/disk usage, commands, states
   - State management metrics: resources, drift, changes
@@ -1010,7 +1010,7 @@ TitanAnvil fills the gap between declarative GitOps tools and runtime operations
 - Test coverage with mock exporters
 
 **Phase 4: TUI Monitor ✅ COMPLETE**
-- Terminal-based real-time monitoring tool (`titananvil-monitor`)
+- Terminal-based real-time monitoring tool (`kscore-monitor`)
 - 8 fully functional interactive views:
   - **Dashboard** (View 1): System overview with metrics, agent counts, job stats, recent events
   - **Agents** (View 2): Interactive table with live agent status, metadata, and heartbeats
@@ -1028,15 +1028,15 @@ TitanAnvil fills the gap between declarative GitOps tools and runtime operations
 - Responsive layout with window resizing
 - Thread-safe data handling
 - Components:
-  - cmd/titananvil-monitor/main.go - CLI entry with Cobra
-  - cmd/titananvil-monitor/config/ - Configuration management
-  - cmd/titananvil-monitor/client/ - gRPC client wrapper
-  - cmd/titananvil-monitor/events/ - NATS JetStream subscriber
-  - cmd/titananvil-monitor/ui/ - All 8 view implementations
+  - cmd/kscore-monitor/main.go - CLI entry with Cobra
+  - cmd/kscore-monitor/config/ - Configuration management
+  - cmd/kscore-monitor/client/ - gRPC client wrapper
+  - cmd/kscore-monitor/events/ - NATS JetStream subscriber
+  - cmd/kscore-monitor/ui/ - All 8 view implementations
 
 **Phase 5: Dashboards ✅ COMPLETE**
 - Six comprehensive Grafana dashboards (deploy/grafana/dashboards/)
-  - TitanAnvil Overview (titananvil-overview.json)
+  - Keystone Core Overview (kscore-overview.json)
     - System-wide metrics, agent counts, command rates, policy violations
     - Environment and datacenter filtering variables
     - Agent status distribution, success rates, recent events timeline
@@ -1077,8 +1077,8 @@ TitanAnvil fills the gap between declarative GitOps tools and runtime operations
     - Failed verifications by application
     - Webhook events by source
     - Application and environment filtering
-- Prometheus alert rules (deploy/grafana/alerts/titananvil-alerts.yml)
-  - 5 alert groups covering all TitanAnvil components
+- Prometheus alert rules (deploy/grafana/alerts/kscore-alerts.yml)
+  - 5 alert groups covering all Keystone Core components
   - Control plane alerts (5 rules): down, high memory, high goroutines, high latency, high error rate
   - Agent fleet alerts (7 rules): low/critical availability, multiple offline, high resource usage, command failures
   - State management alerts (4 rules): high/critical failure rates, high drift detection, slow performance
@@ -1087,8 +1087,8 @@ TitanAnvil fills the gap between declarative GitOps tools and runtime operations
   - NATS alerts (4 rules): high memory, slow consumers, high connections, storage usage
 - Grafana provisioning configuration
   - Datasource provisioning (provisioning/datasources/prometheus.yml)
-  - Dashboard provisioning (provisioning/dashboards/titananvil.yml)
-  - Alerting provisioning (provisioning/alerting/titananvil.yml)
+  - Dashboard provisioning (provisioning/dashboards/kscore.yml)
+  - Alerting provisioning (provisioning/alerting/kscore.yml)
   - Auto-import on Grafana startup
 - Docker Compose deployment (docker-compose.yml)
   - Prometheus + Grafana stack
@@ -1313,9 +1313,9 @@ TitanAnvil fills the gap between declarative GitOps tools and runtime operations
 **Current Status**: Phases 1-7 COMPLETE ✅
 
 **Phase 1: CLI Infrastructure & Plugin Runtime Foundation ✅ COMPLETE (Week 1-2)**
-- **T1.0: titanctl Plugin Dispatcher** ✅
+- **T1.0: kscorectl Plugin Dispatcher** ✅
   - Git-style plugin architecture (pkg/plugin/)
-  - Discovers `titananvil-*` binaries in PATH
+  - Discovers `kscore-*` binaries in PATH
   - Plugin execution with Cobra integration
   - 10 tests passing, 100% coverage
 - **T1.1: Starlark Runtime** ✅
@@ -1744,7 +1744,7 @@ TitanAnvil fills the gap between declarative GitOps tools and runtime operations
   - All examples perform identical operations:
     1. Get CPU make and model
     2. Compute SHA256 hash
-    3. Write to temp file (hello-from-titananvil-{lang}.txt)
+    3. Write to temp file (hello-from-kscore-{lang}.txt)
     4. Return JSON with cpu_info, hash, file_path
 
   - Comprehensive README.md:
@@ -1854,7 +1854,7 @@ TitanAnvil fills the gap between declarative GitOps tools and runtime operations
 **Phase 7 Deferred**:
 - Performance optimization and benchmarking
 - Advanced caching strategies (content-addressable, distributed)
-- CLI tooling (titanctl module init/build/test commands)
+- CLI tooling (kscorectl module init/build/test commands)
 
 **Epic 9 Complete!** All 7 phases finished:
 - Phase 1: Runtime foundation (Starlark, WASM, manifest)
@@ -1890,7 +1890,7 @@ TitanAnvil fills the gap between declarative GitOps tools and runtime operations
   - npm dependencies for PostCSS/Bootstrap/Font-Awesome
   - Symlink setup for build requirements
 - Getting Started documentation (4 pages, 1,583 lines):
-  - **Overview** (250 lines): What is TitanAnvil, 8 core capabilities, use cases, comparison table
+  - **Overview** (250 lines): What is Keystone Core, 8 core capabilities, use cases, comparison table
   - **Installation** (396 lines): 5 installation methods, configuration, systemd services
   - **Quick Start** (352 lines): 9-step walkthrough, 5-minute deployment guide
   - **Architecture** (512 lines): High-level diagrams, components, data flows, scaling
@@ -1953,13 +1953,13 @@ TitanAnvil fills the gap between declarative GitOps tools and runtime operations
     - Rate limiting, pagination, filtering
     - Webhook configuration
     - Client libraries (Go, Python, JavaScript)
-  - **CLI Reference** (~850 lines): Complete titanctl and plugin command reference
-    - titananvil-exec (remote execution)
-    - titananvil-state (state management)
-    - titananvil-monitor (TUI monitoring)
-    - titananvil-module (module management)
-    - titananvil-policy (policy management)
-    - titananvil-gitops (GitOps management)
+  - **CLI Reference** (~850 lines): Complete kscorectl and plugin command reference
+    - kscore-exec (remote execution)
+    - kscore-state (state management)
+    - kscore-monitor (TUI monitoring)
+    - kscore-module (module management)
+    - kscore-policy (policy management)
+    - kscore-gitops (GitOps management)
     - Global flags, environment variables, shell completion
   - **Configuration Reference** (~700 lines): Complete YAML configuration reference
     - Control plane configuration (all subsystems)
@@ -1994,7 +1994,7 @@ TitanAnvil fills the gap between declarative GitOps tools and runtime operations
   - Troubleshooting tips
 
 **Phase 4 Achievements**:
-- Complete reference documentation covering all TitanAnvil APIs and interfaces
+- Complete reference documentation covering all Keystone Core APIs and interfaces
 - ~5,000 lines of detailed technical reference
 - All 6 reference pages built and verified
 - Consistent structure across all reference pages
@@ -2107,7 +2107,7 @@ Implementation order:
 
 ### Module System Architecture (Epic 9)
 
-TitanAnvil's module system enables secure extensibility through versioned, dependency-managed packages:
+Keystone Core's module system enables secure extensibility through versioned, dependency-managed packages:
 
 **Module Format:**
 - **module.yaml**: Manifest declaring dependencies, capabilities, limits, entrypoints
@@ -2135,7 +2135,7 @@ A Go tool that:
 3. Builds dependency DAG (detects cycles)
 4. Resolves version conflicts using MVS
 5. Verifies modules: SumDB hash lookup + cosign signature verification
-6. Downloads ZIPs to content-addressed cache (`~/.titananvil/modules/<hash>/`)
+6. Downloads ZIPs to content-addressed cache (`~/.kscore/modules/<hash>/`)
 7. Generates reproducible `module.lock`
 
 **Security Model - Capability-Based Access:**
@@ -2174,21 +2174,21 @@ A Go tool that:
 - **Starlark**: Simple, Python-like, deterministic by design, used by Bazel/Buck
 - **WASM**: High performance, compile from any language (Rust/Go/C++), standardized sandboxing
 
-**Module CLI (via titanctl):**
-- `titanctl module init` - Initialize new module
-- `titanctl module resolve` - Resolve dependencies, generate lock file
-- `titanctl module install` - Install from lock file
-- `titanctl module build` - Build module ZIP
-- `titanctl module sign` - Sign with cosign
-- `titanctl module publish` - Upload to registry
-- `titanctl module update` - Update to latest compatible versions
-- `titanctl module tree` - Display dependency tree
-- `titanctl module mirror` - Mirror for air-gapped environments
+**Module CLI (via kscorectl):**
+- `kscorectl module init` - Initialize new module
+- `kscorectl module resolve` - Resolve dependencies, generate lock file
+- `kscorectl module install` - Install from lock file
+- `kscorectl module build` - Build module ZIP
+- `kscorectl module sign` - Sign with cosign
+- `kscorectl module publish` - Upload to registry
+- `kscorectl module update` - Update to latest compatible versions
+- `kscorectl module tree` - Display dependency tree
+- `kscorectl module mirror` - Mirror for air-gapped environments
 
 ## Working with Design Documents
 
 ### Updating DESIGN.md
-- Maintain the market positioning section - this defines TitanAnvil's unique value
+- Maintain the market positioning section - this defines Keystone Core's unique value
 - Keep architecture diagrams in sync with epic changes
 - Update comparison matrix if competitive landscape changes
 - Technology stack changes require epic updates too
@@ -2232,127 +2232,127 @@ The plugin manifest must declare which capabilities the plugin needs, and the ho
 
 ## CLI Architecture (Plugin Pattern)
 
-TitanAnvil uses a Git-style plugin architecture for its CLI:
+Keystone Core uses a Git-style plugin architecture for its CLI:
 
-**Main CLI: `titanctl`**
-- Lightweight dispatcher that discovers and executes `titananvil-*` binaries
+**Main CLI: `kscorectl`**
+- Lightweight dispatcher that discovers and executes `kscore-*` binaries
 - Similar to how `git` works with `git-*` plugins
-- All user-facing commands go through `titanctl`
+- All user-facing commands go through `kscorectl`
 
-**Plugin Binaries: `titananvil-*`**
-- `titananvil-module` - Module management (init, build, sign, publish, resolve, install)
-- `titananvil-state` - State management (apply, check, diff)
-- `titananvil-exec` - Remote execution (run commands on agents)
-- Custom extensions can add `titananvil-customtool` and it works as `titanctl customtool`
+**Plugin Binaries: `kscore-*`**
+- `kscore-module` - Module management (init, build, sign, publish, resolve, install)
+- `kscore-state` - State management (apply, check, diff)
+- `kscore-exec` - Remote execution (run commands on agents)
+- Custom extensions can add `kscore-customtool` and it works as `kscorectl customtool`
 
 **How it works:**
 ```bash
-# User runs titanctl command
-titanctl module install vendor/pkg_apt
+# User runs kscorectl command
+kscorectl module install vendor/pkg_apt
 
-# titanctl looks for titananvil-module in $PATH
-# Executes: titananvil-module install vendor/pkg_apt
+# kscorectl looks for kscore-module in $PATH
+# Executes: kscore-module install vendor/pkg_apt
 
 # Third-party plugins also work
-titanctl custom-backup run  # Executes titananvil-custom-backup run
+kscorectl custom-backup run  # Executes kscore-custom-backup run
 ```
 
 **Benefits:**
-- Clear namespace separation (all binaries prefixed with `titananvil-`)
+- Clear namespace separation (all binaries prefixed with `kscore-`)
 - Extensibility - third parties can add plugins
-- Clean documentation (everything is `titanctl <subcommand>`)
+- Clean documentation (everything is `kscorectl <subcommand>`)
 - Code separation - each subsystem can be developed independently
 - Optional components - users only install what they need
 
 **Server Binaries (not plugins):**
-- `titananvil-server` - Control plane daemon
-- `titananvil-agent` - Agent daemon on managed nodes
-- `titananvil-registry` - Module registry server
+- `kscore-server` - Control plane daemon
+- `kscore-agent` - Agent daemon on managed nodes
+- `kscore-registry` - Module registry server
 
-These are long-running services, not invoked via `titanctl`.
+These are long-running services, not invoked via `kscorectl`.
 
 ## Binary Summary
 
-TitanAnvil will have the following executables:
+Keystone Core will have the following executables:
 
 ### 1. **User-Facing CLI**
-- **`titanctl`** - Main CLI tool (plugin dispatcher)
-  - Lightweight binary that discovers and executes `titananvil-*` plugins
-  - All user commands go through this: `titanctl module install`, `titanctl state apply`, etc.
+- **`kscorectl`** - Main CLI tool (plugin dispatcher)
+  - Lightweight binary that discovers and executes `kscore-*` plugins
+  - All user commands go through this: `kscorectl module install`, `kscorectl state apply`, etc.
   - Follows Git/kubectl plugin pattern
 
 ### 2. **Server Daemons** (long-running services)
-- **`titananvil-server`** - Control plane daemon
+- **`kscore-server`** - Control plane daemon
   - API Server (gRPC + REST)
   - State Manager
   - Connection Manager
   - Event/Reactor Engine
   - Can run with embedded NATS or connect to external cluster
 
-- **`titananvil-agent`** - Agent daemon on managed nodes
+- **`kscore-agent`** - Agent daemon on managed nodes
   - Runs on K8s, VMs, bare metal, edge devices
   - Executes commands locally
   - Reports heartbeat and system metadata
   - Can run with embedded NATS (leaf node mode)
 
-- **`titananvil-registry`** - Module registry server
+- **`kscore-registry`** - Module registry server
   - OCI registry integration
   - HTTP proxy (Go-mod-style endpoints)
   - SumDB transparency log
   - Signature verification service
 
-### 3. **CLI Plugins** (invoked via titanctl)
-- **`titananvil-module`** - Module management
+### 3. **CLI Plugins** (invoked via kscorectl)
+- **`kscore-module`** - Module management
   - Development: `init`, `build`, `sign`, `publish`, `validate`, `test`
   - Installation: `install`, `resolve`, `update`, `tree`, `verify`, `clean`, `mirror`
   - Implements dependency resolution, SumDB verification, etc.
 
-- **`titananvil-state`** - State management (Epic 3)
+- **`kscore-state`** - State management (Epic 3)
   - `apply`, `check`, `diff`, `show`, `list`
   - Declarative configuration management
 
-- **`titananvil-exec`** - Remote execution (Epic 2)
+- **`kscore-exec`** - Remote execution (Epic 2)
   - `run`, `async`, `status`, `output`
   - Execute commands across infrastructure
 
-- **`titananvil-monitor`** - Real-time TUI monitoring (Epic 7)
+- **`kscore-monitor`** - Real-time TUI monitoring (Epic 7)
   - Terminal-based dashboard for live system monitoring
   - 8 views: Dashboard, Agents, Events, State, Policy, Jobs, Logs, Metrics
   - Vim-style navigation, filtering, export
   - SSH-friendly, zero web dependencies
 
-- **`titananvil-policy`** (optional, Epic 6) - Policy enforcement
+- **`kscore-policy`** (optional, Epic 6) - Policy enforcement
   - `check`, `enforce`, `audit`, `report`
   - OPA/CEL policy evaluation
 
-- **`titananvil-gitops`** (optional, Epic 5) - GitOps integration
+- **`kscore-gitops`** (optional, Epic 5) - GitOps integration
   - `verify`, `rollback`, `sync`, `diff`
   - ArgoCD/Flux integration
 
 ### 4. **Third-Party Plugins** (optional)
-- Any binary named `titananvil-<name>` in $PATH automatically works as `titanctl <name>`
+- Any binary named `kscore-<name>` in $PATH automatically works as `kscorectl <name>`
 - Examples:
-  - `titananvil-backup` → `titanctl backup`
-  - `titananvil-migrate` → `titanctl migrate`
+  - `kscore-backup` → `kscorectl backup`
+  - `kscore-migrate` → `kscorectl migrate`
   - Community extensions without forking core
 
 **Total Core Binaries**: 8 (1 CLI + 3 servers + 4 built-in plugins)
-**Extensible**: Unlimited via third-party `titananvil-*` plugins
+**Extensible**: Unlimited via third-party `kscore-*` plugins
 
 ## Future Implementation Repository
 
 When code implementation begins, it will likely be structured as:
 ```
-titan-anvil/
+keystone-core/
 ├── cmd/
-│   ├── titanctl/              # Main CLI (plugin-style dispatcher)
-│   ├── titananvil-server/     # Control plane
-│   ├── titananvil-agent/      # Agent binary
-│   ├── titananvil-module/     # Module commands (invoked via titanctl)
-│   ├── titananvil-state/      # State commands (invoked via titanctl)
-│   ├── titananvil-exec/       # Execution commands (invoked via titanctl)
-│   ├── titananvil-monitor/    # TUI monitor (invoked via titanctl)
-│   └── titananvil-registry/   # Registry server (OCI + HTTP proxy)
+│   ├── kscorectl/              # Main CLI (plugin-style dispatcher)
+│   ├── kscore-server/     # Control plane
+│   ├── kscore-agent/      # Agent binary
+│   ├── kscore-module/     # Module commands (invoked via kscorectl)
+│   ├── kscore-state/      # State commands (invoked via kscorectl)
+│   ├── kscore-exec/       # Execution commands (invoked via kscorectl)
+│   ├── kscore-monitor/    # TUI monitor (invoked via kscorectl)
+│   └── kscore-registry/   # Registry server (OCI + HTTP proxy)
 ├── pkg/
 │   ├── api/               # gRPC/REST API
 │   ├── state/             # State management
@@ -2398,12 +2398,12 @@ This structure is implied by the epic technical tasks but not yet created.
 
 ## Key Design Principles
 
-When implementing TitanAnvil, follow these principles from the design documents:
+When implementing Keystone Core, follow these principles from the design documents:
 
 1. **Zero Dependencies for Getting Started**:
    - Embedded NATS mode (no external message broker required)
    - Embedded SQLite storage (no external database required)
-   - Single binary deployment (`titananvil-server`) runs everything
+   - Single binary deployment (`kscore-server`) runs everything
 2. **Security by Default**: Capability-based access, signed plugins, policy enforcement
 3. **Determinism**: Plugins and operations should be reproducible (same input → same output)
 4. **Minimal Attack Surface**: Only grant necessary capabilities, sandbox all untrusted code

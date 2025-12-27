@@ -9,9 +9,9 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/titananvil/titan-anvil/cmd/titananvil-monitor/config"
-	monitorEvents "github.com/titananvil/titan-anvil/cmd/titananvil-monitor/events"
-	"github.com/titananvil/titan-anvil/pkg/events"
+	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/config"
+	monitorEvents "github.com/shawnbutts/keystone-core/cmd/kscore-monitor/events"
+	"github.com/shawnbutts/keystone-core/pkg/events"
 )
 
 // EventsModel represents the events view

@@ -3,7 +3,7 @@ package webhook
 import (
 	"time"
 
-	"github.com/titananvil/titan-anvil/pkg/events"
+	"github.com/shawnbutts/keystone-core/pkg/events"
 )
 
 // WebhookType represents the type of webhook source
@@ -30,7 +30,7 @@ type WebhookEvent struct {
 	Data        map[string]interface{} `json:"data"`
 }
 
-// ToTitanEvent converts a webhook event to a TitanAnvil event
+// ToTitanEvent converts a webhook event to a Keystone Core event
 func (w *WebhookEvent) ToTitanEvent() *events.Event {
 	eventType := events.EventType("gitops.webhook")
 	switch w.Type {

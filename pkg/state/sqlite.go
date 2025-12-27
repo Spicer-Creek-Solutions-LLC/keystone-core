@@ -11,7 +11,7 @@ import (
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
-	pb "github.com/titananvil/titan-anvil/pkg/api/v1"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 )
 
 // SQLiteStore implements Store using SQLite
@@ -24,7 +24,7 @@ type SQLiteStore struct {
 func NewSQLiteStore(config *Config) (*SQLiteStore, error) {
 	path := config.SQLitePath
 	if path == "" {
-		path = "./data/titan-anvil.db"
+		path = "./data/keystone-core.db"
 	}
 
 	// Ensure directory exists

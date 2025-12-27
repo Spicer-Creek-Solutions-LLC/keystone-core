@@ -7,7 +7,7 @@ description: >
 
 ## Overview
 
-TitanAnvil provides both REST and gRPC APIs for programmatic access to all functionality. The REST API uses gRPC-gateway for automatic translation from gRPC.
+Keystone Core provides both REST and gRPC APIs for programmatic access to all functionality. The REST API uses gRPC-gateway for automatic translation from gRPC.
 
 **Base URLs**:
 - REST API: `http://control-plane:8080/api/v1`
@@ -39,7 +39,7 @@ curl --cert client.crt --key client.key --cacert ca.crt \
 
 ```bash
 # Generate API key
-titanctl auth create-key --name my-app --ttl 30d
+kscorectl auth create-key --name my-app --ttl 30d
 
 # Output
 API Key: ta_live_abc123xyz789
@@ -801,7 +801,7 @@ GET /api/v1/agents?role=web,db,cache
 
 ## Webhooks
 
-TitanAnvil can send webhooks for events:
+Keystone Core can send webhooks for events:
 
 ### Configure Webhook
 
@@ -855,7 +855,7 @@ Official client libraries:
 ### Go
 
 ```go
-import "github.com/titananvil/titan-anvil/pkg/client"
+import "github.com/kscore/keystone-core/pkg/client"
 
 client := client.New("http://control-plane:8080", apiKey)
 agents, err := client.Agents().List(ctx, &client.ListAgentsOptions{
@@ -866,7 +866,7 @@ agents, err := client.Agents().List(ctx, &client.ListAgentsOptions{
 ### Python
 
 ```python
-from titananvil import Client
+from kscore import Client
 
 client = Client("http://control-plane:8080", api_key)
 agents = client.agents.list(environment="production")
@@ -875,9 +875,9 @@ agents = client.agents.list(environment="production")
 ### JavaScript/TypeScript
 
 ```typescript
-import { TitanAnvilClient } from '@titananvil/client';
+import { Keystone CoreClient } from '@kscore/client';
 
-const client = new TitanAnvilClient({
+const client = new Keystone CoreClient({
   baseURL: 'http://control-plane:8080',
   apiKey: process.env.TITAN_API_KEY
 });
@@ -959,7 +959,7 @@ curl -X POST \
 
 ```python
 import grpc
-from titananvil.proto import event_service_pb2, event_service_pb2_grpc
+from kscore.proto import event_service_pb2, event_service_pb2_grpc
 
 channel = grpc.insecure_channel('control-plane:9090')
 stub = event_service_pb2_grpc.EventServiceStub(channel)

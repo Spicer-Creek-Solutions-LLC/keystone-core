@@ -8,7 +8,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	pb "github.com/titananvil/titan-anvil/pkg/api/v1"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 )
 
 // Client wraps the gRPC control plane client

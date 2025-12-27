@@ -2,7 +2,7 @@
 
 ## Overview
 
-Build the foundational infrastructure for TitanAnvil including NATS message bus integration, agent architecture, control plane services, and core state management.
+Build the foundational infrastructure for Keystone Core including NATS message bus integration, agent architecture, control plane services, and core state management.
 
 **Goal**: Create a production-ready foundation that can execute commands on distributed agents via NATS with secure authentication and basic state persistence.
 
@@ -70,7 +70,7 @@ Build the foundational infrastructure for TitanAnvil including NATS message bus 
 ### US1.2: Agent Installation and Registration
 **As a** platform operator
 **I want to** install lightweight agents on managed nodes
-**So that** TitanAnvil can execute commands on those nodes
+**So that** Keystone Core can execute commands on those nodes
 
 **Acceptance Criteria**:
 - Single static binary with no dependencies
@@ -216,20 +216,20 @@ Build the foundational infrastructure for TitanAnvil including NATS message bus 
 **T2.4: Cross-Platform Build**
 - Set up Go cross-compilation
 - Create build scripts for all platforms
-- Package binaries for distribution (`titananvil-agent` binary name)
+- Package binaries for distribution (`kscore-agent` binary name)
 - Add version information to binary
 - Create installation scripts
-- **Note**: Binary naming uses `titananvil-*` prefix for all server/daemon binaries
+- **Note**: Binary naming uses `kscore-*` prefix for all server/daemon binaries
 
 ### Phase 3: Control Plane Services (Week 5-6)
 
-**T3.1: API Server (part of titananvil-server binary)**
+**T3.1: API Server (part of kscore-server binary)**
 - Define gRPC service definitions
 - Implement gRPC server
 - Add gRPC-gateway for REST API
 - Create API authentication middleware
 - Add request validation
-- **Note**: API Server, State Manager, Connection Manager are all part of `titananvil-server` binary
+- **Note**: API Server, State Manager, Connection Manager are all part of `kscore-server` binary
 
 **T3.2: Connection Manager**
 - Track connected agents
@@ -350,8 +350,8 @@ Build the foundational infrastructure for TitanAnvil including NATS message bus 
 
 - [ ] Architecture documentation with diagrams
 - [ ] **Quick Start Guide** (5 minutes, zero dependencies):
-  - [ ] Install titananvil-server with embedded NATS + SQLite
-  - [ ] Install titananvil-agent
+  - [ ] Install kscore-server with embedded NATS + SQLite
+  - [ ] Install kscore-agent
   - [ ] Execute first remote command
 - [ ] **NATS deployment guide** (all modes):
   - [ ] Embedded mode quick start (5-minute setup)

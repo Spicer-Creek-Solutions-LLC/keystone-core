@@ -9,9 +9,9 @@ import (
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/titananvil/titan-anvil/cmd/titananvil-monitor/client"
-	"github.com/titananvil/titan-anvil/cmd/titananvil-monitor/config"
-	pb "github.com/titananvil/titan-anvil/pkg/api/v1"
+	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/client"
+	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/config"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 )
 
 // JobsModel represents the jobs view

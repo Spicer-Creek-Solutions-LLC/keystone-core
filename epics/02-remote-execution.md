@@ -22,7 +22,7 @@ Implement a high-performance remote execution system that enables running comman
 ```
 ┌────────────────────────────────────────────────────────┐
 │                CLI / API Client                        │
-│  titanctl exec "ls -la" --target "role:webserver"        │
+│  kscorectl exec "ls -la" --target "role:webserver"        │
 └───────────────────┬────────────────────────────────────┘
                     │
                     ▼
@@ -64,9 +64,9 @@ Implement a high-performance remote execution system that enables running comman
 
 **Example**:
 ```bash
-titanctl exec "systemctl status nginx" --target "role:webserver"
-titanctl exec "df -h" --target "datacenter:us-east-1"
-titanctl exec "Get-Service" --target "os:windows" --shell powershell
+kscorectl exec "systemctl status nginx" --target "role:webserver"
+kscorectl exec "df -h" --target "datacenter:us-east-1"
+kscorectl exec "Get-Service" --target "os:windows" --shell powershell
 ```
 
 ### US2.2: Flexible Targeting
@@ -85,8 +85,8 @@ titanctl exec "Get-Service" --target "os:windows" --shell powershell
 
 **Example**:
 ```bash
-titanctl exec "uptime" --target "role:web AND datacenter:us-*"
-titanctl exec "reboot" --target "id:server-[1-10]" --batch 2
+kscorectl exec "uptime" --target "role:web AND datacenter:us-*"
+kscorectl exec "reboot" --target "id:server-[1-10]" --batch 2
 ```
 
 ### US2.3: Script Execution
@@ -95,8 +95,8 @@ titanctl exec "reboot" --target "id:server-[1-10]" --batch 2
 **So that** I can perform complex operations
 
 **Acceptance Criteria**:
-- Execute inline scripts: `titanctl exec --script "#!/bin/bash\necho hello"`
-- Execute script from file: `titanctl exec --script-file ./deploy.sh`
+- Execute inline scripts: `kscorectl exec --script "#!/bin/bash\necho hello"`
+- Execute script from file: `kscorectl exec --script-file ./deploy.sh`
 - Support multiple interpreters (bash, python, ruby, powershell)
 - Pass arguments to scripts
 - Upload dependencies with script
@@ -104,8 +104,8 @@ titanctl exec "reboot" --target "id:server-[1-10]" --batch 2
 
 **Example**:
 ```bash
-titanctl exec --script-file deploy.sh --args "v1.2.3" --target "role:app"
-titanctl exec --script-file check.py --interpreter python3 --target "all"
+kscorectl exec --script-file deploy.sh --args "v1.2.3" --target "role:app"
+kscorectl exec --script-file check.py --interpreter python3 --target "all"
 ```
 
 ### US2.4: File Transfer and Execution
@@ -123,8 +123,8 @@ titanctl exec --script-file check.py --interpreter python3 --target "all"
 
 **Example**:
 ```bash
-titanctl exec --upload ./collector --run --args "--config /etc/config.yml"
-titanctl file upload ./config.yml --dest /etc/myapp/ --target "role:app"
+kscorectl exec --upload ./collector --run --args "--config /etc/config.yml"
+kscorectl file upload ./config.yml --dest /etc/myapp/ --target "role:app"
 ```
 
 ### US2.5: Output Streaming and Aggregation
@@ -157,23 +157,23 @@ Summary: 2 success, 1 failure
 **So that** I can track and control execution
 
 **Acceptance Criteria**:
-- List running jobs: `titanctl job list`
-- View job status: `titanctl job status <job-id>`
-- Cancel running job: `titanctl job cancel <job-id>`
-- View job results: `titanctl job result <job-id>`
+- List running jobs: `kscorectl job list`
+- View job status: `kscorectl job status <job-id>`
+- Cancel running job: `kscorectl job cancel <job-id>`
+- View job results: `kscorectl job result <job-id>`
 - Job retention policy (configurable TTL)
 - Job search and filtering
 
 **Example**:
 ```bash
 # Start long-running job
-JOB_ID=$(titanctl exec "apt update && apt upgrade -y" --target "os:ubuntu" --async)
+JOB_ID=$(kscorectl exec "apt update && apt upgrade -y" --target "os:ubuntu" --async)
 
 # Check status
-titanctl job status $JOB_ID
+kscorectl job status $JOB_ID
 
 # Cancel if needed
-titanctl job cancel $JOB_ID
+kscorectl job cancel $JOB_ID
 ```
 
 ### US2.7: Execution Control
@@ -193,10 +193,10 @@ titanctl job cancel $JOB_ID
 **Example**:
 ```bash
 # Rolling restart with batches
-titanctl exec "systemctl restart app" --target "role:app" --batch 20% --wait-between 60s
+kscorectl exec "systemctl restart app" --target "role:app" --batch 20% --wait-between 60s
 
 # Quick execution with timeout
-titanctl exec "ping -c 1 google.com" --timeout 5s --target "all"
+kscorectl exec "ping -c 1 google.com" --timeout 5s --target "all"
 ```
 
 ## Technical Tasks
@@ -297,10 +297,10 @@ titanctl exec "ping -c 1 google.com" --timeout 5s --target "all"
 ### Phase 5: CLI and API (Week 6)
 
 **T5.1: CLI Commands**
-- `titanctl exec` - Execute command
-- `titanctl script` - Execute script
-- `titanctl file` - File operations
-- `titanctl job` - Job management
+- `kscorectl exec` - Execute command
+- `kscorectl script` - Execute script
+- `kscorectl file` - File operations
+- `kscorectl job` - Job management
 - Add shell completion support
 - Create man pages
 

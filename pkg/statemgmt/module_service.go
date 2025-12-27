@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/titananvil/titan-anvil/pkg/platform"
+	"github.com/shawnbutts/keystone-core/pkg/platform"
 )
 
 // ServiceModule implements service management

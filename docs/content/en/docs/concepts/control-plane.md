@@ -2,12 +2,12 @@
 title: "Control Plane"
 weight: 1
 description: >
-  The control plane orchestrates all TitanAnvil operations, providing APIs, state management, and agent coordination
+  The control plane orchestrates all Keystone Core operations, providing APIs, state management, and agent coordination
 ---
 
 ## Overview
 
-The TitanAnvil control plane is the central nervous system of your infrastructure operations. It provides:
+The Keystone Core control plane is the central nervous system of your infrastructure operations. It provides:
 
 - **API Server** - gRPC and REST endpoints for all operations
 - **Connection Manager** - Tracks and coordinates agent fleet
@@ -16,7 +16,7 @@ The TitanAnvil control plane is the central nervous system of your infrastructur
 - **Event Engine** - Processes and routes infrastructure events
 - **Policy Enforcement** - Evaluates and enforces compliance policies
 
-Unlike traditional control planes that only manage containers, TitanAnvil orchestrates operations across Kubernetes, VMs, bare metal, edge devices, and cloud resources.
+Unlike traditional control planes that only manage containers, Keystone Core orchestrates operations across Kubernetes, VMs, bare metal, edge devices, and cloud resources.
 
 ## Architecture
 
@@ -24,7 +24,7 @@ Unlike traditional control planes that only manage containers, TitanAnvil orches
 
 ```
 ┌────────────────────────────────────────────────────────┐
-│                  TitanAnvil Control Plane               │
+│                  Keystone Core Control Plane               │
 │                                                         │
 │  ┌──────────────────────────────────────────────────┐  │
 │  │                 API Layer                         │  │
@@ -281,7 +281,7 @@ nats:
 
 storage:
   type: sqlite
-  path: /var/lib/titananvil/state.db
+  path: /var/lib/kscore/state.db
 
 api:
   listen: "0.0.0.0:8080"
@@ -310,18 +310,18 @@ nats:
     - nats://nats1.example.com:4222
     - nats://nats2.example.com:4222
     - nats://nats3.example.com:4222
-  credentials: /etc/titananvil/nats.creds
+  credentials: /etc/kscore/nats.creds
 
 storage:
   type: postgresql
-  connection_string: "postgres://user:pass@postgres.example.com:5432/titananvil?sslmode=require"
+  connection_string: "postgres://user:pass@postgres.example.com:5432/kscore?sslmode=require"
 
 api:
   listen: "0.0.0.0:8080"
   tls:
     enabled: true
-    cert_file: /etc/titananvil/tls/server.crt
-    key_file: /etc/titananvil/tls/server.key
+    cert_file: /etc/kscore/tls/server.crt
+    key_file: /etc/kscore/tls/server.key
 ```
 
 Characteristics:
@@ -454,30 +454,30 @@ Key metrics exposed at `/metrics`:
 
 ```
 # Control Plane
-titananvil_control_plane_uptime_seconds
-titananvil_agents_connected
-titananvil_agents_registered_total
+kscore_control_plane_uptime_seconds
+kscore_agents_connected
+kscore_agents_registered_total
 
 # API Server
-titananvil_api_requests_total{method, path, status}
-titananvil_api_request_duration_seconds{method, path}
+kscore_api_requests_total{method, path, status}
+kscore_api_request_duration_seconds{method, path}
 
 # Command Dispatcher
-titananvil_commands_dispatched_total
-titananvil_commands_completed_total
-titananvil_commands_failed_total
+kscore_commands_dispatched_total
+kscore_commands_completed_total
+kscore_commands_failed_total
 
 # State Manager
-titananvil_state_applications_total
-titananvil_state_drift_detected_total
+kscore_state_applications_total
+kscore_state_drift_detected_total
 
 # Event Engine
-titananvil_events_published_total{type}
-titananvil_events_processed_total{type}
+kscore_events_published_total{type}
+kscore_events_processed_total{type}
 
 # Policy Enforcement
-titananvil_policy_evaluations_total
-titananvil_policy_violations_total{severity}
+kscore_policy_evaluations_total
+kscore_policy_violations_total{severity}
 ```
 
 ## Configuration Reference

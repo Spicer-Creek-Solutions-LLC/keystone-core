@@ -4,7 +4,7 @@
 
 Implement comprehensive support for managing diverse infrastructure environments including Kubernetes clusters, virtual machines, bare metal servers, edge devices, and cloud resources through a unified control plane.
 
-**Goal**: Enable TitanAnvil to be the single operational control plane for all infrastructure types, providing consistent management regardless of the underlying platform.
+**Goal**: Enable Keystone Core to be the single operational control plane for all infrastructure types, providing consistent management regardless of the underlying platform.
 
 ## Success Criteria
 
@@ -23,7 +23,7 @@ Implement comprehensive support for managing diverse infrastructure environments
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│            TitanAnvil Control Plane                      │
+│            Keystone Core Control Plane                      │
 │  ┌──────────────────────────────────────────────────┐   │
 │  │        Unified Agent Management                  │   │
 │  │  Discovery │ Targeting │ Orchestration │ State  │   │
@@ -56,8 +56,8 @@ Implement comprehensive support for managing diverse infrastructure environments
 **So that** I can leverage Kubernetes-specific features
 
 **Acceptance Criteria**:
-- Deploy TitanAnvil as Kubernetes operator
-- Define TitanAnvil resources as CRDs
+- Deploy Keystone Core as Kubernetes operator
+- Define Keystone Core resources as CRDs
 - Execute commands in pods (like `kubectl exec`)
 - Manage Kubernetes resources (deployments, services, etc.)
 - Watch Kubernetes events
@@ -102,13 +102,13 @@ spec:
 **Pod Exec Support**:
 ```bash
 # Execute in pods directly
-titanctl exec "ls -la /app" --target "k8s:app=nginx"
+kscorectl exec "ls -la /app" --target "k8s:app=nginx"
 
 # Execute in specific container
-titanctl exec "ps aux" --target "k8s:app=nginx" --container sidecar
+kscorectl exec "ps aux" --target "k8s:app=nginx" --container sidecar
 
 # Execute across multiple clusters
-titanctl exec "kubectl version" --target "k8s-cluster:*"
+kscorectl exec "kubectl version" --target "k8s-cluster:*"
 ```
 
 ### US8.2: VM Management
@@ -128,7 +128,7 @@ titanctl exec "kubectl version" --target "k8s-cluster:*"
 **Cross-Platform Examples**:
 ```bash
 # Install packages across different OS
-titanctl state apply webserver --target "role:web"
+kscorectl state apply webserver --target "role:web"
 
 # State automatically adapts to OS:
 # - Ubuntu: apt install nginx
@@ -136,11 +136,11 @@ titanctl state apply webserver --target "role:web"
 # - Windows: choco install nginx
 
 # Service management
-titanctl exec "restart nginx" --target "os:linux"
-titanctl exec "Restart-Service nginx" --target "os:windows" --shell powershell
+kscorectl exec "restart nginx" --target "os:linux"
+kscorectl exec "Restart-Service nginx" --target "os:windows" --shell powershell
 
 # File management with platform awareness
-titanctl state apply file-config --target "all"
+kscorectl state apply file-config --target "all"
 # Linux: /etc/nginx/nginx.conf
 # Windows: C:\nginx\conf\nginx.conf
 ```
@@ -190,7 +190,7 @@ services:
 
 **Hardware Inventory**:
 ```bash
-titanctl inventory --target "type:baremetal"
+kscorectl inventory --target "type:baremetal"
 
 Agent: bare-01
   Hardware:
@@ -284,7 +284,7 @@ agent:
 **Edge Scenarios**:
 ```bash
 # Deploy to edge devices
-titanctl state apply edge-config --target "location:edge"
+kscorectl state apply edge-config --target "location:edge"
 
 # Handle intermittent connectivity
 # - Commands buffered locally when offline
@@ -292,10 +292,10 @@ titanctl state apply edge-config --target "location:edge"
 # - Results synced back to control plane
 
 # Edge-specific targeting
-titanctl exec "collect-sensor-data" --target "device-type:iot-sensor"
+kscorectl exec "collect-sensor-data" --target "device-type:iot-sensor"
 
 # Regional edge management
-titanctl exec "update-ml-model" --target "edge-region:us-west"
+kscorectl exec "update-ml-model" --target "edge-region:us-west"
 ```
 
 ### US8.5: Cloud Resource Management
@@ -349,7 +349,7 @@ azure:
 **Cloud Discovery**:
 ```bash
 # Discover cloud resources
-titanctl discover --provider aws --region us-east-1
+kscorectl discover --provider aws --region us-east-1
 
 Discovered Resources:
   EC2 Instances: 50
@@ -358,7 +358,7 @@ Discovered Resources:
   Lambda Functions: 23
 
 # Import for management
-titanctl import aws:ec2:i-12345 --target "role:web"
+kscorectl import aws:ec2:i-12345 --target "role:web"
 ```
 
 ### US8.6: Container Runtime Support
@@ -378,15 +378,15 @@ titanctl import aws:ec2:i-12345 --target "role:web"
 **Container Operations**:
 ```bash
 # Execute in containers
-titanctl exec "ls /app" --target "container:app=nginx"
+kscorectl exec "ls /app" --target "container:app=nginx"
 
 # Container lifecycle
-titanctl container restart --target "container:app=nginx"
-titanctl container logs --target "container:id=abc123" --tail 100
+kscorectl container restart --target "container:app=nginx"
+kscorectl container logs --target "container:id=abc123" --tail 100
 
 # Image management
-titanctl container pull nginx:latest --target "role:web"
-titanctl container prune --target "all"
+kscorectl container pull nginx:latest --target "role:web"
+kscorectl container prune --target "all"
 ```
 
 **Container State Management**:
@@ -427,14 +427,14 @@ containers:
 **Service Mesh Operations**:
 ```bash
 # Target by mesh metadata
-titanctl exec "curl internal-service" --target "istio:version=v2"
+kscorectl exec "curl internal-service" --target "istio:version=v2"
 
 # Mesh-specific operations
-titanctl istio inject --target "k8s:namespace=production"
-titanctl istio traffic-shift --service reviews --v2 50%
+kscorectl istio inject --target "k8s:namespace=production"
+kscorectl istio traffic-shift --service reviews --v2 50%
 
 # Certificate rotation
-titanctl exec "rotate-certs" --target "linkerd:*"
+kscorectl exec "rotate-certs" --target "linkerd:*"
 ```
 
 ### US8.8: Unified Targeting
@@ -452,19 +452,19 @@ titanctl exec "rotate-certs" --target "linkerd:*"
 **Unified Targeting Examples**:
 ```bash
 # Target by environment type
-titanctl exec "uptime" --target "type:vm"
-titanctl exec "uptime" --target "type:k8s"
-titanctl exec "uptime" --target "type:baremetal"
+kscorectl exec "uptime" --target "type:vm"
+kscorectl exec "uptime" --target "type:k8s"
+kscorectl exec "uptime" --target "type:baremetal"
 
 # Cross-environment targeting
-titanctl exec "check-network" --target "datacenter:us-east-1"
+kscorectl exec "check-network" --target "datacenter:us-east-1"
 # Executes on VMs, K8s pods, bare metal in that datacenter
 
 # Complex expressions
-titanctl exec "deploy" --target "(type:k8s OR type:vm) AND env:prod AND region:us-*"
+kscorectl exec "deploy" --target "(type:k8s OR type:vm) AND env:prod AND region:us-*"
 
 # Hierarchical targeting
-titanctl exec "update" --target "cloud:aws/region:us-east-1/role:web"
+kscorectl exec "update" --target "cloud:aws/region:us-east-1/role:web"
 ```
 
 ## Technical Tasks
@@ -473,7 +473,7 @@ titanctl exec "update" --target "cloud:aws/region:us-east-1/role:web"
 
 **T1.1: Kubernetes Operator**
 - Implement operator using operator-sdk
-- Define CRDs for TitanAnvil resources
+- Define CRDs for Keystone Core resources
 - Controller reconciliation loops
 - Watch Kubernetes resources
 - RBAC configuration

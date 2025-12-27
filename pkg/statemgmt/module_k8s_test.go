@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/titananvil/titan-anvil/pkg/k8s"
+	"github.com/shawnbutts/keystone-core/pkg/k8s"
 )
 
 // MockK8sClient is a mock Kubernetes client for testing

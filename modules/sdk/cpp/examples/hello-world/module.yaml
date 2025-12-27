@@ -1,6 +1,6 @@
 name: examples/hello-world-cpp
 version: 0.1.0
-description: Hello World example module in C++ demonstrating TitanAnvil SDK usage
+description: Hello World example module in C++ demonstrating Keystone Core SDK usage
 
 # Module type
 type: wasm
@@ -29,7 +29,7 @@ build:
 
 # Metadata
 metadata:
-  author: TitanAnvil Contributors
+  author: Keystone Core Contributors
   license: MIT
   language: cpp
   sdk_version: "0.1.0"

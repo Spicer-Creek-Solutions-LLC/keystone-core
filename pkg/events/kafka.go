@@ -41,8 +41,8 @@ type KafkaConfig struct {
 func DefaultKafkaConfig() *KafkaConfig {
 	return &KafkaConfig{
 		Brokers:           []string{"localhost:9092"},
-		Topic:             "titananvil.events",
-		ClientID:          "titananvil",
+		Topic:             "kscore.events",
+		ClientID:          "kscore",
 		Version:           "2.8.0",
 		UseCloudEvent:     true,
 		RequiredAcks:      sarama.WaitForLocal,
@@ -194,7 +194,7 @@ func (p *KafkaPublisher) buildMessage(event *Event) (*sarama.ProducerMessage, er
 			return nil, fmt.Errorf("failed to marshal CloudEvent: %w", err)
 		}
 	} else {
-		// Use native TitanAnvil event format
+		// Use native Keystone Core event format
 		value, err = json.Marshal(event)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal event: %w", err)
@@ -276,7 +276,7 @@ func NewKafkaSubscriber(config *KafkaConfig) (*KafkaSubscriber, error) {
 	}
 
 	if config.GroupID == "" {
-		config.GroupID = "titananvil-consumer"
+		config.GroupID = "kscore-consumer"
 	}
 
 	saramaConfig := sarama.NewConfig()
@@ -502,7 +502,7 @@ func (h *kafkaConsumerHandler) parseMessage(message *sarama.ConsumerMessage) (*E
 		return FromCloudEvent(&ce)
 	}
 
-	// Parse as native TitanAnvil event
+	// Parse as native Keystone Core event
 	var event Event
 	if err := json.Unmarshal(message.Value, &event); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal event: %w", err)

@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/titananvil/titan-anvil/pkg/module/manifest"
-	"github.com/titananvil/titan-anvil/pkg/module/policy"
-	"github.com/titananvil/titan-anvil/pkg/module/verify"
+	"github.com/shawnbutts/keystone-core/pkg/module/manifest"
+	"github.com/shawnbutts/keystone-core/pkg/module/policy"
+	"github.com/shawnbutts/keystone-core/pkg/module/verify"
 )
 
 func TestNewModuleLoader(t *testing.T) {

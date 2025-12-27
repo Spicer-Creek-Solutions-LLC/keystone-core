@@ -7,7 +7,7 @@ description: >
 
 ## Overview
 
-Security is critical for production TitanAnvil deployments. This guide covers authentication methods, TLS configuration, RBAC policies, security hardening, and audit logging.
+Security is critical for production Keystone Core deployments. This guide covers authentication methods, TLS configuration, RBAC policies, security hardening, and audit logging.
 
 **Security Layers:**
 - **Authentication**: Token-based and certificate-based auth
@@ -18,14 +18,14 @@ Security is critical for production TitanAnvil deployments. This guide covers au
 
 ## Authentication
 
-TitanAnvil supports multiple authentication methods.
+Keystone Core supports multiple authentication methods.
 
 ### API Key Authentication
 
 **Generate API Key:**
 ```bash
 # Create API key
-titanctl api-key create --name "monitoring-system" --role "read-only"
+kscorectl api-key create --name "monitoring-system" --role "read-only"
 
 # Output:
 # Key ID: ak_1234567890
@@ -36,7 +36,7 @@ titanctl api-key create --name "monitoring-system" --role "read-only"
 ```bash
 # With CLI
 export TITAN_API_KEY="sk_abcdef1234567890"
-titanctl agent list
+kscorectl agent list
 
 # With HTTP API
 curl -H "Authorization: Bearer sk_abcdef1234567890" \
@@ -46,13 +46,13 @@ curl -H "Authorization: Bearer sk_abcdef1234567890" \
 **Rotate API Keys:**
 ```bash
 # List keys
-titanctl api-key list
+kscorectl api-key list
 
 # Revoke old key
-titanctl api-key revoke ak_1234567890
+kscorectl api-key revoke ak_1234567890
 
 # Create new key
-titanctl api-key create --name "monitoring-system" --role "read-only"
+kscorectl api-key create --name "monitoring-system" --role "read-only"
 ```
 
 ### Token-Based Authentication (JWT)
@@ -65,23 +65,23 @@ api:
     method: jwt
     jwt:
       secret: "$JWT_SECRET"  # 256-bit secret
-      issuer: "titananvil"
+      issuer: "kscore"
       expiry: "24h"
 ```
 
 **Generate Token:**
 ```bash
 # Create user token
-titanctl auth login --username admin --password $ADMIN_PASSWORD
+kscorectl auth login --username admin --password $ADMIN_PASSWORD
 
-# Token stored in ~/.titananvil/token
+# Token stored in ~/.kscore/token
 ```
 
 **Token Refresh:**
 ```bash
 # Tokens auto-refresh when within 1 hour of expiry
 # Manual refresh:
-titanctl auth refresh
+kscorectl auth refresh
 ```
 
 ### Certificate-Based Authentication (mTLS)
@@ -93,19 +93,19 @@ titanctl auth refresh
 # Create CA
 openssl genrsa -out ca-key.pem 4096
 openssl req -new -x509 -days 365 -key ca-key.pem -out ca.pem \
-  -subj "/CN=TitanAnvil CA"
+  -subj "/CN=Keystone Core CA"
 
 # Create server certificate
 openssl genrsa -out server-key.pem 4096
 openssl req -new -key server-key.pem -out server.csr \
-  -subj "/CN=titananvil-server"
+  -subj "/CN=kscore-server"
 openssl x509 -req -days 365 -in server.csr -CA ca.pem -CAkey ca-key.pem \
   -CAcreateserial -out server-cert.pem
 
 # Create client certificate
 openssl genrsa -out client-key.pem 4096
 openssl req -new -key client-key.pem -out client.csr \
-  -subj "/CN=titananvil-client"
+  -subj "/CN=kscore-client"
 openssl x509 -req -days 365 -in client.csr -CA ca.pem -CAkey ca-key.pem \
   -CAcreateserial -out client-cert.pem
 ```
@@ -116,21 +116,21 @@ openssl x509 -req -days 365 -in client.csr -CA ca.pem -CAkey ca-key.pem \
 api:
   tls:
     enabled: true
-    cert_file: /etc/titananvil/certs/server-cert.pem
-    key_file: /etc/titananvil/certs/server-key.pem
-    ca_file: /etc/titananvil/certs/ca.pem
+    cert_file: /etc/kscore/certs/server-cert.pem
+    key_file: /etc/kscore/certs/server-key.pem
+    ca_file: /etc/kscore/certs/ca.pem
     client_auth: require  # Require client certificates
 ```
 
 **Client Configuration:**
 ```yaml
-# ~/.titananvil/config.yaml
+# ~/.kscore/config.yaml
 api:
   url: "https://control-plane:8080"
   tls:
-    cert_file: ~/.titananvil/certs/client-cert.pem
-    key_file: ~/.titananvil/certs/client-key.pem
-    ca_file: ~/.titananvil/certs/ca.pem
+    cert_file: ~/.kscore/certs/client-cert.pem
+    key_file: ~/.kscore/certs/client-key.pem
+    ca_file: ~/.kscore/certs/ca.pem
 ```
 
 ### NATS Authentication
@@ -138,7 +138,7 @@ api:
 **Credentials File (Recommended):**
 ```bash
 # Create NATS credentials
-nats-server --genkey --user titananvil > /etc/nats/titananvil.creds
+nats-server --genkey --user titananvil > /etc/nats/kscore.creds
 ```
 
 **NATS Configuration:**
@@ -148,7 +148,7 @@ accounts {
   TITAN: {
     users: [
       {
-        user: "titananvil"
+        user: "kscore"
         password: "$2a$11$..." # bcrypt hash
       }
     ]
@@ -162,7 +162,7 @@ accounts {
 nats:
   url: "nats://nats-server:4222"
   credentials:
-    file: /etc/titananvil/nats.creds
+    file: /etc/kscore/nats.creds
 ```
 
 ## TLS Configuration
@@ -178,8 +178,8 @@ api:
   listen: "0.0.0.0:8443"  # HTTPS port
   tls:
     enabled: true
-    cert_file: /etc/titananvil/certs/server.crt
-    key_file: /etc/titananvil/certs/server.key
+    cert_file: /etc/kscore/certs/server.crt
+    key_file: /etc/kscore/certs/server.key
     min_version: "TLS1.2"
     cipher_suites:
       - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
@@ -193,15 +193,15 @@ api:
 sudo apt-get install certbot
 
 # Get certificate
-sudo certbot certonly --standalone -d titananvil.example.com
+sudo certbot certonly --standalone -d kscore.example.com
 
-# Certificates in /etc/letsencrypt/live/titananvil.example.com/
+# Certificates in /etc/letsencrypt/live/kscore.example.com/
 # - fullchain.pem (cert + chain)
 # - privkey.pem (private key)
 
 # Auto-renewal
 sudo crontab -e
-0 0 * * * certbot renew --quiet --post-hook "systemctl reload titananvil-server"
+0 0 * * * certbot renew --quiet --post-hook "systemctl reload kscore-server"
 ```
 
 ### NATS TLS
@@ -224,9 +224,9 @@ tls {
 nats:
   url: "tls://nats-server:4222"
   tls:
-    ca_file: /etc/titananvil/certs/nats-ca.crt
-    cert_file: /etc/titananvil/certs/agent-cert.crt
-    key_file: /etc/titananvil/certs/agent-key.key
+    ca_file: /etc/kscore/certs/nats-ca.crt
+    cert_file: /etc/kscore/certs/agent-cert.crt
+    key_file: /etc/kscore/certs/agent-key.key
     verify_server: true
 ```
 
@@ -245,7 +245,7 @@ ssl_min_protocol_version = 'TLSv1.2'
 **pg_hba.conf:**
 ```
 # Require SSL for all connections
-hostssl    titananvil      titananvil      10.0.0.0/8              md5
+hostssl    kscore      kscore      10.0.0.0/8              md5
 ```
 
 **Client Configuration:**
@@ -255,9 +255,9 @@ storage:
   postgresql:
     host: "postgres-server"
     sslmode: "require"  # or "verify-ca" or "verify-full"
-    sslcert: "/etc/titananvil/certs/client.crt"
-    sslkey: "/etc/titananvil/certs/client.key"
-    sslrootcert: "/etc/titananvil/certs/ca.crt"
+    sslcert: "/etc/kscore/certs/client.crt"
+    sslkey: "/etc/kscore/certs/client.key"
+    sslrootcert: "/etc/kscore/certs/ca.crt"
 ```
 
 ## RBAC (Role-Based Access Control)
@@ -308,7 +308,7 @@ Define fine-grained access control policies.
 
 **Assign Role to User:**
 ```bash
-titanctl rbac assign --user alice --role deployment-manager
+kscorectl rbac assign --user alice --role deployment-manager
 ```
 
 ### Policy-Based Access Control
@@ -316,7 +316,7 @@ titanctl rbac assign --user alice --role deployment-manager
 **OPA Policy Example:**
 ```rego
 # rbac.rego
-package titananvil.rbac
+package kscore.rbac
 
 import data.users
 import data.roles
@@ -349,20 +349,20 @@ deny {
 
 **Apply Policy:**
 ```bash
-titanctl policy create rbac --file rbac.rego --enforce
+kscorectl policy create rbac --file rbac.rego --enforce
 ```
 
 ### Audit RBAC Changes
 
 ```bash
 # List all roles
-titanctl rbac list-roles
+kscorectl rbac list-roles
 
 # List role assignments
-titanctl rbac list-assignments
+kscorectl rbac list-assignments
 
 # View audit log
-titanctl policy audit --category rbac --since 24h
+kscorectl policy audit --category rbac --since 24h
 ```
 
 ## Security Hardening
@@ -403,16 +403,16 @@ sudo systemctl disable cups
 **File System Permissions:**
 ```bash
 # Restrict config files
-sudo chmod 600 /etc/titananvil/server.yaml
-sudo chown titananvil:titananvil /etc/titananvil/server.yaml
+sudo chmod 600 /etc/kscore/server.yaml
+sudo chown kscore:kscore /etc/kscore/server.yaml
 
 # Restrict private keys
-sudo chmod 400 /etc/titananvil/certs/*.key
-sudo chown titananvil:titananvil /etc/titananvil/certs/*.key
+sudo chmod 400 /etc/kscore/certs/*.key
+sudo chown kscore:kscore /etc/kscore/certs/*.key
 
 # Restrict database files
-sudo chmod 700 /var/lib/titananvil
-sudo chown titananvil:titananvil /var/lib/titananvil
+sudo chmod 700 /var/lib/kscore
+sudo chown kscore:kscore /var/lib/kscore
 ```
 
 **SELinux/AppArmor:**
@@ -420,7 +420,7 @@ sudo chown titananvil:titananvil /var/lib/titananvil
 # Enable SELinux
 sudo setenforce 1
 
-# Create custom SELinux policy for TitanAnvil
+# Create custom SELinux policy for Keystone Core
 # (beyond scope - consult SELinux documentation)
 ```
 
@@ -429,17 +429,17 @@ sudo setenforce 1
 **Principle of Least Privilege:**
 ```bash
 # Run as non-root user
-sudo useradd --system --no-create-home --shell /usr/sbin/nologin titananvil
+sudo useradd --system --no-create-home --shell /usr/sbin/nologin kscore
 
 # Systemd service restrictions
 [Service]
-User=titananvil
-Group=titananvil
+User=kscore
+Group=kscore
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/titananvil
+ReadWritePaths=/var/lib/kscore
 ```
 
 **Rate Limiting:**
@@ -465,7 +465,7 @@ secrets:
   backend: vault
   vault:
     address: https://vault.example.com
-    token_file: /etc/titananvil/vault-token
+    token_file: /etc/kscore/vault-token
 
 # Never store secrets in config files
 database:
@@ -484,7 +484,7 @@ database:
                   │
 ┌─────────────────┴───────────────────────────┐
 │  Control Plane Network (10.0.2.0/24)       │
-│  - TitanAnvil servers                      │
+│  - Keystone Core servers                      │
 │  - NATS cluster                            │
 │  - PostgreSQL                              │
 └─────────────────┬───────────────────────────┘
@@ -512,7 +512,7 @@ Track all security-relevant events.
 # server.yaml
 audit:
   enabled: true
-  log_file: /var/log/titananvil/audit.log
+  log_file: /var/log/kscore/audit.log
   log_level: info
   events:
     - authentication
@@ -545,13 +545,13 @@ audit:
 **With jq:**
 ```bash
 # All failed operations
-cat /var/log/titananvil/audit.log | jq 'select(.result == "failed")'
+cat /var/log/kscore/audit.log | jq 'select(.result == "failed")'
 
 # All actions by user
-cat /var/log/titananvil/audit.log | jq 'select(.user == "alice")'
+cat /var/log/kscore/audit.log | jq 'select(.user == "alice")'
 
 # State applications in last hour
-cat /var/log/titananvil/audit.log | \
+cat /var/log/kscore/audit.log | \
   jq 'select(.event_type == "state.apply" and .timestamp > "2024-01-15T09:00:00Z")'
 ```
 
@@ -582,12 +582,12 @@ audit:
 **Off-site Archival:**
 ```bash
 # Daily export to S3
-aws s3 cp /var/log/titananvil/audit.log \
-  s3://compliance-logs/titananvil/audit-$(date +%Y-%m-%d).log
+aws s3 cp /var/log/kscore/audit.log \
+  s3://compliance-logs/kscore/audit-$(date +%Y-%m-%d).log
 
 # Compress and encrypt
 gpg --encrypt --recipient compliance@example.com audit.log
-aws s3 cp audit.log.gpg s3://compliance-logs/titananvil/
+aws s3 cp audit.log.gpg s3://compliance-logs/kscore/
 ```
 
 ## Compliance
@@ -642,13 +642,13 @@ storage:
 **Data Subject Rights:**
 ```bash
 # Right to access
-titanctl audit query --user alice --output json > alice-data.json
+kscorectl audit query --user alice --output json > alice-data.json
 
 # Right to erasure ("right to be forgotten")
-titanctl user delete alice --purge-data
+kscorectl user delete alice --purge-data
 
 # Data portability
-titanctl export --user alice --format json
+kscorectl export --user alice --format json
 ```
 
 **Data Retention:**
@@ -675,30 +675,30 @@ secrets:
     role_id: "$VAULT_ROLE_ID"
     secret_id: "$VAULT_SECRET_ID"
     paths:
-      database: "secret/data/titananvil/database"
-      nats: "secret/data/titananvil/nats"
+      database: "secret/data/kscore/database"
+      nats: "secret/data/kscore/nats"
 ```
 
 **Store Secrets:**
 ```bash
 # Database password
-vault kv put secret/titananvil/database password="secure-db-password"
+vault kv put secret/kscore/database password="secure-db-password"
 
 # NATS credentials
-vault kv put secret/titananvil/nats username="titananvil" password="secure-nats-password"
+vault kv put secret/kscore/nats username="kscore" password="secure-nats-password"
 
 # API keys
-vault kv put secret/titananvil/api-keys monitoring="sk_monitoring_key"
+vault kv put secret/kscore/api-keys monitoring="sk_monitoring_key"
 ```
 
 **Rotate Secrets:**
 ```bash
 # Update secret in Vault
-vault kv put secret/titananvil/database password="new-secure-password"
+vault kv put secret/kscore/database password="new-secure-password"
 
-# TitanAnvil auto-reloads secrets every 5 minutes
+# Keystone Core auto-reloads secrets every 5 minutes
 # Or trigger immediate reload
-titanctl secrets reload
+kscorectl secrets reload
 ```
 
 ### Kubernetes Secrets
@@ -707,8 +707,8 @@ titanctl secrets reload
 apiVersion: v1
 kind: Secret
 metadata:
-  name: titananvil-secrets
-  namespace: titananvil
+  name: kscore-secrets
+  namespace: kscore
 type: Opaque
 data:
   postgres-password: <base64-encoded>
@@ -720,12 +720,12 @@ data:
 # Use in deployment
 spec:
   containers:
-  - name: titananvil-server
+  - name: kscore-server
     env:
     - name: TITAN_POSTGRES_PASSWORD
       valueFrom:
         secretKeyRef:
-          name: titananvil-secrets
+          name: kscore-secrets
           key: postgres-password
 ```
 
@@ -767,19 +767,19 @@ spec:
 **Incident Response Plan:**
 ```bash
 # 1. Isolate compromised node
-titanctl agent quarantine web-05
+kscorectl agent quarantine web-05
 
 # 2. Collect forensic data
-titanctl exec run "tar -czf /tmp/forensics.tar.gz /var/log /etc" --target "web-05"
+kscorectl exec run "tar -czf /tmp/forensics.tar.gz /var/log /etc" --target "web-05"
 
 # 3. Revoke credentials
-titanctl api-key revoke-all --user compromised-user
+kscorectl api-key revoke-all --user compromised-user
 
 # 4. Force password reset
-titanctl user reset-password --all
+kscorectl user reset-password --all
 
 # 5. Review audit logs
-titanctl audit query --since "incident-start-time" --severity critical
+kscorectl audit query --since "incident-start-time" --severity critical
 ```
 
 ## Security Tools
@@ -787,7 +787,7 @@ titanctl audit query --since "incident-start-time" --severity critical
 **Vulnerability Scanning:**
 ```bash
 # Scan Docker images
-trivy image titananvil/server:latest
+trivy image kscore/server:latest
 
 # Scan OS packages
 lynis audit system
@@ -808,7 +808,7 @@ tail -f /var/ossec/logs/alerts/alerts.log
 **Secrets Detection:**
 ```bash
 # Scan git repo for accidentally committed secrets
-trufflehog filesystem /etc/titananvil
+trufflehog filesystem /etc/kscore
 ```
 
 ## See Also

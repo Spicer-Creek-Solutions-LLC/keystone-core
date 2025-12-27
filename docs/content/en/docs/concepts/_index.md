@@ -3,16 +3,16 @@ title: "Concepts"
 linkTitle: "Concepts"
 weight: 30
 description: >
-  Deep dives into TitanAnvil's architecture and core subsystems
+  Deep dives into Keystone Core's architecture and core subsystems
 ---
 
-## Understanding TitanAnvil
+## Understanding Keystone Core
 
-This section provides in-depth explanations of TitanAnvil's core concepts and subsystems. Each page explores how a major component works, why it's designed that way, and how to use it effectively.
+This section provides in-depth explanations of Keystone Core's core concepts and subsystems. Each page explores how a major component works, why it's designed that way, and how to use it effectively.
 
 ### Core Infrastructure
 
-Learn about the foundational components that power TitanAnvil:
+Learn about the foundational components that power Keystone Core:
 
 - **[Control Plane](control-plane/)** - API server, connection manager, state manager
 - **[Agents](agents/)** - Lightweight agents running on managed nodes
@@ -30,7 +30,7 @@ Understand the systems that enable runtime operations:
 
 ### Cloud-Native Integration
 
-Explore TitanAnvil's cloud-native capabilities:
+Explore Keystone Core's cloud-native capabilities:
 
 - **[GitOps Integration](gitops/)** - ArgoCD/Flux webhooks, verification, rollback
 - **[Policy Enforcement](policy/)** - OPA/CEL policies for compliance
@@ -38,7 +38,7 @@ Explore TitanAnvil's cloud-native capabilities:
 
 ### Multi-Environment Support
 
-Learn how TitanAnvil manages diverse infrastructure:
+Learn how Keystone Core manages diverse infrastructure:
 
 - **[Kubernetes Integration](kubernetes/)** - CRDs, operators, and native K8s support
 - **[Cloud Platforms](cloud-platforms/)** - AWS, GCP, Azure detection and integration
@@ -57,7 +57,7 @@ Each concept page follows a consistent structure:
 
 ## Next Steps
 
-- **New to TitanAnvil?** Start with [Getting Started](../getting-started/) first
+- **New to Keystone Core?** Start with [Getting Started](../getting-started/) first
 - **Want to learn by doing?** Try the [Tutorials](../tutorials/)
 - **Need specific details?** Check the [Reference](../reference/) documentation
 - **Deploying to production?** See [Operations](../operations/)

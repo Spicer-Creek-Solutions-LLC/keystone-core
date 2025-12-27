@@ -2,12 +2,12 @@
 title: "Operations"
 weight: 4
 description: >
-  Comprehensive operational guides for deploying, monitoring, and maintaining TitanAnvil in production
+  Comprehensive operational guides for deploying, monitoring, and maintaining Keystone Core in production
 ---
 
 ## Overview
 
-The Operations section provides comprehensive guides for deploying, monitoring, maintaining, and securing TitanAnvil in production environments. Whether you're running a single-node development setup or a high-availability production cluster, these guides will help you operate TitanAnvil reliably.
+The Operations section provides comprehensive guides for deploying, monitoring, maintaining, and securing Keystone Core in production environments. Whether you're running a single-node development setup or a high-availability production cluster, these guides will help you operate Keystone Core reliably.
 
 ## Guide Categories
 
@@ -84,7 +84,7 @@ Essential guides:
 
 ## Production Checklist
 
-Before deploying TitanAnvil to production, ensure you've completed:
+Before deploying Keystone Core to production, ensure you've completed:
 
 **Infrastructure**
 - [ ] High-availability deployment (3+ control plane nodes)
@@ -174,11 +174,11 @@ Before deploying TitanAnvil to production, ensure you've completed:
 - Implement RBAC policies for least privilege
 - Enable audit logging for compliance
 - Rotate secrets regularly
-- Keep TitanAnvil and dependencies up to date
+- Keep Keystone Core and dependencies up to date
 
 ## See Also
 
 - [Getting Started](/docs/getting-started/) - Initial setup and quick start
-- [Concepts](/docs/concepts/) - Deep dive into TitanAnvil architecture
+- [Concepts](/docs/concepts/) - Deep dive into Keystone Core architecture
 - [Reference](/docs/reference/) - Complete API and CLI reference
 - [Tutorials](/docs/tutorials/) - Step-by-step guides

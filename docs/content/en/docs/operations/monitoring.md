@@ -7,7 +7,7 @@ description: >
 
 ## Overview
 
-TitanAnvil provides comprehensive observability through Prometheus metrics, structured logging, distributed tracing, and pre-built Grafana dashboards. This guide covers the complete monitoring stack setup for production deployments.
+Keystone Core provides comprehensive observability through Prometheus metrics, structured logging, distributed tracing, and pre-built Grafana dashboards. This guide covers the complete monitoring stack setup for production deployments.
 
 **Monitoring Stack:**
 - **Metrics**: Prometheus + Grafana (70+ metrics exposed)
@@ -17,7 +17,7 @@ TitanAnvil provides comprehensive observability through Prometheus metrics, stru
 
 ## Prometheus Integration
 
-TitanAnvil exposes 70+ Prometheus metrics on `/metrics` endpoint.
+Keystone Core exposes 70+ Prometheus metrics on `/metrics` endpoint.
 
 ### Installation
 
@@ -36,8 +36,8 @@ global:
   evaluation_interval: 15s
 
 scrape_configs:
-  # TitanAnvil Control Plane
-  - job_name: 'titananvil-server'
+  # Keystone Core Control Plane
+  - job_name: 'kscore-server'
     static_configs:
       - targets:
           - 'server1:8080'
@@ -46,11 +46,11 @@ scrape_configs:
     metrics_path: '/metrics'
     scrape_interval: 10s
 
-  # TitanAnvil Agents
-  - job_name: 'titananvil-agents'
+  # Keystone Core Agents
+  - job_name: 'kscore-agents'
     relabel_configs:
       - source_labels: [__meta_kubernetes_pod_label_app]
-        regex: titananvil-agent
+        regex: kscore-agent
         action: keep
       - source_labels: [__meta_kubernetes_pod_name]
         target_label: agent_id
@@ -106,59 +106,59 @@ curl http://localhost:9090/api/v1/targets
 **Control Plane Metrics:**
 ```promql
 # API request rate
-rate(titananvil_api_requests_total[5m])
+rate(kscore_api_requests_total[5m])
 
 # API latency (P95)
-histogram_quantile(0.95, rate(titananvil_api_request_duration_seconds_bucket[5m]))
+histogram_quantile(0.95, rate(kscore_api_request_duration_seconds_bucket[5m]))
 
 # Connected agents
-titananvil_agents_connected_total
+kscore_agents_connected_total
 
 # Command execution rate
-rate(titananvil_commands_executed_total[5m])
+rate(kscore_commands_executed_total[5m])
 
 # State application success rate
-rate(titananvil_states_applied_total{result="success"}[5m]) /
-rate(titananvil_states_applied_total[5m])
+rate(kscore_states_applied_total{result="success"}[5m]) /
+rate(kscore_states_applied_total[5m])
 ```
 
 **Agent Metrics:**
 ```promql
 # Agent heartbeat failures
-titananvil_agent_heartbeat_failures_total
+kscore_agent_heartbeat_failures_total
 
 # Agent CPU usage
-titananvil_agent_cpu_usage_percent
+kscore_agent_cpu_usage_percent
 
 # Agent memory usage
-titananvil_agent_memory_usage_bytes / titananvil_agent_memory_total_bytes
+kscore_agent_memory_usage_bytes / kscore_agent_memory_total_bytes
 
 # Agent disk usage
-titananvil_agent_disk_usage_bytes / titananvil_agent_disk_total_bytes
+kscore_agent_disk_usage_bytes / kscore_agent_disk_total_bytes
 ```
 
 **Event System Metrics:**
 ```promql
 # Event publish rate
-rate(titananvil_events_published_total[5m])
+rate(kscore_events_published_total[5m])
 
 # Reactor execution rate
-rate(titananvil_reactor_executions_total[5m])
+rate(kscore_reactor_executions_total[5m])
 
 # Reactor failures
-rate(titananvil_reactor_failures_total[5m])
+rate(kscore_reactor_failures_total[5m])
 ```
 
 **Policy Metrics:**
 ```promql
 # Policy evaluations
-rate(titananvil_policy_evaluations_total[5m])
+rate(kscore_policy_evaluations_total[5m])
 
 # Policy violations by severity
-sum by (severity) (titananvil_policy_violations_total)
+sum by (severity) (kscore_policy_violations_total)
 
 # Compliance score
-titananvil_policy_compliance_score
+kscore_policy_compliance_score
 ```
 
 ### Retention and Storage
@@ -181,7 +181,7 @@ storage:
 
 ## Grafana Dashboards
 
-TitanAnvil provides 6 pre-built Grafana dashboards.
+Keystone Core provides 6 pre-built Grafana dashboards.
 
 ### Installation
 
@@ -210,15 +210,15 @@ datasources:
 **Import Dashboards:**
 ```bash
 # Download dashboards
-wget https://github.com/titananvil/titananvil/raw/main/deploy/grafana/dashboards/*.json \
+wget https://github.com/shawnbutts/keystone-core/raw/main/deploy/grafana/dashboards/*.json \
   -P /etc/grafana/provisioning/dashboards/
 
 # Configure dashboard provisioning
-cat > /etc/grafana/provisioning/dashboards/titananvil.yml <<EOF
+cat > /etc/grafana/provisioning/dashboards/kscore.yml <<EOF
 apiVersion: 1
 providers:
-  - name: 'TitanAnvil'
-    folder: 'TitanAnvil'
+  - name: 'Keystone Core'
+    folder: 'Keystone Core'
     type: file
     options:
       path: /etc/grafana/provisioning/dashboards
@@ -236,7 +236,7 @@ sudo systemctl start grafana-server
 
 ### Dashboard Overview
 
-**1. TitanAnvil Overview**
+**1. Keystone Core Overview**
 - System health status
 - Agent counts (total, healthy, degraded, offline)
 - Command execution rates
@@ -295,7 +295,7 @@ sudo systemctl start grafana-server
 {
   "title": "API Request Latency (P95)",
   "targets": [{
-    "expr": "histogram_quantile(0.95, rate(titananvil_api_request_duration_seconds_bucket[5m]))",
+    "expr": "histogram_quantile(0.95, rate(kscore_api_request_duration_seconds_bucket[5m]))",
     "legendFormat": "{{ method }} {{ path }}"
   }],
   "yaxes": [{
@@ -307,7 +307,7 @@ sudo systemctl start grafana-server
 
 ## Log Aggregation
 
-TitanAnvil emits structured JSON logs for centralized aggregation.
+Keystone Core emits structured JSON logs for centralized aggregation.
 
 ### Loki Setup (Recommended)
 
@@ -390,13 +390,13 @@ clients:
   - url: http://localhost:3100/loki/api/v1/push
 
 scrape_configs:
-  - job_name: titananvil-server
+  - job_name: kscore-server
     static_configs:
       - targets:
           - localhost
         labels:
-          job: titananvil-server
-          __path__: /var/log/titananvil/server.log
+          job: kscore-server
+          __path__: /var/log/kscore/server.log
     pipeline_stages:
       - json:
           expressions:
@@ -411,13 +411,13 @@ scrape_configs:
           source: timestamp
           format: RFC3339
 
-  - job_name: titananvil-agents
+  - job_name: kscore-agents
     static_configs:
       - targets:
           - localhost
         labels:
-          job: titananvil-agents
-          __path__: /var/log/titananvil/agent-*.log
+          job: kscore-agents
+          __path__: /var/log/kscore/agent-*.log
 ```
 
 **Add Loki to Grafana:**
@@ -455,16 +455,16 @@ filebeat.inputs:
   - type: log
     enabled: true
     paths:
-      - /var/log/titananvil/*.log
+      - /var/log/kscore/*.log
     json.keys_under_root: true
     json.add_error_key: true
 
 output.elasticsearch:
   hosts: ["localhost:9200"]
-  index: "titananvil-%{+yyyy.MM.dd}"
+  index: "kscore-%{+yyyy.MM.dd}"
 
-setup.template.name: "titananvil"
-setup.template.pattern: "titananvil-*"
+setup.template.name: "kscore"
+setup.template.pattern: "kscore-*"
 ```
 
 ### Log Queries
@@ -472,16 +472,16 @@ setup.template.pattern: "titananvil-*"
 **Loki Queries (LogQL):**
 ```logql
 # All error logs
-{job="titananvil-server"} |= "error"
+{job="kscore-server"} |= "error"
 
 # Logs with correlation ID
-{job="titananvil-server"} | json | correlation_id="abc-123"
+{job="kscore-server"} | json | correlation_id="abc-123"
 
 # API request logs (HTTP 500)
-{job="titananvil-server"} | json | status_code="500"
+{job="kscore-server"} | json | status_code="500"
 
 # Agent connection failures
-{job="titananvil-server"} | json | message=~"agent.*connection.*failed"
+{job="kscore-server"} | json | message=~"agent.*connection.*failed"
 ```
 
 **Elasticsearch Queries:**
@@ -549,7 +549,7 @@ receivers:
     slack_configs:
       - api_url: '$SLACK_WEBHOOK_URL'
         channel: '#alerts'
-        title: 'TitanAnvil Alert'
+        title: 'Keystone Core Alert'
         text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
 ```
 
@@ -558,11 +558,11 @@ receivers:
 **Create Alert Rules (alerts.yml):**
 ```yaml
 groups:
-  - name: titananvil-control-plane
+  - name: kscore-control-plane
     interval: 30s
     rules:
       - alert: ControlPlaneDown
-        expr: up{job="titananvil-server"} == 0
+        expr: up{job="kscore-server"} == 0
         for: 1m
         labels:
           severity: critical
@@ -571,7 +571,7 @@ groups:
           description: "Control plane has been down for more than 1 minute"
 
       - alert: HighAPILatency
-        expr: histogram_quantile(0.95, rate(titananvil_api_request_duration_seconds_bucket[5m])) > 1
+        expr: histogram_quantile(0.95, rate(kscore_api_request_duration_seconds_bucket[5m])) > 1
         for: 5m
         labels:
           severity: warning
@@ -580,7 +580,7 @@ groups:
           description: "P95 latency is {{ $value }}s (threshold: 1s)"
 
       - alert: HighErrorRate
-        expr: rate(titananvil_api_requests_total{status=~"5.."}[5m]) > 0.05
+        expr: rate(kscore_api_requests_total{status=~"5.."}[5m]) > 0.05
         for: 5m
         labels:
           severity: warning
@@ -588,11 +588,11 @@ groups:
           summary: "High error rate on {{ $labels.instance }}"
           description: "Error rate is {{ $value | humanizePercentage }}"
 
-  - name: titananvil-agents
+  - name: kscore-agents
     interval: 30s
     rules:
       - alert: AgentFleetLowAvailability
-        expr: (titananvil_agents_connected_total / titananvil_agents_total) < 0.9
+        expr: (kscore_agents_connected_total / kscore_agents_total) < 0.9
         for: 5m
         labels:
           severity: warning
@@ -601,7 +601,7 @@ groups:
           description: "Only {{ $value | humanizePercentage }} agents connected"
 
       - alert: AgentFleetCriticalAvailability
-        expr: (titananvil_agents_connected_total / titananvil_agents_total) < 0.7
+        expr: (kscore_agents_connected_total / kscore_agents_total) < 0.7
         for: 5m
         labels:
           severity: critical
@@ -610,7 +610,7 @@ groups:
           description: "Only {{ $value | humanizePercentage }} agents connected"
 
       - alert: AgentHighCPU
-        expr: titananvil_agent_cpu_usage_percent > 90
+        expr: kscore_agent_cpu_usage_percent > 90
         for: 10m
         labels:
           severity: warning
@@ -618,11 +618,11 @@ groups:
           summary: "Agent {{ $labels.agent_id }} high CPU usage"
           description: "CPU usage is {{ $value }}%"
 
-  - name: titananvil-state
+  - name: kscore-state
     interval: 30s
     rules:
       - alert: StateApplicationHighFailureRate
-        expr: rate(titananvil_states_applied_total{result="failed"}[5m]) / rate(titananvil_states_applied_total[5m]) > 0.1
+        expr: rate(kscore_states_applied_total{result="failed"}[5m]) / rate(kscore_states_applied_total[5m]) > 0.1
         for: 5m
         labels:
           severity: warning
@@ -631,7 +631,7 @@ groups:
           description: "{{ $value | humanizePercentage }} of state applications are failing"
 
       - alert: DriftDetectionCritical
-        expr: sum(titananvil_drift_detected_total{severity="critical"}) > 10
+        expr: sum(kscore_drift_detected_total{severity="critical"}) > 10
         for: 5m
         labels:
           severity: critical
@@ -639,11 +639,11 @@ groups:
           summary: "Critical configuration drift detected"
           description: "{{ $value }} critical drift events detected"
 
-  - name: titananvil-policy
+  - name: kscore-policy
     interval: 30s
     rules:
       - alert: PolicyViolationsCritical
-        expr: sum(rate(titananvil_policy_violations_total{severity="critical"}[5m])) > 1
+        expr: sum(rate(kscore_policy_violations_total{severity="critical"}[5m])) > 1
         for: 5m
         labels:
           severity: critical
@@ -652,7 +652,7 @@ groups:
           description: "{{ $value }} critical policy violations per second"
 
       - alert: ComplianceScoreLow
-        expr: titananvil_policy_compliance_score < 80
+        expr: kscore_policy_compliance_score < 80
         for: 10m
         labels:
           severity: warning
@@ -695,7 +695,7 @@ amtool alert --alertmanager.url=http://localhost:9093
 
 ## Health Checks
 
-TitanAnvil exposes health check endpoints for load balancers and orchestrators.
+Keystone Core exposes health check endpoints for load balancers and orchestrators.
 
 ### Endpoints
 
@@ -764,14 +764,14 @@ http-check expect status 200
 
 **Nginx:**
 ```nginx
-upstream titananvil {
+upstream kscore {
     server server1:8080 max_fails=3 fail_timeout=30s;
     server server2:8080 max_fails=3 fail_timeout=30s;
 }
 
 server {
     location /health/ready {
-        proxy_pass http://titananvil;
+        proxy_pass http://kscore;
     }
 }
 ```
@@ -801,23 +801,23 @@ server {
 **SLO Dashboard Queries:**
 ```promql
 # Availability (control plane)
-avg_over_time(up{job="titananvil-server"}[30d]) * 100
+avg_over_time(up{job="kscore-server"}[30d]) * 100
 
 # API Latency P95
-histogram_quantile(0.95, rate(titananvil_api_request_duration_seconds_bucket[5m]))
+histogram_quantile(0.95, rate(kscore_api_request_duration_seconds_bucket[5m]))
 
 # Error Rate
-rate(titananvil_api_requests_total{status=~"5.."}[5m]) /
-rate(titananvil_api_requests_total[5m])
+rate(kscore_api_requests_total{status=~"5.."}[5m]) /
+rate(kscore_api_requests_total[5m])
 
 # Agent Availability
-(titananvil_agents_connected_total / titananvil_agents_total) * 100
+(kscore_agents_connected_total / kscore_agents_total) * 100
 ```
 
 **Error Budget Alerts:**
 ```yaml
 - alert: SLOErrorBudgetExhausted
-  expr: (1 - avg_over_time(up{job="titananvil-server"}[30d])) > 0.001
+  expr: (1 - avg_over_time(up{job="kscore-server"}[30d])) > 0.001
   labels:
     severity: critical
   annotations:
@@ -907,4 +907,4 @@ curl http://localhost:3100/metrics | grep loki_ingester
 - [Deployment Guide](deployment/) - Deploy monitoring stack
 - [Troubleshooting Guide](troubleshooting/) - Debug monitoring issues
 - [Metrics Reference](/docs/reference/metrics/) - Complete metrics catalog
-- [Grafana Dashboards](https://github.com/titananvil/grafana-dashboards) - Dashboard repository
+- [Grafana Dashboards](https://github.com/kscore/grafana-dashboards) - Dashboard repository

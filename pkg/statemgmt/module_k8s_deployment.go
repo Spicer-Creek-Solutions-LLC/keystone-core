@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/titananvil/titan-anvil/pkg/k8s"
+	"github.com/shawnbutts/keystone-core/pkg/k8s"
 )
 
 // K8sDeploymentModule implements Kubernetes deployment management

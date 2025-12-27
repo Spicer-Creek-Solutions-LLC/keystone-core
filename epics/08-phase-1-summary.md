@@ -6,7 +6,7 @@
 
 ## Overview
 
-Phase 1 of Epic 8 (Multi-Environment Support) implements comprehensive Kubernetes integration, enabling TitanAnvil to natively manage Kubernetes workloads through both operator mode and state management.
+Phase 1 of Epic 8 (Multi-Environment Support) implements comprehensive Kubernetes integration, enabling Keystone Core to natively manage Kubernetes workloads through both operator mode and state management.
 
 ## Implemented Components
 
@@ -56,7 +56,7 @@ Production-ready Kubernetes client wrapper:
 
 ### 3. **Kubernetes CRDs** (`pkg/k8s/crds.go`)
 
-Custom Resource Definitions for TitanAnvil operators:
+Custom Resource Definitions for Keystone Core operators:
 
 **RemoteExecution CRD:**
 ```yaml
@@ -130,7 +130,7 @@ Kubernetes operator controllers with reconciliation loops:
 
 ### 5. **Kubernetes State Modules** (`pkg/statemgmt/module_k8s_*.go`)
 
-Integration with TitanAnvil's declarative state management:
+Integration with Keystone Core's declarative state management:
 
 **Base Module** (`module_k8s_base.go`):
 - Common functionality for all K8s modules
@@ -157,7 +157,7 @@ k8s_namespace:
     state: present
     labels:
       environment: production
-      managed-by: titananvil
+      managed-by: kscore
 
 k8s_deployment:
   nginx-production:
@@ -210,7 +210,7 @@ All tests passing with comprehensive coverage:
 
 ### 2. **Dual Integration Approach**
 - **Operator Mode**: For Kubernetes-native declarative management (CRDs)
-- **State Modules**: For integration with TitanAnvil's cross-platform state system
+- **State Modules**: For integration with Keystone Core's cross-platform state system
 - Users can choose the approach that fits their workflow
 
 ### 3. **Execution Modes**
@@ -225,7 +225,7 @@ All tests passing with comprehensive coverage:
 
 ## Integration Points
 
-### With Existing TitanAnvil Components
+### With Existing Keystone Core Components
 
 1. **State Management (Epic 3)**
    - K8s modules integrate with existing state system
@@ -235,7 +235,7 @@ All tests passing with comprehensive coverage:
 2. **Remote Execution (Epic 2)**
    - Pod exec integrates with existing execution engine
    - Targeting system extended for Kubernetes resources
-   - Example: `titanctl exec "ls /app" --target "k8s:app=nginx"`
+   - Example: `kscorectl exec "ls /app" --target "k8s:app=nginx"`
 
 3. **Event System (Epic 4)**
    - K8s watch events published to NATS
@@ -279,7 +279,7 @@ All required Kubernetes dependencies were already present in `go.mod`:
 - Multi-cluster execution coordination
 - Advanced pod selection (by regex, by annotation)
 - Execution result aggregation
-- Integration with `titananvil-exec` CLI plugin
+- Integration with `kscore-exec` CLI plugin
 
 ### Additional State Modules (Future)
 - `k8s_service` - Service management
@@ -297,11 +297,11 @@ All required Kubernetes dependencies were already present in `go.mod`:
 ## User Stories Completed
 
 ### ✅ US8.1: Kubernetes Native Integration (Partial)
-- [x] Define TitanAnvil resources as CRDs
+- [x] Define Keystone Core resources as CRDs
 - [x] Execute commands in pods (like `kubectl exec`)
 - [x] Manage Kubernetes resources (deployments, namespaces)
 - [x] Integration with Kubernetes RBAC (via kubeconfig)
-- [ ] Deploy TitanAnvil as Kubernetes operator (needs deployment manifests)
+- [ ] Deploy Keystone Core as Kubernetes operator (needs deployment manifests)
 - [ ] Watch Kubernetes events (infrastructure in place, needs reactor integration)
 - [ ] Support for multiple clusters (client supports it, needs orchestration)
 
@@ -328,7 +328,7 @@ All required Kubernetes dependencies were already present in `go.mod`:
 
 ## Conclusion
 
-Phase 1 of Epic 8 successfully implements the foundation for Kubernetes integration in TitanAnvil. The implementation provides:
+Phase 1 of Epic 8 successfully implements the foundation for Kubernetes integration in Keystone Core. The implementation provides:
 
 1. **Native Kubernetes support** through a clean client abstraction
 2. **Operator mode** with CRDs for Kubernetes-native workflows
@@ -336,6 +336,6 @@ Phase 1 of Epic 8 successfully implements the foundation for Kubernetes integrat
 4. **Production-ready** code with comprehensive tests
 5. **Extensible architecture** for additional resource types
 
-The design allows TitanAnvil users to manage Kubernetes workloads alongside VMs, bare metal, and edge devices through a unified interface, fulfilling the vision of a single operational control plane for all infrastructure types.
+The design allows Keystone Core users to manage Kubernetes workloads alongside VMs, bare metal, and edge devices through a unified interface, fulfilling the vision of a single operational control plane for all infrastructure types.
 
 **Phase 1 Status**: ✅ **COMPLETE**

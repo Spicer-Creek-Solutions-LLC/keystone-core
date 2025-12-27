@@ -2,9 +2,9 @@
 
 ## Overview
 
-Implement comprehensive observability features including metrics, logging, tracing, and dashboards to provide complete visibility into TitanAnvil operations and infrastructure state.
+Implement comprehensive observability features including metrics, logging, tracing, and dashboards to provide complete visibility into Keystone Core operations and infrastructure state.
 
-**Goal**: Make TitanAnvil fully observable with production-grade monitoring, alerting, and troubleshooting capabilities that integrate seamlessly with existing observability stacks.
+**Goal**: Make Keystone Core fully observable with production-grade monitoring, alerting, and troubleshooting capabilities that integrate seamlessly with existing observability stacks.
 
 ## Success Criteria
 
@@ -24,7 +24,7 @@ Implement comprehensive observability features including metrics, logging, traci
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│              TitanAnvil Components                       │
+│              Keystone Core Components                       │
 │  Control Plane │ Agents │ State Engine │ Event System   │
 └────────┬─────────────────────────────────────────────────┘
          │
@@ -52,7 +52,7 @@ Implement comprehensive observability features including metrics, logging, traci
 
 ### US7.1: Prometheus Metrics
 **As an** SRE
-**I want to** collect Prometheus metrics from TitanAnvil
+**I want to** collect Prometheus metrics from Keystone Core
 **So that** I can monitor system health and performance
 
 **Acceptance Criteria**:
@@ -185,7 +185,7 @@ logging:
     - type: loki
       url: http://loki:3100
       labels:
-        app: titananvil
+        app: kscore
         environment: production
 ```
 
@@ -235,13 +235,13 @@ tracing:
     always_sample:
       - "/api/v1/health"  # Always trace health checks
   attributes:
-    service.name: titananvil
+    service.name: kscore
     deployment.environment: production
 ```
 
 ### US7.4: Real-Time TUI Monitor
 **As an** operator
-**I want to** a terminal-based dashboard for monitoring TitanAnvil
+**I want to** a terminal-based dashboard for monitoring Keystone Core
 **So that** I can quickly check system status without web UI dependencies
 
 **Acceptance Criteria**:
@@ -260,7 +260,7 @@ tracing:
 1. **Dashboard Overview** (default view)
    ```
    ┌────────────────────────────────────────────────────────────────┐
-   │ TitanAnvil Monitor                    [q] quit [?] help       │
+   │ Keystone Core Monitor                    [q] quit [?] help       │
    ├────────────────────────────────────────────────────────────────┤
    │ System                                                          │
    │   Uptime: 3d 12h 45m      API Req/s: 1,234    Events/s: 567   │
@@ -434,7 +434,7 @@ tracing:
 
 **Configuration**:
 ```yaml
-# ~/.titananvil/monitor.yaml
+# ~/.kscore/monitor.yaml
 monitor:
   # Connection
   control_plane: localhost:8080
@@ -473,35 +473,35 @@ monitor:
     agents: 10000
 
   # Export
-  export_dir: ~/titananvil-exports
+  export_dir: ~/kscore-exports
 ```
 
 **CLI Usage**:
 ```bash
 # Basic usage (connects to default control plane)
-titanctl monitor
+kscorectl monitor
 
 # Connect to specific control plane
-titanctl monitor --endpoint prod-titan.example.com:8080
+kscorectl monitor --endpoint prod-titan.example.com:8080
 
 # Start with specific view
-titanctl monitor --view agents
+kscorectl monitor --view agents
 
 # Custom config
-titanctl monitor --config /path/to/monitor.yaml
+kscorectl monitor --config /path/to/monitor.yaml
 
 # Export mode (capture and exit)
-titanctl monitor --export --duration 30s --output snapshot.json
+kscorectl monitor --export --duration 30s --output snapshot.json
 
 # Filter from command line
-titanctl monitor --filter "level>=warn"
-titanctl monitor --view agents --filter "status=offline"
+kscorectl monitor --filter "level>=warn"
+kscorectl monitor --view agents --filter "status=offline"
 ```
 
 ### US7.5: Grafana Dashboards
 **As an** SRE
 **I want to** pre-built Grafana dashboards
-**So that** I can visualize TitanAnvil operations
+**So that** I can visualize Keystone Core operations
 
 **Acceptance Criteria**:
 - Dashboard for control plane health
@@ -514,7 +514,7 @@ titanctl monitor --view agents --filter "status=offline"
 
 **Dashboards**:
 
-1. **TitanAnvil Overview**
+1. **Keystone Core Overview**
    - Total agents (connected/disconnected)
    - Commands per second
    - State applications per hour
@@ -621,7 +621,7 @@ GET /health/status
 
 ### US7.7: Performance Profiling
 **As a** developer
-**I want to** profile TitanAnvil performance
+**I want to** profile Keystone Core performance
 **So that** I can identify and fix bottlenecks
 
 **Acceptance Criteria**:
@@ -647,7 +647,7 @@ go tool pprof heap.prof
 curl http://titan:6060/debug/pprof/goroutine > goroutine.prof
 
 # Start CPU profiling via API
-titanctl debug profile --type cpu --duration 30s --output cpu.prof
+kscorectl debug profile --type cpu --duration 30s --output cpu.prof
 ```
 
 ### US7.8: Infrastructure State Visualization
@@ -772,7 +772,7 @@ Legend:
 
 **T4.2: Configuration System**
 - Define configuration schema (monitor.yaml)
-- Implement config file loading (~/.titananvil/monitor.yaml)
+- Implement config file loading (~/.kscore/monitor.yaml)
 - Command-line flag parsing
   - `--endpoint` - control plane address
   - `--view` - starting view
@@ -784,7 +784,7 @@ Legend:
 - Default values for all settings
 
 **T4.3: Control Plane Client**
-- gRPC client for TitanAnvil API
+- gRPC client for Keystone Core API
 - Authentication (TLS client certs)
 - Connection management (reconnect logic)
 - API methods:
@@ -1043,13 +1043,13 @@ Legend:
   - Adding new views
   - Extending filters
   - Custom themes
-- Man page (titanctl-monitor.1)
+- Man page (kscorectl-monitor.1)
 - Built-in help system (? key)
 - Example configurations
 
 **T4.20: CLI Plugin Integration**
-- Create `titananvil-monitor` binary
-- Integrate with titanctl plugin system
+- Create `kscore-monitor` binary
+- Integrate with kscorectl plugin system
 - Command-line argument parsing
 - Proper exit codes
 - Signal handling (Ctrl+C, SIGTERM)

@@ -1,13 +1,13 @@
 apiVersion: 1
 
 providers:
-  - name: 'TitanAnvil Dashboards'
+  - name: 'Keystone Core Dashboards'
     orgId: 1
-    folder: 'TitanAnvil'
+    folder: 'Keystone Core'
     type: file
     disableDeletion: false
     updateIntervalSeconds: 30
     allowUiUpdates: true
     options:
-      path: /etc/grafana/provisioning/dashboards/titananvil
+      path: /etc/grafana/provisioning/dashboards/kscore
       foldersFromFilesStructure: false

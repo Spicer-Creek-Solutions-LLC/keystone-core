@@ -7,7 +7,7 @@ description: >
 
 ## Overview
 
-Regular maintenance is essential for reliable TitanAnvil operations. This guide covers backup procedures, disaster recovery, version upgrades, database migrations, and capacity planning.
+Regular maintenance is essential for reliable Keystone Core operations. This guide covers backup procedures, disaster recovery, version upgrades, database migrations, and capacity planning.
 
 **Maintenance Tasks:**
 - **Daily**: Automated backups, health checks
@@ -17,7 +17,7 @@ Regular maintenance is essential for reliable TitanAnvil operations. This guide 
 
 ## Backup Procedures
 
-TitanAnvil state should be backed up regularly to prevent data loss.
+Keystone Core state should be backed up regularly to prevent data loss.
 
 ### What to Back Up
 
@@ -30,7 +30,7 @@ TitanAnvil state should be backed up regularly to prevent data loss.
 
 2. **Configuration Files**
    - `/etc/titan anvil/server.yaml`
-   - `/etc/titananvil/agent.yaml`
+   - `/etc/kscore/agent.yaml`
    - Reactor definitions
    - Policy files
 
@@ -67,8 +67,8 @@ TitanAnvil state should be backed up regularly to prevent data loss.
 #!/bin/bash
 # /usr/local/bin/backup-sqlite.sh
 
-BACKUP_DIR="/var/backups/titananvil"
-DB_PATH="/var/lib/titananvil/state.db"
+BACKUP_DIR="/var/backups/kscore"
+DB_PATH="/var/lib/kscore/state.db"
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 
 # Create backup directory
@@ -88,14 +88,14 @@ echo "Backup completed: state-$TIMESTAMP.db.gz"
 
 **Schedule with Cron:**
 ```bash
-# /etc/cron.d/titananvil-backup
-0 2 * * * titananvil /usr/local/bin/backup-sqlite.sh >> /var/log/titananvil/backup.log 2>&1
+# /etc/cron.d/kscore-backup
+0 2 * * * titananvil /usr/local/bin/backup-sqlite.sh >> /var/log/kscore/backup.log 2>&1
 ```
 
 **Verify Backup:**
 ```bash
 # Test backup integrity
-gunzip -c /var/backups/titananvil/state-20240115-020000.db.gz | sqlite3 :memory: "PRAGMA integrity_check;"
+gunzip -c /var/backups/kscore/state-20240115-020000.db.gz | sqlite3 :memory: "PRAGMA integrity_check;"
 
 # Expected output: ok
 ```
@@ -107,16 +107,16 @@ gunzip -c /var/backups/titananvil/state-20240115-020000.db.gz | sqlite3 :memory:
 #!/bin/bash
 # /usr/local/bin/backup-postgres.sh
 
-BACKUP_DIR="/var/backups/titananvil"
+BACKUP_DIR="/var/backups/kscore"
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 
 mkdir -p "$BACKUP_DIR"
 
 # Full database dump
-pg_dump -U titananvil -h localhost -Fc titananvil > "$BACKUP_DIR/postgres-$TIMESTAMP.dump"
+pg_dump -U kscore -h localhost -Fc titananvil > "$BACKUP_DIR/postgres-$TIMESTAMP.dump"
 
 # Schema-only backup
-pg_dump -U titananvil -h localhost -s > "$BACKUP_DIR/schema-$TIMESTAMP.sql"
+pg_dump -U kscore -h localhost -s > "$BACKUP_DIR/schema-$TIMESTAMP.sql"
 
 # Cleanup old backups
 find "$BACKUP_DIR" -name "postgres-*.dump" -mtime +30 -delete
@@ -157,7 +157,7 @@ pg_basebackup -h localhost -U replicator -D "/var/backups/postgres-$(date +%Y%m%
 **Stream Backup:**
 ```bash
 # Backup specific stream
-nats stream backup titananvil-events /var/backups/nats/events-$(date +%Y%m%d)
+nats stream backup kscore-events /var/backups/nats/events-$(date +%Y%m%d)
 
 # Backup all streams
 for stream in $(nats stream list -n); do
@@ -170,27 +170,27 @@ done
 **Git Repository (Recommended):**
 ```bash
 # Initialize git repo
-cd /etc/titananvil
+cd /etc/kscore
 git init
 git add .
 git commit -m "Initial configuration"
 
 # Add remote
-git remote add origin git@github.com:yourorg/titananvil-config.git
+git remote add origin git@github.com:yourorg/kscore-config.git
 git push -u origin main
 
 # Automatic backup on changes
-cat > /etc/titananvil/.git/hooks/post-commit <<'EOF'
+cat > /etc/kscore/.git/hooks/post-commit <<'EOF'
 #!/bin/bash
 git push origin main
 EOF
-chmod +x /etc/titananvil/.git/hooks/post-commit
+chmod +x /etc/kscore/.git/hooks/post-commit
 ```
 
 **Tarball Backup:**
 ```bash
 # Backup all configs
-tar -czf /var/backups/titananvil/config-$(date +%Y%m%d).tar.gz /etc/titananvil
+tar -czf /var/backups/kscore/config-$(date +%Y%m%d).tar.gz /etc/kscore
 ```
 
 ### Backup Verification
@@ -200,18 +200,18 @@ tar -czf /var/backups/titananvil/config-$(date +%Y%m%d).tar.gz /etc/titananvil
 #!/bin/bash
 # /usr/local/bin/verify-backup.sh
 
-LATEST_BACKUP=$(ls -t /var/backups/titananvil/postgres-*.dump | head -1)
+LATEST_BACKUP=$(ls -t /var/backups/kscore/postgres-*.dump | head -1)
 
 # Restore to test database
-createdb titananvil_test
-pg_restore -U titananvil -d titananvil_test "$LATEST_BACKUP"
+createdb kscore_test
+pg_restore -U kscore -d kscore_test "$LATEST_BACKUP"
 
 # Run integrity checks
-psql -U titananvil -d titananvil_test -c "SELECT COUNT(*) FROM agents;"
-psql -U titananvil -d titananvil_test -c "SELECT COUNT(*) FROM state_resources;"
+psql -U kscore -d kscore_test -c "SELECT COUNT(*) FROM agents;"
+psql -U kscore -d kscore_test -c "SELECT COUNT(*) FROM state_resources;"
 
 # Cleanup
-dropdb titananvil_test
+dropdb kscore_test
 
 echo "Backup verification passed: $LATEST_BACKUP"
 ```
@@ -221,18 +221,18 @@ echo "Backup verification passed: $LATEST_BACKUP"
 **S3 Backup:**
 ```bash
 # Upload to S3
-aws s3 sync /var/backups/titananvil/ s3://my-backups/titananvil/ \
+aws s3 sync /var/backups/kscore/ s3://my-backups/kscore/ \
   --storage-class STANDARD_IA \
   --exclude "*" --include "*.dump" --include "*.db.gz"
 
 # Verify upload
-aws s3 ls s3://my-backups/titananvil/
+aws s3 ls s3://my-backups/kscore/
 ```
 
 **rsync to Remote Server:**
 ```bash
 # Daily rsync to backup server
-rsync -avz --delete /var/backups/titananvil/ backup-server:/backups/titananvil/
+rsync -avz --delete /var/backups/kscore/ backup-server:/backups/kscore/
 ```
 
 ## Restore Procedures
@@ -241,20 +241,20 @@ rsync -avz --delete /var/backups/titananvil/ backup-server:/backups/titananvil/
 
 **Full Restore:**
 ```bash
-# Stop TitanAnvil
-sudo systemctl stop titananvil-server
+# Stop Keystone Core
+sudo systemctl stop kscore-server
 
 # Restore database
-gunzip -c /var/backups/titananvil/state-20240115-020000.db.gz > /var/lib/titananvil/state.db
+gunzip -c /var/backups/kscore/state-20240115-020000.db.gz > /var/lib/kscore/state.db
 
 # Fix permissions
-sudo chown titananvil:titananvil /var/lib/titananvil/state.db
+sudo chown kscore:kscore /var/lib/kscore/state.db
 
-# Start TitanAnvil
-sudo systemctl start titananvil-server
+# Start Keystone Core
+sudo systemctl start kscore-server
 
 # Verify
-titanctl agent list
+kscorectl agent list
 ```
 
 **Point-in-Time Recovery:**
@@ -264,18 +264,18 @@ Not supported with SQLite. Use PostgreSQL for PITR.
 
 **Full Database Restore:**
 ```bash
-# Stop TitanAnvil
-sudo systemctl stop titananvil-server
+# Stop Keystone Core
+sudo systemctl stop kscore-server
 
 # Drop and recreate database
-dropdb titananvil
-createdb titananvil
+dropdb kscore
+createdb kscore
 
 # Restore from dump
-pg_restore -U titananvil -d titananvil /var/backups/titananvil/postgres-20240115-020000.dump
+pg_restore -U kscore -d titananvil /var/backups/kscore/postgres-20240115-020000.dump
 
-# Start TitanAnvil
-sudo systemctl start titananvil-server
+# Start Keystone Core
+sudo systemctl start kscore-server
 ```
 
 **Point-in-Time Recovery (PITR):**
@@ -301,25 +301,25 @@ psql -c "SELECT pg_wal_replay_resume();"
 **Stream Restore:**
 ```bash
 # Restore stream from backup
-nats stream restore titananvil-events /var/backups/nats/events-20240115
+nats stream restore kscore-events /var/backups/nats/events-20240115
 
 # Verify messages
-nats stream info titananvil-events
+nats stream info kscore-events
 ```
 
 ### Configuration Restore
 
 **From Git:**
 ```bash
-cd /etc/titananvil
+cd /etc/kscore
 git pull origin main
-sudo systemctl restart titananvil-server
+sudo systemctl restart kscore-server
 ```
 
 **From Tarball:**
 ```bash
-tar -xzf /var/backups/titananvil/config-20240115.tar.gz -C /
-sudo systemctl restart titananvil-server
+tar -xzf /var/backups/kscore/config-20240115.tar.gz -C /
+sudo systemctl restart kscore-server
 ```
 
 ### Disaster Recovery Drill
@@ -374,40 +374,40 @@ sudo systemctl restart titananvil-server
 
 **2. Download New Version:**
 ```bash
-wget https://github.com/titananvil/titananvil/releases/download/v1.1.0/titananvil-server-linux-amd64
-chmod +x titananvil-server-linux-amd64
+wget https://github.com/shawnbutts/keystone-core/releases/download/v1.1.0/kscore-server-linux-amd64
+chmod +x kscore-server-linux-amd64
 ```
 
 **3. Stop Service:**
 ```bash
-sudo systemctl stop titananvil-server
+sudo systemctl stop kscore-server
 ```
 
 **4. Replace Binary:**
 ```bash
-sudo mv titananvil-server-linux-amd64 /usr/local/bin/titananvil-server
+sudo mv kscore-server-linux-amd64 /usr/local/bin/kscore-server
 ```
 
 **5. Run Migrations (if needed):**
 ```bash
-titananvil-server migrate --config /etc/titananvil/server.yaml
+kscore-server migrate --config /etc/kscore/server.yaml
 ```
 
 **6. Start Service:**
 ```bash
-sudo systemctl start titananvil-server
+sudo systemctl start kscore-server
 ```
 
 **7. Verify:**
 ```bash
 # Check version
-titanctl version
+kscorectl version
 
 # Check health
 curl http://localhost:8080/health/ready
 
 # Check agents
-titanctl agent list
+kscorectl agent list
 ```
 
 **Downtime:** 2-5 minutes
@@ -419,9 +419,9 @@ titanctl agent list
 **1. Upgrade Secondary Nodes First:**
 ```bash
 # On server2 (secondary)
-sudo systemctl stop titananvil-server
-sudo mv /tmp/titananvil-server-new /usr/local/bin/titananvil-server
-sudo systemctl start titananvil-server
+sudo systemctl stop kscore-server
+sudo mv /tmp/kscore-server-new /usr/local/bin/kscore-server
+sudo systemctl start kscore-server
 
 # Wait for health check
 curl http://server2:8080/health/ready
@@ -432,20 +432,20 @@ curl http://server2:8080/health/ready
 **2. Upgrade Primary (Leader):**
 ```bash
 # Trigger leader election to another node
-titanctl cluster step-down
+kscorectl cluster step-down
 
 # Wait for new leader election (30 seconds)
-titanctl cluster status
+kscorectl cluster status
 
 # Upgrade old leader
-sudo systemctl stop titananvil-server
-sudo mv /tmp/titananvil-server-new /usr/local/bin/titananvil-server
-sudo systemctl start titananvil-server
+sudo systemctl stop kscore-server
+sudo mv /tmp/kscore-server-new /usr/local/bin/kscore-server
+sudo systemctl start kscore-server
 ```
 
 **3. Verify Cluster:**
 ```bash
-titanctl cluster status
+kscorectl cluster status
 
 # All nodes should be healthy
 # NODE      STATUS    VERSION   ROLE
@@ -461,27 +461,27 @@ titanctl cluster status
 **Rolling Update:**
 ```bash
 # Update image tag
-kubectl set image deployment/titananvil-server \
-  titananvil-server=titananvil/server:v1.1.0 \
-  -n titananvil
+kubectl set image deployment/kscore-server \
+  kscore-server=titananvil/server:v1.1.0 \
+  -n kscore
 
 # Watch rollout
-kubectl rollout status deployment/titananvil-server -n titananvil
+kubectl rollout status deployment/kscore-server -n kscore
 
 # Verify
-kubectl get pods -n titananvil
+kubectl get pods -n kscore
 ```
 
 **With Helm:**
 ```bash
 # Update chart values
-helm upgrade titananvil titananvil/titananvil \
-  --namespace titananvil \
+helm upgrade titananvil titananvil/kscore \
+  --namespace kscore \
   --set server.image.tag=v1.1.0 \
   --reuse-values
 
 # Rollback if needed
-helm rollback titananvil -n titananvil
+helm rollback kscore -n kscore
 ```
 
 ### Agent Upgrades
@@ -489,14 +489,14 @@ helm rollback titananvil -n titananvil
 **Canary Upgrade (Recommended):**
 ```bash
 # 1. Upgrade 10% of agents
-titanctl exec run "wget https://.../titananvil-agent-new && systemctl restart titananvil-agent" \
+kscorectl exec run "wget https://.../kscore-agent-new && systemctl restart kscore-agent" \
   --target "datacenter:us-east-1" --limit 10%
 
 # 2. Monitor for 1 hour
-titanctl agent list --filter "version:1.1.0"
+kscorectl agent list --filter "version:1.1.0"
 
 # 3. If successful, upgrade remaining
-titanctl exec run "wget https://.../titananvil-agent-new && systemctl restart titananvil-agent" \
+kscorectl exec run "wget https://.../kscore-agent-new && systemctl restart kscore-agent" \
   --target "version:1.0.0"
 ```
 
@@ -506,20 +506,20 @@ titanctl exec run "wget https://.../titananvil-agent-new && systemctl restart ti
 agent_binary:
   module: file
   state: present
-  path: /usr/local/bin/titananvil-agent
-  source: https://releases.titananvil.io/v1.1.0/titananvil-agent-linux-amd64
+  path: /usr/local/bin/kscore-agent
+  source: https://releases.kscore.io/v1.1.0/kscore-agent-linux-amd64
   mode: "0755"
 
 agent_restart:
   module: service
   state: running
-  name: titananvil-agent
+  name: kscore-agent
   watch:
     - agent_binary
 ```
 
 ```bash
-titanctl state apply agent-upgrade.yaml --target "all"
+kscorectl state apply agent-upgrade.yaml --target "all"
 ```
 
 ### Rollback Procedure
@@ -528,28 +528,28 @@ titanctl state apply agent-upgrade.yaml --target "all"
 
 **1. Stop New Version:**
 ```bash
-sudo systemctl stop titananvil-server
+sudo systemctl stop kscore-server
 ```
 
 **2. Restore Old Binary:**
 ```bash
-sudo mv /usr/local/bin/titananvil-server.backup /usr/local/bin/titananvil-server
+sudo mv /usr/local/bin/kscore-server.backup /usr/local/bin/kscore-server
 ```
 
 **3. Restore Database (if migrations ran):**
 ```bash
-pg_restore -U titananvil -d titananvil /var/backups/titananvil/pre-upgrade-backup.dump
+pg_restore -U kscore -d titananvil /var/backups/kscore/pre-upgrade-backup.dump
 ```
 
 **4. Start Old Version:**
 ```bash
-sudo systemctl start titananvil-server
+sudo systemctl start kscore-server
 ```
 
 **5. Verify:**
 ```bash
-titanctl version
-titanctl agent list
+kscorectl version
+kscorectl agent list
 ```
 
 ## Database Maintenance
@@ -559,21 +559,21 @@ titanctl agent list
 **Vacuum (Defragment):**
 ```bash
 # Reclaim space from deleted records
-sqlite3 /var/lib/titananvil/state.db "VACUUM;"
+sqlite3 /var/lib/kscore/state.db "VACUUM;"
 
 # Analyze for query optimization
-sqlite3 /var/lib/titananvil/state.db "ANALYZE;"
+sqlite3 /var/lib/kscore/state.db "ANALYZE;"
 ```
 
 **Integrity Check:**
 ```bash
-sqlite3 /var/lib/titananvil/state.db "PRAGMA integrity_check;"
+sqlite3 /var/lib/kscore/state.db "PRAGMA integrity_check;"
 ```
 
 **Size Monitoring:**
 ```bash
 # Check database size
-du -h /var/lib/titananvil/state.db
+du -h /var/lib/kscore/state.db
 
 # Alert if >10GB (approaching SQLite limits)
 ```
@@ -583,13 +583,13 @@ du -h /var/lib/titananvil/state.db
 **Vacuum:**
 ```bash
 # Manual vacuum
-vacuumdb -U titananvil -d titananvil -v
+vacuumdb -U kscore -d titananvil -v
 
 # Analyze statistics
-vacuumdb -U titananvil -d titananvil -z
+vacuumdb -U kscore -d titananvil -z
 
 # Full vacuum (reclaims disk space, requires table lock)
-vacuumdb -U titananvil -d titananvil -f
+vacuumdb -U kscore -d titananvil -f
 ```
 
 **Autovacuum Configuration:**
@@ -605,7 +605,7 @@ autovacuum_analyze_threshold = 50
 **Reindex:**
 ```bash
 # Rebuild indexes
-reindexdb -U titananvil -d titananvil
+reindexdb -U kscore -d titananvil
 ```
 
 **Statistics Update:**
@@ -627,58 +627,58 @@ ANALYZE VERBOSE;
 ```bash
 # See Deployment Guide for PostgreSQL setup
 sudo apt-get install postgresql-14
-sudo -u postgres createuser titananvil
-sudo -u postgres createdb -O titananvil titananvil
+sudo -u postgres createuser kscore
+sudo -u postgres createdb -O kscore titananvil
 ```
 
 **2. Export SQLite Data:**
 ```bash
 # Stop control plane
-sudo systemctl stop titananvil-server
+sudo systemctl stop kscore-server
 
 # Export to SQL
-titananvil-migrate export \
-  --source sqlite:///var/lib/titananvil/state.db \
+kscore-migrate export \
+  --source sqlite:///var/lib/kscore/state.db \
   --format sql \
   --output /tmp/export.sql
 ```
 
 **3. Import to PostgreSQL:**
 ```bash
-titananvil-migrate import \
+kscore-migrate import \
   --input /tmp/export.sql \
-  --target postgres://titananvil:password@localhost/titananvil \
+  --target postgres://kscore:password@localhost/kscore \
   --validate
 ```
 
 **4. Update Configuration:**
 ```yaml
-# /etc/titananvil/server.yaml
+# /etc/kscore/server.yaml
 storage:
   type: postgresql
   postgresql:
     host: localhost
     port: 5432
-    database: titananvil
-    username: titananvil
+    database: kscore
+    username: kscore
     password: $POSTGRES_PASSWORD
 ```
 
 **5. Start and Verify:**
 ```bash
-sudo systemctl start titananvil-server
+sudo systemctl start kscore-server
 
 # Verify agent count
-titanctl agent list | wc -l
+kscorectl agent list | wc -l
 
 # Verify state resources
-titanctl state list | wc -l
+kscorectl state list | wc -l
 ```
 
 **6. Backup SQLite (Archive):**
 ```bash
-gzip /var/lib/titananvil/state.db
-mv /var/lib/titananvil/state.db.gz /var/backups/titananvil/sqlite-archive-$(date +%Y%m%d).db.gz
+gzip /var/lib/kscore/state.db
+mv /var/lib/kscore/state.db.gz /var/backups/kscore/sqlite-archive-$(date +%Y%m%d).db.gz
 ```
 
 ## Data Retention
@@ -712,17 +712,17 @@ WHERE timestamp < NOW() - INTERVAL '30 days'
 
 **Logrotate Configuration:**
 ```
-# /etc/logrotate.d/titananvil
-/var/log/titananvil/*.log {
+# /etc/logrotate.d/kscore
+/var/log/kscore/*.log {
     daily
     rotate 30
     compress
     delaycompress
     notifempty
-    create 0644 titananvil titananvil
+    create 0644 kscore kscore
     sharedscripts
     postrotate
-        systemctl reload titananvil-server > /dev/null 2>&1 || true
+        systemctl reload kscore-server > /dev/null 2>&1 || true
     endscript
 }
 ```
@@ -745,11 +745,11 @@ groups:
   - name: downsampling
     interval: 5m
     rules:
-      - record: titananvil:api:request_rate:5m
-        expr: rate(titananvil_api_requests_total[5m])
+      - record: kscore:api:request_rate:5m
+        expr: rate(kscore_api_requests_total[5m])
 
-      - record: titananvil:api:latency:p95:5m
-        expr: histogram_quantile(0.95, rate(titananvil_api_request_duration_seconds_bucket[5m]))
+      - record: kscore:api:latency:p95:5m
+        expr: histogram_quantile(0.95, rate(kscore_api_request_duration_seconds_bucket[5m]))
 ```
 
 ## Capacity Planning
@@ -759,13 +759,13 @@ groups:
 **Monitor Growth Trends:**
 ```promql
 # Agent growth rate (agents/month)
-deriv(titananvil_agents_total[30d]) * 86400 * 30
+deriv(kscore_agents_total[30d]) * 86400 * 30
 
 # State resource growth
-deriv(titananvil_state_resources_total[30d]) * 86400 * 30
+deriv(kscore_state_resources_total[30d]) * 86400 * 30
 
 # Event rate growth
-deriv(rate(titananvil_events_published_total[5m])[30d]) * 86400 * 30
+deriv(rate(kscore_events_published_total[5m])[30d]) * 86400 * 30
 ```
 
 ### Resource Planning
@@ -855,18 +855,18 @@ SELECT pg_terminate_backend(pid);
 **Migration Failed:**
 ```bash
 # Check migration log
-journalctl -u titananvil-server | grep migration
+journalctl -u kscore-server | grep migration
 
 # Rollback to previous version
-/usr/local/bin/titananvil-server.backup --version
+/usr/local/bin/kscore-server.backup --version
 ```
 
 **Version Mismatch:**
 ```bash
 # Check all component versions
-titanctl version        # CLI
-titanctl cluster status # Server
-titanctl agent list     # Agents
+kscorectl version        # CLI
+kscorectl cluster status # Server
+kscorectl agent list     # Agents
 
 # Upgrade mismatched components
 ```

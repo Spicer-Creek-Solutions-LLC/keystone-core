@@ -2,17 +2,17 @@
 title: "Community"
 weight: 5
 description: >
-  Join the TitanAnvil community - contribute code, report issues, and help shape the future of runtime infrastructure management
+  Join the Keystone Core community - contribute code, report issues, and help shape the future of runtime infrastructure management
 ---
 
-## Welcome to the TitanAnvil Community
+## Welcome to the Keystone Core Community
 
-TitanAnvil is an open-source project that thrives on community contributions. Whether you're fixing bugs, adding features, writing documentation, or helping other users, your contributions are valued and appreciated.
+Keystone Core is an open-source project that thrives on community contributions. Whether you're fixing bugs, adding features, writing documentation, or helping other users, your contributions are valued and appreciated.
 
 ## Get Involved
 
 ### [Contributing](contributing/)
-Learn how to contribute code, documentation, and bug reports to TitanAnvil.
+Learn how to contribute code, documentation, and bug reports to Keystone Core.
 
 ### [Development](development/)
 Set up your development environment and learn about our development workflows.
@@ -21,7 +21,7 @@ Set up your development environment and learn about our development workflows.
 See what's planned for future releases and help prioritize features.
 
 ### [Support](support/)
-Get help, ask questions, and connect with other TitanAnvil users.
+Get help, ask questions, and connect with other Keystone Core users.
 
 ## Community Principles
 
@@ -35,15 +35,15 @@ Get help, ask questions, and connect with other TitanAnvil users.
 
 ## Quick Links
 
-- **GitHub Repository**: [github.com/titananvil/titan-anvil](https://github.com/titananvil/titan-anvil)
-- **Issue Tracker**: [github.com/titananvil/titan-anvil/issues](https://github.com/titananvil/titan-anvil/issues)
-- **Discussions**: [github.com/titananvil/titan-anvil/discussions](https://github.com/titananvil/titan-anvil/discussions)
-- **Discord**: [discord.gg/titananvil](https://discord.gg/titananvil)
-- **Twitter**: [@titananvil](https://twitter.com/titananvil)
+- **GitHub Repository**: [github.com/kscore/keystone-core](https://github.com/kscore/keystone-core)
+- **Issue Tracker**: [github.com/kscore/keystone-core/issues](https://github.com/kscore/keystone-core/issues)
+- **Discussions**: [github.com/kscore/keystone-core/discussions](https://github.com/kscore/keystone-core/discussions)
+- **Discord**: [discord.gg/kscore](https://discord.gg/kscore)
+- **Twitter**: [@kscore](https://twitter.com/kscore)
 
 ## Code of Conduct
 
-TitanAnvil is committed to providing a welcoming and harassment-free experience for everyone. We expect all community members to:
+Keystone Core is committed to providing a welcoming and harassment-free experience for everyone. We expect all community members to:
 
 - Use welcoming and inclusive language
 - Be respectful of differing viewpoints and experiences

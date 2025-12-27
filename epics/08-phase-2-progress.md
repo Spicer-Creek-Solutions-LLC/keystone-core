@@ -7,7 +7,7 @@
 
 ## Overview
 
-Phase 2 of Epic 8 implements cross-platform VM support, enabling TitanAnvil to manage Linux, Windows, and macOS systems with intelligent platform detection and OS-specific module adaptations.
+Phase 2 of Epic 8 implements cross-platform VM support, enabling Keystone Core to manage Linux, Windows, and macOS systems with intelligent platform detection and OS-specific module adaptations.
 
 ## Completed Components
 

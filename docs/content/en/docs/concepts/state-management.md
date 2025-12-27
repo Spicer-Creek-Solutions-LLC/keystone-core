@@ -7,7 +7,7 @@ description: >
 
 ## Overview
 
-TitanAnvil's state management system enables you to describe your infrastructure's desired state declaratively. The system ensures your infrastructure matches that state through idempotent operations.
+Keystone Core's state management system enables you to describe your infrastructure's desired state declaratively. The system ensures your infrastructure matches that state through idempotent operations.
 
 **Key Principles**:
 - **Declarative**: Describe what you want, not how to achieve it
@@ -64,7 +64,7 @@ Each state declaration has:
 
 ## State Modules
 
-TitanAnvil includes 6 built-in modules:
+Keystone Core includes 6 built-in modules:
 
 ### 1. File Module
 
@@ -326,7 +326,7 @@ clear_cache:
 
 ## Dependency Resolution
 
-TitanAnvil builds a dependency graph and topologically sorts state declarations:
+Keystone Core builds a dependency graph and topologically sorts state declarations:
 
 ### Execution Order
 
@@ -407,7 +407,7 @@ app_config:
 
 **Apply with variables**:
 ```bash
-titanctl state apply web-server.yaml --vars vars.yaml
+kscorectl state apply web-server.yaml --vars vars.yaml
 ```
 
 ### Facts
@@ -469,7 +469,7 @@ example:
 
 ## Drift Detection
 
-TitanAnvil automatically detects when actual state differs from desired state:
+Keystone Core automatically detects when actual state differs from desired state:
 
 ### How It Works
 
@@ -512,10 +512,10 @@ Summary:
 **Manual**:
 ```bash
 # Check for drift
-titanctl state check web-server.yaml --target "role:web"
+kscorectl state check web-server.yaml --target "role:web"
 
 # Fix drift
-titanctl state apply web-server.yaml --target "role:web"
+kscorectl state apply web-server.yaml --target "role:web"
 ```
 
 **Automatic** (via reactors):
@@ -636,7 +636,7 @@ vars/
 
 ### Testing
 
-1. **Dry Run**: Test with `titanctl state check` first
+1. **Dry Run**: Test with `kscorectl state check` first
 2. **Dev Environment**: Test on dev before prod
 3. **Version Control**: Commit and review state changes
 4. **Rollback Plan**: Keep previous versions for rollback
@@ -650,10 +650,10 @@ vars/
 Debug:
 ```bash
 # Detailed output
-titanctl state apply web.yaml --target "role:web" --verbose
+kscorectl state apply web.yaml --target "role:web" --verbose
 
 # Dry run
-titanctl state check web.yaml --target "role:web"
+kscorectl state check web.yaml --target "role:web"
 ```
 
 Common issues:
@@ -679,7 +679,7 @@ Fix:
 Debug:
 ```bash
 # Check template syntax
-titanctl state render web.yaml --vars dev.yaml
+kscorectl state render web.yaml --vars dev.yaml
 ```
 
 Common issues:

@@ -10,7 +10,7 @@ import (
 
 	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
-	"github.com/titananvil/titan-anvil/pkg/config"
+	"github.com/shawnbutts/keystone-core/pkg/config"
 )
 
 // Manager handles NATS connections and embedded server
@@ -150,7 +150,7 @@ func (m *Manager) startEmbeddedServer() error {
 // connect establishes a connection to NATS
 func (m *Manager) connect() error {
 	opts := []nats.Option{
-		nats.Name("titan-anvil"),
+		nats.Name("keystone-core"),
 		nats.MaxReconnects(m.config.MaxReconnects),
 		nats.ReconnectWait(m.config.ReconnectWait),
 		nats.DisconnectErrHandler(func(nc *nats.Conn, err error) {

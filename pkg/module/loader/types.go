@@ -5,11 +5,11 @@ import (
 	"context"
 	"time"
 
-	"github.com/titananvil/titan-anvil/pkg/module/capabilities"
-	"github.com/titananvil/titan-anvil/pkg/module/manifest"
-	"github.com/titananvil/titan-anvil/pkg/module/policy"
-	"github.com/titananvil/titan-anvil/pkg/module/runtime"
-	"github.com/titananvil/titan-anvil/pkg/module/verify"
+	"github.com/shawnbutts/keystone-core/pkg/module/capabilities"
+	"github.com/shawnbutts/keystone-core/pkg/module/manifest"
+	"github.com/shawnbutts/keystone-core/pkg/module/policy"
+	"github.com/shawnbutts/keystone-core/pkg/module/runtime"
+	"github.com/shawnbutts/keystone-core/pkg/module/verify"
 )
 
 // LoadOptions configures module loading behavior

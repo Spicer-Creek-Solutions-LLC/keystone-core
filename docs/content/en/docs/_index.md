@@ -4,23 +4,23 @@ linkTitle: "Documentation"
 weight: 20
 ---
 
-Welcome to the TitanAnvil documentation!
+Welcome to the Keystone Core documentation!
 
-TitanAnvil is a cloud-native runtime infrastructure control plane that operates between GitOps/IaC deployments and your live infrastructure. It ensures your systems stay running, compliant, and healthy.
+Keystone Core is a cloud-native runtime infrastructure control plane that operates between GitOps/IaC deployments and your live infrastructure. It ensures your systems stay running, compliant, and healthy.
 
 ## Key Concept
 
 **"GitOps deploys it. We keep it running."**
 
-While GitOps tools like ArgoCD and Flux excel at deploying applications declaratively, TitanAnvil handles the operational reality: configuration drift, event-driven automation, policy enforcement, and runtime verification.
+While GitOps tools like ArgoCD and Flux excel at deploying applications declaratively, Keystone Core handles the operational reality: configuration drift, event-driven automation, policy enforcement, and runtime verification.
 
 ## What You'll Find Here
 
 ### [Getting Started](/docs/getting-started/)
-New to TitanAnvil? Start here to understand what it is, install it, and complete your first deployment in under 15 minutes.
+New to Keystone Core? Start here to understand what it is, install it, and complete your first deployment in under 15 minutes.
 
 ### [Concepts](/docs/concepts/)
-Deep dives into TitanAnvil's architecture and subsystems: agents, state management, events, GitOps integration, policy enforcement, and more.
+Deep dives into Keystone Core's architecture and subsystems: agents, state management, events, GitOps integration, policy enforcement, and more.
 
 ### [Tutorials](/docs/tutorials/)
 Step-by-step guides for common use cases. Each tutorial takes 15-30 minutes and includes working examples.
@@ -41,13 +41,13 @@ Production deployment guides, monitoring setup, troubleshooting, backup/restore,
 
 ## Need Help?
 
-- **GitHub Issues**: [Report bugs or request features](https://github.com/titananvil/titan-anvil/issues)
-- **Discussions**: [Ask questions and share ideas](https://github.com/titananvil/titan-anvil/discussions)
+- **GitHub Issues**: [Report bugs or request features](https://github.com/kscore/keystone-core/issues)
+- **Discussions**: [Ask questions and share ideas](https://github.com/kscore/keystone-core/discussions)
 - **Documentation**: You're already here!
 
 ## Project Status
 
-TitanAnvil has **9 of 11 epics complete** with comprehensive test coverage (150+ tests passing). Currently production-ready for:
+Keystone Core has **9 of 11 epics complete** with comprehensive test coverage (150+ tests passing). Currently production-ready for:
 
 ✅ Core Infrastructure (NATS, agents, control plane)
 ✅ Remote Execution (targeting, batch execution)

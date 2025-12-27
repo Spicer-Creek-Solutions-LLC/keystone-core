@@ -20,7 +20,7 @@ const (
 	ErrorTypeOther ErrorType = "other"
 )
 
-// Error represents a TitanAnvil module error
+// Error represents a Keystone Core module error
 type Error struct {
 	Type    ErrorType
 	Message string

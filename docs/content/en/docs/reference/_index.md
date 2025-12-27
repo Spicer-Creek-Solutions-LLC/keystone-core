@@ -5,7 +5,7 @@ description: >
   Comprehensive technical reference for APIs, CLI, configuration, and system components
 ---
 
-This section provides detailed technical reference documentation for all TitanAnvil components.
+This section provides detailed technical reference documentation for all Keystone Core components.
 
 ## Available References
 
@@ -25,7 +25,7 @@ This section provides detailed technical reference documentation for all TitanAn
 - [Metrics Catalog](metrics/)
 
 ### For Operators
-- [titanctl Commands](cli/)
+- [kscorectl Commands](cli/)
 - [Control Plane Configuration](configuration/#control-plane)
 - [Agent Configuration](configuration/#agent)
 - [State File Syntax](modules/)

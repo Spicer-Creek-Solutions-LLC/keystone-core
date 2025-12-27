@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/titananvil/titan-anvil/pkg/tracing"
+	"github.com/shawnbutts/keystone-core/pkg/tracing"
 )
 
 // Action represents an automated action that can be executed in response to an event

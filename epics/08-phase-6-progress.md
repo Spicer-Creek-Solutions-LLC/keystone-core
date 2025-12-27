@@ -7,7 +7,7 @@
 
 ## Overview
 
-Phase 6 of Epic 8 implements container runtime detection (Docker, containerd) and service mesh integration (Istio, Linkerd, Consul Connect). This enables TitanAnvil agents to automatically detect container environments and service mesh configurations, collecting rich metadata for intelligent targeting and operations.
+Phase 6 of Epic 8 implements container runtime detection (Docker, containerd) and service mesh integration (Istio, Linkerd, Consul Connect). This enables Keystone Core agents to automatically detect container environments and service mesh configurations, collecting rich metadata for intelligent targeting and operations.
 
 ## Completed Components
 
@@ -457,10 +457,10 @@ if containerMetadata != nil {
 }
 
 // Target Docker containers
-titanctl exec --target "container_runtime:docker" "ps aux"
+kscorectl exec --target "container_runtime:docker" "ps aux"
 
 // Target specific image
-titanctl exec --target "image_name:nginx:latest" "nginx -v"
+kscorectl exec --target "image_name:nginx:latest" "nginx -v"
 ```
 
 ### Example 2: Service Mesh-Aware Operations
@@ -481,11 +481,11 @@ if meshMetadata != nil {
 }
 
 // Target Istio services in production namespace
-titanctl exec --target "service_mesh:istio AND service_namespace:production" \
+kscorectl exec --target "service_mesh:istio AND service_namespace:production" \
     "curl localhost:15000/stats/prometheus"
 
 // Query Linkerd metrics
-titanctl exec --target "service_mesh:linkerd" \
+kscorectl exec --target "service_mesh:linkerd" \
     "curl localhost:4191/metrics"
 ```
 
@@ -511,15 +511,15 @@ if containerMetadata.Runtime == container.RuntimeContainerd &&
 
 ```bash
 # Check proxy health in Istio
-titanctl exec --target "service_mesh:istio" \
+kscorectl exec --target "service_mesh:istio" \
     "curl -s localhost:15021/healthz/ready"
 
 # Get Linkerd proxy metrics
-titanctl exec --target "service_mesh:linkerd AND service_namespace:default" \
+kscorectl exec --target "service_mesh:linkerd AND service_namespace:default" \
     "curl -s localhost:4191/metrics | grep request_total"
 
 # Consul Connect status
-titanctl exec --target "service_mesh:consul" \
+kscorectl exec --target "service_mesh:consul" \
     "curl -s localhost:19000/server_info | jq .state"
 ```
 
@@ -528,55 +528,55 @@ titanctl exec --target "service_mesh:consul" \
 ### 1. **Container Inventory**
 ```bash
 # List all Docker containers
-titanctl agents list --filter "container_runtime:docker"
+kscorectl agents list --filter "container_runtime:docker"
 
 # Find containers running specific image
-titanctl agents list --filter "image_name:~nginx*"
+kscorectl agents list --filter "image_name:~nginx*"
 ```
 
 ### 2. **Service Mesh Observability**
 ```bash
 # Query all Istio services
-titanctl exec --target "service_mesh:istio" \
+kscorectl exec --target "service_mesh:istio" \
     "curl localhost:15000/stats/prometheus"
 
 # Check mTLS status across fleet
-titanctl agents list --output json | \
+kscorectl agents list --output json | \
     jq '.[] | {service: .service_name, mtls: .mtls_enabled}'
 ```
 
 ### 3. **Security Compliance**
 ```bash
 # Verify all services have mTLS enabled
-titanctl policy check --rule "mtls_required" \
+kscorectl policy check --rule "mtls_required" \
     --target "service_mesh:*"
 
 # Audit SPIFFE identities
-titanctl agents list --output csv \
+kscorectl agents list --output csv \
     --fields service_name,spiffe_identity,mtls_mode
 ```
 
 ### 4. **Service Discovery**
 ```bash
 # Find all instances of a service
-titanctl agents list --filter "service_name:frontend"
+kscorectl agents list --filter "service_name:frontend"
 
 # Group services by namespace
-titanctl agents list --group-by service_namespace
+kscorectl agents list --group-by service_namespace
 ```
 
 ### 5. **Troubleshooting**
 ```bash
 # Check proxy logs in Istio
-titanctl exec --target "service_name:frontend AND service_mesh:istio" \
+kscorectl exec --target "service_name:frontend AND service_mesh:istio" \
     "curl localhost:15000/logging"
 
 # Get Envoy config dump
-titanctl exec --target "service_mesh:istio" \
+kscorectl exec --target "service_mesh:istio" \
     "curl localhost:15000/config_dump"
 
 # Linkerd proxy diagnostics
-titanctl exec --target "service_mesh:linkerd" \
+kscorectl exec --target "service_mesh:linkerd" \
     "curl localhost:4191/proxy-log-level"
 ```
 
@@ -645,6 +645,6 @@ Phase 6 is complete with comprehensive container runtime and service mesh detect
 - **Tracks mTLS status** with SPIFFE identities
 - **Provides unified APIs** across runtimes and meshes
 
-The container and service mesh integration enables TitanAnvil to operate seamlessly in containerized environments and service mesh architectures, with automatic discovery and rich context for intelligent operations and compliance enforcement.
+The container and service mesh integration enables Keystone Core to operate seamlessly in containerized environments and service mesh architectures, with automatic discovery and rich context for intelligent operations and compliance enforcement.
 
 **Phase 6 Status**: ✅ **100% COMPLETE** (All container and service mesh features implemented)

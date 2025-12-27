@@ -29,7 +29,7 @@ const (
 	StorageBackendPostgreSQL StorageBackend = "postgresql"
 )
 
-// Config represents the complete TitanAnvil configuration
+// Config represents the complete Keystone Core configuration
 type Config struct {
 	Server  ServerConfig
 	NATS    NATSConfig
@@ -162,7 +162,7 @@ const (
 	DefaultNATSReconnectWait = 2 * time.Second
 
 	DefaultStorageBackend     = StorageBackendSQLite
-	DefaultSQLitePath         = "./data/titan-anvil.db"
+	DefaultSQLitePath         = "./data/keystone-core.db"
 	DefaultSQLiteWAL          = true
 	DefaultSQLiteBusyTimeout  = 5000 // 5 seconds
 	DefaultPostgreSQLMaxOpen  = 25
@@ -185,10 +185,10 @@ func LoadConfig(cfgFile string) (*Config, error) {
 	if cfgFile != "" {
 		v.SetConfigFile(cfgFile)
 	} else {
-		v.SetConfigName("titan-anvil")
+		v.SetConfigName("keystone-core")
 		v.SetConfigType("yaml")
-		v.AddConfigPath("/etc/titan-anvil/")
-		v.AddConfigPath("$HOME/.titan-anvil")
+		v.AddConfigPath("/etc/keystone-core/")
+		v.AddConfigPath("$HOME/.keystone-core")
 		v.AddConfigPath(".")
 	}
 

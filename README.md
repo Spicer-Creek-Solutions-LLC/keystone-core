@@ -1,8 +1,8 @@
-# TitanAnvil
+# Keystone Core
 
 **GitOps deploys it. We keep it running.**
 
-TitanAnvil is a cloud-native runtime infrastructure control plane that provides real-time execution, continuous compliance, and operational automation across hybrid environments.
+Keystone Core is a cloud-native runtime infrastructure control plane that provides real-time execution, continuous compliance, and operational automation across hybrid environments.
 
 ## Project Status
 
@@ -49,9 +49,9 @@ This repository contains the complete implementation of **Epic 1: Core Infrastru
 - gRPC service definitions
 
 ✅ **Core Binaries**
-- `titananvil-server` - Control plane server (with embedded NATS support)
-- `titananvil-agent` - Agent daemon (with embedded NATS support)
-- `titanctl` - Main CLI tool (plugin dispatcher pattern)
+- `kscore-server` - Control plane server (with embedded NATS support)
+- `kscore-agent` - Agent daemon (with embedded NATS support)
+- `kscorectl` - Main CLI tool (plugin dispatcher pattern)
 
 ✅ **Agent Features**
 - Agent registration with control plane
@@ -97,18 +97,18 @@ make build
 ```
 
 This creates binaries in `./bin/`:
-- `titananvil-server`
-- `titananvil-agent`
-- `titanctl`
+- `kscore-server`
+- `kscore-agent`
+- `kscorectl`
 
 ### Run Server (Embedded Mode - Zero Dependencies)
 
 ```bash
 # Copy example config
-cp titan-anvil.yaml.example titan-anvil.yaml
+cp keystone-core.yaml.example keystone-core.yaml
 
 # Run server with embedded NATS + SQLite
-./bin/titananvil-server
+./bin/kscore-server
 ```
 
 The server will:
@@ -124,7 +124,7 @@ The server will:
 
 ```bash
 # Run agent with embedded NATS
-./bin/titananvil-agent
+./bin/kscore-agent
 ```
 
 The agent will:
@@ -135,7 +135,7 @@ The agent will:
 
 ### Configuration
 
-TitanAnvil supports flexible deployment configurations:
+Keystone Core supports flexible deployment configurations:
 
 #### NATS Modes
 
@@ -166,7 +166,7 @@ TitanAnvil supports flexible deployment configurations:
    - High availability, replication support
    - Scalable to 1000+ nodes
 
-See `titan-anvil.yaml.example` for all configuration options.
+See `keystone-core.yaml.example` for all configuration options.
 
 ## Architecture
 
@@ -199,11 +199,11 @@ See `titan-anvil.yaml.example` for all configuration options.
 ## Project Structure
 
 ```
-titan-anvil/
+keystone-core/
 ├── cmd/
-│   ├── titananvil-server/     # Control plane server
-│   ├── titananvil-agent/      # Agent daemon
-│   └── titanctl/              # Main CLI (plugin dispatcher)
+│   ├── kscore-server/     # Control plane server
+│   ├── kscore-agent/      # Agent daemon
+│   └── kscorectl/              # Main CLI (plugin dispatcher)
 ├── pkg/
 │   ├── api/v1/                # Generated protobuf code
 │   ├── config/                # Configuration management
@@ -214,7 +214,7 @@ titan-anvil/
 ├── epics/                     # Epic-level design docs
 ├── Makefile                   # Build system
 ├── go.mod                     # Go dependencies
-└── titan-anvil.yaml.example   # Example configuration
+└── keystone-core.yaml.example   # Example configuration
 ```
 
 ## Next Steps

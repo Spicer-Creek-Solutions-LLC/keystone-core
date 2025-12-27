@@ -14,12 +14,12 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 
-	pb "github.com/titananvil/titan-anvil/pkg/api/v1"
-	"github.com/titananvil/titan-anvil/pkg/api/server"
-	"github.com/titananvil/titan-anvil/pkg/config"
-	"github.com/titananvil/titan-anvil/pkg/controlplane"
-	natsmgr "github.com/titananvil/titan-anvil/pkg/nats"
-	"github.com/titananvil/titan-anvil/pkg/state"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
+	"github.com/shawnbutts/keystone-core/pkg/api/server"
+	"github.com/shawnbutts/keystone-core/pkg/config"
+	"github.com/shawnbutts/keystone-core/pkg/controlplane"
+	natsmgr "github.com/shawnbutts/keystone-core/pkg/nats"
+	"github.com/shawnbutts/keystone-core/pkg/state"
 )
 
 // testEnvironment holds all components for e2e testing

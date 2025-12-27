@@ -12,7 +12,7 @@ import (
 )
 
 // Host function imports from WASM runtime
-// These are provided by the TitanAnvil runtime
+// These are provided by the Keystone Core runtime
 
 //go:wasm-module env
 //export host_fs_read

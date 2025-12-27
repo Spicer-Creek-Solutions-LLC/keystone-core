@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/titananvil/titan-anvil/pkg/events"
+	"github.com/shawnbutts/keystone-core/pkg/events"
 )
 
 // DriftSeverity indicates the severity level of drift

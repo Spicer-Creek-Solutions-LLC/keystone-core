@@ -3,7 +3,7 @@ package targeting
 import (
 	"testing"
 
-	pb "github.com/titananvil/titan-anvil/pkg/api/v1"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 )
 
 func TestNewMatcher(t *testing.T) {

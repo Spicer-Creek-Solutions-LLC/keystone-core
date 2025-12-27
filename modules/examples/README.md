@@ -1,6 +1,6 @@
-# TitanAnvil Example Modules
+# Keystone Core Example Modules
 
-This directory contains example modules demonstrating TitanAnvil module development in all supported languages.
+This directory contains example modules demonstrating Keystone Core module development in all supported languages.
 
 ## Hello World Examples
 
@@ -8,7 +8,7 @@ All hello world examples perform the same operations to demonstrate language equ
 
 1. Get the CPU make and model
 2. Compute the SHA256 hash of the CPU information
-3. Write the results to a file in the temp directory (`hello-from-titananvil-{language}.txt`)
+3. Write the results to a file in the temp directory (`hello-from-kscore-{language}.txt`)
 4. Return the results as JSON
 
 Results should be identical across all languages (except for the file name).
@@ -17,8 +17,8 @@ Results should be identical across all languages (except for the file name).
 
 ```bash
 cd hello-world-starlark
-# Run with TitanAnvil runtime
-titanctl module run .
+# Run with Keystone Core runtime
+kscorectl module run .
 ```
 
 **Language**: Starlark (Python-like)
@@ -69,14 +69,14 @@ cmake --build .
 
 ## Testing Examples
 
-All examples can be tested with the TitanAnvil test framework:
+All examples can be tested with the Keystone Core test framework:
 
 ```bash
 # Test all examples
-titanctl module test examples/
+kscorectl module test examples/
 
 # Test specific example
-titanctl module test examples/hello-world-rust
+kscorectl module test examples/hello-world-rust
 ```
 
 ## Capabilities Required
@@ -95,7 +95,7 @@ All examples produce identical output (except for file path):
 {
   "cpu_info": "Intel(R) Core(TM) i9-9900K CPU @ 3.60GHz",
   "hash": "a1b2c3d4e5f6...",
-  "file_path": "/tmp/hello-from-titananvil-{language}.txt"
+  "file_path": "/tmp/hello-from-kscore-{language}.txt"
 }
 ```
 
@@ -150,4 +150,4 @@ WASM modules have slightly higher startup overhead but similar execution perform
 
 - Explore stdlib modules in `modules/stdlib/`
 - Review SDK documentation in `modules/sdk/{language}/`
-- Build your own modules with `titanctl module init`
+- Build your own modules with `kscorectl module init`

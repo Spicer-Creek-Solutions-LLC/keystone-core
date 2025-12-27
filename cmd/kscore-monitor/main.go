@@ -8,9 +8,9 @@ import (
 	"syscall"
 
 	"github.com/spf13/cobra"
-	"github.com/titananvil/titan-anvil/cmd/titananvil-monitor/config"
-	"github.com/titananvil/titan-anvil/cmd/titananvil-monitor/ui"
-	"github.com/titananvil/titan-anvil/pkg/version"
+	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/config"
+	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/ui"
+	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
 var (
@@ -26,10 +26,10 @@ func main() {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "titananvil-monitor",
-	Short: "TitanAnvil TUI monitoring interface",
-	Long: `titananvil-monitor provides a terminal-based user interface for monitoring
-TitanAnvil infrastructure in real-time.
+	Use:   "kscore-monitor",
+	Short: "Keystone Core TUI monitoring interface",
+	Long: `kscore-monitor provides a terminal-based user interface for monitoring
+Keystone Core infrastructure in real-time.
 
 Features:
   - Live dashboard with system metrics
@@ -48,7 +48,7 @@ Press 'q' to quit, '?' for help.`,
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default: $HOME/.titananvil/monitor.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default: $HOME/.kscore/monitor.yaml)")
 	rootCmd.Flags().String("control-plane", "localhost:50051", "Control plane gRPC address")
 	rootCmd.Flags().String("nats-url", "nats://localhost:4222", "NATS server URL")
 	rootCmd.Flags().String("theme", "dark", "UI theme (dark, light, solarized-dark, solarized-light, monokai)")
@@ -60,7 +60,7 @@ func init() {
 		Use:   "version",
 		Short: "Print version information",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("titananvil-monitor version %s\n", version.Version)
+			fmt.Printf("kscore-monitor version %s\n", version.Version)
 			fmt.Printf("  Build date: %s\n", version.BuildDate)
 			fmt.Printf("  Git commit: %s\n", version.GitCommit)
 		},

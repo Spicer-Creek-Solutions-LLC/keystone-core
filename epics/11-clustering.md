@@ -2,9 +2,9 @@
 
 ## Overview
 
-Implement high availability clustering for `titananvil-server` using etcd for distributed coordination. Transform TitanAnvil from a single-server architecture to a distributed, fault-tolerant cluster that can handle server failures, automatically redistribute work, and provide zero-downtime operations.
+Implement high availability clustering for `kscore-server` using etcd for distributed coordination. Transform Keystone Core from a single-server architecture to a distributed, fault-tolerant cluster that can handle server failures, automatically redistribute work, and provide zero-downtime operations.
 
-**Goal**: Enable production-grade high availability with automatic failover, intelligent work distribution across cluster members, and no single point of failure for critical TitanAnvil operations.
+**Goal**: Enable production-grade high availability with automatic failover, intelligent work distribution across cluster members, and no single point of failure for critical Keystone Core operations.
 
 ## Success Criteria
 
@@ -24,7 +24,7 @@ Implement high availability clustering for `titananvil-server` using etcd for di
 ## Problem Statement
 
 **Current State:**
-- Single `titananvil-server` instance handles all operations
+- Single `kscore-server` instance handles all operations
 - Agent connections, job execution, state management all on one server
 - Server failure = complete system outage
 - No horizontal scalability for high load
@@ -32,7 +32,7 @@ Implement high availability clustering for `titananvil-server` using etcd for di
 - Downtime during upgrades
 
 **Target State:**
-- 3+ `titananvil-server` instances in active-active cluster
+- 3+ `kscore-server` instances in active-active cluster
 - Distributed agent connections across cluster members
 - Automatic failover in seconds, not minutes
 - Horizontal scaling for capacity
@@ -43,7 +43,7 @@ Implement high availability clustering for `titananvil-server` using etcd for di
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    TitanAnvil Cluster                       │
+│                    Keystone Core Cluster                       │
 │                                                             │
 │  ┌────────────┐      ┌────────────┐      ┌────────────┐   │
 │  │  Server 1  │      │  Server 2  │      │  Server 3  │   │
@@ -83,7 +83,7 @@ Implement high availability clustering for `titananvil-server` using etcd for di
 **So that** I have high availability and fault tolerance
 
 **Acceptance Criteria**:
-- Deploy multiple `titananvil-server` instances
+- Deploy multiple `kscore-server` instances
 - Automatic discovery and cluster formation
 - etcd cluster integrated (embedded or external)
 - Cluster membership viewable via CLI
@@ -147,13 +147,13 @@ Implement high availability clustering for `titananvil-server` using etcd for di
 **So that** I can perform operational tasks easily
 
 **Acceptance Criteria**:
-- `titanctl cluster status` - view cluster health
-- `titanctl cluster members` - list all members
-- `titanctl cluster add` - add new member
-- `titanctl cluster remove` - remove member
-- `titanctl cluster leader` - show current leader
-- `titanctl cluster backup` - backup cluster state
-- `titanctl cluster restore` - restore from backup
+- `kscorectl cluster status` - view cluster health
+- `kscorectl cluster members` - list all members
+- `kscorectl cluster add` - add new member
+- `kscorectl cluster remove` - remove member
+- `kscorectl cluster leader` - show current leader
+- `kscorectl cluster backup` - backup cluster state
+- `kscorectl cluster restore` - restore from backup
 
 ### US11.7: Observability
 **As an** operator
@@ -324,7 +324,7 @@ Implement high availability clustering for `titananvil-server` using etcd for di
 
 ### Phase 5: Cluster Operations & Management (Week 9-10)
 
-**T5.1: Cluster CLI (titanctl cluster)**
+**T5.1: Cluster CLI (kscorectl cluster)**
 - `status` - cluster health and member status
 - `members` - list all members with details
 - `leader` - show current leader

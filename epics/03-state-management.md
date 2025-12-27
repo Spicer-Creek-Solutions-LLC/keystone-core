@@ -150,7 +150,7 @@ services:
 **So that** I can validate the impact safely
 
 **Acceptance Criteria**:
-- Dry-run mode: `titanctl state apply --dry-run`
+- Dry-run mode: `kscorectl state apply --dry-run`
 - Show what would change without making changes
 - Highlight additions, modifications, deletions
 - Include diff for file content changes
@@ -159,7 +159,7 @@ services:
 
 **Example**:
 ```bash
-titanctl state apply webserver --dry-run --target "role:web"
+kscorectl state apply webserver --dry-run --target "role:web"
 
 Preview of changes:
   [web-01] Would update 3 states:
@@ -187,7 +187,7 @@ Continue? [y/N]
 
 **Example**:
 ```bash
-titanctl state drift --target "role:web"
+kscorectl state drift --target "role:web"
 
 Drift detected on 2/10 agents:
   [web-03]
@@ -195,7 +195,7 @@ Drift detected on 2/10 agents:
         mode: expected=0644, actual=0777 (drift since 2024-01-15 10:30)
     - services.nginx: expected=running, actual=stopped
 
-titanctl state drift --fix  # Auto-remediate
+kscorectl state drift --fix  # Auto-remediate
 ```
 
 ### US3.6: Templating and Variables
@@ -408,11 +408,11 @@ k8s_deployments:
 ### Phase 6: CLI and API (Week 8)
 
 **T6.1: CLI Commands**
-- `titanctl state apply` - Apply states
-- `titanctl state compile` - Compile and validate
-- `titanctl state drift` - Detect drift
-- `titanctl state show` - Show compiled state
-- `titanctl vars get` - View vars data
+- `kscorectl state apply` - Apply states
+- `kscorectl state compile` - Compile and validate
+- `kscorectl state drift` - Detect drift
+- `kscorectl state show` - Show compiled state
+- `kscorectl vars get` - View vars data
 
 **T6.2: API Endpoints**
 - `POST /api/v1/state/apply` - Apply state

@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	pb "github.com/titananvil/titan-anvil/pkg/api/v1"
-	"github.com/titananvil/titan-anvil/pkg/events"
-	"github.com/titananvil/titan-anvil/pkg/state"
-	"github.com/titananvil/titan-anvil/pkg/tracing"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
+	"github.com/shawnbutts/keystone-core/pkg/events"
+	"github.com/shawnbutts/keystone-core/pkg/state"
+	"github.com/shawnbutts/keystone-core/pkg/tracing"
 )
 
 // CommandDispatcher handles command execution and tracking

@@ -1,5 +1,5 @@
-baseURL = "https://docs.titananvil.dev/"
-title = "TitanAnvil Documentation"
+baseURL = "https://docs.kscore.dev/"
+title = "Keystone Core Documentation"
 theme = "docsy"
 publishDir = "../build/docs"
 enableRobotsTXT = true
@@ -23,11 +23,11 @@ pygmentsStyle = "tango"
     style = "tango"
 
 [params]
-  copyright = "TitanAnvil Project"
+  copyright = "Keystone Core Project"
   privacy_policy = ""
 
   # Repository
-  github_repo = "https://github.com/titananvil/titan-anvil"
+  github_repo = "https://github.com/shawnbutts/keystone-core"
   github_branch = "main"
 
   # UI
@@ -44,13 +44,13 @@ pygmentsStyle = "tango"
   # Links
   [[params.links.user]]
     name = "GitHub"
-    url = "https://github.com/titananvil/titan-anvil"
+    url = "https://github.com/shawnbutts/keystone-core"
     icon = "fab fa-github"
     desc = "Development takes place here!"
 
   [[params.links.developer]]
     name = "GitHub"
-    url = "https://github.com/titananvil/titan-anvil"
+    url = "https://github.com/shawnbutts/keystone-core"
     icon = "fab fa-github"
     desc = "Contribute to the project!"
 
@@ -63,7 +63,7 @@ pygmentsStyle = "tango"
   [[menu.main]]
     name = "GitHub"
     weight = 50
-    url = "https://github.com/titananvil/titan-anvil"
+    url = "https://github.com/shawnbutts/keystone-core"
 
 [outputs]
   home = ["HTML"]

@@ -2,12 +2,12 @@
 title: "Troubleshooting Guide"
 weight: 4
 description: >
-  Diagnostic procedures and solutions for common TitanAnvil issues
+  Diagnostic procedures and solutions for common Keystone Core issues
 ---
 
 ## Overview
 
-This guide provides systematic troubleshooting procedures for common TitanAnvil issues. Each section includes diagnostic steps, common causes, and proven solutions.
+This guide provides systematic troubleshooting procedures for common Keystone Core issues. Each section includes diagnostic steps, common causes, and proven solutions.
 
 **Troubleshooting Methodology:**
 1. **Identify symptoms** - What is broken?
@@ -21,7 +21,7 @@ This guide provides systematic troubleshooting procedures for common TitanAnvil 
 ## Agent Connectivity Issues
 
 ### Symptoms
-- Agents show as "offline" in `titanctl agent list`
+- Agents show as "offline" in `kscorectl agent list`
 - Agents cannot connect to control plane
 - Heartbeat failures
 
@@ -30,10 +30,10 @@ This guide provides systematic troubleshooting procedures for common TitanAnvil 
 **1. Check Agent Status:**
 ```bash
 # On agent node
-sudo systemctl status titananvil-agent
+sudo systemctl status kscore-agent
 
 # Check agent logs
-sudo journalctl -u titananvil-agent -f
+sudo journalctl -u kscore-agent -f
 ```
 
 **2. Test NATS Connectivity:**
@@ -48,7 +48,7 @@ telnet nats-server 4222
 **3. Verify Credentials:**
 ```bash
 # Check agent configuration
-cat /etc/titananvil/agent.yaml | grep -A5 nats
+cat /etc/kscore/agent.yaml | grep -A5 nats
 
 # Test authentication
 nats-sub -s nats://username:password@nats-server:4222 test
@@ -81,7 +81,7 @@ echo "10.0.1.10 nats-server" | sudo tee -a /etc/hosts
 openssl s_client -connect nats-server:4222 -showcerts
 
 # Verify certificate CN matches hostname
-openssl x509 -in /etc/titananvil/certs/ca.crt -text -noout | grep Subject
+openssl x509 -in /etc/kscore/certs/ca.crt -text -noout | grep Subject
 ```
 
 **Agent Credential Mismatch:**
@@ -90,7 +90,7 @@ openssl x509 -in /etc/titananvil/certs/ca.crt -text -noout | grep Subject
 nats:
   url: "nats://nats-server:4222"
   credentials:
-    username: "titananvil"
+    username: "kscore"
     password: "correct-password"  # Update here
 ```
 
@@ -216,7 +216,7 @@ max_pending_size: 512MB
 ## State Application Failures
 
 ### Symptoms
-- `titanctl state apply` fails
+- `kscorectl state apply` fails
 - State resources show as "failed"
 - Error: "state application timeout"
 - Drift detection not working
@@ -226,7 +226,7 @@ max_pending_size: 512MB
 **1. Check State File Syntax:**
 ```bash
 # Validate YAML syntax
-titananvil-state check web-server.yaml
+kscore-state check web-server.yaml
 
 # Look for syntax errors
 yamllint web-server.yaml
@@ -235,13 +235,13 @@ yamllint web-server.yaml
 **2. Check Agent Logs:**
 ```bash
 # On target agent
-sudo journalctl -u titananvil-agent | grep state
+sudo journalctl -u kscore-agent | grep state
 ```
 
 **3. Test Individual States:**
 ```bash
 # Apply single state for debugging
-titananvil-state apply nginx-package.yaml --target "web-01"
+kscore-state apply nginx-package.yaml --target "web-01"
 ```
 
 ### Common Causes and Solutions
@@ -260,7 +260,7 @@ nginx_config:
 **Module Not Available on Agent:**
 ```bash
 # Check available modules on agent
-titanctl exec run "titananvil-agent --list-modules" --target "web-01"
+kscorectl exec run "kscore-agent --list-modules" --target "web-01"
 
 # Install missing module package manager
 sudo apt-get install python3-apt  # For apt module
@@ -319,7 +319,7 @@ large_download:
 # Run agent as root or with sudo capabilities
 
 # Or fix file permissions
-sudo chown titananvil:titananvil /etc/nginx/nginx.conf
+sudo chown kscore:kscore /etc/nginx/nginx.conf
 ```
 
 ## Performance Issues
@@ -335,7 +335,7 @@ sudo chown titananvil:titananvil /etc/nginx/nginx.conf
 **1. Check Resource Usage:**
 ```bash
 # CPU and memory
-top -p $(pgrep titananvil-server)
+top -p $(pgrep kscore-server)
 
 # Disk I/O
 iostat -x 1
@@ -441,7 +441,7 @@ state:
 **Large Event Backlog:**
 ```bash
 # Check JetStream pending messages
-nats stream info titananvil-events
+nats stream info kscore-events
 
 # Increase consumer processing
 # Add more reactor workers
@@ -465,7 +465,7 @@ sudo iptables -L -n | grep 8080
 **Fix:**
 ```bash
 # Start service
-sudo systemctl start titananvil-server
+sudo systemctl start kscore-server
 
 # Allow through firewall
 sudo iptables -A INPUT -p tcp --dport 8080 -j ACCEPT
@@ -478,7 +478,7 @@ sudo iptables -A INPUT -p tcp --dport 8080 -j ACCEPT
 **Check:**
 ```bash
 # Verify credentials in config
-cat /etc/titananvil/agent.yaml | grep -A3 credentials
+cat /etc/kscore/agent.yaml | grep -A3 credentials
 ```
 
 **Fix:**
@@ -486,7 +486,7 @@ cat /etc/titananvil/agent.yaml | grep -A3 credentials
 # Update credentials
 nats:
   credentials:
-    username: "titananvil"
+    username: "kscore"
     password: "correct-password"
 ```
 
@@ -497,7 +497,7 @@ nats:
 **Check:**
 ```bash
 # Test database connection
-psql -U titananvil -h localhost -d titananvil -c "SELECT 1;"
+psql -U kscore -h localhost -d titananvil -c "SELECT 1;"
 ```
 
 **Fix:**
@@ -507,7 +507,7 @@ sudo systemctl status postgresql
 
 # Verify pg_hba.conf allows connection
 # /etc/postgresql/14/main/pg_hba.conf
-host    titananvil      titananvil      10.0.0.0/8              md5
+host    kscore      kscore      10.0.0.0/8              md5
 ```
 
 ### "State Application Timeout"
@@ -517,7 +517,7 @@ host    titananvil      titananvil      10.0.0.0/8              md5
 **Check:**
 ```bash
 # Check agent logs for what's slow
-sudo journalctl -u titananvil-agent | grep timeout
+sudo journalctl -u kscore-agent | grep timeout
 ```
 
 **Fix:**
@@ -536,7 +536,7 @@ slow_operation:
 **Check:**
 ```bash
 # Check policy evaluation logs
-titanctl policy audit --resource "state/nginx-config"
+kscorectl policy audit --resource "state/nginx-config"
 ```
 
 **Fix:**
@@ -552,13 +552,13 @@ titanctl policy audit --resource "state/nginx-config"
 **Check:**
 ```bash
 # View drift details
-titanctl state drift web-server.yaml --target "web-01"
+kscorectl state drift web-server.yaml --target "web-01"
 ```
 
 **Fix:**
 ```bash
 # Reapply state to fix drift
-titanctl state apply web-server.yaml --target "web-01"
+kscorectl state apply web-server.yaml --target "web-01"
 ```
 
 ## Debug Logging
@@ -567,35 +567,35 @@ titanctl state apply web-server.yaml --target "web-01"
 
 **Control Plane:**
 ```yaml
-# /etc/titananvil/server.yaml
+# /etc/kscore/server.yaml
 logging:
   level: debug  # Change from info
 ```
 
 ```bash
 # Restart to apply
-sudo systemctl restart titananvil-server
+sudo systemctl restart kscore-server
 
 # Tail debug logs
-sudo journalctl -u titananvil-server -f | grep DEBUG
+sudo journalctl -u kscore-server -f | grep DEBUG
 ```
 
 **Agent:**
 ```yaml
-# /etc/titananvil/agent.yaml
+# /etc/kscore/agent.yaml
 logging:
   level: debug
 ```
 
 ```bash
-sudo systemctl restart titananvil-agent
-sudo journalctl -u titananvil-agent -f
+sudo systemctl restart kscore-agent
+sudo journalctl -u kscore-agent -f
 ```
 
 **Temporary Debug (Runtime):**
 ```bash
 # Enable debug for single command
-TITAN_LOG_LEVEL=debug titanctl state apply web-server.yaml
+TITAN_LOG_LEVEL=debug kscorectl state apply web-server.yaml
 ```
 
 ### Structured Logging
@@ -603,19 +603,19 @@ TITAN_LOG_LEVEL=debug titanctl state apply web-server.yaml
 **Query Logs by Correlation ID:**
 ```bash
 # Follow specific request
-sudo journalctl -u titananvil-server | grep "correlation_id=abc-123"
+sudo journalctl -u kscore-server | grep "correlation_id=abc-123"
 
 # Or with Loki
-logcli query '{job="titananvil-server"} | json | correlation_id="abc-123"'
+logcli query '{job="kscore-server"} | json | correlation_id="abc-123"'
 ```
 
 **Query Logs by Component:**
 ```bash
 # All state management logs
-sudo journalctl -u titananvil-server | grep '"logger":"statemgmt"'
+sudo journalctl -u kscore-server | grep '"logger":"statemgmt"'
 
 # All event system logs
-sudo journalctl -u titananvil-server | grep '"logger":"events"'
+sudo journalctl -u kscore-server | grep '"logger":"events"'
 ```
 
 ## Network Diagnostics
@@ -817,7 +817,7 @@ events:
 #!/bin/bash
 # health-check.sh - Quick system health check
 
-echo "=== TitanAnvil Health Check ==="
+echo "=== Keystone Core Health Check ==="
 
 # Control plane
 echo -n "Control Plane: "
@@ -825,20 +825,20 @@ curl -s http://localhost:8080/health/ready && echo "OK" || echo "FAIL"
 
 # Database
 echo -n "Database: "
-psql -U titananvil -c "SELECT 1;" > /dev/null 2>&1 && echo "OK" || echo "FAIL"
+psql -U kscore -c "SELECT 1;" > /dev/null 2>&1 && echo "OK" || echo "FAIL"
 
 # NATS
 echo -n "NATS: "
 nats server check connection > /dev/null 2>&1 && echo "OK" || echo "FAIL"
 
 # Agents
-TOTAL=$(titanctl agent list | wc -l)
-CONNECTED=$(titanctl agent list --filter "status:healthy" | wc -l)
+TOTAL=$(kscorectl agent list | wc -l)
+CONNECTED=$(kscorectl agent list --filter "status:healthy" | wc -l)
 echo "Agents: $CONNECTED/$TOTAL connected"
 
 # Disk space
 echo "Disk Space:"
-df -h / /var/lib/titananvil /var/lib/postgresql | grep -v Filesystem
+df -h / /var/lib/kscore /var/lib/postgresql | grep -v Filesystem
 ```
 
 ### Collect Diagnostic Bundle
@@ -847,7 +847,7 @@ df -h / /var/lib/titananvil /var/lib/postgresql | grep -v Filesystem
 #!/bin/bash
 # collect-diagnostics.sh
 
-BUNDLE_DIR="/tmp/titananvil-diagnostics-$(date +%Y%m%d-%H%M%S)"
+BUNDLE_DIR="/tmp/kscore-diagnostics-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$BUNDLE_DIR"
 
 # System info
@@ -856,19 +856,19 @@ free -h >> "$BUNDLE_DIR/system-info.txt"
 df -h >> "$BUNDLE_DIR/system-info.txt"
 
 # Logs
-journalctl -u titananvil-server --since "1 hour ago" > "$BUNDLE_DIR/server-logs.txt"
-journalctl -u titananvil-agent --since "1 hour ago" > "$BUNDLE_DIR/agent-logs.txt"
+journalctl -u kscore-server --since "1 hour ago" > "$BUNDLE_DIR/server-logs.txt"
+journalctl -u kscore-agent --since "1 hour ago" > "$BUNDLE_DIR/agent-logs.txt"
 
 # Configuration (redact sensitive data)
-sed 's/password: .*/password: [REDACTED]/' /etc/titananvil/server.yaml > "$BUNDLE_DIR/server-config.yaml"
+sed 's/password: .*/password: [REDACTED]/' /etc/kscore/server.yaml > "$BUNDLE_DIR/server-config.yaml"
 
 # Status
-titanctl cluster status > "$BUNDLE_DIR/cluster-status.txt"
-titanctl agent list > "$BUNDLE_DIR/agents.txt"
+kscorectl cluster status > "$BUNDLE_DIR/cluster-status.txt"
+kscorectl agent list > "$BUNDLE_DIR/agents.txt"
 
 # Database
-psql -U titananvil -c "\dt" > "$BUNDLE_DIR/db-tables.txt"
-psql -U titananvil -c "SELECT * FROM pg_stat_database;" > "$BUNDLE_DIR/db-stats.txt"
+psql -U kscore -c "\dt" > "$BUNDLE_DIR/db-tables.txt"
+psql -U kscore -c "SELECT * FROM pg_stat_database;" > "$BUNDLE_DIR/db-stats.txt"
 
 # Create tarball
 tar -czf "${BUNDLE_DIR}.tar.gz" -C /tmp "$(basename $BUNDLE_DIR)"
@@ -879,8 +879,8 @@ echo "Diagnostic bundle: ${BUNDLE_DIR}.tar.gz"
 
 ### Before Opening an Issue
 
-1. Search existing issues: https://github.com/titananvil/titananvil/issues
-2. Check documentation: https://docs.titananvil.io
+1. Search existing issues: https://github.com/shawnbutts/keystone-core/issues
+2. Check documentation: https://docs.kscore.io
 3. Review logs with debug logging enabled
 4. Collect diagnostic bundle
 5. Try the solution in a test environment first
@@ -889,7 +889,7 @@ echo "Diagnostic bundle: ${BUNDLE_DIR}.tar.gz"
 
 ```markdown
 **Environment:**
-- TitanAnvil Version: v1.0.0
+- Keystone Core Version: v1.0.0
 - OS: Ubuntu 22.04
 - Deployment: Kubernetes / VM / Bare Metal
 - Agent Count: 100
@@ -922,9 +922,9 @@ echo "Diagnostic bundle: ${BUNDLE_DIR}.tar.gz"
 ### Community Support
 
 - **GitHub Issues**: Bug reports and feature requests
-- **Discussions**: https://github.com/titananvil/titananvil/discussions
-- **Slack**: https://titananvil.slack.com
-- **Email**: support@titananvil.io
+- **Discussions**: https://github.com/shawnbutts/keystone-core/discussions
+- **Slack**: https://keystonecore.slack.com
+- **Email**: support@keystonecore.io
 
 ### Commercial Support
 

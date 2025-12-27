@@ -7,7 +7,7 @@ description: >
 
 ## Overview
 
-TitanAnvil emits 15 standard event types across 5 categories. All events follow a consistent schema and support CEL-based filtering.
+Keystone Core emits 15 standard event types across 5 categories. All events follow a consistent schema and support CEL-based filtering.
 
 **Event Categories**:
 - [Agent Events](#agent-events) (4 types)
@@ -630,16 +630,16 @@ data.metadata.cpu_count < 4
 
 ```bash
 # List events with filter
-titanctl event list --type agent.connect
+kscorectl event list --type agent.connect
 
 # Query with expression
-titanctl event query "type == 'job.fail' and severity == 'error'"
+kscorectl event query "type == 'job.fail' and severity == 'error'"
 
 # Time range
-titanctl event list --since 1h --until now
+kscorectl event list --since 1h --until now
 
 # Severity filter
-titanctl event list --severity warning,error,critical
+kscorectl event list --severity warning,error,critical
 ```
 
 ### API
@@ -686,7 +686,7 @@ publisher.Publish(ctx, event)
 ### From CLI
 
 ```bash
-titanctl event emit \
+kscorectl event emit \
   --type user.custom \
   --source "maintenance-script" \
   --severity info \

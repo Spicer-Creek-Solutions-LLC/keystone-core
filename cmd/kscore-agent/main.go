@@ -8,25 +8,25 @@ import (
 	"syscall"
 
 	"github.com/spf13/cobra"
-	"github.com/titananvil/titan-anvil/pkg/agent"
-	"github.com/titananvil/titan-anvil/pkg/config"
-	natsmgr "github.com/titananvil/titan-anvil/pkg/nats"
-	"github.com/titananvil/titan-anvil/pkg/version"
+	"github.com/shawnbutts/keystone-core/pkg/agent"
+	"github.com/shawnbutts/keystone-core/pkg/config"
+	natsmgr "github.com/shawnbutts/keystone-core/pkg/nats"
+	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
 var (
 	cfgFile string
 	rootCmd = &cobra.Command{
-		Use:   "titananvil-agent",
-		Short: "TitanAnvil agent",
-		Long: `TitanAnvil agent runs on managed nodes and executes commands
+		Use:   "kscore-agent",
+		Short: "Keystone Core agent",
+		Long: `Keystone Core agent runs on managed nodes and executes commands
 from the control plane. It supports embedded NATS mode for edge deployments.`,
 		Run: runAgent,
 	}
 )
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is ./titan-anvil-agent.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is ./keystone-core-agent.yaml)")
 	rootCmd.AddCommand(versionCmd)
 }
 

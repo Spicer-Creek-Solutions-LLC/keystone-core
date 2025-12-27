@@ -1,6 +1,6 @@
-# TitanAnvil C++ SDK
+# Keystone Core C++ SDK
 
-The official C++ SDK for building TitanAnvil modules that compile to WebAssembly.
+The official C++ SDK for building Keystone Core modules that compile to WebAssembly.
 
 ## Features
 
@@ -58,7 +58,7 @@ source ./emsdk_env.sh
 #include <titan/titan.h>
 
 int main() {
-    titan::log::info("Hello from TitanAnvil!");
+    titan::log::info("Hello from Keystone Core!");
     return 0;
 }
 ```
@@ -231,7 +231,7 @@ Create a `module.yaml` to describe your module:
 ```yaml
 name: myorg/mymodule
 version: 1.0.0
-description: My TitanAnvil module
+description: My Keystone Core module
 
 type: wasm
 

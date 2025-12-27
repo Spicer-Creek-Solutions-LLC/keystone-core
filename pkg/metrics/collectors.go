@@ -2,7 +2,7 @@ package metrics
 
 import "time"
 
-// TitanAnvil metric names as constants
+// Keystone Core metric names as constants
 const (
 	// Control Plane Metrics
 	MetricAPIRequestsTotal           = "titan_api_requests_total"
@@ -41,7 +41,7 @@ const (
 	MetricComplianceScore            = "titan_compliance_score"
 )
 
-// InitializeStandardMetrics registers all standard TitanAnvil metrics
+// InitializeStandardMetrics registers all standard Keystone Core metrics
 func InitializeStandardMetrics(collector *PrometheusCollector) error {
 	metrics := []MetricDefinition{
 		// Control Plane Metrics

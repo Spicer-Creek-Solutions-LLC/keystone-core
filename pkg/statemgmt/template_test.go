@@ -9,7 +9,7 @@ func TestTemplateRenderer_BasicRender(t *testing.T) {
 	renderer := NewTemplateRenderer()
 	ctx := &TemplateContext{
 		Vars: map[string]interface{}{
-			"name": "TitanAnvil",
+			"name": "Keystone Core",
 			"port": 8080,
 		},
 		Facts: map[string]interface{}{
@@ -23,7 +23,7 @@ func TestTemplateRenderer_BasicRender(t *testing.T) {
 		t.Fatalf("Render failed: %v", err)
 	}
 
-	expected := "Application TitanAnvil on port 8080 in production"
+	expected := "Application Keystone Core on port 8080 in production"
 	if result != expected {
 		t.Errorf("Expected '%s', got '%s'", expected, result)
 	}
@@ -57,7 +57,7 @@ func TestTemplateRenderer_CustomFunctions(t *testing.T) {
 	renderer := NewTemplateRenderer()
 	ctx := &TemplateContext{
 		Vars: map[string]interface{}{
-			"name": "titanAnvil",
+			"name": "keystoneCore",
 		},
 		Facts: map[string]interface{}{},
 	}
@@ -67,9 +67,9 @@ func TestTemplateRenderer_CustomFunctions(t *testing.T) {
 		template string
 		expected string
 	}{
-		{"upper", "{{.vars.name | upper}}", "TITANANVIL"},
-		{"lower", "{{.vars.name | lower}}", "titananvil"},
-		{"title", "{{.vars.name | title}}", "TitanAnvil"},
+		{"upper", "{{.vars.name | upper}}", "KEYSTONECORE"},
+		{"lower", "{{.vars.name | lower}}", "keystonecore"},
+		{"title", "{{.vars.name | title}}", "Keystone Core"},
 	}
 
 	for _, tt := range tests {

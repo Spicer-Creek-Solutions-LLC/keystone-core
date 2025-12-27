@@ -13,7 +13,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Configuration
-const OUTPUT_DIR = 'pdfs';
+const OUTPUT_DIR = path.join('..', 'build', 'pdfs');
 const BUILD_DIR = path.join('..', 'build', 'docs');
 const SECTIONS = [
   { name: 'getting-started', title: 'Getting Started' },

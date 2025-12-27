@@ -3,10 +3,10 @@ title: "Quick Start"
 linkTitle: "Quick Start"
 weight: 3
 description: >
-  Get TitanAnvil running in 5 minutes
+  Get Keystone Core running in 5 minutes
 ---
 
-This quick start guide gets you from zero to a working TitanAnvil deployment in about 5 minutes.
+This quick start guide gets you from zero to a working Keystone Core deployment in about 5 minutes.
 
 ## What You'll Do
 
@@ -16,7 +16,7 @@ This quick start guide gets you from zero to a working TitanAnvil deployment in 
 4. Apply your first state configuration
 5. View metrics
 
-**Prerequisites**: TitanAnvil binaries installed ([Installation Guide](../installation/))
+**Prerequisites**: Keystone Core binaries installed ([Installation Guide](../installation/))
 
 ## Step 1: Start the Control Plane (30 seconds)
 
@@ -24,23 +24,23 @@ Start the control plane in embedded mode (no external dependencies):
 
 ```bash
 # Create data directory
-mkdir -p ~/titananvil-data
+mkdir -p ~/kscore-data
 
 # Start control plane (foreground)
-titananvil-server \
+kscore-server \
   --nats-mode embedded \
   --nats-listen 127.0.0.1:4222 \
   --api-listen 127.0.0.1:8080 \
   --storage-type sqlite \
-  --storage-path ~/titananvil-data/state.db
+  --storage-path ~/kscore-data/state.db
 ```
 
 **Expected output**:
 ```
-INFO  Starting TitanAnvil Control Plane
+INFO  Starting Keystone Core Control Plane
 INFO  NATS server starting in embedded mode on 127.0.0.1:4222
 INFO  API server starting on 127.0.0.1:8080
-INFO  Storage: SQLite at ~/titananvil-data/state.db
+INFO  Storage: SQLite at ~/kscore-data/state.db
 INFO  Control plane ready
 ```
 
@@ -67,7 +67,7 @@ curl http://localhost:8080/health/ready
 In a new terminal, start an agent:
 
 ```bash
-titananvil-agent \
+kscore-agent \
   --control-plane-url nats://127.0.0.1:4222 \
   --agent-id my-first-agent \
   --datacenter local \
@@ -93,7 +93,7 @@ INFO  Agent ready
 In a third terminal, verify the agent is registered:
 
 ```bash
-titanctl agent list
+kscorectl agent list
 ```
 
 **Expected output**:
@@ -109,7 +109,7 @@ my-first-agent   local       dev          test   online   2s ago
 Run a command on the agent:
 
 ```bash
-titanctl exec run "echo 'Hello from TitanAnvil!'" \
+kscorectl exec run "echo 'Hello from Keystone Core!'" \
   --target "agent_id:my-first-agent"
 ```
 
@@ -121,7 +121,7 @@ Agent: my-first-agent
 Status: success
 Exit Code: 0
 Output:
-Hello from TitanAnvil!
+Hello from Keystone Core!
 
 Summary: 1 succeeded, 0 failed
 ```
@@ -137,8 +137,8 @@ cat > /tmp/test-state.yaml <<EOF
 test_file:
   module: file
   state: present
-  path: /tmp/titananvil-test.txt
-  contents: "TitanAnvil was here!"
+  path: /tmp/kscore-test.txt
+  contents: "Keystone Core was here!"
   mode: "0644"
 EOF
 ```
@@ -146,7 +146,7 @@ EOF
 Apply the state:
 
 ```bash
-titanctl state apply /tmp/test-state.yaml \
+kscorectl state apply /tmp/test-state.yaml \
   --target "agent_id:my-first-agent"
 ```
 
@@ -168,7 +168,7 @@ Summary:
 Verify the file was created:
 
 ```bash
-titanctl exec run "cat /tmp/titananvil-test.txt" \
+kscorectl exec run "cat /tmp/kscore-test.txt" \
   --target "agent_id:my-first-agent"
 ```
 
@@ -177,7 +177,7 @@ titanctl exec run "cat /tmp/titananvil-test.txt" \
 Agent: my-first-agent
 Status: success
 Output:
-TitanAnvil was here!
+Keystone Core was here!
 ```
 
 ✅ **Checkpoint**: State management works
@@ -187,14 +187,14 @@ TitanAnvil was here!
 Modify the file manually:
 
 ```bash
-titanctl exec run "echo 'Modified!' > /tmp/titananvil-test.txt" \
+kscorectl exec run "echo 'Modified!' > /tmp/kscore-test.txt" \
   --target "agent_id:my-first-agent"
 ```
 
 Check for drift:
 
 ```bash
-titanctl state check /tmp/test-state.yaml \
+kscorectl state check /tmp/test-state.yaml \
   --target "agent_id:my-first-agent"
 ```
 
@@ -204,7 +204,7 @@ Checking state on 1 agent(s)...
 
 Agent: my-first-agent
   test_file: ✗ drift detected
-    - contents: expected "TitanAnvil was here!", got "Modified!\n"
+    - contents: expected "Keystone Core was here!", got "Modified!\n"
 
 Drift Summary:
   Total: 1
@@ -215,7 +215,7 @@ Drift Summary:
 Fix the drift:
 
 ```bash
-titanctl state apply /tmp/test-state.yaml \
+kscorectl state apply /tmp/test-state.yaml \
   --target "agent_id:my-first-agent"
 ```
 
@@ -234,15 +234,15 @@ Summary: 1 succeeded, 1 changed
 Check Prometheus metrics:
 
 ```bash
-curl http://localhost:8080/metrics | grep titananvil
+curl http://localhost:8080/metrics | grep kscore
 ```
 
 **Sample output**:
 ```
-titananvil_agents_connected 1
-titananvil_commands_executed_total 3
-titananvil_state_applications_total 2
-titananvil_events_published_total 12
+kscore_agents_connected 1
+kscore_commands_executed_total 3
+kscore_state_applications_total 2
+kscore_events_published_total 12
 ...
 ```
 
@@ -253,7 +253,7 @@ titananvil_events_published_total 12
 Launch the TUI monitor:
 
 ```bash
-titananvil-monitor
+kscore-monitor
 ```
 
 **What you'll see**:
@@ -304,9 +304,9 @@ To stop everything:
 # Stop control plane (Ctrl+C in server terminal)
 
 # Remove data
-rm -rf ~/titananvil-data
+rm -rf ~/kscore-data
 rm /tmp/test-state.yaml
-rm /tmp/titananvil-test.txt
+rm /tmp/kscore-test.txt
 ```
 
 ## Troubleshooting
@@ -327,7 +327,7 @@ nc -zv 127.0.0.1 4222
 
 **Fix**: Check agent status:
 ```bash
-titanctl agent list
+kscorectl agent list
 ```
 
 Ensure your target expression matches an online agent.
@@ -344,9 +344,9 @@ Ensure your target expression matches an online agent.
 
 **Fix**: Change the port:
 ```bash
-titananvil-server --api-listen 127.0.0.1:8081 --nats-listen 127.0.0.1:4223
+kscore-server --api-listen 127.0.0.1:8081 --nats-listen 127.0.0.1:4223
 ```
 
 ## Next Steps
 
-Continue to [Architecture Overview](../architecture/) to understand how TitanAnvil works under the hood, or jump into [Tutorials](../../tutorials/) for hands-on guides.
+Continue to [Architecture Overview](../architecture/) to understand how Keystone Core works under the hood, or jump into [Tutorials](../../tutorials/) for hands-on guides.

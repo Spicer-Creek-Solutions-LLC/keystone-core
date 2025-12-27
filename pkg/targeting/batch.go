@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	pb "github.com/titananvil/titan-anvil/pkg/api/v1"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 )
 
 // AgentInfo represents information about an agent for targeting purposes

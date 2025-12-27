@@ -7,7 +7,7 @@ description: >
 
 ## Overview
 
-TitanAnvil's remote execution system enables you to run commands across your entire infrastructure with flexible targeting, batch processing, and real-time output streaming.
+Keystone Core's remote execution system enables you to run commands across your entire infrastructure with flexible targeting, batch processing, and real-time output streaming.
 
 **Key Features**:
 - **Flexible Targeting**: Glob patterns, expressions, compound filters
@@ -22,12 +22,12 @@ TitanAnvil's remote execution system enables you to run commands across your ent
 ```
 ┌──────────────┐
 │     User     │
-│  (titanctl)  │
+│  (kscorectl)  │
 └──────┬───────┘
-       │ titanctl exec run "command"
+       │ kscorectl exec run "command"
        ↓
 ┌──────────────┐
-│  CLI Plugin  │ ← titananvil-exec
+│  CLI Plugin  │ ← kscore-exec
 │ (Dispatcher) │
 └──────┬───────┘
        │ gRPC/REST API
@@ -73,16 +73,16 @@ Match agents by ID patterns:
 
 ```bash
 # Single agent
-titanctl exec run "uptime" --target "web-01"
+kscorectl exec run "uptime" --target "web-01"
 
 # All web servers
-titanctl exec run "systemctl status nginx" --target "web-*"
+kscorectl exec run "systemctl status nginx" --target "web-*"
 
 # All production database servers
-titanctl exec run "pg_dump mydb" --target "db-prod-*"
+kscorectl exec run "pg_dump mydb" --target "db-prod-*"
 
 # Multiple patterns (OR logic)
-titanctl exec run "df -h" --target "web-*,api-*,cache-*"
+kscorectl exec run "df -h" --target "web-*,api-*,cache-*"
 ```
 
 ### Expression-Based Targeting
@@ -91,19 +91,19 @@ Use CEL expressions for complex targeting:
 
 ```bash
 # All web servers in us-east-1
-titanctl exec run "hostname" \
+kscorectl exec run "hostname" \
   --target "role:web and datacenter:us-east-1"
 
 # Production web or API servers
-titanctl exec run "free -h" \
+kscorectl exec run "free -h" \
   --target "environment:prod and (role:web or role:api)"
 
 # Linux servers with >16GB RAM
-titanctl exec run "cat /proc/meminfo" \
+kscorectl exec run "cat /proc/meminfo" \
   --target "os:linux and facts.memory_total > 17179869184"
 
 # All agents except production
-titanctl exec run "apt-get update" \
+kscorectl exec run "apt-get update" \
   --target "environment != 'prod'"
 ```
 
@@ -155,7 +155,7 @@ Combine multiple conditions with logical operators:
 Wait for all agents to complete (default):
 
 ```bash
-titanctl exec run "hostname" --target "role:web"
+kscorectl exec run "hostname" --target "role:web"
 ```
 
 Output:
@@ -190,13 +190,13 @@ Fire and forget, poll for results later:
 
 ```bash
 # Start execution
-JOB_ID=$(titanctl exec run "apt-get update" --target "os:linux" --async)
+JOB_ID=$(kscorectl exec run "apt-get update" --target "os:linux" --async)
 
 # Check status
-titanctl exec status $JOB_ID
+kscorectl exec status $JOB_ID
 
 # Get results when ready
-titanctl exec output $JOB_ID
+kscorectl exec output $JOB_ID
 ```
 
 ### Batch Execution
@@ -205,12 +205,12 @@ Control concurrency to avoid overwhelming infrastructure:
 
 ```bash
 # Execute on max 10 agents at a time
-titanctl exec run "systemctl restart app" \
+kscorectl exec run "systemctl restart app" \
   --target "role:web" \
   --batch-size 10
 
 # With delay between batches
-titanctl exec run "yum update -y" \
+kscorectl exec run "yum update -y" \
   --target "os:linux" \
   --batch-size 20 \
   --batch-delay 30s
@@ -233,12 +233,12 @@ Batch 3: [web-21, web-22, ..., web-30] ← Execute
 Default shell is bash:
 
 ```bash
-titanctl exec run "ps aux | grep nginx" --target "os:linux"
+kscorectl exec run "ps aux | grep nginx" --target "os:linux"
 ```
 
 Specify shell:
 ```bash
-titanctl exec run "echo \$SHELL" --target "os:linux" --shell sh
+kscorectl exec run "echo \$SHELL" --target "os:linux" --shell sh
 ```
 
 ### Windows (PowerShell/cmd)
@@ -246,13 +246,13 @@ titanctl exec run "echo \$SHELL" --target "os:linux" --shell sh
 PowerShell (default on Windows):
 
 ```bash
-titanctl exec run "Get-Process | Where-Object {$_.CPU -gt 10}" \
+kscorectl exec run "Get-Process | Where-Object {$_.CPU -gt 10}" \
   --target "os:windows"
 ```
 
 Command Prompt:
 ```bash
-titanctl exec run "dir C:\\" --target "os:windows" --shell cmd
+kscorectl exec run "dir C:\\" --target "os:windows" --shell cmd
 ```
 
 ### macOS (bash/zsh)
@@ -260,7 +260,7 @@ titanctl exec run "dir C:\\" --target "os:windows" --shell cmd
 macOS agents (zsh is default on macOS 10.15+):
 
 ```bash
-titanctl exec run "sw_vers" --target "os:darwin"
+kscorectl exec run "sw_vers" --target "os:darwin"
 ```
 
 ## Job Management
@@ -286,16 +286,16 @@ titanctl exec run "sw_vers" --target "os:darwin"
 
 ```bash
 # List recent jobs
-titanctl exec jobs
+kscorectl exec jobs
 
 # Get job details
-titanctl exec status <job-id>
+kscorectl exec status <job-id>
 
 # Get job output
-titanctl exec output <job-id>
+kscorectl exec output <job-id>
 
 # Cancel running job
-titanctl exec cancel <job-id>
+kscorectl exec cancel <job-id>
 ```
 
 ### Job Results
@@ -323,12 +323,12 @@ Set maximum execution time:
 
 ```bash
 # 30 second timeout
-titanctl exec run "long-running-command" \
+kscorectl exec run "long-running-command" \
   --target "role:web" \
   --timeout 30s
 
 # 5 minute timeout
-titanctl exec run "database-backup" \
+kscorectl exec run "database-backup" \
   --target "role:db" \
   --timeout 5m
 ```
@@ -343,7 +343,7 @@ Behavior on timeout:
 Total job timeout (all agents):
 
 ```bash
-titanctl exec run "command" \
+kscorectl exec run "command" \
   --target "role:web" \
   --job-timeout 10m
 ```
@@ -360,7 +360,7 @@ If any agent hasn't completed after 10 minutes:
 Stream command output as it executes:
 
 ```bash
-titanctl exec run "tail -f /var/log/app.log" \
+kscorectl exec run "tail -f /var/log/app.log" \
   --target "web-01" \
   --stream
 ```
@@ -379,13 +379,13 @@ Control output format:
 
 ```bash
 # JSON output (for scripting)
-titanctl exec run "hostname" --target "role:web" --output json
+kscorectl exec run "hostname" --target "role:web" --output json
 
 # Table output
-titanctl exec run "uptime" --target "role:web" --output table
+kscorectl exec run "uptime" --target "role:web" --output table
 
 # Quiet (only errors)
-titanctl exec run "systemctl restart app" --target "role:web" --quiet
+kscorectl exec run "systemctl restart app" --target "role:web" --quiet
 ```
 
 ## Error Handling
@@ -395,7 +395,7 @@ titanctl exec run "systemctl restart app" --target "role:web" --quiet
 When some agents fail, continue with others (default):
 
 ```bash
-titanctl exec run "systemctl restart nginx" --target "role:web"
+kscorectl exec run "systemctl restart nginx" --target "role:web"
 ```
 
 Output:
@@ -423,7 +423,7 @@ Exit code: Non-zero if any failures
 Stop on first failure:
 
 ```bash
-titanctl exec run "migrate-database" \
+kscorectl exec run "migrate-database" \
   --target "role:db" \
   --fail-fast
 ```
@@ -435,7 +435,7 @@ First failure stops execution on remaining agents.
 Retry failed commands:
 
 ```bash
-titanctl exec run "flaky-command" \
+kscorectl exec run "flaky-command" \
   --target "role:web" \
   --retries 3 \
   --retry-delay 5s
@@ -449,46 +449,46 @@ Retry behavior:
 
 ## Plugin Architecture
 
-TitanAnvil uses a Git-style plugin system for CLI extensibility.
+Keystone Core uses a Git-style plugin system for CLI extensibility.
 
 ### Plugin Discovery
 
-The `titanctl` binary searches for `titananvil-*` executables in `$PATH`:
+The `kscorectl` binary searches for `kscore-*` executables in `$PATH`:
 
 ```
-titanctl exec run "cmd"
+kscorectl exec run "cmd"
    ↓
-Searches for: titananvil-exec
+Searches for: kscore-exec
    ↓
-Executes: titananvil-exec run "cmd"
+Executes: kscore-exec run "cmd"
 ```
 
 ### Built-in Plugins
 
-**titananvil-exec** - Remote execution:
-- `titanctl exec run` - Execute command
-- `titanctl exec status` - Check job status
-- `titanctl exec output` - Get job output
-- `titanctl exec jobs` - List jobs
-- `titanctl exec cancel` - Cancel job
+**kscore-exec** - Remote execution:
+- `kscorectl exec run` - Execute command
+- `kscorectl exec status` - Check job status
+- `kscorectl exec output` - Get job output
+- `kscorectl exec jobs` - List jobs
+- `kscorectl exec cancel` - Cancel job
 
-**titananvil-state** - State management:
-- `titanctl state apply` - Apply state
-- `titanctl state check` - Check state (dry-run)
-- `titanctl state drift` - Detect drift
+**kscore-state** - State management:
+- `kscorectl state apply` - Apply state
+- `kscorectl state check` - Check state (dry-run)
+- `kscorectl state drift` - Detect drift
 
-**titananvil-module** - Module management:
-- `titanctl module install` - Install module
-- `titanctl module list` - List modules
-- `titanctl module update` - Update modules
+**kscore-module** - Module management:
+- `kscorectl module install` - Install module
+- `kscorectl module list` - List modules
+- `kscorectl module update` - Update modules
 
 ### Custom Plugins
 
-Create custom plugins by naming them `titananvil-<name>`:
+Create custom plugins by naming them `kscore-<name>`:
 
 ```bash
 #!/bin/bash
-# titananvil-hello
+# kscore-hello
 
 echo "Hello from custom plugin!"
 echo "Args: $@"
@@ -496,13 +496,13 @@ echo "Args: $@"
 
 Make executable and add to PATH:
 ```bash
-chmod +x titananvil-hello
-mv titananvil-hello /usr/local/bin/
+chmod +x kscore-hello
+mv kscore-hello /usr/local/bin/
 ```
 
 Use as:
 ```bash
-titanctl hello world
+kscorectl hello world
 # Output: Hello from custom plugin!
 #         Args: world
 ```
@@ -542,10 +542,10 @@ Require explicit sudo in command:
 
 ```bash
 # Explicit sudo required
-titanctl exec run "sudo systemctl restart nginx" --target "role:web"
+kscorectl exec run "sudo systemctl restart nginx" --target "role:web"
 
 # No implicit elevation
-titanctl exec run "systemctl restart nginx" --target "role:web"
+kscorectl exec run "systemctl restart nginx" --target "role:web"
 # → Fails with permission denied (unless agent runs as root)
 ```
 
@@ -597,10 +597,10 @@ Total: ~170ms overhead (plus actual command execution time)
 2. **Test First**: Use `--dry-run` or target a single agent first
    ```bash
    # Test on one agent
-   titanctl exec run "risky-command" --target "web-01"
+   kscorectl exec run "risky-command" --target "web-01"
 
    # Then expand
-   titanctl exec run "risky-command" --target "role:web and environment:staging"
+   kscorectl exec run "risky-command" --target "role:web and environment:staging"
    ```
 
 3. **Use Tags**: Tag critical servers for exclusion
@@ -641,19 +641,19 @@ Total: ~170ms overhead (plus actual command execution time)
 
 3. **Error Handling**: Check exit codes in scripts
    ```bash
-   titanctl exec run "set -e; cmd1; cmd2; cmd3" --target "..."
+   kscorectl exec run "set -e; cmd1; cmd2; cmd3" --target "..."
    ```
 
 ### Output
 
 1. **Capture Output**: Save output for audit/debugging
    ```bash
-   titanctl exec run "command" --target "..." > output.log 2>&1
+   kscorectl exec run "command" --target "..." > output.log 2>&1
    ```
 
 2. **JSON for Automation**: Use JSON output for scripting
    ```bash
-   titanctl exec run "command" --target "..." --output json | jq '.results'
+   kscorectl exec run "command" --target "..." --output json | jq '.results'
    ```
 
 ## Examples
@@ -663,7 +663,7 @@ Total: ~170ms overhead (plus actual command execution time)
 Restart services with zero downtime:
 
 ```bash
-titanctl exec run "systemctl restart nginx" \
+kscorectl exec run "systemctl restart nginx" \
   --target "role:web and environment:prod" \
   --batch-size 1 \
   --batch-delay 10s
@@ -675,13 +675,13 @@ Update packages across fleet:
 
 ```bash
 # Ubuntu/Debian
-titanctl exec run "apt-get update && apt-get upgrade -y" \
+kscorectl exec run "apt-get update && apt-get upgrade -y" \
   --target "os:linux and environment:staging" \
   --batch-size 10 \
   --timeout 10m
 
 # RHEL/CentOS
-titanctl exec run "yum update -y" \
+kscorectl exec run "yum update -y" \
   --target "os:linux and environment:staging" \
   --batch-size 10 \
   --timeout 10m
@@ -692,7 +692,7 @@ titanctl exec run "yum update -y" \
 Check service health across infrastructure:
 
 ```bash
-titanctl exec run "systemctl is-active nginx" \
+kscorectl exec run "systemctl is-active nginx" \
   --target "role:web"
 ```
 
@@ -701,7 +701,7 @@ titanctl exec run "systemctl is-active nginx" \
 Collect logs from all servers:
 
 ```bash
-titanctl exec run "tail -100 /var/log/app.log" \
+kscorectl exec run "tail -100 /var/log/app.log" \
   --target "role:web and environment:prod" \
   --output json > logs.json
 ```
@@ -712,13 +712,13 @@ Check resource usage:
 
 ```bash
 # CPU
-titanctl exec run "top -bn1 | head -20" --target "role:web"
+kscorectl exec run "top -bn1 | head -20" --target "role:web"
 
 # Memory
-titanctl exec run "free -h" --target "role:web"
+kscorectl exec run "free -h" --target "role:web"
 
 # Disk
-titanctl exec run "df -h" --target "role:web"
+kscorectl exec run "df -h" --target "role:web"
 ```
 
 ## Troubleshooting
@@ -728,17 +728,17 @@ titanctl exec run "df -h" --target "role:web"
 **Problem**: Command doesn't run on any agents
 
 Check:
-- Target expression matches agents: `titanctl agent list`
-- Agents are online: `titanctl agent list --status online`
+- Target expression matches agents: `kscorectl agent list`
+- Agents are online: `kscorectl agent list --status online`
 - Network connectivity: agents can reach control plane
 
 Debug:
 ```bash
 # List agents matching target
-titanctl agent list --filter "role:web"
+kscorectl agent list --filter "role:web"
 
 # Try simple command first
-titanctl exec run "hostname" --target "role:web"
+kscorectl exec run "hostname" --target "role:web"
 ```
 
 ### Timeout Issues
@@ -770,7 +770,7 @@ Check:
 Fix:
 ```bash
 # Use explicit sudo
-titanctl exec run "sudo command" --target "..."
+kscorectl exec run "sudo command" --target "..."
 
 # Or configure agent to run as privileged user
 ```
@@ -782,10 +782,10 @@ titanctl exec run "sudo command" --target "..."
 Debug:
 ```bash
 # Get detailed output
-titanctl exec output <job-id> --verbose
+kscorectl exec output <job-id> --verbose
 
 # Check specific failed agent
-titanctl exec run "command" --target "failed-agent-id"
+kscorectl exec run "command" --target "failed-agent-id"
 ```
 
 ## Next Steps

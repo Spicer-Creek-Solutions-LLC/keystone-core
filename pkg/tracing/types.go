@@ -163,53 +163,53 @@ const (
 	StatusOK = codes.Ok
 )
 
-// Common attribute keys used across TitanAnvil
+// Common attribute keys used across Keystone Core
 const (
 	// Agent attributes
-	AttrAgentID       = "titananvil.agent.id"
-	AttrAgentHostname = "titananvil.agent.hostname"
-	AttrAgentRole     = "titananvil.agent.role"
-	AttrAgentOS       = "titananvil.agent.os"
+	AttrAgentID       = "kscore.agent.id"
+	AttrAgentHostname = "kscore.agent.hostname"
+	AttrAgentRole     = "kscore.agent.role"
+	AttrAgentOS       = "kscore.agent.os"
 
 	// Command/Job attributes
-	AttrJobID        = "titananvil.job.id"
-	AttrJobCommand   = "titananvil.job.command"
-	AttrJobTarget    = "titananvil.job.target"
-	AttrJobStatus    = "titananvil.job.status"
-	AttrJobExitCode  = "titananvil.job.exit_code"
-	AttrJobDuration  = "titananvil.job.duration_ms"
+	AttrJobID        = "kscore.job.id"
+	AttrJobCommand   = "kscore.job.command"
+	AttrJobTarget    = "kscore.job.target"
+	AttrJobStatus    = "kscore.job.status"
+	AttrJobExitCode  = "kscore.job.exit_code"
+	AttrJobDuration  = "kscore.job.duration_ms"
 
 	// State management attributes
-	AttrStateID           = "titananvil.state.id"
-	AttrStateResource     = "titananvil.state.resource"
-	AttrStateModule       = "titananvil.state.module"
-	AttrStateAction       = "titananvil.state.action"
-	AttrStateChanged      = "titananvil.state.changed"
-	AttrStateDrift        = "titananvil.state.drift"
-	AttrStateDriftSeverity = "titananvil.state.drift_severity"
+	AttrStateID           = "kscore.state.id"
+	AttrStateResource     = "kscore.state.resource"
+	AttrStateModule       = "kscore.state.module"
+	AttrStateAction       = "kscore.state.action"
+	AttrStateChanged      = "kscore.state.changed"
+	AttrStateDrift        = "kscore.state.drift"
+	AttrStateDriftSeverity = "kscore.state.drift_severity"
 
 	// Event attributes
-	AttrEventType         = "titananvil.event.type"
-	AttrEventSource       = "titananvil.event.source"
-	AttrEventSeverity     = "titananvil.event.severity"
-	AttrEventCorrelationID = "titananvil.event.correlation_id"
+	AttrEventType         = "kscore.event.type"
+	AttrEventSource       = "kscore.event.source"
+	AttrEventSeverity     = "kscore.event.severity"
+	AttrEventCorrelationID = "kscore.event.correlation_id"
 
 	// Policy attributes
-	AttrPolicyID       = "titananvil.policy.id"
-	AttrPolicyType     = "titananvil.policy.type"
-	AttrPolicyResult   = "titananvil.policy.result"
-	AttrPolicyViolations = "titananvil.policy.violations"
+	AttrPolicyID       = "kscore.policy.id"
+	AttrPolicyType     = "kscore.policy.type"
+	AttrPolicyResult   = "kscore.policy.result"
+	AttrPolicyViolations = "kscore.policy.violations"
 
 	// GitOps attributes
-	AttrGitOpsSource      = "titananvil.gitops.source"
-	AttrGitOpsApplication = "titananvil.gitops.application"
-	AttrGitOpsRevision    = "titananvil.gitops.revision"
-	AttrGitOpsStatus      = "titananvil.gitops.status"
+	AttrGitOpsSource      = "kscore.gitops.source"
+	AttrGitOpsApplication = "kscore.gitops.application"
+	AttrGitOpsRevision    = "kscore.gitops.revision"
+	AttrGitOpsStatus      = "kscore.gitops.status"
 
 	// NATS attributes
-	AttrNATSSubject = "titananvil.nats.subject"
-	AttrNATSStream  = "titananvil.nats.stream"
-	AttrNATSConsumer = "titananvil.nats.consumer"
+	AttrNATSSubject = "kscore.nats.subject"
+	AttrNATSStream  = "kscore.nats.stream"
+	AttrNATSConsumer = "kscore.nats.consumer"
 )
 
 // Helper functions for creating attributes

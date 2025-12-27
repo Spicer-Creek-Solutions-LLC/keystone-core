@@ -2,9 +2,9 @@
 
 ## Overview
 
-Implement comprehensive user and administrator documentation for TitanAnvil using Hugo + Docsy theme. Documentation will cover all completed epics (1-6, partial 7), provide getting started guides, tutorials, reference material, and operational guidance. The documentation source will live in the repository with tooling to generate both a documentation website and offline PDF.
+Implement comprehensive user and administrator documentation for Keystone Core using Hugo + Docsy theme. Documentation will cover all completed epics (1-6, partial 7), provide getting started guides, tutorials, reference material, and operational guidance. The documentation source will live in the repository with tooling to generate both a documentation website and offline PDF.
 
-**Goal**: Create production-ready documentation that enables users to understand, deploy, configure, and operate TitanAnvil effectively, with both web and offline PDF formats.
+**Goal**: Create production-ready documentation that enables users to understand, deploy, configure, and operate Keystone Core effectively, with both web and offline PDF formats.
 
 ## Success Criteria
 
@@ -45,7 +45,7 @@ docs/
 │       │   ├── _index.md                 # Docs landing page
 │       │   ├── getting-started/
 │       │   │   ├── _index.md
-│       │   │   ├── overview.md           # What is TitanAnvil
+│       │   │   ├── overview.md           # What is Keystone Core
 │       │   │   ├── installation.md       # Install guide
 │       │   │   ├── quick-start.md        # 5-minute quick start
 │       │   │   └── architecture.md       # High-level architecture
@@ -91,7 +91,7 @@ docs/
 │       │   │   ├── _index.md
 │       │   │   ├── cli/
 │       │   │   │   ├── _index.md
-│       │   │   │   ├── titanctl.md       # Main CLI
+│       │   │   │   ├── kscorectl.md       # Main CLI
 │       │   │   │   ├── module.md         # Module commands
 │       │   │   │   ├── state.md          # State commands
 │       │   │   │   ├── exec.md           # Execution commands
@@ -196,10 +196,10 @@ docs/
 ### US10.2: Getting Started Documentation
 **As a** new user
 **I want to** comprehensive getting started guides
-**So that** I can quickly understand and deploy TitanAnvil
+**So that** I can quickly understand and deploy Keystone Core
 
 **Acceptance Criteria**:
-- Overview explaining what TitanAnvil is and its use cases
+- Overview explaining what Keystone Core is and its use cases
 - Installation guide for all platforms (Linux, macOS, Windows)
 - Quick start guide (5-10 minutes to first deployment)
 - High-level architecture overview with diagrams
@@ -207,7 +207,7 @@ docs/
 
 ### US10.3: Concept Documentation
 **As a** user
-**I want to** understand TitanAnvil's core concepts
+**I want to** understand Keystone Core's core concepts
 **So that** I can use it effectively
 
 **Acceptance Criteria**:
@@ -245,7 +245,7 @@ docs/
 ### US10.6: Operations Documentation
 **As an** operator
 **I want to** operational guidance
-**So that** I can deploy and maintain TitanAnvil in production
+**So that** I can deploy and maintain Keystone Core in production
 
 **Acceptance Criteria**:
 - Deployment guides for different scenarios
@@ -282,7 +282,7 @@ docs/
 - Configure Docsy theme parameters
 - Set up navigation menu structure
 - Customize colors and branding
-- Add TitanAnvil logo and favicon
+- Add Keystone Core logo and favicon
 - Configure search functionality
 
 **T1.3: CI/CD Pipeline**
@@ -308,11 +308,11 @@ docs/
 ### Phase 2: Getting Started Documentation (Week 3-4)
 
 **T2.1: Overview and Introduction**
-- What is TitanAnvil (purpose, use cases)
+- What is Keystone Core (purpose, use cases)
 - Key features overview
 - Architecture high-level overview
 - Comparison with similar tools
-- When to use TitanAnvil
+- When to use Keystone Core
 
 **T2.2: Installation Guide**
 - Prerequisites
@@ -418,11 +418,11 @@ docs/
 ### Phase 5: Reference Documentation (Week 9-10)
 
 **T5.1: CLI Reference**
-- titanctl reference (main CLI)
-- titananvil-module reference
-- titananvil-state reference
-- titananvil-exec reference
-- titananvil-policy reference
+- kscorectl reference (main CLI)
+- kscore-module reference
+- kscore-state reference
+- kscore-exec reference
+- kscore-policy reference
 - All flags and options documented
 
 **T5.2: API Reference**
@@ -653,8 +653,8 @@ docs/
 
 ## Deliverables
 
-1. **Documentation Website**: docs.titananvil.dev (or GitHub Pages)
-2. **PDF Document**: TitanAnvil-Complete-Guide-v1.0.pdf (200+ pages)
+1. **Documentation Website**: docs.kscore.dev (or GitHub Pages)
+2. **PDF Document**: Keystone Core-Complete-Guide-v1.0.pdf (200+ pages)
 3. **Source Repository**: docs/ directory in main repo
 4. **CI/CD Pipeline**: Automated build and deployment
 5. **Contributing Guide**: How to contribute to docs

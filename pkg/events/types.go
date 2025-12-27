@@ -54,7 +54,7 @@ const (
 	SeverityCritical Severity = "critical"
 )
 
-// Event represents a TitanAnvil event
+// Event represents a Keystone Core event
 type Event struct {
 	// ID is a unique identifier for this event
 	ID string `json:"id"`

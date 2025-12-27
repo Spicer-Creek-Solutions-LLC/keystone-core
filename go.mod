@@ -1,4 +1,4 @@
-module github.com/titananvil/titan-anvil
+module github.com/shawnbutts/keystone-core
 
 go 1.25.5
 

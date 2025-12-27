@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/titananvil/titan-anvil/pkg/gitops/gitsync"
+	"github.com/shawnbutts/keystone-core/pkg/gitops/gitsync"
 )
 
 // GitExecutor executes rollbacks via Git operations
@@ -68,8 +68,8 @@ func (e *GitExecutor) Execute(ctx context.Context, config *RollbackConfig, reque
 		Message: fmt.Sprintf("Rollback to %s\n\nReason: %s\nRequested by: %s",
 			targetCommit[:7], request.Reason, request.RequestedBy),
 		Files:       []string{}, // Would populate with actual files to revert
-		AuthorName:  "TitanAnvil Rollback",
-		AuthorEmail: "rollback@titananvil.io",
+		AuthorName:  "Keystone Core Rollback",
+		AuthorEmail: "rollback@keystonecore.io",
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to commit rollback: %w", err)

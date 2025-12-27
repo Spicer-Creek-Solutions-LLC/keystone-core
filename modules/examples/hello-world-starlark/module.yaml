@@ -1,6 +1,6 @@
 name: examples/hello-world-starlark
 version: 0.1.0
-description: Hello World example module in Starlark demonstrating TitanAnvil module system
+description: Hello World example module in Starlark demonstrating Keystone Core module system
 
 type: starlark
 
@@ -20,6 +20,6 @@ entrypoint: states/main.star
 
 # Metadata
 metadata:
-  author: TitanAnvil Contributors
+  author: Keystone Core Contributors
   license: MIT
   language: starlark

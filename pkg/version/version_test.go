@@ -48,7 +48,7 @@ func TestInfo_String(t *testing.T) {
 				GitCommit: "unknown",
 				BuildDate: "unknown",
 			},
-			expected: []string{"TitanAnvil", "dev", "unknown", "commit:", "built:"},
+			expected: []string{"Keystone Core", "dev", "unknown", "commit:", "built:"},
 		},
 		{
 			name: "Release build",
@@ -57,7 +57,7 @@ func TestInfo_String(t *testing.T) {
 				GitCommit: "abc123def456",
 				BuildDate: "2024-01-15T10:30:00Z",
 			},
-			expected: []string{"TitanAnvil", "1.0.0", "abc123def456", "2024-01-15T10:30:00Z"},
+			expected: []string{"Keystone Core", "1.0.0", "abc123def456", "2024-01-15T10:30:00Z"},
 		},
 		{
 			name: "Development build with short commit",
@@ -66,7 +66,7 @@ func TestInfo_String(t *testing.T) {
 				GitCommit: "abc123",
 				BuildDate: "2024-01-10",
 			},
-			expected: []string{"TitanAnvil", "0.1.0-alpha", "abc123", "2024-01-10"},
+			expected: []string{"Keystone Core", "0.1.0-alpha", "abc123", "2024-01-10"},
 		},
 	}
 
@@ -81,9 +81,9 @@ func TestInfo_String(t *testing.T) {
 				}
 			}
 
-			// Verify the format structure (should start with "TitanAnvil")
-			if !strings.HasPrefix(result, "TitanAnvil") {
-				t.Errorf("Expected output to start with 'TitanAnvil', got: %s", result)
+			// Verify the format structure (should start with "Keystone Core")
+			if !strings.HasPrefix(result, "Keystone Core") {
+				t.Errorf("Expected output to start with 'Keystone Core', got: %s", result)
 			}
 		})
 	}
@@ -97,7 +97,7 @@ func TestInfo_String_Format(t *testing.T) {
 		BuildDate: "2024-03-15",
 	}
 
-	expected := "TitanAnvil 1.2.3 (commit: abcdef123456, built: 2024-03-15)"
+	expected := "Keystone Core 1.2.3 (commit: abcdef123456, built: 2024-03-15)"
 	result := info.String()
 
 	if result != expected {

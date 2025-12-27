@@ -6,7 +6,7 @@ import (
 	"sort"
 	"time"
 
-	policypkg "github.com/titananvil/titan-anvil/pkg/policy"
+	policypkg "github.com/shawnbutts/keystone-core/pkg/policy"
 )
 
 // NewModulePolicyEngine creates a new module policy engine

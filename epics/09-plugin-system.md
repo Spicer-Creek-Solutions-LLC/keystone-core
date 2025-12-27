@@ -2,7 +2,7 @@
 
 ## Overview
 
-Implement a secure, sandboxed plugin system that enables users to extend TitanAnvil functionality through custom state modules, execution handlers, policy rules, and reactors using Starlark or WebAssembly with capability-based security and cryptographic verification.
+Implement a secure, sandboxed plugin system that enables users to extend Keystone Core functionality through custom state modules, execution handlers, policy rules, and reactors using Starlark or WebAssembly with capability-based security and cryptographic verification.
 
 **Goal**: Enable safe extensibility without compromising security, with deterministic execution, minimal attack surface, and complete auditability of plugin capabilities.
 
@@ -91,7 +91,7 @@ Implement a secure, sandboxed plugin system that enables users to extend TitanAn
 
 ## Module Format & Structure
 
-TitanAnvil plugins are distributed as **modules** - versioned, signed packages with explicit dependencies and capabilities.
+Keystone Core plugins are distributed as **modules** - versioned, signed packages with explicit dependencies and capabilities.
 
 ### Module Directory Structure
 
@@ -265,7 +265,7 @@ This enables:
 ### US9.1: Starlark Plugin Development
 **As a** platform engineer
 **I want to** write plugins in Starlark
-**So that** I can extend TitanAnvil with simple, safe scripts
+**So that** I can extend Keystone Core with simple, safe scripts
 
 **Acceptance Criteria**:
 - Write plugins in Starlark (Python-like syntax)
@@ -325,7 +325,7 @@ exports = {
 **Plugin Manifest**:
 ```yaml
 # plugins/health-check-manifest.yaml
-apiVersion: plugin.titananvil.io/v1
+apiVersion: plugin.kscore.io/v1
 kind: PluginManifest
 metadata:
   name: custom-health-check
@@ -423,7 +423,7 @@ pub fn plugin_metadata() -> PluginMetadata {
 
 **WASM Plugin Manifest**:
 ```yaml
-apiVersion: plugin.titananvil.io/v1
+apiVersion: plugin.kscore.io/v1
 kind: PluginManifest
 metadata:
   name: nginx-log-parser
@@ -473,12 +473,12 @@ cosign sign --key security-team.key \
   manifest.yaml
 
 # Plugin uploaded to registry with signature
-titanctl plugin publish custom-health-check \
+kscorectl plugin publish custom-health-check \
   --manifest manifest.yaml \
   --signature manifest.yaml.sig
 
-# TitanAnvil verifies before loading
-titanctl plugin install custom-health-check
+# Keystone Core verifies before loading
+kscorectl plugin install custom-health-check
 → Downloading plugin...
 → Verifying signature with key security-team-key-2024...
 → ✓ Signature valid
@@ -504,7 +504,7 @@ titanctl plugin install custom-health-check
 
 **Transparency Log Structure**:
 ```
-TitanAnvil Plugin Transparency Log
+Keystone Core Plugin Transparency Log
 
 Entry 12345:
   plugin: custom-health-check
@@ -526,7 +526,7 @@ Signed by: transparency-log-key
 **Detection of Tampering**:
 ```bash
 # Client checks if registry serves same plugin everyone else sees
-titanctl plugin verify custom-health-check@1.0.0
+kscorectl plugin verify custom-health-check@1.0.0
 → Fetching from registry...
 → Hash: sha256:abc123...
 → Checking transparency log...
@@ -558,7 +558,7 @@ titanctl plugin verify custom-health-check@1.0.0
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│              TitanAnvil Module Registry                 │
+│              Keystone Core Module Registry                 │
 │                                                          │
 │  ┌────────────────────────────────────────────────────┐ │
 │  │           OCI Registry (Source of Truth)           │ │
@@ -616,18 +616,18 @@ GET /sumdb/lookup/<module>@<version>
 
 ```bash
 # 1. Developer builds and signs module
-titanctl module build
+kscorectl module build
 → Building vendor/pkg_apt@v1.2.3...
 → ✓ Module built: dist/vendor_pkg_apt_v1.2.3.zip
 
-titanctl module sign --key vendor.key dist/vendor_pkg_apt_v1.2.3.zip
+kscorectl module sign --key vendor.key dist/vendor_pkg_apt_v1.2.3.zip
 → Signing with cosign...
 → ✓ Signature: dist/vendor_pkg_apt_v1.2.3.zip.sig
 
 # 2. Publish to registry (pushes to OCI + updates SumDB)
-titanctl module publish vendor/pkg_apt@v1.2.3
+kscorectl module publish vendor/pkg_apt@v1.2.3
 → Uploading to OCI registry...
-→ ✓ Pushed to registry.titananvil.io/vendor/pkg_apt:v1.2.3
+→ ✓ Pushed to registry.kscore.io/vendor/pkg_apt:v1.2.3
 → Recording in transparency log...
 → ✓ SumDB entry: index 45678
 → Published successfully!
@@ -637,7 +637,7 @@ titanctl module publish vendor/pkg_apt@v1.2.3
 
 ```bash
 # User installs module
-titanctl module install vendor/pkg_apt@v1.2.3
+kscorectl module install vendor/pkg_apt@v1.2.3
 
 # Resolver workflow:
 # 1. Query HTTP proxy for version info
@@ -667,17 +667,17 @@ GET /std/exec/@v/v1.5.1.zip
 
 ```bash
 # Export modules for air-gapped environment
-titanctl module mirror --source https://registry.titananvil.io \
+kscorectl module mirror --source https://registry.kscore.io \
                         --dest ./module-mirror \
                         vendor/pkg_apt@v1.2.3
 
 # Import in air-gapped environment
-titanctl module mirror --import ./module-mirror \
+kscorectl module mirror --import ./module-mirror \
                         --registry localhost:5000
 ```
 
 ### US9.4b: Module Resolver
-**As a** TitanAnvil user
+**As a** Keystone Core user
 **I want to** install modules with automatic dependency resolution
 **So that** I don't have to manually manage transitive dependencies
 
@@ -720,7 +720,7 @@ titanctl module mirror --import ./module-mirror \
    e. Check transparency log proof
 
 6. Store in content-addressed cache:
-   → ~/.titananvil/modules/<hash>/
+   → ~/.kscore/modules/<hash>/
    → Enables reproducible builds
 
 7. Generate module.lock:
@@ -733,7 +733,7 @@ titanctl module mirror --import ./module-mirror \
 
 ```bash
 # Resolve dependencies and generate lock file
-titanctl module resolve
+kscorectl module resolve
 → Resolving vendor/pkg_apt@v1.2.3...
 → Found dependency: std/files (>=1.0 <2.0)
 →   Resolved to: std/files@v1.4.2
@@ -749,7 +749,7 @@ titanctl module resolve
 → ✓ Dependencies resolved successfully
 
 # Install from lock file (reproducible)
-titanctl module install --locked
+kscorectl module install --locked
 → Reading module.lock...
 → Installing 3 modules...
 → ✓ vendor/pkg_apt@v1.2.3 (cached)
@@ -758,7 +758,7 @@ titanctl module install --locked
 → Installation complete
 
 # Update dependencies to latest compatible versions
-titanctl module update
+kscorectl module update
 → Checking for updates...
 → std/files: v1.4.2 → v1.5.0 (compatible)
 → std/exec: v1.5.1 (up to date)
@@ -766,7 +766,7 @@ titanctl module update
 → ✓ Updated
 
 # Show dependency tree
-titanctl module tree
+kscorectl module tree
 vendor/pkg_apt@v1.2.3
 ├── std/files@v1.4.2
 │   └── std/strings@v1.0.0
@@ -1048,7 +1048,7 @@ has_privileged_capability(manifest) {
 
 ### US9.7: Plugin Use Cases
 **As a** user
-**I want to** extend TitanAnvil for my use cases
+**I want to** extend Keystone Core for my use cases
 **So that** I'm not limited to built-in functionality
 
 **Plugin Types**:
@@ -1142,13 +1142,13 @@ def verify_canary_deployment(app_name, canary_version):
 
 ### Phase 1: CLI Infrastructure & Plugin Runtime Foundation (Week 1-2)
 
-**T1.0: titanctl Plugin Dispatcher**
-- Implement main `titanctl` binary (lightweight dispatcher)
-- Plugin discovery: search $PATH for `titananvil-*` binaries
-- Execute plugin with remaining arguments: `titanctl module install` → `titananvil-module install`
+**T1.0: kscorectl Plugin Dispatcher**
+- Implement main `kscorectl` binary (lightweight dispatcher)
+- Plugin discovery: search $PATH for `kscore-*` binaries
+- Execute plugin with remaining arguments: `kscorectl module install` → `kscore-module install`
 - Handle plugin not found errors with helpful messages
 - Support `--help` that shows both built-in and discovered plugin commands
-- Support `titanctl plugin list` to show all available plugins
+- Support `kscorectl plugin list` to show all available plugins
 - Version compatibility checking (optional)
 - Similar implementation to `kubectl` plugin system or `git` command dispatch
 
@@ -1195,7 +1195,7 @@ def verify_canary_deployment(app_name, canary_version):
 - Log all capability invocations
 - Include plugin name, capability, parameters
 - Structured audit log format
-- Integration with TitanAnvil audit system
+- Integration with Keystone Core audit system
 
 ### Phase 3: Cryptographic Verification (Week 5-6)
 
@@ -1271,7 +1271,7 @@ def verify_canary_deployment(app_name, canary_version):
   - Tree head signature verification
   - Detect registry tampering
 - **Content-Addressed Storage**:
-  - Local cache (~/.titananvil/modules)
+  - Local cache (~/.kscore/modules)
   - Store by SHA256 hash
   - Deduplication
   - Cache pruning (LRU or size-based)
@@ -1281,17 +1281,17 @@ def verify_canary_deployment(app_name, canary_version):
   - Timestamp resolution
   - Deterministic ordering
 
-**T4.4: Resolver CLI Commands (via titanctl → titananvil-module)**
-- `titanctl module init` - Initialize module.yaml
-- `titanctl module resolve` - Resolve dependencies, generate lock
-- `titanctl module install` - Install from lock file
-- `titanctl module update` - Update to latest compatible versions
-- `titanctl module tree` - Display dependency tree
-- `titanctl module verify` - Verify all dependencies
-- `titanctl module clean` - Clean local cache
-- `titanctl module mirror` - Mirror for air-gapped environments
+**T4.4: Resolver CLI Commands (via kscorectl → kscore-module)**
+- `kscorectl module init` - Initialize module.yaml
+- `kscorectl module resolve` - Resolve dependencies, generate lock
+- `kscorectl module install` - Install from lock file
+- `kscorectl module update` - Update to latest compatible versions
+- `kscorectl module tree` - Display dependency tree
+- `kscorectl module verify` - Verify all dependencies
+- `kscorectl module clean` - Clean local cache
+- `kscorectl module mirror` - Mirror for air-gapped environments
 
-**Note**: `titanctl` dispatches to `titananvil-module` binary using Git-style plugin pattern
+**Note**: `kscorectl` dispatches to `kscore-module` binary using Git-style plugin pattern
 
 ### Phase 5: Policy Integration (Week 8)
 
@@ -1316,15 +1316,15 @@ def verify_canary_deployment(app_name, canary_version):
 - Go SDK for WASM (if needed)
 - Type definitions and documentation
 
-**T6.2: Developer Tooling (via titanctl → titananvil-module)**
-- `titanctl module init` - scaffold new module
-- `titanctl module build` - build module ZIP
-- `titanctl module test` - test module locally
-- `titanctl module sign` - sign module with cosign
-- `titanctl module publish` - upload to registry
-- `titanctl module validate` - validate module.yaml
+**T6.2: Developer Tooling (via kscorectl → kscore-module)**
+- `kscorectl module init` - scaffold new module
+- `kscorectl module build` - build module ZIP
+- `kscorectl module test` - test module locally
+- `kscorectl module sign` - sign module with cosign
+- `kscorectl module publish` - upload to registry
+- `kscorectl module validate` - validate module.yaml
 - Integration with resolver commands (resolve, install, etc.)
-- Plugin discovery mechanism in `titanctl` (searches $PATH for titananvil-*)
+- Plugin discovery mechanism in `kscorectl` (searches $PATH for kscore-*)
 
 **T6.3: Module Examples & Templates**
 - Example Starlark modules

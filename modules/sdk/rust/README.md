@@ -1,10 +1,10 @@
-# TitanAnvil Rust SDK
+# Keystone Core Rust SDK
 
-The official Rust SDK for building TitanAnvil modules that compile to WebAssembly.
+The official Rust SDK for building Keystone Core modules that compile to WebAssembly.
 
 ## Features
 
-- **Type-safe API**: Fully typed Rust interfaces for all TitanAnvil capabilities
+- **Type-safe API**: Fully typed Rust interfaces for all Keystone Core capabilities
 - **Zero-copy where possible**: Efficient memory usage between WASM and host
 - **Cross-platform**: Works on Linux, macOS, and Windows
 - **Capability-based security**: Only access what you're granted
@@ -29,7 +29,7 @@ use titan_module_sdk::{module_main, Result};
 use titan_module_sdk::host::log;
 
 fn my_module() -> Result<String> {
-    log::info("Hello from TitanAnvil!");
+    log::info("Hello from Keystone Core!");
     Ok("Success".to_string())
 }
 
@@ -38,7 +38,7 @@ module_main!(my_module);
 
 ## Building
 
-TitanAnvil modules target `wasm32-wasi`:
+Keystone Core modules target `wasm32-wasi`:
 
 ```bash
 # Install the WASI target (one-time setup)
@@ -200,7 +200,7 @@ Create a `module.yaml` to describe your module:
 ```yaml
 name: myorg/mymodule
 version: 1.0.0
-description: My TitanAnvil module
+description: My Keystone Core module
 
 type: wasm
 
@@ -250,7 +250,7 @@ mod tests {
 }
 ```
 
-For integration testing, use the TitanAnvil test framework with a WASM runtime.
+For integration testing, use the Keystone Core test framework with a WASM runtime.
 
 ## Optimization
 

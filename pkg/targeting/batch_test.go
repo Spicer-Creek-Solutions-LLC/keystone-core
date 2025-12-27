@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/titananvil/titan-anvil/pkg/api/v1"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 )
 
 // mockConnectionManager implements ConnectionManager for testing

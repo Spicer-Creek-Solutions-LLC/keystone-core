@@ -6,9 +6,9 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	pb "github.com/titananvil/titan-anvil/pkg/api/v1"
-	"github.com/titananvil/titan-anvil/pkg/controlplane"
-	"github.com/titananvil/titan-anvil/pkg/state"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
+	"github.com/shawnbutts/keystone-core/pkg/controlplane"
+	"github.com/shawnbutts/keystone-core/pkg/state"
 )
 
 // ControlPlaneServer implements the ControlPlaneService

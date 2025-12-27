@@ -20,7 +20,7 @@ type ModuleTemplate struct {
 func DefaultTemplate(name string) *ModuleTemplate {
 	return &ModuleTemplate{
 		Name:         name,
-		Description:  "A TitanAnvil module",
+		Description:  "A Keystone Core module",
 		Version:      "0.1.0",
 		Author:       "",
 		Capabilities: []string{},
@@ -144,8 +144,8 @@ def test_hello_default():
 
 def test_hello_custom():
     """Test hello with custom name."""
-    result = hello("TitanAnvil")
-    assert.eq(result, "Hello, TitanAnvil!")
+    result = hello("Keystone Core")
+    assert.eq(result, "Hello, Keystone Core!")
 
 def test_main():
     """Test main function."""
@@ -165,7 +165,7 @@ func (t *ModuleTemplate) generateReadme(path string) error {
 ## Installation
 
 `+"```bash"+`
-titanctl module install %s
+kscorectl module install %s
 `+"```"+`
 
 ## Usage
@@ -181,13 +181,13 @@ hello("World")
 ### Running Tests
 
 `+"```bash"+`
-titanctl module test
+kscorectl module test
 `+"```"+`
 
 ### Building
 
 `+"```bash"+`
-titanctl module build
+kscorectl module build
 `+"```"+`
 
 ## License

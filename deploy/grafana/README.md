@@ -1,20 +1,20 @@
-# TitanAnvil Grafana Dashboards
+# Keystone Core Grafana Dashboards
 
-This directory contains pre-built Grafana dashboards and Prometheus alert rules for monitoring TitanAnvil infrastructure.
+This directory contains pre-built Grafana dashboards and Prometheus alert rules for monitoring Keystone Core infrastructure.
 
 ## Contents
 
 ```
 deploy/grafana/
 ├── dashboards/              # Grafana dashboard JSON files
-│   ├── titananvil-overview.json          # System overview
+│   ├── kscore-overview.json          # System overview
 │   ├── control-plane-health.json         # Control plane metrics
 │   ├── agent-fleet.json                  # Agent fleet monitoring
 │   ├── state-management.json             # State operations
 │   ├── policy-compliance.json            # Policy & compliance
 │   └── gitops-operations.json            # GitOps deployments
 ├── alerts/                  # Prometheus alert rules
-│   └── titananvil-alerts.yml             # Alert definitions
+│   └── kscore-alerts.yml             # Alert definitions
 ├── provisioning/            # Grafana provisioning configs
 │   ├── datasources/         # Datasource configurations
 │   ├── dashboards/          # Dashboard provisioning
@@ -25,10 +25,10 @@ deploy/grafana/
 
 ## Dashboards
 
-### 1. TitanAnvil Overview
-**UID**: `titananvil-overview`
+### 1. Keystone Core Overview
+**UID**: `kscore-overview`
 
-High-level system overview providing at-a-glance visibility into TitanAnvil operations.
+High-level system overview providing at-a-glance visibility into Keystone Core operations.
 
 **Panels**:
 - Total Agents (stat)
@@ -53,9 +53,9 @@ High-level system overview providing at-a-glance visibility into TitanAnvil oper
 - Incident overview
 
 ### 2. Control Plane Health
-**UID**: `titananvil-control-plane`
+**UID**: `kscore-control-plane`
 
-Detailed monitoring of TitanAnvil control plane performance and resource utilization.
+Detailed monitoring of Keystone Core control plane performance and resource utilization.
 
 **Panels**:
 - Control Plane Status (stat)
@@ -81,7 +81,7 @@ Detailed monitoring of TitanAnvil control plane performance and resource utiliza
 - Incident investigation
 
 ### 3. Agent Fleet
-**UID**: `titananvil-agent-fleet`
+**UID**: `kscore-agent-fleet`
 
 Comprehensive agent fleet monitoring including health, performance, and resource utilization.
 
@@ -111,7 +111,7 @@ Comprehensive agent fleet monitoring including health, performance, and resource
 - Agent upgrade planning
 
 ### 4. State Management
-**UID**: `titananvil-state-management`
+**UID**: `kscore-state-management`
 
 Monitors state application operations, drift detection, and configuration management.
 
@@ -140,7 +140,7 @@ Monitors state application operations, drift detection, and configuration manage
 - Capacity planning
 
 ### 5. Policy Compliance
-**UID**: `titananvil-policy-compliance`
+**UID**: `kscore-policy-compliance`
 
 Tracks policy violations, compliance scores, and remediation effectiveness.
 
@@ -169,7 +169,7 @@ Tracks policy violations, compliance scores, and remediation effectiveness.
 - Policy effectiveness analysis
 
 ### 6. GitOps Operations
-**UID**: `titananvil-gitops-operations`
+**UID**: `kscore-gitops-operations`
 
 Monitors GitOps deployments, verification workflows, and rollback operations.
 
@@ -199,7 +199,7 @@ Monitors GitOps deployments, verification workflows, and rollback operations.
 
 ## Prometheus Alerts
 
-Alert rules are defined in `alerts/titananvil-alerts.yml` and organized into groups:
+Alert rules are defined in `alerts/kscore-alerts.yml` and organized into groups:
 
 ### Control Plane Alerts
 - **ControlPlaneDown** (critical): Control plane instance is down for >1 minute
@@ -246,7 +246,7 @@ Alert rules are defined in `alerts/titananvil-alerts.yml` and organized into gro
 
 ### Using Docker Compose
 
-The easiest way to run Grafana with TitanAnvil dashboards:
+The easiest way to run Grafana with Keystone Core dashboards:
 
 ```bash
 # Navigate to the grafana directory
@@ -308,7 +308,7 @@ Add to your Prometheus configuration:
 ```yaml
 # prometheus.yml
 rule_files:
-  - /path/to/titananvil-alerts.yml
+  - /path/to/kscore-alerts.yml
 
 alerting:
   alertmanagers:
@@ -328,68 +328,68 @@ curl -X POST http://localhost:9090/-/reload
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `titananvil_api_requests_total` | Counter | endpoint, method, status | Total API requests |
-| `titananvil_api_request_duration_seconds` | Histogram | endpoint | API request duration |
-| `titananvil_errors_total` | Counter | component, type | Total errors by component |
-| `titananvil_state_query_duration_seconds` | Histogram | operation | State backend query duration |
+| `kscore_api_requests_total` | Counter | endpoint, method, status | Total API requests |
+| `kscore_api_request_duration_seconds` | Histogram | endpoint | API request duration |
+| `kscore_errors_total` | Counter | component, type | Total errors by component |
+| `kscore_state_query_duration_seconds` | Histogram | operation | State backend query duration |
 
 ### Agent Metrics
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `titananvil_agents_total` | Gauge | datacenter, role, environment | Total agents |
-| `titananvil_agents_connected` | Gauge | datacenter, role | Connected agents |
-| `titananvil_agents_disconnected` | Gauge | datacenter, role | Disconnected agents |
-| `titananvil_agents_by_status` | Gauge | status, datacenter, role | Agents grouped by status |
-| `titananvil_agent_heartbeat` | Gauge | agent_id, datacenter, role | Agent heartbeat timestamp |
-| `titananvil_agent_cpu_usage` | Gauge | agent_id | Agent CPU usage percent |
-| `titananvil_agent_memory_usage` | Gauge | agent_id | Agent memory usage percent |
-| `titananvil_agent_disk_usage` | Gauge | agent_id | Agent disk usage percent |
-| `titananvil_agent_commands_total` | Counter | agent_id | Total commands executed |
-| `titananvil_agent_commands_successful` | Counter | agent_id | Successful commands |
-| `titananvil_agent_commands_failed` | Counter | agent_id | Failed commands |
+| `kscore_agents_total` | Gauge | datacenter, role, environment | Total agents |
+| `kscore_agents_connected` | Gauge | datacenter, role | Connected agents |
+| `kscore_agents_disconnected` | Gauge | datacenter, role | Disconnected agents |
+| `kscore_agents_by_status` | Gauge | status, datacenter, role | Agents grouped by status |
+| `kscore_agent_heartbeat` | Gauge | agent_id, datacenter, role | Agent heartbeat timestamp |
+| `kscore_agent_cpu_usage` | Gauge | agent_id | Agent CPU usage percent |
+| `kscore_agent_memory_usage` | Gauge | agent_id | Agent memory usage percent |
+| `kscore_agent_disk_usage` | Gauge | agent_id | Agent disk usage percent |
+| `kscore_agent_commands_total` | Counter | agent_id | Total commands executed |
+| `kscore_agent_commands_successful` | Counter | agent_id | Successful commands |
+| `kscore_agent_commands_failed` | Counter | agent_id | Failed commands |
 
 ### State Management Metrics
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `titananvil_state_applications_total` | Counter | environment | Total state applications |
-| `titananvil_state_successful_total` | Counter | environment | Successful state applications |
-| `titananvil_state_failed_total` | Counter | environment, reason | Failed state applications |
-| `titananvil_state_changes_total` | Counter | module, environment | State changes by module |
-| `titananvil_drift_detected_total` | Counter | severity, environment | Drift detection events |
-| `titananvil_state_duration_seconds` | Histogram | environment | State application duration |
-| `titananvil_state_resources_total` | Gauge | type, environment | Resources under management |
+| `kscore_state_applications_total` | Counter | environment | Total state applications |
+| `kscore_state_successful_total` | Counter | environment | Successful state applications |
+| `kscore_state_failed_total` | Counter | environment, reason | Failed state applications |
+| `kscore_state_changes_total` | Counter | module, environment | State changes by module |
+| `kscore_drift_detected_total` | Counter | severity, environment | Drift detection events |
+| `kscore_state_duration_seconds` | Histogram | environment | State application duration |
+| `kscore_state_resources_total` | Gauge | type, environment | Resources under management |
 
 ### Policy Metrics
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `titananvil_policy_violations_total` | Counter | policy, severity, framework, environment | Policy violations |
-| `titananvil_policy_compliance_score` | Gauge | framework, environment | Compliance score percent |
-| `titananvil_policy_evaluations_total` | Counter | framework, environment | Total policy evaluations |
-| `titananvil_policy_evaluation_duration_seconds` | Histogram | framework, environment | Policy evaluation duration |
-| `titananvil_policy_remediation_attempted_total` | Counter | framework, environment | Remediation attempts |
-| `titananvil_policy_remediation_successful_total` | Counter | framework, environment | Successful remediations |
-| `titananvil_policy_remediation_failed_total` | Counter | framework, environment | Failed remediations |
+| `kscore_policy_violations_total` | Counter | policy, severity, framework, environment | Policy violations |
+| `kscore_policy_compliance_score` | Gauge | framework, environment | Compliance score percent |
+| `kscore_policy_evaluations_total` | Counter | framework, environment | Total policy evaluations |
+| `kscore_policy_evaluation_duration_seconds` | Histogram | framework, environment | Policy evaluation duration |
+| `kscore_policy_remediation_attempted_total` | Counter | framework, environment | Remediation attempts |
+| `kscore_policy_remediation_successful_total` | Counter | framework, environment | Successful remediations |
+| `kscore_policy_remediation_failed_total` | Counter | framework, environment | Failed remediations |
 
 ### GitOps Metrics
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `titananvil_gitops_deployments_total` | Counter | application, environment | Total deployments |
-| `titananvil_gitops_verifications_total` | Counter | application, environment | Total verifications |
-| `titananvil_gitops_verifications_successful_total` | Counter | application, environment | Successful verifications |
-| `titananvil_gitops_verifications_failed_total` | Counter | application, environment | Failed verifications |
-| `titananvil_gitops_verification_duration_seconds` | Histogram | application, environment | Verification duration |
-| `titananvil_gitops_rollbacks_total` | Counter | application, environment, reason | Total rollbacks |
-| `titananvil_gitops_rollback_duration_seconds` | Histogram | application, environment | Rollback duration |
-| `titananvil_gitops_webhooks_total` | Counter | source, application, environment | Webhook events received |
-| `titananvil_gitops_webhook_errors_total` | Counter | source, error_type | Webhook processing errors |
+| `kscore_gitops_deployments_total` | Counter | application, environment | Total deployments |
+| `kscore_gitops_verifications_total` | Counter | application, environment | Total verifications |
+| `kscore_gitops_verifications_successful_total` | Counter | application, environment | Successful verifications |
+| `kscore_gitops_verifications_failed_total` | Counter | application, environment | Failed verifications |
+| `kscore_gitops_verification_duration_seconds` | Histogram | application, environment | Verification duration |
+| `kscore_gitops_rollbacks_total` | Counter | application, environment, reason | Total rollbacks |
+| `kscore_gitops_rollback_duration_seconds` | Histogram | application, environment | Rollback duration |
+| `kscore_gitops_webhooks_total` | Counter | source, application, environment | Webhook events received |
+| `kscore_gitops_webhook_errors_total` | Counter | source, error_type | Webhook processing errors |
 
 ### NATS Metrics
 
-TitanAnvil leverages standard NATS server metrics:
+Keystone Core leverages standard NATS server metrics:
 
 | Metric | Type | Description |
 |--------|------|-------------|
@@ -433,7 +433,7 @@ Edit dashboard JSON and add to `templating.list`:
 
 ### Modifying Alert Thresholds
 
-Edit `alerts/titananvil-alerts.yml` and adjust `expr` or `for` values:
+Edit `alerts/kscore-alerts.yml` and adjust `expr` or `for` values:
 
 ```yaml
 - alert: MyCustomAlert
@@ -454,13 +454,13 @@ Edit `alerts/titananvil-alerts.yml` and adjust `expr` or `for` values:
 
 ### No Data in Panels
 
-1. Verify Prometheus is scraping TitanAnvil metrics:
+1. Verify Prometheus is scraping Keystone Core metrics:
    ```bash
    curl http://localhost:9090/api/v1/targets
    ```
-2. Check TitanAnvil `/metrics` endpoint:
+2. Check Keystone Core `/metrics` endpoint:
    ```bash
-   curl http://titananvil-server:8080/metrics
+   curl http://kscore-server:8080/metrics
    ```
 3. Test Prometheus query manually:
    - Open Prometheus UI at `http://localhost:9090`
@@ -480,7 +480,7 @@ Edit `alerts/titananvil-alerts.yml` and adjust `expr` or `for` values:
 
 ### Dashboard Organization
 
-- **Overview first**: Start with the TitanAnvil Overview dashboard for daily monitoring
+- **Overview first**: Start with the Keystone Core Overview dashboard for daily monitoring
 - **Drill down**: Use other dashboards for deep-dive troubleshooting
 - **Custom folders**: Organize dashboards in Grafana folders by team or function
 - **Favorites**: Star frequently used dashboards for quick access
@@ -501,7 +501,7 @@ Edit `alerts/titananvil-alerts.yml` and adjust `expr` or `for` values:
 
 ## Contributing
 
-To contribute improvements to TitanAnvil dashboards:
+To contribute improvements to Keystone Core dashboards:
 
 1. Make changes to dashboard JSON files
 2. Test thoroughly in your environment
@@ -512,10 +512,10 @@ To contribute improvements to TitanAnvil dashboards:
 ## Support
 
 For issues or questions:
-- **GitHub Issues**: [TitanAnvil Repository](https://github.com/titananvil/titan-anvil/issues)
-- **Documentation**: See main TitanAnvil documentation
+- **GitHub Issues**: [Keystone Core Repository](https://github.com/kscore/keystone-core/issues)
+- **Documentation**: See main Keystone Core documentation
 - **Metrics Reference**: Epic 7 (Observability) in project epics
 
 ## License
 
-TitanAnvil dashboards are part of the TitanAnvil project and share the same license.
+Keystone Core dashboards are part of the Keystone Core project and share the same license.

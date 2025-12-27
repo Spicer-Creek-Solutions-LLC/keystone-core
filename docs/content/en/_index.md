@@ -1,20 +1,20 @@
 ---
-title: "TitanAnvil"
+title: "Keystone Core"
 ---
 
-{{< blocks/cover title="TitanAnvil" image_anchor="top" height="full" >}}
+{{< blocks/cover title="Keystone Core" image_anchor="top" height="full" >}}
 <p class="lead mt-5">Cloud-Native Runtime Infrastructure Control Plane</p>
 <a class="btn btn-lg btn-primary me-3 mb-4" href="/docs/">
   Learn More <i class="fas fa-arrow-alt-circle-right ms-2"></i>
 </a>
-<a class="btn btn-lg btn-secondary me-3 mb-4" href="https://github.com/titananvil/titan-anvil">
+<a class="btn btn-lg btn-secondary me-3 mb-4" href="https://github.com/kscore/keystone-core">
   Download <i class="fab fa-github ms-2 "></i>
 </a>
 <p class="lead mt-5">GitOps deploys it. We keep it running.</p>
 {{< /blocks/cover >}}
 
 {{% blocks/lead color="primary" %}}
-TitanAnvil is the operational layer between GitOps/IaC deployments and runtime infrastructure.
+Keystone Core is the operational layer between GitOps/IaC deployments and runtime infrastructure.
 
 It bridges the gap between declarative GitOps tools and the dynamic reality of production operations.
 {{% /blocks/lead %}}
@@ -42,7 +42,7 @@ React to infrastructure events in real-time with powerful filtering, routing, an
 {{% /blocks/feature %}}
 
 {{% blocks/feature icon="fa-plug" title="Extensible Plugin System" %}}
-Extend TitanAnvil with custom modules written in Starlark or WASM (Rust/Go/C++). Sandboxed execution with capability-based security.
+Extend Keystone Core with custom modules written in Starlark or WASM (Rust/Go/C++). Sandboxed execution with capability-based security.
 {{% /blocks/feature %}}
 
 {{% blocks/feature icon="fa-chart-line" title="Full Observability" %}}

@@ -1,6 +1,6 @@
 name: examples/hello-world-go
 version: 0.1.0
-description: Hello World example module in Go demonstrating TitanAnvil SDK usage
+description: Hello World example module in Go demonstrating Keystone Core SDK usage
 
 # Module type
 type: wasm
@@ -26,7 +26,7 @@ build:
 
 # Metadata
 metadata:
-  author: TitanAnvil Contributors
+  author: Keystone Core Contributors
   license: MIT
   language: go
   sdk_version: "0.1.0"

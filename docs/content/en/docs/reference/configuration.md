@@ -7,21 +7,21 @@ description: >
 
 ## Overview
 
-TitanAnvil components are configured using YAML files. This reference documents all configuration options.
+Keystone Core components are configured using YAML files. This reference documents all configuration options.
 
 **Configuration Files**:
-- Control Plane: `/etc/titananvil/server.yaml`
-- Agent: `/etc/titananvil/agent.yaml`
-- CLI: `~/.titananvil/config.yaml`
+- Control Plane: `/etc/kscore/server.yaml`
+- Agent: `/etc/kscore/agent.yaml`
+- CLI: `~/.kscore/config.yaml`
 
 ## Control Plane Configuration
 
-Complete configuration reference for `titananvil-server`.
+Complete configuration reference for `kscore-server`.
 
 ### Basic Configuration
 
 ```yaml
-# /etc/titananvil/server.yaml
+# /etc/kscore/server.yaml
 
 # API Server
 api:
@@ -53,7 +53,7 @@ nats:
     ca_file: ""
   jetstream:
     enabled: true                   # Enable JetStream
-    store_dir: "/var/lib/titananvil/nats"
+    store_dir: "/var/lib/kscore/nats"
     max_memory: "1GB"               # Max memory for streams
     max_file: "10GB"                # Max file storage
 
@@ -61,14 +61,14 @@ nats:
 storage:
   type: "sqlite"                    # sqlite, postgresql
   sqlite:
-    path: "/var/lib/titananvil/titan.db"
+    path: "/var/lib/kscore/titan.db"
     max_connections: 10
     busy_timeout: "5s"
   postgresql:
     host: "localhost"
     port: 5432
-    database: "titananvil"
-    username: "titananvil"
+    database: "kscore"
+    username: "kscore"
     password: ""
     sslmode: "disable"              # disable, require, verify-ca, verify-full
     max_connections: 25
@@ -80,7 +80,7 @@ logging:
   level: "info"                     # debug, info, warn, error
   format: "json"                    # json, logfmt, text
   output: "stdout"                  # stdout, file
-  file: "/var/log/titananvil/server.log"
+  file: "/var/log/kscore/server.log"
   max_size: "100MB"                 # Max log file size
   max_backups: 3                    # Max backup files
   max_age: 30                       # Max age in days
@@ -101,7 +101,7 @@ tracing:
     strategy: "ratio"               # always, never, ratio
     ratio: 0.1                      # Sample rate (0.0-1.0)
   resource:
-    service.name: "titananvil-server"
+    service.name: "kscore-server"
     service.version: "1.0.0"
     deployment.environment: "production"
 
@@ -218,7 +218,7 @@ gitops:
         branch: "main"
         auth:
           type: "ssh"
-          ssh_key_path: "/etc/titananvil/id_rsa"
+          ssh_key_path: "/etc/kscore/id_rsa"
         paths:
           states: "states/"
           reactors: "reactors/"
@@ -238,7 +238,7 @@ security:
         key: "ta_live_abc123"
         permissions: ["*"]
     mtls:
-      ca_file: "/etc/titananvil/ca.crt"
+      ca_file: "/etc/kscore/ca.crt"
       verify_client: true
 
   authorization:
@@ -246,27 +246,27 @@ security:
     default_deny: true
     rbac:
       enabled: true
-      policy_file: "/etc/titananvil/rbac.yaml"
+      policy_file: "/etc/kscore/rbac.yaml"
 ```
 
 ## Agent Configuration
 
-Complete configuration reference for `titananvil-agent`.
+Complete configuration reference for `kscore-agent`.
 
 ### Basic Configuration
 
 ```yaml
-# /etc/titananvil/agent.yaml
+# /etc/kscore/agent.yaml
 
 # Control Plane Connection
 control_plane:
   url: "nats://control-plane.example.com:4222"
-  credentials: "/etc/titananvil/agent.creds"
+  credentials: "/etc/kscore/agent.creds"
   tls:
     enabled: false
-    ca_file: "/etc/titananvil/ca.crt"
-    cert_file: "/etc/titananvil/agent.crt"
-    key_file: "/etc/titananvil/agent.key"
+    ca_file: "/etc/kscore/ca.crt"
+    cert_file: "/etc/kscore/agent.crt"
+    key_file: "/etc/kscore/agent.key"
 
   # Connection settings
   max_reconnects: -1                # Unlimited reconnects
@@ -301,7 +301,7 @@ logging:
   level: "info"
   format: "json"
   output: "stdout"
-  file: "/var/log/titananvil/agent.log"
+  file: "/var/log/kscore/agent.log"
 
 # Execution Settings
 execution:
@@ -318,9 +318,9 @@ execution:
 
 # State Management
 state:
-  modules_dir: "/var/lib/titananvil/modules"
+  modules_dir: "/var/lib/kscore/modules"
   cache_enabled: true
-  cache_dir: "/var/cache/titananvil"
+  cache_dir: "/var/cache/kscore"
   dry_run: false
 
 # Security
@@ -346,7 +346,7 @@ offline:
 # Cache
 cache:
   enabled: false
-  directory: "/var/lib/titananvil/cache"
+  directory: "/var/lib/kscore/cache"
   max_size: "1GB"
 ```
 
@@ -379,10 +379,10 @@ monitoring:
 
 ## CLI Configuration
 
-Client configuration for `titanctl`.
+Client configuration for `kscorectl`.
 
 ```yaml
-# ~/.titananvil/config.yaml
+# ~/.kscore/config.yaml
 
 # Control plane connection
 server: "http://control-plane.example.com:8080"
@@ -391,9 +391,9 @@ api_key: "ta_live_abc123xyz789"
 # TLS configuration
 tls:
   enabled: false
-  ca_cert: "/etc/titananvil/ca.crt"
-  client_cert: "/etc/titananvil/client.crt"
-  client_key: "/etc/titananvil/client.key"
+  ca_cert: "/etc/kscore/ca.crt"
+  client_cert: "/etc/kscore/client.crt"
+  client_key: "/etc/kscore/client.key"
   skip_verify: false
 
 # Output preferences
@@ -551,7 +551,7 @@ policy_id:
 
   # Policy code
   code: |
-    package titananvil.security
+    package kscore.security
 
     deny[msg] {
         input.resource.type == "file"
@@ -599,15 +599,15 @@ api:
   listen: "0.0.0.0:8080"
   tls:
     enabled: true
-    cert_file: "/etc/titananvil/server.crt"
-    key_file: "/etc/titananvil/server.key"
+    cert_file: "/etc/kscore/server.crt"
+    key_file: "/etc/kscore/server.key"
 nats:
   mode: external
   urls:
     - "nats://nats1:4222"
     - "nats://nats2:4222"
     - "nats://nats3:4222"
-  credentials: "/etc/titananvil/nats.creds"
+  credentials: "/etc/kscore/nats.creds"
 storage:
   type: postgresql
   postgresql:
@@ -618,7 +618,7 @@ logging:
   level: info
   format: json
   output: file
-  file: "/var/log/titananvil/server.log"
+  file: "/var/log/kscore/server.log"
 ```
 
 ### High Availability
@@ -635,7 +635,7 @@ nats:
     - "nats://nats2.dc2:4222"
   tls:
     enabled: true
-    ca_file: "/etc/titananvil/nats-ca.crt"
+    ca_file: "/etc/kscore/nats-ca.crt"
 storage:
   type: postgresql
   postgresql:
@@ -687,13 +687,13 @@ Validate configuration files:
 
 ```bash
 # Validate control plane config
-titananvil-server --config server.yaml --validate
+kscore-server --config server.yaml --validate
 
 # Validate agent config
-titananvil-agent --config agent.yaml --validate
+kscore-agent --config agent.yaml --validate
 
 # Test configuration
-titananvil-server --config server.yaml --test
+kscore-server --config server.yaml --test
 ```
 
 ## Configuration Examples

@@ -11,7 +11,7 @@ import (
 // TestCLIIntegration tests the end-to-end CLI workflow
 func TestCLIIntegration(t *testing.T) {
 	// Build the CLI binary
-	binPath := filepath.Join(t.TempDir(), "titananvil-state")
+	binPath := filepath.Join(t.TempDir(), "kscore-state")
 	buildCmd := exec.Command("go", "build", "-o", binPath, ".")
 	if output, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build CLI: %v\n%s", err, output)
@@ -154,7 +154,7 @@ file:
 // TestCLIVersion tests the version command
 func TestCLIVersion(t *testing.T) {
 	// Build the CLI binary
-	binPath := filepath.Join(t.TempDir(), "titananvil-state")
+	binPath := filepath.Join(t.TempDir(), "kscore-state")
 	buildCmd := exec.Command("go", "build", "-o", binPath, ".")
 	if output, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build CLI: %v\n%s", err, output)
@@ -167,7 +167,7 @@ func TestCLIVersion(t *testing.T) {
 	}
 
 	outputStr := string(output)
-	if !strings.Contains(outputStr, "TitanAnvil") {
-		t.Error("Expected TitanAnvil version information in output")
+	if !strings.Contains(outputStr, "Keystone Core") {
+		t.Error("Expected Keystone Core version information in output")
 	}
 }

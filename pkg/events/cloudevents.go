@@ -102,7 +102,7 @@ func (ce *CloudEvent) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// ToCloudEvent converts a TitanAnvil Event to a CloudEvent
+// ToCloudEvent converts a Keystone Core Event to a CloudEvent
 func ToCloudEvent(event *Event) *CloudEvent {
 	ce := &CloudEvent{
 		ID:              event.ID,
@@ -131,7 +131,7 @@ func ToCloudEvent(event *Event) *CloudEvent {
 	return ce
 }
 
-// FromCloudEvent converts a CloudEvent to a TitanAnvil Event
+// FromCloudEvent converts a CloudEvent to a Keystone Core Event
 func FromCloudEvent(ce *CloudEvent) (*Event, error) {
 	if ce.SpecVersion != "1.0" {
 		return nil, fmt.Errorf("unsupported CloudEvents version: %s", ce.SpecVersion)
@@ -261,7 +261,7 @@ func (s *CloudEventSubscriber) Subscribe(subject string, handler EventHandler) (
 	// Wrap handler to convert CloudEvents
 	wrappedHandler := func(event *Event) error {
 		// In a real implementation, this would receive CloudEvents from transport
-		// and convert them to TitanAnvil events
+		// and convert them to Keystone Core events
 		return handler(event)
 	}
 
@@ -338,7 +338,7 @@ type CloudEventBatch struct {
 	Events []*CloudEvent `json:"events"`
 }
 
-// ToCloudEventBatch converts multiple TitanAnvil events to a CloudEvent batch
+// ToCloudEventBatch converts multiple Keystone Core events to a CloudEvent batch
 func ToCloudEventBatch(events []*Event) *CloudEventBatch {
 	batch := &CloudEventBatch{
 		Events: make([]*CloudEvent, len(events)),
@@ -351,7 +351,7 @@ func ToCloudEventBatch(events []*Event) *CloudEventBatch {
 	return batch
 }
 
-// FromCloudEventBatch converts a CloudEvent batch to TitanAnvil events
+// FromCloudEventBatch converts a CloudEvent batch to Keystone Core events
 func FromCloudEventBatch(batch *CloudEventBatch) ([]*Event, error) {
 	events := make([]*Event, len(batch.Events))
 

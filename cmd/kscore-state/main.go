@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/titananvil/titan-anvil/pkg/statemgmt"
-	"github.com/titananvil/titan-anvil/pkg/version"
+	"github.com/shawnbutts/keystone-core/pkg/statemgmt"
+	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
 var (
@@ -19,7 +19,7 @@ var (
 		Short: "Declarative state management for infrastructure",
 		Long: `Manage infrastructure state using declarative YAML definitions.
 
-TitanAnvil State provides idempotent configuration management with:
+Keystone Core State provides idempotent configuration management with:
   - Dependency resolution (automatic ordering)
   - Drift detection (what changed?)
   - Dry-run mode (check before apply)
@@ -27,13 +27,13 @@ TitanAnvil State provides idempotent configuration management with:
 
 Examples:
   # Apply state declarations
-  titanctl state apply states/webserver.yaml
+  kscorectl state apply states/webserver.yaml
 
   # Check without applying (dry-run)
-  titanctl state check states/webserver.yaml
+  kscorectl state check states/webserver.yaml
 
   # Detect drift
-  titanctl state drift states/webserver.yaml`,
+  kscorectl state drift states/webserver.yaml`,
 	}
 
 	versionCmd = &cobra.Command{
@@ -78,13 +78,13 @@ ensuring that required states run before dependent states.
 
 Examples:
   # Apply a state file
-  titanctl state apply states/webserver.yaml
+  kscorectl state apply states/webserver.yaml
 
   # Apply with variables
-  titanctl state apply states/app.yaml --vars vars/production.yaml
+  kscorectl state apply states/app.yaml --vars vars/production.yaml
 
   # Dry-run (check what would change)
-  titanctl state apply states/app.yaml --dry-run`,
+  kscorectl state apply states/app.yaml --dry-run`,
 	Args: cobra.ExactArgs(1),
 	RunE: applyExecute,
 }
@@ -185,10 +185,10 @@ This is equivalent to 'apply --dry-run' and is useful for:
 
 Examples:
   # Check a state file
-  titanctl state check states/webserver.yaml
+  kscorectl state check states/webserver.yaml
 
   # Check with variables
-  titanctl state check states/app.yaml --vars vars/staging.yaml`,
+  kscorectl state check states/app.yaml --vars vars/staging.yaml`,
 	Args: cobra.ExactArgs(1),
 	RunE: checkExecute,
 }
@@ -221,10 +221,10 @@ Drift detection identifies:
 
 Examples:
   # Detect drift
-  titanctl state drift states/webserver.yaml
+  kscorectl state drift states/webserver.yaml
 
   # Detect drift with variables
-  titanctl state drift states/app.yaml --vars vars/production.yaml`,
+  kscorectl state drift states/app.yaml --vars vars/production.yaml`,
 	Args: cobra.ExactArgs(1),
 	RunE: driftExecute,
 }

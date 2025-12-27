@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/titananvil/titan-anvil/pkg/events"
-	"github.com/titananvil/titan-anvil/pkg/tracing"
+	"github.com/shawnbutts/keystone-core/pkg/events"
+	"github.com/shawnbutts/keystone-core/pkg/tracing"
 )
 
 // Executor executes state declarations

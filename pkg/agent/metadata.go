@@ -6,9 +6,9 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/titananvil/titan-anvil/pkg/hardware"
-	"github.com/titananvil/titan-anvil/pkg/platform"
-	"github.com/titananvil/titan-anvil/pkg/version"
+	"github.com/shawnbutts/keystone-core/pkg/hardware"
+	"github.com/shawnbutts/keystone-core/pkg/platform"
+	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
 // Metadata represents agent system metadata

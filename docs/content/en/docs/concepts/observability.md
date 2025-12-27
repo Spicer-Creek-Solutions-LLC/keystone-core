@@ -7,7 +7,7 @@ description: >
 
 ## Overview
 
-TitanAnvil provides comprehensive observability through metrics, logging, and tracing. Monitor system health, track performance, debug issues, and gain insights into your infrastructure operations.
+Keystone Core provides comprehensive observability through metrics, logging, and tracing. Monitor system health, track performance, debug issues, and gain insights into your infrastructure operations.
 
 **Three Pillars**:
 - **Metrics**: Prometheus-compatible metrics for quantitative measurement
@@ -24,7 +24,7 @@ TitanAnvil provides comprehensive observability through metrics, logging, and tr
 
 ```
 ┌─────────────────────────────────────────────┐
-│        TitanAnvil Components                 │
+│        Keystone Core Components                 │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  │
 │  │ Control  │  │  Agents  │  │  Plugins │  │
 │  │  Plane   │  │          │  │          │  │
@@ -55,93 +55,93 @@ TitanAnvil provides comprehensive observability through metrics, logging, and tr
 
 ## Metrics
 
-TitanAnvil exposes 70+ Prometheus-compatible metrics:
+Keystone Core exposes 70+ Prometheus-compatible metrics:
 
 ### Control Plane Metrics
 
 **API Metrics**:
 ```
 # HTTP requests
-titananvil_api_requests_total{method,path,status}
-titananvil_api_request_duration_seconds{method,path,quantile}
+kscore_api_requests_total{method,path,status}
+kscore_api_request_duration_seconds{method,path,quantile}
 
 # Active connections
-titananvil_api_active_connections
+kscore_api_active_connections
 ```
 
 **Agent Metrics**:
 ```
 # Agent status
-titananvil_agents_connected_total{datacenter,environment,role}
-titananvil_agents_disconnected_total{reason}
+kscore_agents_connected_total{datacenter,environment,role}
+kscore_agents_disconnected_total{reason}
 
 # Heartbeats
-titananvil_agent_heartbeat_received_total
-titananvil_agent_heartbeat_missed_total
+kscore_agent_heartbeat_received_total
+kscore_agent_heartbeat_missed_total
 ```
 
 **Command Execution**:
 ```
 # Commands
-titananvil_commands_executed_total{status,datacenter}
-titananvil_command_duration_seconds{quantile}
+kscore_commands_executed_total{status,datacenter}
+kscore_command_duration_seconds{quantile}
 
 # Batch jobs
-titananvil_batch_jobs_total{status}
-titananvil_batch_size{quantile}
+kscore_batch_jobs_total{status}
+kscore_batch_size{quantile}
 ```
 
 **State Management**:
 ```
 # State applications
-titananvil_state_applications_total{status}
-titananvil_state_application_duration_seconds{quantile}
+kscore_state_applications_total{status}
+kscore_state_application_duration_seconds{quantile}
 
 # Resources
-titananvil_state_resources_total{module}
-titananvil_state_changes_total{module}
+kscore_state_resources_total{module}
+kscore_state_changes_total{module}
 
 # Drift
-titananvil_state_drift_detected_total{severity}
+kscore_state_drift_detected_total{severity}
 ```
 
 **Event System**:
 ```
 # Events
-titananvil_events_published_total{type}
-titananvil_events_processed_total{type}
-titananvil_events_failed_total{type}
+kscore_events_published_total{type}
+kscore_events_processed_total{type}
+kscore_events_failed_total{type}
 
 # Event processing
-titananvil_event_processing_duration_seconds{quantile}
-titananvil_event_lag_seconds
+kscore_event_processing_duration_seconds{quantile}
+kscore_event_lag_seconds
 ```
 
 **Policy Enforcement**:
 ```
 # Evaluations
-titananvil_policy_evaluations_total{policy,result}
-titananvil_policy_evaluation_duration_seconds{policy,quantile}
+kscore_policy_evaluations_total{policy,result}
+kscore_policy_evaluation_duration_seconds{policy,quantile}
 
 # Violations
-titananvil_policy_violations_total{policy,severity}
-titananvil_policy_compliance_score{policy_set,environment}
+kscore_policy_violations_total{policy,severity}
+kscore_policy_compliance_score{policy_set,environment}
 
 # Remediations
-titananvil_policy_remediations_total{policy,status}
+kscore_policy_remediations_total{policy,status}
 ```
 
 **GitOps Integration**:
 ```
 # Webhooks
-titananvil_gitops_webhooks_received_total{source}
+kscore_gitops_webhooks_received_total{source}
 
 # Verifications
-titananvil_gitops_verifications_total{status}
-titananvil_gitops_verification_duration_seconds{quantile}
+kscore_gitops_verifications_total{status}
+kscore_gitops_verification_duration_seconds{quantile}
 
 # Rollbacks
-titananvil_gitops_rollbacks_total{type,status}
+kscore_gitops_rollbacks_total{type,status}
 ```
 
 ### Agent Metrics
@@ -149,39 +149,39 @@ titananvil_gitops_rollbacks_total{type,status}
 **Resource Usage**:
 ```
 # CPU
-titananvil_agent_cpu_usage_percent{agent_id}
+kscore_agent_cpu_usage_percent{agent_id}
 
 # Memory
-titananvil_agent_memory_usage_bytes{agent_id}
-titananvil_agent_memory_total_bytes{agent_id}
+kscore_agent_memory_usage_bytes{agent_id}
+kscore_agent_memory_total_bytes{agent_id}
 
 # Disk
-titananvil_agent_disk_usage_bytes{agent_id,mount}
-titananvil_agent_disk_total_bytes{agent_id,mount}
+kscore_agent_disk_usage_bytes{agent_id,mount}
+kscore_agent_disk_total_bytes{agent_id,mount}
 ```
 
 **Operations**:
 ```
 # Commands executed
-titananvil_agent_commands_executed_total{agent_id,status}
+kscore_agent_commands_executed_total{agent_id,status}
 
 # States applied
-titananvil_agent_states_applied_total{agent_id,status}
+kscore_agent_states_applied_total{agent_id,status}
 
 # Events emitted
-titananvil_agent_events_emitted_total{agent_id,type}
+kscore_agent_events_emitted_total{agent_id,type}
 ```
 
 **Connection**:
 ```
 # Heartbeat
-titananvil_agent_heartbeat_sent_total{agent_id}
+kscore_agent_heartbeat_sent_total{agent_id}
 
 # Reconnections
-titananvil_agent_reconnections_total{agent_id}
+kscore_agent_reconnections_total{agent_id}
 
 # Connection status
-titananvil_agent_connected{agent_id,status}
+kscore_agent_connected{agent_id,status}
 ```
 
 ### Metrics Endpoint
@@ -191,16 +191,16 @@ titananvil_agent_connected{agent_id,status}
 curl http://control-plane:8080/metrics
 
 # Example output
-# HELP titananvil_agents_connected_total Total connected agents
-# TYPE titananvil_agents_connected_total gauge
-titananvil_agents_connected_total{datacenter="us-east-1",environment="production",role="web"} 50
-titananvil_agents_connected_total{datacenter="us-west-2",environment="staging",role="db"} 10
+# HELP kscore_agents_connected_total Total connected agents
+# TYPE kscore_agents_connected_total gauge
+kscore_agents_connected_total{datacenter="us-east-1",environment="production",role="web"} 50
+kscore_agents_connected_total{datacenter="us-west-2",environment="staging",role="db"} 10
 
-# HELP titananvil_api_request_duration_seconds API request duration
-# TYPE titananvil_api_request_duration_seconds summary
-titananvil_api_request_duration_seconds{method="POST",path="/api/v1/exec",quantile="0.5"} 0.025
-titananvil_api_request_duration_seconds{method="POST",path="/api/v1/exec",quantile="0.95"} 0.150
-titananvil_api_request_duration_seconds{method="POST",path="/api/v1/exec",quantile="0.99"} 0.500
+# HELP kscore_api_request_duration_seconds API request duration
+# TYPE kscore_api_request_duration_seconds summary
+kscore_api_request_duration_seconds{method="POST",path="/api/v1/exec",quantile="0.5"} 0.025
+kscore_api_request_duration_seconds{method="POST",path="/api/v1/exec",quantile="0.95"} 0.150
+kscore_api_request_duration_seconds{method="POST",path="/api/v1/exec",quantile="0.99"} 0.500
 ```
 
 ### Prometheus Configuration
@@ -212,20 +212,20 @@ global:
   evaluation_interval: 15s
 
 scrape_configs:
-  - job_name: 'titananvil-control-plane'
+  - job_name: 'kscore-control-plane'
     static_configs:
       - targets: ['control-plane-1:8080', 'control-plane-2:8080']
 
-  - job_name: 'titananvil-agents'
+  - job_name: 'kscore-agents'
     # Auto-discover agents
     consul_sd_configs:
       - server: 'consul:8500'
-        services: ['titananvil-agent']
+        services: ['kscore-agent']
 ```
 
 ## Logging
 
-TitanAnvil uses structured logging with correlation IDs:
+Keystone Core uses structured logging with correlation IDs:
 
 ### Log Levels
 
@@ -293,7 +293,7 @@ Track requests across components:
 
 **Query logs by correlation ID**:
 ```bash
-titanctl logs --correlation-id job-abc123
+kscorectl logs --correlation-id job-abc123
 ```
 
 ### Log Configuration
@@ -303,7 +303,7 @@ logging:
   level: info              # debug, info, warn, error
   format: json             # json, logfmt, text
   output: stdout           # stdout, file
-  file: /var/log/titananvil/server.log
+  file: /var/log/kscore/server.log
   max_size: 100MB
   max_backups: 3
   max_age: 30              # days
@@ -320,7 +320,7 @@ logging:
     enabled: true
     url: "http://loki:3100/loki/api/v1/push"
     labels:
-      service: titananvil-server
+      service: kscore-server
       environment: production
 ```
 
@@ -329,16 +329,16 @@ logging:
 **LogQL** (Loki query language):
 ```
 # All logs from control plane
-{service="titananvil-server"}
+{service="kscore-server"}
 
 # Error logs from command dispatcher
-{service="titananvil-server",logger="command-dispatcher"} |= "level=error"
+{service="kscore-server",logger="command-dispatcher"} |= "level=error"
 
 # Logs for specific job
-{service="titananvil-server"} |= "correlation_id=job-abc123"
+{service="kscore-server"} |= "correlation_id=job-abc123"
 
 # Failed commands in last hour
-{service="titananvil-server",logger="command-dispatcher"} |= "exit_code!=0" | json
+{service="kscore-server",logger="command-dispatcher"} |= "exit_code!=0" | json
 ```
 
 ## Tracing
@@ -404,7 +404,7 @@ tracing:
 
   # Resource attributes
   resource:
-    service.name: titananvil-server
+    service.name: kscore-server
     service.version: 1.0.0
     deployment.environment: production
 ```
@@ -418,7 +418,7 @@ View traces in Jaeger:
 http://jaeger-ui:16686
 
 # Search for traces
-Service: titananvil-server
+Service: kscore-server
 Operation: Execute Command
 Tags: agent_id=web-01
 Min Duration: 1s
@@ -427,9 +427,9 @@ Max Duration: 10s
 
 ## Grafana Dashboards
 
-TitanAnvil provides 6 pre-built Grafana dashboards:
+Keystone Core provides 6 pre-built Grafana dashboards:
 
-### 1. TitanAnvil Overview
+### 1. Keystone Core Overview
 
 **System-wide metrics**:
 - Total agents (connected, offline, degraded)
@@ -519,12 +519,12 @@ TitanAnvil provides 6 pre-built Grafana dashboards:
 http://grafana:3000
 
 # Dashboards location
-Dashboards → TitanAnvil → [Dashboard Name]
+Dashboards → Keystone Core → [Dashboard Name]
 ```
 
 ## TUI Monitor
 
-Terminal-based real-time monitoring (`titananvil-monitor`):
+Terminal-based real-time monitoring (`kscore-monitor`):
 
 ### Views
 
@@ -587,13 +587,13 @@ Keys:
 
 ```bash
 # Start monitor
-titanctl monitor
+kscorectl monitor
 
 # Connect to specific control plane
-titanctl monitor --server control-plane.example.com:8080
+kscorectl monitor --server control-plane.example.com:8080
 
 # Start with specific view
-titanctl monitor --view events
+kscorectl monitor --view events
 ```
 
 ## Health Checks
@@ -679,13 +679,13 @@ Kubernetes-compatible health endpoints:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: titananvil-server
+  name: kscore-server
 spec:
   template:
     spec:
       containers:
       - name: server
-        image: titananvil/server:latest
+        image: kscore/server:latest
         livenessProbe:
           httpGet:
             path: /health/live
@@ -785,10 +785,10 @@ Fix:
 ```yaml
 # Remove high-cardinality labels
 # BEFORE (bad):
-titananvil_requests_total{user_id="12345",request_id="abc"}
+kscore_requests_total{user_id="12345",request_id="abc"}
 
 # AFTER (good):
-titananvil_requests_total{endpoint="/api/exec"}
+kscore_requests_total{endpoint="/api/exec"}
 ```
 
 ### Missing Logs
@@ -798,7 +798,7 @@ titananvil_requests_total{endpoint="/api/exec"}
 Check:
 ```bash
 # Check log output
-titanctl logs --tail 100
+kscorectl logs --tail 100
 
 # Check Loki connectivity
 curl http://loki:3100/ready
@@ -814,7 +814,7 @@ curl http://loki:3100/metrics | grep loki_ingester
 Check:
 ```bash
 # Verify trace context propagation
-titanctl logs | grep trace_id
+kscorectl logs | grep trace_id
 
 # Check sampling rate
 curl http://control-plane:8080/health/status | jq '.tracing'
@@ -826,7 +826,7 @@ curl http://control-plane:8080/health/status | jq '.tracing'
 ## Next Steps
 
 - Set up [Prometheus](https://prometheus.io/) for metrics
-- Deploy [Grafana](https://grafana.com/) with TitanAnvil dashboards
+- Deploy [Grafana](https://grafana.com/) with Keystone Core dashboards
 - Configure [Loki](https://grafana.com/oss/loki/) for log aggregation
 - Set up [Jaeger](https://www.jaegertracing.io/) or [Tempo](https://grafana.com/oss/tempo/) for tracing
 - Review alert rules in `deploy/grafana/alerts/`

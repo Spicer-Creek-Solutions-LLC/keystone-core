@@ -7,7 +7,7 @@ description: >
 
 ## Overview
 
-TitanAnvil's policy enforcement system enables you to define, enforce, and audit compliance policies across your infrastructure. Policies are written as code (using OPA Rego or CEL), evaluated automatically at key enforcement points, and violations are tracked for compliance reporting.
+Keystone Core's policy enforcement system enables you to define, enforce, and audit compliance policies across your infrastructure. Policies are written as code (using OPA Rego or CEL), evaluated automatically at key enforcement points, and violations are tracked for compliance reporting.
 
 **Key Capabilities**:
 - **Policy-as-Code**: Define policies in OPA (Rego) or CEL
@@ -64,7 +64,7 @@ TitanAnvil's policy enforcement system enables you to define, enforce, and audit
 
 ## Policy Types
 
-TitanAnvil supports three policy types:
+Keystone Core supports three policy types:
 
 ### 1. OPA (Open Policy Agent) - Rego
 
@@ -72,7 +72,7 @@ TitanAnvil supports three policy types:
 
 **Example** - SSH hardening policy:
 ```rego
-package titananvil.security.ssh
+package kscore.security.ssh
 
 # SSH port must not be default (22)
 deny[msg] {
@@ -119,7 +119,7 @@ resource.critical && context.approved
 
 **Best for**: Common patterns without writing code
 
-TitanAnvil provides built-in policies for:
+Keystone Core provides built-in policies for:
 - Required tags
 - Resource naming conventions
 - Environment restrictions
@@ -151,7 +151,7 @@ enforcement: enforce   # enforce, audit, warn
 
 # Policy code
 code: |
-  package titananvil.security.ssh
+  package kscore.security.ssh
 
   deny[msg] {
       input.resource.type == "file"
@@ -234,7 +234,7 @@ enforcement: enforce
 
 **Example**:
 ```bash
-$ titanctl state apply web-server.yaml --target "role:web"
+$ kscorectl state apply web-server.yaml --target "role:web"
 
 Policy Violation: ssh-hardening
   - SSH must not use default port 22
@@ -255,7 +255,7 @@ enforcement: audit
 
 **Example**:
 ```bash
-$ titanctl state apply web-server.yaml --target "role:web"
+$ kscorectl state apply web-server.yaml --target "role:web"
 
 Policy Violation: ssh-hardening (audit mode)
   - SSH must not use default port 22
@@ -277,7 +277,7 @@ enforcement: warn
 
 **Example**:
 ```bash
-$ titanctl state apply web-server.yaml --target "role:web"
+$ kscorectl state apply web-server.yaml --target "role:web"
 
 Policy Warning: best-practices
   - Consider using systemd for service management
@@ -287,7 +287,7 @@ State applied successfully.
 
 ## Enforcement Points
 
-Policies are evaluated at key points in the TitanAnvil lifecycle:
+Policies are evaluated at key points in the Keystone Core lifecycle:
 
 ### 1. Pre-Execution
 
@@ -302,7 +302,7 @@ enforce_at:
 
 **Example**:
 ```rego
-package titananvil.execution
+package kscore.execution
 
 # Block rm -rf on production
 deny[msg] {
@@ -326,7 +326,7 @@ enforce_at:
 
 **Example**:
 ```rego
-package titananvil.execution
+package kscore.execution
 
 # Verify nginx service is running
 deny[msg] {
@@ -351,7 +351,7 @@ enforce_at:
 
 **Example**:
 ```rego
-package titananvil.config
+package kscore.config
 
 # Firewall must allow required ports
 deny[msg] {
@@ -375,7 +375,7 @@ enforce_at:
 
 **Example**:
 ```rego
-package titananvil.drift
+package kscore.drift
 
 # Critical drift requires immediate remediation
 deny[msg] {
@@ -400,7 +400,7 @@ event_filter: "type == 'agent.connect'"
 
 **Example**:
 ```rego
-package titananvil.agent
+package kscore.agent
 
 # New agents must meet security requirements
 deny[msg] {
@@ -413,7 +413,7 @@ deny[msg] {
 
 ## Enforcement Actions
 
-When policies are violated, TitanAnvil can take automated actions:
+When policies are violated, Keystone Core can take automated actions:
 
 ### Block
 
@@ -519,7 +519,7 @@ Track policy compliance over time:
 ### Compliance Score
 
 ```bash
-$ titanctl policy compliance --environment production
+$ kscorectl policy compliance --environment production
 
 Overall Compliance: 87.5%
 
@@ -540,7 +540,7 @@ Top Violations:
 ### Violation Report
 
 ```bash
-$ titanctl policy violations --policy ssh-hardening
+$ kscorectl policy violations --policy ssh-hardening
 
 Policy: ssh-hardening
 Severity: high
@@ -563,7 +563,7 @@ Remediation: Run state apply with ssh-hardening.yaml
 ### Audit Trail
 
 ```bash
-$ titanctl policy audit --since 24h
+$ kscorectl policy audit --since 24h
 
 Policy Evaluations (last 24 hours):
   Total: 1,234
@@ -621,7 +621,7 @@ daily_compliance_report:
   schedule: "0 8 * * *"  # 8 AM daily
   actions:
     - type: command
-      command: "titanctl policy compliance --format json > /tmp/compliance-$(date +%Y%m%d).json"
+      command: "kscorectl policy compliance --format json > /tmp/compliance-$(date +%Y%m%d).json"
     - type: webhook
       url: "https://slack.example.com/hooks/compliance"
       body: |
@@ -635,7 +635,7 @@ daily_compliance_report:
 ### Required Tags Policy
 
 ```rego
-package titananvil.compliance.tags
+package kscore.compliance.tags
 
 required_tags := ["owner", "environment", "cost-center"]
 
@@ -650,7 +650,7 @@ deny[msg] {
 ### Approved Package Versions
 
 ```rego
-package titananvil.compliance.packages
+package kscore.compliance.packages
 
 approved_versions := {
     "nginx": ["1.24.*", "1.25.*"],
@@ -675,7 +675,7 @@ version_matches(version, patterns) {
 ### File Permission Policy
 
 ```rego
-package titananvil.security.permissions
+package kscore.security.permissions
 
 # Sensitive files must not be world-readable
 deny[msg] {
@@ -758,19 +758,19 @@ resource.instance_type.matches("t3.*|t2.*")
 
 ```
 # Evaluations
-titananvil_policy_evaluations_total{policy,result}
-titananvil_policy_evaluation_duration_seconds{policy,quantile}
+kscore_policy_evaluations_total{policy,result}
+kscore_policy_evaluation_duration_seconds{policy,quantile}
 
 # Violations
-titananvil_policy_violations_total{policy,severity}
-titananvil_policy_violations_by_agent{agent,policy}
+kscore_policy_violations_total{policy,severity}
+kscore_policy_violations_by_agent{agent,policy}
 
 # Compliance
-titananvil_policy_compliance_score{policy_set,environment}
-titananvil_policy_compliant_agents{environment}
+kscore_policy_compliance_score{policy_set,environment}
+kscore_policy_compliant_agents{environment}
 
 # Remediations
-titananvil_policy_remediations_total{policy,status}
+kscore_policy_remediations_total{policy,status}
 ```
 
 ### Events
@@ -789,13 +789,13 @@ titananvil_policy_remediations_total{policy,status}
 Check:
 ```bash
 # Verify policy is registered
-titanctl policy list
+kscorectl policy list
 
 # Check policy bindings
-titanctl policy bindings --policy ssh-hardening
+kscorectl policy bindings --policy ssh-hardening
 
 # Test policy evaluation
-titanctl policy test ssh-hardening --input test-input.json
+kscorectl policy test ssh-hardening --input test-input.json
 ```
 
 ### Policy Always Failing
@@ -805,13 +805,13 @@ titanctl policy test ssh-hardening --input test-input.json
 Debug:
 ```bash
 # Test with sample input
-titanctl policy test ssh-hardening --input sample.json --verbose
+kscorectl policy test ssh-hardening --input sample.json --verbose
 
 # Check policy code syntax
-titanctl policy validate ssh-hardening
+kscorectl policy validate ssh-hardening
 
 # Review policy logic
-titanctl policy show ssh-hardening
+kscorectl policy show ssh-hardening
 ```
 
 ### Compliance Score Incorrect
@@ -821,13 +821,13 @@ titanctl policy show ssh-hardening
 Fix:
 ```bash
 # Re-evaluate all policies
-titanctl policy evaluate --all --force
+kscorectl policy evaluate --all --force
 
 # Check audit data
-titanctl policy audit --since 24h
+kscorectl policy audit --since 24h
 
 # Verify agent count
-titanctl agent list | wc -l
+kscorectl agent list | wc -l
 ```
 
 ## Next Steps

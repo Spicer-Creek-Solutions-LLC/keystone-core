@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/titananvil/titan-anvil/pkg/api/v1"
-	"github.com/titananvil/titan-anvil/pkg/config"
-	natsmgr "github.com/titananvil/titan-anvil/pkg/nats"
-	"github.com/titananvil/titan-anvil/pkg/state"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
+	"github.com/shawnbutts/keystone-core/pkg/config"
+	natsmgr "github.com/shawnbutts/keystone-core/pkg/nats"
+	"github.com/shawnbutts/keystone-core/pkg/state"
 	"google.golang.org/protobuf/proto"
 )
 

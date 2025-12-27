@@ -7,13 +7,13 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/titananvil/titan-anvil/pkg/module/capabilities"
-	"github.com/titananvil/titan-anvil/pkg/module/manifest"
-	"github.com/titananvil/titan-anvil/pkg/module/policy"
-	"github.com/titananvil/titan-anvil/pkg/module/runtime"
-	"github.com/titananvil/titan-anvil/pkg/module/runtime/starlark"
-	"github.com/titananvil/titan-anvil/pkg/module/runtime/wasm"
-	"github.com/titananvil/titan-anvil/pkg/module/verify"
+	"github.com/shawnbutts/keystone-core/pkg/module/capabilities"
+	"github.com/shawnbutts/keystone-core/pkg/module/manifest"
+	"github.com/shawnbutts/keystone-core/pkg/module/policy"
+	"github.com/shawnbutts/keystone-core/pkg/module/runtime"
+	"github.com/shawnbutts/keystone-core/pkg/module/runtime/starlark"
+	"github.com/shawnbutts/keystone-core/pkg/module/runtime/wasm"
+	"github.com/shawnbutts/keystone-core/pkg/module/verify"
 )
 
 // DefaultModuleLoader is the default implementation of ModuleLoader

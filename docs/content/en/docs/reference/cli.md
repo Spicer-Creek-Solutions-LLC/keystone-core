@@ -2,26 +2,26 @@
 title: "CLI Reference"
 weight: 2
 description: >
-  Complete command-line interface reference for titanctl and all plugins
+  Complete command-line interface reference for kscorectl and all plugins
 ---
 
 ## Overview
 
-TitanAnvil uses a Git-style plugin architecture for its CLI. The main command is `titanctl`, which discovers and executes `titananvil-*` plugin binaries.
+Keystone Core uses a Git-style plugin architecture for its CLI. The main command is `kscorectl`, which discovers and executes `kscore-*` plugin binaries.
 
-**Main CLI**: `titanctl` (dispatcher)
-**Plugins**: `titananvil-*` (discovered from $PATH)
+**Main CLI**: `kscorectl` (dispatcher)
+**Plugins**: `kscore-*` (discovered from $PATH)
 
-## titanctl (Main CLI)
+## kscorectl (Main CLI)
 
-The titanctl command dispatches to plugins and provides core functionality.
+The kscorectl command dispatches to plugins and provides core functionality.
 
 ### Global Flags
 
 Available for all commands:
 
 ```
---config string      Config file (default: $HOME/.titananvil/config.yaml)
+--config string      Config file (default: $HOME/.kscore/config.yaml)
 --server string      Control plane server URL
 --api-key string     API key for authentication
 --output string      Output format: text, json, yaml (default: text)
@@ -30,17 +30,17 @@ Available for all commands:
 --no-color          Disable colored output
 ```
 
-### titanctl version
+### kscorectl version
 
 Display version information.
 
 ```bash
-titanctl version
+kscorectl version
 ```
 
 **Output**:
 ```
-TitanAnvil v1.0.0
+Keystone Core v1.0.0
   Build: abc123
   Go version: go1.21.5
   OS/Arch: linux/amd64
@@ -49,42 +49,42 @@ TitanAnvil v1.0.0
 **Flags**:
 - `--short`: Show only version number
 
-### titanctl help
+### kscorectl help
 
 Display help information.
 
 ```bash
-titanctl help [command]
+kscorectl help [command]
 ```
 
 **Examples**:
 ```bash
-titanctl help              # Show all commands
-titanctl help exec         # Show exec plugin help
-titanctl help state apply  # Show state apply help
+kscorectl help              # Show all commands
+kscorectl help exec         # Show exec plugin help
+kscorectl help state apply  # Show state apply help
 ```
 
-### titanctl completion
+### kscorectl completion
 
 Generate shell completion scripts.
 
 ```bash
-titanctl completion [bash|zsh|fish|powershell]
+kscorectl completion [bash|zsh|fish|powershell]
 ```
 
 **Examples**:
 ```bash
 # Bash
-titanctl completion bash > /etc/bash_completion.d/titanctl
+kscorectl completion bash > /etc/bash_completion.d/kscorectl
 
 # Zsh
-titanctl completion zsh > "${fpath[1]}/_titanctl"
+kscorectl completion zsh > "${fpath[1]}/_kscorectl"
 
 # Fish
-titanctl completion fish > ~/.config/fish/completions/titanctl.fish
+kscorectl completion fish > ~/.config/fish/completions/kscorectl.fish
 ```
 
-## titananvil-exec (Remote Execution)
+## kscore-exec (Remote Execution)
 
 Execute commands on remote agents.
 
@@ -93,7 +93,7 @@ Execute commands on remote agents.
 Execute command synchronously.
 
 ```bash
-titanctl exec run <command> [flags]
+kscorectl exec run <command> [flags]
 ```
 
 **Arguments**:
@@ -111,21 +111,21 @@ titanctl exec run <command> [flags]
 **Examples**:
 ```bash
 # Execute on all web servers
-titanctl exec run "uptime" --target "role:web"
+kscorectl exec run "uptime" --target "role:web"
 
 # Execute with timeout
-titanctl exec run "systemctl restart nginx" \
+kscorectl exec run "systemctl restart nginx" \
   --target "datacenter:us-east-1 and role:web" \
   --timeout 30s
 
 # Execute in batches
-titanctl exec run "apt-get update" \
+kscorectl exec run "apt-get update" \
   --target "os:ubuntu" \
   --batch-size 10 \
   --batch-delay 5s
 
 # Async execution
-titanctl exec run "long-running-task.sh" \
+kscorectl exec run "long-running-task.sh" \
   --target "role:worker" \
   --async
 ```
@@ -154,7 +154,7 @@ Summary:
 Execute command asynchronously.
 
 ```bash
-titanctl exec async <command> [flags]
+kscorectl exec async <command> [flags]
 ```
 
 Same as `exec run --async`. Returns job ID immediately.
@@ -165,7 +165,7 @@ Job ID: job-abc123
 Status: running
 Target count: 50
 
-Use 'titanctl exec status job-abc123' to check status.
+Use 'kscorectl exec status job-abc123' to check status.
 ```
 
 ### exec status
@@ -173,12 +173,12 @@ Use 'titanctl exec status job-abc123' to check status.
 Check job status.
 
 ```bash
-titanctl exec status <job-id>
+kscorectl exec status <job-id>
 ```
 
 **Examples**:
 ```bash
-titanctl exec status job-abc123
+kscorectl exec status job-abc123
 ```
 
 **Output**:
@@ -202,7 +202,7 @@ Results:
 Get job output.
 
 ```bash
-titanctl exec output <job-id> [flags]
+kscorectl exec output <job-id> [flags]
 ```
 
 **Flags**:
@@ -213,13 +213,13 @@ titanctl exec output <job-id> [flags]
 **Examples**:
 ```bash
 # All output
-titanctl exec output job-abc123
+kscorectl exec output job-abc123
 
 # Specific agent
-titanctl exec output job-abc123 --agent web-01
+kscorectl exec output job-abc123 --agent web-01
 
 # Only failures
-titanctl exec output job-abc123 --status failed
+kscorectl exec output job-abc123 --status failed
 ```
 
 ### exec list
@@ -227,7 +227,7 @@ titanctl exec output job-abc123 --status failed
 List recent jobs.
 
 ```bash
-titanctl exec list [flags]
+kscorectl exec list [flags]
 ```
 
 **Flags**:
@@ -243,7 +243,7 @@ job-def456   uptime                     completed   2024-01-15 10:25:30  100
 job-ghi789   apt-get update             running     2024-01-15 10:20:15  200
 ```
 
-## titananvil-state (State Management)
+## kscore-state (State Management)
 
 Manage declarative state configurations.
 
@@ -252,7 +252,7 @@ Manage declarative state configurations.
 Apply state configuration.
 
 ```bash
-titanctl state apply <state-file> [flags]
+kscorectl state apply <state-file> [flags]
 ```
 
 **Arguments**:
@@ -268,15 +268,15 @@ titanctl state apply <state-file> [flags]
 **Examples**:
 ```bash
 # Apply state
-titanctl state apply web-server.yaml --target "role:web"
+kscorectl state apply web-server.yaml --target "role:web"
 
 # Dry run
-titanctl state apply web-server.yaml \
+kscorectl state apply web-server.yaml \
   --target "role:web" \
   --check-only
 
 # With variables
-titanctl state apply app.yaml \
+kscorectl state apply app.yaml \
   --target "environment:production" \
   --vars prod-vars.yaml
 ```
@@ -312,7 +312,7 @@ Summary:
 Check state without applying (dry-run).
 
 ```bash
-titanctl state check <state-file> [flags]
+kscorectl state check <state-file> [flags]
 ```
 
 Same as `state apply --check-only`.
@@ -339,7 +339,7 @@ Summary:
 Detect configuration drift.
 
 ```bash
-titanctl state drift <state-file> [flags]
+kscorectl state drift <state-file> [flags]
 ```
 
 **Flags**:
@@ -349,10 +349,10 @@ titanctl state drift <state-file> [flags]
 **Examples**:
 ```bash
 # Detect all drift
-titanctl state drift web-server.yaml --target "role:web"
+kscorectl state drift web-server.yaml --target "role:web"
 
 # Only critical drift
-titanctl state drift web-server.yaml \
+kscorectl state drift web-server.yaml \
   --target "role:web" \
   --severity critical
 ```
@@ -388,7 +388,7 @@ Summary:
 Display rendered state file.
 
 ```bash
-titanctl state show <state-file> [flags]
+kscorectl state show <state-file> [flags]
 ```
 
 **Flags**:
@@ -398,7 +398,7 @@ titanctl state show <state-file> [flags]
 **Examples**:
 ```bash
 # Show rendered state
-titanctl state show app.yaml --vars prod-vars.yaml
+kscorectl state show app.yaml --vars prod-vars.yaml
 ```
 
 **Output**:
@@ -422,7 +422,7 @@ nginx_config:
 List applied states.
 
 ```bash
-titanctl state list [flags]
+kscorectl state list [flags]
 ```
 
 **Flags**:
@@ -436,7 +436,7 @@ run-abc123    web-server.yaml  role:web   2024-01-15 10:30:45  completed
 run-def456    app.yaml         role:app   2024-01-15 09:15:20  completed
 ```
 
-## titananvil-monitor (Real-time Monitoring)
+## kscore-monitor (Real-time Monitoring)
 
 Terminal-based real-time monitoring.
 
@@ -445,7 +445,7 @@ Terminal-based real-time monitoring.
 Start TUI monitor.
 
 ```bash
-titanctl monitor [flags]
+kscorectl monitor [flags]
 ```
 
 **Flags**:
@@ -477,25 +477,25 @@ q       Quit
 **Example**:
 ```bash
 # Start with default view
-titanctl monitor
+kscorectl monitor
 
 # Start with events view
-titanctl monitor --view 3
+kscorectl monitor --view 3
 
 # Connect to specific server
-titanctl monitor --server production.example.com:8080
+kscorectl monitor --server production.example.com:8080
 ```
 
-## titananvil-module (Module Management)
+## kscore-module (Module Management)
 
-Manage TitanAnvil modules (Epic 9).
+Manage Keystone Core modules (Epic 9).
 
 ### module init
 
 Initialize new module.
 
 ```bash
-titanctl module init <name> [flags]
+kscorectl module init <name> [flags]
 ```
 
 **Flags**:
@@ -505,10 +505,10 @@ titanctl module init <name> [flags]
 **Examples**:
 ```bash
 # Starlark module
-titanctl module init myorg/custom-state --type starlark
+kscorectl module init myorg/custom-state --type starlark
 
 # Rust WASM module
-titanctl module init myorg/custom-executor --type wasm-rust
+kscorectl module init myorg/custom-executor --type wasm-rust
 ```
 
 ### module build
@@ -516,7 +516,7 @@ titanctl module init myorg/custom-executor --type wasm-rust
 Build module.
 
 ```bash
-titanctl module build [flags]
+kscorectl module build [flags]
 ```
 
 **Flags**:
@@ -525,7 +525,7 @@ titanctl module build [flags]
 **Examples**:
 ```bash
 cd mymodule
-titanctl module build
+kscorectl module build
 ```
 
 ### module test
@@ -533,7 +533,7 @@ titanctl module build
 Run module tests.
 
 ```bash
-titanctl module test [flags]
+kscorectl module test [flags]
 ```
 
 **Flags**:
@@ -545,7 +545,7 @@ titanctl module test [flags]
 Sign module with cosign.
 
 ```bash
-titanctl module sign <module.zip> [flags]
+kscorectl module sign <module.zip> [flags]
 ```
 
 **Flags**:
@@ -557,7 +557,7 @@ titanctl module sign <module.zip> [flags]
 Publish module to registry.
 
 ```bash
-titanctl module publish <module.zip> [flags]
+kscorectl module publish <module.zip> [flags]
 ```
 
 **Flags**:
@@ -568,7 +568,7 @@ titanctl module publish <module.zip> [flags]
 Install module from registry.
 
 ```bash
-titanctl module install <module> [flags]
+kscorectl module install <module> [flags]
 ```
 
 **Arguments**:
@@ -577,13 +577,13 @@ titanctl module install <module> [flags]
 **Examples**:
 ```bash
 # Install specific version
-titanctl module install std/files@1.0.0
+kscorectl module install std/files@1.0.0
 
 # Install latest
-titanctl module install myorg/custom-state
+kscorectl module install myorg/custom-state
 ```
 
-## titananvil-policy (Policy Management)
+## kscore-policy (Policy Management)
 
 Manage policies (Epic 6).
 
@@ -592,7 +592,7 @@ Manage policies (Epic 6).
 Check resources against policies.
 
 ```bash
-titanctl policy check <policy> [flags]
+kscorectl policy check <policy> [flags]
 ```
 
 **Flags**:
@@ -602,7 +602,7 @@ titanctl policy check <policy> [flags]
 **Examples**:
 ```bash
 # Check file against policy
-titanctl policy check ssh-hardening --input sshd_config.json
+kscorectl policy check ssh-hardening --input sshd_config.json
 ```
 
 ### policy list
@@ -610,7 +610,7 @@ titanctl policy check ssh-hardening --input sshd_config.json
 List policies.
 
 ```bash
-titanctl policy list [flags]
+kscorectl policy list [flags]
 ```
 
 **Flags**:
@@ -630,7 +630,7 @@ required-tags   cel   compliance  low       audit
 List policy violations.
 
 ```bash
-titanctl policy violations [flags]
+kscorectl policy violations [flags]
 ```
 
 **Flags**:
@@ -650,7 +650,7 @@ firewall-rules  web-02  medium    Firewall must allow HTTPS            2024-01-1
 Show compliance report.
 
 ```bash
-titanctl policy compliance [flags]
+kscorectl policy compliance [flags]
 ```
 
 **Flags**:
@@ -671,7 +671,7 @@ Top Violations:
   3. package-updates (5 agents)
 ```
 
-## titananvil-gitops (GitOps Management)
+## kscore-gitops (GitOps Management)
 
 Manage GitOps integrations (Epic 5).
 
@@ -680,7 +680,7 @@ Manage GitOps integrations (Epic 5).
 Run deployment verification.
 
 ```bash
-titanctl gitops verify <workflow> [flags]
+kscorectl gitops verify <workflow> [flags]
 ```
 
 **Flags**:
@@ -689,7 +689,7 @@ titanctl gitops verify <workflow> [flags]
 
 **Examples**:
 ```bash
-titanctl gitops verify myapp-verification \
+kscorectl gitops verify myapp-verification \
   --application myapp \
   --namespace production
 ```
@@ -699,7 +699,7 @@ titanctl gitops verify myapp-verification \
 Trigger rollback.
 
 ```bash
-titanctl gitops rollback <application> [flags]
+kscorectl gitops rollback <application> [flags]
 ```
 
 **Flags**:
@@ -710,10 +710,10 @@ titanctl gitops rollback <application> [flags]
 **Examples**:
 ```bash
 # Rollback to previous
-titanctl gitops rollback myapp --namespace production
+kscorectl gitops rollback myapp --namespace production
 
 # Rollback to specific revision
-titanctl gitops rollback myapp \
+kscorectl gitops rollback myapp \
   --namespace production \
   --strategy specific \
   --revision abc123
@@ -724,7 +724,7 @@ titanctl gitops rollback myapp \
 Promote between environments.
 
 ```bash
-titanctl gitops promote <application> [flags]
+kscorectl gitops promote <application> [flags]
 ```
 
 **Flags**:
@@ -733,12 +733,12 @@ titanctl gitops promote <application> [flags]
 
 **Examples**:
 ```bash
-titanctl gitops promote myapp --from staging --to production
+kscorectl gitops promote myapp --from staging --to production
 ```
 
 ## Configuration File
 
-Default location: `~/.titananvil/config.yaml`
+Default location: `~/.kscore/config.yaml`
 
 ```yaml
 # Control plane connection
@@ -748,9 +748,9 @@ api_key: "ta_live_abc123xyz789"
 # TLS configuration
 tls:
   enabled: true
-  ca_cert: "/etc/titananvil/ca.crt"
-  client_cert: "/etc/titananvil/client.crt"
-  client_key: "/etc/titananvil/client.key"
+  ca_cert: "/etc/kscore/ca.crt"
+  client_cert: "/etc/kscore/client.crt"
+  client_key: "/etc/kscore/client.key"
 
 # Output preferences
 output:
@@ -779,7 +779,7 @@ TITAN_NO_COLOR="true"
 **Example**:
 ```bash
 export TITAN_SERVER="http://localhost:8080"
-titanctl exec run "uptime" --target "role:web"
+kscorectl exec run "uptime" --target "role:web"
 ```
 
 ## Exit Codes
@@ -800,10 +800,10 @@ Create shell aliases for common commands:
 
 ```bash
 # .bashrc or .zshrc
-alias ta='titanctl'
-alias tae='titanctl exec run'
-alias tas='titanctl state apply'
-alias tam='titanctl monitor'
+alias ta='kscorectl'
+alias tae='kscorectl exec run'
+alias tas='kscorectl state apply'
+alias tam='kscorectl monitor'
 ```
 
 **Usage**:
@@ -819,17 +819,17 @@ Enable command completion:
 
 **Bash**:
 ```bash
-echo 'source <(titanctl completion bash)' >> ~/.bashrc
+echo 'source <(kscorectl completion bash)' >> ~/.bashrc
 ```
 
 **Zsh**:
 ```bash
-echo 'source <(titanctl completion zsh)' >> ~/.zshrc
+echo 'source <(kscorectl completion zsh)' >> ~/.zshrc
 ```
 
 **Fish**:
 ```bash
-titanctl completion fish > ~/.config/fish/completions/titanctl.fish
+kscorectl completion fish > ~/.config/fish/completions/kscorectl.fish
 ```
 
 ## Examples
@@ -839,37 +839,37 @@ titanctl completion fish > ~/.config/fish/completions/titanctl.fish
 **Deploy and verify**:
 ```bash
 # Apply state
-titanctl state apply web-server.yaml --target "role:web"
+kscorectl state apply web-server.yaml --target "role:web"
 
 # Check for drift
-titanctl state drift web-server.yaml --target "role:web"
+kscorectl state drift web-server.yaml --target "role:web"
 
 # Restart services if needed
-titanctl exec run "systemctl restart nginx" --target "role:web"
+kscorectl exec run "systemctl restart nginx" --target "role:web"
 ```
 
 **Investigate issues**:
 ```bash
 # Check agent status
-titanctl monitor --view 2
+kscorectl monitor --view 2
 
 # View recent events
-titanctl monitor --view 3
+kscorectl monitor --view 3
 
 # Check logs
-titanctl monitor --view 7
+kscorectl monitor --view 7
 ```
 
 **Compliance check**:
 ```bash
 # Check compliance
-titanctl policy compliance --environment production
+kscorectl policy compliance --environment production
 
 # List violations
-titanctl policy violations --severity high
+kscorectl policy violations --severity high
 
 # Remediate
-titanctl state apply security-baseline.yaml \
+kscorectl state apply security-baseline.yaml \
   --target "environment:production"
 ```
 

@@ -7,9 +7,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/titananvil/titan-anvil/cmd/titananvil-monitor/client"
-	"github.com/titananvil/titan-anvil/cmd/titananvil-monitor/config"
-	"github.com/titananvil/titan-anvil/pkg/events"
+	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/client"
+	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/config"
+	"github.com/shawnbutts/keystone-core/pkg/events"
 )
 
 // DashboardModel represents the dashboard view

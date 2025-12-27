@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	pb "github.com/titananvil/titan-anvil/pkg/api/v1"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 )
 
 // Store defines the interface for state storage

@@ -3,7 +3,7 @@ package resolver
 import (
 	"time"
 
-	"github.com/titananvil/titan-anvil/pkg/module/manifest"
+	"github.com/shawnbutts/keystone-core/pkg/module/manifest"
 )
 
 // ModuleReference represents a reference to a module

@@ -2,7 +2,7 @@ version: v1
 managed:
   enabled: true
   go_package_prefix:
-    default: github.com/titananvil/titan-anvil/pkg/api
+    default: github.com/shawnbutts/keystone-core/pkg/api
 plugins:
   - name: go
     out: pkg/api

@@ -10,13 +10,13 @@ import (
 )
 
 const (
-	// PluginPrefix is the required prefix for all TitanAnvil plugins
-	PluginPrefix = "titananvil-"
+	// PluginPrefix is the required prefix for all Keystone Core plugins
+	PluginPrefix = "kscore-"
 )
 
-// Plugin represents a discovered TitanAnvil plugin
+// Plugin represents a discovered Keystone Core plugin
 type Plugin struct {
-	Name string // Plugin name without prefix (e.g., "exec" for "titananvil-exec")
+	Name string // Plugin name without prefix (e.g., "exec" for "kscore-exec")
 	Path string // Full path to the plugin binary
 }
 
@@ -34,7 +34,7 @@ func NewDiscovery() *Discovery {
 	}
 }
 
-// Discover scans the PATH for titananvil-* binaries and caches them
+// Discover scans the PATH for kscore-* binaries and caches them
 func (d *Discovery) Discover() error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -51,7 +51,7 @@ func (d *Discovery) Discover() error {
 	// Split PATH into directories
 	pathDirs := filepath.SplitList(pathEnv)
 
-	// Scan each directory for titananvil-* binaries
+	// Scan each directory for kscore-* binaries
 	for _, dir := range pathDirs {
 		if dir == "" {
 			continue

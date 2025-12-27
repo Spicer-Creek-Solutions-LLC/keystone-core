@@ -9,14 +9,14 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
-	natsmgr "github.com/titananvil/titan-anvil/pkg/nats"
+	natsmgr "github.com/shawnbutts/keystone-core/pkg/nats"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	pb "github.com/titananvil/titan-anvil/pkg/api/v1"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 )
 
-// Agent represents a TitanAnvil agent
+// Agent represents a Keystone Core agent
 type Agent struct {
 	id                string
 	nats              *natsmgr.Manager

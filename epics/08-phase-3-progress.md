@@ -7,7 +7,7 @@
 
 ## Overview
 
-Phase 3 of Epic 8 implements bare metal server management capabilities, enabling TitanAnvil to discover, inventory, and manage physical hardware across heterogeneous server infrastructure.
+Phase 3 of Epic 8 implements bare metal server management capabilities, enabling Keystone Core to discover, inventory, and manage physical hardware across heterogeneous server infrastructure.
 
 ## Completed Components
 

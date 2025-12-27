@@ -3,7 +3,7 @@ version: '3.8'
 services:
   prometheus:
     image: prom/prometheus:latest
-    container_name: titananvil-prometheus
+    container_name: kscore-prometheus
     ports:
       - "9090:9090"
     volumes:
@@ -17,11 +17,11 @@ services:
       - '--web.enable-lifecycle'
     restart: unless-stopped
     networks:
-      - titananvil
+      - kscore
 
   grafana:
     image: grafana/grafana:latest
-    container_name: titananvil-grafana
+    container_name: kscore-grafana
     ports:
       - "3000:3000"
     environment:
@@ -34,19 +34,19 @@ services:
       - ./provisioning/datasources:/etc/grafana/provisioning/datasources
       - ./provisioning/dashboards:/etc/grafana/provisioning/dashboards
       - ./provisioning/alerting:/etc/grafana/provisioning/alerting
-      - ./dashboards:/etc/grafana/provisioning/dashboards/titananvil
+      - ./dashboards:/etc/grafana/provisioning/dashboards/kscore
       - grafana-data:/var/lib/grafana
     depends_on:
       - prometheus
     restart: unless-stopped
     networks:
-      - titananvil
+      - kscore
 
 volumes:
   prometheus-data:
   grafana-data:
 
 networks:
-  titananvil:
-    name: titananvil
+  kscore:
+    name: kscore
     driver: bridge

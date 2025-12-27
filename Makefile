@@ -4,30 +4,30 @@
 VERSION ?= dev
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
-LDFLAGS := -X github.com/titananvil/titan-anvil/pkg/version.Version=$(VERSION) \
-           -X github.com/titananvil/titan-anvil/pkg/version.GitCommit=$(GIT_COMMIT) \
-           -X github.com/titananvil/titan-anvil/pkg/version.BuildDate=$(BUILD_DATE)
+LDFLAGS := -X github.com/shawnbutts/keystone-core/pkg/version.Version=$(VERSION) \
+           -X github.com/shawnbutts/keystone-core/pkg/version.GitCommit=$(GIT_COMMIT) \
+           -X github.com/shawnbutts/keystone-core/pkg/version.BuildDate=$(BUILD_DATE)
 
 help:
-	@echo "TitanAnvil Build System"
+	@echo "Keystone Core Build System"
 	@echo ""
-	@echo "Available targets:"
+	@echo "Build targets (output: build/bin/):"
 	@echo "  proto              - Generate protobuf code from .proto files"
 	@echo "  build              - Build all binaries for current platform"
 	@echo "  build-all-platforms - Build all binaries for all platforms"
-	@echo "  server             - Build titananvil-server binary"
-	@echo "  agent              - Build titananvil-agent binary"
-	@echo "  cli                - Build titanctl binary"
-	@echo "  exec               - Build titananvil-exec plugin"
-	@echo "  monitor            - Build titananvil-monitor TUI"
+	@echo "  server             - Build kscore-server binary"
+	@echo "  agent              - Build kscore-agent binary"
+	@echo "  cli                - Build kscorectl binary"
+	@echo "  exec               - Build kscore-exec plugin"
+	@echo "  monitor            - Build kscore-monitor TUI"
 	@echo "  test               - Run tests"
-	@echo "  clean              - Remove build artifacts"
+	@echo "  clean              - Remove all build artifacts (build/)"
 	@echo "  deps               - Install/update dependencies"
 	@echo ""
-	@echo "Documentation targets:"
-	@echo "  docs               - Build Hugo documentation site"
+	@echo "Documentation targets (output: build/docs/ and build/pdfs/):"
+	@echo "  docs               - Build Hugo documentation site → build/docs/"
 	@echo "  docs-serve         - Build and serve docs locally with live reload"
-	@echo "  docs-pdf           - Generate PDF documentation (requires wkhtmltopdf)"
+	@echo "  docs-pdf           - Generate PDF documentation → build/pdfs/"
 	@echo "  docs-all           - Build site and generate PDFs"
 	@echo ""
 
@@ -47,38 +47,41 @@ proto:
 build: server agent cli exec monitor
 
 server:
-	@echo "Building titananvil-server..."
-	go build -ldflags "$(LDFLAGS)" -o bin/titananvil-server ./cmd/titananvil-server
-	@echo "Built: bin/titananvil-server"
+	@echo "Building kscore-server..."
+	@mkdir -p build/bin
+	go build -ldflags "$(LDFLAGS)" -o build/bin/kscore-server ./cmd/kscore-server
+	@echo "Built: build/bin/kscore-server"
 
 agent:
-	@echo "Building titananvil-agent..."
-	go build -ldflags "$(LDFLAGS)" -o bin/titananvil-agent ./cmd/titananvil-agent
-	@echo "Built: bin/titananvil-agent"
+	@echo "Building kscore-agent..."
+	@mkdir -p build/bin
+	go build -ldflags "$(LDFLAGS)" -o build/bin/kscore-agent ./cmd/kscore-agent
+	@echo "Built: build/bin/kscore-agent"
 
 cli:
-	@echo "Building titanctl..."
-	go build -ldflags "$(LDFLAGS)" -o bin/titanctl ./cmd/titanctl
-	@echo "Built: bin/titanctl"
+	@echo "Building kscorectl..."
+	@mkdir -p build/bin
+	go build -ldflags "$(LDFLAGS)" -o build/bin/kscorectl ./cmd/kscorectl
+	@echo "Built: build/bin/kscorectl"
 
 exec:
-	@echo "Building titananvil-exec..."
-	go build -ldflags "$(LDFLAGS)" -o bin/titananvil-exec ./cmd/titananvil-exec
-	@echo "Built: bin/titananvil-exec"
+	@echo "Building kscore-exec..."
+	@mkdir -p build/bin
+	go build -ldflags "$(LDFLAGS)" -o build/bin/kscore-exec ./cmd/kscore-exec
+	@echo "Built: build/bin/kscore-exec"
 
 monitor:
-	@echo "Building titananvil-monitor..."
-	go build -ldflags "$(LDFLAGS)" -o bin/titananvil-monitor ./cmd/titananvil-monitor
-	@echo "Built: bin/titananvil-monitor"
+	@echo "Building kscore-monitor..."
+	@mkdir -p build/bin
+	go build -ldflags "$(LDFLAGS)" -o build/bin/kscore-monitor ./cmd/kscore-monitor
+	@echo "Built: build/bin/kscore-monitor"
 
 test:
 	go test -v -race -coverprofile=coverage.out ./...
 
 clean:
-	rm -rf bin/
-	rm -rf data/
 	rm -rf build/
-	rm -rf docs/pdfs/
+	rm -rf data/
 	rm -f coverage.out
 
 install-tools:
@@ -93,42 +96,42 @@ build-all-platforms: build-linux build-darwin build-windows
 
 build-linux:
 	@echo "Building for Linux..."
-	@mkdir -p bin/linux/amd64 bin/linux/arm64
-	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/linux/amd64/titananvil-server ./cmd/titananvil-server
-	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/linux/amd64/titananvil-agent ./cmd/titananvil-agent
-	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/linux/amd64/titananvil-exec ./cmd/titananvil-exec
-	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/linux/amd64/titananvil-monitor ./cmd/titananvil-monitor
-	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/linux/amd64/titanctl ./cmd/titanctl
-	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o bin/linux/arm64/titananvil-server ./cmd/titananvil-server
-	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o bin/linux/arm64/titananvil-agent ./cmd/titananvil-agent
-	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o bin/linux/arm64/titananvil-exec ./cmd/titananvil-exec
-	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o bin/linux/arm64/titananvil-monitor ./cmd/titananvil-monitor
-	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o bin/linux/arm64/titanctl ./cmd/titanctl
+	@mkdir -p build/bin/linux/amd64 build/bin/linux/arm64
+	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-server ./cmd/kscore-server
+	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-agent ./cmd/kscore-agent
+	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-exec ./cmd/kscore-exec
+	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-monitor ./cmd/kscore-monitor
+	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscorectl ./cmd/kscorectl
+	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-server ./cmd/kscore-server
+	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-agent ./cmd/kscore-agent
+	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-exec ./cmd/kscore-exec
+	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-monitor ./cmd/kscore-monitor
+	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscorectl ./cmd/kscorectl
 	@echo "Linux builds complete"
 
 build-darwin:
 	@echo "Building for macOS..."
-	@mkdir -p bin/darwin/amd64 bin/darwin/arm64
-	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/darwin/amd64/titananvil-server ./cmd/titananvil-server
-	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/darwin/amd64/titananvil-agent ./cmd/titananvil-agent
-	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/darwin/amd64/titananvil-exec ./cmd/titananvil-exec
-	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/darwin/amd64/titananvil-monitor ./cmd/titananvil-monitor
-	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/darwin/amd64/titanctl ./cmd/titanctl
-	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o bin/darwin/arm64/titananvil-server ./cmd/titananvil-server
-	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o bin/darwin/arm64/titananvil-agent ./cmd/titananvil-agent
-	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o bin/darwin/arm64/titananvil-exec ./cmd/titananvil-exec
-	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o bin/darwin/arm64/titananvil-monitor ./cmd/titananvil-monitor
-	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o bin/darwin/arm64/titanctl ./cmd/titanctl
+	@mkdir -p build/bin/darwin/amd64 build/bin/darwin/arm64
+	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-server ./cmd/kscore-server
+	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-agent ./cmd/kscore-agent
+	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-exec ./cmd/kscore-exec
+	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-monitor ./cmd/kscore-monitor
+	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscorectl ./cmd/kscorectl
+	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-server ./cmd/kscore-server
+	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-agent ./cmd/kscore-agent
+	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-exec ./cmd/kscore-exec
+	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-monitor ./cmd/kscore-monitor
+	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscorectl ./cmd/kscorectl
 	@echo "macOS builds complete"
 
 build-windows:
 	@echo "Building for Windows..."
-	@mkdir -p bin/windows/amd64
-	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/windows/amd64/titananvil-server.exe ./cmd/titananvil-server
-	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/windows/amd64/titananvil-agent.exe ./cmd/titananvil-agent
-	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/windows/amd64/titananvil-exec.exe ./cmd/titananvil-exec
-	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/windows/amd64/titananvil-monitor.exe ./cmd/titananvil-monitor
-	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/windows/amd64/titanctl.exe ./cmd/titanctl
+	@mkdir -p build/bin/windows/amd64
+	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-server.exe ./cmd/kscore-server
+	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-agent.exe ./cmd/kscore-agent
+	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-exec.exe ./cmd/kscore-exec
+	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-monitor.exe ./cmd/kscore-monitor
+	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscorectl.exe ./cmd/kscorectl
 	@echo "Windows builds complete"
 
 # Documentation targets

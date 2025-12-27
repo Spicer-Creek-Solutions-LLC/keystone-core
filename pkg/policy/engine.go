@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/titananvil/titan-anvil/pkg/tracing"
+	"github.com/shawnbutts/keystone-core/pkg/tracing"
 )
 
 // PolicyEngine coordinates policy evaluation across different evaluators

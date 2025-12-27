@@ -122,7 +122,7 @@ Alternatively, **Epic 10 (Documentation)** might be good to do next while all th
 
 1. **Check status**:
    ```bash
-   cd /Users/sbutts/code/TitanAnvil
+   cd /Users/sbutts/code/Keystone Core
    git status
    git log --oneline -10
    ```

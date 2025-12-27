@@ -31,48 +31,48 @@ func TestPrometheusExporter_Export(t *testing.T) {
 	output := buf.String()
 
 	// Check for HELP and TYPE comments
-	if !strings.Contains(output, "# HELP titananvil_events_published_total") {
+	if !strings.Contains(output, "# HELP kscore_events_published_total") {
 		t.Error("Expected HELP comment for events_published_total")
 	}
 
-	if !strings.Contains(output, "# TYPE titananvil_events_published_total counter") {
+	if !strings.Contains(output, "# TYPE kscore_events_published_total counter") {
 		t.Error("Expected TYPE comment for events_published_total")
 	}
 
 	// Check for metric values
-	if !strings.Contains(output, "titananvil_events_published_total{type=\"agent.connect\"} 1") {
+	if !strings.Contains(output, "kscore_events_published_total{type=\"agent.connect\"} 1") {
 		t.Error("Expected AgentConnect published metric")
 	}
 
-	if !strings.Contains(output, "titananvil_events_published_total{type=\"job.start\"} 1") {
+	if !strings.Contains(output, "kscore_events_published_total{type=\"job.start\"} 1") {
 		t.Error("Expected JobStart published metric")
 	}
 
-	if !strings.Contains(output, "titananvil_events_received_total{type=\"agent.connect\"} 1") {
+	if !strings.Contains(output, "kscore_events_received_total{type=\"agent.connect\"} 1") {
 		t.Error("Expected AgentConnect received metric")
 	}
 
-	if !strings.Contains(output, "titananvil_events_processed_total{type=\"agent.connect\"} 1") {
+	if !strings.Contains(output, "kscore_events_processed_total{type=\"agent.connect\"} 1") {
 		t.Error("Expected AgentConnect processed metric")
 	}
 
-	if !strings.Contains(output, "titananvil_publisher_errors_total 1") {
+	if !strings.Contains(output, "kscore_publisher_errors_total 1") {
 		t.Error("Expected publisher errors metric")
 	}
 
-	if !strings.Contains(output, "titananvil_subscriber_errors_total 1") {
+	if !strings.Contains(output, "kscore_subscriber_errors_total 1") {
 		t.Error("Expected subscriber errors metric")
 	}
 
-	if !strings.Contains(output, "titananvil_reactor_executions_total{reactor=\"restart-service\"} 1") {
+	if !strings.Contains(output, "kscore_reactor_executions_total{reactor=\"restart-service\"} 1") {
 		t.Error("Expected reactor executions metric")
 	}
 
-	if !strings.Contains(output, "titananvil_action_executions_total{type=\"service\",name=\"restart-nginx\"} 1") {
+	if !strings.Contains(output, "kscore_action_executions_total{type=\"service\",name=\"restart-nginx\"} 1") {
 		t.Error("Expected action executions metric")
 	}
 
-	if !strings.Contains(output, "titananvil_storage_operations_total{operation=\"Store\"} 1") {
+	if !strings.Contains(output, "kscore_storage_operations_total{operation=\"Store\"} 1") {
 		t.Error("Expected storage operations metric")
 	}
 }
@@ -91,19 +91,19 @@ func TestPrometheusExporter_Export_EventsBySeverity(t *testing.T) {
 
 	output := buf.String()
 
-	if !strings.Contains(output, "# HELP titananvil_events_severity_total") {
+	if !strings.Contains(output, "# HELP kscore_events_severity_total") {
 		t.Error("Expected HELP comment for events_severity_total")
 	}
 
-	if !strings.Contains(output, "titananvil_events_severity_total{severity=\"info\"} 1") {
+	if !strings.Contains(output, "kscore_events_severity_total{severity=\"info\"} 1") {
 		t.Error("Expected info severity metric")
 	}
 
-	if !strings.Contains(output, "titananvil_events_severity_total{severity=\"warning\"} 1") {
+	if !strings.Contains(output, "kscore_events_severity_total{severity=\"warning\"} 1") {
 		t.Error("Expected warning severity metric")
 	}
 
-	if !strings.Contains(output, "titananvil_events_severity_total{severity=\"error\"} 1") {
+	if !strings.Contains(output, "kscore_events_severity_total{severity=\"error\"} 1") {
 		t.Error("Expected error severity metric")
 	}
 }
@@ -121,11 +121,11 @@ func TestPrometheusExporter_Export_ActiveSubscribers(t *testing.T) {
 
 	output := buf.String()
 
-	if !strings.Contains(output, "# TYPE titananvil_active_subscribers gauge") {
+	if !strings.Contains(output, "# TYPE kscore_active_subscribers gauge") {
 		t.Error("Expected gauge type for active_subscribers")
 	}
 
-	if !strings.Contains(output, "titananvil_active_subscribers 5") {
+	if !strings.Contains(output, "kscore_active_subscribers 5") {
 		t.Error("Expected active subscribers metric")
 	}
 }
@@ -145,31 +145,31 @@ func TestPrometheusExporter_Export_ReactorDurations(t *testing.T) {
 
 	output := buf.String()
 
-	if !strings.Contains(output, "# HELP titananvil_reactor_duration_seconds") {
+	if !strings.Contains(output, "# HELP kscore_reactor_duration_seconds") {
 		t.Error("Expected HELP comment for reactor_duration_seconds")
 	}
 
-	if !strings.Contains(output, "# TYPE titananvil_reactor_duration_seconds summary") {
+	if !strings.Contains(output, "# TYPE kscore_reactor_duration_seconds summary") {
 		t.Error("Expected summary type for reactor_duration_seconds")
 	}
 
-	if !strings.Contains(output, "titananvil_reactor_duration_seconds{reactor=\"restart-service\",quantile=\"0.5\"}") {
+	if !strings.Contains(output, "kscore_reactor_duration_seconds{reactor=\"restart-service\",quantile=\"0.5\"}") {
 		t.Error("Expected P50 quantile")
 	}
 
-	if !strings.Contains(output, "titananvil_reactor_duration_seconds{reactor=\"restart-service\",quantile=\"0.95\"}") {
+	if !strings.Contains(output, "kscore_reactor_duration_seconds{reactor=\"restart-service\",quantile=\"0.95\"}") {
 		t.Error("Expected P95 quantile")
 	}
 
-	if !strings.Contains(output, "titananvil_reactor_duration_seconds{reactor=\"restart-service\",quantile=\"0.99\"}") {
+	if !strings.Contains(output, "kscore_reactor_duration_seconds{reactor=\"restart-service\",quantile=\"0.99\"}") {
 		t.Error("Expected P99 quantile")
 	}
 
-	if !strings.Contains(output, "titananvil_reactor_duration_seconds_sum{reactor=\"restart-service\"}") {
+	if !strings.Contains(output, "kscore_reactor_duration_seconds_sum{reactor=\"restart-service\"}") {
 		t.Error("Expected sum")
 	}
 
-	if !strings.Contains(output, "titananvil_reactor_duration_seconds_count{reactor=\"restart-service\"} 10") {
+	if !strings.Contains(output, "kscore_reactor_duration_seconds_count{reactor=\"restart-service\"} 10") {
 		t.Error("Expected count of 10")
 	}
 }
@@ -191,9 +191,9 @@ func TestPrometheusExporter_Export_ActionDurations(t *testing.T) {
 
 	// Note: ActionDurations are not currently exported in prometheus.go
 	// This test documents expected behavior if we add it
-	if strings.Contains(output, "titananvil_action_duration_seconds") {
+	if strings.Contains(output, "kscore_action_duration_seconds") {
 		// If action durations are exported, verify format
-		if !strings.Contains(output, "# TYPE titananvil_action_duration_seconds summary") {
+		if !strings.Contains(output, "# TYPE kscore_action_duration_seconds summary") {
 			t.Error("Expected summary type for action_duration_seconds")
 		}
 	}
@@ -214,19 +214,19 @@ func TestPrometheusExporter_Export_ProcessingDuration(t *testing.T) {
 
 	output := buf.String()
 
-	if !strings.Contains(output, "# HELP titananvil_event_processing_duration_seconds") {
+	if !strings.Contains(output, "# HELP kscore_event_processing_duration_seconds") {
 		t.Error("Expected HELP comment for event_processing_duration_seconds")
 	}
 
-	if !strings.Contains(output, "# TYPE titananvil_event_processing_duration_seconds summary") {
+	if !strings.Contains(output, "# TYPE kscore_event_processing_duration_seconds summary") {
 		t.Error("Expected summary type for event_processing_duration_seconds")
 	}
 
-	if !strings.Contains(output, "titananvil_event_processing_duration_seconds{quantile=\"0.5\"}") {
+	if !strings.Contains(output, "kscore_event_processing_duration_seconds{quantile=\"0.5\"}") {
 		t.Error("Expected P50 quantile")
 	}
 
-	if !strings.Contains(output, "titananvil_event_processing_duration_seconds_count 20") {
+	if !strings.Contains(output, "kscore_event_processing_duration_seconds_count 20") {
 		t.Error("Expected count of 20")
 	}
 }
@@ -243,15 +243,15 @@ func TestPrometheusExporter_Export_Uptime(t *testing.T) {
 
 	output := buf.String()
 
-	if !strings.Contains(output, "# HELP titananvil_uptime_seconds") {
+	if !strings.Contains(output, "# HELP kscore_uptime_seconds") {
 		t.Error("Expected HELP comment for uptime_seconds")
 	}
 
-	if !strings.Contains(output, "# TYPE titananvil_uptime_seconds gauge") {
+	if !strings.Contains(output, "# TYPE kscore_uptime_seconds gauge") {
 		t.Error("Expected gauge type for uptime_seconds")
 	}
 
-	if !strings.Contains(output, "titananvil_uptime_seconds") {
+	if !strings.Contains(output, "kscore_uptime_seconds") {
 		t.Error("Expected uptime metric")
 	}
 }
@@ -273,15 +273,15 @@ func TestPrometheusExporter_Export_EventRate(t *testing.T) {
 
 	output := buf.String()
 
-	if !strings.Contains(output, "# HELP titananvil_event_rate") {
+	if !strings.Contains(output, "# HELP kscore_event_rate") {
 		t.Error("Expected HELP comment for event_rate")
 	}
 
-	if !strings.Contains(output, "# TYPE titananvil_event_rate gauge") {
+	if !strings.Contains(output, "# TYPE kscore_event_rate gauge") {
 		t.Error("Expected gauge type for event_rate")
 	}
 
-	if !strings.Contains(output, "titananvil_event_rate") {
+	if !strings.Contains(output, "kscore_event_rate") {
 		t.Error("Expected event rate metric")
 	}
 }
@@ -299,15 +299,15 @@ func TestPrometheusExporter_Export_LastEventTimestamp(t *testing.T) {
 
 	output := buf.String()
 
-	if !strings.Contains(output, "# HELP titananvil_last_event_timestamp_seconds") {
+	if !strings.Contains(output, "# HELP kscore_last_event_timestamp_seconds") {
 		t.Error("Expected HELP comment for last_event_timestamp_seconds")
 	}
 
-	if !strings.Contains(output, "# TYPE titananvil_last_event_timestamp_seconds gauge") {
+	if !strings.Contains(output, "# TYPE kscore_last_event_timestamp_seconds gauge") {
 		t.Error("Expected gauge type for last_event_timestamp_seconds")
 	}
 
-	if !strings.Contains(output, "titananvil_last_event_timestamp_seconds") {
+	if !strings.Contains(output, "kscore_last_event_timestamp_seconds") {
 		t.Error("Expected last event timestamp metric")
 	}
 }
@@ -326,15 +326,15 @@ func TestPrometheusExporter_Export_ReactorFailures(t *testing.T) {
 
 	output := buf.String()
 
-	if !strings.Contains(output, "# HELP titananvil_reactor_failures_total") {
+	if !strings.Contains(output, "# HELP kscore_reactor_failures_total") {
 		t.Error("Expected HELP comment for reactor_failures_total")
 	}
 
-	if !strings.Contains(output, "titananvil_reactor_failures_total{reactor=\"restart-service\"} 1") {
+	if !strings.Contains(output, "kscore_reactor_failures_total{reactor=\"restart-service\"} 1") {
 		t.Error("Expected restart-service failure metric")
 	}
 
-	if !strings.Contains(output, "titananvil_reactor_failures_total{reactor=\"send-alert\"} 1") {
+	if !strings.Contains(output, "kscore_reactor_failures_total{reactor=\"send-alert\"} 1") {
 		t.Error("Expected send-alert failure metric")
 	}
 }
@@ -353,15 +353,15 @@ func TestPrometheusExporter_Export_ActionFailures(t *testing.T) {
 
 	output := buf.String()
 
-	if !strings.Contains(output, "# HELP titananvil_action_failures_total") {
+	if !strings.Contains(output, "# HELP kscore_action_failures_total") {
 		t.Error("Expected HELP comment for action_failures_total")
 	}
 
-	if !strings.Contains(output, "titananvil_action_failures_total{type=\"service\",name=\"restart-nginx\"} 1") {
+	if !strings.Contains(output, "kscore_action_failures_total{type=\"service\",name=\"restart-nginx\"} 1") {
 		t.Error("Expected restart-nginx failure metric")
 	}
 
-	if !strings.Contains(output, "titananvil_action_failures_total{type=\"http\",name=\"send-webhook\"} 1") {
+	if !strings.Contains(output, "kscore_action_failures_total{type=\"http\",name=\"send-webhook\"} 1") {
 		t.Error("Expected send-webhook failure metric")
 	}
 }
@@ -380,15 +380,15 @@ func TestPrometheusExporter_Export_StorageFailures(t *testing.T) {
 
 	output := buf.String()
 
-	if !strings.Contains(output, "# HELP titananvil_storage_failures_total") {
+	if !strings.Contains(output, "# HELP kscore_storage_failures_total") {
 		t.Error("Expected HELP comment for storage_failures_total")
 	}
 
-	if !strings.Contains(output, "titananvil_storage_failures_total{operation=\"Store\"} 1") {
+	if !strings.Contains(output, "kscore_storage_failures_total{operation=\"Store\"} 1") {
 		t.Error("Expected Store failure metric")
 	}
 
-	if !strings.Contains(output, "titananvil_storage_failures_total{operation=\"Query\"} 1") {
+	if !strings.Contains(output, "kscore_storage_failures_total{operation=\"Query\"} 1") {
 		t.Error("Expected Query failure metric")
 	}
 }
@@ -409,7 +409,7 @@ func TestPrometheusExporter_ExportString(t *testing.T) {
 		t.Error("Expected non-empty output")
 	}
 
-	if !strings.Contains(output, "titananvil_events_published_total{type=\"agent.connect\"} 1") {
+	if !strings.Contains(output, "kscore_events_published_total{type=\"agent.connect\"} 1") {
 		t.Error("Expected AgentConnect metric in output")
 	}
 }
@@ -428,19 +428,19 @@ func TestPrometheusExporter_Export_EmptyMetrics(t *testing.T) {
 	output := buf.String()
 
 	// Should still have headers and basic metrics
-	if !strings.Contains(output, "# HELP titananvil_events_published_total") {
+	if !strings.Contains(output, "# HELP kscore_events_published_total") {
 		t.Error("Expected HELP comments even with no events")
 	}
 
-	if !strings.Contains(output, "titananvil_publisher_errors_total 0") {
+	if !strings.Contains(output, "kscore_publisher_errors_total 0") {
 		t.Error("Expected zero publisher errors")
 	}
 
-	if !strings.Contains(output, "titananvil_subscriber_errors_total 0") {
+	if !strings.Contains(output, "kscore_subscriber_errors_total 0") {
 		t.Error("Expected zero subscriber errors")
 	}
 
-	if !strings.Contains(output, "titananvil_active_subscribers 0") {
+	if !strings.Contains(output, "kscore_active_subscribers 0") {
 		t.Error("Expected zero active subscribers")
 	}
 }

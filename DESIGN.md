@@ -1,8 +1,8 @@
-# TitanAnvil Design Document
+# Keystone Core Design Document
 
 ## Executive Summary
 
-TitanAnvil is a cloud-native runtime infrastructure control plane that provides real-time execution, continuous compliance, and operational automation across hybrid environments. It complements GitOps and Infrastructure-as-Code tools by managing what happens between deployments.
+Keystone Core is a cloud-native runtime infrastructure control plane that provides real-time execution, continuous compliance, and operational automation across hybrid environments. It complements GitOps and Infrastructure-as-Code tools by managing what happens between deployments.
 
 **Tagline**: *GitOps deploys it. We keep it running.*
 
@@ -17,7 +17,7 @@ Modern infrastructure teams use a combination of tools:
 
 However, a critical gap exists in the operational layer:
 
-#### Problems TitanAnvil Solves
+#### Problems Keystone Core Solves
 
 **1. The GitOps Deployment Gap**
 - GitOps handles "what should be deployed" but not "what happens after"
@@ -43,9 +43,9 @@ However, a critical gap exists in the operational layer:
 - No unified operational control plane
 - Inconsistent policy enforcement across infrastructure types
 
-### How TitanAnvil Augments Existing Tools
+### How Keystone Core Augments Existing Tools
 
-TitanAnvil is **not a replacement** for GitOps or IaC - it's the **operational layer** that makes them production-ready.
+Keystone Core is **not a replacement** for GitOps or IaC - it's the **operational layer** that makes them production-ready.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -56,7 +56,7 @@ TitanAnvil is **not a replacement** for GitOps or IaC - it's the **operational l
                           │
                           ▼
 ┌─────────────────────────────────────────────────────────┐
-│                     TitanAnvil                          │
+│                     Keystone Core                          │
 │              (Runtime Control Plane)                    │
 │  • Real-time execution    • Continuous compliance       │
 │  • Drift detection        • Operational automation      │
@@ -72,7 +72,7 @@ TitanAnvil is **not a replacement** for GitOps or IaC - it's the **operational l
 
 ### Comparison Matrix
 
-| Capability | GitOps/IaC | Ansible | TitanAnvil |
+| Capability | GitOps/IaC | Ansible | Keystone Core |
 |------------|------------|---------|------------|
 | Deployment speed | Minutes | Minutes | Seconds |
 | Scale (nodes) | Unlimited | ~500 | 10,000+ |
@@ -147,7 +147,7 @@ TitanAnvil is **not a replacement** for GitOps or IaC - it's the **operational l
 
 ### NATS Deployment Modes
 
-TitanAnvil supports flexible NATS deployment strategies to match operational requirements:
+Keystone Core supports flexible NATS deployment strategies to match operational requirements:
 
 **Embedded Mode** (Recommended for getting started)
 - NATS server runs in-process with control plane or agent
@@ -167,7 +167,7 @@ TitanAnvil supports flexible NATS deployment strategies to match operational req
   - Production deployments (100+ nodes)
   - Multi-region infrastructures
   - Environments requiring guaranteed uptime
-  - Shared NATS infrastructure across multiple TitanAnvil instances
+  - Shared NATS infrastructure across multiple Keystone Core instances
 - Supports NATS clustering and JetStream replication
 
 **Hybrid Mode**
@@ -181,7 +181,7 @@ TitanAnvil supports flexible NATS deployment strategies to match operational req
 
 ### State Storage Deployment Modes
 
-TitanAnvil provides flexible storage options following the same zero-dependencies philosophy:
+Keystone Core provides flexible storage options following the same zero-dependencies philosophy:
 
 **SQLite Mode** (Recommended for getting started)
 - Embedded database - zero external dependencies
@@ -200,7 +200,7 @@ TitanAnvil provides flexible storage options following the same zero-dependencie
 - Ideal for:
   - Production deployments (100+ nodes)
   - High availability requirements
-  - Multi-instance TitanAnvil deployments
+  - Multi-instance Keystone Core deployments
   - Enterprise environments
 - Seamless migration from SQLite with zero downtime
 
@@ -212,7 +212,7 @@ TitanAnvil provides flexible storage options following the same zero-dependencie
 
 ## Feature Categories
 
-TitanAnvil combines proven Salt Project-like capabilities with modern cloud-native features:
+Keystone Core combines proven Salt Project-like capabilities with modern cloud-native features:
 
 ### Core Salt Project-Like Features
 
@@ -248,25 +248,25 @@ TitanAnvil combines proven Salt Project-like capabilities with modern cloud-nati
 
 ### 1. Deployment Verification
 ```
-ArgoCD deploys new version → TitanAnvil verifies health across fleet
+ArgoCD deploys new version → Keystone Core verifies health across fleet
 → Detects errors → Triggers automated rollback via GitOps
 ```
 
 ### 2. Incident Response
 ```
-Alert: Memory leak detected → TitanAnvil gathers diagnostics from 500 pods
+Alert: Memory leak detected → Keystone Core gathers diagnostics from 500 pods
 → Restarts affected services → Coordinates traffic shift → All in <60s
 ```
 
 ### 3. Continuous Compliance
 ```
-Security policy: No containers run as root → TitanAnvil continuously monitors
+Security policy: No containers run as root → Keystone Core continuously monitors
 → Kills violating pods → Alerts security team → Blocks re-deployment
 ```
 
 ### 4. Coordinated Maintenance
 ```
-Maintenance window → TitanAnvil drains nodes by zone → Applies updates
+Maintenance window → Keystone Core drains nodes by zone → Applies updates
 → Verifies health → Returns to service → Moves to next zone
 ```
 
@@ -294,7 +294,7 @@ Single command → Execute across K8s pods, VMs, bare metal, edge devices
 
 ## Security Model
 
-TitanAnvil follows the same "simple → production" philosophy for security as it does for NATS and storage. Two security modes are supported, allowing users to start simple and upgrade to zero-trust as they scale.
+Keystone Core follows the same "simple → production" philosophy for security as it does for NATS and storage. Two security modes are supported, allowing users to start simple and upgrade to zero-trust as they scale.
 
 ### Manual TLS Mode (Default)
 
@@ -336,8 +336,8 @@ security:
 **Purpose**: Zero-trust security with automatic identity provisioning and rotation for production deployments.
 
 **How it works:**
-- SPIRE server runs alongside TitanAnvil control plane
-- SPIRE agents run alongside TitanAnvil agents
+- SPIRE server runs alongside Keystone Core control plane
+- SPIRE agents run alongside Keystone Core agents
 - Workload attestation proves agent identity without secrets
 - SVIDs (SPIFFE Verifiable Identity Documents) auto-rotate every 1 hour
 - Cryptographic identities encode agent metadata (role, labels, environment)
@@ -355,7 +355,7 @@ security:
   mode: spire
   spire:
     server_address: unix:///tmp/spire-server/api.sock
-    trust_domain: titananvil.local
+    trust_domain: kscore.local
 
     # Workload attestation method (platform-specific)
     node_attestor: k8s_sat  # Kubernetes Service Account Token
@@ -380,18 +380,18 @@ security:
 **SPIFFE Identity Examples:**
 ```
 # Control plane server
-spiffe://titananvil.local/server/control-plane
+spiffe://kscore.local/server/control-plane
 
 # Agent on Kubernetes node
-spiffe://titananvil.local/agent/k8s-node-123
+spiffe://kscore.local/agent/k8s-node-123
   selectors:
     - k8s:ns:kube-system
-    - k8s:sa:titananvil-agent
+    - k8s:sa:kscore-agent
     - label:env=prod
     - label:region=us-east-1
 
 # Agent on AWS EC2 instance
-spiffe://titananvil.local/agent/i-0abc123def456
+spiffe://kscore.local/agent/i-0abc123def456
   selectors:
     - aws:account-id:123456789
     - aws:instance-id:i-0abc123def456
@@ -399,7 +399,7 @@ spiffe://titananvil.local/agent/i-0abc123def456
     - label:vpc=vpc-xyz
 
 # Plugin module with restricted capabilities
-spiffe://titananvil.local/module/vendor/firewall-manager
+spiffe://kscore.local/module/vendor/firewall-manager
   selectors:
     - capability:network.configure
     - label:role=network-admin
@@ -434,7 +434,7 @@ spiffe://titananvil.local/module/vendor/firewall-manager
 
 ### Migration Path
 
-TitanAnvil is designed to start simple and upgrade as you scale:
+Keystone Core is designed to start simple and upgrade as you scale:
 
 **Development → Production:**
 ```
@@ -445,7 +445,7 @@ SQLite             →    PostgreSQL
 
 **Migration steps:**
 1. Deploy SPIRE server alongside control plane
-2. Deploy SPIRE agents alongside TitanAnvil agents
+2. Deploy SPIRE agents alongside Keystone Core agents
 3. Update configuration: `security.mode: spire`
 4. Restart control plane (picks up SPIRE workload API)
 5. Agents auto-register with SPIRE-issued SVIDs
@@ -478,7 +478,7 @@ SQLite             →    PostgreSQL
 - Example: Firewall module requires `capability:network.configure` selector
 
 **5. Service Mesh Integration (Epic 8)**
-- TitanAnvil shares SPIRE trust domain with Istio/Linkerd
+- Keystone Core shares SPIRE trust domain with Istio/Linkerd
 - Agents can authenticate to mesh services
 - Unified zero-trust across infrastructure and application layers
 

@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
-	pb "github.com/titananvil/titan-anvil/pkg/api/v1"
-	"github.com/titananvil/titan-anvil/pkg/config"
-	natsmgr "github.com/titananvil/titan-anvil/pkg/nats"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
+	"github.com/shawnbutts/keystone-core/pkg/config"
+	natsmgr "github.com/shawnbutts/keystone-core/pkg/nats"
 	"google.golang.org/protobuf/proto"
 )
 

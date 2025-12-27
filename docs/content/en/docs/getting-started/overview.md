@@ -3,14 +3,14 @@ title: "Overview"
 linkTitle: "Overview"
 weight: 1
 description: >
-  What is TitanAnvil and what problems does it solve?
+  What is Keystone Core and what problems does it solve?
 ---
 
-## What is TitanAnvil?
+## What is Keystone Core?
 
-TitanAnvil is a **runtime infrastructure control plane** designed for cloud-native environments. It operates at the layer between GitOps/IaC deployment tools and your live infrastructure, ensuring systems remain configured correctly, compliant with policies, and responsive to events.
+Keystone Core is a **runtime infrastructure control plane** designed for cloud-native environments. It operates at the layer between GitOps/IaC deployment tools and your live infrastructure, ensuring systems remain configured correctly, compliant with policies, and responsive to events.
 
-### The Gap TitanAnvil Fills
+### The Gap Keystone Core Fills
 
 Modern infrastructure has a deployment gap:
 
@@ -18,7 +18,7 @@ Modern infrastructure has a deployment gap:
 2. **Your infrastructure** runs in production with dynamic changes
 3. **The gap**: Configuration drift, policy violations, failed deployments, manual operations
 
-TitanAnvil fills this gap by providing:
+Keystone Core fills this gap by providing:
 - Continuous configuration management
 - Real-time event-driven automation
 - Policy enforcement and compliance
@@ -28,7 +28,7 @@ TitanAnvil fills this gap by providing:
 ## Core Capabilities
 
 ### 1. Declarative State Management
-Define infrastructure configuration as code using state files. TitanAnvil ensures the desired state matches reality.
+Define infrastructure configuration as code using state files. Keystone Core ensures the desired state matches reality.
 
 ```yaml
 # Example: Ensure nginx is installed and running
@@ -57,11 +57,11 @@ Execute commands across your infrastructure with flexible targeting.
 
 ```bash
 # Execute on all web servers in us-east-1
-titanctl exec run "systemctl restart nginx" \
+kscorectl exec run "systemctl restart nginx" \
   --target "role:web and datacenter:us-east-1"
 
 # Batch execution across 1000 nodes
-titanctl exec run "apt-get update" --target "os:ubuntu" --batch-size 100
+kscorectl exec run "apt-get update" --target "os:ubuntu" --batch-size 100
 ```
 
 **Features**:
@@ -104,7 +104,7 @@ Continuous compliance using OPA (Rego) or CEL policies.
 
 ```rego
 # Example OPA policy: Require encryption
-package titananvil.security
+package kscore.security
 
 deny[msg] {
   input.resource.type == "disk"
@@ -132,7 +132,7 @@ Unified interface for heterogeneous infrastructure.
 - **Service Mesh**: Istio, Linkerd, Consul integration
 
 ### 7. Plugin System
-Extend TitanAnvil with custom modules.
+Extend Keystone Core with custom modules.
 
 **Languages**:
 - **Starlark**: Python-like, deterministic, fast iteration
@@ -159,7 +159,7 @@ Built-in monitoring and troubleshooting tools.
                      │ webhooks
                      ↓
 ┌─────────────────────────────────────────────────────────┐
-│                  TitanAnvil Control Plane                │
+│                  Keystone Core Control Plane                │
 │  ┌─────────────┐  ┌──────────────┐  ┌────────────────┐  │
 │  │  API Server │  │ State Manager│  │ Event/Reactor  │  │
 │  │   (gRPC)    │  │   (SQLite/   │  │    Engine      │  │
@@ -193,28 +193,28 @@ Built-in monitoring and troubleshooting tools.
 ## Use Cases
 
 ### 1. GitOps + Runtime Operations
-You use ArgoCD to deploy applications. TitanAnvil:
+You use ArgoCD to deploy applications. Keystone Core:
 - Verifies deployments succeeded (health checks, smoke tests)
 - Automatically rolls back failed deployments
 - Enforces security policies on deployed workloads
 - Detects and remediates configuration drift
 
 ### 2. Hybrid Infrastructure Management
-You have Kubernetes clusters, legacy VMs, and edge devices. TitanAnvil:
+You have Kubernetes clusters, legacy VMs, and edge devices. Keystone Core:
 - Provides unified interface across all environments
 - Applies consistent policies everywhere
 - Executes commands across heterogeneous infrastructure
 - Collects metrics and logs uniformly
 
 ### 3. Compliance Automation
-You need continuous compliance (SOC 2, PCI, HIPAA). TitanAnvil:
+You need continuous compliance (SOC 2, PCI, HIPAA). Keystone Core:
 - Enforces policies in real-time (prevent violations)
 - Audits all operations (who, what, when)
 - Generates compliance reports
 - Remediates violations automatically
 
 ### 4. Event-Driven Operations
-Your infrastructure generates events. TitanAnvil:
+Your infrastructure generates events. Keystone Core:
 - Reacts to failures automatically (restart services, scale up)
 - Integrates with external systems (PagerDuty, Slack)
 - Correlates events for root cause analysis
@@ -222,7 +222,7 @@ Your infrastructure generates events. TitanAnvil:
 
 ## Comparison with Other Tools
 
-| Feature | TitanAnvil | Salt | Ansible | ArgoCD/Flux |
+| Feature | Keystone Core | Salt | Ansible | ArgoCD/Flux |
 |---------|------------|------|---------|-------------|
 | Declarative State | ✅ | ✅ | ✅ | ✅ |
 | Remote Execution | ✅ | ✅ | ✅ | ❌ |
@@ -234,13 +234,13 @@ Your infrastructure generates events. TitanAnvil:
 | Cloud-Native | ✅ | ❌ | ❌ | ✅ |
 | Deployment Verification | ✅ | ❌ | ❌ | ⚠️ |
 
-**TitanAnvil's unique position**: Combines Salt's operational capabilities with cloud-native GitOps workflows.
+**Keystone Core's unique position**: Combines Salt's operational capabilities with cloud-native GitOps workflows.
 
 ## Next Steps
 
-Ready to try TitanAnvil?
+Ready to try Keystone Core?
 
-1. **[Install TitanAnvil](../installation/)** - Get it running on your machine
+1. **[Install Keystone Core](../installation/)** - Get it running on your machine
 2. **[Quick Start](../quick-start/)** - Deploy your first agent in 5 minutes
 3. **[Architecture](../architecture/)** - Understand the system design
 

@@ -12,28 +12,28 @@ import (
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 
-	pb "github.com/titananvil/titan-anvil/pkg/api/v1"
-	"github.com/titananvil/titan-anvil/pkg/api/server"
-	"github.com/titananvil/titan-anvil/pkg/config"
-	"github.com/titananvil/titan-anvil/pkg/controlplane"
-	natsmgr "github.com/titananvil/titan-anvil/pkg/nats"
-	"github.com/titananvil/titan-anvil/pkg/state"
-	"github.com/titananvil/titan-anvil/pkg/version"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
+	"github.com/shawnbutts/keystone-core/pkg/api/server"
+	"github.com/shawnbutts/keystone-core/pkg/config"
+	"github.com/shawnbutts/keystone-core/pkg/controlplane"
+	natsmgr "github.com/shawnbutts/keystone-core/pkg/nats"
+	"github.com/shawnbutts/keystone-core/pkg/state"
+	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
 var (
 	cfgFile string
 	rootCmd = &cobra.Command{
-		Use:   "titananvil-server",
-		Short: "TitanAnvil control plane server",
-		Long: `TitanAnvil control plane server manages agents and provides
+		Use:   "kscore-server",
+		Short: "Keystone Core control plane server",
+		Long: `Keystone Core control plane server manages agents and provides
 the API for remote execution, state management, and policy enforcement.`,
 		Run: runServer,
 	}
 )
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is ./titan-anvil.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is ./keystone-core.yaml)")
 	rootCmd.AddCommand(versionCmd)
 }
 
@@ -167,7 +167,7 @@ func runServer(cmd *cobra.Command, args []string) {
 	}()
 	defer grpcServer.GracefulStop()
 
-	fmt.Printf("\nTitanAnvil server started successfully\n")
+	fmt.Printf("\nKeystone Core server started successfully\n")
 	fmt.Printf("  gRPC API: %s\n", listenAddr)
 	fmt.Printf("  Storage: %s\n", cfg.Storage.Backend)
 	fmt.Println("\nWaiting for agent connections...")
