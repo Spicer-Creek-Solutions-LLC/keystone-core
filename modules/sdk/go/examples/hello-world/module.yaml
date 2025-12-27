@@ -1,0 +1,32 @@
+name: examples/hello-world-go
+version: 0.1.0
+description: Hello World example module in Go demonstrating TitanAnvil SDK usage
+
+# Module type
+type: wasm
+
+# Required capabilities
+capabilities:
+  - exec         # For CPU detection via system commands
+  - fs.write     # For writing the output file
+  - log          # For logging
+
+# Resource limits
+limits:
+  memory: 10MB
+  timeout: 30s
+
+# Entrypoint
+entrypoint: hello-world-go.wasm
+
+# Build configuration
+build:
+  command: tinygo build -o hello-world-go.wasm -target wasm32-wasi -opt=z .
+  output: hello-world-go.wasm
+
+# Metadata
+metadata:
+  author: TitanAnvil Contributors
+  license: MIT
+  language: go
+  sdk_version: "0.1.0"

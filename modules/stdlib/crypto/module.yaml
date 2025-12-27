@@ -1,0 +1,16 @@
+name: std/crypto
+version: 1.0.0
+description: Cryptography stdlib module
+
+type: starlark
+
+capabilities:
+  - exec     # For SHA256 via external tools
+  - fs.write # For temp file creation
+
+entrypoint: states/main.star
+
+metadata:
+  author: TitanAnvil Contributors
+  license: MIT
+  category: stdlib

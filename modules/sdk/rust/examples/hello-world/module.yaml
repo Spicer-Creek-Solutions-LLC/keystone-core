@@ -1,0 +1,32 @@
+name: examples/hello-world-rust
+version: 0.1.0
+description: Hello World example module in Rust demonstrating TitanAnvil SDK usage
+
+# Module type
+type: wasm
+
+# Required capabilities
+capabilities:
+  - exec         # For CPU detection via system commands
+  - fs.write     # For writing the output file
+  - log          # For logging
+
+# Resource limits
+limits:
+  memory: 10MB
+  timeout: 30s
+
+# Entrypoint
+entrypoint: hello_world_rust.wasm
+
+# Build configuration
+build:
+  command: cargo build --target wasm32-wasi --release
+  output: target/wasm32-wasi/release/hello_world_rust.wasm
+
+# Metadata
+metadata:
+  author: TitanAnvil Contributors
+  license: MIT
+  language: rust
+  sdk_version: "0.1.0"

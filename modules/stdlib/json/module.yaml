@@ -1,0 +1,14 @@
+name: std/json
+version: 1.0.0
+description: JSON encoding/decoding stdlib module
+
+type: starlark
+
+capabilities: []  # No capabilities required
+
+entrypoint: states/main.star
+
+metadata:
+  author: TitanAnvil Contributors
+  license: MIT
+  category: stdlib

@@ -1,0 +1,16 @@
+name: std/files
+version: 1.0.0
+description: File operations stdlib module
+
+type: starlark
+
+capabilities:
+  - fs.read
+  - fs.write
+
+entrypoint: states/main.star
+
+metadata:
+  author: TitanAnvil Contributors
+  license: MIT
+  category: stdlib

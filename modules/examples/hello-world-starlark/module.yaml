@@ -1,0 +1,25 @@
+name: examples/hello-world-starlark
+version: 0.1.0
+description: Hello World example module in Starlark demonstrating TitanAnvil module system
+
+type: starlark
+
+# Required capabilities
+capabilities:
+  - exec         # For CPU detection via system commands
+  - fs.write     # For writing the output file
+  - log          # For logging
+
+# Resource limits
+limits:
+  memory: 10MB
+  timeout: 30s
+
+# Entrypoint
+entrypoint: states/main.star
+
+# Metadata
+metadata:
+  author: TitanAnvil Contributors
+  license: MIT
+  language: starlark

@@ -1,0 +1,14 @@
+name: std/strings
+version: 1.0.0
+description: String manipulation stdlib module
+
+type: starlark
+
+capabilities: []  # No capabilities required
+
+entrypoint: states/main.star
+
+metadata:
+  author: TitanAnvil Contributors
+  license: MIT
+  category: stdlib

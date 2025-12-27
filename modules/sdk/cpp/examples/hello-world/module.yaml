@@ -1,0 +1,35 @@
+name: examples/hello-world-cpp
+version: 0.1.0
+description: Hello World example module in C++ demonstrating TitanAnvil SDK usage
+
+# Module type
+type: wasm
+
+# Required capabilities
+capabilities:
+  - exec         # For CPU detection via system commands
+  - fs.write     # For writing the output file
+  - log          # For logging
+
+# Resource limits
+limits:
+  memory: 10MB
+  timeout: 30s
+
+# Entrypoint
+entrypoint: hello-world-cpp.wasm
+
+# Build configuration
+build:
+  command: |
+    mkdir -p build && cd build
+    cmake -DCMAKE_TOOLCHAIN_FILE=$WASI_SDK_PATH/share/cmake/wasi-sdk.cmake ..
+    cmake --build .
+  output: build/hello-world-cpp.wasm
+
+# Metadata
+metadata:
+  author: TitanAnvil Contributors
+  license: MIT
+  language: cpp
+  sdk_version: "0.1.0"

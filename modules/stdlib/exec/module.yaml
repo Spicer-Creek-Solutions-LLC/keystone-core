@@ -1,0 +1,15 @@
+name: std/exec
+version: 1.0.0
+description: Command execution stdlib module
+
+type: starlark
+
+capabilities:
+  - exec
+
+entrypoint: states/main.star
+
+metadata:
+  author: TitanAnvil Contributors
+  license: MIT
+  category: stdlib

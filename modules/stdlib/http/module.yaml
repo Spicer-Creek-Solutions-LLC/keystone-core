@@ -1,0 +1,16 @@
+name: std/http
+version: 1.0.0
+description: HTTP operations stdlib module
+
+type: starlark
+
+capabilities:
+  - http.get
+  - http.post
+
+entrypoint: states/main.star
+
+metadata:
+  author: TitanAnvil Contributors
+  license: MIT
+  category: stdlib
