@@ -10,7 +10,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -38,17 +37,11 @@ func (m *FileModule) normalizePath(path string) string {
 	return filepath.Clean(path)
 }
 
-// isOwnershipSupported checks if the OS supports owner/group operations
-func (m *FileModule) isOwnershipSupported() bool {
-	// Windows doesn't use Unix-style owner/group
-	return runtime.GOOS != "windows"
-}
-
 // isSymlinkSupported checks if symlinks are supported and practical
 func (m *FileModule) isSymlinkSupported() bool {
-	// Symlinks work on Unix-like systems
-	// On Windows, they require elevated privileges and are less common
-	return runtime.GOOS != "windows"
+	// Use platform-specific implementation
+	// On Windows, symlinks require elevated privileges
+	return isSymlinkFullySupported()
 }
 
 // Check checks the current state of a file/directory
@@ -161,18 +154,18 @@ func (m *FileModule) checkAttributes(path string, decl *StateDeclaration, info o
 	}
 
 	// Check owner/group (Unix only - skip on Windows)
-	if m.isOwnershipSupported() {
-		if stat, ok := info.Sys().(*syscall.Stat_t); ok {
+	if isOwnershipSupported() {
+		if uid, gid, ok := getFileOwnership(info); ok {
 			// Check user
 			if user := getStringParameter(decl, "user", ""); user != "" {
-				result.Metadata["uid"] = stat.Uid
+				result.Metadata["uid"] = uid
 				// Would need to resolve username to UID for comparison
 				// For now, just store it
 			}
 
 			// Check group
 			if group := getStringParameter(decl, "group", ""); group != "" {
-				result.Metadata["gid"] = stat.Gid
+				result.Metadata["gid"] = gid
 				// Would need to resolve group name to GID for comparison
 			}
 		}

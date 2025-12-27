@@ -1,0 +1,75 @@
+# Keystone Core Server Configuration
+# See https://docs.kscore.dev/docs/reference/configuration/ for full reference
+
+# Server settings
+server:
+  # HTTP API listen address
+  listen_address: "0.0.0.0:8080"
+  # gRPC API listen address
+  grpc_address: "0.0.0.0:50051"
+
+# NATS message bus configuration
+nats:
+  # Mode: embedded, external, or hybrid
+  mode: embedded
+  embedded:
+    # Listen port for embedded NATS server
+    port: 4222
+    # Enable JetStream for event persistence
+    jetstream: true
+    # JetStream storage directory
+    store_dir: /var/lib/keystone-core/jetstream
+  # For external mode, uncomment and configure:
+  # external:
+  #   urls:
+  #     - nats://nats-1:4222
+  #     - nats://nats-2:4222
+  #   credentials_file: /etc/keystone-core/nats.creds
+
+# Database configuration
+database:
+  # Driver: sqlite or postgres
+  driver: sqlite
+  sqlite:
+    path: /var/lib/keystone-core/state.db
+  # For PostgreSQL, uncomment and configure:
+  # postgres:
+  #   host: localhost
+  #   port: 5432
+  #   database: keystone
+  #   username: keystone
+  #   password_file: /etc/keystone-core/db-password
+  #   sslmode: require
+
+# Logging configuration
+logging:
+  # Level: debug, info, warn, error
+  level: info
+  # Format: json, logfmt, text
+  format: json
+  # Output: stdout, stderr, or file path
+  output: /var/log/keystone-core/server.log
+
+# Telemetry configuration
+telemetry:
+  enabled: true
+  prometheus:
+    enabled: true
+    address: ":9090"
+  # OpenTelemetry tracing (optional)
+  # otlp:
+  #   endpoint: localhost:4317
+  #   insecure: true
+
+# Security configuration
+security:
+  # TLS configuration (recommended for production)
+  # tls:
+  #   enabled: true
+  #   cert_file: /etc/keystone-core/server.crt
+  #   key_file: /etc/keystone-core/server.key
+  #   ca_file: /etc/keystone-core/ca.crt
+  # API authentication
+  # auth:
+  #   enabled: true
+  #   api_keys_file: /etc/keystone-core/api-keys.yaml

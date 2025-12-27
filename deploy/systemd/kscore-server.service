@@ -1,0 +1,37 @@
+[Unit]
+Description=Keystone Core Control Plane Server
+Documentation=https://docs.kscore.dev
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kscore
+Group=kscore
+ExecStart=/usr/bin/kscore-server --config /etc/keystone-core/server.yaml
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+
+# Allow write access to specific directories
+ReadWritePaths=/var/lib/keystone-core /var/log/keystone-core
+
+# Environment
+Environment=KSCORE_LOG_LEVEL=info
+EnvironmentFile=-/etc/default/kscore-server
+
+[Install]
+WantedBy=multi-user.target

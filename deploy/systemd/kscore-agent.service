@@ -1,0 +1,29 @@
+[Unit]
+Description=Keystone Core Agent
+Documentation=https://docs.kscore.dev
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/kscore-agent --config /etc/keystone-core/agent.yaml
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+
+# Agent runs as root to manage system configuration
+# Security hardening where possible
+NoNewPrivileges=false
+ProtectSystem=false
+ProtectHome=false
+PrivateTmp=false
+PrivateDevices=false
+
+# Environment
+Environment=KSCORE_LOG_LEVEL=info
+EnvironmentFile=-/etc/default/kscore-agent
+
+[Install]
+WantedBy=multi-user.target

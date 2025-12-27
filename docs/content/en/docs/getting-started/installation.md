@@ -56,7 +56,55 @@ kscore-server --version
 kscore-agent --version
 ```
 
-### Method 2: Build from Source
+### Method 2: Linux Packages (DEB/RPM)
+
+Download and install DEB or RPM packages directly from GitHub releases:
+
+**Debian/Ubuntu (DEB):**
+
+```bash
+# Download packages
+curl -LO https://github.com/kscore/keystone-core/releases/latest/download/kscore-server_0.10.0_linux_amd64.deb
+curl -LO https://github.com/kscore/keystone-core/releases/latest/download/kscore-agent_0.10.0_linux_amd64.deb
+curl -LO https://github.com/kscore/keystone-core/releases/latest/download/kscore-cli_0.10.0_linux_amd64.deb
+
+# Install packages
+sudo dpkg -i kscore-server_*.deb
+sudo dpkg -i kscore-agent_*.deb
+sudo dpkg -i kscore-cli_*.deb
+
+# Configure and start services
+sudo systemctl enable kscore-server
+sudo systemctl start kscore-server
+```
+
+**RHEL/CentOS/Fedora (RPM):**
+
+```bash
+# Download packages
+curl -LO https://github.com/kscore/keystone-core/releases/latest/download/kscore-server-0.10.0.x86_64.rpm
+curl -LO https://github.com/kscore/keystone-core/releases/latest/download/kscore-agent-0.10.0.x86_64.rpm
+curl -LO https://github.com/kscore/keystone-core/releases/latest/download/kscore-cli-0.10.0.x86_64.rpm
+
+# Install packages
+sudo rpm -i kscore-server-*.rpm
+sudo rpm -i kscore-agent-*.rpm
+sudo rpm -i kscore-cli-*.rpm
+
+# Configure and start services
+sudo systemctl enable kscore-server
+sudo systemctl start kscore-server
+```
+
+**Package Contents:**
+
+| Package | Contents |
+|---------|----------|
+| `kscore-server` | Control plane server, systemd service, default config |
+| `kscore-agent` | Agent daemon, systemd service, default config |
+| `kscore-cli` | CLI tools (kscorectl, kscore-exec, kscore-state, kscore-monitor) |
+
+### Method 3: Build from Source
 
 Clone and build:
 
@@ -84,7 +132,7 @@ make build-cli      # Build kscorectl
 make build-plugins  # Build all plugins
 ```
 
-### Method 3: Package Managers
+### Method 4: Package Managers
 
 #### Homebrew (macOS/Linux)
 
@@ -125,7 +173,7 @@ sudo yum install kscore
 sudo dnf install kscore
 ```
 
-### Method 4: Docker
+### Method 5: Docker
 
 Run the control plane in Docker:
 
@@ -151,7 +199,7 @@ docker run -d \
   kscore/agent:latest
 ```
 
-### Method 5: Kubernetes
+### Method 6: Kubernetes
 
 Deploy using Helm:
 

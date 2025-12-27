@@ -1,4 +1,5 @@
-.PHONY: help proto build test clean deps build-all-platforms docs docs-serve docs-pdf docs-all
+.PHONY: help proto build test clean deps build-all-platforms docs docs-serve docs-pdf docs-all \
+       release release-snapshot release-dry-run lint
 
 # Version information
 VERSION ?= dev
@@ -19,10 +20,17 @@ help:
 	@echo "  agent              - Build kscore-agent binary"
 	@echo "  cli                - Build kscorectl binary"
 	@echo "  exec               - Build kscore-exec plugin"
+	@echo "  state              - Build kscore-state plugin"
 	@echo "  monitor            - Build kscore-monitor TUI"
 	@echo "  test               - Run tests"
+	@echo "  lint               - Run linters"
 	@echo "  clean              - Remove all build artifacts (build/)"
 	@echo "  deps               - Install/update dependencies"
+	@echo ""
+	@echo "Release targets (requires goreleaser):"
+	@echo "  release            - Create a release (requires GITHUB_TOKEN)"
+	@echo "  release-snapshot   - Create a snapshot release (no publish)"
+	@echo "  release-dry-run    - Dry run release (validate config)"
 	@echo ""
 	@echo "Documentation targets (output: build/docs/ and build/pdfs/):"
 	@echo "  docs               - Build Hugo documentation site → build/docs/"
@@ -44,7 +52,7 @@ proto:
 	       api/proto/*.proto
 	@echo "Protobuf code generated successfully"
 
-build: server agent cli exec monitor
+build: server agent cli exec state monitor
 
 server:
 	@echo "Building kscore-server..."
@@ -76,11 +84,18 @@ monitor:
 	go build -ldflags "$(LDFLAGS)" -o build/bin/kscore-monitor ./cmd/kscore-monitor
 	@echo "Built: build/bin/kscore-monitor"
 
+state:
+	@echo "Building kscore-state..."
+	@mkdir -p build/bin
+	go build -ldflags "$(LDFLAGS)" -o build/bin/kscore-state ./cmd/kscore-state
+	@echo "Built: build/bin/kscore-state"
+
 test:
 	go test -v -race -coverprofile=coverage.out ./...
 
 clean:
 	rm -rf build/
+	rm -rf dist/
 	rm -rf data/
 	rm -f coverage.out
 
@@ -100,11 +115,13 @@ build-linux:
 	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-server ./cmd/kscore-server
 	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-agent ./cmd/kscore-agent
 	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-exec ./cmd/kscore-exec
+	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-state ./cmd/kscore-state
 	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-monitor ./cmd/kscore-monitor
 	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscorectl ./cmd/kscorectl
 	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-server ./cmd/kscore-server
 	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-agent ./cmd/kscore-agent
 	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-exec ./cmd/kscore-exec
+	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-state ./cmd/kscore-state
 	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-monitor ./cmd/kscore-monitor
 	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscorectl ./cmd/kscorectl
 	@echo "Linux builds complete"
@@ -115,11 +132,13 @@ build-darwin:
 	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-server ./cmd/kscore-server
 	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-agent ./cmd/kscore-agent
 	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-exec ./cmd/kscore-exec
+	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-state ./cmd/kscore-state
 	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-monitor ./cmd/kscore-monitor
 	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscorectl ./cmd/kscorectl
 	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-server ./cmd/kscore-server
 	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-agent ./cmd/kscore-agent
 	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-exec ./cmd/kscore-exec
+	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-state ./cmd/kscore-state
 	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-monitor ./cmd/kscore-monitor
 	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscorectl ./cmd/kscorectl
 	@echo "macOS builds complete"
@@ -130,6 +149,7 @@ build-windows:
 	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-server.exe ./cmd/kscore-server
 	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-agent.exe ./cmd/kscore-agent
 	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-exec.exe ./cmd/kscore-exec
+	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-state.exe ./cmd/kscore-state
 	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-monitor.exe ./cmd/kscore-monitor
 	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscorectl.exe ./cmd/kscorectl
 	@echo "Windows builds complete"
@@ -160,3 +180,37 @@ docs-pdf:
 
 docs-all: docs docs-pdf
 	@echo "Documentation site and PDFs complete"
+
+# Linting
+lint:
+	@echo "Running linters..."
+	@if command -v golangci-lint >/dev/null 2>&1; then \
+		golangci-lint run ./...; \
+	else \
+		echo "golangci-lint not installed. Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; \
+		exit 1; \
+	fi
+
+# Release targets (requires goreleaser)
+release:
+	@echo "Creating release..."
+	@if [ -z "$$GITHUB_TOKEN" ]; then \
+		echo "Error: GITHUB_TOKEN environment variable is not set"; \
+		exit 1; \
+	fi
+	goreleaser release --clean
+
+release-snapshot:
+	@echo "Creating snapshot release..."
+	goreleaser release --snapshot --clean
+
+release-dry-run:
+	@echo "Dry run release (validating config)..."
+	goreleaser check
+	goreleaser release --snapshot --clean --skip=publish
+
+# Install goreleaser
+install-goreleaser:
+	@echo "Installing goreleaser..."
+	go install github.com/goreleaser/goreleaser/v2@latest
+	@echo "goreleaser installed successfully"
