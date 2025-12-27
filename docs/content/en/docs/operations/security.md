@@ -1,0 +1,820 @@
+---
+title: "Security Guide"
+weight: 5
+description: >
+  Security hardening, authentication, TLS configuration, and compliance
+---
+
+## Overview
+
+Security is critical for production TitanAnvil deployments. This guide covers authentication methods, TLS configuration, RBAC policies, security hardening, and audit logging.
+
+**Security Layers:**
+- **Authentication**: Token-based and certificate-based auth
+- **Encryption**: TLS for all communications (NATS, API, database)
+- **Authorization**: RBAC with policy-based access control
+- **Audit**: Comprehensive audit logging for compliance
+- **Hardening**: OS and application-level security
+
+## Authentication
+
+TitanAnvil supports multiple authentication methods.
+
+### API Key Authentication
+
+**Generate API Key:**
+```bash
+# Create API key
+titanctl api-key create --name "monitoring-system" --role "read-only"
+
+# Output:
+# Key ID: ak_1234567890
+# Secret: sk_abcdef1234567890 (save this - it won't be shown again)
+```
+
+**Use API Key:**
+```bash
+# With CLI
+export TITAN_API_KEY="sk_abcdef1234567890"
+titanctl agent list
+
+# With HTTP API
+curl -H "Authorization: Bearer sk_abcdef1234567890" \
+  http://control-plane:8080/api/v1/agents
+```
+
+**Rotate API Keys:**
+```bash
+# List keys
+titanctl api-key list
+
+# Revoke old key
+titanctl api-key revoke ak_1234567890
+
+# Create new key
+titanctl api-key create --name "monitoring-system" --role "read-only"
+```
+
+### Token-Based Authentication (JWT)
+
+**Configuration:**
+```yaml
+# server.yaml
+api:
+  authentication:
+    method: jwt
+    jwt:
+      secret: "$JWT_SECRET"  # 256-bit secret
+      issuer: "titananvil"
+      expiry: "24h"
+```
+
+**Generate Token:**
+```bash
+# Create user token
+titanctl auth login --username admin --password $ADMIN_PASSWORD
+
+# Token stored in ~/.titananvil/token
+```
+
+**Token Refresh:**
+```bash
+# Tokens auto-refresh when within 1 hour of expiry
+# Manual refresh:
+titanctl auth refresh
+```
+
+### Certificate-Based Authentication (mTLS)
+
+**Recommended for production** - Strongest authentication method.
+
+**Generate Certificates:**
+```bash
+# Create CA
+openssl genrsa -out ca-key.pem 4096
+openssl req -new -x509 -days 365 -key ca-key.pem -out ca.pem \
+  -subj "/CN=TitanAnvil CA"
+
+# Create server certificate
+openssl genrsa -out server-key.pem 4096
+openssl req -new -key server-key.pem -out server.csr \
+  -subj "/CN=titananvil-server"
+openssl x509 -req -days 365 -in server.csr -CA ca.pem -CAkey ca-key.pem \
+  -CAcreateserial -out server-cert.pem
+
+# Create client certificate
+openssl genrsa -out client-key.pem 4096
+openssl req -new -key client-key.pem -out client.csr \
+  -subj "/CN=titananvil-client"
+openssl x509 -req -days 365 -in client.csr -CA ca.pem -CAkey ca-key.pem \
+  -CAcreateserial -out client-cert.pem
+```
+
+**Server Configuration:**
+```yaml
+# server.yaml
+api:
+  tls:
+    enabled: true
+    cert_file: /etc/titananvil/certs/server-cert.pem
+    key_file: /etc/titananvil/certs/server-key.pem
+    ca_file: /etc/titananvil/certs/ca.pem
+    client_auth: require  # Require client certificates
+```
+
+**Client Configuration:**
+```yaml
+# ~/.titananvil/config.yaml
+api:
+  url: "https://control-plane:8080"
+  tls:
+    cert_file: ~/.titananvil/certs/client-cert.pem
+    key_file: ~/.titananvil/certs/client-key.pem
+    ca_file: ~/.titananvil/certs/ca.pem
+```
+
+### NATS Authentication
+
+**Credentials File (Recommended):**
+```bash
+# Create NATS credentials
+nats-server --genkey --user titananvil > /etc/nats/titananvil.creds
+```
+
+**NATS Configuration:**
+```conf
+# nats-server.conf
+accounts {
+  TITAN: {
+    users: [
+      {
+        user: "titananvil"
+        password: "$2a$11$..." # bcrypt hash
+      }
+    ]
+  }
+}
+```
+
+**Agent Configuration:**
+```yaml
+# agent.yaml
+nats:
+  url: "nats://nats-server:4222"
+  credentials:
+    file: /etc/titananvil/nats.creds
+```
+
+## TLS Configuration
+
+Encrypt all communications in production.
+
+### Control Plane TLS
+
+**Server Configuration:**
+```yaml
+# server.yaml
+api:
+  listen: "0.0.0.0:8443"  # HTTPS port
+  tls:
+    enabled: true
+    cert_file: /etc/titananvil/certs/server.crt
+    key_file: /etc/titananvil/certs/server.key
+    min_version: "TLS1.2"
+    cipher_suites:
+      - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+      - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+      - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+```
+
+**Let's Encrypt Certificates:**
+```bash
+# Install certbot
+sudo apt-get install certbot
+
+# Get certificate
+sudo certbot certonly --standalone -d titananvil.example.com
+
+# Certificates in /etc/letsencrypt/live/titananvil.example.com/
+# - fullchain.pem (cert + chain)
+# - privkey.pem (private key)
+
+# Auto-renewal
+sudo crontab -e
+0 0 * * * certbot renew --quiet --post-hook "systemctl reload titananvil-server"
+```
+
+### NATS TLS
+
+**NATS Server Configuration:**
+```conf
+# nats-server.conf
+tls {
+  cert_file: "/etc/nats/certs/server.crt"
+  key_file: "/etc/nats/certs/server.key"
+  ca_file: "/etc/nats/certs/ca.crt"
+  verify: true
+  timeout: 5
+}
+```
+
+**Agent Configuration:**
+```yaml
+# agent.yaml
+nats:
+  url: "tls://nats-server:4222"
+  tls:
+    ca_file: /etc/titananvil/certs/nats-ca.crt
+    cert_file: /etc/titananvil/certs/agent-cert.crt
+    key_file: /etc/titananvil/certs/agent-key.key
+    verify_server: true
+```
+
+### PostgreSQL TLS
+
+**PostgreSQL Configuration:**
+```ini
+# postgresql.conf
+ssl = on
+ssl_cert_file = '/etc/postgresql/certs/server.crt'
+ssl_key_file = '/etc/postgresql/certs/server.key'
+ssl_ca_file = '/etc/postgresql/certs/ca.crt'
+ssl_min_protocol_version = 'TLSv1.2'
+```
+
+**pg_hba.conf:**
+```
+# Require SSL for all connections
+hostssl    titananvil      titananvil      10.0.0.0/8              md5
+```
+
+**Client Configuration:**
+```yaml
+# server.yaml
+storage:
+  postgresql:
+    host: "postgres-server"
+    sslmode: "require"  # or "verify-ca" or "verify-full"
+    sslcert: "/etc/titananvil/certs/client.crt"
+    sslkey: "/etc/titananvil/certs/client.key"
+    sslrootcert: "/etc/titananvil/certs/ca.crt"
+```
+
+## RBAC (Role-Based Access Control)
+
+Define fine-grained access control policies.
+
+### Built-in Roles
+
+**admin:**
+- Full system access
+- Create/modify policies
+- Manage users and roles
+- Execute any command
+
+**operator:**
+- Deploy applications
+- Execute commands
+- Apply state configurations
+- View all resources
+
+**read-only:**
+- View agents and resources
+- Query metrics and logs
+- No write permissions
+
+**agent:**
+- Agent registration only
+- Heartbeat and telemetry
+- No user-facing permissions
+
+### Custom Roles
+
+**Define Custom Role:**
+```yaml
+# roles.yaml
+- name: deployment-manager
+  description: "Can deploy applications but not manage infrastructure"
+  permissions:
+    - resource: "state/*"
+      actions: ["apply", "check"]
+    - resource: "job/*"
+      actions: ["create", "read", "cancel"]
+    - resource: "agent/*"
+      actions: ["read"]
+    - resource: "event/*"
+      actions: ["read"]
+```
+
+**Assign Role to User:**
+```bash
+titanctl rbac assign --user alice --role deployment-manager
+```
+
+### Policy-Based Access Control
+
+**OPA Policy Example:**
+```rego
+# rbac.rego
+package titananvil.rbac
+
+import data.users
+import data.roles
+
+# Allow admins everything
+allow {
+    input.user.role == "admin"
+}
+
+# Allow operators to execute commands
+allow {
+    input.user.role == "operator"
+    input.action == "exec.run"
+}
+
+# Restrict state apply to specific datacenters
+allow {
+    input.user.role == "deployment-manager"
+    input.action == "state.apply"
+    input.resource.datacenter == input.user.datacenter
+}
+
+# Deny destructive operations in production
+deny {
+    input.resource.environment == "production"
+    input.action in ["agent.delete", "state.delete"]
+    not input.user.role == "admin"
+}
+```
+
+**Apply Policy:**
+```bash
+titanctl policy create rbac --file rbac.rego --enforce
+```
+
+### Audit RBAC Changes
+
+```bash
+# List all roles
+titanctl rbac list-roles
+
+# List role assignments
+titanctl rbac list-assignments
+
+# View audit log
+titanctl policy audit --category rbac --since 24h
+```
+
+## Security Hardening
+
+### Operating System Hardening
+
+**Firewall Configuration:**
+```bash
+# Allow only necessary ports
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+
+# Control plane
+sudo ufw allow 8080/tcp  # API (or 8443 for HTTPS)
+
+# NATS
+sudo ufw allow from 10.0.0.0/8 to any port 4222 proto tcp
+
+# PostgreSQL
+sudo ufw allow from 10.0.0.0/8 to any port 5432 proto tcp
+
+# SSH (restrict to management network)
+sudo ufw allow from 10.0.1.0/24 to any port 22 proto tcp
+
+sudo ufw enable
+```
+
+**Disable Unnecessary Services:**
+```bash
+# List running services
+systemctl list-units --type=service --state=running
+
+# Disable unneeded services
+sudo systemctl disable bluetooth
+sudo systemctl disable cups
+```
+
+**File System Permissions:**
+```bash
+# Restrict config files
+sudo chmod 600 /etc/titananvil/server.yaml
+sudo chown titananvil:titananvil /etc/titananvil/server.yaml
+
+# Restrict private keys
+sudo chmod 400 /etc/titananvil/certs/*.key
+sudo chown titananvil:titananvil /etc/titananvil/certs/*.key
+
+# Restrict database files
+sudo chmod 700 /var/lib/titananvil
+sudo chown titananvil:titananvil /var/lib/titananvil
+```
+
+**SELinux/AppArmor:**
+```bash
+# Enable SELinux
+sudo setenforce 1
+
+# Create custom SELinux policy for TitanAnvil
+# (beyond scope - consult SELinux documentation)
+```
+
+### Application Hardening
+
+**Principle of Least Privilege:**
+```bash
+# Run as non-root user
+sudo useradd --system --no-create-home --shell /usr/sbin/nologin titananvil
+
+# Systemd service restrictions
+[Service]
+User=titananvil
+Group=titananvil
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/titananvil
+```
+
+**Rate Limiting:**
+```yaml
+# server.yaml
+api:
+  rate_limiting:
+    enabled: true
+    requests_per_minute: 100
+    burst: 20
+```
+
+**Input Validation:**
+- All API inputs validated
+- YAML parsing with size limits
+- Command injection prevention
+- SQL injection prevention (parameterized queries)
+
+**Secrets Management:**
+```yaml
+# Use external secrets manager
+secrets:
+  backend: vault
+  vault:
+    address: https://vault.example.com
+    token_file: /etc/titananvil/vault-token
+
+# Never store secrets in config files
+database:
+  password: "{{ vault.secret('database/postgres/password') }}"
+```
+
+### Network Segmentation
+
+**Recommended Network Layout:**
+```
+┌─────────────────────────────────────────────┐
+│  Management Network (10.0.1.0/24)          │
+│  - Bastion/Jump host                       │
+│  - Admin workstations                      │
+└─────────────────┬───────────────────────────┘
+                  │
+┌─────────────────┴───────────────────────────┐
+│  Control Plane Network (10.0.2.0/24)       │
+│  - TitanAnvil servers                      │
+│  - NATS cluster                            │
+│  - PostgreSQL                              │
+└─────────────────┬───────────────────────────┘
+                  │
+┌─────────────────┴───────────────────────────┐
+│  Agent Network (10.0.10.0/16)              │
+│  - Agents on managed nodes                 │
+└─────────────────────────────────────────────┘
+```
+
+**Firewall Rules:**
+- Management → Control Plane: SSH, API (8080/8443)
+- Control Plane → Control Plane: NATS (4222, 6222), PostgreSQL (5432)
+- Agents → Control Plane: NATS (4222) only
+- Control Plane → Agents: Blocked (agents initiate connections)
+
+## Audit Logging
+
+Track all security-relevant events.
+
+### Enable Audit Logging
+
+**Configuration:**
+```yaml
+# server.yaml
+audit:
+  enabled: true
+  log_file: /var/log/titananvil/audit.log
+  log_level: info
+  events:
+    - authentication
+    - authorization
+    - state.apply
+    - policy.evaluation
+    - user.create
+    - user.delete
+    - role.assign
+```
+
+### Audit Log Format
+
+```json
+{
+  "timestamp": "2024-01-15T10:30:45Z",
+  "event_type": "state.apply",
+  "user": "alice",
+  "source_ip": "10.0.1.50",
+  "action": "apply",
+  "resource": "web-server.yaml",
+  "target": "role:web",
+  "result": "success",
+  "correlation_id": "abc-123"
+}
+```
+
+### Query Audit Logs
+
+**With jq:**
+```bash
+# All failed operations
+cat /var/log/titananvil/audit.log | jq 'select(.result == "failed")'
+
+# All actions by user
+cat /var/log/titananvil/audit.log | jq 'select(.user == "alice")'
+
+# State applications in last hour
+cat /var/log/titananvil/audit.log | \
+  jq 'select(.event_type == "state.apply" and .timestamp > "2024-01-15T09:00:00Z")'
+```
+
+**With Elasticsearch:**
+```json
+{
+  "query": {
+    "bool": {
+      "must": [
+        { "match": { "event_type": "state.apply" }},
+        { "range": { "timestamp": { "gte": "now-24h" }}}
+      ]
+    }
+  }
+}
+```
+
+### Audit Log Retention
+
+```yaml
+# server.yaml
+audit:
+  retention:
+    max_age: "365d"  # Compliance requirement: 1 year
+    max_size: "10GB"
+```
+
+**Off-site Archival:**
+```bash
+# Daily export to S3
+aws s3 cp /var/log/titananvil/audit.log \
+  s3://compliance-logs/titananvil/audit-$(date +%Y-%m-%d).log
+
+# Compress and encrypt
+gpg --encrypt --recipient compliance@example.com audit.log
+aws s3 cp audit.log.gpg s3://compliance-logs/titananvil/
+```
+
+## Compliance
+
+### SOC 2 Compliance
+
+**Access Control:**
+- [x] Role-based access control implemented
+- [x] Audit logging of all access
+- [x] MFA for administrative access
+- [x] Regular access reviews
+
+**Data Security:**
+- [x] Encryption in transit (TLS)
+- [x] Encryption at rest (database)
+- [x] Secrets management (Vault)
+- [x] Data retention policies
+
+**Change Management:**
+- [x] All changes tracked in audit log
+- [x] State configurations version controlled
+- [x] Approval workflow for production changes
+
+### HIPAA Compliance
+
+**Required:**
+- Encryption: TLS 1.2+ for all communications
+- Access Controls: RBAC with audit logging
+- Audit Trails: 6-year retention minimum
+- Backup/Recovery: Daily backups, quarterly DR tests
+
+**Configuration:**
+```yaml
+# server.yaml - HIPAA compliance settings
+audit:
+  enabled: true
+  retention:
+    max_age: "2190d"  # 6 years
+
+api:
+  tls:
+    min_version: "TLS1.2"
+
+storage:
+  encryption:
+    enabled: true
+    algorithm: "AES-256-GCM"
+```
+
+### GDPR Compliance
+
+**Data Subject Rights:**
+```bash
+# Right to access
+titanctl audit query --user alice --output json > alice-data.json
+
+# Right to erasure ("right to be forgotten")
+titanctl user delete alice --purge-data
+
+# Data portability
+titanctl export --user alice --format json
+```
+
+**Data Retention:**
+```yaml
+# server.yaml
+data_retention:
+  events: "30d"  # Minimize retention
+  audit_logs: "365d"  # Compliance requirement
+  metrics: "90d"
+```
+
+## Secret Management
+
+### HashiCorp Vault Integration
+
+**Configuration:**
+```yaml
+# server.yaml
+secrets:
+  backend: vault
+  vault:
+    address: "https://vault.example.com:8200"
+    auth_method: "approle"
+    role_id: "$VAULT_ROLE_ID"
+    secret_id: "$VAULT_SECRET_ID"
+    paths:
+      database: "secret/data/titananvil/database"
+      nats: "secret/data/titananvil/nats"
+```
+
+**Store Secrets:**
+```bash
+# Database password
+vault kv put secret/titananvil/database password="secure-db-password"
+
+# NATS credentials
+vault kv put secret/titananvil/nats username="titananvil" password="secure-nats-password"
+
+# API keys
+vault kv put secret/titananvil/api-keys monitoring="sk_monitoring_key"
+```
+
+**Rotate Secrets:**
+```bash
+# Update secret in Vault
+vault kv put secret/titananvil/database password="new-secure-password"
+
+# TitanAnvil auto-reloads secrets every 5 minutes
+# Or trigger immediate reload
+titanctl secrets reload
+```
+
+### Kubernetes Secrets
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: titananvil-secrets
+  namespace: titananvil
+type: Opaque
+data:
+  postgres-password: <base64-encoded>
+  nats-password: <base64-encoded>
+  api-key: <base64-encoded>
+```
+
+```yaml
+# Use in deployment
+spec:
+  containers:
+  - name: titananvil-server
+    env:
+    - name: TITAN_POSTGRES_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: titananvil-secrets
+          key: postgres-password
+```
+
+## Security Checklist
+
+### Pre-Production
+
+- [ ] TLS enabled for all connections (API, NATS, database)
+- [ ] Certificate-based authentication configured
+- [ ] RBAC policies defined and tested
+- [ ] Firewall rules restrict access to necessary ports only
+- [ ] Secrets stored in external secrets manager (Vault)
+- [ ] Audit logging enabled with off-site archival
+- [ ] File permissions restricted (600 for configs, 400 for keys)
+- [ ] Services run as non-root user
+- [ ] SELinux/AppArmor policies applied
+- [ ] Vulnerability scanning completed (container images, OS packages)
+- [ ] Penetration testing performed
+- [ ] Disaster recovery plan tested
+
+### Ongoing Operations
+
+- [ ] Regular security updates applied (monthly)
+- [ ] Access reviews conducted (quarterly)
+- [ ] Audit logs reviewed (weekly)
+- [ ] Secrets rotated (quarterly)
+- [ ] Backup verification (weekly)
+- [ ] Vulnerability scans (monthly)
+- [ ] Security training for team (annually)
+
+### Incident Response
+
+1. **Detect**: Monitor audit logs and alerts
+2. **Contain**: Isolate affected systems
+3. **Eradicate**: Remove threat and patch vulnerability
+4. **Recover**: Restore from backups if needed
+5. **Review**: Post-incident review and remediation
+
+**Incident Response Plan:**
+```bash
+# 1. Isolate compromised node
+titanctl agent quarantine web-05
+
+# 2. Collect forensic data
+titanctl exec run "tar -czf /tmp/forensics.tar.gz /var/log /etc" --target "web-05"
+
+# 3. Revoke credentials
+titanctl api-key revoke-all --user compromised-user
+
+# 4. Force password reset
+titanctl user reset-password --all
+
+# 5. Review audit logs
+titanctl audit query --since "incident-start-time" --severity critical
+```
+
+## Security Tools
+
+**Vulnerability Scanning:**
+```bash
+# Scan Docker images
+trivy image titananvil/server:latest
+
+# Scan OS packages
+lynis audit system
+
+# Scan network services
+nmap -sV control-plane
+```
+
+**Intrusion Detection:**
+```bash
+# Install OSSEC
+sudo apt-get install ossec-hids
+
+# Monitor logs for suspicious activity
+tail -f /var/ossec/logs/alerts/alerts.log
+```
+
+**Secrets Detection:**
+```bash
+# Scan git repo for accidentally committed secrets
+trufflehog filesystem /etc/titananvil
+```
+
+## See Also
+
+- [Deployment Guide](deployment/) - Secure deployment patterns
+- [Monitoring Guide](monitoring/) - Security monitoring
+- [Maintenance Guide](maintenance/) - Secure backup procedures
+- [Troubleshooting Guide](troubleshooting/) - Security issue resolution
+- [Policy Concepts](/docs/concepts/policy/) - Policy enforcement

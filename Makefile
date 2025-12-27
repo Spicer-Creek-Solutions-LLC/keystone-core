@@ -1,4 +1,4 @@
-.PHONY: help proto build test clean deps build-all-platforms
+.PHONY: help proto build test clean deps build-all-platforms docs docs-serve docs-pdf docs-all
 
 # Version information
 VERSION ?= dev
@@ -23,6 +23,12 @@ help:
 	@echo "  test               - Run tests"
 	@echo "  clean              - Remove build artifacts"
 	@echo "  deps               - Install/update dependencies"
+	@echo ""
+	@echo "Documentation targets:"
+	@echo "  docs               - Build Hugo documentation site"
+	@echo "  docs-serve         - Build and serve docs locally with live reload"
+	@echo "  docs-pdf           - Generate PDF documentation (requires wkhtmltopdf)"
+	@echo "  docs-all           - Build site and generate PDFs"
 	@echo ""
 
 deps:
@@ -71,6 +77,8 @@ test:
 clean:
 	rm -rf bin/
 	rm -rf data/
+	rm -rf build/
+	rm -rf docs/pdfs/
 	rm -f coverage.out
 
 install-tools:
@@ -122,3 +130,30 @@ build-windows:
 	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/windows/amd64/titananvil-monitor.exe ./cmd/titananvil-monitor
 	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/windows/amd64/titanctl.exe ./cmd/titanctl
 	@echo "Windows builds complete"
+
+# Documentation targets
+docs:
+	@echo "Building Hugo documentation site..."
+	@cd docs && hugo --quiet
+	@echo "Documentation built: build/docs/"
+
+docs-serve:
+	@echo "Starting Hugo development server..."
+	@echo "Open http://localhost:1313 in your browser"
+	@echo "Press Ctrl+C to stop"
+	@cd docs && hugo server
+
+docs-pdf:
+	@echo "Generating PDF documentation..."
+	@if [ ! -d "docs/node_modules" ]; then \
+		echo "Installing npm dependencies..."; \
+		cd docs && npm install; \
+	fi
+	@if [ ! -d "$$HOME/.cache/ms-playwright/chromium-"* ] 2>/dev/null; then \
+		echo "Installing Playwright browsers..."; \
+		cd docs && npm run install-browsers; \
+	fi
+	@cd docs && npm run generate-pdfs
+
+docs-all: docs docs-pdf
+	@echo "Documentation site and PDFs complete"

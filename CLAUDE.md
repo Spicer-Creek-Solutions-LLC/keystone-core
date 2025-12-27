@@ -23,7 +23,7 @@ This repository contains working implementations of **Epic 1-5**. The project ha
 - Policy enforcement with OPA/CEL engines, auditing, and compliance reporting (Epic 6 complete)
 - Comprehensive test suite (>79% coverage across all core packages)
 
-**Current Status**: Epic 1-8 COMPLETE ✅ | Epic 9 Phases 1-6 COMPLETE ✅ (Phase 7 in progress)
+**Current Status**: Epic 1-9 COMPLETE ✅ | Epic 10 Phases 1-5 COMPLETE ✅ (Phase 6 next)
 
 ## Repository Structure
 
@@ -1877,6 +1877,193 @@ TitanAnvil fills the gap between declarative GitOps tools and runtime operations
 - 150+ comprehensive tests passing
 - ~15,000+ lines of production code
 
+### Epic 10: Documentation 🚧 IN PROGRESS
+
+**Implementation Plan:** 7 phases
+
+**Current Status**: Phases 1-5 COMPLETE ✅
+
+**Phase 1: Documentation Infrastructure & Getting Started ✅ COMPLETE**
+- Hugo + Docsy documentation site setup
+  - Hugo configuration with publishDir → build/docs
+  - Docsy theme as git submodule
+  - npm dependencies for PostCSS/Bootstrap/Font-Awesome
+  - Symlink setup for build requirements
+- Getting Started documentation (4 pages, 1,583 lines):
+  - **Overview** (250 lines): What is TitanAnvil, 8 core capabilities, use cases, comparison table
+  - **Installation** (396 lines): 5 installation methods, configuration, systemd services
+  - **Quick Start** (352 lines): 9-step walkthrough, 5-minute deployment guide
+  - **Architecture** (512 lines): High-level diagrams, components, data flows, scaling
+- Documentation infrastructure:
+  - docs/hugo.toml - Hugo configuration
+  - docs/README.md - Build instructions and guidelines (171 lines)
+  - docs/content/en/ - Markdown documentation content
+  - docs/themes/docsy/ - Docsy theme (git submodule)
+- Build system:
+  - Clean builds with no warnings
+  - Output to build/docs/ (16 pages generated)
+  - Local development server with live reload
+  - build/ directory structure (docs, bin)
+- .gitignore updated for build artifacts
+
+**Phase 1 Achievements**:
+- Complete documentation infrastructure
+- Getting Started section 100% complete (4 pages)
+- Hugo builds cleanly to build/docs/
+- All documentation sources committed to git repo
+- ~1,750 lines of documentation + build configuration
+- Build directory structure for all build outputs
+
+**Phase 3: Core Concepts Documentation ✅ COMPLETE**
+- Comprehensive deep-dive documentation for all major subsystems (10 pages, ~7,075 lines):
+  - **Part 1** (5 pages, 2,675 lines):
+    - Control Plane (600+ lines): Architecture, components, deployment modes, configuration
+    - Agents (500+ lines): Lifecycle, cross-platform support, edge/offline mode
+    - Message Bus (400+ lines): NATS architecture, deployment modes, JetStream
+    - State Management (500+ lines): Declarative config, 6 modules, drift detection
+  - **Part 2** (6 pages, 4,400 lines):
+    - Remote Execution (500+ lines): Targeting, job tracking, cross-platform shells
+    - Events (450+ lines): 15 event types, filtering, storage, integration
+    - Reactors (850+ lines): Event automation, actions, orchestration patterns
+    - GitOps (850+ lines): Webhooks, verification, rollback, promotion pipelines
+    - Policy (950+ lines): OPA/CEL engines, enforcement modes, compliance
+    - Observability (800+ lines): Metrics, logging, tracing, Grafana dashboards
+- Each concept page includes:
+  - Architecture diagrams (ASCII art)
+  - Configuration examples with YAML/code
+  - Use cases and design patterns
+  - Best practices
+  - Troubleshooting guides
+  - Performance characteristics
+  - Cross-references to related concepts
+
+**Phase 3 Achievements**:
+- Complete core concepts documentation covering Epics 1-7
+- ~7,075 lines of comprehensive concept documentation
+- All 10 concept pages built and verified
+- Consistent structure and quality across all pages
+- Hugo builds cleanly with no warnings
+
+**Phase 4: Reference Documentation ✅ COMPLETE**
+- Comprehensive technical reference documentation (6 pages, ~5,000 lines):
+  - **API Reference** (~900 lines): Complete REST and gRPC API documentation
+    - All major endpoints (Agents, Execution, State, Events, Policy, GitOps)
+    - Authentication methods (API key, mTLS)
+    - Request/response examples with JSON
+    - Rate limiting, pagination, filtering
+    - Webhook configuration
+    - Client libraries (Go, Python, JavaScript)
+  - **CLI Reference** (~850 lines): Complete titanctl and plugin command reference
+    - titananvil-exec (remote execution)
+    - titananvil-state (state management)
+    - titananvil-monitor (TUI monitoring)
+    - titananvil-module (module management)
+    - titananvil-policy (policy management)
+    - titananvil-gitops (GitOps management)
+    - Global flags, environment variables, shell completion
+  - **Configuration Reference** (~700 lines): Complete YAML configuration reference
+    - Control plane configuration (all subsystems)
+    - Agent configuration
+    - CLI configuration
+    - State file syntax with requisites
+    - Reactor definitions
+    - Policy definitions
+  - **Module Reference** (~800 lines): All 6 state modules documented
+    - Complete parameter specifications
+    - Platform compatibility matrices
+    - Idempotency guarantees
+    - Requisites (require, watch, prereq, onchanges)
+    - Template support with vars/facts
+    - 30+ complete examples
+  - **Event Reference** (~850 lines): All 15 event types with schemas
+    - 5 event categories (Agent, Job, State, System, User)
+    - CEL filtering expression reference
+    - 50+ filter examples
+    - Event querying methods
+  - **Metrics Reference** (~900 lines): Complete Prometheus metrics catalog
+    - 70+ metrics documented
+    - 7 metric categories (Control Plane, Agent, Execution, State, Events, Policy, GitOps)
+    - PromQL query examples
+    - Alert rule examples
+- Each reference page includes:
+  - Complete API/command/parameter specifications
+  - Request/response examples
+  - Code samples in multiple languages
+  - Best practices
+  - Common workflows
+  - Troubleshooting tips
+
+**Phase 4 Achievements**:
+- Complete reference documentation covering all TitanAnvil APIs and interfaces
+- ~5,000 lines of detailed technical reference
+- All 6 reference pages built and verified
+- Consistent structure across all reference pages
+- Hugo builds cleanly with no warnings
+- Individual commits per section for better tracking
+
+**Phase 5: Operations Guide ✅ COMPLETE**
+- Comprehensive operational documentation (6 pages, ~4,500 lines):
+  - **Operations Navigation** (150 lines): Guide overview and navigation
+    - Quick navigation by role (DevOps, Platform, Security, SRE)
+    - Production deployment checklist
+    - Best practices summary
+  - **Deployment Guide** (~850 lines): Production deployment patterns
+    - Single-node deployment (embedded NATS, SQLite)
+    - High-availability setup (HA cluster, external NATS, PostgreSQL)
+    - Kubernetes deployment (Helm charts, StatefulSets, DaemonSets)
+    - Docker Compose deployment
+    - Scaling strategies (horizontal and vertical)
+    - Migration paths (embedded→external NATS, SQLite→PostgreSQL)
+  - **Monitoring Guide** (~950 lines): Complete observability setup
+    - Prometheus integration (installation, configuration, key metrics)
+    - Grafana dashboards (6 pre-built dashboards, custom creation)
+    - Log aggregation (Loki and Elasticsearch setup)
+    - Alerting (Alertmanager, alert rules, PagerDuty/Slack)
+    - Health checks (liveness, readiness, detailed status)
+    - Performance monitoring (SLOs, SLO dashboards, error budgets)
+  - **Maintenance Guide** (~950 lines): Operational maintenance procedures
+    - Backup procedures (SQLite, PostgreSQL, JetStream, configs)
+    - Restore procedures (full restore, PITR, disaster recovery)
+    - Upgrade procedures (single-node, HA rolling, Kubernetes, agents)
+    - Database maintenance (vacuum, reindex, optimization)
+    - SQLite → PostgreSQL migration
+    - Data retention policies and capacity planning
+  - **Troubleshooting Guide** (~900 lines): Diagnostic procedures
+    - Agent connectivity issues (firewall, DNS, TLS, credentials)
+    - NATS connection problems (cluster, JetStream, resources)
+    - State application failures (syntax, dependencies, timeouts)
+    - Performance issues (CPU, memory, disk, database)
+    - Common error messages with solutions
+    - Debug logging and network diagnostics
+    - Performance tuning (OS, PostgreSQL, NATS, control plane)
+  - **Security Guide** (~950 lines): Security hardening and compliance
+    - Authentication (API keys, JWT tokens, mTLS certificates)
+    - TLS configuration (control plane, NATS, PostgreSQL)
+    - RBAC (built-in roles, custom roles, policy-based access)
+    - Security hardening (OS, application, network segmentation)
+    - Audit logging (format, querying, retention, archival)
+    - Compliance (SOC 2, HIPAA, GDPR)
+    - Secret management (Vault, Kubernetes secrets)
+    - Security checklist and incident response
+- Each operations page includes:
+  - Step-by-step procedures with command examples
+  - Configuration file examples
+  - Diagnostic commands and troubleshooting steps
+  - Best practices and production recommendations
+  - Cross-references to related documentation
+
+**Phase 5 Achievements**:
+- Complete operations documentation for production deployments
+- ~4,500 lines of operational procedures and guides
+- All 6 operations pages built and verified
+- Comprehensive coverage from deployment to security
+- Hugo builds cleanly with no warnings
+- Individual commits per guide for better tracking
+
+**Phases 6-7** (Remaining):
+- Phase 6: Community Documentation (contributing, roadmap, support)
+- Phase 7: Blog & Release Notes (announcements, case studies)
+
 ## Epic Dependencies
 
 Implementation order:
@@ -1889,7 +2076,7 @@ Implementation order:
 7. **Epic 7** (Observability) - ✅ COMPLETE - Instruments all epics
 8. **Epic 8** (Multi-Environment) - ✅ COMPLETE - Depends on Epic 1, 2, 3
 9. **Epic 9** (Plugin System) - ✅ COMPLETE (All 7 phases) - Depends on Epic 3, 4, 5, 6 (extends all major subsystems)
-10. **Epic 10** (Documentation) - Documents Epic 1-9 (Hugo + Docsy, comprehensive user/admin docs)
+10. **Epic 10** (Documentation) - 🚧 IN PROGRESS (Phases 1-5/7 complete) - Documents Epic 1-9 (Hugo + Docsy, Getting Started + Core Concepts + Reference + Operations complete)
 11. **Epic 11** (Clustering) - Depends on Epic 1, 7 (etcd-based HA clustering, automatic failover, work distribution)
 
 ## Key Architectural Patterns

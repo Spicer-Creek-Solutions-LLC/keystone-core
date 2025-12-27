@@ -1,0 +1,24 @@
+{
+  "name": "titananvil-docs",
+  "version": "1.0.0",
+  "description": "TitanAnvil Documentation",
+  "private": true,
+  "scripts": {
+    "generate-pdfs": "node generate-pdfs.js",
+    "install-browsers": "npx playwright install chromium"
+  },
+  "dependencies": {
+    "@fortawesome/fontawesome-free": "6.7.2",
+    "bootstrap": "5.3.8"
+  },
+  "devDependencies": {
+    "playwright": "^1.40.0",
+    "prettier": "^3.6.2",
+    "postcss": "^8.4.49",
+    "postcss-cli": "^11.0.1",
+    "autoprefixer": "^10.4.21"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,71 @@
+baseURL = "https://docs.titananvil.dev/"
+title = "TitanAnvil Documentation"
+theme = "docsy"
+publishDir = "../build/docs"
+enableRobotsTXT = true
+enableGitInfo = false
+
+# Language settings
+contentDir = "content/en"
+defaultContentLanguage = "en"
+defaultContentLanguageInSubdir = false
+
+# Syntax highlighting
+pygmentsCodeFences = true
+pygmentsUseClasses = false
+pygmentsStyle = "tango"
+
+[markup]
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true
+  [markup.highlight]
+    style = "tango"
+
+[params]
+  copyright = "TitanAnvil Project"
+  privacy_policy = ""
+
+  # Repository
+  github_repo = "https://github.com/titananvil/titan-anvil"
+  github_branch = "main"
+
+  # UI
+  [params.ui]
+    sidebar_menu_compact = true
+    breadcrumb_disable = false
+    sidebar_search_disable = false
+    navbar_logo = true
+    footer_about_enable = false
+
+    [params.ui.feedback]
+      enable = false
+
+  # Links
+  [[params.links.user]]
+    name = "GitHub"
+    url = "https://github.com/titananvil/titan-anvil"
+    icon = "fab fa-github"
+    desc = "Development takes place here!"
+
+  [[params.links.developer]]
+    name = "GitHub"
+    url = "https://github.com/titananvil/titan-anvil"
+    icon = "fab fa-github"
+    desc = "Contribute to the project!"
+
+[menu]
+  [[menu.main]]
+    name = "Documentation"
+    weight = 1
+    url = "/docs/"
+
+  [[menu.main]]
+    name = "GitHub"
+    weight = 50
+    url = "https://github.com/titananvil/titan-anvil"
+
+[outputs]
+  home = ["HTML"]
+  page = ["HTML"]
+  section = ["HTML", "RSS"]
