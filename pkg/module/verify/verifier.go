@@ -131,7 +131,7 @@ func (v *ModuleVerifier) VerifyArtifact(artifact *ModuleArtifact, opts *Verifica
 		opts = DefaultVerificationOptions()
 	}
 
-	report := NewVerificationReport(artifact)
+	report := NewVerificationReport()
 
 	// Compute hash
 	computedHash, err := v.hashVerifier.ComputeHash(artifact.Path)

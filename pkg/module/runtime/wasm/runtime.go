@@ -1,6 +1,7 @@
 package wasm
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -300,7 +301,7 @@ func (rt *Runtime) RegisterHostFunction(module, name string, fn interface{}) err
 }
 
 // Close cleans up runtime resources
-func (rt *Runtime) Close() {
+func (rt *Runtime) Close() error {
 	// Wasmtime handles cleanup automatically via finalizers
 	// But we can help by nil'ing out references
 	rt.mu.Lock()
@@ -311,6 +312,7 @@ func (rt *Runtime) Close() {
 	rt.store = nil
 	rt.linker = nil
 	rt.engine = nil
+	return nil
 }
 
 // DefaultConfig returns a safe default WASM configuration
@@ -355,4 +357,62 @@ func ValidateModule(wasmBytes []byte) error {
 		return fmt.Errorf("invalid WASM module: %w", err)
 	}
 	return nil
+}
+
+// RuntimeOptions configures the WASM runtime for module loader
+type RuntimeOptions struct {
+	// MaxMemory limits the heap size in bytes
+	MaxMemory uint64
+
+	// FuelLimit limits the number of instructions executed
+	FuelLimit uint64
+}
+
+// WasmRuntime is an alias for Runtime to implement the runtime.Runtime interface
+type WasmRuntime = Runtime
+
+// NewWasmRuntime creates a new WASM runtime for the module loader
+func NewWasmRuntime(opts *RuntimeOptions) *WasmRuntime {
+	if opts == nil {
+		opts = &RuntimeOptions{
+			MaxMemory: 64 * 1024 * 1024, // 64MB
+			FuelLimit: 10000000,          // 10 million instructions
+		}
+	}
+
+	// Convert memory bytes to pages (64KB per page)
+	maxPages := uint32(opts.MaxMemory / 65536)
+	if maxPages == 0 {
+		maxPages = 1
+	}
+
+	rt, err := NewRuntime(Config{
+		EnableWASI: true,
+		Limits: ResourceLimits{
+			MaxMemoryPages:   maxPages,
+			MaxTableElements: 1000,
+			MaxInstances:     10,
+			FuelLimit:        opts.FuelLimit,
+			MaxExecutionTime: 30 * time.Second,
+		},
+	})
+
+	if err != nil {
+		// This shouldn't happen with default config, but handle it
+		panic(fmt.Sprintf("failed to create WASM runtime: %v", err))
+	}
+
+	return rt
+}
+
+// ExecuteFunction executes a WASM function with input and returns the result
+func (rt *Runtime) ExecuteFunction(ctx context.Context, funcName string, input map[string]interface{}) (interface{}, error) {
+	// For now, we'll just call the function with no args
+	// In a real implementation, we'd serialize input as JSON and pass it
+	result, err := rt.Call(funcName)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }

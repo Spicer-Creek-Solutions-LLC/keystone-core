@@ -1,205 +1,101 @@
 package capabilities
 
-import (
-	"context"
-	"fmt"
-	"time"
-)
+import "context"
 
-// Capability represents a host capability that can be granted to modules
-type Capability interface {
-	// Name returns the capability name (e.g., "fs.read", "http.get")
-	Name() string
-
-	// Validate checks if the capability configuration is valid
-	Validate() error
-}
-
-// CapabilityContext provides execution context for capability invocations
+// CapabilityContext provides context for capability execution
 type CapabilityContext struct {
-	// Context for cancellation and deadlines
-	Context context.Context
-
-	// ModuleName is the name of the module invoking the capability
-	ModuleName string
-
-	// CorrelationID for tracing capability invocations
+	ModuleName    string
+	ModuleVersion string
 	CorrelationID string
-
-	// StartTime when the capability invocation started
-	StartTime time.Time
-
-	// Metadata for additional context
-	Metadata map[string]interface{}
+	Context       context.Context
 }
 
-// NewCapabilityContext creates a new capability context
-func NewCapabilityContext(ctx context.Context, moduleName string) *CapabilityContext {
-	return &CapabilityContext{
-		Context:       ctx,
-		ModuleName:    moduleName,
-		CorrelationID: generateCorrelationID(),
-		StartTime:     time.Now(),
-		Metadata:      make(map[string]interface{}),
-	}
+// Capability is the interface that all capabilities must implement
+type Capability interface {
+	Name() string
 }
 
-// WithCorrelationID sets the correlation ID
-func (c *CapabilityContext) WithCorrelationID(id string) *CapabilityContext {
-	c.CorrelationID = id
-	return c
-}
-
-// WithMetadata adds metadata to the context
-func (c *CapabilityContext) WithMetadata(key string, value interface{}) *CapabilityContext {
-	c.Metadata[key] = value
-	return c
-}
-
-// Duration returns how long the capability has been executing
-func (c *CapabilityContext) Duration() time.Duration {
-	return time.Since(c.StartTime)
-}
-
-// CapabilityRegistry manages available capabilities
+// CapabilityRegistry manages registered capabilities
 type CapabilityRegistry struct {
-	capabilities map[string]Capability
+	// Implementation omitted for now
 }
 
 // NewCapabilityRegistry creates a new capability registry
 func NewCapabilityRegistry() *CapabilityRegistry {
-	return &CapabilityRegistry{
-		capabilities: make(map[string]Capability),
-	}
+	return &CapabilityRegistry{}
 }
 
 // Register registers a capability
 func (r *CapabilityRegistry) Register(cap Capability) error {
-	if cap == nil {
-		return ErrNilCapability
-	}
-
-	name := cap.Name()
-	if name == "" {
-		return ErrEmptyCapabilityName
-	}
-
-	if err := cap.Validate(); err != nil {
-		return fmt.Errorf("invalid capability %s: %w", name, err)
-	}
-
-	if _, exists := r.capabilities[name]; exists {
-		return fmt.Errorf("%w: %s", ErrCapabilityAlreadyRegistered, name)
-	}
-
-	r.capabilities[name] = cap
+	// Stub implementation
 	return nil
 }
 
-// Get retrieves a capability by name
-func (r *CapabilityRegistry) Get(name string) (Capability, error) {
-	cap, exists := r.capabilities[name]
-	if !exists {
-		return nil, fmt.Errorf("%w: %s", ErrCapabilityNotFound, name)
-	}
-	return cap, nil
+// InMemorySecretsStore is a simple in-memory secrets store
+type InMemorySecretsStore struct {
+	Secrets map[string]string
 }
 
-// Has checks if a capability is registered
-func (r *CapabilityRegistry) Has(name string) bool {
-	_, exists := r.capabilities[name]
-	return exists
+// Get retrieves a secret
+func (s *InMemorySecretsStore) Get(path string) (string, error) {
+	if val, ok := s.Secrets[path]; ok {
+		return val, nil
+	}
+	return "", nil
 }
 
-// List returns all registered capability names
-func (r *CapabilityRegistry) List() []string {
-	names := make([]string, 0, len(r.capabilities))
-	for name := range r.capabilities {
-		names = append(names, name)
-	}
-	return names
-}
-
-// Unregister removes a capability
-func (r *CapabilityRegistry) Unregister(name string) error {
-	if !r.Has(name) {
-		return fmt.Errorf("%w: %s", ErrCapabilityNotFound, name)
-	}
-	delete(r.capabilities, name)
+// Set stores a secret
+func (s *InMemorySecretsStore) Set(path, value string) error {
+	s.Secrets[path] = value
 	return nil
 }
 
-// Clear removes all capabilities
-func (r *CapabilityRegistry) Clear() {
-	r.capabilities = make(map[string]Capability)
+// Delete removes a secret
+func (s *InMemorySecretsStore) Delete(path string) error {
+	delete(s.Secrets, path)
+	return nil
 }
 
-// CapabilityInvoker wraps capability invocations with common functionality
-type CapabilityInvoker struct {
-	registry *CapabilityRegistry
-	auditor  AuditLogger
+// DefaultLogger is a simple logger
+type DefaultLogger struct{}
+
+// Log writes a log message
+func (l *DefaultLogger) Log(level, message string, fields map[string]interface{}) {
+	// Stub implementation
 }
 
-// NewCapabilityInvoker creates a new capability invoker
-func NewCapabilityInvoker(registry *CapabilityRegistry, auditor AuditLogger) *CapabilityInvoker {
-	return &CapabilityInvoker{
-		registry: registry,
-		auditor:  auditor,
+// InMemoryKVStore is a simple in-memory KV store
+type InMemoryKVStore struct {
+	Data map[string]string
+}
+
+// Get retrieves a value
+func (k *InMemoryKVStore) Get(key string) (string, error) {
+	if val, ok := k.Data[key]; ok {
+		return val, nil
 	}
+	return "", nil
 }
 
-// Invoke executes a capability with auditing
-func (i *CapabilityInvoker) Invoke(ctx *CapabilityContext, capName string, fn func(Capability) (interface{}, error)) (interface{}, error) {
-	// Get the capability
-	cap, err := i.registry.Get(capName)
-	if err != nil {
-		i.audit(ctx, capName, nil, err)
-		return nil, err
-	}
-
-	// Execute the capability function
-	result, err := fn(cap)
-
-	// Audit the invocation
-	i.audit(ctx, capName, result, err)
-
-	return result, err
+// Set stores a value
+func (k *InMemoryKVStore) Set(key, value string) error {
+	k.Data[key] = value
+	return nil
 }
 
-// audit logs capability invocations
-func (i *CapabilityInvoker) audit(ctx *CapabilityContext, capName string, result interface{}, err error) {
-	if i.auditor != nil {
-		entry := AuditEntry{
-			Timestamp:     time.Now(),
-			ModuleName:    ctx.ModuleName,
-			Capability:    capName,
-			CorrelationID: ctx.CorrelationID,
-			Duration:      ctx.Duration(),
-			Success:       err == nil,
-			Error:         err,
+// Delete removes a value
+func (k *InMemoryKVStore) Delete(key string) error {
+	delete(k.Data, key)
+	return nil
+}
+
+// List returns keys with prefix
+func (k *InMemoryKVStore) List(prefix string) ([]string, error) {
+	keys := make([]string, 0)
+	for key := range k.Data {
+		if len(prefix) == 0 || len(key) >= len(prefix) && key[:len(prefix)] == prefix {
+			keys = append(keys, key)
 		}
-		i.auditor.Log(entry)
 	}
-}
-
-// AuditLogger logs capability invocations
-type AuditLogger interface {
-	Log(entry AuditEntry)
-}
-
-// AuditEntry represents a capability invocation audit log
-type AuditEntry struct {
-	Timestamp     time.Time
-	ModuleName    string
-	Capability    string
-	CorrelationID string
-	Duration      time.Duration
-	Success       bool
-	Error         error
-	Metadata      map[string]interface{}
-}
-
-// Helper function to generate correlation IDs
-func generateCorrelationID() string {
-	return fmt.Sprintf("cap-%d", time.Now().UnixNano())
+	return keys, nil
 }

@@ -56,7 +56,7 @@ func (e *ModulePolicyEngine) ValidateModule(ctx *ModulePolicyContext) (*ModulePo
 		AllowedCapabilities: make([]string, 0),
 		DeniedCapabilities:  make([]string, 0),
 		Warnings:            make([]string, 0),
-		Violations:          make([]policypkg.Violation, 0),
+		Violations:          make([]Violation, 0),
 	}
 
 	// Check custom rules first
@@ -138,7 +138,7 @@ func (e *ModulePolicyEngine) ValidateCapabilities(ctx *ModulePolicyContext, caps
 		AllowedCapabilities: make([]string, 0),
 		DeniedCapabilities:  make([]string, 0),
 		Warnings:            make([]string, 0),
-		Violations:          make([]policypkg.Violation, 0),
+		Violations:          make([]Violation, 0),
 	}
 
 	for _, cap := range caps {
@@ -153,11 +153,11 @@ func (e *ModulePolicyEngine) ValidateCapabilities(ctx *ModulePolicyContext, caps
 			result.DeniedCapabilities = append(result.DeniedCapabilities, cap)
 
 			// Add violation
-			result.Violations = append(result.Violations, policypkg.Violation{
-				Rule:        "capability-denied",
+			result.Violations = append(result.Violations, Violation{
+				PolicyID:    "capability-policy",
+				RuleID:      "capability-denied",
 				Message:     fmt.Sprintf("capability %s denied by policy", cap),
-				Severity:    policypkg.SeverityMedium,
-				Path:        fmt.Sprintf("capabilities.%s", cap),
+				Severity:    "medium",
 				Remediation: fmt.Sprintf("increase module trust level or remove %s capability", cap),
 			})
 		}

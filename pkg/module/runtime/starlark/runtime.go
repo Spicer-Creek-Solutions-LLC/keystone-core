@@ -1,6 +1,7 @@
 package starlark
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -314,4 +315,73 @@ func FromGoValue(v interface{}) (starlark.Value, error) {
 	default:
 		return nil, fmt.Errorf("unsupported Go type: %T", v)
 	}
+}
+
+// RuntimeOptions configures the Starlark runtime for module loader
+type RuntimeOptions struct {
+	// MaxExecutionTime limits how long a script can run
+	MaxExecutionTime time.Duration
+
+	// MaxSteps limits the number of bytecode instructions
+	MaxSteps uint64
+}
+
+// StarlarkRuntime is an alias for Runtime to implement the runtime.Runtime interface
+type StarlarkRuntime = Runtime
+
+// NewStarlarkRuntime creates a new Starlark runtime for the module loader
+func NewStarlarkRuntime(opts *RuntimeOptions) *StarlarkRuntime {
+	if opts == nil {
+		opts = &RuntimeOptions{
+			MaxExecutionTime: 30 * time.Second,
+			MaxSteps:         1000000,
+		}
+	}
+
+	return NewRuntime(Config{
+		Deterministic: true,
+		Limits: ResourceLimits{
+			MaxExecutionTime: opts.MaxExecutionTime,
+			MaxSteps:         opts.MaxSteps,
+			MaxStackDepth:    1000,
+			MaxMemory:        50 * 1024 * 1024, // 50MB
+		},
+	})
+}
+
+// ExecuteFile executes a Starlark file with input and returns the result
+func (rt *Runtime) ExecuteFile(ctx context.Context, path string, input map[string]interface{}) (interface{}, error) {
+	// Load the file
+	globals, err := rt.LoadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	// Look for main function
+	if _, ok := globals["main"]; !ok {
+		return nil, fmt.Errorf("no main function found in %s", path)
+	}
+
+	// Convert input to Starlark value
+	inputVal, err := FromGoValue(input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert input: %w", err)
+	}
+
+	// Call main with input
+	result, err := rt.Call(globals, "main", inputVal)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert result back to Go value
+	return ToGoValue(result)
+}
+
+// Close cleans up runtime resources (Starlark runtime has no resources to clean)
+func (rt *Runtime) Close() error {
+	// Starlark runtime doesn't have external resources to clean up
+	// But we can reset the thread
+	rt.Reset()
+	return nil
 }

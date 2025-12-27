@@ -1,227 +1,125 @@
 package policy
 
-import (
-	"time"
-
-	"github.com/titananvil/titan-anvil/pkg/module/capabilities"
-	"github.com/titananvil/titan-anvil/pkg/module/manifest"
-	policypkg "github.com/titananvil/titan-anvil/pkg/policy"
-)
-
-// ModulePolicyContext provides context for policy evaluation
-type ModulePolicyContext struct {
-	// Module is the module manifest
-	Module *manifest.Manifest
-
-	// Capabilities are the requested capabilities
-	Capabilities []string
-
-	// TrustLevel is the trust level of the module source
-	TrustLevel TrustLevel
-
-	// Environment is the deployment environment (dev, staging, prod)
-	Environment string
-
-	// User is the user loading the module
-	User string
-
-	// Timestamp is when the policy is being evaluated
-	Timestamp time.Time
-}
+import "time"
 
 // TrustLevel represents the trust level of a module
 type TrustLevel string
 
 const (
-	// TrustLevelUnknown means the module source is unknown
-	TrustLevelUnknown TrustLevel = "unknown"
-
-	// TrustLevelUntrusted means the module is from an untrusted source
+	TrustLevelUnknown   TrustLevel = "unknown"
 	TrustLevelUntrusted TrustLevel = "untrusted"
-
-	// TrustLevelCommunity means the module is from the community registry
+	TrustLevelLow       TrustLevel = "low"
 	TrustLevelCommunity TrustLevel = "community"
-
-	// TrustLevelVerified means the module signature is verified
-	TrustLevelVerified TrustLevel = "verified"
-
-	// TrustLevelInternal means the module is from internal sources
-	TrustLevelInternal TrustLevel = "internal"
-
-	// TrustLevelSystem means the module is a system module
-	TrustLevelSystem TrustLevel = "system"
+	TrustLevelMedium    TrustLevel = "medium"
+	TrustLevelVerified  TrustLevel = "verified"
+	TrustLevelHigh      TrustLevel = "high"
+	TrustLevelInternal  TrustLevel = "internal"
+	TrustLevelTrusted   TrustLevel = "trusted"
+	TrustLevelSystem    TrustLevel = "system"
 )
 
-// ModulePolicyResult represents the result of policy evaluation
-type ModulePolicyResult struct {
-	// Allowed indicates if the module is allowed to load
-	Allowed bool
-
-	// AllowedCapabilities are the capabilities that are allowed
-	AllowedCapabilities []string
-
-	// DeniedCapabilities are the capabilities that are denied
-	DeniedCapabilities []string
-
-	// Warnings are any policy warnings
-	Warnings []string
-
-	// Violations are any policy violations
-	Violations []policypkg.Violation
-
-	// Reason explains why the module was allowed or denied
-	Reason string
-
-	// EvaluationTime is how long policy evaluation took
-	EvaluationTime time.Duration
-}
-
-// ModulePolicyValidator validates modules against policies
-type ModulePolicyValidator interface {
-	// ValidateModule validates a module against policies
-	ValidateModule(ctx *ModulePolicyContext) (*ModulePolicyResult, error)
-
-	// ValidateCapability validates a single capability
-	ValidateCapability(ctx *ModulePolicyContext, capability string) (bool, error)
-
-	// ValidateCapabilities validates multiple capabilities
-	ValidateCapabilities(ctx *ModulePolicyContext, caps []string) (*ModulePolicyResult, error)
-}
-
-// CapabilityPolicyConfig configures capability-based policies
-type CapabilityPolicyConfig struct {
-	// AllowByDefault determines if capabilities are allowed by default
-	AllowByDefault bool
-
-	// BlockedCapabilities are always blocked
-	BlockedCapabilities []string
-
-	// RequireApprovalCapabilities require manual approval
-	RequireApprovalCapabilities []string
-
-	// TrustLevelRequirements maps capabilities to minimum trust levels
-	TrustLevelRequirements map[string]TrustLevel
-
-	// EnvironmentRestrictions restricts capabilities by environment
-	// e.g., "prod" -> ["exec", "http.post"] means exec and http.post are blocked in prod
-	EnvironmentRestrictions map[string][]string
-}
-
-// ModulePolicyRule represents a policy rule for modules
-type ModulePolicyRule struct {
-	// ID is the unique rule identifier
-	ID string
-
-	// Name is a human-readable name
-	Name string
-
-	// Description explains what the rule does
-	Description string
-
-	// Enabled indicates if the rule is active
-	Enabled bool
-
-	// Conditions are the conditions under which the rule applies
-	Conditions RuleConditions
-
-	// Action is what happens when the rule matches
-	Action RuleAction
-
-	// Priority determines rule evaluation order (higher = earlier)
-	Priority int
-}
-
-// RuleConditions define when a rule applies
-type RuleConditions struct {
-	// ModuleNamePattern is a glob pattern for module names
-	ModuleNamePattern string
-
-	// MinTrustLevel is the minimum required trust level
-	MinTrustLevel TrustLevel
-
-	// MaxTrustLevel is the maximum allowed trust level (optional)
-	MaxTrustLevel TrustLevel
-
-	// Environments are the environments where this rule applies
-	Environments []string
-
-	// RequiredCapabilities are capabilities that must be present
-	RequiredCapabilities []string
-
-	// ForbiddenCapabilities are capabilities that must not be present
-	ForbiddenCapabilities []string
-}
-
-// RuleAction defines what happens when a rule matches
-type RuleAction struct {
-	// Type is the action type
-	Type ActionType
-
-	// AllowCapabilities are capabilities to allow
-	AllowCapabilities []string
-
-	// DenyCapabilities are capabilities to deny
-	DenyCapabilities []string
-
-	// Warn generates a warning
-	Warn string
-
-	// Block prevents module loading
-	Block bool
-
-	// BlockReason explains why the module is blocked
-	BlockReason string
-}
-
-// ActionType represents the type of action to take
+// ActionType represents the action to take when a policy rule matches
 type ActionType string
 
 const (
-	// ActionAllow allows the module
-	ActionAllow ActionType = "allow"
-
-	// ActionDeny denies the module
-	ActionDeny ActionType = "deny"
-
-	// ActionWarn generates a warning
-	ActionWarn ActionType = "warn"
-
-	// ActionModify modifies allowed capabilities
+	ActionAllow  ActionType = "allow"
+	ActionDeny   ActionType = "deny"
+	ActionWarn   ActionType = "warn"
 	ActionModify ActionType = "modify"
 )
 
-// ModulePolicyEngine coordinates policy evaluation for modules
+// Violation represents a policy violation
+type Violation struct {
+	PolicyID    string
+	RuleID      string
+	Message     string
+	Severity    string
+	Remediation string
+}
+
+// ModuleInfo contains basic module information
+type ModuleInfo struct {
+	Name    string
+	Version string
+}
+
+// ModulePolicyContext provides context for policy evaluation
+type ModulePolicyContext struct {
+	Module       *ModuleInfo
+	Version      string
+	Capabilities []string
+	TrustLevel   TrustLevel
+	Environment  string
+	Timestamp    time.Time
+}
+
+// ModulePolicyResult contains the result of policy evaluation
+type ModulePolicyResult struct {
+	Allowed             bool
+	AllowedCapabilities []string
+	DeniedCapabilities  []string
+	Violations          []Violation
+	Warnings            []string
+	Reason              string
+	EvaluationTime      time.Duration
+}
+
+// CapabilityPolicyConfig configures capability policies
+type CapabilityPolicyConfig struct {
+	AllowByDefault              bool
+	DenyList                    []string
+	AllowList                   []string
+	BlockedCapabilities         []string
+	RequireApprovalCapabilities []string
+	TrustLevelRequirements      map[string]TrustLevel
+	EnvironmentRestrictions     map[string][]string
+}
+
+// ModulePolicyEngine evaluates module policies
 type ModulePolicyEngine struct {
-	// PolicyEngine is the underlying policy engine
-	PolicyEngine *policypkg.PolicyEngine
-
-	// CapabilityConfig is the capability policy configuration
+	PolicyEngine     interface{}
 	CapabilityConfig *CapabilityPolicyConfig
-
-	// Rules are custom module policy rules
-	Rules []*ModulePolicyRule
-
-	// EnforcementMode determines how policies are enforced
-	EnforcementMode policypkg.EnforcementMode
+	Rules            []*ModulePolicyRule
+	EnforcementMode  interface{} // policypkg.EnforcementMode
 }
 
-// CapabilityValidator validates capabilities against policies
-type CapabilityValidator struct {
-	// Config is the capability policy configuration
-	Config *CapabilityPolicyConfig
-
-	// CapabilityRegistry is the capability registry
-	CapabilityRegistry *capabilities.CapabilityRegistry
+// PolicyCondition represents a condition that must be met for a rule to apply
+type PolicyCondition struct {
+	ModuleNamePattern    string
+	MinTrustLevel        TrustLevel
+	MaxTrustLevel        TrustLevel
+	Environments         []string
+	RequiredCapabilities []string
+	ForbiddenCapabilities []string
 }
 
-// LoadTimePolicy represents a policy that runs when a module is loaded
-type LoadTimePolicy struct {
-	// Check is called before a module is loaded
-	Check func(ctx *ModulePolicyContext) (*ModulePolicyResult, error)
+// PolicyAction represents the action to take when a rule matches
+type PolicyAction struct {
+	Type              ActionType
+	Block             bool
+	BlockReason       string
+	Warn              string
+	AllowCapabilities []string
+	DenyCapabilities  []string
 }
 
-// RuntimePolicy represents a policy that runs during module execution
-type RuntimePolicy struct {
-	// Check is called during module execution
-	Check func(ctx *ModulePolicyContext, operation string) (*ModulePolicyResult, error)
+// ModulePolicyRule represents a policy rule
+type ModulePolicyRule struct {
+	ID          string
+	Name        string
+	Description string
+	Enabled     bool
+	Priority    int
+	Conditions  PolicyCondition
+	Action      PolicyAction
+}
+
+// Registry holds policy rules
+type Registry struct {
+	// Implementation details
+}
+
+// NewRegistry creates a new policy registry
+func NewRegistry() *Registry {
+	return &Registry{}
 }

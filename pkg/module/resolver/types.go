@@ -113,8 +113,8 @@ type ModuleInfo struct {
 	// Description is the module description
 	Description string
 
-	// Dependencies are the module's dependencies
-	Dependencies []manifest.Dependency
+	// Dependencies are the module's dependencies (name -> version constraint)
+	Dependencies map[string]string
 
 	// Size is the module size in bytes
 	Size int64
