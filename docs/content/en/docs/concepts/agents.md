@@ -18,40 +18,20 @@ Keystone Core agents are lightweight Go binaries that run on every managed node 
 
 ## Agent Lifecycle
 
-```
-┌───────────┐
-│   Start   │ ← Agent process starts
-└─────┬─────┘
-      │
-      ↓
-┌───────────┐
-│  Connect  │ ← Connect to control plane via NATS
-└─────┬─────┘
-      │
-      ↓
-┌───────────┐
-│ Register  │ ← Send metadata to control plane
-└─────┬─────┘
-      │
-      ↓
-┌───────────┐
-│ Heartbeat │ ← Send periodic heartbeats (30s default)
-└─────┬─────┘
-      │
-      ↓
-┌───────────┐
-│  Listen   │ ← Subscribe to command/state messages
-└─────┬─────┘
-      │
-      ↓
-┌───────────┐
-│  Execute  │ ← Execute commands, apply state
-└─────┬─────┘
-      │
-      ↓
-┌───────────┐
-│  Report   │ ← Send results back to control plane
-└───────────┘
+```mermaid
+flowchart TD
+    Start([Start]) --> Connect
+    Connect[Connect to NATS] --> Register
+    Register[Register with Control Plane] --> Heartbeat
+    Heartbeat[Send Heartbeat] --> Listen
+    Listen[Subscribe to Commands] --> Execute
+    Execute[Execute Commands / Apply State] --> Report
+    Report[Report Results] --> Heartbeat
+
+    Start -.- note0[Agent process starts]
+    Connect -.- note1[Connect to control plane via NATS]
+    Register -.- note2[Send metadata to control plane]
+    Heartbeat -.- note3[Send periodic heartbeats - 30s default]
 ```
 
 ### Startup Sequence
@@ -75,39 +55,34 @@ Keystone Core agents are lightweight Go binaries that run on every managed node 
 
 ### Components
 
-```
-┌─────────────────────────────────────────────┐
-│              Keystone Core Agent                │
-│                                              │
-│  ┌────────────────────────────────────────┐  │
-│  │         Message Handler                 │  │
-│  │  ┌───────────┐      ┌────────────────┐  │  │
-│  │  │  Command  │      │  State Executor│  │  │
-│  │  │  Executor │      │                │  │  │
-│  │  └───────────┘      └────────────────┘  │  │
-│  └────────────────────────────────────────┘  │
-│                      │                        │
-│  ┌──────────────────┴──────────────────────┐ │
-│  │         NATS Client                      │ │
-│  │  - Subscribe to agent.{id}.command       │ │
-│  │  - Subscribe to agent.{id}.state         │ │
-│  │  - Publish to titan.command.result       │ │
-│  │  - Publish to titan.event                │ │
-│  └───────────────────────────────────────────┘ │
-│                      │                        │
-│  ┌──────────────────┴──────────────────────┐ │
-│  │         Metadata Collector              │ │
-│  │  - OS, Arch, Kernel                     │ │
-│  │  - CPU, Memory, Disk                    │ │
-│  │  - Cloud Provider                       │ │
-│  │  - Custom Tags                          │ │
-│  └───────────────────────────────────────────┘ │
-│                      │                        │
-│  ┌──────────────────┴──────────────────────┐ │
-│  │         Local Cache (Optional)          │ │
-│  │  - For offline/edge mode                │ │
-│  └───────────────────────────────────────────┘ │
-└─────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph Agent["Keystone Core Agent"]
+        subgraph Handler["Message Handler"]
+            CmdExec["Command Executor"]
+            StateExec["State Executor"]
+        end
+
+        subgraph NATSClient["NATS Client"]
+            Sub1["Subscribe: agent.{id}.command"]
+            Sub2["Subscribe: agent.{id}.state"]
+            Pub1["Publish: command.result"]
+            Pub2["Publish: event"]
+        end
+
+        subgraph Metadata["Metadata Collector"]
+            OS["OS, Arch, Kernel"]
+            HW["CPU, Memory, Disk"]
+            Cloud["Cloud Provider"]
+            Tags["Custom Tags"]
+        end
+
+        Cache["Local Cache\n(Optional - for offline/edge mode)"]
+    end
+
+    Handler --> NATSClient
+    NATSClient --> Metadata
+    Metadata --> Cache
 ```
 
 ### Command Execution

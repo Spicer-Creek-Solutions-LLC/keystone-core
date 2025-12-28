@@ -10,74 +10,53 @@ description: >
 
 Keystone Core follows a **control plane + agent** architecture, similar to Kubernetes but designed for infrastructure operations rather than container orchestration.
 
-```
-┌────────────────────────────────────────────────────────────────┐
-│                        External Systems                         │
-│                                                                 │
-│  ┌─────────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │
-│  │   ArgoCD/   │  │  GitHub/ │  │   OPA    │  │Prometheus│   │
-│  │    Flux     │  │  GitLab  │  │  Bundles │  │ /Grafana │   │
-│  └──────┬──────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘   │
-│         │              │             │             │          │
-│         │ webhooks     │ webhooks    │ policies    │ scrape   │
-└─────────┼──────────────┼─────────────┼─────────────┼──────────┘
-          │              │             │             │
-          ↓              ↓             ↓             ↓
-┌────────────────────────────────────────────────────────────────┐
-│                    Keystone Core Control Plane                     │
-│                                                                 │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │                      API Layer                            │  │
-│  │  ┌────────────┐  ┌────────────┐  ┌────────────────────┐  │  │
-│  │  │   gRPC     │  │    REST    │  │  Webhook Receivers │  │  │
-│  │  │   Server   │  │   (HTTP)   │  │ (ArgoCD/Flux/Git)  │  │  │
-│  │  └────────────┘  └────────────┘  └────────────────────┘  │  │
-│  └──────────────────────────┬───────────────────────────────┘  │
-│                             │                                   │
-│  ┌──────────────────────────┴───────────────────────────────┐  │
-│  │                   Core Services                           │  │
-│  │                                                           │  │
-│  │  ┌─────────────┐  ┌──────────────┐  ┌────────────────┐  │  │
-│  │  │  Connection │  │    Command   │  │  State Manager │  │  │
-│  │  │   Manager   │  │  Dispatcher  │  │  (Executor)    │  │  │
-│  │  └─────────────┘  └──────────────┘  └────────────────┘  │  │
-│  │                                                           │  │
-│  │  ┌─────────────┐  ┌──────────────┐  ┌────────────────┐  │  │
-│  │  │    Event    │  │    Policy    │  │     GitOps     │  │  │
-│  │  │   Engine    │  │  Enforcement │  │   Verification │  │  │
-│  │  └─────────────┘  └──────────────┘  └────────────────┘  │  │
-│  └───────────────────────────┬───────────────────────────────┘  │
-│                              │                                   │
-│  ┌───────────────────────────┴───────────────────────────────┐  │
-│  │                   Message Bus (NATS)                       │  │
-│  │         Embedded or External Cluster + JetStream           │  │
-│  └────────────────────────────────────────────────────────────┘  │
-│                              │                                   │
-│  ┌───────────────────────────┴───────────────────────────────┐  │
-│  │              State Storage (SQLite or PostgreSQL)          │  │
-│  │    - Agent metadata  - Job history  - Event storage        │  │
-│  │    - Policy audit    - Locks         - Configuration       │  │
-│  └────────────────────────────────────────────────────────────┘  │
-└────────────────────────────┬───────────────────────────────────┘
-                             │
-                             │ NATS (bi-directional)
-                             │
-┌────────────────────────────┴───────────────────────────────────┐
-│                         Agent Fleet                             │
-│                                                                 │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
-│  │  Kubernetes  │  │     VMs      │  │    Cloud     │         │
-│  │    Pods      │  │   (Linux/    │  │   (AWS/GCP/  │   ...   │
-│  │              │  │   Windows/   │  │    Azure)    │         │
-│  │              │  │    macOS)    │  │              │         │
-│  └──────────────┘  └──────────────┘  └──────────────┘         │
-│                                                                 │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
-│  │  Bare Metal  │  │     Edge     │  │  Containers  │         │
-│  │   (BMC/IPMI) │  │   Devices    │  │   (Docker/   │   ...   │
-│  │              │  │  (Offline)   │  │  containerd) │         │
-│  └──────────────┘  └──────────────┘  └──────────────┘         │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph External["External Systems"]
+        ArgoCD["ArgoCD/Flux"]
+        Git["GitHub/GitLab"]
+        OPA["OPA Bundles"]
+        Prom["Prometheus/Grafana"]
+    end
+
+    subgraph CP["Keystone Core Control Plane"]
+        subgraph API["API Layer"]
+            gRPC["gRPC Server"]
+            REST["REST (HTTP)"]
+            Webhooks["Webhook Receivers"]
+        end
+
+        subgraph Services["Core Services"]
+            ConnMgr["Connection Manager"]
+            CmdDisp["Command Dispatcher"]
+            StateMgr["State Manager"]
+            EventEng["Event Engine"]
+            PolicyEnf["Policy Enforcement"]
+            GitOpsVer["GitOps Verification"]
+        end
+
+        NATS[("NATS Message Bus\n(Embedded or External)")]
+        Storage[("State Storage\nSQLite / PostgreSQL")]
+    end
+
+    subgraph Agents["Agent Fleet"]
+        K8s["Kubernetes Pods"]
+        VMs["VMs\n(Linux/Windows/macOS)"]
+        Cloud["Cloud\n(AWS/GCP/Azure)"]
+        Bare["Bare Metal\n(BMC/IPMI)"]
+        Edge["Edge Devices\n(Offline)"]
+        Containers["Containers\n(Docker/containerd)"]
+    end
+
+    ArgoCD -->|webhooks| Webhooks
+    Git -->|webhooks| Webhooks
+    OPA -->|policies| PolicyEnf
+    Prom -->|scrape| CP
+
+    API --> Services
+    Services --> NATS
+    NATS --> Storage
+    NATS <-->|bi-directional| Agents
 ```
 
 ## Core Components
@@ -255,40 +234,19 @@ Lightweight Go binaries running on managed nodes.
 
 #### Agent Lifecycle
 
-```
-┌───────────┐
-│   Start   │
-└─────┬─────┘
-      │
-      ↓
-┌───────────┐
-│  Connect  │ ← Connect to control plane via NATS
-└─────┬─────┘
-      │
-      ↓
-┌───────────┐
-│ Register  │ ← Send metadata to control plane
-└─────┬─────┘
-      │
-      ↓
-┌───────────┐
-│ Heartbeat │ ← Send periodic heartbeats (30s)
-└─────┬─────┘
-      │
-      ↓
-┌───────────┐
-│  Listen   │ ← Subscribe to commands
-└─────┬─────┘
-      │
-      ↓
-┌───────────┐
-│  Execute  │ ← Execute commands, apply state
-└─────┬─────┘
-      │
-      ↓
-┌───────────┐
-│  Report   │ ← Send results back
-└───────────┘
+```mermaid
+flowchart TD
+    Start([Start]) --> Connect
+    Connect[Connect to NATS] --> Register
+    Register[Register with Control Plane] --> Heartbeat
+    Heartbeat[Send Heartbeat] --> Listen
+    Listen[Subscribe to Commands] --> Execute
+    Execute[Execute Commands / Apply State] --> Report
+    Report[Report Results] --> Heartbeat
+
+    Connect -.- note1[Connect to control plane via NATS]
+    Register -.- note2[Send metadata to control plane]
+    Heartbeat -.- note3[Send periodic heartbeats - 30s]
 ```
 
 #### Agent Capabilities
@@ -308,145 +266,166 @@ Lightweight Go binaries running on managed nodes.
 
 ### 1. Command Execution Flow
 
-```
-User → kscorectl → API Server → Command Dispatcher
-                                      ↓
-                        NATS (titan.agent.{id}.command)
-                                      ↓
-                                   Agent
-                                      ↓
-                              Execute Command
-                                      ↓
-                        NATS (titan.command.result)
-                                      ↓
-                          Command Dispatcher
-                                      ↓
-                               Store Result
-                                      ↓
-                           Return to User
+```mermaid
+sequenceDiagram
+    participant User
+    participant CLI as kscorectl
+    participant API as API Server
+    participant Dispatch as Command Dispatcher
+    participant NATS
+    participant Agent
+
+    User->>CLI: Execute command
+    CLI->>API: gRPC/REST request
+    API->>Dispatch: Dispatch command
+    Dispatch->>NATS: Publish to agent.{id}.command
+    NATS->>Agent: Deliver command
+    Agent->>Agent: Execute command
+    Agent->>NATS: Publish result
+    NATS->>Dispatch: Deliver result
+    Dispatch->>Dispatch: Store result
+    Dispatch->>API: Return result
+    API->>CLI: Response
+    CLI->>User: Display output
 ```
 
 ### 2. State Application Flow
 
-```
-User → kscorectl state apply → API Server → State Manager
-                                                 ↓
-                              Parse and Validate State File
-                                                 ↓
-                        Build Dependency Graph (DAG)
-                                                 ↓
-                          Topologically Sort Modules
-                                                 ↓
-                  NATS → Agent → Execute Modules (idempotent)
-                                                 ↓
-                           Collect Results
-                                                 ↓
-                      Detect Drift (if any)
-                                                 ↓
-                        Emit state.* Events
-                                                 ↓
-                      Return Summary to User
+```mermaid
+sequenceDiagram
+    participant User
+    participant CLI as kscorectl state apply
+    participant API as API Server
+    participant State as State Manager
+    participant NATS
+    participant Agent
+
+    User->>CLI: Apply state file
+    CLI->>API: Submit state
+    API->>State: Process state
+    State->>State: Parse & validate YAML
+    State->>State: Build dependency graph (DAG)
+    State->>State: Topological sort
+    State->>NATS: Send to agents
+    NATS->>Agent: Deliver modules
+    Agent->>Agent: Execute modules (idempotent)
+    Agent->>NATS: Return results
+    NATS->>State: Collect results
+    State->>State: Detect drift
+    State->>NATS: Emit state.* events
+    State->>API: Return summary
+    API->>CLI: Response
+    CLI->>User: Display summary
 ```
 
 ### 3. Event-Driven Automation Flow
 
-```
-Agent/System → Event → NATS JetStream → Event Router
-                                              ↓
-                                   Apply Filter Expression
-                                              ↓
-                                 Match Reactors (priority)
-                                              ↓
-                              Execute Reactor Actions
-                                              ↓
-                    ┌────────────┬──────────┬────────────┐
-                    ↓            ↓          ↓            ↓
-              Command      Webhook    State Apply   Custom
-                                              ↓
-                              Store Event (persistence)
-                                              ↓
-                          Update Metrics
+```mermaid
+flowchart TD
+    Source[Agent/System] --> Event[Event]
+    Event --> JS[NATS JetStream]
+    JS --> Router[Event Router]
+    Router --> Filter[Apply Filter Expression]
+    Filter --> Match[Match Reactors by Priority]
+    Match --> Execute[Execute Reactor Actions]
+
+    Execute --> Cmd[Command]
+    Execute --> Hook[Webhook]
+    Execute --> State[State Apply]
+    Execute --> Custom[Custom Function]
+
+    Execute --> Store[Store Event]
+    Store --> Metrics[Update Metrics]
 ```
 
 ### 4. GitOps Verification Flow
 
-```
-ArgoCD/Flux → Webhook → API Server → GitOps Handler
-                                           ↓
-                              Parse Webhook Payload
-                                           ↓
-                          Determine Deployment Status
-                                           ↓
-                         Trigger Verification Steps
-                                           ↓
-              ┌──────────────┬────────────┬────────────┐
-              ↓              ↓            ↓            ↓
-         HTTP Check    K8s Check    Command     Script
-                                           ↓
-                      Aggregate Results
-                                           ↓
-                      Pass? → Emit Success Event
-                      Fail? → Trigger Rollback
+```mermaid
+flowchart TD
+    GitOps[ArgoCD/Flux] --> Webhook[Webhook]
+    Webhook --> API[API Server]
+    API --> Handler[GitOps Handler]
+    Handler --> Parse[Parse Webhook Payload]
+    Parse --> Status[Determine Deployment Status]
+    Status --> Verify[Trigger Verification Steps]
+
+    Verify --> HTTP[HTTP Check]
+    Verify --> K8s[K8s Check]
+    Verify --> Cmd[Command]
+    Verify --> Script[Script]
+
+    HTTP --> Aggregate[Aggregate Results]
+    K8s --> Aggregate
+    Cmd --> Aggregate
+    Script --> Aggregate
+
+    Aggregate --> Decision{Pass?}
+    Decision -->|Yes| Success[Emit Success Event]
+    Decision -->|No| Rollback[Trigger Rollback]
 ```
 
 ## Scaling Architecture
 
 ### Small Deployment (<100 nodes)
-```
-┌─────────────────────┐
-│   Control Plane     │
-│  - Embedded NATS    │
-│  - SQLite storage   │
-│  - Single instance  │
-└──────────┬──────────┘
-           │
-    ┌──────┴──────┐
-    ↓             ↓
-  Agent         Agent (x100)
+
+```mermaid
+flowchart TD
+    subgraph CP["Control Plane"]
+        NATS["Embedded NATS"]
+        SQLite["SQLite Storage"]
+        Server["Single Instance"]
+    end
+
+    CP --> A1["Agent"]
+    CP --> A2["Agent"]
+    CP --> A3["Agent (x100)"]
 ```
 
 ### Medium Deployment (100-1000 nodes)
-```
-┌─────────────────────┐
-│  External NATS      │
-│  Cluster (3 nodes)  │
-└──────────┬──────────┘
-           │
-┌──────────┴───────────┐
-│   Control Plane      │
-│  - PostgreSQL        │
-│  - Single instance   │
-└──────────┬───────────┘
-           │
-    ┌──────┴──────┬───────────┐
-    ↓             ↓           ↓
-  Agent         Agent  ...  Agent (x1000)
+
+```mermaid
+flowchart TD
+    subgraph NATS["External NATS Cluster"]
+        N1["Node 1"]
+        N2["Node 2"]
+        N3["Node 3"]
+    end
+
+    subgraph CP["Control Plane"]
+        PG[("PostgreSQL")]
+        Server["Single Instance"]
+    end
+
+    NATS --> CP
+    CP --> A1["Agent"]
+    CP --> A2["Agent"]
+    CP --> A3["... Agent (x1000)"]
 ```
 
 ### Large Deployment (1000+ nodes)
-```
-┌─────────────────────────────┐
-│     External NATS Cluster   │
-│     (5+ nodes, clustered)   │
-└──────────────┬──────────────┘
-               │
-    ┌──────────┴──────────┐
-    ↓                     ↓
-┌──────────┐      ┌──────────┐
-│ Control  │      │ Control  │
-│ Plane 1  │      │ Plane 2  │ (HA pair)
-└────┬─────┘      └────┬─────┘
-     │                 │
-     └────────┬────────┘
-              ↓
-    ┌─────────────────┐
-    │   PostgreSQL    │
-    │   (with HA)     │
-    └─────────────────┘
-              │
-    ┌─────────┴──────────────┬──────┐
-    ↓                        ↓      ↓
-  Agent (x10000)          Agent   Agent
+
+```mermaid
+flowchart TD
+    subgraph NATS["External NATS Cluster (5+ nodes)"]
+        N1["Node 1"]
+        N2["Node 2"]
+        N3["Node 3"]
+        N4["Node 4"]
+        N5["Node 5"]
+    end
+
+    subgraph HA["Control Plane (HA)"]
+        CP1["Control Plane 1"]
+        CP2["Control Plane 2"]
+    end
+
+    PG[("PostgreSQL\n(with HA)")]
+
+    NATS --> HA
+    HA --> PG
+    HA --> A1["Agent (x10000)"]
+    HA --> A2["Agent"]
+    HA --> A3["Agent"]
 ```
 
 ## Security Model

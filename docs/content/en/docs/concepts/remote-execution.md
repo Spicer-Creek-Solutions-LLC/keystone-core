@@ -19,50 +19,28 @@ Keystone Core's remote execution system enables you to run commands across your 
 
 ## Command Execution Flow
 
-```
-┌──────────────┐
-│     User     │
-│  (kscorectl)  │
-└──────┬───────┘
-       │ kscorectl exec run "command"
-       ↓
-┌──────────────┐
-│  CLI Plugin  │ ← kscore-exec
-│ (Dispatcher) │
-└──────┬───────┘
-       │ gRPC/REST API
-       ↓
-┌──────────────────┐
-│  Control Plane   │
-│ Command Dispatch │
-└──────┬───────────┘
-       │
-       ├─ Resolve target expression
-       ├─ Create job
-       └─ Send to NATS
-              │
-              ↓
-       ┌──────────────┐
-       │     NATS     │
-       │ Message Bus  │
-       └──────┬───────┘
-              │
-       ┌──────┴───────┬───────────┐
-       ↓              ↓           ↓
-   ┌────────┐    ┌────────┐  ┌────────┐
-   │Agent 1 │    │Agent 2 │  │Agent N │
-   └────┬───┘    └────┬───┘  └────┬───┘
-        │             │           │
-        ↓             ↓           ↓
-   Execute       Execute      Execute
-   Command       Command      Command
-        │             │           │
-        └─────────┬───┴───────────┘
-                  ↓
-          ┌───────────────┐
-          │  Results Back │
-          │  via NATS     │
-          └───────────────┘
+```mermaid
+flowchart TD
+    User["User\n(kscorectl)"] -->|"kscorectl exec run"| CLI["CLI Plugin\n(kscore-exec)"]
+    CLI -->|"gRPC/REST API"| CP["Control Plane\nCommand Dispatch"]
+
+    CP --> Resolve["Resolve target expression"]
+    CP --> Create["Create job"]
+    CP --> Send["Send to NATS"]
+
+    Send --> NATS["NATS\nMessage Bus"]
+
+    NATS --> A1["Agent 1"]
+    NATS --> A2["Agent 2"]
+    NATS --> AN["Agent N"]
+
+    A1 --> E1["Execute Command"]
+    A2 --> E2["Execute Command"]
+    AN --> EN["Execute Command"]
+
+    E1 --> Results["Results Back\nvia NATS"]
+    E2 --> Results
+    EN --> Results
 ```
 
 ## Targeting System
@@ -267,19 +245,12 @@ kscorectl exec run "sw_vers" --target "os:darwin"
 
 ### Job Lifecycle
 
-```
-┌─────────┐
-│ Pending │ ← Job created, targets resolved
-└────┬────┘
-     │
-     ↓
-┌─────────┐
-│ Running │ ← Commands sent to agents
-└────┬────┘
-     │
-     ├─ All agents complete ─→ Completed
-     ├─ Timeout reached ─────→ Failed
-     └─ Partial failure ─────→ Partial Success
+```mermaid
+flowchart TD
+    Pending["Pending\n(Job created, targets resolved)"] --> Running["Running\n(Commands sent to agents)"]
+    Running --> Complete["Completed\n(All agents complete)"]
+    Running --> Failed["Failed\n(Timeout reached)"]
+    Running --> Partial["Partial Success\n(Some agents failed)"]
 ```
 
 ### Job Tracking

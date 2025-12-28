@@ -30,6 +30,11 @@ pygmentsStyle = "tango"
   github_repo = "https://github.com/shawnbutts/keystone-core"
   github_branch = "main"
 
+  # Mermaid diagram support
+  [params.mermaid]
+    enable = true
+    theme = "default"
+
   # UI
   [params.ui]
     sidebar_menu_compact = true

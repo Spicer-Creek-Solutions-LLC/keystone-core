@@ -20,46 +20,27 @@ Keystone Core's reactor system enables automated responses to infrastructure eve
 
 ## Reactor Architecture
 
-```
-┌─────────────────────────────────────────────┐
-│            Event Sources                     │
-│  - Agents (connect, disconnect, heartbeat)  │
-│  - Jobs (start, complete, fail)             │
-│  - State (apply, change, drift)             │
-│  - GitOps (deployment, verification)        │
-│  - Policy (violations, compliance)          │
-└────────────────┬────────────────────────────┘
-                 │
-                 ↓
-         ┌───────────────────┐
-         │  Event Publisher  │
-         └─────────┬─────────┘
-                   │
-                   ↓
-         ┌───────────────────┐
-         │ NATS JetStream    │
-         │  (event stream)   │
-         └─────────┬─────────┘
-                   │
-        ┌──────────┴──────────┐
-        │                     │
-        ↓                     ↓
-  ┌──────────┐          ┌──────────┐
-  │  Reactor │          │  Reactor │
-  │  Engine  │          │  Engine  │
-  └────┬─────┘          └────┬─────┘
-       │                     │
-       ↓                     ↓
-  ┌──────────┐          ┌──────────┐
-  │ Filters  │          │ Filters  │
-  │ (CEL)    │          │ (CEL)    │
-  └────┬─────┘          └────┬─────┘
-       │                     │
-       ↓                     ↓
-  ┌──────────┐          ┌──────────┐
-  │ Actions  │          │ Actions  │
-  │ Execute  │          │ Execute  │
-  └──────────┘          └──────────┘
+```mermaid
+flowchart TD
+    subgraph Sources["Event Sources"]
+        Agents["Agents\n(connect, disconnect, heartbeat)"]
+        Jobs["Jobs\n(start, complete, fail)"]
+        State["State\n(apply, change, drift)"]
+        GitOps["GitOps\n(deployment, verification)"]
+        Policy["Policy\n(violations, compliance)"]
+    end
+
+    Sources --> Publisher["Event Publisher"]
+    Publisher --> JetStream["NATS JetStream\n(event stream)"]
+
+    JetStream --> R1["Reactor Engine"]
+    JetStream --> R2["Reactor Engine"]
+
+    R1 --> F1["Filters (CEL)"]
+    R2 --> F2["Filters (CEL)"]
+
+    F1 --> A1["Actions Execute"]
+    F2 --> A2["Actions Execute"]
 ```
 
 ## Reactor Definition

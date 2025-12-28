@@ -37,27 +37,25 @@ We chose NATS over alternatives (Kafka, RabbitMQ, Redis) because:
 
 ## Architecture
 
-```
-┌──────────────────────────────────────────────────────┐
-│               NATS Message Bus                        │
-│                                                       │
-│  ┌─────────────────────────────────────────────────┐  │
-│  │            NATS Core                             │  │
-│  │  - Pub/Sub messaging                            │  │
-│  │  - Request/Reply                                │  │
-│  │  - Queue groups                                 │  │
-│  └─────────────────────────────────────────────────┘  │
-│                         │                            │
-│  ┌──────────────────────┴──────────────────────────┐  │
-│  │         JetStream (Persistence)                 │  │
-│  │  - Stream storage                               │  │
-│  │  - Event replay                                 │  │
-│  │  - At-least-once delivery                       │  │
-│  └─────────────────────────────────────────────────┘  │
-└──────────────────────────────────────────────────────┘
-          │                                │
-          ↓                                ↓
-   Control Plane                      Agent Fleet
+```mermaid
+flowchart TB
+    subgraph NATS["NATS Message Bus"]
+        subgraph Core["NATS Core"]
+            PubSub["Pub/Sub Messaging"]
+            ReqRep["Request/Reply"]
+            Queue["Queue Groups"]
+        end
+
+        subgraph JS["JetStream (Persistence)"]
+            Stream["Stream Storage"]
+            Replay["Event Replay"]
+            Delivery["At-Least-Once Delivery"]
+        end
+    end
+
+    Core --> JS
+    NATS --> CP["Control Plane"]
+    NATS --> Agents["Agent Fleet"]
 ```
 
 ## Deployment Modes
@@ -122,17 +120,19 @@ nats:
 ```
 
 **NATS Cluster Setup**:
-```
-┌──────────┐     ┌──────────┐     ┌──────────┐
-│  NATS 1  │─────│  NATS 2  │─────│  NATS 3  │
-│ (Leader) │     │(Follower)│     │(Follower)│
-└────┬─────┘     └────┬─────┘     └────┬─────┘
-     │                │                │
-     └────────────────┴────────────────┘
-                      │
-          ┌───────────┴───────────┐
-          │                       │
-     Control Plane           Agent Fleet
+```mermaid
+flowchart TD
+    subgraph Cluster["NATS Cluster"]
+        N1["NATS 1\n(Leader)"]
+        N2["NATS 2\n(Follower)"]
+        N3["NATS 3\n(Follower)"]
+        N1 --- N2
+        N2 --- N3
+        N3 --- N1
+    end
+
+    Cluster --> CP["Control Plane"]
+    Cluster --> Agents["Agent Fleet"]
 ```
 
 **Characteristics**:

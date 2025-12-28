@@ -135,41 +135,24 @@ type Event struct {
 
 ## Event Flow
 
-```
-┌─────────────────────────────────────────────┐
-│            Event Sources                     │
-│  - Agents (connect, disconnect, heartbeat)  │
-│  - Jobs (start, complete, fail)             │
-│  - State (apply, change, drift)             │
-│  - System (startup, shutdown)               │
-│  - User (custom events)                     │
-└────────────────────┬────────────────────────┘
-                     │
-                     ↓
-         ┌───────────────────────┐
-         │   Event Publisher     │
-         │ (publishes to NATS)   │
-         └───────────┬───────────┘
-                     │
-                     ↓
-         ┌───────────────────────┐
-         │   NATS JetStream      │
-         │  (persistent stream)  │
-         └───────────┬───────────┘
-                     │
-          ┌──────────┴──────────┐
-          ↓                     ↓
-    ┌──────────┐          ┌──────────┐
-    │  Event   │          │  Event   │
-    │  Router  │          │ Storage  │
-    └────┬─────┘          └────┬─────┘
-         │                     │
-         ↓                     ↓
-    ┌──────────┐         ┌──────────┐
-    │ Reactors │         │ Database │
-    │ (actions)│         │ (SQLite/ │
-    │          │         │  Postgres│
-    └──────────┘         └──────────┘
+```mermaid
+flowchart TD
+    subgraph Sources["Event Sources"]
+        Agents["Agents\n(connect, disconnect, heartbeat)"]
+        Jobs["Jobs\n(start, complete, fail)"]
+        State["State\n(apply, change, drift)"]
+        System["System\n(startup, shutdown)"]
+        User["User\n(custom events)"]
+    end
+
+    Sources --> Publisher["Event Publisher\n(publishes to NATS)"]
+    Publisher --> JetStream["NATS JetStream\n(persistent stream)"]
+
+    JetStream --> Router["Event Router"]
+    JetStream --> Storage["Event Storage"]
+
+    Router --> Reactors["Reactors\n(actions)"]
+    Storage --> Database["Database\n(SQLite/Postgres)"]
 ```
 
 ## Event Publishing

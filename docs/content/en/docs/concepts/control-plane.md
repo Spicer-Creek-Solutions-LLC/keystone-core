@@ -22,41 +22,31 @@ Unlike traditional control planes that only manage containers, Keystone Core orc
 
 ### High-Level Design
 
-```
-┌────────────────────────────────────────────────────────┐
-│                  Keystone Core Control Plane               │
-│                                                         │
-│  ┌──────────────────────────────────────────────────┐  │
-│  │                 API Layer                         │  │
-│  │  ┌────────────┐  ┌────────────┐  ┌────────────┐  │  │
-│  │  │   gRPC     │  │    REST    │  │  Webhooks  │  │  │
-│  │  │   Server   │  │   (HTTP)   │  │  Receivers │  │  │
-│  │  └────────────┘  └────────────┘  └────────────┘  │  │
-│  └──────────────────────┬───────────────────────────┘  │
-│                         │                              │
-│  ┌──────────────────────┴───────────────────────────┐  │
-│  │              Core Services                        │  │
-│  │                                                   │  │
-│  │  ┌─────────────┐  ┌──────────────┐  ┌─────────┐  │  │
-│  │  │ Connection  │  │   Command    │  │  State  │  │  │
-│  │  │  Manager    │  │  Dispatcher  │  │ Manager │  │  │
-│  │  └─────────────┘  └──────────────┘  └─────────┘  │  │
-│  │                                                   │  │
-│  │  ┌─────────────┐  ┌──────────────┐  ┌─────────┐  │  │
-│  │  │   Event     │  │    Policy    │  │  GitOps │  │  │
-│  │  │   Engine    │  │  Enforcement │  │ Handler │  │  │
-│  │  └─────────────┘  └──────────────┘  └─────────┘  │  │
-│  └───────────────────────────────────────────────────┘  │
-│                         │                              │
-│  ┌──────────────────────┴───────────────────────────┐  │
-│  │             Message Bus (NATS)                    │  │
-│  │      Embedded or External + JetStream            │  │
-│  └────────────────────────────────────────────────────┘  │
-│                         │                              │
-│  ┌──────────────────────┴───────────────────────────┐  │
-│  │      State Storage (SQLite or PostgreSQL)        │  │
-│  └────────────────────────────────────────────────────┘  │
-└────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph CP["Keystone Core Control Plane"]
+        subgraph API["API Layer"]
+            gRPC["gRPC Server"]
+            REST["REST (HTTP)"]
+            Webhooks["Webhook Receivers"]
+        end
+
+        subgraph Services["Core Services"]
+            ConnMgr["Connection Manager"]
+            CmdDisp["Command Dispatcher"]
+            StateMgr["State Manager"]
+            EventEng["Event Engine"]
+            PolicyEnf["Policy Enforcement"]
+            GitOpsH["GitOps Handler"]
+        end
+
+        NATS[("NATS Message Bus\n(Embedded or External + JetStream)")]
+        Storage[("State Storage\n(SQLite or PostgreSQL)")]
+    end
+
+    API --> Services
+    Services --> NATS
+    NATS --> Storage
 ```
 
 ### Component Breakdown
@@ -194,16 +184,15 @@ Executes declarative state configurations.
 Processes and routes infrastructure events.
 
 **Event Flow**:
-```
-1. Event Source (agent, state, job, webhook)
-   ↓
-2. Event Publisher (publishes to NATS JetStream)
-   ↓
-3. Event Router (filters and routes to reactors)
-   ↓
-4. Event Storage (persists to SQLite/PostgreSQL)
-   ↓
-5. Reactor Engine (executes automated responses)
+```mermaid
+flowchart TD
+    Source["1. Event Source\n(agent, state, job, webhook)"]
+    Publisher["2. Event Publisher\n(NATS JetStream)"]
+    Router["3. Event Router\n(filters and routes)"]
+    Storage["4. Event Storage\n(SQLite/PostgreSQL)"]
+    Reactor["5. Reactor Engine\n(automated responses)"]
+
+    Source --> Publisher --> Router --> Storage --> Reactor
 ```
 
 **Event Types** (15 total):
@@ -337,20 +326,25 @@ For production deployments, run multiple control plane instances:
 
 ### Architecture
 
-```
-┌────────────┐     ┌────────────┐     ┌────────────┐
-│  Control   │     │  Control   │     │  Control   │
-│  Plane 1   │     │  Plane 2   │     │  Plane 3   │
-└─────┬──────┘     └─────┬──────┘     └─────┬──────┘
-      │                  │                  │
-      └──────────────────┴──────────────────┘
-                         │
-         ┌───────────────┴───────────────┐
-         │                               │
-    ┌────┴────┐                    ┌─────┴──────┐
-    │  NATS   │                    │ PostgreSQL │
-    │ Cluster │                    │  (with HA) │
-    └─────────┘                    └────────────┘
+```mermaid
+flowchart TD
+    subgraph HA["Control Plane (HA)"]
+        CP1["Control Plane 1"]
+        CP2["Control Plane 2"]
+        CP3["Control Plane 3"]
+    end
+
+    subgraph Infra["Shared Infrastructure"]
+        NATS["NATS Cluster"]
+        PG[("PostgreSQL\n(with HA)")]
+    end
+
+    CP1 --> NATS
+    CP2 --> NATS
+    CP3 --> NATS
+    CP1 --> PG
+    CP2 --> PG
+    CP3 --> PG
 ```
 
 ### Load Distribution

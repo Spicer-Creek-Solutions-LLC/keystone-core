@@ -330,36 +330,23 @@ Keystone Core builds a dependency graph and topologically sorts state declaratio
 
 ### Execution Order
 
-```
-┌──────────────┐
-│   Package    │ ← No dependencies, runs first
-└──────┬───────┘
-       │
-       ↓
-┌──────────────┐
-│     File     │ ← Requires package
-└──────┬───────┘
-       │
-       ↓
-┌──────────────┐
-│   Service    │ ← Requires file, watches file
-└──────────────┘
+```mermaid
+flowchart TD
+    Package["Package\n(No dependencies, runs first)"] --> File["File\n(Requires package)"]
+    File --> Service["Service\n(Requires file, watches file)"]
 ```
 
 ### Parallel Execution
 
 States without dependencies can run in parallel:
 
-```
-┌──────────────┐     ┌──────────────┐
-│   Package A  │     │   Package B  │  ← Run in parallel
-└──────┬───────┘     └──────┬───────┘
-       │                     │
-       └──────────┬──────────┘
-                  ↓
-          ┌──────────────┐
-          │   Service    │  ← Waits for both
-          └──────────────┘
+```mermaid
+flowchart TD
+    A["Package A"] --> Service["Service\n(Waits for both)"]
+    B["Package B"] --> Service
+
+    A -.- note1["Run in parallel"]
+    B -.- note1
 ```
 
 ### Circular Dependencies
@@ -530,28 +517,18 @@ auto_remediate_drift:
 
 ## State Application Workflow
 
-```
-1. Parse state file
-   ↓
-2. Render templates (vars/facts)
-   ↓
-3. Validate module parameters
-   ↓
-4. Build dependency graph (DAG)
-   ↓
-5. Topological sort
-   ↓
-6. Send to target agents
-   ↓
-7. Agents execute modules (idempotent)
-   ↓
-8. Collect results
-   ↓
-9. Detect drift
-   ↓
-10. Emit events (state.change, state.drift)
-   ↓
-11. Return summary
+```mermaid
+flowchart TD
+    A["1. Parse state file"] --> B["2. Render templates (vars/facts)"]
+    B --> C["3. Validate module parameters"]
+    C --> D["4. Build dependency graph (DAG)"]
+    D --> E["5. Topological sort"]
+    E --> F["6. Send to target agents"]
+    F --> G["7. Agents execute modules (idempotent)"]
+    G --> H["8. Collect results"]
+    H --> I["9. Detect drift"]
+    I --> J["10. Emit events (state.change, state.drift)"]
+    J --> K["11. Return summary"]
 ```
 
 ## Idempotency

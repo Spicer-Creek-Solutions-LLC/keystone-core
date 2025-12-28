@@ -41,7 +41,8 @@ This repository contains working implementations of **Epic 1-5**. The project ha
     ├── 08-multi-environment.md        # K8s, VMs, bare metal, edge
     ├── 09-plugin-system.md            # Starlark/WASM plugin architecture
     ├── 10-documentation.md            # Hugo + Docsy comprehensive documentation
-    └── 11-clustering.md               # High availability clustering with etcd
+    ├── 11-clustering.md               # High availability clustering with etcd
+    └── 12-e2e-testing.md              # End-to-end & performance testing
 ```
 
 ## Architecture Overview
@@ -2195,6 +2196,32 @@ Keystone Core fills the gap between declarative GitOps tools and runtime operati
 **Phase 7: Testing & Validation** - PENDING
 **Phase 8: Documentation Update** - PENDING
 
+### Epic 12: End-to-End & Performance Testing 📋 PLANNED
+
+**Implementation Plan:** 8 phases (14 weeks total)
+
+**Goal**: Build comprehensive E2E testing framework using containers to validate all Keystone Core capabilities across deployment topologies before v1.0 release.
+
+**Phases:**
+- Phase 1: Test Infrastructure (Docker/Podman setup, test harness, mock services)
+- Phase 2: Deployment Topology Tests (all-in-one, HA cluster, Kubernetes, hybrid)
+- Phase 3: Functional E2E Tests (all features: agents, execution, state, events, policy, GitOps)
+- Phase 4: Performance Tests (agent scale, throughput, latency baselines)
+- Phase 5: Chaos Tests (network partitions, failover, split-brain)
+- Phase 6: Multi-Platform Validation (Linux distros, ARM64)
+- Phase 7: CI/CD Integration (GitHub Actions, parallel execution)
+- Phase 8: Documentation & Reporting
+
+**Key Test Topologies:**
+- All-in-one: Embedded NATS + SQLite + 2-3 agents (dev/small)
+- HA Cluster: 3 control planes + NATS cluster + PostgreSQL + 10+ agents
+- Kubernetes: k3d cluster + operator + DaemonSet agents
+- Hybrid: External NATS + embedded leaf node agents
+
+**Platform Matrix:**
+- Linux: Ubuntu, Debian, Alpine, Rocky Linux (amd64 + arm64)
+- Windows/macOS: CI runner validation (non-container)
+
 ## Epic Dependencies
 
 Implementation order:
@@ -2209,6 +2236,7 @@ Implementation order:
 9. **Epic 9** (Plugin System) - ✅ COMPLETE (All 7 phases) - Depends on Epic 3, 4, 5, 6 (extends all major subsystems)
 10. **Epic 10** (Documentation) - ✅ COMPLETE (All 7 phases) - Documents Epic 1-9 (Hugo + Docsy, 45 pages, ~21,500 lines)
 11. **Epic 11** (Clustering) - Depends on Epic 1, 7 (etcd-based HA clustering, automatic failover, work distribution)
+12. **Epic 12** (E2E Testing) - Depends on Epic 1-11 (validates all features, release gate)
 
 ## Key Architectural Patterns
 
