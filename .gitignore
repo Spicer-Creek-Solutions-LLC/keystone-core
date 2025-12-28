@@ -61,6 +61,23 @@ kscore-gitops
 kscore-registry
 kscorectl
 
+# Rust build artifacts
+**/target/
+Cargo.lock
+!modules/sdk/rust/Cargo.lock
+
+# C++ build artifacts
+**/CMakeCache.txt
+**/CMakeFiles/
+**/cmake_install.cmake
+**/Makefile.cmake
+**/*.cmake
+!**/CMakeLists.txt
+
+# WASM build artifacts
+*.wasm
+*.wat
+
 # Hugo documentation
 docs/.hugo_build.lock
 docs/node_modules

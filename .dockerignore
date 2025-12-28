@@ -1,0 +1,45 @@
+# Git
+.git
+.gitignore
+.gitmodules
+
+# Build artifacts
+build/
+bin/
+dist/
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Test artifacts
+coverage.out
+coverage.html
+*.test
+test/e2e/reports/
+
+# Module SDKs and examples (not needed for server/agent builds)
+modules/sdk/
+modules/examples/
+modules/stdlib/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+*.tmp
+*.log
+
+# Large directories not needed for build
+epics/
+deploy/grafana/

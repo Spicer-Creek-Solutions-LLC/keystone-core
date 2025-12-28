@@ -66,58 +66,58 @@ Implement comprehensive observability features including metrics, logging, traci
 **Key Metrics**:
 ```
 # Control Plane Metrics
-titan_api_requests_total{method, endpoint, status}
-titan_api_request_duration_seconds{method, endpoint}
-titan_agents_connected{datacenter, role}
-titan_agents_disconnected_total
-titan_command_executions_total{status}
-titan_command_execution_duration_seconds
-titan_state_applications_total{status}
-titan_state_application_duration_seconds
-titan_policy_evaluations_total{policy, result}
-titan_events_published_total{type}
-titan_events_processed_total{type}
+kscore_api_requests_total{method, endpoint, status}
+kscore_api_request_duration_seconds{method, endpoint}
+kscore_agents_connected{datacenter, role}
+kscore_agents_disconnected_total
+kscore_command_executions_total{status}
+kscore_command_execution_duration_seconds
+kscore_state_applications_total{status}
+kscore_state_application_duration_seconds
+kscore_policy_evaluations_total{policy, result}
+kscore_events_published_total{type}
+kscore_events_processed_total{type}
 
 # Agent Metrics
-titan_agent_heartbeat_seconds
-titan_agent_cpu_usage_percent
-titan_agent_memory_usage_bytes
-titan_agent_disk_usage_bytes
-titan_agent_commands_executed_total{status}
-titan_agent_states_applied_total{status}
+kscore_agent_heartbeat_seconds
+kscore_agent_cpu_usage_percent
+kscore_agent_memory_usage_bytes
+kscore_agent_disk_usage_bytes
+kscore_agent_commands_executed_total{status}
+kscore_agent_states_applied_total{status}
 
 # State Management Metrics
-titan_state_resources_total{type, status}
-titan_state_drift_detected_total{resource}
-titan_state_changes_applied_total{module}
+kscore_state_resources_total{type, status}
+kscore_state_drift_detected_total{resource}
+kscore_state_changes_applied_total{module}
 
 # GitOps Metrics
-titan_gitops_webhooks_received_total{source}
-titan_gitops_deployments_verified_total{status}
-titan_gitops_rollbacks_triggered_total
+kscore_gitops_webhooks_received_total{source}
+kscore_gitops_deployments_verified_total{status}
+kscore_gitops_rollbacks_triggered_total
 
 # Policy Metrics
-titan_policy_violations_total{policy, severity}
-titan_policy_remediations_total{policy, status}
-titan_compliance_score{framework}
+kscore_policy_violations_total{policy, severity}
+kscore_policy_remediations_total{policy, status}
+kscore_compliance_score{framework}
 ```
 
 **Example Queries**:
 ```promql
 # Command execution rate
-rate(titan_command_executions_total[5m])
+rate(kscore_command_executions_total[5m])
 
 # Error rate
-sum(rate(titan_command_executions_total{status="error"}[5m])) /
-sum(rate(titan_command_executions_total[5m]))
+sum(rate(kscore_command_executions_total{status="error"}[5m])) /
+sum(rate(kscore_command_executions_total[5m]))
 
 # Command latency p95
 histogram_quantile(0.95,
-  rate(titan_command_execution_duration_seconds_bucket[5m])
+  rate(kscore_command_execution_duration_seconds_bucket[5m])
 )
 
 # Agent connectivity
-sum(titan_agents_connected) by (datacenter)
+sum(kscore_agents_connected) by (datacenter)
 ```
 
 ### US7.2: Structured Logging

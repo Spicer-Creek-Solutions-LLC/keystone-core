@@ -1,0 +1,374 @@
+# Docker Compose for Keystone Core E2E Testing
+# Topology: HA Cluster (3 control planes + NATS cluster + PostgreSQL + etcd)
+#
+# Usage:
+#   docker compose -f docker-compose.yml up -d
+#   docker compose -f docker-compose.yml down -v
+
+services:
+  # ==========================================================================
+  # NATS Cluster (3 nodes)
+  # ==========================================================================
+  nats-1:
+    image: nats:2.10-alpine
+    container_name: kscore-nats-1
+    hostname: nats-1
+    command: >
+      -c /etc/nats/nats.conf
+      --name nats-1
+      --cluster_name kscore-cluster
+      --cluster nats://0.0.0.0:6222
+      --routes nats://nats-2:6222,nats://nats-3:6222
+    volumes:
+      - ./config/nats.conf:/etc/nats/nats.conf:ro
+      - nats-1-data:/data
+    ports:
+      - "4222:4222"   # Client connections
+    networks:
+      - kscore-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8222/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  nats-2:
+    image: nats:2.10-alpine
+    container_name: kscore-nats-2
+    hostname: nats-2
+    command: >
+      -c /etc/nats/nats.conf
+      --name nats-2
+      --cluster_name kscore-cluster
+      --cluster nats://0.0.0.0:6222
+      --routes nats://nats-1:6222,nats://nats-3:6222
+    volumes:
+      - ./config/nats.conf:/etc/nats/nats.conf:ro
+      - nats-2-data:/data
+    networks:
+      - kscore-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8222/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  nats-3:
+    image: nats:2.10-alpine
+    container_name: kscore-nats-3
+    hostname: nats-3
+    command: >
+      -c /etc/nats/nats.conf
+      --name nats-3
+      --cluster_name kscore-cluster
+      --cluster nats://0.0.0.0:6222
+      --routes nats://nats-1:6222,nats://nats-2:6222
+    volumes:
+      - ./config/nats.conf:/etc/nats/nats.conf:ro
+      - nats-3-data:/data
+    networks:
+      - kscore-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8222/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ==========================================================================
+  # etcd Cluster (3 nodes) for leader election
+  # ==========================================================================
+  etcd-1:
+    image: quay.io/coreos/etcd:v3.5.17
+    container_name: kscore-etcd-1
+    hostname: etcd-1
+    environment:
+      - ETCD_NAME=etcd-1
+      - ETCD_DATA_DIR=/etcd-data
+      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd-1:2379
+      - ETCD_LISTEN_PEER_URLS=http://0.0.0.0:2380
+      - ETCD_INITIAL_ADVERTISE_PEER_URLS=http://etcd-1:2380
+      - ETCD_INITIAL_CLUSTER=etcd-1=http://etcd-1:2380,etcd-2=http://etcd-2:2380,etcd-3=http://etcd-3:2380
+      - ETCD_INITIAL_CLUSTER_STATE=new
+      - ETCD_INITIAL_CLUSTER_TOKEN=kscore-etcd-cluster
+    volumes:
+      - etcd-1-data:/etcd-data
+    networks:
+      - kscore-net
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  etcd-2:
+    image: quay.io/coreos/etcd:v3.5.17
+    container_name: kscore-etcd-2
+    hostname: etcd-2
+    environment:
+      - ETCD_NAME=etcd-2
+      - ETCD_DATA_DIR=/etcd-data
+      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd-2:2379
+      - ETCD_LISTEN_PEER_URLS=http://0.0.0.0:2380
+      - ETCD_INITIAL_ADVERTISE_PEER_URLS=http://etcd-2:2380
+      - ETCD_INITIAL_CLUSTER=etcd-1=http://etcd-1:2380,etcd-2=http://etcd-2:2380,etcd-3=http://etcd-3:2380
+      - ETCD_INITIAL_CLUSTER_STATE=new
+      - ETCD_INITIAL_CLUSTER_TOKEN=kscore-etcd-cluster
+    volumes:
+      - etcd-2-data:/etcd-data
+    networks:
+      - kscore-net
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  etcd-3:
+    image: quay.io/coreos/etcd:v3.5.17
+    container_name: kscore-etcd-3
+    hostname: etcd-3
+    environment:
+      - ETCD_NAME=etcd-3
+      - ETCD_DATA_DIR=/etcd-data
+      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd-3:2379
+      - ETCD_LISTEN_PEER_URLS=http://0.0.0.0:2380
+      - ETCD_INITIAL_ADVERTISE_PEER_URLS=http://etcd-3:2380
+      - ETCD_INITIAL_CLUSTER=etcd-1=http://etcd-1:2380,etcd-2=http://etcd-2:2380,etcd-3=http://etcd-3:2380
+      - ETCD_INITIAL_CLUSTER_STATE=new
+      - ETCD_INITIAL_CLUSTER_TOKEN=kscore-etcd-cluster
+    volumes:
+      - etcd-3-data:/etcd-data
+    networks:
+      - kscore-net
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ==========================================================================
+  # PostgreSQL (primary)
+  # ==========================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: kscore-postgres
+    hostname: postgres
+    environment:
+      - POSTGRES_USER=kscore
+      - POSTGRES_PASSWORD=kscore_e2e_password
+      - POSTGRES_DB=kscore
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - kscore-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kscore -d kscore"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ==========================================================================
+  # Control Plane Cluster (3 nodes)
+  # ==========================================================================
+  server-1:
+    build:
+      context: ../../../..
+      dockerfile: test/e2e/containers/Dockerfile.server
+    image: kscore-server:e2e-test
+    container_name: kscore-server-1
+    hostname: server-1
+    depends_on:
+      nats-1:
+        condition: service_healthy
+      nats-2:
+        condition: service_healthy
+      nats-3:
+        condition: service_healthy
+      etcd-1:
+        condition: service_healthy
+      etcd-2:
+        condition: service_healthy
+      etcd-3:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"   # gRPC API (load balancer would go here in production)
+      - "8081:8081"   # HTTP API / Health
+    volumes:
+      - ./config/server-1.yaml:/etc/kscore/server.yaml:ro
+      - server-1-data:/var/lib/kscore
+    environment:
+      - KSCORE_LOG_LEVEL=debug
+      - KSCORE_CLUSTER_NODE_ID=server-1
+    networks:
+      - kscore-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8081/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 15s
+
+  server-2:
+    build:
+      context: ../../../..
+      dockerfile: test/e2e/containers/Dockerfile.server
+    image: kscore-server:e2e-test
+    container_name: kscore-server-2
+    hostname: server-2
+    depends_on:
+      server-1:
+        condition: service_healthy
+    ports:
+      - "8082:8080"   # gRPC API
+      - "8083:8081"   # HTTP API
+    volumes:
+      - ./config/server-2.yaml:/etc/kscore/server.yaml:ro
+      - server-2-data:/var/lib/kscore
+    environment:
+      - KSCORE_LOG_LEVEL=debug
+      - KSCORE_CLUSTER_NODE_ID=server-2
+    networks:
+      - kscore-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8081/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 15s
+
+  server-3:
+    build:
+      context: ../../../..
+      dockerfile: test/e2e/containers/Dockerfile.server
+    image: kscore-server:e2e-test
+    container_name: kscore-server-3
+    hostname: server-3
+    depends_on:
+      server-1:
+        condition: service_healthy
+    ports:
+      - "8084:8080"   # gRPC API
+      - "8085:8081"   # HTTP API
+    volumes:
+      - ./config/server-3.yaml:/etc/kscore/server.yaml:ro
+      - server-3-data:/var/lib/kscore
+    environment:
+      - KSCORE_LOG_LEVEL=debug
+      - KSCORE_CLUSTER_NODE_ID=server-3
+    networks:
+      - kscore-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8081/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 15s
+
+  # ==========================================================================
+  # Agents (10 agents for HA testing)
+  # ==========================================================================
+  agent-1:
+    build:
+      context: ../../../..
+      dockerfile: test/e2e/containers/Dockerfile.agent
+    image: kscore-agent:e2e-test
+    container_name: kscore-agent-1
+    hostname: agent-1
+    depends_on:
+      server-1:
+        condition: service_healthy
+    volumes:
+      - ./config/agent.yaml:/etc/kscore/agent.yaml:ro
+    environment:
+      - KSCORE_AGENT_ID=agent-1
+    networks:
+      - kscore-net
+
+  agent-2:
+    build:
+      context: ../../../..
+      dockerfile: test/e2e/containers/Dockerfile.agent
+    image: kscore-agent:e2e-test
+    container_name: kscore-agent-2
+    hostname: agent-2
+    depends_on:
+      server-1:
+        condition: service_healthy
+    volumes:
+      - ./config/agent.yaml:/etc/kscore/agent.yaml:ro
+    environment:
+      - KSCORE_AGENT_ID=agent-2
+    networks:
+      - kscore-net
+
+  agent-3:
+    build:
+      context: ../../../..
+      dockerfile: test/e2e/containers/Dockerfile.agent
+    image: kscore-agent:e2e-test
+    container_name: kscore-agent-3
+    hostname: agent-3
+    depends_on:
+      server-1:
+        condition: service_healthy
+    volumes:
+      - ./config/agent.yaml:/etc/kscore/agent.yaml:ro
+    environment:
+      - KSCORE_AGENT_ID=agent-3
+    networks:
+      - kscore-net
+
+  agent-4:
+    build:
+      context: ../../../..
+      dockerfile: test/e2e/containers/Dockerfile.agent
+    image: kscore-agent:e2e-test
+    container_name: kscore-agent-4
+    hostname: agent-4
+    depends_on:
+      server-1:
+        condition: service_healthy
+    volumes:
+      - ./config/agent.yaml:/etc/kscore/agent.yaml:ro
+    environment:
+      - KSCORE_AGENT_ID=agent-4
+    networks:
+      - kscore-net
+
+  agent-5:
+    build:
+      context: ../../../..
+      dockerfile: test/e2e/containers/Dockerfile.agent
+    image: kscore-agent:e2e-test
+    container_name: kscore-agent-5
+    hostname: agent-5
+    depends_on:
+      server-1:
+        condition: service_healthy
+    volumes:
+      - ./config/agent.yaml:/etc/kscore/agent.yaml:ro
+    environment:
+      - KSCORE_AGENT_ID=agent-5
+    networks:
+      - kscore-net
+
+networks:
+  kscore-net:
+    driver: bridge
+
+volumes:
+  nats-1-data:
+  nats-2-data:
+  nats-3-data:
+  etcd-1-data:
+  etcd-2-data:
+  etcd-3-data:
+  postgres-data:
+  server-1-data:
+  server-2-data:
+  server-3-data:

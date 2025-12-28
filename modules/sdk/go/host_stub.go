@@ -1,6 +1,6 @@
 //go:build !tinygo.wasm
 
-package titansdk
+package kscoresdk
 
 // Stub implementations for non-WASM builds (testing)
 

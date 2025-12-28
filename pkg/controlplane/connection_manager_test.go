@@ -108,7 +108,7 @@ func TestConnectionManager_AgentRegistration(t *testing.T) {
 	}
 
 	// Send registration request
-	respMsg, err := natsMgr.PublishRequest("titan.agent.register", data, 1*time.Second)
+	respMsg, err := natsMgr.PublishRequest("kscore.agent.register", data, 1*time.Second)
 	if err != nil {
 		t.Fatalf("Failed to send registration request: %v", err)
 	}
@@ -165,7 +165,7 @@ func TestConnectionManager_Heartbeat(t *testing.T) {
 		},
 	}
 	regData, _ := proto.Marshal(regReq)
-	natsMgr.PublishRequest("titan.agent.register", regData, 1*time.Second)
+	natsMgr.PublishRequest("kscore.agent.register", regData, 1*time.Second)
 
 	time.Sleep(100 * time.Millisecond)
 
@@ -185,7 +185,7 @@ func TestConnectionManager_Heartbeat(t *testing.T) {
 	}
 
 	// Send heartbeat
-	if err := natsMgr.Publish("titan.agent.heartbeat", hbData); err != nil {
+	if err := natsMgr.Publish("kscore.agent.heartbeat", hbData); err != nil {
 		t.Fatalf("Failed to send heartbeat: %v", err)
 	}
 
@@ -229,7 +229,7 @@ func TestConnectionManager_ListAgents(t *testing.T) {
 			},
 		}
 		data, _ := proto.Marshal(req)
-		natsMgr.PublishRequest("titan.agent.register", data, 1*time.Second)
+		natsMgr.PublishRequest("kscore.agent.register", data, 1*time.Second)
 	}
 
 	time.Sleep(200 * time.Millisecond)
@@ -279,7 +279,7 @@ func TestConnectionManager_GetAgentCount(t *testing.T) {
 			},
 		}
 		data, _ := proto.Marshal(req)
-		natsMgr.PublishRequest("titan.agent.register", data, 1*time.Second)
+		natsMgr.PublishRequest("kscore.agent.register", data, 1*time.Second)
 	}
 
 	time.Sleep(200 * time.Millisecond)
@@ -343,13 +343,13 @@ func TestConnectionManager_SendCommand(t *testing.T) {
 		},
 	}
 	regData, _ := proto.Marshal(regReq)
-	natsMgr.PublishRequest("titan.agent.register", regData, 1*time.Second)
+	natsMgr.PublishRequest("kscore.agent.register", regData, 1*time.Second)
 
 	time.Sleep(100 * time.Millisecond)
 
 	// Subscribe to agent commands (simulate agent)
 	received := make(chan *pb.ExecuteCommandRequest, 1)
-	natsMgr.Subscribe("titan.agent.test-agent-cmd.command", func(msg *nats.Msg) {
+	natsMgr.Subscribe("kscore.agent.test-agent-cmd.command", func(msg *nats.Msg) {
 		var cmd pb.ExecuteCommandRequest
 		if err := proto.Unmarshal(msg.Data, &cmd); err == nil {
 			received <- &cmd
@@ -484,7 +484,7 @@ func TestConnectionManager_HeartbeatResetsStatus(t *testing.T) {
 		},
 	}
 	regData, _ := proto.Marshal(regReq)
-	natsMgr.PublishRequest("titan.agent.register", regData, 1*time.Second)
+	natsMgr.PublishRequest("kscore.agent.register", regData, 1*time.Second)
 
 	time.Sleep(100 * time.Millisecond)
 
@@ -500,7 +500,7 @@ func TestConnectionManager_HeartbeatResetsStatus(t *testing.T) {
 		Status:  pb.AgentStatus_AGENT_STATUS_ONLINE,
 	}
 	hbData, _ := proto.Marshal(hbReq)
-	natsMgr.Publish("titan.agent.heartbeat", hbData)
+	natsMgr.Publish("kscore.agent.heartbeat", hbData)
 
 	time.Sleep(100 * time.Millisecond)
 

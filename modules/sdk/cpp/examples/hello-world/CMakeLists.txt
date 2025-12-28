@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 project(hello-world-cpp)
 
-# Add the TitanAnvil SDK
+# Add the Keystone Core SDK
 add_subdirectory(../.. titan-sdk)
 
 # Create the hello-world executable

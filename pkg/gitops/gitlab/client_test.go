@@ -14,7 +14,7 @@ func TestDefaultConfig(t *testing.T) {
 
 func TestMergeRequestRequest(t *testing.T) {
 	req := &MergeRequestRequest{
-		ProjectID:          "titanorg/titan-states",
+		ProjectID:          "kscoreorg/kscore-states",
 		Title:              "Fix: Revert broken deployment",
 		Description:        "Reverting deployment due to verification failure",
 		SourceBranch:       "revert-123",
@@ -34,26 +34,26 @@ func TestMergeRequestRequest(t *testing.T) {
 
 func TestCommitStatusRequest(t *testing.T) {
 	req := &CommitStatusRequest{
-		ProjectID:   "titanorg/titan-states",
+		ProjectID:   "kscoreorg/kscore-states",
 		Ref:         "abc123",
 		State:       "success",
-		TargetURL:   "https://titan.example.com/verification/123",
+		TargetURL:   "https://kscore.example.com/verification/123",
 		Description: "All verification checks passed",
-		Name:        "titan/deployment-verification",
+		Name:        "kscore/deployment-verification",
 	}
 
 	if req.State != "success" {
 		t.Errorf("State = %v, want success", req.State)
 	}
 
-	if req.Name != "titan/deployment-verification" {
+	if req.Name != "kscore/deployment-verification" {
 		t.Errorf("Name = %v", req.Name)
 	}
 }
 
 func TestCommentRequest(t *testing.T) {
 	req := &CommentRequest{
-		ProjectID: "titanorg/titan-states",
+		ProjectID: "kscoreorg/kscore-states",
 		MRIID:     42,
 		Body:      "✅ Deployment verification passed\n\n**Results:**\n- Health check: OK\n- Smoke tests: PASSED",
 	}
@@ -76,7 +76,7 @@ func TestMergeRequestInfo(t *testing.T) {
 		TargetBranch: "main",
 		MergedAt:     "",
 		Draft:        false,
-		WebURL:       "https://gitlab.com/titanorg/titan-states/-/merge_requests/42",
+		WebURL:       "https://gitlab.com/kscoreorg/kscore-states/-/merge_requests/42",
 	}
 
 	if info.IID != 42 {
@@ -95,7 +95,7 @@ func TestMergeRequestInfo(t *testing.T) {
 func TestNewClientRequiresToken(t *testing.T) {
 	config := &Config{
 		BaseURL:   "https://gitlab.com",
-		ProjectID: "titanorg/titan-states",
+		ProjectID: "kscoreorg/kscore-states",
 		// Token is empty
 	}
 

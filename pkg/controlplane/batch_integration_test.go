@@ -121,7 +121,7 @@ func TestBatchExecution_EndToEnd(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to marshal agent registration: %v", err)
 		}
-		_, err = natsManager.PublishRequest("titan.agent.register", data, 1*time.Second)
+		_, err = natsManager.PublishRequest("kscore.agent.register", data, 1*time.Second)
 		if err != nil {
 			t.Fatalf("Failed to publish agent registration: %v", err)
 		}

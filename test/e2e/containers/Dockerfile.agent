@@ -1,0 +1,52 @@
+# Dockerfile for kscore-agent
+# Multi-stage build for minimal image size
+
+# Build stage
+FROM golang:alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache git ca-certificates tzdata
+
+WORKDIR /src
+
+# Copy go mod files first for better caching
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build the agent binary
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags="-w -s -X github.com/shawnbutts/keystone-core/pkg/version.Version=e2e-test" \
+    -o /kscore-agent \
+    ./cmd/kscore-agent
+
+# Runtime stage
+FROM alpine:3.19
+
+# Install runtime dependencies and common tools for command execution
+RUN apk add --no-cache ca-certificates tzdata bash coreutils
+
+# Create non-root user
+RUN addgroup -g 1000 kscore && \
+    adduser -u 1000 -G kscore -D kscore
+
+# Create data directories
+RUN mkdir -p /var/lib/kscore /etc/kscore && \
+    chown -R kscore:kscore /var/lib/kscore /etc/kscore
+
+# Copy binary from builder
+COPY --from=builder /kscore-agent /usr/local/bin/kscore-agent
+
+# Copy default configuration
+COPY --chown=kscore:kscore test/e2e/containers/config/agent.yaml /etc/kscore/agent.yaml
+
+USER kscore
+
+# Health check - agent doesn't have HTTP endpoint, check process
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
+    CMD pgrep kscore-agent || exit 1
+
+ENTRYPOINT ["/usr/local/bin/kscore-agent"]
+CMD ["--config", "/etc/kscore/agent.yaml"]

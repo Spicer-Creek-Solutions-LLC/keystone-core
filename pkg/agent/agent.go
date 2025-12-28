@@ -128,7 +128,7 @@ func (a *Agent) register() error {
 	}
 
 	// Send registration via NATS
-	subject := "titan.agent.register"
+	subject := "kscore.agent.register"
 	msg, err := a.nats.PublishRequest(subject, data, 10*time.Second)
 	if err != nil {
 		// If no response, we might be in development mode or control plane is not ready
@@ -213,7 +213,7 @@ func (a *Agent) sendHeartbeat() error {
 	}
 
 	// Send via NATS (fire and forget, or request for config updates)
-	subject := "titan.agent.heartbeat"
+	subject := "kscore.agent.heartbeat"
 	if err := a.nats.Publish(subject, data); err != nil {
 		return fmt.Errorf("failed to publish heartbeat: %w", err)
 	}
@@ -255,7 +255,7 @@ func (a *Agent) updateMetadata() {
 // subscribeToCommands subscribes to command execution requests
 func (a *Agent) subscribeToCommands() error {
 	// Subscribe to agent-specific commands
-	subject := fmt.Sprintf("titan.agent.%s.command", a.id)
+	subject := fmt.Sprintf("kscore.agent.%s.command", a.id)
 
 	_, err := a.nats.Subscribe(subject, func(msg *nats.Msg) {
 		a.handleCommandRequest(msg)

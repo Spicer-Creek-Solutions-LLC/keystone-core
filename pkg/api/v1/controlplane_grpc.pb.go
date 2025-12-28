@@ -19,14 +19,14 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ControlPlaneService_ListAgents_FullMethodName          = "/titan.anvil.v1.ControlPlaneService/ListAgents"
-	ControlPlaneService_GetAgent_FullMethodName            = "/titan.anvil.v1.ControlPlaneService/GetAgent"
-	ControlPlaneService_ExecuteCommand_FullMethodName      = "/titan.anvil.v1.ControlPlaneService/ExecuteCommand"
-	ControlPlaneService_GetCommandStatus_FullMethodName    = "/titan.anvil.v1.ControlPlaneService/GetCommandStatus"
-	ControlPlaneService_ListCommands_FullMethodName        = "/titan.anvil.v1.ControlPlaneService/ListCommands"
-	ControlPlaneService_BatchExecuteCommand_FullMethodName = "/titan.anvil.v1.ControlPlaneService/BatchExecuteCommand"
-	ControlPlaneService_GetBatchJobStatus_FullMethodName   = "/titan.anvil.v1.ControlPlaneService/GetBatchJobStatus"
-	ControlPlaneService_ListBatchJobs_FullMethodName       = "/titan.anvil.v1.ControlPlaneService/ListBatchJobs"
+	ControlPlaneService_ListAgents_FullMethodName          = "/keystone.core.v1.ControlPlaneService/ListAgents"
+	ControlPlaneService_GetAgent_FullMethodName            = "/keystone.core.v1.ControlPlaneService/GetAgent"
+	ControlPlaneService_ExecuteCommand_FullMethodName      = "/keystone.core.v1.ControlPlaneService/ExecuteCommand"
+	ControlPlaneService_GetCommandStatus_FullMethodName    = "/keystone.core.v1.ControlPlaneService/GetCommandStatus"
+	ControlPlaneService_ListCommands_FullMethodName        = "/keystone.core.v1.ControlPlaneService/ListCommands"
+	ControlPlaneService_BatchExecuteCommand_FullMethodName = "/keystone.core.v1.ControlPlaneService/BatchExecuteCommand"
+	ControlPlaneService_GetBatchJobStatus_FullMethodName   = "/keystone.core.v1.ControlPlaneService/GetBatchJobStatus"
+	ControlPlaneService_ListBatchJobs_FullMethodName       = "/keystone.core.v1.ControlPlaneService/ListBatchJobs"
 )
 
 // ControlPlaneServiceClient is the client API for ControlPlaneService service.
@@ -370,7 +370,7 @@ func _ControlPlaneService_ListBatchJobs_Handler(srv interface{}, ctx context.Con
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ControlPlaneService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "titan.anvil.v1.ControlPlaneService",
+	ServiceName: "keystone.core.v1.ControlPlaneService",
 	HandlerType: (*ControlPlaneServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

@@ -1,8 +1,8 @@
 {
   "dashboard": {
-    "title": "TitanAnvil Policy Compliance",
-    "uid": "titananvil-policy-compliance",
-    "tags": ["titananvil", "policy", "compliance", "security"],
+    "title": "Keystone Core Policy Compliance",
+    "uid": "kscore-policy-compliance",
+    "tags": ["kscore", "policy", "compliance", "security"],
     "timezone": "browser",
     "schemaVersion": 36,
     "version": 1,
@@ -23,7 +23,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "query": "label_values(titananvil_policy_compliance_score, framework)",
+          "query": "label_values(kscore_policy_compliance_score, framework)",
           "refresh": 1,
           "multi": true,
           "includeAll": true,
@@ -36,7 +36,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "query": "label_values(titananvil_policy_violations_total, environment)",
+          "query": "label_values(kscore_policy_violations_total, environment)",
           "refresh": 1,
           "multi": true,
           "includeAll": true,
@@ -51,7 +51,7 @@
         "gridPos": {"h": 8, "w": 8, "x": 0, "y": 0},
         "targets": [
           {
-            "expr": "avg(titananvil_policy_compliance_score{framework=~\"$framework\",environment=~\"$environment\"})",
+            "expr": "avg(kscore_policy_compliance_score{framework=~\"$framework\",environment=~\"$environment\"})",
             "legendFormat": "Compliance"
           }
         ],
@@ -82,7 +82,7 @@
         "gridPos": {"h": 4, "w": 8, "x": 8, "y": 0},
         "targets": [
           {
-            "expr": "sum(titananvil_policy_violations_total{framework=~\"$framework\",environment=~\"$environment\"})",
+            "expr": "sum(kscore_policy_violations_total{framework=~\"$framework\",environment=~\"$environment\"})",
             "legendFormat": "Total"
           }
         ],
@@ -111,7 +111,7 @@
         "gridPos": {"h": 4, "w": 8, "x": 16, "y": 0},
         "targets": [
           {
-            "expr": "sum(titananvil_policy_remediation_successful_total{framework=~\"$framework\",environment=~\"$environment\"}) / sum(titananvil_policy_remediation_attempted_total{framework=~\"$framework\",environment=~\"$environment\"}) * 100",
+            "expr": "sum(kscore_policy_remediation_successful_total{framework=~\"$framework\",environment=~\"$environment\"}) / sum(kscore_policy_remediation_attempted_total{framework=~\"$framework\",environment=~\"$environment\"}) * 100",
             "legendFormat": "Success %"
           }
         ],
@@ -141,7 +141,7 @@
         "gridPos": {"h": 4, "w": 8, "x": 8, "y": 4},
         "targets": [
           {
-            "expr": "sum(titananvil_policy_violations_total{severity=\"critical\",framework=~\"$framework\",environment=~\"$environment\"})",
+            "expr": "sum(kscore_policy_violations_total{severity=\"critical\",framework=~\"$framework\",environment=~\"$environment\"})",
             "legendFormat": "Critical"
           }
         ],
@@ -169,7 +169,7 @@
         "gridPos": {"h": 4, "w": 8, "x": 16, "y": 4},
         "targets": [
           {
-            "expr": "sum(titananvil_policy_violations_total{severity=\"high\",framework=~\"$framework\",environment=~\"$environment\"})",
+            "expr": "sum(kscore_policy_violations_total{severity=\"high\",framework=~\"$framework\",environment=~\"$environment\"})",
             "legendFormat": "High"
           }
         ],
@@ -197,7 +197,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
         "targets": [
           {
-            "expr": "sum by (severity) (titananvil_policy_violations_total{framework=~\"$framework\",environment=~\"$environment\"})",
+            "expr": "sum by (severity) (kscore_policy_violations_total{framework=~\"$framework\",environment=~\"$environment\"})",
             "legendFormat": "{{severity}}"
           }
         ],
@@ -228,7 +228,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
         "targets": [
           {
-            "expr": "titananvil_policy_compliance_score{framework=~\"$framework\",environment=~\"$environment\"}",
+            "expr": "kscore_policy_compliance_score{framework=~\"$framework\",environment=~\"$environment\"}",
             "legendFormat": "{{framework}}"
           }
         ],
@@ -261,7 +261,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
         "targets": [
           {
-            "expr": "topk(10, sum by (policy) (titananvil_policy_violations_total{framework=~\"$framework\",environment=~\"$environment\"}))",
+            "expr": "topk(10, sum by (policy) (kscore_policy_violations_total{framework=~\"$framework\",environment=~\"$environment\"}))",
             "legendFormat": "{{policy}}",
             "instant": true
           }
@@ -292,11 +292,11 @@
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
         "targets": [
           {
-            "expr": "sum(rate(titananvil_policy_remediation_successful_total{framework=~\"$framework\",environment=~\"$environment\"}[5m]))",
+            "expr": "sum(rate(kscore_policy_remediation_successful_total{framework=~\"$framework\",environment=~\"$environment\"}[5m]))",
             "legendFormat": "Successful"
           },
           {
-            "expr": "sum(rate(titananvil_policy_remediation_failed_total{framework=~\"$framework\",environment=~\"$environment\"}[5m]))",
+            "expr": "sum(rate(kscore_policy_remediation_failed_total{framework=~\"$framework\",environment=~\"$environment\"}[5m]))",
             "legendFormat": "Failed"
           }
         ],
@@ -326,7 +326,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
         "targets": [
           {
-            "expr": "sum(rate(titananvil_policy_evaluations_total{framework=~\"$framework\",environment=~\"$environment\"}[5m]))",
+            "expr": "sum(rate(kscore_policy_evaluations_total{framework=~\"$framework\",environment=~\"$environment\"}[5m]))",
             "legendFormat": "Evaluations/sec"
           }
         ],
@@ -355,11 +355,11 @@
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
         "targets": [
           {
-            "expr": "histogram_quantile(0.95, sum by (le) (rate(titananvil_policy_evaluation_duration_seconds_bucket{framework=~\"$framework\",environment=~\"$environment\"}[5m])))",
+            "expr": "histogram_quantile(0.95, sum by (le) (rate(kscore_policy_evaluation_duration_seconds_bucket{framework=~\"$framework\",environment=~\"$environment\"}[5m])))",
             "legendFormat": "p95"
           },
           {
-            "expr": "histogram_quantile(0.99, sum by (le) (rate(titananvil_policy_evaluation_duration_seconds_bucket{framework=~\"$framework\",environment=~\"$environment\"}[5m])))",
+            "expr": "histogram_quantile(0.99, sum by (le) (rate(kscore_policy_evaluation_duration_seconds_bucket{framework=~\"$framework\",environment=~\"$environment\"}[5m])))",
             "legendFormat": "p99"
           }
         ],
@@ -390,11 +390,11 @@
         "gridPos": {"h": 8, "w": 24, "x": 0, "y": 32},
         "targets": [
           {
-            "expr": "avg_over_time(titananvil_policy_compliance_score{framework=~\"$framework\",environment=~\"$environment\"}[7d])",
+            "expr": "avg_over_time(kscore_policy_compliance_score{framework=~\"$framework\",environment=~\"$environment\"}[7d])",
             "legendFormat": "7-day average"
           },
           {
-            "expr": "titananvil_policy_compliance_score{framework=~\"$framework\",environment=~\"$environment\"}",
+            "expr": "kscore_policy_compliance_score{framework=~\"$framework\",environment=~\"$environment\"}",
             "legendFormat": "Current"
           }
         ],

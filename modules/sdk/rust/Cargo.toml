@@ -1,5 +1,5 @@
 [package]
-name = "titan-module-sdk"
+name = "kscore-module-sdk"
 version = "0.1.0"
 edition = "2021"
 authors = ["Keystone Core Contributors"]

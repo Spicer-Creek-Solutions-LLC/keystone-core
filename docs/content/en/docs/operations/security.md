@@ -138,7 +138,7 @@ api:
 **Credentials File (Recommended):**
 ```bash
 # Create NATS credentials
-nats-server --genkey --user titananvil > /etc/nats/kscore.creds
+nats-server --genkey --user keystonecore > /etc/nats/kscore.creds
 ```
 
 **NATS Configuration:**

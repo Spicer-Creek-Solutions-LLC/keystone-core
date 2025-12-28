@@ -1,0 +1,58 @@
+# Dockerfile for kscore-server
+# Multi-stage build for minimal image size
+
+# Build stage
+FROM golang:alpine AS builder
+
+# Install build dependencies (including gcc for CGO/SQLite)
+RUN apk add --no-cache git ca-certificates tzdata gcc musl-dev
+
+WORKDIR /src
+
+# Copy go mod files first for better caching
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build the server binary (CGO enabled for SQLite)
+RUN CGO_ENABLED=1 GOOS=linux go build \
+    -ldflags="-w -s -X github.com/shawnbutts/keystone-core/pkg/version.Version=e2e-test" \
+    -o /kscore-server \
+    ./cmd/kscore-server
+
+# Runtime stage
+FROM alpine:3.19
+
+# Install runtime dependencies
+RUN apk add --no-cache ca-certificates tzdata
+
+# Create non-root user
+RUN addgroup -g 1000 kscore && \
+    adduser -u 1000 -G kscore -D kscore
+
+# Create data directories
+RUN mkdir -p /var/lib/kscore /etc/kscore && \
+    chown -R kscore:kscore /var/lib/kscore /etc/kscore
+
+# Copy binary from builder
+COPY --from=builder /kscore-server /usr/local/bin/kscore-server
+
+# Copy default configuration (will be overridden by volume mounts in tests)
+COPY --chown=kscore:kscore test/e2e/containers/config/server.yaml /etc/kscore/server.yaml
+
+USER kscore
+
+# Default ports:
+# 8080 - gRPC API
+# 8081 - HTTP API / Health
+# 4222 - NATS (embedded mode)
+EXPOSE 8080 8081 4222
+
+# Health check
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
+    CMD wget -q --spider http://localhost:8081/health/live || exit 1
+
+ENTRYPOINT ["/usr/local/bin/kscore-server"]
+CMD ["--config", "/etc/kscore/server.yaml"]

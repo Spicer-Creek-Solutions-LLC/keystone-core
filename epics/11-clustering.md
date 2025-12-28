@@ -588,29 +588,29 @@ Implement high availability clustering for `kscore-server` using etcd for distri
 
 ### Cluster Health Metrics
 ```
-titan_cluster_members{status="healthy|unhealthy"} - Member count by status
-titan_cluster_leader_elections_total - Total leader elections
-titan_cluster_leader_duration_seconds - Leadership duration
-titan_cluster_failovers_total - Total failover events
-titan_cluster_failover_duration_seconds - Failover detection to recovery time
-titan_cluster_quorum_status{status="ok|lost"} - Quorum status
+kscore_cluster_members{status="healthy|unhealthy"} - Member count by status
+kscore_cluster_leader_elections_total - Total leader elections
+kscore_cluster_leader_duration_seconds - Leadership duration
+kscore_cluster_failovers_total - Total failover events
+kscore_cluster_failover_duration_seconds - Failover detection to recovery time
+kscore_cluster_quorum_status{status="ok|lost"} - Quorum status
 ```
 
 ### Work Distribution Metrics
 ```
-titan_cluster_agents_per_member{member_id} - Agent count per member
-titan_cluster_jobs_per_member{member_id} - Job count per member
-titan_cluster_events_per_member{member_id} - Events processed per member
-titan_cluster_rebalances_total - Total rebalancing events
-titan_cluster_rebalance_duration_seconds - Rebalancing duration
+kscore_cluster_agents_per_member{member_id} - Agent count per member
+kscore_cluster_jobs_per_member{member_id} - Job count per member
+kscore_cluster_events_per_member{member_id} - Events processed per member
+kscore_cluster_rebalances_total - Total rebalancing events
+kscore_cluster_rebalance_duration_seconds - Rebalancing duration
 ```
 
 ### etcd Metrics
 ```
-titan_etcd_request_duration_seconds{operation} - etcd request latency
-titan_etcd_request_errors_total{operation} - etcd request errors
-titan_etcd_lease_renewals_total - etcd lease renewals
-titan_etcd_watch_events_total - etcd watch events
+kscore_etcd_request_duration_seconds{operation} - etcd request latency
+kscore_etcd_request_errors_total{operation} - etcd request errors
+kscore_etcd_lease_renewals_total - etcd lease renewals
+kscore_etcd_watch_events_total - etcd watch events
 ```
 
 ## Testing Strategy

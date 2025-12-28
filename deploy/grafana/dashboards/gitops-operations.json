@@ -1,8 +1,8 @@
 {
   "dashboard": {
-    "title": "TitanAnvil GitOps Operations",
-    "uid": "titananvil-gitops-operations",
-    "tags": ["titananvil", "gitops", "deployments"],
+    "title": "Keystone Core GitOps Operations",
+    "uid": "kscore-gitops-operations",
+    "tags": ["kscore", "gitops", "deployments"],
     "timezone": "browser",
     "schemaVersion": 36,
     "version": 1,
@@ -23,7 +23,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "query": "label_values(titananvil_gitops_deployments_total, application)",
+          "query": "label_values(kscore_gitops_deployments_total, application)",
           "refresh": 1,
           "multi": true,
           "includeAll": true,
@@ -36,7 +36,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "query": "label_values(titananvil_gitops_deployments_total{application=~\"$application\"}, environment)",
+          "query": "label_values(kscore_gitops_deployments_total{application=~\"$application\"}, environment)",
           "refresh": 1,
           "multi": true,
           "includeAll": true,
@@ -51,7 +51,7 @@
         "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
         "targets": [
           {
-            "expr": "sum(titananvil_gitops_deployments_total{application=~\"$application\",environment=~\"$environment\"})",
+            "expr": "sum(kscore_gitops_deployments_total{application=~\"$application\",environment=~\"$environment\"})",
             "legendFormat": "Total"
           }
         ],
@@ -67,7 +67,7 @@
         "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
         "targets": [
           {
-            "expr": "sum(titananvil_gitops_verifications_successful_total{application=~\"$application\",environment=~\"$environment\"})",
+            "expr": "sum(kscore_gitops_verifications_successful_total{application=~\"$application\",environment=~\"$environment\"})",
             "legendFormat": "Verified"
           }
         ],
@@ -88,7 +88,7 @@
         "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
         "targets": [
           {
-            "expr": "sum(titananvil_gitops_verifications_failed_total{application=~\"$application\",environment=~\"$environment\"})",
+            "expr": "sum(kscore_gitops_verifications_failed_total{application=~\"$application\",environment=~\"$environment\"})",
             "legendFormat": "Failed"
           }
         ],
@@ -116,7 +116,7 @@
         "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
         "targets": [
           {
-            "expr": "sum(increase(titananvil_gitops_rollbacks_total{application=~\"$application\",environment=~\"$environment\"}[6h]))",
+            "expr": "sum(increase(kscore_gitops_rollbacks_total{application=~\"$application\",environment=~\"$environment\"}[6h]))",
             "legendFormat": "Rollbacks (6h)"
           }
         ],
@@ -144,7 +144,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
         "targets": [
           {
-            "expr": "sum(increase(titananvil_gitops_deployments_total{application=~\"$application\",environment=~\"$environment\"}[1h]))",
+            "expr": "sum(increase(kscore_gitops_deployments_total{application=~\"$application\",environment=~\"$environment\"}[1h]))",
             "legendFormat": "Deployments/hour"
           }
         ],
@@ -174,7 +174,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
         "targets": [
           {
-            "expr": "sum(rate(titananvil_gitops_verifications_successful_total{application=~\"$application\",environment=~\"$environment\"}[5m])) / sum(rate(titananvil_gitops_verifications_total{application=~\"$application\",environment=~\"$environment\"}[5m])) * 100",
+            "expr": "sum(rate(kscore_gitops_verifications_successful_total{application=~\"$application\",environment=~\"$environment\"}[5m])) / sum(rate(kscore_gitops_verifications_total{application=~\"$application\",environment=~\"$environment\"}[5m])) * 100",
             "legendFormat": "Success %"
           }
         ],
@@ -206,11 +206,11 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
         "targets": [
           {
-            "expr": "histogram_quantile(0.95, sum by (le) (rate(titananvil_gitops_verification_duration_seconds_bucket{application=~\"$application\",environment=~\"$environment\"}[5m])))",
+            "expr": "histogram_quantile(0.95, sum by (le) (rate(kscore_gitops_verification_duration_seconds_bucket{application=~\"$application\",environment=~\"$environment\"}[5m])))",
             "legendFormat": "p95"
           },
           {
-            "expr": "histogram_quantile(0.99, sum by (le) (rate(titananvil_gitops_verification_duration_seconds_bucket{application=~\"$application\",environment=~\"$environment\"}[5m])))",
+            "expr": "histogram_quantile(0.99, sum by (le) (rate(kscore_gitops_verification_duration_seconds_bucket{application=~\"$application\",environment=~\"$environment\"}[5m])))",
             "legendFormat": "p99"
           }
         ],
@@ -241,7 +241,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
         "targets": [
           {
-            "expr": "sum by (reason) (rate(titananvil_gitops_rollbacks_total{application=~\"$application\",environment=~\"$environment\"}[5m]))",
+            "expr": "sum by (reason) (rate(kscore_gitops_rollbacks_total{application=~\"$application\",environment=~\"$environment\"}[5m]))",
             "legendFormat": "{{reason}}"
           }
         ],
@@ -273,7 +273,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
         "targets": [
           {
-            "expr": "topk(10, sum by (application) (titananvil_gitops_verifications_failed_total{environment=~\"$environment\"}))",
+            "expr": "topk(10, sum by (application) (kscore_gitops_verifications_failed_total{environment=~\"$environment\"}))",
             "legendFormat": "{{application}}",
             "instant": true
           }
@@ -297,7 +297,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20},
         "targets": [
           {
-            "expr": "sum by (environment) (titananvil_gitops_deployments_total{application=~\"$application\"})",
+            "expr": "sum by (environment) (kscore_gitops_deployments_total{application=~\"$application\"})",
             "legendFormat": "{{environment}}"
           }
         ],
@@ -316,7 +316,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 28},
         "targets": [
           {
-            "expr": "sum by (source) (rate(titananvil_gitops_webhooks_total{application=~\"$application\",environment=~\"$environment\"}[5m]))",
+            "expr": "sum by (source) (rate(kscore_gitops_webhooks_total{application=~\"$application\",environment=~\"$environment\"}[5m]))",
             "legendFormat": "{{source}}"
           }
         ],
@@ -347,11 +347,11 @@
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 28},
         "targets": [
           {
-            "expr": "histogram_quantile(0.95, sum by (le) (rate(titananvil_gitops_rollback_duration_seconds_bucket{application=~\"$application\",environment=~\"$environment\"}[5m])))",
+            "expr": "histogram_quantile(0.95, sum by (le) (rate(kscore_gitops_rollback_duration_seconds_bucket{application=~\"$application\",environment=~\"$environment\"}[5m])))",
             "legendFormat": "p95"
           },
           {
-            "expr": "histogram_quantile(0.99, sum by (le) (rate(titananvil_gitops_rollback_duration_seconds_bucket{application=~\"$application\",environment=~\"$environment\"}[5m])))",
+            "expr": "histogram_quantile(0.99, sum by (le) (rate(kscore_gitops_rollback_duration_seconds_bucket{application=~\"$application\",environment=~\"$environment\"}[5m])))",
             "legendFormat": "p99"
           }
         ],

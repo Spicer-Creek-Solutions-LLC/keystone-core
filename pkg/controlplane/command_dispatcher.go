@@ -7,10 +7,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/nats-io/nats.go"
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 	"github.com/shawnbutts/keystone-core/pkg/events"
 	"github.com/shawnbutts/keystone-core/pkg/state"
 	"github.com/shawnbutts/keystone-core/pkg/tracing"
+	"google.golang.org/protobuf/proto"
 )
 
 // CommandDispatcher handles command execution and tracking
@@ -25,6 +27,9 @@ type CommandDispatcher struct {
 
 	// Event publishing
 	eventPublisher events.EventPublisher
+
+	// NATS subscription for command responses
+	responseSub *nats.Subscription
 }
 
 // CommandExecution tracks a command's execution state
@@ -46,6 +51,37 @@ func NewCommandDispatcher(connMgr *ConnectionManager, store state.Store) *Comman
 		pendingCommands:  make(map[string]*CommandExecution),
 		commandCallbacks: make(map[string][]chan *pb.ExecuteCommandResponse),
 	}
+}
+
+// Start starts the command dispatcher and subscribes to command responses
+func (cd *CommandDispatcher) Start() error {
+	// Subscribe to command responses from agents
+	// Subject pattern: kscore.controlplane.command.*.response (wildcard for command ID)
+	sub, err := cd.connMgr.nats.Conn().Subscribe("kscore.controlplane.command.*.response", func(msg *nats.Msg) {
+		var resp pb.ExecuteCommandResponse
+		if err := proto.Unmarshal(msg.Data, &resp); err != nil {
+			fmt.Printf("Failed to unmarshal command response: %v\n", err)
+			return
+		}
+		cd.HandleCommandResponse(&resp)
+	})
+	if err != nil {
+		return fmt.Errorf("failed to subscribe to command responses: %w", err)
+	}
+	cd.responseSub = sub
+	fmt.Println("Command dispatcher started, subscribed to command responses")
+	return nil
+}
+
+// Stop stops the command dispatcher and unsubscribes from responses
+func (cd *CommandDispatcher) Stop() error {
+	if cd.responseSub != nil {
+		if err := cd.responseSub.Unsubscribe(); err != nil {
+			return fmt.Errorf("failed to unsubscribe from responses: %w", err)
+		}
+		cd.responseSub = nil
+	}
+	return nil
 }
 
 // ExecuteCommand dispatches a command to an agent

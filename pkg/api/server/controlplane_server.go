@@ -32,43 +32,56 @@ func NewControlPlaneServer(connMgr *controlplane.ConnectionManager, dispatcher *
 
 // ListAgents lists all registered agents
 func (s *ControlPlaneServer) ListAgents(ctx context.Context, req *pb.ListAgentsRequest) (*pb.ListAgentsResponse, error) {
-	// Build filter
-	filter := &state.AgentFilter{
-		Limit:  int(req.PageSize),
-		Offset: 0, // TODO: Parse page_token for offset
-	}
+	// Get agents from connection manager (live state)
+	agents := s.connMgr.ListAgents()
 
-	if req.Status != pb.AgentStatus_AGENT_STATUS_UNSPECIFIED {
-		filter.Status = &req.Status
-	}
-
-	// Get agents from store
-	agents, err := s.store.ListAgents(ctx, filter)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list agents: %w", err)
-	}
-
-	// Convert to protobuf
-	pbAgents := make([]*pb.AgentInfo, 0, len(agents))
+	// Filter by status if specified
+	filteredAgents := make([]*pb.AgentInfo, 0, len(agents))
 	for _, agent := range agents {
-		pbAgents = append(pbAgents, convertAgentRecordToProto(agent))
+		// Apply status filter
+		if req.Status != pb.AgentStatus_AGENT_STATUS_UNSPECIFIED && agent.Status != req.Status {
+			continue
+		}
+
+		filteredAgents = append(filteredAgents, &pb.AgentInfo{
+			AgentId:       agent.ID,
+			Status:        agent.Status,
+			Metadata:      agent.Metadata,
+			LastHeartbeat: timestamppb.New(agent.LastHeartbeat),
+			RegisteredAt:  timestamppb.New(agent.RegisteredAt),
+			Metrics:       agent.LastMetrics,
+		})
+	}
+
+	// Apply pagination
+	start := 0
+	end := len(filteredAgents)
+	if req.PageSize > 0 && int(req.PageSize) < end {
+		end = int(req.PageSize)
 	}
 
 	return &pb.ListAgentsResponse{
-		Agents:     pbAgents,
-		TotalCount: int32(len(pbAgents)),
+		Agents:     filteredAgents[start:end],
+		TotalCount: int32(len(filteredAgents)),
 	}, nil
 }
 
 // GetAgent retrieves information about a specific agent
 func (s *ControlPlaneServer) GetAgent(ctx context.Context, req *pb.GetAgentRequest) (*pb.GetAgentResponse, error) {
-	agent, err := s.store.GetAgent(ctx, req.AgentId)
+	agent, err := s.connMgr.GetAgent(req.AgentId)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent: %w", err)
 	}
 
 	return &pb.GetAgentResponse{
-		Agent: convertAgentRecordToProto(agent),
+		Agent: &pb.AgentInfo{
+			AgentId:       agent.ID,
+			Status:        agent.Status,
+			Metadata:      agent.Metadata,
+			LastHeartbeat: timestamppb.New(agent.LastHeartbeat),
+			RegisteredAt:  timestamppb.New(agent.RegisteredAt),
+			Metrics:       agent.LastMetrics,
+		},
 	}, nil
 }
 

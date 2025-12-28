@@ -1,0 +1,79 @@
+# Keystone Core Configuration Example
+# This file demonstrates the available configuration options
+
+server:
+  listenaddr: "0.0.0.0"
+  grpcport: 9090
+  httpport: 8080
+
+# NATS configuration
+nats:
+  # Mode: embedded, external, or leaf
+  # - embedded: Run NATS server in-process (zero dependencies)
+  # - external: Connect to external NATS cluster
+  # - leaf: Run embedded NATS as leaf node connected to parent cluster
+  mode: embedded
+
+  # External NATS URL (required for external or leaf mode)
+  # url: "nats://nats.example.com:4222"
+
+  # Embedded NATS settings (for embedded or leaf mode)
+  embedded:
+    port: 4222
+    enablejetstream: true
+    storedir: "./data/nats"
+    maxmemory: 1073741824  # 1GB
+    maxconnections: 1000
+    # Leaf node parent URLs (required for leaf mode)
+    # leafnodeurls:
+    #   - "nats://control-plane.example.com:7422"
+
+  # JetStream settings
+  jetstream:
+    enabled: true
+    storedir: "./data/jetstream"
+    maxstorage: 10737418240  # 10GB
+
+  # Connection settings
+  maxreconnects: -1  # unlimited
+  reconnectwait: 2s
+
+  # Authentication (optional)
+  # token: "your-token-here"
+  # credential: "/path/to/nats.creds"
+
+# Storage configuration
+storage:
+  # Backend: sqlite or postgresql
+  # - sqlite: Embedded database (zero dependencies, <100 nodes)
+  # - postgresql: Production database (100+ nodes, HA support)
+  backend: sqlite
+
+  # SQLite settings
+  sqlite:
+    path: "./data/titan-anvil.db"
+    wal: true
+    busytimeout: 5000  # milliseconds
+
+  # PostgreSQL settings (for production)
+  # postgresql:
+  #   dsn: "postgres://user:password@localhost:5432/titananvil?sslmode=disable"
+  #   maxopenconns: 25
+  #   maxidleconns: 5
+  #   connmaxlifetime: 5m
+
+# Agent configuration
+agent:
+  # Agent ID (auto-generated if empty)
+  id: ""
+  heartbeatinterval: 30s
+  commandtimeout: 5m
+  metadatainterval: 5m
+
+# TLS configuration
+tls:
+  enabled: false
+  # certfile: "/path/to/cert.pem"
+  # keyfile: "/path/to/key.pem"
+  # cafile: "/path/to/ca.pem"
+  # insecureskipverify: false

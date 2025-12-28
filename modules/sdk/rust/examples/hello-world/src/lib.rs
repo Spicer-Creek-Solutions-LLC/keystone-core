@@ -1,6 +1,6 @@
-//! Hello World TitanAnvil Module (Rust)
+//! Hello World Keystone Core Module (Rust)
 //!
-//! This example module demonstrates the TitanAnvil Rust SDK by:
+//! This example module demonstrates the Keystone Core Rust SDK by:
 //! - Getting the CPU make and model
 //! - Computing a SHA256 hash of the CPU information
 //! - Writing the results to a file in the temp directory

@@ -13,18 +13,18 @@ The official C++ SDK for building Keystone Core modules that compile to WebAssem
 
 ## Installation
 
-The SDK is header-only. Just copy the `include/titan` directory to your project:
+The SDK is header-only. Just copy the `include/kscore` directory to your project:
 
 ```bash
 # Copy headers to your project
-cp -r include/titan /your/project/include/
+cp -r include/kscore /your/project/include/
 ```
 
 Or use as a CMake subdirectory:
 
 ```cmake
-add_subdirectory(path/to/titan-module-sdk-cpp)
-target_link_libraries(your-module PRIVATE titan-module-sdk)
+add_subdirectory(path/to/kscore-module-sdk-cpp)
+target_link_libraries(your-module PRIVATE kscore-module-sdk)
 ```
 
 ## Requirements
@@ -55,10 +55,10 @@ source ./emsdk_env.sh
 ## Quick Start
 
 ```cpp
-#include <titan/titan.h>
+#include <kscore/kscore.h>
 
 int main() {
-    titan::log::info("Hello from Keystone Core!");
+    kscore::log::info("Hello from Keystone Core!");
     return 0;
 }
 ```
@@ -97,73 +97,73 @@ cmake --build .
 
 ## Available Capabilities
 
-### Filesystem (`titan::fs`)
+### Filesystem (`kscore::fs`)
 
 ```cpp
-#include <titan/titan.h>
+#include <kscore/kscore.h>
 
 // Read file as bytes
-auto data = titan::fs::read("/path/to/file");
+auto data = kscore::fs::read("/path/to/file");
 
 // Read file as string
-auto content = titan::fs::read_string("/path/to/file");
+auto content = kscore::fs::read_string("/path/to/file");
 
 // Write bytes
-titan::fs::write("/path/to/file", data);
+kscore::fs::write("/path/to/file", data);
 
 // Write string
-titan::fs::write_string("/path/to/file", "Hello!");
+kscore::fs::write_string("/path/to/file", "Hello!");
 ```
 
 **Required capability**: `fs.read` or `fs.write`
 
-### HTTP (`titan::http`)
+### HTTP (`kscore::http`)
 
 ```cpp
 // GET request
-auto response = titan::http::get("https://api.example.com/data");
+auto response = kscore::http::get("https://api.example.com/data");
 std::cout << "Status: " << response.status_code << std::endl;
 
 // POST request
 std::vector<uint8_t> body = {'d', 'a', 't', 'a'};
-auto response = titan::http::post("https://api.example.com/submit", body);
+auto response = kscore::http::post("https://api.example.com/submit", body);
 ```
 
 **Required capability**: `http.get` or `http.post`
 
-### Command Execution (`titan::exec`)
+### Command Execution (`kscore::exec`)
 
 ```cpp
 // Run command
-auto result = titan::exec::run("ls", {"-la"});
+auto result = kscore::exec::run("ls", {"-la"});
 std::cout << "Exit code: " << result.exit_code << std::endl;
 std::cout << "Output: " << result.stdout_data << std::endl;
 
 // Run with stdin
-auto result = titan::exec::run_with_input("grep", "pattern", {"pattern"});
+auto result = kscore::exec::run_with_input("grep", "pattern", {"pattern"});
 ```
 
 **Required capability**: `exec`
 
-### Logging (`titan::log`)
+### Logging (`kscore::log`)
 
 ```cpp
-titan::log::debug("Debug message");
-titan::log::info("Info message");
-titan::log::warn("Warning message");
-titan::log::error("Error message");
+kscore::log::debug("Debug message");
+kscore::log::info("Info message");
+kscore::log::warn("Warning message");
+kscore::log::error("Error message");
 ```
 
 **Required capability**: `log`
 
-### Key-Value Storage (`titan::kv`)
+### Key-Value Storage (`kscore::kv`)
 
 ```cpp
 // Set a value
-titan::kv::set("my-key", "my-value");
+kscore::kv::set("my-key", "my-value");
 
 // Get a value
-auto value = titan::kv::get("my-key");
+auto value = kscore::kv::get("my-key");
 if (value) {
     std::cout << "Value: " << *value << std::endl;
 }
@@ -171,26 +171,26 @@ if (value) {
 
 **Required capability**: `kv`
 
-### System Information (`titan::system`)
+### System Information (`kscore::system`)
 
 ```cpp
 // Get CPU information
-auto cpu = titan::system::get_cpu_info();
+auto cpu = kscore::system::get_cpu_info();
 std::cout << "CPU: " << cpu << std::endl;
 ```
 
 **Required capability**: `exec` (uses system commands internally)
 
-### Cryptography (`titan::crypto`)
+### Cryptography (`kscore::crypto`)
 
 ```cpp
 // Compute SHA256 hash
 std::vector<uint8_t> data = {'d', 'a', 't', 'a'};
-auto hash = titan::crypto::sha256(data);
+auto hash = kscore::crypto::sha256(data);
 std::cout << "Hash: " << hash << std::endl;
 
 // Hash a string
-auto hash = titan::crypto::sha256_string("my string");
+auto hash = kscore::crypto::sha256_string("my string");
 ```
 
 **Required capability**: `exec` (uses external tools)
@@ -200,16 +200,16 @@ auto hash = titan::crypto::sha256_string("my string");
 The SDK uses exceptions for error handling:
 
 ```cpp
-#include <titan/titan.h>
+#include <kscore/kscore.h>
 
 int main() {
     try {
-        auto data = titan::fs::read_string("/nonexistent");
-    } catch (const titan::FileSystemError& e) {
-        titan::log::error(e.what());
+        auto data = kscore::fs::read_string("/nonexistent");
+    } catch (const kscore::FileSystemError& e) {
+        kscore::log::error(e.what());
         return 1;
-    } catch (const titan::Error& e) {
-        titan::log::error(e.what());
+    } catch (const kscore::Error& e) {
+        kscore::log::error(e.what());
         return 1;
     }
     return 0;
@@ -217,12 +217,12 @@ int main() {
 ```
 
 Error types:
-- `titan::CapabilityDeniedError` - Capability not granted
-- `titan::FileSystemError` - File I/O errors
-- `titan::HttpError` - HTTP request errors
-- `titan::ExecError` - Command execution errors
-- `titan::SerializationError` - JSON serialization errors
-- `titan::Error` - Base class for all errors
+- `kscore::CapabilityDeniedError` - Capability not granted
+- `kscore::FileSystemError` - File I/O errors
+- `kscore::HttpError` - HTTP request errors
+- `kscore::ExecError` - Command execution errors
+- `kscore::SerializationError` - JSON serialization errors
+- `kscore::Error` - Base class for all errors
 
 ## Module Manifest
 

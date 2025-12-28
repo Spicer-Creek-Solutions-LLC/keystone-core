@@ -1,0 +1,36 @@
+# Keystone Core Server Configuration for E2E Tests
+# This configuration runs the server in embedded mode for testing
+
+server:
+  listenaddr: "0.0.0.0"
+  grpcport: 8080
+  httpport: 8081
+
+# NATS configuration - embedded mode for all-in-one testing
+nats:
+  mode: embedded
+  embedded:
+    host: "0.0.0.0"
+    port: 4222
+    enablejetstream: true
+    storedir: "/var/lib/kscore/nats"
+    maxmemory: 268435456  # 256MB for testing
+    maxconnections: 100
+  jetstream:
+    enabled: true
+    storedir: "/var/lib/kscore/jetstream"
+    maxstorage: 1073741824  # 1GB for testing
+  maxreconnects: 10
+  reconnectwait: 1s
+
+# Storage configuration - SQLite for testing
+storage:
+  backend: sqlite
+  sqlite:
+    path: "/var/lib/kscore/kscore.db"
+    wal: true
+    busytimeout: 5000
+
+# TLS disabled for testing
+tls:
+  enabled: false

@@ -13,13 +13,13 @@ import (
 
 const (
 	// StreamName is the JetStream stream name for Keystone Core events
-	StreamName = "TITAN_EVENTS"
+	StreamName = "KSCORE_EVENTS"
 
 	// StreamSubjects defines the subject pattern for all events
-	StreamSubjects = "titan.events.>"
+	StreamSubjects = "kscore.events.>"
 
 	// SubjectPrefix is the prefix for all event subjects
-	SubjectPrefix = "titan.events"
+	SubjectPrefix = "kscore.events"
 )
 
 // JetStreamPublisher implements EventPublisher using NATS JetStream
@@ -220,7 +220,7 @@ func (p *JetStreamPublisher) Close() error {
 
 // buildSubject constructs a NATS subject from an event type
 // Example: "agent.connect" -> "agent.connect"
-// The full subject will be: "titan.events.agent.connect"
+// The full subject will be: "kscore.events.agent.connect"
 func buildSubject(eventType EventType) string {
 	return string(eventType)
 }

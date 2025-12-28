@@ -13,7 +13,7 @@ The official Go SDK for building Keystone Core modules that compile to WebAssemb
 ## Installation
 
 ```bash
-go get github.com/shawnbutts/titan-module-sdk-go
+go get github.com/shawnbutts/keystone-core/modules/sdk/go
 ```
 
 ## Requirements
@@ -40,11 +40,11 @@ choco install tinygo
 package main
 
 import (
-    titansdk "github.com/shawnbutts/titan-module-sdk-go"
+    kscoresdk "github.com/shawnbutts/keystone-core/modules/sdk/go"
 )
 
 func main() {
-    titansdk.LogInfo("Hello from Keystone Core!")
+    kscoresdk.LogInfo("Hello from Keystone Core!")
 }
 ```
 
@@ -65,19 +65,19 @@ tinygo build -o module.wasm -target wasm32-wasi -opt=z .
 ### Filesystem
 
 ```go
-import titansdk "github.com/shawnbutts/titan-module-sdk-go"
+import kscoresdk "github.com/shawnbutts/keystone-core/modules/sdk/go"
 
 // Read file as bytes
-data, err := titansdk.ReadFile("/path/to/file")
+data, err := kscoresdk.ReadFile("/path/to/file")
 
 // Read file as string
-content, err := titansdk.ReadString("/path/to/file")
+content, err := kscoresdk.ReadString("/path/to/file")
 
 // Write bytes
-err := titansdk.WriteFile("/path/to/file", data)
+err := kscoresdk.WriteFile("/path/to/file", data)
 
 // Write string
-err := titansdk.WriteString("/path/to/file", "Hello!")
+err := kscoresdk.WriteString("/path/to/file", "Hello!")
 ```
 
 **Required capability**: `fs.read` or `fs.write`
@@ -86,7 +86,7 @@ err := titansdk.WriteString("/path/to/file", "Hello!")
 
 ```go
 // GET request
-response, err := titansdk.HTTPGet("https://api.example.com/data")
+response, err := kscoresdk.HTTPGet("https://api.example.com/data")
 if err == nil {
     fmt.Printf("Status: %d\n", response.StatusCode)
     fmt.Printf("Body: %s\n", string(response.Body))
@@ -94,7 +94,7 @@ if err == nil {
 
 // POST request
 body := []byte("request data")
-response, err := titansdk.HTTPPost("https://api.example.com/submit", body)
+response, err := kscoresdk.HTTPPost("https://api.example.com/submit", body)
 ```
 
 **Required capability**: `http.get` or `http.post`
@@ -103,14 +103,14 @@ response, err := titansdk.HTTPPost("https://api.example.com/submit", body)
 
 ```go
 // Run command
-result, err := titansdk.Exec("ls", "-la")
+result, err := kscoresdk.Exec("ls", "-la")
 if err == nil {
     fmt.Printf("Exit code: %d\n", result.ExitCode)
     fmt.Printf("Output: %s\n", result.Stdout)
 }
 
 // Run with stdin
-result, err := titansdk.ExecWithInput("grep", "pattern", "line1\nline2\npattern\n")
+result, err := kscoresdk.ExecWithInput("grep", "pattern", "line1\nline2\npattern\n")
 ```
 
 **Required capability**: `exec`
@@ -118,10 +118,10 @@ result, err := titansdk.ExecWithInput("grep", "pattern", "line1\nline2\npattern\
 ### Logging
 
 ```go
-titansdk.LogDebug("Debug message")
-titansdk.LogInfo("Info message")
-titansdk.LogWarn("Warning message")
-titansdk.LogError("Error message")
+kscoresdk.LogDebug("Debug message")
+kscoresdk.LogInfo("Info message")
+kscoresdk.LogWarn("Warning message")
+kscoresdk.LogError("Error message")
 ```
 
 **Required capability**: `log`
@@ -130,10 +130,10 @@ titansdk.LogError("Error message")
 
 ```go
 // Set a value
-err := titansdk.KvSet("my-key", "my-value")
+err := kscoresdk.KvSet("my-key", "my-value")
 
 // Get a value
-value, exists, err := titansdk.KvGet("my-key")
+value, exists, err := kscoresdk.KvGet("my-key")
 if exists {
     fmt.Printf("Value: %s\n", value)
 }
@@ -145,7 +145,7 @@ if exists {
 
 ```go
 // Get CPU information
-cpu, err := titansdk.GetCPUInfo()
+cpu, err := kscoresdk.GetCPUInfo()
 if err == nil {
     fmt.Printf("CPU: %s\n", cpu)
 }
@@ -157,13 +157,13 @@ if err == nil {
 
 ```go
 // Compute SHA256 hash
-hash, err := titansdk.SHA256([]byte("data to hash"))
+hash, err := kscoresdk.SHA256([]byte("data to hash"))
 if err == nil {
     fmt.Printf("Hash: %s\n", hash)
 }
 
 // Hash a string
-hash, err := titansdk.SHA256String("my string")
+hash, err := kscoresdk.SHA256String("my string")
 ```
 
 **Required capability**: `exec` (uses external tools)
@@ -171,17 +171,17 @@ hash, err := titansdk.SHA256String("my string")
 ## Error Handling
 
 ```go
-import titansdk "github.com/shawnbutts/titan-module-sdk-go"
+import kscoresdk "github.com/shawnbutts/keystone-core/modules/sdk/go"
 
 func myFunction() error {
     // Filesystem error
-    _, err := titansdk.ReadString("/nonexistent")
+    _, err := kscoresdk.ReadString("/nonexistent")
     if err != nil {
         return err
     }
 
     // Custom error
-    return titansdk.NewError("Something went wrong")
+    return kscoresdk.NewError("Something went wrong")
 }
 ```
 
@@ -242,12 +242,12 @@ package main
 
 import (
     "testing"
-    titansdk "github.com/shawnbutts/titan-module-sdk-go"
+    kscoresdk "github.com/shawnbutts/keystone-core/modules/sdk/go"
 )
 
 func TestModule(t *testing.T) {
     // In non-WASM mode, host functions return errors
-    _, err := titansdk.ReadFile("/test")
+    _, err := kscoresdk.ReadFile("/test")
     if err == nil {
         t.Error("Expected error in non-WASM environment")
     }

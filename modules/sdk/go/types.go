@@ -1,5 +1,5 @@
-// Package titansdk provides the Go SDK for building Keystone Core modules that compile to WebAssembly.
-package titansdk
+// Package kscoresdk provides the Go SDK for building Keystone Core modules that compile to WebAssembly.
+package kscoresdk
 
 // Capability represents a capability that a module can request
 type Capability string

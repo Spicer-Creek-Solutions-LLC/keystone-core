@@ -1,6 +1,6 @@
-// Hello World TitanAnvil Module (C++)
+// Hello World Keystone Core Module (C++)
 //
-// This example module demonstrates the TitanAnvil C++ SDK by:
+// This example module demonstrates the Keystone Core C++ SDK by:
 // - Getting the CPU make and model
 // - Computing a SHA256 hash of the CPU information
 // - Writing the results to a file in the temp directory

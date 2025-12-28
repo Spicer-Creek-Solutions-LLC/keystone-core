@@ -1,4 +1,4 @@
-package titansdk
+package kscoresdk
 
 import "fmt"
 

@@ -1,8 +1,8 @@
 {
   "dashboard": {
-    "title": "TitanAnvil Agent Fleet",
-    "uid": "titananvil-agent-fleet",
-    "tags": ["titananvil", "agents", "fleet"],
+    "title": "Keystone Core Agent Fleet",
+    "uid": "kscore-agent-fleet",
+    "tags": ["kscore", "agents", "fleet"],
     "timezone": "browser",
     "schemaVersion": 36,
     "version": 1,
@@ -23,7 +23,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "query": "label_values(titananvil_agents_total, datacenter)",
+          "query": "label_values(kscore_agents_total, datacenter)",
           "refresh": 1,
           "multi": true,
           "includeAll": true,
@@ -36,7 +36,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "query": "label_values(titananvil_agents_total{datacenter=~\"$datacenter\"}, role)",
+          "query": "label_values(kscore_agents_total{datacenter=~\"$datacenter\"}, role)",
           "refresh": 1,
           "multi": true,
           "includeAll": true,
@@ -49,7 +49,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "query": "label_values(titananvil_agent_heartbeat{datacenter=~\"$datacenter\",role=~\"$role\"}, agent_id)",
+          "query": "label_values(kscore_agent_heartbeat{datacenter=~\"$datacenter\",role=~\"$role\"}, agent_id)",
           "refresh": 1,
           "multi": true,
           "includeAll": true,
@@ -64,7 +64,7 @@
         "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
         "targets": [
           {
-            "expr": "count(titananvil_agent_heartbeat{datacenter=~\"$datacenter\",role=~\"$role\"})",
+            "expr": "count(kscore_agent_heartbeat{datacenter=~\"$datacenter\",role=~\"$role\"})",
             "legendFormat": "Total"
           }
         ],
@@ -91,7 +91,7 @@
         "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
         "targets": [
           {
-            "expr": "sum(titananvil_agents_by_status{status=\"online\",datacenter=~\"$datacenter\",role=~\"$role\"})",
+            "expr": "sum(kscore_agents_by_status{status=\"online\",datacenter=~\"$datacenter\",role=~\"$role\"})",
             "legendFormat": "Healthy"
           }
         ],
@@ -118,7 +118,7 @@
         "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
         "targets": [
           {
-            "expr": "sum(titananvil_agents_by_status{status=\"degraded\",datacenter=~\"$datacenter\",role=~\"$role\"})",
+            "expr": "sum(kscore_agents_by_status{status=\"degraded\",datacenter=~\"$datacenter\",role=~\"$role\"})",
             "legendFormat": "Degraded"
           }
         ],
@@ -146,7 +146,7 @@
         "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
         "targets": [
           {
-            "expr": "sum(titananvil_agents_by_status{status=\"offline\",datacenter=~\"$datacenter\",role=~\"$role\"})",
+            "expr": "sum(kscore_agents_by_status{status=\"offline\",datacenter=~\"$datacenter\",role=~\"$role\"})",
             "legendFormat": "Offline"
           }
         ],
@@ -174,7 +174,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
         "targets": [
           {
-            "expr": "sum by (datacenter) (titananvil_agents_total{role=~\"$role\"})",
+            "expr": "sum by (datacenter) (kscore_agents_total{role=~\"$role\"})",
             "legendFormat": "{{datacenter}}"
           }
         ],
@@ -193,7 +193,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
         "targets": [
           {
-            "expr": "sum by (role) (titananvil_agents_total{datacenter=~\"$datacenter\"})",
+            "expr": "sum by (role) (kscore_agents_total{datacenter=~\"$datacenter\"})",
             "legendFormat": "{{role}}"
           }
         ],
@@ -212,7 +212,7 @@
         "gridPos": {"h": 8, "w": 24, "x": 0, "y": 12},
         "targets": [
           {
-            "expr": "sum by (status) (titananvil_agents_by_status{datacenter=~\"$datacenter\",role=~\"$role\"})",
+            "expr": "sum by (status) (kscore_agents_by_status{datacenter=~\"$datacenter\",role=~\"$role\"})",
             "legendFormat": "{{status}}"
           }
         ],
@@ -244,7 +244,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
         "targets": [
           {
-            "expr": "sum by (agent_id) (rate(titananvil_agent_commands_successful{datacenter=~\"$datacenter\",role=~\"$role\",agent_id=~\"$agent_id\"}[5m])) / sum by (agent_id) (rate(titananvil_agent_commands_total{datacenter=~\"$datacenter\",role=~\"$role\",agent_id=~\"$agent_id\"}[5m])) * 100",
+            "expr": "sum by (agent_id) (rate(kscore_agent_commands_successful{datacenter=~\"$datacenter\",role=~\"$role\",agent_id=~\"$agent_id\"}[5m])) / sum by (agent_id) (rate(kscore_agent_commands_total{datacenter=~\"$datacenter\",role=~\"$role\",agent_id=~\"$agent_id\"}[5m])) * 100",
             "legendFormat": "{{agent_id}}"
           }
         ],
@@ -276,7 +276,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20},
         "targets": [
           {
-            "expr": "count by (version) (titananvil_agent_info{datacenter=~\"$datacenter\",role=~\"$role\"})",
+            "expr": "count by (version) (kscore_agent_info{datacenter=~\"$datacenter\",role=~\"$role\"})",
             "legendFormat": "{{version}}",
             "instant": true
           }
@@ -305,7 +305,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 28},
         "targets": [
           {
-            "expr": "titananvil_agent_cpu_usage{datacenter=~\"$datacenter\",role=~\"$role\",agent_id=~\"$agent_id\"}",
+            "expr": "kscore_agent_cpu_usage{datacenter=~\"$datacenter\",role=~\"$role\",agent_id=~\"$agent_id\"}",
             "legendFormat": "{{agent_id}}"
           }
         ],
@@ -337,7 +337,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 28},
         "targets": [
           {
-            "expr": "titananvil_agent_memory_usage{datacenter=~\"$datacenter\",role=~\"$role\",agent_id=~\"$agent_id\"}",
+            "expr": "kscore_agent_memory_usage{datacenter=~\"$datacenter\",role=~\"$role\",agent_id=~\"$agent_id\"}",
             "legendFormat": "{{agent_id}}"
           }
         ],
@@ -369,7 +369,7 @@
         "gridPos": {"h": 8, "w": 24, "x": 0, "y": 36},
         "targets": [
           {
-            "expr": "titananvil_agent_disk_usage{datacenter=~\"$datacenter\",role=~\"$role\",agent_id=~\"$agent_id\"}",
+            "expr": "kscore_agent_disk_usage{datacenter=~\"$datacenter\",role=~\"$role\",agent_id=~\"$agent_id\"}",
             "legendFormat": "{{agent_id}}"
           }
         ],

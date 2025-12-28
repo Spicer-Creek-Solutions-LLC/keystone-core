@@ -1,0 +1,22 @@
+# Keystone Core Agent Configuration for E2E Tests
+# This configuration connects to the server's embedded NATS
+
+# NATS configuration - external mode connecting to server
+nats:
+  mode: external
+  # URL will be overridden by environment variable KSCORE_NATS_URL
+  url: "nats://server:4222"
+  maxreconnects: 30
+  reconnectwait: 2s
+
+# Agent configuration
+agent:
+  # ID will be set via environment variable KSCORE_AGENT_ID or auto-generated
+  id: ""
+  heartbeatinterval: 5s  # Faster heartbeat for testing
+  commandtimeout: 60s
+  metadatainterval: 30s
+
+# TLS disabled for testing
+tls:
+  enabled: false

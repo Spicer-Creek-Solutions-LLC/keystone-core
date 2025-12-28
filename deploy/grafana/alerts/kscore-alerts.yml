@@ -1,0 +1,411 @@
+groups:
+  - name: kscore_control_plane
+    interval: 30s
+    rules:
+      - alert: ControlPlaneDown
+        expr: up{job="kscore-server"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: control-plane
+        annotations:
+          summary: "Keystone Core Control Plane is down"
+          description: "Control plane instance {{ $labels.instance }} has been down for more than 1 minute."
+
+      - alert: ControlPlaneHighMemoryUsage
+        expr: (process_resident_memory_bytes{job="kscore-server"} / 1024 / 1024) > 1536
+        for: 5m
+        labels:
+          severity: warning
+          component: control-plane
+        annotations:
+          summary: "High memory usage on control plane"
+          description: "Control plane instance {{ $labels.instance }} is using {{ $value }}MB of memory (threshold: 1536MB)."
+
+      - alert: ControlPlaneHighGoroutineCount
+        expr: go_goroutines{job="kscore-server"} > 800
+        for: 5m
+        labels:
+          severity: warning
+          component: control-plane
+        annotations:
+          summary: "High goroutine count on control plane"
+          description: "Control plane instance {{ $labels.instance }} has {{ $value }} goroutines (threshold: 800)."
+
+      - alert: ControlPlaneHighAPILatency
+        expr: histogram_quantile(0.95, sum by (endpoint, le) (rate(kscore_api_request_duration_seconds_bucket[5m]))) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          component: control-plane
+        annotations:
+          summary: "High API latency on control plane"
+          description: "Control plane API endpoint {{ $labels.endpoint }} has p95 latency of {{ $value }}s (threshold: 1.0s)."
+
+      - alert: ControlPlaneHighErrorRate
+        expr: sum(rate(kscore_errors_total[5m])) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          component: control-plane
+        annotations:
+          summary: "High error rate on control plane"
+          description: "Control plane is experiencing {{ $value }} errors/sec (threshold: 1.0/sec)."
+
+  - name: kscore_agents
+    interval: 30s
+    rules:
+      - alert: AgentFleetLowAvailability
+        expr: (sum(kscore_agents_connected) / sum(kscore_agents_total)) < 0.8
+        for: 5m
+        labels:
+          severity: warning
+          component: agents
+        annotations:
+          summary: "Low agent fleet availability"
+          description: "Only {{ $value | humanizePercentage }} of agents are connected (threshold: 80%)."
+
+      - alert: AgentFleetCriticalAvailability
+        expr: (sum(kscore_agents_connected) / sum(kscore_agents_total)) < 0.5
+        for: 2m
+        labels:
+          severity: critical
+          component: agents
+        annotations:
+          summary: "Critical agent fleet availability"
+          description: "Only {{ $value | humanizePercentage }} of agents are connected (threshold: 50%)."
+
+      - alert: MultipleAgentsOffline
+        expr: sum(kscore_agents_disconnected) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: agents
+        annotations:
+          summary: "Multiple agents offline"
+          description: "{{ $value }} agents are currently offline (threshold: 10)."
+
+      - alert: AgentHighCPUUsage
+        expr: kscore_agent_cpu_usage > 90
+        for: 10m
+        labels:
+          severity: warning
+          component: agents
+        annotations:
+          summary: "High CPU usage on agent"
+          description: "Agent {{ $labels.agent_id }} has CPU usage of {{ $value }}% for more than 10 minutes."
+
+      - alert: AgentHighMemoryUsage
+        expr: kscore_agent_memory_usage > 90
+        for: 10m
+        labels:
+          severity: warning
+          component: agents
+        annotations:
+          summary: "High memory usage on agent"
+          description: "Agent {{ $labels.agent_id }} has memory usage of {{ $value }}% for more than 10 minutes."
+
+      - alert: AgentHighDiskUsage
+        expr: kscore_agent_disk_usage > 85
+        for: 10m
+        labels:
+          severity: warning
+          component: agents
+        annotations:
+          summary: "High disk usage on agent"
+          description: "Agent {{ $labels.agent_id }} has disk usage of {{ $value }}% for more than 10 minutes."
+
+      - alert: AgentCommandFailureRate
+        expr: (sum by (agent_id) (rate(kscore_agent_commands_failed[5m])) / sum by (agent_id) (rate(kscore_agent_commands_total[5m]))) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          component: agents
+        annotations:
+          summary: "High command failure rate on agent"
+          description: "Agent {{ $labels.agent_id }} has a command failure rate of {{ $value | humanizePercentage }} (threshold: 10%)."
+
+  - name: kscore_state_management
+    interval: 1m
+    rules:
+      - alert: StateApplicationHighFailureRate
+        expr: (sum(rate(kscore_state_failed_total[5m])) / sum(rate(kscore_state_applications_total[5m]))) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          component: state
+        annotations:
+          summary: "High state application failure rate"
+          description: "State applications have a failure rate of {{ $value | humanizePercentage }} (threshold: 5%)."
+
+      - alert: StateApplicationCriticalFailureRate
+        expr: (sum(rate(kscore_state_failed_total[5m])) / sum(rate(kscore_state_applications_total[5m]))) > 0.2
+        for: 5m
+        labels:
+          severity: critical
+          component: state
+        annotations:
+          summary: "Critical state application failure rate"
+          description: "State applications have a failure rate of {{ $value | humanizePercentage }} (threshold: 20%)."
+
+      - alert: HighDriftDetectionRate
+        expr: sum(rate(kscore_drift_detected_total{severity=~"high|critical"}[5m])) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+          component: state
+        annotations:
+          summary: "High configuration drift detection rate"
+          description: "Detecting {{ $value }} high/critical drift events per second (threshold: 0.5/sec)."
+
+      - alert: StateApplicationSlowPerformance
+        expr: histogram_quantile(0.95, sum by (le) (rate(kscore_state_duration_seconds_bucket[5m]))) > 300
+        for: 10m
+        labels:
+          severity: warning
+          component: state
+        annotations:
+          summary: "Slow state application performance"
+          description: "State applications have p95 duration of {{ $value }}s (threshold: 300s)."
+
+  - name: kscore_policy
+    interval: 1m
+    rules:
+      - alert: CriticalPolicyViolations
+        expr: sum(kscore_policy_violations_total{severity="critical"}) > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: policy
+        annotations:
+          summary: "Critical policy violations detected"
+          description: "{{ $value }} critical policy violations detected."
+
+      - alert: HighPolicyViolations
+        expr: sum(kscore_policy_violations_total{severity="high"}) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: policy
+        annotations:
+          summary: "High number of policy violations"
+          description: "{{ $value }} high-severity policy violations detected (threshold: 10)."
+
+      - alert: ComplianceScoreBelowThreshold
+        expr: avg(kscore_policy_compliance_score) < 85
+        for: 10m
+        labels:
+          severity: warning
+          component: policy
+        annotations:
+          summary: "Compliance score below threshold"
+          description: "Overall compliance score is {{ $value }}% (threshold: 85%)."
+
+      - alert: ComplianceScoreCritical
+        expr: avg(kscore_policy_compliance_score) < 70
+        for: 5m
+        labels:
+          severity: critical
+          component: policy
+        annotations:
+          summary: "Critical compliance score"
+          description: "Overall compliance score is {{ $value }}% (threshold: 70%)."
+
+      - alert: PolicyRemediationFailureRate
+        expr: (sum(rate(kscore_policy_remediation_failed_total[5m])) / sum(rate(kscore_policy_remediation_attempted_total[5m]))) > 0.3
+        for: 10m
+        labels:
+          severity: warning
+          component: policy
+        annotations:
+          summary: "High policy remediation failure rate"
+          description: "Policy remediation failure rate is {{ $value | humanizePercentage }} (threshold: 30%)."
+
+  - name: kscore_gitops
+    interval: 1m
+    rules:
+      - alert: GitOpsVerificationFailures
+        expr: sum(rate(kscore_gitops_verifications_failed_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: gitops
+        annotations:
+          summary: "GitOps verification failures"
+          description: "Experiencing {{ $value }} GitOps verification failures per second (threshold: 0.1/sec)."
+
+      - alert: GitOpsHighRollbackRate
+        expr: sum(rate(kscore_gitops_rollbacks_total[5m])) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          component: gitops
+        annotations:
+          summary: "High GitOps rollback rate"
+          description: "Experiencing {{ $value }} rollbacks per second (threshold: 0.05/sec)."
+
+      - alert: GitOpsVerificationSlowPerformance
+        expr: histogram_quantile(0.95, sum by (le) (rate(kscore_gitops_verification_duration_seconds_bucket[5m]))) > 600
+        for: 10m
+        labels:
+          severity: warning
+          component: gitops
+        annotations:
+          summary: "Slow GitOps verification performance"
+          description: "GitOps verifications have p95 duration of {{ $value }}s (threshold: 600s)."
+
+      - alert: GitOpsWebhookProcessingErrors
+        expr: sum(rate(kscore_gitops_webhook_errors_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: gitops
+        annotations:
+          summary: "GitOps webhook processing errors"
+          description: "Experiencing {{ $value }} webhook processing errors per second (threshold: 0.1/sec)."
+
+  - name: kscore_nats
+    interval: 30s
+    rules:
+      - alert: NATSHighMemoryUsage
+        expr: (nats_varz_mem / 1024 / 1024) > 1024
+        for: 5m
+        labels:
+          severity: warning
+          component: nats
+        annotations:
+          summary: "High memory usage on NATS"
+          description: "NATS server is using {{ $value }}MB of memory (threshold: 1024MB)."
+
+      - alert: NATSSlowConsumers
+        expr: nats_varz_slow_consumers > 0
+        for: 2m
+        labels:
+          severity: warning
+          component: nats
+        annotations:
+          summary: "NATS slow consumers detected"
+          description: "{{ $value }} slow consumers detected on NATS server."
+
+      - alert: NATSConnectionsHigh
+        expr: nats_varz_connections > 1000
+        for: 5m
+        labels:
+          severity: warning
+          component: nats
+        annotations:
+          summary: "High number of NATS connections"
+          description: "NATS server has {{ $value }} connections (threshold: 1000)."
+
+      - alert: NATSJetStreamStorageUsage
+        expr: (nats_jetstream_storage_used / nats_jetstream_storage_total) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          component: nats
+        annotations:
+          summary: "High JetStream storage usage"
+          description: "JetStream storage is {{ $value | humanizePercentage }} full (threshold: 85%)."
+
+  - name: kscore_cluster
+    interval: 30s
+    rules:
+      - alert: ClusterNoQuorum
+        expr: kscore_cluster_has_quorum == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: cluster
+        annotations:
+          summary: "Cluster has lost quorum"
+          description: "The cluster has lost quorum. Operations requiring consensus will fail."
+
+      - alert: ClusterMemberUnhealthy
+        expr: kscore_cluster_member_status < 0.5
+        for: 2m
+        labels:
+          severity: warning
+          component: cluster
+        annotations:
+          summary: "Cluster member unhealthy"
+          description: "Cluster member {{ $labels.member_id }} is unhealthy (status: {{ $value }})."
+
+      - alert: ClusterAllMembersUnhealthy
+        expr: sum(kscore_cluster_member_status >= 0.5) == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: cluster
+        annotations:
+          summary: "All cluster members unhealthy"
+          description: "No healthy cluster members available. Cluster is non-operational."
+
+      - alert: ClusterFrequentLeaderChanges
+        expr: increase(kscore_cluster_leader_changes_total[10m]) > 5
+        for: 1m
+        labels:
+          severity: warning
+          component: cluster
+        annotations:
+          summary: "Frequent leader changes"
+          description: "There have been {{ $value }} leader changes in the last 10 minutes. This may indicate cluster instability."
+
+      - alert: ClusterSlowLeaderElection
+        expr: histogram_quantile(0.95, rate(kscore_cluster_leader_election_duration_seconds_bucket[5m])) > 30
+        for: 5m
+        labels:
+          severity: warning
+          component: cluster
+        annotations:
+          summary: "Slow leader election"
+          description: "Leader election p95 latency is {{ $value }}s (threshold: 30s)."
+
+      - alert: ClusterHighRebalanceRate
+        expr: increase(kscore_cluster_rebalance_total[1h]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: cluster
+        annotations:
+          summary: "High rebalance rate"
+          description: "There have been {{ $value }} rebalance operations in the last hour (threshold: 10)."
+
+      - alert: ClusterEtcdHighLatency
+        expr: histogram_quantile(0.95, rate(kscore_cluster_etcd_operation_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          component: cluster
+        annotations:
+          summary: "High etcd operation latency"
+          description: "etcd operation p95 latency is {{ $value }}s (threshold: 1s)."
+
+      - alert: ClusterEtcdHighErrorRate
+        expr: (sum(rate(kscore_cluster_etcd_operations_total{status="error"}[5m])) / sum(rate(kscore_cluster_etcd_operations_total[5m]))) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: cluster
+        annotations:
+          summary: "High etcd error rate"
+          description: "etcd error rate is {{ $value | humanizePercentage }} (threshold: 5%)."
+
+      - alert: ClusterHeartbeatLatencyHigh
+        expr: kscore_cluster_heartbeat_latency_seconds{quantile="0.99"} > 5
+        for: 5m
+        labels:
+          severity: warning
+          component: cluster
+        annotations:
+          summary: "High heartbeat latency"
+          description: "Member {{ $labels.member_id }} heartbeat p99 latency is {{ $value }}s (threshold: 5s)."
+
+      - alert: ClusterMemberCountLow
+        expr: kscore_cluster_members_total < 3
+        for: 5m
+        labels:
+          severity: warning
+          component: cluster
+        annotations:
+          summary: "Low cluster member count"
+          description: "Cluster has only {{ $value }} members. Recommend at least 3 for fault tolerance."

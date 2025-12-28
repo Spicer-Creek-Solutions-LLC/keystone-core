@@ -1,8 +1,8 @@
 {
   "dashboard": {
-    "title": "TitanAnvil Control Plane Health",
-    "uid": "titananvil-control-plane",
-    "tags": ["titananvil", "control-plane", "health"],
+    "title": "Keystone Core Control Plane Health",
+    "uid": "kscore-control-plane",
+    "tags": ["kscore", "control-plane", "health"],
     "timezone": "browser",
     "schemaVersion": 36,
     "version": 1,
@@ -23,7 +23,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "query": "label_values(titananvil_api_requests_total, instance)",
+          "query": "label_values(kscore_api_requests_total, instance)",
           "refresh": 1,
           "multi": true,
           "includeAll": true,
@@ -38,7 +38,7 @@
         "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
         "targets": [
           {
-            "expr": "up{job=\"titananvil-server\",instance=~\"$instance\"}",
+            "expr": "up{job=\"kscore-server\",instance=~\"$instance\"}",
             "legendFormat": "{{instance}}"
           }
         ],
@@ -69,7 +69,7 @@
         "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
         "targets": [
           {
-            "expr": "time() - process_start_time_seconds{job=\"titananvil-server\",instance=~\"$instance\"}",
+            "expr": "time() - process_start_time_seconds{job=\"kscore-server\",instance=~\"$instance\"}",
             "legendFormat": "{{instance}}"
           }
         ],
@@ -91,7 +91,7 @@
         "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
         "targets": [
           {
-            "expr": "process_resident_memory_bytes{job=\"titananvil-server\",instance=~\"$instance\"} / 1024 / 1024",
+            "expr": "process_resident_memory_bytes{job=\"kscore-server\",instance=~\"$instance\"} / 1024 / 1024",
             "legendFormat": "{{instance}}"
           }
         ],
@@ -121,7 +121,7 @@
         "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
         "targets": [
           {
-            "expr": "go_goroutines{job=\"titananvil-server\",instance=~\"$instance\"}",
+            "expr": "go_goroutines{job=\"kscore-server\",instance=~\"$instance\"}",
             "legendFormat": "{{instance}}"
           }
         ],
@@ -151,7 +151,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
         "targets": [
           {
-            "expr": "sum by (endpoint) (rate(titananvil_api_requests_total{instance=~\"$instance\"}[5m]))",
+            "expr": "sum by (endpoint) (rate(kscore_api_requests_total{instance=~\"$instance\"}[5m]))",
             "legendFormat": "{{endpoint}}"
           }
         ],
@@ -182,11 +182,11 @@
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
         "targets": [
           {
-            "expr": "histogram_quantile(0.95, sum by (endpoint, le) (rate(titananvil_api_request_duration_seconds_bucket{instance=~\"$instance\"}[5m])))",
+            "expr": "histogram_quantile(0.95, sum by (endpoint, le) (rate(kscore_api_request_duration_seconds_bucket{instance=~\"$instance\"}[5m])))",
             "legendFormat": "p95 {{endpoint}}"
           },
           {
-            "expr": "histogram_quantile(0.99, sum by (endpoint, le) (rate(titananvil_api_request_duration_seconds_bucket{instance=~\"$instance\"}[5m])))",
+            "expr": "histogram_quantile(0.99, sum by (endpoint, le) (rate(kscore_api_request_duration_seconds_bucket{instance=~\"$instance\"}[5m])))",
             "legendFormat": "p99 {{endpoint}}"
           }
         ],
@@ -285,11 +285,11 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
         "targets": [
           {
-            "expr": "histogram_quantile(0.95, sum by (operation, le) (rate(titananvil_state_query_duration_seconds_bucket{instance=~\"$instance\"}[5m])))",
+            "expr": "histogram_quantile(0.95, sum by (operation, le) (rate(kscore_state_query_duration_seconds_bucket{instance=~\"$instance\"}[5m])))",
             "legendFormat": "p95 {{operation}}"
           },
           {
-            "expr": "histogram_quantile(0.99, sum by (operation, le) (rate(titananvil_state_query_duration_seconds_bucket{instance=~\"$instance\"}[5m])))",
+            "expr": "histogram_quantile(0.99, sum by (operation, le) (rate(kscore_state_query_duration_seconds_bucket{instance=~\"$instance\"}[5m])))",
             "legendFormat": "p99 {{operation}}"
           }
         ],
@@ -320,7 +320,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20},
         "targets": [
           {
-            "expr": "sum by (component) (rate(titananvil_errors_total{instance=~\"$instance\"}[5m]))",
+            "expr": "sum by (component) (rate(kscore_errors_total{instance=~\"$instance\"}[5m]))",
             "legendFormat": "{{component}}"
           }
         ],
@@ -353,7 +353,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 28},
         "targets": [
           {
-            "expr": "rate(process_cpu_seconds_total{job=\"titananvil-server\",instance=~\"$instance\"}[5m]) * 100",
+            "expr": "rate(process_cpu_seconds_total{job=\"kscore-server\",instance=~\"$instance\"}[5m]) * 100",
             "legendFormat": "{{instance}}"
           }
         ],
@@ -385,11 +385,11 @@
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 28},
         "targets": [
           {
-            "expr": "process_resident_memory_bytes{job=\"titananvil-server\",instance=~\"$instance\"} / 1024 / 1024",
+            "expr": "process_resident_memory_bytes{job=\"kscore-server\",instance=~\"$instance\"} / 1024 / 1024",
             "legendFormat": "RSS {{instance}}"
           },
           {
-            "expr": "go_memstats_heap_alloc_bytes{job=\"titananvil-server\",instance=~\"$instance\"} / 1024 / 1024",
+            "expr": "go_memstats_heap_alloc_bytes{job=\"kscore-server\",instance=~\"$instance\"} / 1024 / 1024",
             "legendFormat": "Heap {{instance}}"
           }
         ],

@@ -1,6 +1,6 @@
 //go:build tinygo.wasm
 
-package titansdk
+package kscoresdk
 
 import (
 	"encoding/json"
@@ -330,7 +330,7 @@ func GetCPUInfo() (string, error) {
 // SHA256 computes the SHA256 hash of data
 func SHA256(data []byte) (string, error) {
 	// Write to temp file
-	tempFile := "/tmp/titan-hash-input"
+	tempFile := "/tmp/kscore-hash-input"
 	if err := WriteFile(tempFile, data); err != nil {
 		return "", err
 	}

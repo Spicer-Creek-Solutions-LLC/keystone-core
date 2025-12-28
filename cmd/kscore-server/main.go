@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -140,6 +141,11 @@ func runServer(cmd *cobra.Command, args []string) {
 	// Initialize command dispatcher
 	fmt.Println("Initializing command dispatcher...")
 	dispatcher := controlplane.NewCommandDispatcher(connMgr, stateStore)
+	if err := dispatcher.Start(); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to start command dispatcher: %v\n", err)
+		os.Exit(1)
+	}
+	defer dispatcher.Stop()
 
 	// Initialize batch dispatcher
 	fmt.Println("Initializing batch dispatcher...")
@@ -167,8 +173,48 @@ func runServer(cmd *cobra.Command, args []string) {
 	}()
 	defer grpcServer.GracefulStop()
 
+	// Start HTTP health server
+	httpAddr := fmt.Sprintf("%s:%d", cfg.Server.ListenAddr, cfg.Server.HTTPPort)
+	httpMux := http.NewServeMux()
+
+	// Health endpoints
+	httpMux.HandleFunc("/health/live", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"ok"}`))
+	})
+	httpMux.HandleFunc("/health/ready", func(w http.ResponseWriter, r *http.Request) {
+		// Check if NATS is healthy
+		if err := natsManager.Health(); err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte(fmt.Sprintf(`{"status":"not ready","error":"%s"}`, err.Error())))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"ready"}`))
+	})
+	httpMux.HandleFunc("/health/status", func(w http.ResponseWriter, r *http.Request) {
+		total := connMgr.GetAgentCount()
+		online := connMgr.GetOnlineAgentCount()
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(fmt.Sprintf(`{"status":"ok","agents":{"total":%d,"online":%d}}`, total, online)))
+	})
+
+	httpServer := &http.Server{
+		Addr:    httpAddr,
+		Handler: httpMux,
+	}
+
+	go func() {
+		fmt.Printf("HTTP health server listening on %s\n", httpAddr)
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			fmt.Fprintf(os.Stderr, "HTTP server error: %v\n", err)
+		}
+	}()
+	defer httpServer.Shutdown(context.Background())
+
 	fmt.Printf("\nKeystone Core server started successfully\n")
 	fmt.Printf("  gRPC API: %s\n", listenAddr)
+	fmt.Printf("  HTTP API: %s\n", httpAddr)
 	fmt.Printf("  Storage: %s\n", cfg.Storage.Backend)
 	fmt.Println("\nWaiting for agent connections...")
 

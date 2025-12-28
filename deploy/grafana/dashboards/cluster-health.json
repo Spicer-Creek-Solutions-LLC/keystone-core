@@ -23,7 +23,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "query": "label_values(titan_cluster_member_status, member_id)",
+          "query": "label_values(kscore_cluster_member_status, member_id)",
           "refresh": 1,
           "multi": true,
           "includeAll": true,
@@ -39,7 +39,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "increase(titan_cluster_leader_changes_total[1m]) > 0",
+          "expr": "increase(kscore_cluster_leader_changes_total[1m]) > 0",
           "tagKeys": "reason",
           "titleFormat": "Leader Change",
           "textFormat": "Reason: {{reason}}"
@@ -59,7 +59,7 @@
         "gridPos": {"h": 4, "w": 4, "x": 0, "y": 1},
         "targets": [
           {
-            "expr": "titan_cluster_has_quorum",
+            "expr": "kscore_cluster_has_quorum",
             "legendFormat": "Quorum"
           }
         ],
@@ -90,7 +90,7 @@
         "gridPos": {"h": 4, "w": 4, "x": 4, "y": 1},
         "targets": [
           {
-            "expr": "titan_cluster_members_total",
+            "expr": "kscore_cluster_members_total",
             "legendFormat": "Total"
           }
         ],
@@ -116,7 +116,7 @@
         "gridPos": {"h": 4, "w": 4, "x": 8, "y": 1},
         "targets": [
           {
-            "expr": "titan_cluster_members_healthy",
+            "expr": "kscore_cluster_members_healthy",
             "legendFormat": "Healthy"
           }
         ],
@@ -144,7 +144,7 @@
         "gridPos": {"h": 4, "w": 4, "x": 12, "y": 1},
         "targets": [
           {
-            "expr": "titan_cluster_is_leader",
+            "expr": "kscore_cluster_is_leader",
             "legendFormat": "Leader"
           }
         ],
@@ -168,7 +168,7 @@
         "gridPos": {"h": 4, "w": 4, "x": 16, "y": 1},
         "targets": [
           {
-            "expr": "sum(increase(titan_cluster_leader_changes_total[24h]))",
+            "expr": "sum(increase(kscore_cluster_leader_changes_total[24h]))",
             "legendFormat": "Changes"
           }
         ],
@@ -197,7 +197,7 @@
         "gridPos": {"h": 4, "w": 4, "x": 20, "y": 1},
         "targets": [
           {
-            "expr": "sum(increase(titan_cluster_agents_moved_total[24h]))",
+            "expr": "sum(increase(kscore_cluster_agents_moved_total[24h]))",
             "legendFormat": "Moved"
           }
         ],
@@ -230,7 +230,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6},
         "targets": [
           {
-            "expr": "titan_cluster_member_status{member_id=~\"$member_id\"}",
+            "expr": "kscore_cluster_member_status{member_id=~\"$member_id\"}",
             "format": "table",
             "instant": true,
             "legendFormat": "{{member_id}}"
@@ -269,7 +269,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6},
         "targets": [
           {
-            "expr": "titan_cluster_member_status{member_id=~\"$member_id\"}",
+            "expr": "kscore_cluster_member_status{member_id=~\"$member_id\"}",
             "legendFormat": "{{member_id}}"
           }
         ],
@@ -309,15 +309,15 @@
         "gridPos": {"h": 8, "w": 8, "x": 0, "y": 15},
         "targets": [
           {
-            "expr": "histogram_quantile(0.50, rate(titan_cluster_leader_election_duration_seconds_bucket[5m]))",
+            "expr": "histogram_quantile(0.50, rate(kscore_cluster_leader_election_duration_seconds_bucket[5m]))",
             "legendFormat": "p50"
           },
           {
-            "expr": "histogram_quantile(0.95, rate(titan_cluster_leader_election_duration_seconds_bucket[5m]))",
+            "expr": "histogram_quantile(0.95, rate(kscore_cluster_leader_election_duration_seconds_bucket[5m]))",
             "legendFormat": "p95"
           },
           {
-            "expr": "histogram_quantile(0.99, rate(titan_cluster_leader_election_duration_seconds_bucket[5m]))",
+            "expr": "histogram_quantile(0.99, rate(kscore_cluster_leader_election_duration_seconds_bucket[5m]))",
             "legendFormat": "p99"
           }
         ],
@@ -341,7 +341,7 @@
         "gridPos": {"h": 8, "w": 8, "x": 8, "y": 15},
         "targets": [
           {
-            "expr": "sum(rate(titan_cluster_rebalance_total[5m])) by (reason)",
+            "expr": "sum(rate(kscore_cluster_rebalance_total[5m])) by (reason)",
             "legendFormat": "{{reason}}"
           }
         ],
@@ -364,11 +364,11 @@
         "gridPos": {"h": 8, "w": 8, "x": 16, "y": 15},
         "targets": [
           {
-            "expr": "titan_cluster_heartbeat_latency_seconds{member_id=~\"$member_id\", quantile=\"0.5\"}",
+            "expr": "kscore_cluster_heartbeat_latency_seconds{member_id=~\"$member_id\", quantile=\"0.5\"}",
             "legendFormat": "{{member_id}} (p50)"
           },
           {
-            "expr": "titan_cluster_heartbeat_latency_seconds{member_id=~\"$member_id\", quantile=\"0.99\"}",
+            "expr": "kscore_cluster_heartbeat_latency_seconds{member_id=~\"$member_id\", quantile=\"0.99\"}",
             "legendFormat": "{{member_id}} (p99)"
           }
         ],
@@ -398,7 +398,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
         "targets": [
           {
-            "expr": "sum(rate(titan_cluster_etcd_operations_total[5m])) by (operation, status)",
+            "expr": "sum(rate(kscore_cluster_etcd_operations_total[5m])) by (operation, status)",
             "legendFormat": "{{operation}} ({{status}})"
           }
         ],
@@ -422,11 +422,11 @@
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
         "targets": [
           {
-            "expr": "histogram_quantile(0.50, sum(rate(titan_cluster_etcd_operation_duration_seconds_bucket[5m])) by (operation, le))",
+            "expr": "histogram_quantile(0.50, sum(rate(kscore_cluster_etcd_operation_duration_seconds_bucket[5m])) by (operation, le))",
             "legendFormat": "{{operation}} (p50)"
           },
           {
-            "expr": "histogram_quantile(0.99, sum(rate(titan_cluster_etcd_operation_duration_seconds_bucket[5m])) by (operation, le))",
+            "expr": "histogram_quantile(0.99, sum(rate(kscore_cluster_etcd_operation_duration_seconds_bucket[5m])) by (operation, le))",
             "legendFormat": "{{operation}} (p99)"
           }
         ],

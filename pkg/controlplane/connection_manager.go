@@ -92,7 +92,7 @@ func (cm *ConnectionManager) Stop() error {
 
 // subscribeToRegistrations subscribes to agent registration requests
 func (cm *ConnectionManager) subscribeToRegistrations() error {
-	subject := "titan.agent.register"
+	subject := "kscore.agent.register"
 
 	_, err := cm.nats.Subscribe(subject, func(msg *nats.Msg) {
 		cm.handleRegistration(msg)
@@ -108,7 +108,7 @@ func (cm *ConnectionManager) subscribeToRegistrations() error {
 
 // subscribeToHeartbeats subscribes to agent heartbeats
 func (cm *ConnectionManager) subscribeToHeartbeats() error {
-	subject := "titan.agent.heartbeat"
+	subject := "kscore.agent.heartbeat"
 
 	_, err := cm.nats.Subscribe(subject, func(msg *nats.Msg) {
 		cm.handleHeartbeat(msg)
@@ -397,9 +397,12 @@ func (cm *ConnectionManager) SendCommandWithContext(ctx context.Context, agentID
 	}
 
 	// Send command to agent-specific subject with trace context
-	subject := fmt.Sprintf("titan.agent.%s.command", agentID)
+	// Set reply subject so agent can send responses back
+	subject := fmt.Sprintf("kscore.agent.%s.command", agentID)
+	replySubject := fmt.Sprintf("kscore.controlplane.command.%s.response", command.CommandId)
 	msg := &nats.Msg{
 		Subject: subject,
+		Reply:   replySubject,
 		Data:    data,
 		Header:  nats.Header{},
 	}

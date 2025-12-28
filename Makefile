@@ -1,5 +1,6 @@
 .PHONY: help proto build test clean deps build-all-platforms docs docs-serve docs-pdf docs-all \
-       release release-snapshot release-dry-run lint
+       release release-snapshot release-dry-run lint \
+       e2e-build e2e-test e2e-up e2e-down e2e-logs e2e-clean
 
 # Version information
 VERSION ?= dev
@@ -37,6 +38,14 @@ help:
 	@echo "  docs-serve         - Build and serve docs locally with live reload"
 	@echo "  docs-pdf           - Generate PDF documentation → build/pdfs/"
 	@echo "  docs-all           - Build site and generate PDFs"
+	@echo ""
+	@echo "E2E testing targets (requires Docker/Podman):"
+	@echo "  e2e-build          - Build container images for E2E testing"
+	@echo "  e2e-test           - Run E2E tests (builds images and runs tests)"
+	@echo "  e2e-up             - Start E2E test environment"
+	@echo "  e2e-down           - Stop E2E test environment"
+	@echo "  e2e-logs           - Show logs from E2E containers"
+	@echo "  e2e-clean          - Remove E2E containers and images"
 	@echo ""
 
 deps:
@@ -98,6 +107,14 @@ clean:
 	rm -rf dist/
 	rm -rf data/
 	rm -f coverage.out
+	# Rust build artifacts
+	rm -rf modules/sdk/rust/target/
+	rm -rf modules/sdk/rust/examples/*/target/
+	# Go SDK test cache (if any)
+	rm -rf modules/sdk/go/examples/*/tmp/
+	# C++ build artifacts
+	rm -rf modules/sdk/cpp/build/
+	rm -rf modules/sdk/cpp/examples/*/build/
 
 install-tools:
 	@echo "Installing protoc plugins..."
@@ -214,3 +231,39 @@ install-goreleaser:
 	@echo "Installing goreleaser..."
 	go install github.com/goreleaser/goreleaser/v2@latest
 	@echo "goreleaser installed successfully"
+
+# E2E Testing targets
+E2E_COMPOSE := docker compose -f test/e2e/containers/docker-compose.yml -p kscore-e2e
+
+e2e-build:
+	@echo "Building E2E test container images..."
+	$(E2E_COMPOSE) build
+	@echo "E2E images built successfully"
+
+e2e-up: e2e-build
+	@echo "Starting E2E test environment..."
+	$(E2E_COMPOSE) up -d --wait
+	@echo "E2E environment is running"
+	@echo "Server gRPC: localhost:8080"
+	@echo "Server HTTP: localhost:8081"
+	@echo "Run 'make e2e-logs' to see container logs"
+
+e2e-down:
+	@echo "Stopping E2E test environment..."
+	$(E2E_COMPOSE) down -v --remove-orphans
+	@echo "E2E environment stopped"
+
+e2e-logs:
+	$(E2E_COMPOSE) logs -f
+
+e2e-test: e2e-build
+	@echo "Running E2E tests..."
+	KSCORE_E2E_TESTS=1 KSCORE_ROOT=$(shell pwd) go test -v -timeout 10m ./test/e2e/topology/...
+	@echo "E2E tests complete"
+	@echo "Cleaning up..."
+	$(E2E_COMPOSE) down -v --remove-orphans
+
+e2e-clean:
+	@echo "Cleaning up E2E environment..."
+	$(E2E_COMPOSE) down -v --remove-orphans --rmi local
+	@echo "E2E cleanup complete"

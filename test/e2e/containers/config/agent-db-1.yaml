@@ -1,0 +1,15 @@
+# Agent configuration for agent-db-1
+nats:
+  mode: external
+  url: "nats://server:4222"
+  maxreconnects: 30
+  reconnectwait: 2s
+
+agent:
+  id: "agent-db-1"
+  heartbeatinterval: 5s
+  commandtimeout: 60s
+  metadatainterval: 30s
+
+tls:
+  enabled: false

@@ -1,0 +1,19 @@
+# Agent configuration for HA cluster testing
+# Agent ID is set via environment variable KSCORE_AGENT_ID
+
+nats:
+  mode: external
+  # Connect to any NATS node - they're clustered
+  url: "nats://nats-1:4222,nats://nats-2:4222,nats://nats-3:4222"
+  maxreconnects: 60
+  reconnectwait: 2s
+
+agent:
+  # ID is overridden by KSCORE_AGENT_ID environment variable
+  id: "agent-default"
+  heartbeatinterval: 5s
+  commandtimeout: 60s
+  metadatainterval: 30s
+
+tls:
+  enabled: false

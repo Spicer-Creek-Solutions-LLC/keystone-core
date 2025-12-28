@@ -1,4 +1,4 @@
-//! Host function bindings for TitanAnvil capabilities
+//! Host function bindings for Keystone Core capabilities
 //!
 //! These functions are imported from the WASM host and provide access
 //! to capabilities like file I/O, HTTP, command execution, etc.
@@ -6,7 +6,7 @@
 use crate::{Error, Result};
 use crate::types::*;
 
-// Import host functions (these are provided by the TitanAnvil runtime)
+// Import host functions (these are provided by the Keystone Core runtime)
 #[cfg(target_arch = "wasm32")]
 extern "C" {
     fn host_fs_read(path_ptr: *const u8, path_len: usize, out_ptr: *mut u8, out_len: *mut usize) -> i32;
@@ -339,7 +339,7 @@ pub mod crypto {
     pub fn sha256(data: &[u8]) -> Result<String> {
         // For now, use exec to call external sha256sum
         // In the future, we could use a pure Rust crypto library
-        let temp_file = "/tmp/titan-hash-input";
+        let temp_file = "/tmp/kscore-hash-input";
         super::fs::write_file(temp_file, data)?;
 
         #[cfg(not(target_os = "windows"))]

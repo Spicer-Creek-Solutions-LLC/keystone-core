@@ -68,6 +68,8 @@ type NATSConfig struct {
 
 // NATSEmbeddedConfig contains settings for embedded NATS mode
 type NATSEmbeddedConfig struct {
+	// Host address for embedded NATS server (default: 127.0.0.1)
+	Host string
 	// Port for embedded NATS server
 	Port int
 	// Enable JetStream for embedded mode

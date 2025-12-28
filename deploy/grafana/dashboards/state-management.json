@@ -1,8 +1,8 @@
 {
   "dashboard": {
-    "title": "TitanAnvil State Management",
-    "uid": "titananvil-state-management",
-    "tags": ["titananvil", "state", "configuration"],
+    "title": "Keystone Core State Management",
+    "uid": "kscore-state-management",
+    "tags": ["kscore", "state", "configuration"],
     "timezone": "browser",
     "schemaVersion": 36,
     "version": 1,
@@ -23,7 +23,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "query": "label_values(titananvil_state_applications_total, environment)",
+          "query": "label_values(kscore_state_applications_total, environment)",
           "refresh": 1,
           "multi": true,
           "includeAll": true,
@@ -36,7 +36,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "query": "label_values(titananvil_state_changes_total, module)",
+          "query": "label_values(kscore_state_changes_total, module)",
           "refresh": 1,
           "multi": true,
           "includeAll": true,
@@ -51,7 +51,7 @@
         "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
         "targets": [
           {
-            "expr": "sum(titananvil_state_applications_total{environment=~\"$environment\"})",
+            "expr": "sum(kscore_state_applications_total{environment=~\"$environment\"})",
             "legendFormat": "Total"
           }
         ],
@@ -67,7 +67,7 @@
         "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
         "targets": [
           {
-            "expr": "sum(titananvil_state_successful_total{environment=~\"$environment\"})",
+            "expr": "sum(kscore_state_successful_total{environment=~\"$environment\"})",
             "legendFormat": "Successful"
           }
         ],
@@ -88,7 +88,7 @@
         "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
         "targets": [
           {
-            "expr": "sum(titananvil_state_failed_total{environment=~\"$environment\"})",
+            "expr": "sum(kscore_state_failed_total{environment=~\"$environment\"})",
             "legendFormat": "Failed"
           }
         ],
@@ -116,7 +116,7 @@
         "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
         "targets": [
           {
-            "expr": "sum(increase(titananvil_drift_detected_total{environment=~\"$environment\"}[1h]))",
+            "expr": "sum(increase(kscore_drift_detected_total{environment=~\"$environment\"}[1h]))",
             "legendFormat": "Drift (1h)"
           }
         ],
@@ -144,7 +144,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
         "targets": [
           {
-            "expr": "sum(rate(titananvil_state_applications_total{environment=~\"$environment\"}[5m])) * 60",
+            "expr": "sum(rate(kscore_state_applications_total{environment=~\"$environment\"}[5m])) * 60",
             "legendFormat": "Applications/min"
           }
         ],
@@ -173,7 +173,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
         "targets": [
           {
-            "expr": "sum(rate(titananvil_state_successful_total{environment=~\"$environment\"}[5m])) / sum(rate(titananvil_state_applications_total{environment=~\"$environment\"}[5m])) * 100",
+            "expr": "sum(rate(kscore_state_successful_total{environment=~\"$environment\"}[5m])) / sum(rate(kscore_state_applications_total{environment=~\"$environment\"}[5m])) * 100",
             "legendFormat": "Success %"
           }
         ],
@@ -205,7 +205,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
         "targets": [
           {
-            "expr": "sum by (module) (rate(titananvil_state_changes_total{environment=~\"$environment\",module=~\"$module\"}[5m]))",
+            "expr": "sum by (module) (rate(kscore_state_changes_total{environment=~\"$environment\",module=~\"$module\"}[5m]))",
             "legendFormat": "{{module}}"
           }
         ],
@@ -237,7 +237,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
         "targets": [
           {
-            "expr": "sum by (severity) (rate(titananvil_drift_detected_total{environment=~\"$environment\"}[5m]))",
+            "expr": "sum by (severity) (rate(kscore_drift_detected_total{environment=~\"$environment\"}[5m]))",
             "legendFormat": "{{severity}}"
           }
         ],
@@ -269,11 +269,11 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
         "targets": [
           {
-            "expr": "histogram_quantile(0.95, sum by (le) (rate(titananvil_state_duration_seconds_bucket{environment=~\"$environment\"}[5m])))",
+            "expr": "histogram_quantile(0.95, sum by (le) (rate(kscore_state_duration_seconds_bucket{environment=~\"$environment\"}[5m])))",
             "legendFormat": "p95"
           },
           {
-            "expr": "histogram_quantile(0.99, sum by (le) (rate(titananvil_state_duration_seconds_bucket{environment=~\"$environment\"}[5m])))",
+            "expr": "histogram_quantile(0.99, sum by (le) (rate(kscore_state_duration_seconds_bucket{environment=~\"$environment\"}[5m])))",
             "legendFormat": "p99"
           }
         ],
@@ -304,7 +304,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20},
         "targets": [
           {
-            "expr": "sum by (reason) (rate(titananvil_state_failed_total{environment=~\"$environment\"}[5m]))",
+            "expr": "sum by (reason) (rate(kscore_state_failed_total{environment=~\"$environment\"}[5m]))",
             "legendFormat": "{{reason}}"
           }
         ],
@@ -336,7 +336,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 28},
         "targets": [
           {
-            "expr": "sum by (type) (titananvil_state_resources_total{environment=~\"$environment\"})",
+            "expr": "sum by (type) (kscore_state_resources_total{environment=~\"$environment\"})",
             "legendFormat": "{{type}}"
           }
         ],
@@ -366,7 +366,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 28},
         "targets": [
           {
-            "expr": "sum by (severity) (titananvil_drift_detected_total{environment=~\"$environment\"})",
+            "expr": "sum by (severity) (kscore_drift_detected_total{environment=~\"$environment\"})",
             "legendFormat": "{{severity}}"
           }
         ],

@@ -69,8 +69,12 @@ func (m *Manager) Start() error {
 
 // startEmbeddedServer starts an embedded NATS server
 func (m *Manager) startEmbeddedServer() error {
+	host := m.config.Embedded.Host
+	if host == "" {
+		host = "127.0.0.1"
+	}
 	opts := &server.Options{
-		Host:           "127.0.0.1",
+		Host:           host,
 		Port:           m.config.Embedded.Port,
 		MaxConn:        m.config.Embedded.MaxConnections,
 		MaxPayload:     1024 * 1024, // 1MB

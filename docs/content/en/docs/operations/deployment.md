@@ -239,7 +239,7 @@ sudo apt-get install postgresql-14 postgresql-14-contrib
 ```sql
 -- Create database and user
 CREATE USER kscore WITH PASSWORD 'secure_password';
-CREATE DATABASE kscore OWNER titananvil;
+CREATE DATABASE kscore OWNER keystonecore;
 
 -- Configure replication user
 CREATE USER replicator WITH REPLICATION PASSWORD 'repl_password';
@@ -382,7 +382,7 @@ Kubernetes Cluster
 
 **Add Helm Repository:**
 ```bash
-helm repo add titananvil https://charts.kscore.io
+helm repo add keystonecore https://charts.kscore.io
 helm repo update
 ```
 
@@ -393,7 +393,7 @@ kubectl create namespace kscore
 
 **Install Chart:**
 ```bash
-helm install titananvil titananvil/kscore \
+helm install keystonecore keystonecore/kscore \
   --namespace kscore \
   --set server.replicas=3 \
   --set nats.cluster.enabled=true \
@@ -471,7 +471,7 @@ ingress:
 
 **Install with Custom Values:**
 ```bash
-helm install titananvil titananvil/kscore \
+helm install keystonecore keystonecore/kscore \
   --namespace kscore \
   --values values.yaml
 ```

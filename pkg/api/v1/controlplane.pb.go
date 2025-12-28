@@ -215,7 +215,7 @@ func (BatchJobStatus) EnumDescriptor() ([]byte, []int) {
 type ListAgentsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Filter by status (optional)
-	Status AgentStatus `protobuf:"varint,1,opt,name=status,proto3,enum=titan.anvil.v1.AgentStatus" json:"status,omitempty"`
+	Status AgentStatus `protobuf:"varint,1,opt,name=status,proto3,enum=keystone.core.v1.AgentStatus" json:"status,omitempty"`
 	// Filter by labels (optional)
 	Labels map[string]string `protobuf:"bytes,2,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// Pagination
@@ -355,7 +355,7 @@ type AgentInfo struct {
 	// Agent metadata
 	Metadata *AgentMetadata `protobuf:"bytes,2,opt,name=metadata,proto3" json:"metadata,omitempty"`
 	// Current status
-	Status AgentStatus `protobuf:"varint,3,opt,name=status,proto3,enum=titan.anvil.v1.AgentStatus" json:"status,omitempty"`
+	Status AgentStatus `protobuf:"varint,3,opt,name=status,proto3,enum=keystone.core.v1.AgentStatus" json:"status,omitempty"`
 	// Last heartbeat timestamp
 	LastHeartbeat *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=last_heartbeat,json=lastHeartbeat,proto3" json:"last_heartbeat,omitempty"`
 	// Registration timestamp
@@ -582,7 +582,7 @@ type GetCommandStatusResponse struct {
 	// Command ID
 	CommandId string `protobuf:"bytes,1,opt,name=command_id,json=commandId,proto3" json:"command_id,omitempty"`
 	// Command status
-	Status CommandStatus `protobuf:"varint,2,opt,name=status,proto3,enum=titan.anvil.v1.CommandStatus" json:"status,omitempty"`
+	Status CommandStatus `protobuf:"varint,2,opt,name=status,proto3,enum=keystone.core.v1.CommandStatus" json:"status,omitempty"`
 	// Target agent ID
 	AgentId string `protobuf:"bytes,3,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
 	// Command details
@@ -730,7 +730,7 @@ type ListCommandsRequest struct {
 	// Filter by agent ID (optional)
 	AgentId string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
 	// Filter by status (optional)
-	Status CommandStatus `protobuf:"varint,2,opt,name=status,proto3,enum=titan.anvil.v1.CommandStatus" json:"status,omitempty"`
+	Status CommandStatus `protobuf:"varint,2,opt,name=status,proto3,enum=keystone.core.v1.CommandStatus" json:"status,omitempty"`
 	// Filter by time range (optional)
 	StartTime *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=start_time,json=startTime,proto3" json:"start_time,omitempty"`
 	EndTime   *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=end_time,json=endTime,proto3" json:"end_time,omitempty"`
@@ -888,7 +888,7 @@ type CommandInfo struct {
 	Command string   `protobuf:"bytes,3,opt,name=command,proto3" json:"command,omitempty"`
 	Args    []string `protobuf:"bytes,4,rep,name=args,proto3" json:"args,omitempty"`
 	// Status
-	Status CommandStatus `protobuf:"varint,5,opt,name=status,proto3,enum=titan.anvil.v1.CommandStatus" json:"status,omitempty"`
+	Status CommandStatus `protobuf:"varint,5,opt,name=status,proto3,enum=keystone.core.v1.CommandStatus" json:"status,omitempty"`
 	// Exit code
 	ExitCode int32 `protobuf:"varint,6,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
 	// Timestamps
@@ -1134,7 +1134,7 @@ type BatchExecuteCommandResponse struct {
 	// Batch job ID
 	BatchJobId string `protobuf:"bytes,1,opt,name=batch_job_id,json=batchJobId,proto3" json:"batch_job_id,omitempty"`
 	// Response type
-	Type BatchResponseType `protobuf:"varint,2,opt,name=type,proto3,enum=titan.anvil.v1.BatchResponseType" json:"type,omitempty"`
+	Type BatchResponseType `protobuf:"varint,2,opt,name=type,proto3,enum=keystone.core.v1.BatchResponseType" json:"type,omitempty"`
 	// Agent ID (for AGENT_START, AGENT_OUTPUT, AGENT_COMPLETE, AGENT_FAILED)
 	AgentId string `protobuf:"bytes,3,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
 	// Output data (for AGENT_OUTPUT)
@@ -1604,7 +1604,7 @@ type BatchJobInfo struct {
 	Command string   `protobuf:"bytes,3,opt,name=command,proto3" json:"command,omitempty"`
 	Args    []string `protobuf:"bytes,4,rep,name=args,proto3" json:"args,omitempty"`
 	// Job status
-	Status BatchJobStatus `protobuf:"varint,5,opt,name=status,proto3,enum=titan.anvil.v1.BatchJobStatus" json:"status,omitempty"`
+	Status BatchJobStatus `protobuf:"varint,5,opt,name=status,proto3,enum=keystone.core.v1.BatchJobStatus" json:"status,omitempty"`
 	// Progress
 	Progress *BatchProgress `protobuf:"bytes,6,opt,name=progress,proto3" json:"progress,omitempty"`
 	// Summary (available when completed)
@@ -1730,7 +1730,7 @@ func (x *BatchJobInfo) GetDurationMs() int64 {
 type ListBatchJobsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Filter by status (optional)
-	Status BatchJobStatus `protobuf:"varint,1,opt,name=status,proto3,enum=titan.anvil.v1.BatchJobStatus" json:"status,omitempty"`
+	Status BatchJobStatus `protobuf:"varint,1,opt,name=status,proto3,enum=keystone.core.v1.BatchJobStatus" json:"status,omitempty"`
 	// Filter by target expression (optional)
 	Target string `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"`
 	// Filter by time range (optional)
@@ -1883,39 +1883,39 @@ var File_controlplane_proto protoreflect.FileDescriptor
 
 const file_controlplane_proto_rawDesc = "" +
 	"\n" +
-	"\x12controlplane.proto\x12\x0etitan.anvil.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\vagent.proto\"\x86\x02\n" +
-	"\x11ListAgentsRequest\x123\n" +
-	"\x06status\x18\x01 \x01(\x0e2\x1b.titan.anvil.v1.AgentStatusR\x06status\x12E\n" +
-	"\x06labels\x18\x02 \x03(\v2-.titan.anvil.v1.ListAgentsRequest.LabelsEntryR\x06labels\x12\x1b\n" +
+	"\x12controlplane.proto\x12\x10keystone.core.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\vagent.proto\"\x8a\x02\n" +
+	"\x11ListAgentsRequest\x125\n" +
+	"\x06status\x18\x01 \x01(\x0e2\x1d.keystone.core.v1.AgentStatusR\x06status\x12G\n" +
+	"\x06labels\x18\x02 \x03(\v2/.keystone.core.v1.ListAgentsRequest.LabelsEntryR\x06labels\x12\x1b\n" +
 	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
 	"page_token\x18\x04 \x01(\tR\tpageToken\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x90\x01\n" +
-	"\x12ListAgentsResponse\x121\n" +
-	"\x06agents\x18\x01 \x03(\v2\x19.titan.anvil.v1.AgentInfoR\x06agents\x12&\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x92\x01\n" +
+	"\x12ListAgentsResponse\x123\n" +
+	"\x06agents\x18\x01 \x03(\v2\x1b.keystone.core.v1.AgentInfoR\x06agents\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +
 	"\vtotal_count\x18\x03 \x01(\x05R\n" +
-	"totalCount\"\xd3\x02\n" +
+	"totalCount\"\xd9\x02\n" +
 	"\tAgentInfo\x12\x19\n" +
-	"\bagent_id\x18\x01 \x01(\tR\aagentId\x129\n" +
-	"\bmetadata\x18\x02 \x01(\v2\x1d.titan.anvil.v1.AgentMetadataR\bmetadata\x123\n" +
-	"\x06status\x18\x03 \x01(\x0e2\x1b.titan.anvil.v1.AgentStatusR\x06status\x12A\n" +
+	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12;\n" +
+	"\bmetadata\x18\x02 \x01(\v2\x1f.keystone.core.v1.AgentMetadataR\bmetadata\x125\n" +
+	"\x06status\x18\x03 \x01(\x0e2\x1d.keystone.core.v1.AgentStatusR\x06status\x12A\n" +
 	"\x0elast_heartbeat\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\rlastHeartbeat\x12?\n" +
-	"\rregistered_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\fregisteredAt\x127\n" +
-	"\ametrics\x18\x06 \x01(\v2\x1d.titan.anvil.v1.SystemMetricsR\ametrics\",\n" +
+	"\rregistered_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\fregisteredAt\x129\n" +
+	"\ametrics\x18\x06 \x01(\v2\x1f.keystone.core.v1.SystemMetricsR\ametrics\",\n" +
 	"\x0fGetAgentRequest\x12\x19\n" +
-	"\bagent_id\x18\x01 \x01(\tR\aagentId\"C\n" +
-	"\x10GetAgentResponse\x12/\n" +
-	"\x05agent\x18\x01 \x01(\v2\x19.titan.anvil.v1.AgentInfoR\x05agent\"8\n" +
+	"\bagent_id\x18\x01 \x01(\tR\aagentId\"E\n" +
+	"\x10GetAgentResponse\x121\n" +
+	"\x05agent\x18\x01 \x01(\v2\x1b.keystone.core.v1.AgentInfoR\x05agent\"8\n" +
 	"\x17GetCommandStatusRequest\x12\x1d\n" +
 	"\n" +
-	"command_id\x18\x01 \x01(\tR\tcommandId\"\xf2\x03\n" +
+	"command_id\x18\x01 \x01(\tR\tcommandId\"\xf4\x03\n" +
 	"\x18GetCommandStatusResponse\x12\x1d\n" +
 	"\n" +
-	"command_id\x18\x01 \x01(\tR\tcommandId\x125\n" +
-	"\x06status\x18\x02 \x01(\x0e2\x1d.titan.anvil.v1.CommandStatusR\x06status\x12\x19\n" +
+	"command_id\x18\x01 \x01(\tR\tcommandId\x127\n" +
+	"\x06status\x18\x02 \x01(\x0e2\x1f.keystone.core.v1.CommandStatusR\x06status\x12\x19\n" +
 	"\bagent_id\x18\x03 \x01(\tR\aagentId\x12\x18\n" +
 	"\acommand\x18\x04 \x01(\tR\acommand\x12\x12\n" +
 	"\x04args\x18\x05 \x03(\tR\x04args\x12\x1b\n" +
@@ -1930,28 +1930,28 @@ const file_controlplane_proto_rawDesc = "" +
 	"started_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\x12=\n" +
 	"\fcompleted_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\vcompletedAt\x12\x1f\n" +
 	"\vduration_ms\x18\r \x01(\x03R\n" +
-	"durationMs\"\x95\x02\n" +
+	"durationMs\"\x97\x02\n" +
 	"\x13ListCommandsRequest\x12\x19\n" +
-	"\bagent_id\x18\x01 \x01(\tR\aagentId\x125\n" +
-	"\x06status\x18\x02 \x01(\x0e2\x1d.titan.anvil.v1.CommandStatusR\x06status\x129\n" +
+	"\bagent_id\x18\x01 \x01(\tR\aagentId\x127\n" +
+	"\x06status\x18\x02 \x01(\x0e2\x1f.keystone.core.v1.CommandStatusR\x06status\x129\n" +
 	"\n" +
 	"start_time\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tstartTime\x125\n" +
 	"\bend_time\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\aendTime\x12\x1b\n" +
 	"\tpage_size\x18\x05 \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
-	"page_token\x18\x06 \x01(\tR\tpageToken\"\x98\x01\n" +
-	"\x14ListCommandsResponse\x127\n" +
-	"\bcommands\x18\x01 \x03(\v2\x1b.titan.anvil.v1.CommandInfoR\bcommands\x12&\n" +
+	"page_token\x18\x06 \x01(\tR\tpageToken\"\x9a\x01\n" +
+	"\x14ListCommandsResponse\x129\n" +
+	"\bcommands\x18\x01 \x03(\v2\x1d.keystone.core.v1.CommandInfoR\bcommands\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +
 	"\vtotal_count\x18\x03 \x01(\x05R\n" +
-	"totalCount\"\x9f\x03\n" +
+	"totalCount\"\xa1\x03\n" +
 	"\vCommandInfo\x12\x1d\n" +
 	"\n" +
 	"command_id\x18\x01 \x01(\tR\tcommandId\x12\x19\n" +
 	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x18\n" +
 	"\acommand\x18\x03 \x01(\tR\acommand\x12\x12\n" +
-	"\x04args\x18\x04 \x03(\tR\x04args\x125\n" +
-	"\x06status\x18\x05 \x01(\x0e2\x1d.titan.anvil.v1.CommandStatusR\x06status\x12\x1b\n" +
+	"\x04args\x18\x04 \x03(\tR\x04args\x127\n" +
+	"\x06status\x18\x05 \x01(\x0e2\x1f.keystone.core.v1.CommandStatusR\x06status\x12\x1b\n" +
 	"\texit_code\x18\x06 \x01(\x05R\bexitCode\x129\n" +
 	"\n" +
 	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
@@ -1960,14 +1960,14 @@ const file_controlplane_proto_rawDesc = "" +
 	"\fcompleted_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\vcompletedAt\x12\x1f\n" +
 	"\vduration_ms\x18\n" +
 	" \x01(\x03R\n" +
-	"durationMs\"\xa4\x03\n" +
+	"durationMs\"\xa6\x03\n" +
 	"\x1aBatchExecuteCommandRequest\x12 \n" +
 	"\fbatch_job_id\x18\x01 \x01(\tR\n" +
 	"batchJobId\x12\x16\n" +
 	"\x06target\x18\x02 \x01(\tR\x06target\x12\x18\n" +
 	"\acommand\x18\x03 \x01(\tR\acommand\x12\x12\n" +
-	"\x04args\x18\x04 \x03(\tR\x04args\x12E\n" +
-	"\x03env\x18\x05 \x03(\v23.titan.anvil.v1.BatchExecuteCommandRequest.EnvEntryR\x03env\x12\x1f\n" +
+	"\x04args\x18\x04 \x03(\tR\x04args\x12G\n" +
+	"\x03env\x18\x05 \x03(\v25.keystone.core.v1.BatchExecuteCommandRequest.EnvEntryR\x03env\x12\x1f\n" +
 	"\vworking_dir\x18\x06 \x01(\tR\n" +
 	"workingDir\x12\x18\n" +
 	"\atimeout\x18\a \x01(\x05R\atimeout\x12\x12\n" +
@@ -1977,17 +1977,17 @@ const file_controlplane_proto_rawDesc = "" +
 	" \x01(\bR\x11continueOnFailure\x1a6\n" +
 	"\bEnvEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x85\x03\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x8b\x03\n" +
 	"\x1bBatchExecuteCommandResponse\x12 \n" +
 	"\fbatch_job_id\x18\x01 \x01(\tR\n" +
-	"batchJobId\x125\n" +
-	"\x04type\x18\x02 \x01(\x0e2!.titan.anvil.v1.BatchResponseTypeR\x04type\x12\x19\n" +
+	"batchJobId\x127\n" +
+	"\x04type\x18\x02 \x01(\x0e2#.keystone.core.v1.BatchResponseTypeR\x04type\x12\x19\n" +
 	"\bagent_id\x18\x03 \x01(\tR\aagentId\x12\x12\n" +
 	"\x04data\x18\x04 \x01(\fR\x04data\x12\x1b\n" +
 	"\texit_code\x18\x05 \x01(\x05R\bexitCode\x12\x14\n" +
-	"\x05error\x18\x06 \x01(\tR\x05error\x129\n" +
-	"\bprogress\x18\a \x01(\v2\x1d.titan.anvil.v1.BatchProgressR\bprogress\x126\n" +
-	"\asummary\x18\b \x01(\v2\x1c.titan.anvil.v1.BatchSummaryR\asummary\x128\n" +
+	"\x05error\x18\x06 \x01(\tR\x05error\x12;\n" +
+	"\bprogress\x18\a \x01(\v2\x1f.keystone.core.v1.BatchProgressR\bprogress\x128\n" +
+	"\asummary\x18\b \x01(\v2\x1e.keystone.core.v1.BatchSummaryR\asummary\x128\n" +
 	"\ttimestamp\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\"\x9e\x01\n" +
 	"\rBatchProgress\x12\x14\n" +
 	"\x05total\x18\x01 \x01(\x05R\x05total\x12\x1c\n" +
@@ -1996,7 +1996,7 @@ const file_controlplane_proto_rawDesc = "" +
 	"successful\x18\x03 \x01(\x05R\n" +
 	"successful\x12\x16\n" +
 	"\x06failed\x18\x04 \x01(\x05R\x06failed\x12!\n" +
-	"\fsuccess_rate\x18\x05 \x01(\x02R\vsuccessRate\"\xe7\x01\n" +
+	"\fsuccess_rate\x18\x05 \x01(\x02R\vsuccessRate\"\xe9\x01\n" +
 	"\fBatchSummary\x12\x14\n" +
 	"\x05total\x18\x01 \x01(\x05R\x05total\x12\x1e\n" +
 	"\n" +
@@ -2005,8 +2005,8 @@ const file_controlplane_proto_rawDesc = "" +
 	"\x06failed\x18\x03 \x01(\x05R\x06failed\x12!\n" +
 	"\fsuccess_rate\x18\x04 \x01(\x02R\vsuccessRate\x12\x1f\n" +
 	"\vduration_ms\x18\x05 \x01(\x03R\n" +
-	"durationMs\x12E\n" +
-	"\ragent_results\x18\x06 \x03(\v2 .titan.anvil.v1.BatchAgentResultR\fagentResults\"\x9b\x01\n" +
+	"durationMs\x12G\n" +
+	"\ragent_results\x18\x06 \x03(\v2\".keystone.core.v1.BatchAgentResultR\fagentResults\"\x9b\x01\n" +
 	"\x10BatchAgentResult\x12\x19\n" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12\x18\n" +
 	"\asuccess\x18\x02 \x01(\bR\asuccess\x12\x1b\n" +
@@ -2016,18 +2016,18 @@ const file_controlplane_proto_rawDesc = "" +
 	"durationMs\"<\n" +
 	"\x18GetBatchJobStatusRequest\x12 \n" +
 	"\fbatch_job_id\x18\x01 \x01(\tR\n" +
-	"batchJobId\"K\n" +
-	"\x19GetBatchJobStatusResponse\x12.\n" +
-	"\x03job\x18\x01 \x01(\v2\x1c.titan.anvil.v1.BatchJobInfoR\x03job\"\xf7\x03\n" +
+	"batchJobId\"M\n" +
+	"\x19GetBatchJobStatusResponse\x120\n" +
+	"\x03job\x18\x01 \x01(\v2\x1e.keystone.core.v1.BatchJobInfoR\x03job\"\xfd\x03\n" +
 	"\fBatchJobInfo\x12 \n" +
 	"\fbatch_job_id\x18\x01 \x01(\tR\n" +
 	"batchJobId\x12\x16\n" +
 	"\x06target\x18\x02 \x01(\tR\x06target\x12\x18\n" +
 	"\acommand\x18\x03 \x01(\tR\acommand\x12\x12\n" +
-	"\x04args\x18\x04 \x03(\tR\x04args\x126\n" +
-	"\x06status\x18\x05 \x01(\x0e2\x1e.titan.anvil.v1.BatchJobStatusR\x06status\x129\n" +
-	"\bprogress\x18\x06 \x01(\v2\x1d.titan.anvil.v1.BatchProgressR\bprogress\x126\n" +
-	"\asummary\x18\a \x01(\v2\x1c.titan.anvil.v1.BatchSummaryR\asummary\x129\n" +
+	"\x04args\x18\x04 \x03(\tR\x04args\x128\n" +
+	"\x06status\x18\x05 \x01(\x0e2 .keystone.core.v1.BatchJobStatusR\x06status\x12;\n" +
+	"\bprogress\x18\x06 \x01(\v2\x1f.keystone.core.v1.BatchProgressR\bprogress\x128\n" +
+	"\asummary\x18\a \x01(\v2\x1e.keystone.core.v1.BatchSummaryR\asummary\x129\n" +
 	"\n" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
@@ -2035,18 +2035,18 @@ const file_controlplane_proto_rawDesc = "" +
 	"\fcompleted_at\x18\n" +
 	" \x01(\v2\x1a.google.protobuf.TimestampR\vcompletedAt\x12\x1f\n" +
 	"\vduration_ms\x18\v \x01(\x03R\n" +
-	"durationMs\"\x94\x02\n" +
-	"\x14ListBatchJobsRequest\x126\n" +
-	"\x06status\x18\x01 \x01(\x0e2\x1e.titan.anvil.v1.BatchJobStatusR\x06status\x12\x16\n" +
+	"durationMs\"\x96\x02\n" +
+	"\x14ListBatchJobsRequest\x128\n" +
+	"\x06status\x18\x01 \x01(\x0e2 .keystone.core.v1.BatchJobStatusR\x06status\x12\x16\n" +
 	"\x06target\x18\x02 \x01(\tR\x06target\x129\n" +
 	"\n" +
 	"start_time\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tstartTime\x125\n" +
 	"\bend_time\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\aendTime\x12\x1b\n" +
 	"\tpage_size\x18\x05 \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
-	"page_token\x18\x06 \x01(\tR\tpageToken\"\x92\x01\n" +
-	"\x15ListBatchJobsResponse\x120\n" +
-	"\x04jobs\x18\x01 \x03(\v2\x1c.titan.anvil.v1.BatchJobInfoR\x04jobs\x12&\n" +
+	"page_token\x18\x06 \x01(\tR\tpageToken\"\x94\x01\n" +
+	"\x15ListBatchJobsResponse\x122\n" +
+	"\x04jobs\x18\x01 \x03(\v2\x1e.keystone.core.v1.BatchJobInfoR\x04jobs\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +
 	"\vtotal_count\x18\x03 \x01(\x05R\n" +
 	"totalCount*\xda\x01\n" +
@@ -2074,17 +2074,17 @@ const file_controlplane_proto_rawDesc = "" +
 	"\x18BATCH_JOB_STATUS_RUNNING\x10\x02\x12\x1e\n" +
 	"\x1aBATCH_JOB_STATUS_COMPLETED\x10\x03\x12\x1b\n" +
 	"\x17BATCH_JOB_STATUS_FAILED\x10\x04\x12\x1e\n" +
-	"\x1aBATCH_JOB_STATUS_CANCELLED\x10\x052\x98\x06\n" +
-	"\x13ControlPlaneService\x12S\n" +
+	"\x1aBATCH_JOB_STATUS_CANCELLED\x10\x052\xb8\x06\n" +
+	"\x13ControlPlaneService\x12W\n" +
 	"\n" +
-	"ListAgents\x12!.titan.anvil.v1.ListAgentsRequest\x1a\".titan.anvil.v1.ListAgentsResponse\x12M\n" +
-	"\bGetAgent\x12\x1f.titan.anvil.v1.GetAgentRequest\x1a .titan.anvil.v1.GetAgentResponse\x12a\n" +
-	"\x0eExecuteCommand\x12%.titan.anvil.v1.ExecuteCommandRequest\x1a&.titan.anvil.v1.ExecuteCommandResponse0\x01\x12e\n" +
-	"\x10GetCommandStatus\x12'.titan.anvil.v1.GetCommandStatusRequest\x1a(.titan.anvil.v1.GetCommandStatusResponse\x12Y\n" +
-	"\fListCommands\x12#.titan.anvil.v1.ListCommandsRequest\x1a$.titan.anvil.v1.ListCommandsResponse\x12p\n" +
-	"\x13BatchExecuteCommand\x12*.titan.anvil.v1.BatchExecuteCommandRequest\x1a+.titan.anvil.v1.BatchExecuteCommandResponse0\x01\x12h\n" +
-	"\x11GetBatchJobStatus\x12(.titan.anvil.v1.GetBatchJobStatusRequest\x1a).titan.anvil.v1.GetBatchJobStatusResponse\x12\\\n" +
-	"\rListBatchJobs\x12$.titan.anvil.v1.ListBatchJobsRequest\x1a%.titan.anvil.v1.ListBatchJobsResponseB1Z/github.com/titananvil/titan-anvil/pkg/api/v1;v1b\x06proto3"
+	"ListAgents\x12#.keystone.core.v1.ListAgentsRequest\x1a$.keystone.core.v1.ListAgentsResponse\x12Q\n" +
+	"\bGetAgent\x12!.keystone.core.v1.GetAgentRequest\x1a\".keystone.core.v1.GetAgentResponse\x12e\n" +
+	"\x0eExecuteCommand\x12'.keystone.core.v1.ExecuteCommandRequest\x1a(.keystone.core.v1.ExecuteCommandResponse0\x01\x12i\n" +
+	"\x10GetCommandStatus\x12).keystone.core.v1.GetCommandStatusRequest\x1a*.keystone.core.v1.GetCommandStatusResponse\x12]\n" +
+	"\fListCommands\x12%.keystone.core.v1.ListCommandsRequest\x1a&.keystone.core.v1.ListCommandsResponse\x12t\n" +
+	"\x13BatchExecuteCommand\x12,.keystone.core.v1.BatchExecuteCommandRequest\x1a-.keystone.core.v1.BatchExecuteCommandResponse0\x01\x12l\n" +
+	"\x11GetBatchJobStatus\x12*.keystone.core.v1.GetBatchJobStatusRequest\x1a+.keystone.core.v1.GetBatchJobStatusResponse\x12`\n" +
+	"\rListBatchJobs\x12&.keystone.core.v1.ListBatchJobsRequest\x1a'.keystone.core.v1.ListBatchJobsResponseB3Z1github.com/shawnbutts/keystone-core/pkg/api/v1;v1b\x06proto3"
 
 var (
 	file_controlplane_proto_rawDescOnce sync.Once
@@ -2101,93 +2101,93 @@ func file_controlplane_proto_rawDescGZIP() []byte {
 var file_controlplane_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
 var file_controlplane_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
 var file_controlplane_proto_goTypes = []any{
-	(CommandStatus)(0),                  // 0: titan.anvil.v1.CommandStatus
-	(BatchResponseType)(0),              // 1: titan.anvil.v1.BatchResponseType
-	(BatchJobStatus)(0),                 // 2: titan.anvil.v1.BatchJobStatus
-	(*ListAgentsRequest)(nil),           // 3: titan.anvil.v1.ListAgentsRequest
-	(*ListAgentsResponse)(nil),          // 4: titan.anvil.v1.ListAgentsResponse
-	(*AgentInfo)(nil),                   // 5: titan.anvil.v1.AgentInfo
-	(*GetAgentRequest)(nil),             // 6: titan.anvil.v1.GetAgentRequest
-	(*GetAgentResponse)(nil),            // 7: titan.anvil.v1.GetAgentResponse
-	(*GetCommandStatusRequest)(nil),     // 8: titan.anvil.v1.GetCommandStatusRequest
-	(*GetCommandStatusResponse)(nil),    // 9: titan.anvil.v1.GetCommandStatusResponse
-	(*ListCommandsRequest)(nil),         // 10: titan.anvil.v1.ListCommandsRequest
-	(*ListCommandsResponse)(nil),        // 11: titan.anvil.v1.ListCommandsResponse
-	(*CommandInfo)(nil),                 // 12: titan.anvil.v1.CommandInfo
-	(*BatchExecuteCommandRequest)(nil),  // 13: titan.anvil.v1.BatchExecuteCommandRequest
-	(*BatchExecuteCommandResponse)(nil), // 14: titan.anvil.v1.BatchExecuteCommandResponse
-	(*BatchProgress)(nil),               // 15: titan.anvil.v1.BatchProgress
-	(*BatchSummary)(nil),                // 16: titan.anvil.v1.BatchSummary
-	(*BatchAgentResult)(nil),            // 17: titan.anvil.v1.BatchAgentResult
-	(*GetBatchJobStatusRequest)(nil),    // 18: titan.anvil.v1.GetBatchJobStatusRequest
-	(*GetBatchJobStatusResponse)(nil),   // 19: titan.anvil.v1.GetBatchJobStatusResponse
-	(*BatchJobInfo)(nil),                // 20: titan.anvil.v1.BatchJobInfo
-	(*ListBatchJobsRequest)(nil),        // 21: titan.anvil.v1.ListBatchJobsRequest
-	(*ListBatchJobsResponse)(nil),       // 22: titan.anvil.v1.ListBatchJobsResponse
-	nil,                                 // 23: titan.anvil.v1.ListAgentsRequest.LabelsEntry
-	nil,                                 // 24: titan.anvil.v1.BatchExecuteCommandRequest.EnvEntry
-	(AgentStatus)(0),                    // 25: titan.anvil.v1.AgentStatus
-	(*AgentMetadata)(nil),               // 26: titan.anvil.v1.AgentMetadata
+	(CommandStatus)(0),                  // 0: keystone.core.v1.CommandStatus
+	(BatchResponseType)(0),              // 1: keystone.core.v1.BatchResponseType
+	(BatchJobStatus)(0),                 // 2: keystone.core.v1.BatchJobStatus
+	(*ListAgentsRequest)(nil),           // 3: keystone.core.v1.ListAgentsRequest
+	(*ListAgentsResponse)(nil),          // 4: keystone.core.v1.ListAgentsResponse
+	(*AgentInfo)(nil),                   // 5: keystone.core.v1.AgentInfo
+	(*GetAgentRequest)(nil),             // 6: keystone.core.v1.GetAgentRequest
+	(*GetAgentResponse)(nil),            // 7: keystone.core.v1.GetAgentResponse
+	(*GetCommandStatusRequest)(nil),     // 8: keystone.core.v1.GetCommandStatusRequest
+	(*GetCommandStatusResponse)(nil),    // 9: keystone.core.v1.GetCommandStatusResponse
+	(*ListCommandsRequest)(nil),         // 10: keystone.core.v1.ListCommandsRequest
+	(*ListCommandsResponse)(nil),        // 11: keystone.core.v1.ListCommandsResponse
+	(*CommandInfo)(nil),                 // 12: keystone.core.v1.CommandInfo
+	(*BatchExecuteCommandRequest)(nil),  // 13: keystone.core.v1.BatchExecuteCommandRequest
+	(*BatchExecuteCommandResponse)(nil), // 14: keystone.core.v1.BatchExecuteCommandResponse
+	(*BatchProgress)(nil),               // 15: keystone.core.v1.BatchProgress
+	(*BatchSummary)(nil),                // 16: keystone.core.v1.BatchSummary
+	(*BatchAgentResult)(nil),            // 17: keystone.core.v1.BatchAgentResult
+	(*GetBatchJobStatusRequest)(nil),    // 18: keystone.core.v1.GetBatchJobStatusRequest
+	(*GetBatchJobStatusResponse)(nil),   // 19: keystone.core.v1.GetBatchJobStatusResponse
+	(*BatchJobInfo)(nil),                // 20: keystone.core.v1.BatchJobInfo
+	(*ListBatchJobsRequest)(nil),        // 21: keystone.core.v1.ListBatchJobsRequest
+	(*ListBatchJobsResponse)(nil),       // 22: keystone.core.v1.ListBatchJobsResponse
+	nil,                                 // 23: keystone.core.v1.ListAgentsRequest.LabelsEntry
+	nil,                                 // 24: keystone.core.v1.BatchExecuteCommandRequest.EnvEntry
+	(AgentStatus)(0),                    // 25: keystone.core.v1.AgentStatus
+	(*AgentMetadata)(nil),               // 26: keystone.core.v1.AgentMetadata
 	(*timestamppb.Timestamp)(nil),       // 27: google.protobuf.Timestamp
-	(*SystemMetrics)(nil),               // 28: titan.anvil.v1.SystemMetrics
-	(*ExecuteCommandRequest)(nil),       // 29: titan.anvil.v1.ExecuteCommandRequest
-	(*ExecuteCommandResponse)(nil),      // 30: titan.anvil.v1.ExecuteCommandResponse
+	(*SystemMetrics)(nil),               // 28: keystone.core.v1.SystemMetrics
+	(*ExecuteCommandRequest)(nil),       // 29: keystone.core.v1.ExecuteCommandRequest
+	(*ExecuteCommandResponse)(nil),      // 30: keystone.core.v1.ExecuteCommandResponse
 }
 var file_controlplane_proto_depIdxs = []int32{
-	25, // 0: titan.anvil.v1.ListAgentsRequest.status:type_name -> titan.anvil.v1.AgentStatus
-	23, // 1: titan.anvil.v1.ListAgentsRequest.labels:type_name -> titan.anvil.v1.ListAgentsRequest.LabelsEntry
-	5,  // 2: titan.anvil.v1.ListAgentsResponse.agents:type_name -> titan.anvil.v1.AgentInfo
-	26, // 3: titan.anvil.v1.AgentInfo.metadata:type_name -> titan.anvil.v1.AgentMetadata
-	25, // 4: titan.anvil.v1.AgentInfo.status:type_name -> titan.anvil.v1.AgentStatus
-	27, // 5: titan.anvil.v1.AgentInfo.last_heartbeat:type_name -> google.protobuf.Timestamp
-	27, // 6: titan.anvil.v1.AgentInfo.registered_at:type_name -> google.protobuf.Timestamp
-	28, // 7: titan.anvil.v1.AgentInfo.metrics:type_name -> titan.anvil.v1.SystemMetrics
-	5,  // 8: titan.anvil.v1.GetAgentResponse.agent:type_name -> titan.anvil.v1.AgentInfo
-	0,  // 9: titan.anvil.v1.GetCommandStatusResponse.status:type_name -> titan.anvil.v1.CommandStatus
-	27, // 10: titan.anvil.v1.GetCommandStatusResponse.created_at:type_name -> google.protobuf.Timestamp
-	27, // 11: titan.anvil.v1.GetCommandStatusResponse.started_at:type_name -> google.protobuf.Timestamp
-	27, // 12: titan.anvil.v1.GetCommandStatusResponse.completed_at:type_name -> google.protobuf.Timestamp
-	0,  // 13: titan.anvil.v1.ListCommandsRequest.status:type_name -> titan.anvil.v1.CommandStatus
-	27, // 14: titan.anvil.v1.ListCommandsRequest.start_time:type_name -> google.protobuf.Timestamp
-	27, // 15: titan.anvil.v1.ListCommandsRequest.end_time:type_name -> google.protobuf.Timestamp
-	12, // 16: titan.anvil.v1.ListCommandsResponse.commands:type_name -> titan.anvil.v1.CommandInfo
-	0,  // 17: titan.anvil.v1.CommandInfo.status:type_name -> titan.anvil.v1.CommandStatus
-	27, // 18: titan.anvil.v1.CommandInfo.created_at:type_name -> google.protobuf.Timestamp
-	27, // 19: titan.anvil.v1.CommandInfo.started_at:type_name -> google.protobuf.Timestamp
-	27, // 20: titan.anvil.v1.CommandInfo.completed_at:type_name -> google.protobuf.Timestamp
-	24, // 21: titan.anvil.v1.BatchExecuteCommandRequest.env:type_name -> titan.anvil.v1.BatchExecuteCommandRequest.EnvEntry
-	1,  // 22: titan.anvil.v1.BatchExecuteCommandResponse.type:type_name -> titan.anvil.v1.BatchResponseType
-	15, // 23: titan.anvil.v1.BatchExecuteCommandResponse.progress:type_name -> titan.anvil.v1.BatchProgress
-	16, // 24: titan.anvil.v1.BatchExecuteCommandResponse.summary:type_name -> titan.anvil.v1.BatchSummary
-	27, // 25: titan.anvil.v1.BatchExecuteCommandResponse.timestamp:type_name -> google.protobuf.Timestamp
-	17, // 26: titan.anvil.v1.BatchSummary.agent_results:type_name -> titan.anvil.v1.BatchAgentResult
-	20, // 27: titan.anvil.v1.GetBatchJobStatusResponse.job:type_name -> titan.anvil.v1.BatchJobInfo
-	2,  // 28: titan.anvil.v1.BatchJobInfo.status:type_name -> titan.anvil.v1.BatchJobStatus
-	15, // 29: titan.anvil.v1.BatchJobInfo.progress:type_name -> titan.anvil.v1.BatchProgress
-	16, // 30: titan.anvil.v1.BatchJobInfo.summary:type_name -> titan.anvil.v1.BatchSummary
-	27, // 31: titan.anvil.v1.BatchJobInfo.created_at:type_name -> google.protobuf.Timestamp
-	27, // 32: titan.anvil.v1.BatchJobInfo.started_at:type_name -> google.protobuf.Timestamp
-	27, // 33: titan.anvil.v1.BatchJobInfo.completed_at:type_name -> google.protobuf.Timestamp
-	2,  // 34: titan.anvil.v1.ListBatchJobsRequest.status:type_name -> titan.anvil.v1.BatchJobStatus
-	27, // 35: titan.anvil.v1.ListBatchJobsRequest.start_time:type_name -> google.protobuf.Timestamp
-	27, // 36: titan.anvil.v1.ListBatchJobsRequest.end_time:type_name -> google.protobuf.Timestamp
-	20, // 37: titan.anvil.v1.ListBatchJobsResponse.jobs:type_name -> titan.anvil.v1.BatchJobInfo
-	3,  // 38: titan.anvil.v1.ControlPlaneService.ListAgents:input_type -> titan.anvil.v1.ListAgentsRequest
-	6,  // 39: titan.anvil.v1.ControlPlaneService.GetAgent:input_type -> titan.anvil.v1.GetAgentRequest
-	29, // 40: titan.anvil.v1.ControlPlaneService.ExecuteCommand:input_type -> titan.anvil.v1.ExecuteCommandRequest
-	8,  // 41: titan.anvil.v1.ControlPlaneService.GetCommandStatus:input_type -> titan.anvil.v1.GetCommandStatusRequest
-	10, // 42: titan.anvil.v1.ControlPlaneService.ListCommands:input_type -> titan.anvil.v1.ListCommandsRequest
-	13, // 43: titan.anvil.v1.ControlPlaneService.BatchExecuteCommand:input_type -> titan.anvil.v1.BatchExecuteCommandRequest
-	18, // 44: titan.anvil.v1.ControlPlaneService.GetBatchJobStatus:input_type -> titan.anvil.v1.GetBatchJobStatusRequest
-	21, // 45: titan.anvil.v1.ControlPlaneService.ListBatchJobs:input_type -> titan.anvil.v1.ListBatchJobsRequest
-	4,  // 46: titan.anvil.v1.ControlPlaneService.ListAgents:output_type -> titan.anvil.v1.ListAgentsResponse
-	7,  // 47: titan.anvil.v1.ControlPlaneService.GetAgent:output_type -> titan.anvil.v1.GetAgentResponse
-	30, // 48: titan.anvil.v1.ControlPlaneService.ExecuteCommand:output_type -> titan.anvil.v1.ExecuteCommandResponse
-	9,  // 49: titan.anvil.v1.ControlPlaneService.GetCommandStatus:output_type -> titan.anvil.v1.GetCommandStatusResponse
-	11, // 50: titan.anvil.v1.ControlPlaneService.ListCommands:output_type -> titan.anvil.v1.ListCommandsResponse
-	14, // 51: titan.anvil.v1.ControlPlaneService.BatchExecuteCommand:output_type -> titan.anvil.v1.BatchExecuteCommandResponse
-	19, // 52: titan.anvil.v1.ControlPlaneService.GetBatchJobStatus:output_type -> titan.anvil.v1.GetBatchJobStatusResponse
-	22, // 53: titan.anvil.v1.ControlPlaneService.ListBatchJobs:output_type -> titan.anvil.v1.ListBatchJobsResponse
+	25, // 0: keystone.core.v1.ListAgentsRequest.status:type_name -> keystone.core.v1.AgentStatus
+	23, // 1: keystone.core.v1.ListAgentsRequest.labels:type_name -> keystone.core.v1.ListAgentsRequest.LabelsEntry
+	5,  // 2: keystone.core.v1.ListAgentsResponse.agents:type_name -> keystone.core.v1.AgentInfo
+	26, // 3: keystone.core.v1.AgentInfo.metadata:type_name -> keystone.core.v1.AgentMetadata
+	25, // 4: keystone.core.v1.AgentInfo.status:type_name -> keystone.core.v1.AgentStatus
+	27, // 5: keystone.core.v1.AgentInfo.last_heartbeat:type_name -> google.protobuf.Timestamp
+	27, // 6: keystone.core.v1.AgentInfo.registered_at:type_name -> google.protobuf.Timestamp
+	28, // 7: keystone.core.v1.AgentInfo.metrics:type_name -> keystone.core.v1.SystemMetrics
+	5,  // 8: keystone.core.v1.GetAgentResponse.agent:type_name -> keystone.core.v1.AgentInfo
+	0,  // 9: keystone.core.v1.GetCommandStatusResponse.status:type_name -> keystone.core.v1.CommandStatus
+	27, // 10: keystone.core.v1.GetCommandStatusResponse.created_at:type_name -> google.protobuf.Timestamp
+	27, // 11: keystone.core.v1.GetCommandStatusResponse.started_at:type_name -> google.protobuf.Timestamp
+	27, // 12: keystone.core.v1.GetCommandStatusResponse.completed_at:type_name -> google.protobuf.Timestamp
+	0,  // 13: keystone.core.v1.ListCommandsRequest.status:type_name -> keystone.core.v1.CommandStatus
+	27, // 14: keystone.core.v1.ListCommandsRequest.start_time:type_name -> google.protobuf.Timestamp
+	27, // 15: keystone.core.v1.ListCommandsRequest.end_time:type_name -> google.protobuf.Timestamp
+	12, // 16: keystone.core.v1.ListCommandsResponse.commands:type_name -> keystone.core.v1.CommandInfo
+	0,  // 17: keystone.core.v1.CommandInfo.status:type_name -> keystone.core.v1.CommandStatus
+	27, // 18: keystone.core.v1.CommandInfo.created_at:type_name -> google.protobuf.Timestamp
+	27, // 19: keystone.core.v1.CommandInfo.started_at:type_name -> google.protobuf.Timestamp
+	27, // 20: keystone.core.v1.CommandInfo.completed_at:type_name -> google.protobuf.Timestamp
+	24, // 21: keystone.core.v1.BatchExecuteCommandRequest.env:type_name -> keystone.core.v1.BatchExecuteCommandRequest.EnvEntry
+	1,  // 22: keystone.core.v1.BatchExecuteCommandResponse.type:type_name -> keystone.core.v1.BatchResponseType
+	15, // 23: keystone.core.v1.BatchExecuteCommandResponse.progress:type_name -> keystone.core.v1.BatchProgress
+	16, // 24: keystone.core.v1.BatchExecuteCommandResponse.summary:type_name -> keystone.core.v1.BatchSummary
+	27, // 25: keystone.core.v1.BatchExecuteCommandResponse.timestamp:type_name -> google.protobuf.Timestamp
+	17, // 26: keystone.core.v1.BatchSummary.agent_results:type_name -> keystone.core.v1.BatchAgentResult
+	20, // 27: keystone.core.v1.GetBatchJobStatusResponse.job:type_name -> keystone.core.v1.BatchJobInfo
+	2,  // 28: keystone.core.v1.BatchJobInfo.status:type_name -> keystone.core.v1.BatchJobStatus
+	15, // 29: keystone.core.v1.BatchJobInfo.progress:type_name -> keystone.core.v1.BatchProgress
+	16, // 30: keystone.core.v1.BatchJobInfo.summary:type_name -> keystone.core.v1.BatchSummary
+	27, // 31: keystone.core.v1.BatchJobInfo.created_at:type_name -> google.protobuf.Timestamp
+	27, // 32: keystone.core.v1.BatchJobInfo.started_at:type_name -> google.protobuf.Timestamp
+	27, // 33: keystone.core.v1.BatchJobInfo.completed_at:type_name -> google.protobuf.Timestamp
+	2,  // 34: keystone.core.v1.ListBatchJobsRequest.status:type_name -> keystone.core.v1.BatchJobStatus
+	27, // 35: keystone.core.v1.ListBatchJobsRequest.start_time:type_name -> google.protobuf.Timestamp
+	27, // 36: keystone.core.v1.ListBatchJobsRequest.end_time:type_name -> google.protobuf.Timestamp
+	20, // 37: keystone.core.v1.ListBatchJobsResponse.jobs:type_name -> keystone.core.v1.BatchJobInfo
+	3,  // 38: keystone.core.v1.ControlPlaneService.ListAgents:input_type -> keystone.core.v1.ListAgentsRequest
+	6,  // 39: keystone.core.v1.ControlPlaneService.GetAgent:input_type -> keystone.core.v1.GetAgentRequest
+	29, // 40: keystone.core.v1.ControlPlaneService.ExecuteCommand:input_type -> keystone.core.v1.ExecuteCommandRequest
+	8,  // 41: keystone.core.v1.ControlPlaneService.GetCommandStatus:input_type -> keystone.core.v1.GetCommandStatusRequest
+	10, // 42: keystone.core.v1.ControlPlaneService.ListCommands:input_type -> keystone.core.v1.ListCommandsRequest
+	13, // 43: keystone.core.v1.ControlPlaneService.BatchExecuteCommand:input_type -> keystone.core.v1.BatchExecuteCommandRequest
+	18, // 44: keystone.core.v1.ControlPlaneService.GetBatchJobStatus:input_type -> keystone.core.v1.GetBatchJobStatusRequest
+	21, // 45: keystone.core.v1.ControlPlaneService.ListBatchJobs:input_type -> keystone.core.v1.ListBatchJobsRequest
+	4,  // 46: keystone.core.v1.ControlPlaneService.ListAgents:output_type -> keystone.core.v1.ListAgentsResponse
+	7,  // 47: keystone.core.v1.ControlPlaneService.GetAgent:output_type -> keystone.core.v1.GetAgentResponse
+	30, // 48: keystone.core.v1.ControlPlaneService.ExecuteCommand:output_type -> keystone.core.v1.ExecuteCommandResponse
+	9,  // 49: keystone.core.v1.ControlPlaneService.GetCommandStatus:output_type -> keystone.core.v1.GetCommandStatusResponse
+	11, // 50: keystone.core.v1.ControlPlaneService.ListCommands:output_type -> keystone.core.v1.ListCommandsResponse
+	14, // 51: keystone.core.v1.ControlPlaneService.BatchExecuteCommand:output_type -> keystone.core.v1.BatchExecuteCommandResponse
+	19, // 52: keystone.core.v1.ControlPlaneService.GetBatchJobStatus:output_type -> keystone.core.v1.GetBatchJobStatusResponse
+	22, // 53: keystone.core.v1.ControlPlaneService.ListBatchJobs:output_type -> keystone.core.v1.ListBatchJobsResponse
 	46, // [46:54] is the sub-list for method output_type
 	38, // [38:46] is the sub-list for method input_type
 	38, // [38:38] is the sub-list for extension type_name

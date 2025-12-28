@@ -2231,26 +2231,26 @@ Keystone Core fills the gap between declarative GitOps tools and runtime operati
 
 **Phase 6: Observability & Monitoring ✅ COMPLETE**
 - Cluster metrics (pkg/metrics/collectors.go)
-  - titan_cluster_members_total - Total cluster members
-  - titan_cluster_members_healthy - Healthy member count
-  - titan_cluster_has_quorum - Quorum status (0/1)
-  - titan_cluster_is_leader - Leadership status (0/1)
-  - titan_cluster_leader_changes_total - Leader change counter
-  - titan_cluster_leader_election_duration_seconds - Election latency
-  - titan_cluster_rebalance_total - Rebalance operations
-  - titan_cluster_rebalance_duration_seconds - Rebalance latency
-  - titan_cluster_agents_moved_total - Agents moved during rebalance
-  - titan_cluster_heartbeat_latency_seconds - Inter-member heartbeat latency
-  - titan_cluster_etcd_operations_total - etcd operation counter
-  - titan_cluster_etcd_operation_duration_seconds - etcd latency
-  - titan_cluster_member_status - Per-member health status
+  - kscore_cluster_members_total - Total cluster members
+  - kscore_cluster_members_healthy - Healthy member count
+  - kscore_cluster_has_quorum - Quorum status (0/1)
+  - kscore_cluster_is_leader - Leadership status (0/1)
+  - kscore_cluster_leader_changes_total - Leader change counter
+  - kscore_cluster_leader_election_duration_seconds - Election latency
+  - kscore_cluster_rebalance_total - Rebalance operations
+  - kscore_cluster_rebalance_duration_seconds - Rebalance latency
+  - kscore_cluster_agents_moved_total - Agents moved during rebalance
+  - kscore_cluster_heartbeat_latency_seconds - Inter-member heartbeat latency
+  - kscore_cluster_etcd_operations_total - etcd operation counter
+  - kscore_cluster_etcd_operation_duration_seconds - etcd latency
+  - kscore_cluster_member_status - Per-member health status
 - ClusterCollector helper struct with typed methods
 - Grafana dashboard (deploy/grafana/dashboards/cluster-health.json)
   - Cluster overview: quorum, members, leader status
   - Member health table and timeline
   - Leader election and rebalance metrics
   - etcd operations and latency
-- Alert rules (deploy/grafana/alerts/titananvil-alerts.yml)
+- Alert rules (deploy/grafana/alerts/kscore-alerts.yml)
   - ClusterNoQuorum (critical)
   - ClusterMemberUnhealthy (warning)
   - ClusterAllMembersUnhealthy (critical)

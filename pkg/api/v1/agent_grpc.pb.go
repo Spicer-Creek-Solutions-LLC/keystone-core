@@ -19,10 +19,10 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AgentService_Register_FullMethodName       = "/titan.anvil.v1.AgentService/Register"
-	AgentService_Heartbeat_FullMethodName      = "/titan.anvil.v1.AgentService/Heartbeat"
-	AgentService_ExecuteCommand_FullMethodName = "/titan.anvil.v1.AgentService/ExecuteCommand"
-	AgentService_GetAgentInfo_FullMethodName   = "/titan.anvil.v1.AgentService/GetAgentInfo"
+	AgentService_Register_FullMethodName       = "/keystone.core.v1.AgentService/Register"
+	AgentService_Heartbeat_FullMethodName      = "/keystone.core.v1.AgentService/Heartbeat"
+	AgentService_ExecuteCommand_FullMethodName = "/keystone.core.v1.AgentService/ExecuteCommand"
+	AgentService_GetAgentInfo_FullMethodName   = "/keystone.core.v1.AgentService/GetAgentInfo"
 )
 
 // AgentServiceClient is the client API for AgentService service.
@@ -224,7 +224,7 @@ func _AgentService_GetAgentInfo_Handler(srv interface{}, ctx context.Context, de
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var AgentService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "titan.anvil.v1.AgentService",
+	ServiceName: "keystone.core.v1.AgentService",
 	HandlerType: (*AgentServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

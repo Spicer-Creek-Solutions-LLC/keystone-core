@@ -16,7 +16,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-titan-module-sdk = "0.1"
+kscore-module-sdk = "0.1"
 
 [lib]
 crate-type = ["cdylib"]
@@ -25,8 +25,8 @@ crate-type = ["cdylib"]
 ## Quick Start
 
 ```rust
-use titan_module_sdk::{module_main, Result};
-use titan_module_sdk::host::log;
+use kscore_module_sdk::{module_main, Result};
+use kscore_module_sdk::host::log;
 
 fn my_module() -> Result<String> {
     log::info("Hello from Keystone Core!");
@@ -55,7 +55,7 @@ cargo build --target wasm32-wasi --release
 ### Filesystem (`fs`)
 
 ```rust
-use titan_module_sdk::host::fs;
+use kscore_module_sdk::host::fs;
 
 // Read file as bytes
 let data = fs::read_file("/path/to/file")?;
@@ -75,7 +75,7 @@ fs::write_string("/path/to/file", "Hello!")?;
 ### HTTP (`http`)
 
 ```rust
-use titan_module_sdk::host::http;
+use kscore_module_sdk::host::http;
 
 // GET request
 let response = http::get("https://api.example.com/data")?;
@@ -92,7 +92,7 @@ let response = http::post("https://api.example.com/submit", body)?;
 ### Command Execution (`exec`)
 
 ```rust
-use titan_module_sdk::host::exec;
+use kscore_module_sdk::host::exec;
 
 // Run command
 let result = exec::run("ls", &["-la".to_string()])?;
@@ -113,7 +113,7 @@ let result = exec::run_with_input(
 ### Logging (`log`)
 
 ```rust
-use titan_module_sdk::host::log;
+use kscore_module_sdk::host::log;
 
 log::debug("Debug message");
 log::info("Info message");
@@ -126,7 +126,7 @@ log::error("Error message");
 ### Key-Value Storage (`kv`)
 
 ```rust
-use titan_module_sdk::host::kv;
+use kscore_module_sdk::host::kv;
 
 // Set a value
 kv::set("my-key", "my-value")?;
@@ -142,7 +142,7 @@ if let Some(value) = kv::get("my-key")? {
 ### System Information (`system`)
 
 ```rust
-use titan_module_sdk::host::system;
+use kscore_module_sdk::host::system;
 
 // Get CPU information
 let cpu = system::cpu_info()?;
@@ -154,7 +154,7 @@ println!("CPU: {}", cpu);
 ### Cryptography (`crypto`)
 
 ```rust
-use titan_module_sdk::host::crypto;
+use kscore_module_sdk::host::crypto;
 
 // Compute SHA256 hash
 let hash = crypto::sha256(b"data to hash")?;
@@ -171,7 +171,7 @@ let hash = crypto::sha256_string("my string")?;
 The SDK provides a comprehensive error type:
 
 ```rust
-use titan_module_sdk::{Error, Result};
+use kscore_module_sdk::{Error, Result};
 
 fn my_function() -> Result<String> {
     // Filesystem error

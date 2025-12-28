@@ -80,7 +80,7 @@ async function generatePDF(browser, section, outputFile) {
       headerTemplate: '<div></div>',
       footerTemplate: `
         <div style="font-size: 8px; width: 100%; text-align: center; padding: 5px;">
-          TitanAnvil Documentation - Page <span class="pageNumber"></span> of <span class="totalPages"></span>
+          Keystone Core Documentation - Page <span class="pageNumber"></span> of <span class="totalPages"></span>
         </div>
       `
     });
@@ -126,7 +126,7 @@ async function generateCompletePDF(browser, outputFile) {
       headerTemplate: '<div></div>',
       footerTemplate: `
         <div style="font-size: 8px; width: 100%; text-align: center; padding: 5px;">
-          TitanAnvil Documentation - Page <span class="pageNumber"></span> of <span class="totalPages"></span>
+          Keystone Core Documentation - Page <span class="pageNumber"></span> of <span class="totalPages"></span>
         </div>
       `,
       outline: true
@@ -143,7 +143,7 @@ async function generateCompletePDF(browser, outputFile) {
 }
 
 async function main() {
-  log('=== TitanAnvil PDF Documentation Generator ===', 'blue');
+  log('=== Keystone Core PDF Documentation Generator ===', 'blue');
   log('Using Playwright with Chromium\n', 'blue');
 
   // Create output directory

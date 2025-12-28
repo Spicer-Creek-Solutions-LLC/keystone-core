@@ -89,7 +89,7 @@ echo "Backup completed: state-$TIMESTAMP.db.gz"
 **Schedule with Cron:**
 ```bash
 # /etc/cron.d/kscore-backup
-0 2 * * * titananvil /usr/local/bin/backup-sqlite.sh >> /var/log/kscore/backup.log 2>&1
+0 2 * * * keystonecore /usr/local/bin/backup-sqlite.sh >> /var/log/kscore/backup.log 2>&1
 ```
 
 **Verify Backup:**
@@ -113,7 +113,7 @@ TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 mkdir -p "$BACKUP_DIR"
 
 # Full database dump
-pg_dump -U kscore -h localhost -Fc titananvil > "$BACKUP_DIR/postgres-$TIMESTAMP.dump"
+pg_dump -U kscore -h localhost -Fc keystonecore > "$BACKUP_DIR/postgres-$TIMESTAMP.dump"
 
 # Schema-only backup
 pg_dump -U kscore -h localhost -s > "$BACKUP_DIR/schema-$TIMESTAMP.sql"
@@ -272,7 +272,7 @@ dropdb kscore
 createdb kscore
 
 # Restore from dump
-pg_restore -U kscore -d titananvil /var/backups/kscore/postgres-20240115-020000.dump
+pg_restore -U kscore -d keystonecore /var/backups/kscore/postgres-20240115-020000.dump
 
 # Start Keystone Core
 sudo systemctl start kscore-server
@@ -462,7 +462,7 @@ kscorectl cluster status
 ```bash
 # Update image tag
 kubectl set image deployment/kscore-server \
-  kscore-server=titananvil/server:v1.1.0 \
+  kscore-server=keystonecore/server:v1.1.0 \
   -n kscore
 
 # Watch rollout
@@ -475,7 +475,7 @@ kubectl get pods -n kscore
 **With Helm:**
 ```bash
 # Update chart values
-helm upgrade titananvil titananvil/kscore \
+helm upgrade keystonecore keystonecore/kscore \
   --namespace kscore \
   --set server.image.tag=v1.1.0 \
   --reuse-values
@@ -538,7 +538,7 @@ sudo mv /usr/local/bin/kscore-server.backup /usr/local/bin/kscore-server
 
 **3. Restore Database (if migrations ran):**
 ```bash
-pg_restore -U kscore -d titananvil /var/backups/kscore/pre-upgrade-backup.dump
+pg_restore -U kscore -d keystonecore /var/backups/kscore/pre-upgrade-backup.dump
 ```
 
 **4. Start Old Version:**
@@ -583,13 +583,13 @@ du -h /var/lib/kscore/state.db
 **Vacuum:**
 ```bash
 # Manual vacuum
-vacuumdb -U kscore -d titananvil -v
+vacuumdb -U kscore -d keystonecore -v
 
 # Analyze statistics
-vacuumdb -U kscore -d titananvil -z
+vacuumdb -U kscore -d keystonecore -z
 
 # Full vacuum (reclaims disk space, requires table lock)
-vacuumdb -U kscore -d titananvil -f
+vacuumdb -U kscore -d keystonecore -f
 ```
 
 **Autovacuum Configuration:**
@@ -605,7 +605,7 @@ autovacuum_analyze_threshold = 50
 **Reindex:**
 ```bash
 # Rebuild indexes
-reindexdb -U kscore -d titananvil
+reindexdb -U kscore -d keystonecore
 ```
 
 **Statistics Update:**
@@ -628,7 +628,7 @@ ANALYZE VERBOSE;
 # See Deployment Guide for PostgreSQL setup
 sudo apt-get install postgresql-14
 sudo -u postgres createuser kscore
-sudo -u postgres createdb -O kscore titananvil
+sudo -u postgres createdb -O kscore keystonecore
 ```
 
 **2. Export SQLite Data:**

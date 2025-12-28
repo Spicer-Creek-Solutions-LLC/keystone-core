@@ -1,6 +1,6 @@
-# Hello World TitanAnvil Module (Starlark)
+# Hello World Keystone Core Module (Starlark)
 #
-# This example module demonstrates the TitanAnvil Starlark module system by:
+# This example module demonstrates the Keystone Core Starlark module system by:
 # - Getting the CPU make and model
 # - Computing a SHA256 hash of the CPU information
 # - Writing the results to a file in the temp directory

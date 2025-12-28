@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package titan.anvil.v1;
+package keystone.core.v1;
 
-option go_package = "github.com/titananvil/titan-anvil/pkg/api/v1;v1";
+option go_package = "github.com/shawnbutts/keystone-core/pkg/api/v1;v1";
 
 import "google/protobuf/timestamp.proto";
 
@@ -62,7 +62,7 @@ message AgentMetadata {
   // Platform version (kernel version, OS version)
   string platform_version = 5;
 
-  // TitanAnvil agent version
+  // Keystone Core agent version
   string agent_version = 6;
 
   // Custom labels/tags

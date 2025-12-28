@@ -205,7 +205,7 @@ Deploy using Helm:
 
 ```bash
 # Add Helm repository
-helm repo add titananvil https://charts.kscore.dev
+helm repo add keystonecore https://charts.kscore.dev
 helm repo update
 
 # Install control plane

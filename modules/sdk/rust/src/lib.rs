@@ -1,16 +1,16 @@
-//! TitanAnvil Module SDK for Rust
+//! Keystone Core Module SDK for Rust
 //!
-//! This SDK enables building TitanAnvil modules in Rust that compile to WebAssembly.
+//! This SDK enables building Keystone Core modules in Rust that compile to WebAssembly.
 //! Modules can use host capabilities for file I/O, HTTP, command execution, and more.
 //!
 //! # Example
 //!
 //! ```rust,no_run
-//! use titan_module_sdk::{module_main, Result};
+//! use kscore_module_sdk::{module_main, Result};
 //!
 //! fn run_module() -> Result<String> {
 //!     // Your module logic here
-//!     Ok("Hello from TitanAnvil!".to_string())
+//!     Ok("Hello from Keystone Core!".to_string())
 //! }
 //!
 //! module_main!(run_module);
@@ -31,7 +31,7 @@ pub use host::*;
 /// # Example
 ///
 /// ```rust,no_run
-/// use titan_module_sdk::{module_main, Result};
+/// use kscore_module_sdk::{module_main, Result};
 ///
 /// fn run() -> Result<String> {
 ///     Ok("Success".to_string())

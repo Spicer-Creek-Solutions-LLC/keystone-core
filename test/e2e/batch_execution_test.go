@@ -178,7 +178,7 @@ func (a *mockAgent) Start(t *testing.T) {
 		t.Fatalf("Failed to marshal registration: %v", err)
 	}
 
-	_, err = a.natsManager.PublishRequest("titan.agent.register", data, 2*time.Second)
+	_, err = a.natsManager.PublishRequest("kscore.agent.register", data, 2*time.Second)
 	if err != nil {
 		t.Fatalf("Failed to register agent %s: %v", a.id, err)
 	}
@@ -216,7 +216,7 @@ func (a *mockAgent) heartbeatLoop(t *testing.T) {
 				continue
 			}
 
-			if err := a.natsManager.Publish("titan.agent.heartbeat", data); err != nil {
+			if err := a.natsManager.Publish("kscore.agent.heartbeat", data); err != nil {
 				t.Logf("Agent %s: failed to send heartbeat: %v", a.id, err)
 			}
 
@@ -227,7 +227,7 @@ func (a *mockAgent) heartbeatLoop(t *testing.T) {
 }
 
 func (a *mockAgent) commandLoop(t *testing.T) {
-	subject := fmt.Sprintf("titan.agent.%s.command", a.id)
+	subject := fmt.Sprintf("kscore.agent.%s.command", a.id)
 
 	sub, err := a.natsManager.Subscribe(subject, func(msg *nats.Msg) {
 		var cmdReq pb.ExecuteCommandRequest

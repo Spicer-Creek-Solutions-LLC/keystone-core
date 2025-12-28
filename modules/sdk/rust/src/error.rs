@@ -1,4 +1,4 @@
-//! Error types for TitanAnvil modules
+//! Error types for Keystone Core modules
 
 use std::fmt;
 

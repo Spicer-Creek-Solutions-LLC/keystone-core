@@ -14,8 +14,8 @@ func TestDefaultConfig(t *testing.T) {
 
 func TestPullRequestRequest(t *testing.T) {
 	req := &PullRequestRequest{
-		Owner:               "titanorg",
-		Repo:                "titan-states",
+		Owner:               "kscoreorg",
+		Repo:                "kscore-states",
 		Title:               "Fix: Revert broken deployment",
 		Body:                "Reverting deployment due to verification failure",
 		Head:                "revert-123",
@@ -35,28 +35,28 @@ func TestPullRequestRequest(t *testing.T) {
 
 func TestCommitStatusRequest(t *testing.T) {
 	req := &CommitStatusRequest{
-		Owner:       "titanorg",
-		Repo:        "titan-states",
+		Owner:       "kscoreorg",
+		Repo:        "kscore-states",
 		Ref:         "abc123",
 		State:       "success",
-		TargetURL:   "https://titan.example.com/verification/123",
+		TargetURL:   "https://kscore.example.com/verification/123",
 		Description: "All verification checks passed",
-		Context:     "titan/deployment-verification",
+		Context:     "kscore/deployment-verification",
 	}
 
 	if req.State != "success" {
 		t.Errorf("State = %v, want success", req.State)
 	}
 
-	if req.Context != "titan/deployment-verification" {
+	if req.Context != "kscore/deployment-verification" {
 		t.Errorf("Context = %v", req.Context)
 	}
 }
 
 func TestCommentRequest(t *testing.T) {
 	req := &CommentRequest{
-		Owner:    "titanorg",
-		Repo:     "titan-states",
+		Owner:    "kscoreorg",
+		Repo:     "kscore-states",
 		PRNumber: 42,
 		Body:     "✅ Deployment verification passed\n\n**Results:**\n- Health check: OK\n- Smoke tests: PASSED",
 	}
@@ -79,7 +79,7 @@ func TestPullRequestInfo(t *testing.T) {
 		Base:   "main",
 		Merged: false,
 		Draft:  false,
-		URL:    "https://github.com/titanorg/titan-states/pull/42",
+		URL:    "https://github.com/kscoreorg/kscore-states/pull/42",
 	}
 
 	if info.Number != 42 {
@@ -98,8 +98,8 @@ func TestPullRequestInfo(t *testing.T) {
 func TestNewClientRequiresToken(t *testing.T) {
 	config := &Config{
 		BaseURL: "https://api.github.com",
-		Owner:   "titanorg",
-		Repo:    "titan-states",
+		Owner:   "kscoreorg",
+		Repo:    "kscore-states",
 		// Token is empty
 	}
 

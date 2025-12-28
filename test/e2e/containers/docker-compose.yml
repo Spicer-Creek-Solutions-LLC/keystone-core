@@ -1,0 +1,90 @@
+# Docker Compose for Keystone Core E2E Testing
+# Topology: All-in-One (embedded NATS + SQLite + multiple agents)
+#
+# Usage:
+#   docker compose -f docker-compose.yml up -d
+#   docker compose -f docker-compose.yml down -v
+#
+# For Podman:
+#   podman-compose -f docker-compose.yml up -d
+
+services:
+  # Control Plane Server with embedded NATS and SQLite
+  server:
+    build:
+      context: ../../..
+      dockerfile: test/e2e/containers/Dockerfile.server
+    image: kscore-server:e2e-test
+    container_name: kscore-server
+    hostname: server
+    ports:
+      - "8080:8080"   # gRPC API
+      - "8081:8081"   # HTTP API / Health
+      - "4222:4222"   # NATS (for agents to connect)
+    volumes:
+      - server-data:/var/lib/kscore
+    environment:
+      - KSCORE_LOG_LEVEL=debug
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8081/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    networks:
+      - kscore-net
+
+  # Agent 1 - Web server role
+  agent-web-1:
+    build:
+      context: ../../..
+      dockerfile: test/e2e/containers/Dockerfile.agent
+    image: kscore-agent:e2e-test
+    container_name: kscore-agent-web-1
+    hostname: agent-web-1
+    depends_on:
+      server:
+        condition: service_healthy
+    volumes:
+      - ./config/agent-web-1.yaml:/etc/kscore/agent.yaml:ro
+    networks:
+      - kscore-net
+
+  # Agent 2 - Web server role
+  agent-web-2:
+    build:
+      context: ../../..
+      dockerfile: test/e2e/containers/Dockerfile.agent
+    image: kscore-agent:e2e-test
+    container_name: kscore-agent-web-2
+    hostname: agent-web-2
+    depends_on:
+      server:
+        condition: service_healthy
+    volumes:
+      - ./config/agent-web-2.yaml:/etc/kscore/agent.yaml:ro
+    networks:
+      - kscore-net
+
+  # Agent 3 - Database server role
+  agent-db-1:
+    build:
+      context: ../../..
+      dockerfile: test/e2e/containers/Dockerfile.agent
+    image: kscore-agent:e2e-test
+    container_name: kscore-agent-db-1
+    hostname: agent-db-1
+    depends_on:
+      server:
+        condition: service_healthy
+    volumes:
+      - ./config/agent-db-1.yaml:/etc/kscore/agent.yaml:ro
+    networks:
+      - kscore-net
+
+networks:
+  kscore-net:
+    driver: bridge
+
+volumes:
+  server-data:

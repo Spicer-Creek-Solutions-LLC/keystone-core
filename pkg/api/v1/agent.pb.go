@@ -275,7 +275,7 @@ type AgentMetadata struct {
 	IpAddresses []string `protobuf:"bytes,4,rep,name=ip_addresses,json=ipAddresses,proto3" json:"ip_addresses,omitempty"`
 	// Platform version (kernel version, OS version)
 	PlatformVersion string `protobuf:"bytes,5,opt,name=platform_version,json=platformVersion,proto3" json:"platform_version,omitempty"`
-	// TitanAnvil agent version
+	// Keystone Core agent version
 	AgentVersion string `protobuf:"bytes,6,opt,name=agent_version,json=agentVersion,proto3" json:"agent_version,omitempty"`
 	// Custom labels/tags
 	Labels        map[string]string `protobuf:"bytes,7,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
@@ -498,7 +498,7 @@ type HeartbeatRequest struct {
 	// Current timestamp
 	Timestamp *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	// Agent status
-	Status AgentStatus `protobuf:"varint,3,opt,name=status,proto3,enum=titan.anvil.v1.AgentStatus" json:"status,omitempty"`
+	Status AgentStatus `protobuf:"varint,3,opt,name=status,proto3,enum=keystone.core.v1.AgentStatus" json:"status,omitempty"`
 	// System metrics
 	Metrics       *SystemMetrics `protobuf:"bytes,4,opt,name=metrics,proto3" json:"metrics,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -815,7 +815,7 @@ type ExecuteCommandResponse struct {
 	// Command ID
 	CommandId string `protobuf:"bytes,1,opt,name=command_id,json=commandId,proto3" json:"command_id,omitempty"`
 	// Response type
-	Type CommandResponseType `protobuf:"varint,2,opt,name=type,proto3,enum=titan.anvil.v1.CommandResponseType" json:"type,omitempty"`
+	Type CommandResponseType `protobuf:"varint,2,opt,name=type,proto3,enum=keystone.core.v1.CommandResponseType" json:"type,omitempty"`
 	// Output data (stdout or stderr)
 	Data []byte `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
 	// Exit code (only for COMPLETED or FAILED)
@@ -954,7 +954,7 @@ type GetAgentInfoResponse struct {
 	// Agent metadata
 	Metadata *AgentMetadata `protobuf:"bytes,2,opt,name=metadata,proto3" json:"metadata,omitempty"`
 	// Current status
-	Status AgentStatus `protobuf:"varint,3,opt,name=status,proto3,enum=titan.anvil.v1.AgentStatus" json:"status,omitempty"`
+	Status AgentStatus `protobuf:"varint,3,opt,name=status,proto3,enum=keystone.core.v1.AgentStatus" json:"status,omitempty"`
 	// Last heartbeat timestamp
 	LastHeartbeat *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=last_heartbeat,json=lastHeartbeat,proto3" json:"last_heartbeat,omitempty"`
 	// Registration timestamp
@@ -1041,23 +1041,23 @@ var File_agent_proto protoreflect.FileDescriptor
 
 const file_agent_proto_rawDesc = "" +
 	"\n" +
-	"\vagent.proto\x12\x0etitan.anvil.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xab\x01\n" +
+	"\vagent.proto\x12\x10keystone.core.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xaf\x01\n" +
 	"\x0fRegisterRequest\x12\x19\n" +
-	"\bagent_id\x18\x01 \x01(\tR\aagentId\x129\n" +
-	"\bmetadata\x18\x02 \x01(\v2\x1d.titan.anvil.v1.AgentMetadataR\bmetadata\x12B\n" +
-	"\vcredentials\x18\x03 \x01(\v2 .titan.anvil.v1.AgentCredentialsR\vcredentials\"\xa3\x01\n" +
+	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12;\n" +
+	"\bmetadata\x18\x02 \x01(\v2\x1f.keystone.core.v1.AgentMetadataR\bmetadata\x12D\n" +
+	"\vcredentials\x18\x03 \x01(\v2\".keystone.core.v1.AgentCredentialsR\vcredentials\"\xa5\x01\n" +
 	"\x10RegisterResponse\x12\x19\n" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12?\n" +
-	"\rregistered_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\fregisteredAt\x123\n" +
-	"\x06config\x18\x03 \x01(\v2\x1b.titan.anvil.v1.AgentConfigR\x06config\"\xc0\x02\n" +
+	"\rregistered_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\fregisteredAt\x125\n" +
+	"\x06config\x18\x03 \x01(\v2\x1d.keystone.core.v1.AgentConfigR\x06config\"\xc2\x02\n" +
 	"\rAgentMetadata\x12\x1a\n" +
 	"\bhostname\x18\x01 \x01(\tR\bhostname\x12\x0e\n" +
 	"\x02os\x18\x02 \x01(\tR\x02os\x12\x12\n" +
 	"\x04arch\x18\x03 \x01(\tR\x04arch\x12!\n" +
 	"\fip_addresses\x18\x04 \x03(\tR\vipAddresses\x12)\n" +
 	"\x10platform_version\x18\x05 \x01(\tR\x0fplatformVersion\x12#\n" +
-	"\ragent_version\x18\x06 \x01(\tR\fagentVersion\x12A\n" +
-	"\x06labels\x18\a \x03(\v2).titan.anvil.v1.AgentMetadata.LabelsEntryR\x06labels\x1a9\n" +
+	"\ragent_version\x18\x06 \x01(\tR\fagentVersion\x12C\n" +
+	"\x06labels\x18\a \x03(\v2+.keystone.core.v1.AgentMetadata.LabelsEntryR\x06labels\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\\\n" +
@@ -1068,53 +1068,53 @@ const file_agent_proto_rawDesc = "" +
 	"\vAgentConfig\x12-\n" +
 	"\x12heartbeat_interval\x18\x01 \x01(\x05R\x11heartbeatInterval\x12'\n" +
 	"\x0fcommand_timeout\x18\x02 \x01(\x05R\x0ecommandTimeout\x12+\n" +
-	"\x11metadata_interval\x18\x03 \x01(\x05R\x10metadataInterval\"\xd5\x01\n" +
+	"\x11metadata_interval\x18\x03 \x01(\x05R\x10metadataInterval\"\xd9\x01\n" +
 	"\x10HeartbeatRequest\x12\x19\n" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\x128\n" +
-	"\ttimestamp\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x123\n" +
-	"\x06status\x18\x03 \x01(\x0e2\x1b.titan.anvil.v1.AgentStatusR\x06status\x127\n" +
-	"\ametrics\x18\x04 \x01(\v2\x1d.titan.anvil.v1.SystemMetricsR\ametrics\"\x82\x01\n" +
+	"\ttimestamp\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x125\n" +
+	"\x06status\x18\x03 \x01(\x0e2\x1d.keystone.core.v1.AgentStatusR\x06status\x129\n" +
+	"\ametrics\x18\x04 \x01(\v2\x1f.keystone.core.v1.SystemMetricsR\ametrics\"\x84\x01\n" +
 	"\x11HeartbeatResponse\x128\n" +
-	"\ttimestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x123\n" +
-	"\x06config\x18\x02 \x01(\v2\x1b.titan.anvil.v1.AgentConfigR\x06config\"\xcc\x01\n" +
+	"\ttimestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x125\n" +
+	"\x06config\x18\x02 \x01(\v2\x1d.keystone.core.v1.AgentConfigR\x06config\"\xcc\x01\n" +
 	"\rSystemMetrics\x12\x1f\n" +
 	"\vcpu_percent\x18\x01 \x01(\x02R\n" +
 	"cpuPercent\x12%\n" +
 	"\x0ememory_percent\x18\x02 \x01(\x02R\rmemoryPercent\x12!\n" +
 	"\fdisk_percent\x18\x03 \x01(\x02R\vdiskPercent\x12!\n" +
 	"\fload_average\x18\x04 \x03(\x02R\vloadAverage\x12-\n" +
-	"\x12active_connections\x18\x05 \x01(\x05R\x11activeConnections\"\xc8\x02\n" +
+	"\x12active_connections\x18\x05 \x01(\x05R\x11activeConnections\"\xca\x02\n" +
 	"\x15ExecuteCommandRequest\x12\x1d\n" +
 	"\n" +
 	"command_id\x18\x01 \x01(\tR\tcommandId\x12\x19\n" +
 	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x18\n" +
 	"\acommand\x18\x03 \x01(\tR\acommand\x12\x12\n" +
-	"\x04args\x18\x04 \x03(\tR\x04args\x12@\n" +
-	"\x03env\x18\x05 \x03(\v2..titan.anvil.v1.ExecuteCommandRequest.EnvEntryR\x03env\x12\x1f\n" +
+	"\x04args\x18\x04 \x03(\tR\x04args\x12B\n" +
+	"\x03env\x18\x05 \x03(\v20.keystone.core.v1.ExecuteCommandRequest.EnvEntryR\x03env\x12\x1f\n" +
 	"\vworking_dir\x18\x06 \x01(\tR\n" +
 	"workingDir\x12\x18\n" +
 	"\atimeout\x18\a \x01(\x05R\atimeout\x12\x12\n" +
 	"\x04user\x18\b \x01(\tR\x04user\x1a6\n" +
 	"\bEnvEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xf1\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xf3\x01\n" +
 	"\x16ExecuteCommandResponse\x12\x1d\n" +
 	"\n" +
-	"command_id\x18\x01 \x01(\tR\tcommandId\x127\n" +
-	"\x04type\x18\x02 \x01(\x0e2#.titan.anvil.v1.CommandResponseTypeR\x04type\x12\x12\n" +
+	"command_id\x18\x01 \x01(\tR\tcommandId\x129\n" +
+	"\x04type\x18\x02 \x01(\x0e2%.keystone.core.v1.CommandResponseTypeR\x04type\x12\x12\n" +
 	"\x04data\x18\x03 \x01(\fR\x04data\x12\x1b\n" +
 	"\texit_code\x18\x04 \x01(\x05R\bexitCode\x12\x14\n" +
 	"\x05error\x18\x05 \x01(\tR\x05error\x128\n" +
 	"\ttimestamp\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\"0\n" +
 	"\x13GetAgentInfoRequest\x12\x19\n" +
-	"\bagent_id\x18\x01 \x01(\tR\aagentId\"\xde\x02\n" +
+	"\bagent_id\x18\x01 \x01(\tR\aagentId\"\xe4\x02\n" +
 	"\x14GetAgentInfoResponse\x12\x19\n" +
-	"\bagent_id\x18\x01 \x01(\tR\aagentId\x129\n" +
-	"\bmetadata\x18\x02 \x01(\v2\x1d.titan.anvil.v1.AgentMetadataR\bmetadata\x123\n" +
-	"\x06status\x18\x03 \x01(\x0e2\x1b.titan.anvil.v1.AgentStatusR\x06status\x12A\n" +
+	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12;\n" +
+	"\bmetadata\x18\x02 \x01(\v2\x1f.keystone.core.v1.AgentMetadataR\bmetadata\x125\n" +
+	"\x06status\x18\x03 \x01(\x0e2\x1d.keystone.core.v1.AgentStatusR\x06status\x12A\n" +
 	"\x0elast_heartbeat\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\rlastHeartbeat\x12?\n" +
-	"\rregistered_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\fregisteredAt\x127\n" +
-	"\ametrics\x18\x06 \x01(\v2\x1d.titan.anvil.v1.SystemMetricsR\ametrics*y\n" +
+	"\rregistered_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\fregisteredAt\x129\n" +
+	"\ametrics\x18\x06 \x01(\v2\x1f.keystone.core.v1.SystemMetricsR\ametrics*y\n" +
 	"\vAgentStatus\x12\x1c\n" +
 	"\x18AGENT_STATUS_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13AGENT_STATUS_ONLINE\x10\x01\x12\x18\n" +
@@ -1126,12 +1126,12 @@ const file_agent_proto_rawDesc = "" +
 	"\x1cCOMMAND_RESPONSE_TYPE_STDERR\x10\x02\x12#\n" +
 	"\x1fCOMMAND_RESPONSE_TYPE_COMPLETED\x10\x03\x12 \n" +
 	"\x1cCOMMAND_RESPONSE_TYPE_FAILED\x10\x04\x12!\n" +
-	"\x1dCOMMAND_RESPONSE_TYPE_TIMEOUT\x10\x052\xed\x02\n" +
-	"\fAgentService\x12M\n" +
-	"\bRegister\x12\x1f.titan.anvil.v1.RegisterRequest\x1a .titan.anvil.v1.RegisterResponse\x12P\n" +
-	"\tHeartbeat\x12 .titan.anvil.v1.HeartbeatRequest\x1a!.titan.anvil.v1.HeartbeatResponse\x12a\n" +
-	"\x0eExecuteCommand\x12%.titan.anvil.v1.ExecuteCommandRequest\x1a&.titan.anvil.v1.ExecuteCommandResponse0\x01\x12Y\n" +
-	"\fGetAgentInfo\x12#.titan.anvil.v1.GetAgentInfoRequest\x1a$.titan.anvil.v1.GetAgentInfoResponseB1Z/github.com/titananvil/titan-anvil/pkg/api/v1;v1b\x06proto3"
+	"\x1dCOMMAND_RESPONSE_TYPE_TIMEOUT\x10\x052\xfd\x02\n" +
+	"\fAgentService\x12Q\n" +
+	"\bRegister\x12!.keystone.core.v1.RegisterRequest\x1a\".keystone.core.v1.RegisterResponse\x12T\n" +
+	"\tHeartbeat\x12\".keystone.core.v1.HeartbeatRequest\x1a#.keystone.core.v1.HeartbeatResponse\x12e\n" +
+	"\x0eExecuteCommand\x12'.keystone.core.v1.ExecuteCommandRequest\x1a(.keystone.core.v1.ExecuteCommandResponse0\x01\x12]\n" +
+	"\fGetAgentInfo\x12%.keystone.core.v1.GetAgentInfoRequest\x1a&.keystone.core.v1.GetAgentInfoResponseB3Z1github.com/shawnbutts/keystone-core/pkg/api/v1;v1b\x06proto3"
 
 var (
 	file_agent_proto_rawDescOnce sync.Once
@@ -1148,51 +1148,51 @@ func file_agent_proto_rawDescGZIP() []byte {
 var file_agent_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_agent_proto_goTypes = []any{
-	(AgentStatus)(0),               // 0: titan.anvil.v1.AgentStatus
-	(CommandResponseType)(0),       // 1: titan.anvil.v1.CommandResponseType
-	(*RegisterRequest)(nil),        // 2: titan.anvil.v1.RegisterRequest
-	(*RegisterResponse)(nil),       // 3: titan.anvil.v1.RegisterResponse
-	(*AgentMetadata)(nil),          // 4: titan.anvil.v1.AgentMetadata
-	(*AgentCredentials)(nil),       // 5: titan.anvil.v1.AgentCredentials
-	(*AgentConfig)(nil),            // 6: titan.anvil.v1.AgentConfig
-	(*HeartbeatRequest)(nil),       // 7: titan.anvil.v1.HeartbeatRequest
-	(*HeartbeatResponse)(nil),      // 8: titan.anvil.v1.HeartbeatResponse
-	(*SystemMetrics)(nil),          // 9: titan.anvil.v1.SystemMetrics
-	(*ExecuteCommandRequest)(nil),  // 10: titan.anvil.v1.ExecuteCommandRequest
-	(*ExecuteCommandResponse)(nil), // 11: titan.anvil.v1.ExecuteCommandResponse
-	(*GetAgentInfoRequest)(nil),    // 12: titan.anvil.v1.GetAgentInfoRequest
-	(*GetAgentInfoResponse)(nil),   // 13: titan.anvil.v1.GetAgentInfoResponse
-	nil,                            // 14: titan.anvil.v1.AgentMetadata.LabelsEntry
-	nil,                            // 15: titan.anvil.v1.ExecuteCommandRequest.EnvEntry
+	(AgentStatus)(0),               // 0: keystone.core.v1.AgentStatus
+	(CommandResponseType)(0),       // 1: keystone.core.v1.CommandResponseType
+	(*RegisterRequest)(nil),        // 2: keystone.core.v1.RegisterRequest
+	(*RegisterResponse)(nil),       // 3: keystone.core.v1.RegisterResponse
+	(*AgentMetadata)(nil),          // 4: keystone.core.v1.AgentMetadata
+	(*AgentCredentials)(nil),       // 5: keystone.core.v1.AgentCredentials
+	(*AgentConfig)(nil),            // 6: keystone.core.v1.AgentConfig
+	(*HeartbeatRequest)(nil),       // 7: keystone.core.v1.HeartbeatRequest
+	(*HeartbeatResponse)(nil),      // 8: keystone.core.v1.HeartbeatResponse
+	(*SystemMetrics)(nil),          // 9: keystone.core.v1.SystemMetrics
+	(*ExecuteCommandRequest)(nil),  // 10: keystone.core.v1.ExecuteCommandRequest
+	(*ExecuteCommandResponse)(nil), // 11: keystone.core.v1.ExecuteCommandResponse
+	(*GetAgentInfoRequest)(nil),    // 12: keystone.core.v1.GetAgentInfoRequest
+	(*GetAgentInfoResponse)(nil),   // 13: keystone.core.v1.GetAgentInfoResponse
+	nil,                            // 14: keystone.core.v1.AgentMetadata.LabelsEntry
+	nil,                            // 15: keystone.core.v1.ExecuteCommandRequest.EnvEntry
 	(*timestamppb.Timestamp)(nil),  // 16: google.protobuf.Timestamp
 }
 var file_agent_proto_depIdxs = []int32{
-	4,  // 0: titan.anvil.v1.RegisterRequest.metadata:type_name -> titan.anvil.v1.AgentMetadata
-	5,  // 1: titan.anvil.v1.RegisterRequest.credentials:type_name -> titan.anvil.v1.AgentCredentials
-	16, // 2: titan.anvil.v1.RegisterResponse.registered_at:type_name -> google.protobuf.Timestamp
-	6,  // 3: titan.anvil.v1.RegisterResponse.config:type_name -> titan.anvil.v1.AgentConfig
-	14, // 4: titan.anvil.v1.AgentMetadata.labels:type_name -> titan.anvil.v1.AgentMetadata.LabelsEntry
-	16, // 5: titan.anvil.v1.HeartbeatRequest.timestamp:type_name -> google.protobuf.Timestamp
-	0,  // 6: titan.anvil.v1.HeartbeatRequest.status:type_name -> titan.anvil.v1.AgentStatus
-	9,  // 7: titan.anvil.v1.HeartbeatRequest.metrics:type_name -> titan.anvil.v1.SystemMetrics
-	16, // 8: titan.anvil.v1.HeartbeatResponse.timestamp:type_name -> google.protobuf.Timestamp
-	6,  // 9: titan.anvil.v1.HeartbeatResponse.config:type_name -> titan.anvil.v1.AgentConfig
-	15, // 10: titan.anvil.v1.ExecuteCommandRequest.env:type_name -> titan.anvil.v1.ExecuteCommandRequest.EnvEntry
-	1,  // 11: titan.anvil.v1.ExecuteCommandResponse.type:type_name -> titan.anvil.v1.CommandResponseType
-	16, // 12: titan.anvil.v1.ExecuteCommandResponse.timestamp:type_name -> google.protobuf.Timestamp
-	4,  // 13: titan.anvil.v1.GetAgentInfoResponse.metadata:type_name -> titan.anvil.v1.AgentMetadata
-	0,  // 14: titan.anvil.v1.GetAgentInfoResponse.status:type_name -> titan.anvil.v1.AgentStatus
-	16, // 15: titan.anvil.v1.GetAgentInfoResponse.last_heartbeat:type_name -> google.protobuf.Timestamp
-	16, // 16: titan.anvil.v1.GetAgentInfoResponse.registered_at:type_name -> google.protobuf.Timestamp
-	9,  // 17: titan.anvil.v1.GetAgentInfoResponse.metrics:type_name -> titan.anvil.v1.SystemMetrics
-	2,  // 18: titan.anvil.v1.AgentService.Register:input_type -> titan.anvil.v1.RegisterRequest
-	7,  // 19: titan.anvil.v1.AgentService.Heartbeat:input_type -> titan.anvil.v1.HeartbeatRequest
-	10, // 20: titan.anvil.v1.AgentService.ExecuteCommand:input_type -> titan.anvil.v1.ExecuteCommandRequest
-	12, // 21: titan.anvil.v1.AgentService.GetAgentInfo:input_type -> titan.anvil.v1.GetAgentInfoRequest
-	3,  // 22: titan.anvil.v1.AgentService.Register:output_type -> titan.anvil.v1.RegisterResponse
-	8,  // 23: titan.anvil.v1.AgentService.Heartbeat:output_type -> titan.anvil.v1.HeartbeatResponse
-	11, // 24: titan.anvil.v1.AgentService.ExecuteCommand:output_type -> titan.anvil.v1.ExecuteCommandResponse
-	13, // 25: titan.anvil.v1.AgentService.GetAgentInfo:output_type -> titan.anvil.v1.GetAgentInfoResponse
+	4,  // 0: keystone.core.v1.RegisterRequest.metadata:type_name -> keystone.core.v1.AgentMetadata
+	5,  // 1: keystone.core.v1.RegisterRequest.credentials:type_name -> keystone.core.v1.AgentCredentials
+	16, // 2: keystone.core.v1.RegisterResponse.registered_at:type_name -> google.protobuf.Timestamp
+	6,  // 3: keystone.core.v1.RegisterResponse.config:type_name -> keystone.core.v1.AgentConfig
+	14, // 4: keystone.core.v1.AgentMetadata.labels:type_name -> keystone.core.v1.AgentMetadata.LabelsEntry
+	16, // 5: keystone.core.v1.HeartbeatRequest.timestamp:type_name -> google.protobuf.Timestamp
+	0,  // 6: keystone.core.v1.HeartbeatRequest.status:type_name -> keystone.core.v1.AgentStatus
+	9,  // 7: keystone.core.v1.HeartbeatRequest.metrics:type_name -> keystone.core.v1.SystemMetrics
+	16, // 8: keystone.core.v1.HeartbeatResponse.timestamp:type_name -> google.protobuf.Timestamp
+	6,  // 9: keystone.core.v1.HeartbeatResponse.config:type_name -> keystone.core.v1.AgentConfig
+	15, // 10: keystone.core.v1.ExecuteCommandRequest.env:type_name -> keystone.core.v1.ExecuteCommandRequest.EnvEntry
+	1,  // 11: keystone.core.v1.ExecuteCommandResponse.type:type_name -> keystone.core.v1.CommandResponseType
+	16, // 12: keystone.core.v1.ExecuteCommandResponse.timestamp:type_name -> google.protobuf.Timestamp
+	4,  // 13: keystone.core.v1.GetAgentInfoResponse.metadata:type_name -> keystone.core.v1.AgentMetadata
+	0,  // 14: keystone.core.v1.GetAgentInfoResponse.status:type_name -> keystone.core.v1.AgentStatus
+	16, // 15: keystone.core.v1.GetAgentInfoResponse.last_heartbeat:type_name -> google.protobuf.Timestamp
+	16, // 16: keystone.core.v1.GetAgentInfoResponse.registered_at:type_name -> google.protobuf.Timestamp
+	9,  // 17: keystone.core.v1.GetAgentInfoResponse.metrics:type_name -> keystone.core.v1.SystemMetrics
+	2,  // 18: keystone.core.v1.AgentService.Register:input_type -> keystone.core.v1.RegisterRequest
+	7,  // 19: keystone.core.v1.AgentService.Heartbeat:input_type -> keystone.core.v1.HeartbeatRequest
+	10, // 20: keystone.core.v1.AgentService.ExecuteCommand:input_type -> keystone.core.v1.ExecuteCommandRequest
+	12, // 21: keystone.core.v1.AgentService.GetAgentInfo:input_type -> keystone.core.v1.GetAgentInfoRequest
+	3,  // 22: keystone.core.v1.AgentService.Register:output_type -> keystone.core.v1.RegisterResponse
+	8,  // 23: keystone.core.v1.AgentService.Heartbeat:output_type -> keystone.core.v1.HeartbeatResponse
+	11, // 24: keystone.core.v1.AgentService.ExecuteCommand:output_type -> keystone.core.v1.ExecuteCommandResponse
+	13, // 25: keystone.core.v1.AgentService.GetAgentInfo:output_type -> keystone.core.v1.GetAgentInfoResponse
 	22, // [22:26] is the sub-list for method output_type
 	18, // [18:22] is the sub-list for method input_type
 	18, // [18:18] is the sub-list for extension type_name

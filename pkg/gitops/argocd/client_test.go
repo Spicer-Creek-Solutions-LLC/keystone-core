@@ -57,8 +57,8 @@ func TestAnnotationUpdate(t *testing.T) {
 	req := &AnnotationUpdate{
 		Application: "test-app",
 		Annotations: map[string]string{
-			"titan.io/verified": "true",
-			"titan.io/timestamp": "2025-01-01T00:00:00Z",
+			"kscore.io/verified": "true",
+			"kscore.io/timestamp": "2025-01-01T00:00:00Z",
 		},
 	}
 
@@ -66,8 +66,8 @@ func TestAnnotationUpdate(t *testing.T) {
 		t.Errorf("Annotations length = %d, want 2", len(req.Annotations))
 	}
 
-	if req.Annotations["titan.io/verified"] != "true" {
-		t.Errorf("verified annotation = %v, want true", req.Annotations["titan.io/verified"])
+	if req.Annotations["kscore.io/verified"] != "true" {
+		t.Errorf("verified annotation = %v, want true", req.Annotations["kscore.io/verified"])
 	}
 }
 

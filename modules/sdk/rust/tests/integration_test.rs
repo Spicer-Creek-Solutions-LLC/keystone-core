@@ -1,8 +1,8 @@
-//! Integration tests for TitanAnvil Rust SDK
+//! Integration tests for Keystone Core Rust SDK
 //!
 //! Note: These tests run in non-WASM mode, so host functions
 //! are stubbed and will return errors. For real integration testing,
-//! use the TitanAnvil test framework with a WASM runtime.
+//! use the Keystone Core test framework with a WASM runtime.
 
 use titan_module_sdk::{Error, Capability, ModuleContext, ModuleResult};
 use titan_module_sdk::host::*;

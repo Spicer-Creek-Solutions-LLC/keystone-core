@@ -1,4 +1,4 @@
-//! Core types for TitanAnvil modules
+//! Core types for Keystone Core modules
 
 use serde::{Deserialize, Serialize};
 

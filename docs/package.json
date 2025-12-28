@@ -1,7 +1,7 @@
 {
-  "name": "titananvil-docs",
+  "name": "keystone-core-docs",
   "version": "1.0.0",
-  "description": "TitanAnvil Documentation",
+  "description": "Keystone Core Documentation",
   "private": true,
   "scripts": {
     "generate-pdfs": "node generate-pdfs.js",

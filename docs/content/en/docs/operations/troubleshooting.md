@@ -497,7 +497,7 @@ nats:
 **Check:**
 ```bash
 # Test database connection
-psql -U kscore -h localhost -d titananvil -c "SELECT 1;"
+psql -U kscore -h localhost -d keystonecore -c "SELECT 1;"
 ```
 
 **Fix:**
