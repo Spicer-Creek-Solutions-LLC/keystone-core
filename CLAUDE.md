@@ -24,7 +24,7 @@ This repository contains working implementations of **Epics 1-11**. The project 
 - High availability clustering with etcd-based coordination, leader election, and automatic failover (Epic 11 complete)
 - Comprehensive test suite (>79% coverage across all core packages)
 
-**Current Status**: Epic 1-11 COMPLETE ✅ | Epic 12 PLANNED (E2E Testing)
+**Current Status**: Epic 1-11 COMPLETE ✅ | Epic 12 PLANNED (E2E Testing) | Epic 13 PLANNED (CGO Removal)
 
 ## Repository Structure
 
@@ -43,7 +43,8 @@ This repository contains working implementations of **Epics 1-11**. The project 
     ├── 09-plugin-system.md            # Starlark/WASM plugin architecture
     ├── 10-documentation.md            # Hugo + Docsy comprehensive documentation
     ├── 11-clustering.md               # High availability clustering with etcd
-    └── 12-e2e-testing.md              # End-to-end & performance testing
+    ├── 12-e2e-testing.md              # End-to-end & performance testing
+    └── 13-cgo-removal.md              # Pure Go build (no CGO dependencies)
 ```
 
 ## Architecture Overview
@@ -2300,6 +2301,33 @@ Keystone Core fills the gap between declarative GitOps tools and runtime operati
 - Linux: Ubuntu, Debian, Alpine, Rocky Linux (amd64 + arm64)
 - Windows/macOS: CI runner validation (non-container)
 
+### Epic 13: CGO Removal - Pure Go Build 📋 PLANNED
+
+**Implementation Plan:** 3 phases (4 weeks total)
+
+**Goal**: Remove all CGO dependencies to enable cross-compilation, simpler CI/CD, and smaller static binaries.
+
+**Current CGO Dependencies:**
+- `github.com/mattn/go-sqlite3` → Replace with `modernc.org/sqlite`
+- `github.com/bytecodealliance/wasmtime-go` → Replace with `github.com/tetratelabs/wazero`
+
+**Phases:**
+- Phase 1: SQLite Migration (modernc.org/sqlite - pure Go SQLite)
+- Phase 2: WASM Runtime Migration (wazero - pure Go WebAssembly)
+- Phase 3: Validation & Cross-compilation Testing
+
+**Benefits:**
+- `CGO_ENABLED=0 go build ./...` works
+- Cross-compilation without toolchains (linux/arm64, windows/amd64, etc.)
+- Alpine/scratch Docker images without libc
+- Simpler CI/CD (no gcc/clang required)
+
+**Files to Modify:**
+- `pkg/state/sqlite.go`
+- `pkg/events/storage_sqlite.go`
+- `pkg/module/runtime/wasm/runtime.go`
+- `pkg/module/runtime/wasm/runtime_test.go`
+
 ## Epic Dependencies
 
 Implementation order:
@@ -2315,6 +2343,7 @@ Implementation order:
 10. **Epic 10** (Documentation) - ✅ COMPLETE (All 7 phases) - Documents Epic 1-9 (Hugo + Docsy, 45 pages, ~21,500 lines)
 11. **Epic 11** (Clustering) - ✅ COMPLETE (All 8 phases) - Depends on Epic 1, 7 (etcd-based HA clustering, automatic failover, work distribution)
 12. **Epic 12** (E2E Testing) - Depends on Epic 1-11 (validates all features, release gate)
+13. **Epic 13** (CGO Removal) - Independent (can be done in parallel with Epic 12)
 
 ## Key Architectural Patterns
 
@@ -2340,7 +2369,8 @@ Implementation order:
 - **API**: gRPC + REST (gRPC-gateway)
 - **Observability**: Prometheus, OpenTelemetry, Grafana
 - **Policy**: OPA (Rego), CEL
-- **Modules**: Starlark runtime, WASM (wasmtime), Cosign signatures
+- **Modules**: Starlark runtime, WASM (wazero - pure Go), Cosign signatures
+- **SQLite**: modernc.org/sqlite (pure Go, no CGO)
 
 ### Module System Architecture (Epic 9)
 
