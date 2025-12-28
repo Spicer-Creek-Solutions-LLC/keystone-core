@@ -650,6 +650,49 @@ func (m *MembershipManager) GetClusterInfo() *ClusterInfo {
 	}
 }
 
+// RemoveMember removes a member from the cluster.
+// If force is false, the member must be unhealthy to be removed.
+// If force is true, the member is removed regardless of health status.
+func (m *MembershipManager) RemoveMember(ctx context.Context, memberID string, force bool) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Check if member exists
+	member, ok := m.members[memberID]
+	if !ok {
+		return fmt.Errorf("member %s not found", memberID)
+	}
+
+	// Check if this is the local member
+	if m.localMember != nil && m.localMember.ID == memberID {
+		return fmt.Errorf("cannot remove local member %s", memberID)
+	}
+
+	// If not force, check if member is unhealthy
+	if !force && member.Status != MemberStatusUnhealthy {
+		return fmt.Errorf("member %s is not unhealthy (status: %s), use force=true to remove", memberID, member.Status)
+	}
+
+	// Delete from etcd
+	key := memberKeyPrefix + memberID
+	if err := m.etcd.Delete(ctx, key); err != nil {
+		return fmt.Errorf("failed to delete member from etcd: %w", err)
+	}
+
+	// Remove from local cache
+	delete(m.members, memberID)
+
+	// Notify observers
+	m.notifyObserversLocked(MembershipEvent{
+		Type:      MembershipEventLeft,
+		Member:    member,
+		Timestamp: time.Now().UTC(),
+		Reason:    "member removed via API",
+	})
+
+	return nil
+}
+
 // getVersion returns the current version.
 // This should be replaced with the actual version from pkg/version.
 func getVersion() string {

@@ -365,3 +365,59 @@ func TestMetricHandler(t *testing.T) {
 		t.Error("Expected non-nil handler")
 	}
 }
+
+func TestClusterCollector(t *testing.T) {
+	collector := NewPrometheusCollector()
+	err := InitializeStandardMetrics(collector)
+	if err != nil {
+		t.Fatalf("Failed to initialize metrics: %v", err)
+	}
+
+	clusterCollector := NewClusterCollector(collector)
+
+	t.Run("SetMemberCount", func(t *testing.T) {
+		clusterCollector.SetMemberCount(3.0)
+	})
+
+	t.Run("SetHealthyMemberCount", func(t *testing.T) {
+		clusterCollector.SetHealthyMemberCount(2.0)
+	})
+
+	t.Run("SetHasQuorum", func(t *testing.T) {
+		clusterCollector.SetHasQuorum(true)
+		clusterCollector.SetHasQuorum(false)
+	})
+
+	t.Run("RecordLeaderChange", func(t *testing.T) {
+		clusterCollector.RecordLeaderChange("election")
+		clusterCollector.RecordLeaderChange("failover")
+	})
+
+	t.Run("RecordLeaderElectionDuration", func(t *testing.T) {
+		clusterCollector.RecordLeaderElectionDuration(500 * time.Millisecond)
+	})
+
+	t.Run("RecordRebalance", func(t *testing.T) {
+		clusterCollector.RecordRebalance("manual", 2*time.Second, 10)
+	})
+
+	t.Run("RecordHeartbeatLatency", func(t *testing.T) {
+		clusterCollector.RecordHeartbeatLatency("member-1", 50*time.Millisecond)
+	})
+
+	t.Run("RecordEtcdOperation", func(t *testing.T) {
+		clusterCollector.RecordEtcdOperation("put", "success", 10*time.Millisecond)
+		clusterCollector.RecordEtcdOperation("get", "error", 100*time.Millisecond)
+	})
+
+	t.Run("SetMemberStatus", func(t *testing.T) {
+		clusterCollector.SetMemberStatus("member-1", 1.0)   // healthy
+		clusterCollector.SetMemberStatus("member-2", 0.5)   // degraded
+		clusterCollector.SetMemberStatus("member-3", 0.0)   // unhealthy
+	})
+
+	t.Run("SetIsLeader", func(t *testing.T) {
+		clusterCollector.SetIsLeader(true)
+		clusterCollector.SetIsLeader(false)
+	})
+}

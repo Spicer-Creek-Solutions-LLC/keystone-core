@@ -306,3 +306,106 @@ groups:
         annotations:
           summary: "High JetStream storage usage"
           description: "JetStream storage is {{ $value | humanizePercentage }} full (threshold: 85%)."
+
+  - name: kscore_cluster
+    interval: 30s
+    rules:
+      - alert: ClusterNoQuorum
+        expr: titan_cluster_has_quorum == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: cluster
+        annotations:
+          summary: "Cluster has lost quorum"
+          description: "The cluster has lost quorum. Operations requiring consensus will fail."
+
+      - alert: ClusterMemberUnhealthy
+        expr: titan_cluster_member_status < 0.5
+        for: 2m
+        labels:
+          severity: warning
+          component: cluster
+        annotations:
+          summary: "Cluster member unhealthy"
+          description: "Cluster member {{ $labels.member_id }} is unhealthy (status: {{ $value }})."
+
+      - alert: ClusterAllMembersUnhealthy
+        expr: sum(titan_cluster_member_status >= 0.5) == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: cluster
+        annotations:
+          summary: "All cluster members unhealthy"
+          description: "No healthy cluster members available. Cluster is non-operational."
+
+      - alert: ClusterFrequentLeaderChanges
+        expr: increase(titan_cluster_leader_changes_total[10m]) > 5
+        for: 1m
+        labels:
+          severity: warning
+          component: cluster
+        annotations:
+          summary: "Frequent leader changes"
+          description: "There have been {{ $value }} leader changes in the last 10 minutes. This may indicate cluster instability."
+
+      - alert: ClusterSlowLeaderElection
+        expr: histogram_quantile(0.95, rate(titan_cluster_leader_election_duration_seconds_bucket[5m])) > 30
+        for: 5m
+        labels:
+          severity: warning
+          component: cluster
+        annotations:
+          summary: "Slow leader election"
+          description: "Leader election p95 latency is {{ $value }}s (threshold: 30s)."
+
+      - alert: ClusterHighRebalanceRate
+        expr: increase(titan_cluster_rebalance_total[1h]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: cluster
+        annotations:
+          summary: "High rebalance rate"
+          description: "There have been {{ $value }} rebalance operations in the last hour (threshold: 10)."
+
+      - alert: ClusterEtcdHighLatency
+        expr: histogram_quantile(0.95, rate(titan_cluster_etcd_operation_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          component: cluster
+        annotations:
+          summary: "High etcd operation latency"
+          description: "etcd operation p95 latency is {{ $value }}s (threshold: 1s)."
+
+      - alert: ClusterEtcdHighErrorRate
+        expr: (sum(rate(titan_cluster_etcd_operations_total{status="error"}[5m])) / sum(rate(titan_cluster_etcd_operations_total[5m]))) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: cluster
+        annotations:
+          summary: "High etcd error rate"
+          description: "etcd error rate is {{ $value | humanizePercentage }} (threshold: 5%)."
+
+      - alert: ClusterHeartbeatLatencyHigh
+        expr: titan_cluster_heartbeat_latency_seconds{quantile="0.99"} > 5
+        for: 5m
+        labels:
+          severity: warning
+          component: cluster
+        annotations:
+          summary: "High heartbeat latency"
+          description: "Member {{ $labels.member_id }} heartbeat p99 latency is {{ $value }}s (threshold: 5s)."
+
+      - alert: ClusterMemberCountLow
+        expr: titan_cluster_members_total < 3
+        for: 5m
+        labels:
+          severity: warning
+          component: cluster
+        annotations:
+          summary: "Low cluster member count"
+          description: "Cluster has only {{ $value }} members. Recommend at least 3 for fault tolerance."

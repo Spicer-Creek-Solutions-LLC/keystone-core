@@ -39,6 +39,21 @@ const (
 	MetricPolicyViolationsTotal      = "titan_policy_violations_total"
 	MetricPolicyRemediationsTotal    = "titan_policy_remediations_total"
 	MetricComplianceScore            = "titan_compliance_score"
+
+	// Cluster Metrics
+	MetricClusterMembersTotal        = "titan_cluster_members_total"
+	MetricClusterMembersHealthy      = "titan_cluster_members_healthy"
+	MetricClusterHasQuorum           = "titan_cluster_has_quorum"
+	MetricClusterLeaderChangesTotal  = "titan_cluster_leader_changes_total"
+	MetricClusterLeaderElectionDuration = "titan_cluster_leader_election_duration_seconds"
+	MetricClusterRebalanceTotal      = "titan_cluster_rebalance_total"
+	MetricClusterRebalanceDuration   = "titan_cluster_rebalance_duration_seconds"
+	MetricClusterAgentsMoved         = "titan_cluster_agents_moved_total"
+	MetricClusterHeartbeatLatency    = "titan_cluster_heartbeat_latency_seconds"
+	MetricClusterEtcdOperationsTotal = "titan_cluster_etcd_operations_total"
+	MetricClusterEtcdOperationDuration = "titan_cluster_etcd_operation_duration_seconds"
+	MetricClusterMemberStatus        = "titan_cluster_member_status"
+	MetricClusterIsLeader            = "titan_cluster_is_leader"
 )
 
 // InitializeStandardMetrics registers all standard Keystone Core metrics
@@ -211,6 +226,90 @@ func InitializeStandardMetrics(collector *PrometheusCollector) error {
 			Type:   MetricTypeGauge,
 			Help:   "Compliance score by framework",
 			Labels: []string{"framework"},
+		},
+
+		// Cluster Metrics
+		{
+			Name:   MetricClusterMembersTotal,
+			Type:   MetricTypeGauge,
+			Help:   "Total number of cluster members",
+			Labels: []string{},
+		},
+		{
+			Name:   MetricClusterMembersHealthy,
+			Type:   MetricTypeGauge,
+			Help:   "Number of healthy cluster members",
+			Labels: []string{},
+		},
+		{
+			Name:   MetricClusterHasQuorum,
+			Type:   MetricTypeGauge,
+			Help:   "Whether the cluster has quorum (1=yes, 0=no)",
+			Labels: []string{},
+		},
+		{
+			Name:   MetricClusterLeaderChangesTotal,
+			Type:   MetricTypeCounter,
+			Help:   "Total number of leader changes",
+			Labels: []string{"reason"},
+		},
+		{
+			Name:   MetricClusterLeaderElectionDuration,
+			Type:   MetricTypeHistogram,
+			Help:   "Leader election duration in seconds",
+			Labels: []string{},
+			Buckets: DefaultBuckets,
+		},
+		{
+			Name:   MetricClusterRebalanceTotal,
+			Type:   MetricTypeCounter,
+			Help:   "Total number of rebalance operations",
+			Labels: []string{"reason"},
+		},
+		{
+			Name:   MetricClusterRebalanceDuration,
+			Type:   MetricTypeHistogram,
+			Help:   "Rebalance operation duration in seconds",
+			Labels: []string{},
+			Buckets: DefaultBuckets,
+		},
+		{
+			Name:   MetricClusterAgentsMoved,
+			Type:   MetricTypeCounter,
+			Help:   "Total number of agents moved during rebalancing",
+			Labels: []string{},
+		},
+		{
+			Name:   MetricClusterHeartbeatLatency,
+			Type:   MetricTypeSummary,
+			Help:   "Heartbeat latency in seconds",
+			Labels: []string{"member_id"},
+			Objectives: DefaultObjectives,
+		},
+		{
+			Name:   MetricClusterEtcdOperationsTotal,
+			Type:   MetricTypeCounter,
+			Help:   "Total number of etcd operations",
+			Labels: []string{"operation", "status"},
+		},
+		{
+			Name:   MetricClusterEtcdOperationDuration,
+			Type:   MetricTypeHistogram,
+			Help:   "etcd operation duration in seconds",
+			Labels: []string{"operation"},
+			Buckets: DefaultBuckets,
+		},
+		{
+			Name:   MetricClusterMemberStatus,
+			Type:   MetricTypeGauge,
+			Help:   "Member status (1=healthy, 0.5=degraded, 0=unhealthy)",
+			Labels: []string{"member_id"},
+		},
+		{
+			Name:   MetricClusterIsLeader,
+			Type:   MetricTypeGauge,
+			Help:   "Whether this member is the leader (1=yes, 0=no)",
+			Labels: []string{},
 		},
 	}
 
@@ -447,4 +546,89 @@ func (p *PolicyCollector) SetComplianceScore(framework string, score float64) {
 	p.collector.SetGauge(MetricComplianceScore, score, map[string]string{
 		"framework": framework,
 	})
+}
+
+// ClusterCollector provides metrics collection for cluster operations
+type ClusterCollector struct {
+	collector Collector
+}
+
+// NewClusterCollector creates a new cluster metrics collector
+func NewClusterCollector(collector Collector) *ClusterCollector {
+	return &ClusterCollector{collector: collector}
+}
+
+// SetMemberCount sets the total number of cluster members
+func (c *ClusterCollector) SetMemberCount(count float64) {
+	c.collector.SetGauge(MetricClusterMembersTotal, count, map[string]string{})
+}
+
+// SetHealthyMemberCount sets the number of healthy cluster members
+func (c *ClusterCollector) SetHealthyMemberCount(count float64) {
+	c.collector.SetGauge(MetricClusterMembersHealthy, count, map[string]string{})
+}
+
+// SetHasQuorum sets whether the cluster has quorum
+func (c *ClusterCollector) SetHasQuorum(hasQuorum bool) {
+	value := 0.0
+	if hasQuorum {
+		value = 1.0
+	}
+	c.collector.SetGauge(MetricClusterHasQuorum, value, map[string]string{})
+}
+
+// RecordLeaderChange records a leader change event
+func (c *ClusterCollector) RecordLeaderChange(reason string) {
+	c.collector.IncCounter(MetricClusterLeaderChangesTotal, map[string]string{
+		"reason": reason,
+	})
+}
+
+// RecordLeaderElectionDuration records the time taken for leader election
+func (c *ClusterCollector) RecordLeaderElectionDuration(duration time.Duration) {
+	c.collector.RecordDuration(MetricClusterLeaderElectionDuration, duration, map[string]string{})
+}
+
+// RecordRebalance records a rebalance operation
+func (c *ClusterCollector) RecordRebalance(reason string, duration time.Duration, movedAgents int) {
+	c.collector.IncCounter(MetricClusterRebalanceTotal, map[string]string{
+		"reason": reason,
+	})
+	c.collector.RecordDuration(MetricClusterRebalanceDuration, duration, map[string]string{})
+	c.collector.AddCounter(MetricClusterAgentsMoved, float64(movedAgents), map[string]string{})
+}
+
+// RecordHeartbeatLatency records the latency of a heartbeat
+func (c *ClusterCollector) RecordHeartbeatLatency(memberID string, latency time.Duration) {
+	c.collector.ObserveSummary(MetricClusterHeartbeatLatency, latency.Seconds(), map[string]string{
+		"member_id": memberID,
+	})
+}
+
+// RecordEtcdOperation records an etcd operation
+func (c *ClusterCollector) RecordEtcdOperation(operation, status string, duration time.Duration) {
+	c.collector.IncCounter(MetricClusterEtcdOperationsTotal, map[string]string{
+		"operation": operation,
+		"status":    status,
+	})
+	c.collector.RecordDuration(MetricClusterEtcdOperationDuration, duration, map[string]string{
+		"operation": operation,
+	})
+}
+
+// SetMemberStatus sets the status of a cluster member
+// status: healthy=1.0, degraded=0.5, unhealthy=0.0
+func (c *ClusterCollector) SetMemberStatus(memberID string, status float64) {
+	c.collector.SetGauge(MetricClusterMemberStatus, status, map[string]string{
+		"member_id": memberID,
+	})
+}
+
+// SetIsLeader sets whether this member is the leader
+func (c *ClusterCollector) SetIsLeader(isLeader bool) {
+	value := 0.0
+	if isLeader {
+		value = 1.0
+	}
+	c.collector.SetGauge(MetricClusterIsLeader, value, map[string]string{})
 }

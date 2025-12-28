@@ -1,0 +1,450 @@
+{
+  "dashboard": {
+    "title": "Keystone Core Cluster Health",
+    "uid": "kscore-cluster",
+    "tags": ["keystone-core", "cluster", "health", "ha"],
+    "timezone": "browser",
+    "schemaVersion": 36,
+    "version": 1,
+    "refresh": "10s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "timepicker": {
+      "refresh_intervals": ["5s", "10s", "30s", "1m", "5m", "15m", "30m", "1h"]
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "member_id",
+          "type": "query",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "query": "label_values(titan_cluster_member_status, member_id)",
+          "refresh": 1,
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*"
+        }
+      ]
+    },
+    "annotations": {
+      "list": [
+        {
+          "name": "Leader Changes",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "increase(titan_cluster_leader_changes_total[1m]) > 0",
+          "tagKeys": "reason",
+          "titleFormat": "Leader Change",
+          "textFormat": "Reason: {{reason}}"
+        }
+      ]
+    },
+    "panels": [
+      {
+        "title": "Cluster Overview",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+        "collapsed": false
+      },
+      {
+        "title": "Cluster Quorum",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 4, "x": 0, "y": 1},
+        "targets": [
+          {
+            "expr": "titan_cluster_has_quorum",
+            "legendFormat": "Quorum"
+          }
+        ],
+        "options": {
+          "graphMode": "none",
+          "colorMode": "background",
+          "textMode": "value"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {"type": "value", "options": {"0": {"text": "NO QUORUM", "color": "red"}}},
+              {"type": "value", "options": {"1": {"text": "QUORUM", "color": "green"}}}
+            ],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": null, "color": "red"},
+                {"value": 1, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Total Members",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 4, "x": 4, "y": 1},
+        "targets": [
+          {
+            "expr": "titan_cluster_members_total",
+            "legendFormat": "Total"
+          }
+        ],
+        "options": {
+          "graphMode": "none",
+          "colorMode": "value",
+          "textMode": "value"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": null, "color": "blue"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Healthy Members",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 4, "x": 8, "y": 1},
+        "targets": [
+          {
+            "expr": "titan_cluster_members_healthy",
+            "legendFormat": "Healthy"
+          }
+        ],
+        "options": {
+          "graphMode": "none",
+          "colorMode": "background",
+          "textMode": "value"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": null, "color": "red"},
+                {"value": 1, "color": "yellow"},
+                {"value": 3, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "This Instance is Leader",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 4, "x": 12, "y": 1},
+        "targets": [
+          {
+            "expr": "titan_cluster_is_leader",
+            "legendFormat": "Leader"
+          }
+        ],
+        "options": {
+          "graphMode": "none",
+          "colorMode": "background",
+          "textMode": "value"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {"type": "value", "options": {"0": {"text": "FOLLOWER", "color": "blue"}}},
+              {"type": "value", "options": {"1": {"text": "LEADER", "color": "green"}}}
+            ]
+          }
+        }
+      },
+      {
+        "title": "Leader Changes (24h)",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 4, "x": 16, "y": 1},
+        "targets": [
+          {
+            "expr": "sum(increase(titan_cluster_leader_changes_total[24h]))",
+            "legendFormat": "Changes"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "textMode": "value"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "decimals": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": null, "color": "green"},
+                {"value": 3, "color": "yellow"},
+                {"value": 10, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Agents Moved (24h)",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 4, "x": 20, "y": 1},
+        "targets": [
+          {
+            "expr": "sum(increase(titan_cluster_agents_moved_total[24h]))",
+            "legendFormat": "Moved"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "textMode": "value"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "decimals": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": null, "color": "blue"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Member Status",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 5},
+        "collapsed": false
+      },
+      {
+        "title": "Member Health Status",
+        "type": "table",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6},
+        "targets": [
+          {
+            "expr": "titan_cluster_member_status{member_id=~\"$member_id\"}",
+            "format": "table",
+            "instant": true,
+            "legendFormat": "{{member_id}}"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {"Time": true, "__name__": true, "job": true, "instance": true},
+              "renameByName": {"member_id": "Member ID", "Value": "Status"}
+            }
+          }
+        ],
+        "fieldConfig": {
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "Status"},
+              "properties": [
+                {
+                  "id": "mappings",
+                  "value": [
+                    {"type": "range", "options": {"from": 0, "to": 0.25, "result": {"text": "Unhealthy", "color": "red"}}},
+                    {"type": "range", "options": {"from": 0.25, "to": 0.75, "result": {"text": "Degraded", "color": "yellow"}}},
+                    {"type": "range", "options": {"from": 0.75, "to": 1, "result": {"text": "Healthy", "color": "green"}}}
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "title": "Member Health Over Time",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6},
+        "targets": [
+          {
+            "expr": "titan_cluster_member_status{member_id=~\"$member_id\"}",
+            "legendFormat": "{{member_id}}"
+          }
+        ],
+        "options": {
+          "legend": {"displayMode": "table", "placement": "right"}
+        },
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "lineWidth": 2,
+              "fillOpacity": 20,
+              "spanNulls": true
+            },
+            "min": 0,
+            "max": 1,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": null, "color": "red"},
+                {"value": 0.5, "color": "yellow"},
+                {"value": 1, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Cluster Operations",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 14},
+        "collapsed": false
+      },
+      {
+        "title": "Leader Election Duration",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 8, "x": 0, "y": 15},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(titan_cluster_leader_election_duration_seconds_bucket[5m]))",
+            "legendFormat": "p50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(titan_cluster_leader_election_duration_seconds_bucket[5m]))",
+            "legendFormat": "p95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(titan_cluster_leader_election_duration_seconds_bucket[5m]))",
+            "legendFormat": "p99"
+          }
+        ],
+        "options": {
+          "legend": {"displayMode": "list", "placement": "bottom"}
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "custom": {
+              "drawStyle": "line",
+              "lineWidth": 1,
+              "fillOpacity": 10
+            }
+          }
+        }
+      },
+      {
+        "title": "Rebalance Operations",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 8, "x": 8, "y": 15},
+        "targets": [
+          {
+            "expr": "sum(rate(titan_cluster_rebalance_total[5m])) by (reason)",
+            "legendFormat": "{{reason}}"
+          }
+        ],
+        "options": {
+          "legend": {"displayMode": "list", "placement": "bottom"}
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops",
+            "custom": {
+              "drawStyle": "bars",
+              "fillOpacity": 80
+            }
+          }
+        }
+      },
+      {
+        "title": "Heartbeat Latency",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 8, "x": 16, "y": 15},
+        "targets": [
+          {
+            "expr": "titan_cluster_heartbeat_latency_seconds{member_id=~\"$member_id\", quantile=\"0.5\"}",
+            "legendFormat": "{{member_id}} (p50)"
+          },
+          {
+            "expr": "titan_cluster_heartbeat_latency_seconds{member_id=~\"$member_id\", quantile=\"0.99\"}",
+            "legendFormat": "{{member_id}} (p99)"
+          }
+        ],
+        "options": {
+          "legend": {"displayMode": "table", "placement": "right"}
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "custom": {
+              "drawStyle": "line",
+              "lineWidth": 1,
+              "fillOpacity": 10
+            }
+          }
+        }
+      },
+      {
+        "title": "etcd Operations",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 23},
+        "collapsed": false
+      },
+      {
+        "title": "etcd Operations Rate",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+        "targets": [
+          {
+            "expr": "sum(rate(titan_cluster_etcd_operations_total[5m])) by (operation, status)",
+            "legendFormat": "{{operation}} ({{status}})"
+          }
+        ],
+        "options": {
+          "legend": {"displayMode": "table", "placement": "right"}
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops",
+            "custom": {
+              "drawStyle": "line",
+              "lineWidth": 1,
+              "fillOpacity": 10
+            }
+          }
+        }
+      },
+      {
+        "title": "etcd Operation Latency",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, sum(rate(titan_cluster_etcd_operation_duration_seconds_bucket[5m])) by (operation, le))",
+            "legendFormat": "{{operation}} (p50)"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum(rate(titan_cluster_etcd_operation_duration_seconds_bucket[5m])) by (operation, le))",
+            "legendFormat": "{{operation}} (p99)"
+          }
+        ],
+        "options": {
+          "legend": {"displayMode": "table", "placement": "right"}
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "custom": {
+              "drawStyle": "line",
+              "lineWidth": 1,
+              "fillOpacity": 10
+            }
+          }
+        }
+      }
+    ]
+  },
+  "overwrite": true
+}

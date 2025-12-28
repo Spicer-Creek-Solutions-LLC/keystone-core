@@ -440,3 +440,109 @@ func TestGetVersion(t *testing.T) {
 	assert.NotEmpty(t, version)
 	assert.Contains(t, version, "0.11.0")
 }
+
+func TestMembershipManager_RemoveMember(t *testing.T) {
+	t.Run("remove non-existent member", func(t *testing.T) {
+		config := DefaultConfig()
+		config.Enabled = true
+		config.ClusterName = "test-cluster"
+		config.AdvertiseAddress = "127.0.0.1"
+
+		etcdConfig := DefaultEtcdConfig()
+		etcdClient, err := NewEtcdClient(etcdConfig)
+		require.NoError(t, err)
+
+		manager, err := NewMembershipManager(config, etcdClient)
+		require.NoError(t, err)
+
+		ctx := testContextWithTimeout(t)
+		err = manager.RemoveMember(ctx, "non-existent", true)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "not found")
+	})
+
+	t.Run("cannot remove local member", func(t *testing.T) {
+		config := DefaultConfig()
+		config.Enabled = true
+		config.ClusterName = "test-cluster"
+		config.MemberID = "local-member"
+		config.AdvertiseAddress = "127.0.0.1"
+
+		etcdConfig := DefaultEtcdConfig()
+		etcdClient, err := NewEtcdClient(etcdConfig)
+		require.NoError(t, err)
+
+		manager, err := NewMembershipManager(config, etcdClient)
+		require.NoError(t, err)
+
+		// Set local member
+		manager.mu.Lock()
+		manager.localMember = &Member{ID: "local-member"}
+		manager.members["local-member"] = &Member{ID: "local-member", Status: MemberStatusHealthy}
+		manager.mu.Unlock()
+
+		ctx := testContextWithTimeout(t)
+		err = manager.RemoveMember(ctx, "local-member", true)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot remove local member")
+	})
+
+	t.Run("cannot remove healthy member without force", func(t *testing.T) {
+		config := DefaultConfig()
+		config.Enabled = true
+		config.ClusterName = "test-cluster"
+		config.AdvertiseAddress = "127.0.0.1"
+
+		etcdConfig := DefaultEtcdConfig()
+		etcdClient, err := NewEtcdClient(etcdConfig)
+		require.NoError(t, err)
+
+		manager, err := NewMembershipManager(config, etcdClient)
+		require.NoError(t, err)
+
+		// Add a healthy member
+		manager.mu.Lock()
+		manager.members["healthy-member"] = &Member{
+			ID:     "healthy-member",
+			Status: MemberStatusHealthy,
+		}
+		manager.mu.Unlock()
+
+		ctx := testContextWithTimeout(t)
+		err = manager.RemoveMember(ctx, "healthy-member", false)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "not unhealthy")
+		assert.Contains(t, err.Error(), "use force=true")
+	})
+
+	t.Run("can remove unhealthy member without force", func(t *testing.T) {
+		config := DefaultConfig()
+		config.Enabled = true
+		config.ClusterName = "test-cluster"
+		config.AdvertiseAddress = "127.0.0.1"
+
+		etcdConfig := DefaultEtcdConfig()
+		etcdClient, err := NewEtcdClient(etcdConfig)
+		require.NoError(t, err)
+
+		manager, err := NewMembershipManager(config, etcdClient)
+		require.NoError(t, err)
+
+		// Add an unhealthy member
+		manager.mu.Lock()
+		manager.members["unhealthy-member"] = &Member{
+			ID:     "unhealthy-member",
+			Status: MemberStatusUnhealthy,
+		}
+		manager.mu.Unlock()
+
+		ctx := testContextWithTimeout(t)
+		// This will fail because etcd isn't running, but it will pass the validation checks
+		err = manager.RemoveMember(ctx, "unhealthy-member", false)
+		// We expect an error because etcd.Delete will fail (no real etcd)
+		// The important thing is it passed the validation checks
+		if err != nil {
+			assert.Contains(t, err.Error(), "etcd")
+		}
+	})
+}
