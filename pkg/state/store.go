@@ -9,8 +9,8 @@ func NewStore(config *Config) (Store, error) {
 	switch config.Backend {
 	case "sqlite":
 		return NewSQLiteStore(config)
-	case "postgresql":
-		return nil, fmt.Errorf("PostgreSQL backend not yet implemented")
+	case "postgresql", "postgres":
+		return NewPostgreSQLStore(config)
 	default:
 		return nil, fmt.Errorf("unsupported backend: %s", config.Backend)
 	}

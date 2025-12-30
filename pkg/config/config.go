@@ -36,6 +36,8 @@ type Config struct {
 	Storage StorageConfig
 	Agent   AgentConfig
 	TLS     TLSConfig
+	Webhook WebhookConfig
+	Policy  PolicyConfig
 }
 
 // ServerConfig contains control plane server settings
@@ -152,6 +154,56 @@ type TLSConfig struct {
 	InsecureSkipVerify bool
 }
 
+// WebhookConfig contains webhook receiver settings
+type WebhookConfig struct {
+	// Enable webhook receiver
+	Enabled bool
+	// Port for webhook HTTP server (separate from main HTTP port)
+	Port int
+	// Path prefix for webhook endpoints
+	Path string
+	// Authentication type: none, hmac, bearer
+	AuthType string
+	// Secret for HMAC authentication
+	HMACSecret string
+	// Token for Bearer authentication
+	BearerToken string
+	// Enabled webhook handlers: argocd, flux, github, gitlab
+	Handlers []string
+}
+
+// PolicyConfig contains policy engine settings
+type PolicyConfig struct {
+	// Enable policy engine
+	Enabled bool
+	// Policy engine type: opa, cel, both
+	Engine string
+	// Enforcement mode: enforce, audit, warn
+	EnforcementMode string
+	// Built-in policies to enable
+	Policies []PolicyDefinition
+}
+
+// PolicyDefinition defines a policy
+type PolicyDefinition struct {
+	// Unique policy ID
+	ID string
+	// Policy name
+	Name string
+	// Policy description
+	Description string
+	// Policy type: opa or cel
+	Type string
+	// Policy category: security, compliance, operational
+	Category string
+	// Severity: low, medium, high, critical
+	Severity string
+	// Policy code (Rego for OPA, CEL expression for CEL)
+	Code string
+	// Whether policy is enabled
+	Enabled bool
+}
+
 // Default configuration values
 const (
 	DefaultServerListenAddr = "0.0.0.0"
@@ -174,6 +226,12 @@ const (
 	DefaultHeartbeatInterval = 30 * time.Second
 	DefaultCommandTimeout    = 5 * time.Minute
 	DefaultMetadataInterval  = 5 * time.Minute
+
+	DefaultWebhookPort = 8082
+	DefaultWebhookPath = "/webhooks"
+
+	DefaultPolicyEngine          = "both"
+	DefaultPolicyEnforcementMode = "enforce"
 )
 
 // LoadConfig loads configuration from file and environment variables
@@ -250,6 +308,18 @@ func setDefaults(v *viper.Viper) {
 
 	// TLS defaults
 	v.SetDefault("tls.enabled", false)
+
+	// Webhook defaults
+	v.SetDefault("webhook.enabled", false)
+	v.SetDefault("webhook.port", DefaultWebhookPort)
+	v.SetDefault("webhook.path", DefaultWebhookPath)
+	v.SetDefault("webhook.authtype", "none")
+	v.SetDefault("webhook.handlers", []string{"argocd", "flux", "github", "gitlab"})
+
+	// Policy defaults
+	v.SetDefault("policy.enabled", false)
+	v.SetDefault("policy.engine", DefaultPolicyEngine)
+	v.SetDefault("policy.enforcementmode", DefaultPolicyEnforcementMode)
 }
 
 // Validate checks if the configuration is valid
@@ -291,6 +361,41 @@ func (c *Config) Validate() error {
 	}
 	if c.Server.HTTPPort <= 0 || c.Server.HTTPPort > 65535 {
 		return fmt.Errorf("invalid HTTP port: %d", c.Server.HTTPPort)
+	}
+
+	// Validate webhook config
+	if c.Webhook.Enabled {
+		if c.Webhook.Port <= 0 || c.Webhook.Port > 65535 {
+			return fmt.Errorf("invalid webhook port: %d", c.Webhook.Port)
+		}
+		switch c.Webhook.AuthType {
+		case "", "none", "hmac", "bearer":
+			// valid
+		default:
+			return fmt.Errorf("invalid webhook auth type: %s (must be none, hmac, or bearer)", c.Webhook.AuthType)
+		}
+		if c.Webhook.AuthType == "hmac" && c.Webhook.HMACSecret == "" {
+			return fmt.Errorf("HMAC secret required when auth type is hmac")
+		}
+		if c.Webhook.AuthType == "bearer" && c.Webhook.BearerToken == "" {
+			return fmt.Errorf("bearer token required when auth type is bearer")
+		}
+	}
+
+	// Validate policy config
+	if c.Policy.Enabled {
+		switch c.Policy.Engine {
+		case "opa", "cel", "both":
+			// valid
+		default:
+			return fmt.Errorf("invalid policy engine: %s (must be opa, cel, or both)", c.Policy.Engine)
+		}
+		switch c.Policy.EnforcementMode {
+		case "enforce", "audit", "warn":
+			// valid
+		default:
+			return fmt.Errorf("invalid enforcement mode: %s (must be enforce, audit, or warn)", c.Policy.EnforcementMode)
+		}
 	}
 
 	return nil

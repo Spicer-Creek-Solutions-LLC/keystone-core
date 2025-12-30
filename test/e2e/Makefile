@@ -5,7 +5,8 @@
 # Or run from test/e2e directory with: make <target>
 
 .PHONY: all build test test-quick test-full test-topology test-scenario \
-        clean logs shell help images up down
+        test-exec test-agent test-gitops test-ha test-performance test-scale \
+        test-throughput clean logs shell help images up down
 
 # Default target
 all: test-quick
@@ -122,6 +123,30 @@ test-cluster: images
 	KSCORE_E2E_TESTS=1 KSCORE_ROOT=$(shell cd ../.. && pwd) \
 		go test $(GO_TEST_FLAGS) -timeout 600s ./scenarios/... -run "Cluster"
 
+## Run remote execution tests
+test-exec: images
+	@echo "$(GREEN)Running remote execution E2E tests...$(NC)"
+	KSCORE_E2E_TESTS=1 KSCORE_ROOT=$(shell cd ../.. && pwd) \
+		go test $(GO_TEST_FLAGS) -timeout $(TIMEOUT)s ./scenarios/... -run "Exec"
+
+## Run agent lifecycle tests
+test-agent: images
+	@echo "$(GREEN)Running agent lifecycle E2E tests...$(NC)"
+	KSCORE_E2E_TESTS=1 KSCORE_ROOT=$(shell cd ../.. && pwd) \
+		go test $(GO_TEST_FLAGS) -timeout $(TIMEOUT)s ./scenarios/... -run "Agent"
+
+## Run GitOps webhook tests
+test-gitops: images
+	@echo "$(GREEN)Running GitOps webhook E2E tests...$(NC)"
+	KSCORE_E2E_TESTS=1 KSCORE_ROOT=$(shell cd ../.. && pwd) \
+		go test $(GO_TEST_FLAGS) -timeout $(TIMEOUT)s ./scenarios/... -run "GitOps"
+
+## Run HA cluster tests
+test-ha: images
+	@echo "$(GREEN)Running HA cluster E2E tests...$(NC)"
+	KSCORE_E2E_TESTS=1 TOPOLOGY=ha-cluster KSCORE_ROOT=$(shell cd ../.. && pwd) \
+		go test $(GO_TEST_FLAGS) -timeout 900s ./topology/... -run "HACluster"
+
 #------------------------------------------------------------------------------
 # Performance Tests
 #------------------------------------------------------------------------------
@@ -137,6 +162,12 @@ test-scale:
 	@echo "$(GREEN)Running agent scale tests...$(NC)"
 	KSCORE_E2E_TESTS=1 KSCORE_PERF_TESTS=1 KSCORE_ROOT=$(shell cd ../.. && pwd) \
 		go test $(GO_TEST_FLAGS) -timeout 1800s ./performance/... -run "Scale"
+
+## Run throughput tests
+test-throughput:
+	@echo "$(GREEN)Running throughput tests...$(NC)"
+	KSCORE_E2E_TESTS=1 KSCORE_PERF_TESTS=1 KSCORE_ROOT=$(shell cd ../.. && pwd) \
+		go test $(GO_TEST_FLAGS) -timeout 1800s ./performance/... -run "Throughput"
 
 #------------------------------------------------------------------------------
 # Chaos Tests
@@ -219,7 +250,13 @@ help:
 	@echo "  test-events       Run event system tests"
 	@echo "  test-policy       Run policy enforcement tests"
 	@echo "  test-cluster      Run clustering tests"
-	@echo "  test-performance  Run performance tests"
+	@echo "  test-exec         Run remote execution tests"
+	@echo "  test-agent        Run agent lifecycle tests"
+	@echo "  test-gitops       Run GitOps webhook tests"
+	@echo "  test-ha           Run HA cluster tests"
+	@echo "  test-performance  Run all performance tests"
+	@echo "  test-scale        Run agent scale tests"
+	@echo "  test-throughput   Run throughput tests"
 	@echo "  test-chaos        Run chaos tests"
 	@echo ""
 	@echo "Environment Targets:"

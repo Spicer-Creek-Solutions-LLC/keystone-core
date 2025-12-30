@@ -1,6 +1,81 @@
 # CLAUDE.md
 
+> ⚠️ **STOP - READ THIS FIRST** ⚠️
+>
+> Before running ANY Docker, Podman, or long-running commands, read the **Critical Operational Constraints** section below.
+> Failure to follow these rules causes system-wide fork failures (EAGAIN errors) that crash all terminals.
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+---
+
+## ⛔ Critical Operational Constraints
+
+**YOU MUST FOLLOW THESE RULES** to prevent system resource exhaustion (EAGAIN fork failures).
+
+### ❌ NEVER DO THIS
+
+```bash
+# WRONG - background Docker commands cause pgrep polling storms
+Bash(run_in_background=true): docker compose up
+Bash(run_in_background=true): podman compose up
+Bash(run_in_background=true): docker logs -f container_name
+
+# WRONG - streaming logs floods terminal buffer
+docker logs -f container_name
+podman logs -f container_name
+
+# WRONG - long timeouts with no output limits
+Bash(timeout=600000): docker compose up
+Bash(timeout=600000): go test ./...
+
+# WRONG - parallel container operations
+# (multiple Docker/Podman commands in same message)
+```
+
+### ✅ ALWAYS DO THIS
+
+```bash
+# RIGHT - start detached, then check status separately
+docker compose up -d
+docker compose ps
+
+# RIGHT - tail limited logs AFTER containers are running
+docker logs --tail 50 container_name
+
+# RIGHT - short timeouts with explicit limits
+timeout 30 docker compose up -d
+timeout 60 go test -v ./pkg/specific/...
+
+# RIGHT - one container operation at a time, sequentially
+```
+
+### Docker/Podman Specific Rules
+
+1. **NEVER use `run_in_background: true`** for any Docker/Podman command
+2. **NEVER stream logs** (`-f` or `--follow`) - use `--tail N` after the fact
+3. **NEVER run `docker compose up` without `-d`** (detached mode)
+4. **ALWAYS use timeouts** of 30-60 seconds maximum
+5. **ALWAYS clean up** with `docker compose down` when done
+6. **ONE container command per message** - never parallelize
+
+### Test Execution Rules
+
+1. **NEVER use `run_in_background: true`** for test commands
+2. **Run ONE test package at a time** - not entire test suites
+3. **Use `-v` only when debugging specific failures**
+4. **Wrap with `timeout`**: `timeout 60 go test ./pkg/foo/...`
+
+### Why This Matters
+
+Claude Code polls background processes via `pgrep`. When commands:
+- Run in background + produce lots of output → pgrep polling exhausts process slots
+- Stream indefinitely → terminal buffer overflow
+- Run too long → accumulated polling causes EAGAIN
+
+**Result**: `zsh: fork failed: resource temporarily unavailable` across ALL terminals, requiring system restart.
+
+---
 
 ## Repository Purpose
 
@@ -25,6 +100,26 @@ This repository contains working implementations of **Epics 1-11**. The project 
 - Comprehensive test suite (>79% coverage across all core packages)
 
 **Current Status**: Epic 1-11 COMPLETE ✅ | Epic 12 PLANNED (E2E Testing) | Epic 13 PLANNED (CGO Removal)
+
+### ⚠️ Known Implementation Gaps
+
+The following features are documented as complete but have incomplete or stub implementations:
+
+| Feature | Epic | Status | Notes |
+|---------|------|--------|-------|
+| **Embedded etcd mode** | 11 | ❌ NOT IMPLEMENTED | Config exists but no `embed.Etcd` - just connects to localhost. |
+| **OCI Registry client** | 9 | ❌ NOT IMPLEMENTED | `pkg/module/registry/` doesn't exist. |
+| **kscore-registry server** | 9 | ❌ NOT IMPLEMENTED | `cmd/kscore-registry/` doesn't exist. |
+| **kscore-module CLI** | 9 | ❌ NOT IMPLEMENTED | `cmd/kscore-module/` doesn't exist. |
+| **kscore-policy CLI** | 6 | ❌ NOT IMPLEMENTED | `cmd/kscore-policy/` doesn't exist. |
+| **kscore-gitops CLI** | 5 | ❌ NOT IMPLEMENTED | `cmd/kscore-gitops/` doesn't exist. |
+| **Cosign verification** | 9 | ⚠️ STUB | Returns "not yet implemented" error. |
+| **Loki integration** | 7 | ⚠️ PLACEHOLDER | InMemoryLogsQuerier only. |
+| **Jaeger integration** | 7 | ⚠️ PLACEHOLDER | InMemoryTracesQuerier only. |
+| **Kubernetes manifests** | 8/10 | ❌ NOT IMPLEMENTED | `deploy/kubernetes/` doesn't exist. |
+| **Helm charts** | 8/10 | ❌ NOT IMPLEMENTED | No Helm charts exist. |
+
+These gaps should be addressed before production use.
 
 ## Repository Structure
 
@@ -60,9 +155,9 @@ Keystone Core fills the gap between declarative GitOps tools and runtime operati
   - JetStream for event persistence (supported in all modes)
 - **Agents**: Lightweight Go binaries on managed nodes (K8s, VMs, bare metal, edge)
 - **State Storage**: SQLite or PostgreSQL for operational state (NOT JetStream - see design rationale)
-  - **SQLite (embedded)**: Zero dependencies, perfect for dev/testing/home labs, small deployments (<100 nodes)
-  - **PostgreSQL**: Production deployments, high availability, scalability (100+ nodes)
-  - Automated migration tooling from SQLite → PostgreSQL
+  - **SQLite (embedded)**: Zero dependencies, perfect for dev/testing/home labs, small deployments (<100 nodes) ✅ IMPLEMENTED
+  - **PostgreSQL**: Production deployments, high availability, scalability (100+ nodes) ✅ IMPLEMENTED
+  - Automated migration tooling from SQLite → PostgreSQL ✅ IMPLEMENTED (`kscore-migrate` CLI)
 
 **Key Design Decisions**:
 - Use NATS JetStream for events/messaging, but SQLite/PostgreSQL for state due to query patterns, indexing needs, and transactional semantics
@@ -1860,25 +1955,31 @@ Keystone Core fills the gap between declarative GitOps tools and runtime operati
 - CLI tooling (kscorectl module init/build/test commands)
 
 **Epic 9 Complete!** All 7 phases finished:
-- Phase 1: Runtime foundation (Starlark, WASM, manifest)
-- Phase 2: Capability system (10 capability types)
-- Phase 3: Cryptographic verification (hash, signature, SumDB, trust)
-- Phase 4: Dependency resolution (SemVer, DAG, MVS)
-- Phase 5: Registry & distribution (OCI, HTTP proxy, caching)
-- Phase 6: SDKs & stdlib (Starlark, Rust, Go, C++)
-- Phase 7: Module loader orchestration (6-phase loading)
+- Phase 1: Runtime foundation (Starlark, WASM, manifest) ✅
+- Phase 2: Capability system (10 capability types) ✅
+- Phase 3: Cryptographic verification (hash, signature, SumDB, trust) ✅ (Cosign is stub only)
+- Phase 4: Dependency resolution (SemVer, DAG, MVS) ✅
+- Phase 5: Registry & distribution ⚠️ NOT IMPLEMENTED (OCI client, HTTP proxy, kscore-registry missing)
+- Phase 6: SDKs & stdlib (Starlark, Rust, Go, C++) ✅
+- Phase 7: Module loader orchestration (6-phase loading) ✅
 
 **Total Epic 9 Achievements**:
 - Complete plugin system architecture
 - 10 capability types with path/domain/command scoping
-- Full cryptographic verification pipeline
+- Full cryptographic verification pipeline (Cosign stub only - RSA/ECDSA/Ed25519 work)
 - Dependency resolution with MVS algorithm
-- OCI registry with HTTP proxy and SumDB
+- ~~OCI registry with HTTP proxy and SumDB~~ ⚠️ NOT IMPLEMENTED
 - SDK suite for 4 languages (Starlark, Rust, Go, C++)
 - 6 stdlib modules + 4 hello world examples
 - Module loader with caching and orchestration
 - 150+ comprehensive tests passing
 - ~15,000+ lines of production code
+
+**Epic 9 Implementation Gaps**:
+- `pkg/module/registry/` - OCI registry client not implemented
+- `cmd/kscore-registry/` - Registry server not implemented
+- `cmd/kscore-module/` - Module CLI not implemented
+- Cosign verification returns "not yet implemented" error
 
 ### Epic 10: Documentation ✅ COMPLETE
 
@@ -2159,7 +2260,7 @@ Keystone Core fills the gap between declarative GitOps tools and runtime operati
 **Phase 1 Week 1-2: etcd Integration & Cluster Formation ✅ COMPLETE**
 - etcd client integration (pkg/cluster/etcd.go)
   - etcd v3 client wrapper with connection management
-  - Support for embedded and external etcd modes
+  - Support for embedded and external etcd modes (⚠️ embedded mode config only - no `embed.Etcd` startup)
   - Session management with TTL-based leases
   - Transaction support with compare-and-swap
   - Retry logic with exponential backoff
@@ -2275,6 +2376,9 @@ Keystone Core fills the gap between declarative GitOps tools and runtime operati
 - Documented all 8 phases with implementation details
 - Updated Epic Dependencies section
 
+**Epic 11 Implementation Gaps**:
+- Embedded etcd mode: Config and validation exist, but no actual `embed.Etcd` server startup - just connects to localhost
+
 ### Epic 12: End-to-End & Performance Testing 📋 PLANNED
 
 **Implementation Plan:** 8 phases (14 weeks total)
@@ -2294,7 +2398,7 @@ Keystone Core fills the gap between declarative GitOps tools and runtime operati
 **Key Test Topologies:**
 - All-in-one: Embedded NATS + SQLite + 2-3 agents (dev/small)
 - HA Cluster: 3 control planes + NATS cluster + PostgreSQL + 10+ agents
-- Kubernetes: k3d cluster + operator + DaemonSet agents
+- Kubernetes: k3d cluster + operator + DaemonSet agents (⚠️ requires K8s manifests implementation)
 - Hybrid: External NATS + embedded leaf node agents
 
 **Platform Matrix:**
@@ -2596,14 +2700,19 @@ Keystone Core will have the following executables:
   - `verify`, `rollback`, `sync`, `diff`
   - ArgoCD/Flux integration
 
+- **`kscore-migrate`** - Database migration tool ✅ IMPLEMENTED
+  - `run` - Run migration from SQLite to PostgreSQL
+  - `validate` - Validate migration completeness
+  - Dry-run mode, batch processing, skip-existing support
+
 ### 4. **Third-Party Plugins** (optional)
 - Any binary named `kscore-<name>` in $PATH automatically works as `kscorectl <name>`
 - Examples:
   - `kscore-backup` → `kscorectl backup`
-  - `kscore-migrate` → `kscorectl migrate`
+  - `kscore-custom-deploy` → `kscorectl custom-deploy`
   - Community extensions without forking core
 
-**Total Core Binaries**: 8 (1 CLI + 3 servers + 4 built-in plugins)
+**Total Core Binaries**: 9 (1 CLI + 3 servers + 5 built-in plugins)
 **Extensible**: Unlimited via third-party `kscore-*` plugins
 
 ## Future Implementation Repository
@@ -2619,6 +2728,7 @@ keystone-core/
 │   ├── kscore-state/      # State commands (invoked via kscorectl)
 │   ├── kscore-exec/       # Execution commands (invoked via kscorectl)
 │   ├── kscore-monitor/    # TUI monitor (invoked via kscorectl)
+│   ├── kscore-migrate/    # Database migration tool (invoked via kscorectl)
 │   └── kscore-registry/   # Registry server (OCI + HTTP proxy)
 ├── pkg/
 │   ├── api/               # gRPC/REST API

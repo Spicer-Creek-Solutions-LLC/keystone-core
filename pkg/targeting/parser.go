@@ -19,13 +19,15 @@ type TargetExpression struct {
 // Parse parses a target expression string into a compiled TargetExpression.
 //
 // Supported syntax:
+//   - Match all: "*" (matches all agents)
 //   - Simple matching: "os:linux", "role:web"
-//   - Glob patterns: "name:prod-*", "hostname:*.example.com"
+//   - Glob patterns: "name:prod-*", "hostname:*.example.com", "id:*"
 //   - Logical operators: "os:linux and role:web", "name:prod-* or name:staging-*"
 //   - Negation: "not os:windows", "os:linux and not role:db"
 //   - Grouping: "(os:linux and role:web) or name:special"
 //
 // Examples:
+//   - "*" - matches all agents
 //   - "os:linux" - matches agents with os="linux"
 //   - "name:web-*" - matches agents with names starting with "web-"
 //   - "os:linux and role:web" - matches Linux agents with web role
@@ -33,6 +35,11 @@ type TargetExpression struct {
 func Parse(expression string) (*TargetExpression, error) {
 	if expression == "" {
 		return nil, fmt.Errorf("empty target expression")
+	}
+
+	// Handle special case: "*" means match all agents
+	if strings.TrimSpace(expression) == "*" {
+		expression = "id:*"
 	}
 
 	// Convert target expression syntax to expr-compatible syntax

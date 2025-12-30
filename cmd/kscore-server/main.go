@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -17,7 +18,9 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/api/server"
 	"github.com/shawnbutts/keystone-core/pkg/config"
 	"github.com/shawnbutts/keystone-core/pkg/controlplane"
+	"github.com/shawnbutts/keystone-core/pkg/gitops/webhook"
 	natsmgr "github.com/shawnbutts/keystone-core/pkg/nats"
+	"github.com/shawnbutts/keystone-core/pkg/policy"
 	"github.com/shawnbutts/keystone-core/pkg/state"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
@@ -212,6 +215,87 @@ func runServer(cmd *cobra.Command, args []string) {
 	}()
 	defer httpServer.Shutdown(context.Background())
 
+	// Initialize policy engine if enabled
+	var policyEngine *policy.PolicyEngine
+	var policyRegistry *policy.Registry
+	if cfg.Policy.Enabled {
+		fmt.Println("Initializing policy engine...")
+		policyRegistry = policy.NewRegistry()
+
+		// Register configured policies
+		for _, policyDef := range cfg.Policy.Policies {
+			if !policyDef.Enabled {
+				continue
+			}
+			p := &policy.Policy{
+				ID:          policyDef.ID,
+				Name:        policyDef.Name,
+				Description: policyDef.Description,
+				Type:        policy.PolicyType(policyDef.Type),
+				Category:    policy.PolicyCategory(policyDef.Category),
+				Severity:    policy.Severity(policyDef.Severity),
+				Policy:      policyDef.Code,
+				Enabled:     policyDef.Enabled,
+			}
+			if err := policyRegistry.RegisterPolicy(p); err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to register policy %s: %v\n", policyDef.ID, err)
+			} else {
+				fmt.Printf("  Registered policy: %s (%s)\n", policyDef.ID, policyDef.Type)
+			}
+		}
+
+		policyEngine = policy.NewPolicyEngine(policyRegistry)
+		fmt.Printf("Policy engine initialized (engine: %s, mode: %s)\n", cfg.Policy.Engine, cfg.Policy.EnforcementMode)
+
+		// Store policy engine in API server for use
+		apiServer.SetPolicyEngine(policyEngine)
+	}
+
+	// Initialize webhook receiver if enabled
+	var webhookReceiver *webhook.Receiver
+	if cfg.Webhook.Enabled {
+		fmt.Println("Initializing webhook receiver...")
+
+		// Create webhook config
+		webhookConfig := &webhook.WebhookConfig{
+			Enabled:  true,
+			Addr:     fmt.Sprintf(":%d", cfg.Webhook.Port),
+			Path:     cfg.Webhook.Path,
+			Handlers: cfg.Webhook.Handlers,
+		}
+
+		// Set authentication
+		switch cfg.Webhook.AuthType {
+		case "hmac":
+			webhookConfig.Auth = webhook.AuthConfig{
+				Type:   webhook.AuthTypeHMAC,
+				Secret: cfg.Webhook.HMACSecret,
+			}
+		case "bearer":
+			webhookConfig.Auth = webhook.AuthConfig{
+				Type:  webhook.AuthTypeBearer,
+				Token: cfg.Webhook.BearerToken,
+			}
+		default:
+			webhookConfig.Auth = webhook.AuthConfig{
+				Type: webhook.AuthTypeNone,
+			}
+		}
+
+		// Create a simple event processor that logs events
+		processor := &loggingEventProcessor{}
+		webhookReceiver = webhook.NewReceiver(webhookConfig, processor)
+
+		go func() {
+			webhookAddr := fmt.Sprintf("%s:%d", cfg.Server.ListenAddr, cfg.Webhook.Port)
+			fmt.Printf("Webhook receiver listening on %s%s\n", webhookAddr, cfg.Webhook.Path)
+			if err := webhookReceiver.Start(); err != nil {
+				fmt.Fprintf(os.Stderr, "Webhook receiver error: %v\n", err)
+			}
+		}()
+		defer webhookReceiver.Stop(context.Background())
+	}
+
 	fmt.Printf("\nKeystone Core server started successfully\n")
 	fmt.Printf("  gRPC API: %s\n", listenAddr)
 	fmt.Printf("  HTTP API: %s\n", httpAddr)
@@ -269,4 +353,12 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+// loggingEventProcessor logs webhook events (simple implementation for now)
+type loggingEventProcessor struct{}
+
+func (p *loggingEventProcessor) ProcessEvent(ctx context.Context, event *webhook.WebhookEvent) error {
+	log.Printf("Webhook event received: type=%s source=%s", event.Type, event.Source)
+	return nil
 }

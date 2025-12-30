@@ -5,6 +5,37 @@
 #   docker compose -f docker-compose.yml up -d
 #   docker compose -f docker-compose.yml down -v
 
+# Default logging configuration to prevent log explosion
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+# Default resource limits for lightweight services
+x-resources-light: &resources-light
+  deploy:
+    resources:
+      limits:
+        memory: 256M
+        cpus: "0.5"
+
+# Default resource limits for standard services
+x-resources-standard: &resources-standard
+  deploy:
+    resources:
+      limits:
+        memory: 512M
+        cpus: "1.0"
+
+# Default resource limits for heavy services (control plane, databases)
+x-resources-heavy: &resources-heavy
+  deploy:
+    resources:
+      limits:
+        memory: 1G
+        cpus: "2.0"
+
 services:
   # ==========================================================================
   # NATS Cluster (3 nodes)
@@ -26,6 +57,8 @@ services:
       - "4222:4222"   # Client connections
     networks:
       - kscore-net
+    logging: *default-logging
+    <<: *resources-light
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8222/healthz"]
       interval: 5s
@@ -47,6 +80,8 @@ services:
       - nats-2-data:/data
     networks:
       - kscore-net
+    logging: *default-logging
+    <<: *resources-light
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8222/healthz"]
       interval: 5s
@@ -68,6 +103,8 @@ services:
       - nats-3-data:/data
     networks:
       - kscore-net
+    logging: *default-logging
+    <<: *resources-light
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8222/healthz"]
       interval: 5s
@@ -95,6 +132,8 @@ services:
       - etcd-1-data:/etcd-data
     networks:
       - kscore-net
+    logging: *default-logging
+    <<: *resources-light
     healthcheck:
       test: ["CMD", "etcdctl", "endpoint", "health"]
       interval: 5s
@@ -119,6 +158,8 @@ services:
       - etcd-2-data:/etcd-data
     networks:
       - kscore-net
+    logging: *default-logging
+    <<: *resources-light
     healthcheck:
       test: ["CMD", "etcdctl", "endpoint", "health"]
       interval: 5s
@@ -143,6 +184,8 @@ services:
       - etcd-3-data:/etcd-data
     networks:
       - kscore-net
+    logging: *default-logging
+    <<: *resources-light
     healthcheck:
       test: ["CMD", "etcdctl", "endpoint", "health"]
       interval: 5s
@@ -164,6 +207,8 @@ services:
       - postgres-data:/var/lib/postgresql/data
     networks:
       - kscore-net
+    logging: *default-logging
+    <<: *resources-standard
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U kscore -d kscore"]
       interval: 5s
@@ -202,10 +247,12 @@ services:
       - ./config/server-1.yaml:/etc/kscore/server.yaml:ro
       - server-1-data:/var/lib/kscore
     environment:
-      - KSCORE_LOG_LEVEL=debug
+      - KSCORE_LOG_LEVEL=${KSCORE_LOG_LEVEL:-info}
       - KSCORE_CLUSTER_NODE_ID=server-1
     networks:
       - kscore-net
+    logging: *default-logging
+    <<: *resources-heavy
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8081/health/live"]
       interval: 5s
@@ -230,10 +277,12 @@ services:
       - ./config/server-2.yaml:/etc/kscore/server.yaml:ro
       - server-2-data:/var/lib/kscore
     environment:
-      - KSCORE_LOG_LEVEL=debug
+      - KSCORE_LOG_LEVEL=${KSCORE_LOG_LEVEL:-info}
       - KSCORE_CLUSTER_NODE_ID=server-2
     networks:
       - kscore-net
+    logging: *default-logging
+    <<: *resources-heavy
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8081/health/live"]
       interval: 5s
@@ -258,10 +307,12 @@ services:
       - ./config/server-3.yaml:/etc/kscore/server.yaml:ro
       - server-3-data:/var/lib/kscore
     environment:
-      - KSCORE_LOG_LEVEL=debug
+      - KSCORE_LOG_LEVEL=${KSCORE_LOG_LEVEL:-info}
       - KSCORE_CLUSTER_NODE_ID=server-3
     networks:
       - kscore-net
+    logging: *default-logging
+    <<: *resources-heavy
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8081/health/live"]
       interval: 5s
@@ -288,6 +339,8 @@ services:
       - KSCORE_AGENT_ID=agent-1
     networks:
       - kscore-net
+    logging: *default-logging
+    <<: *resources-light
 
   agent-2:
     build:
@@ -305,6 +358,8 @@ services:
       - KSCORE_AGENT_ID=agent-2
     networks:
       - kscore-net
+    logging: *default-logging
+    <<: *resources-light
 
   agent-3:
     build:
@@ -322,6 +377,8 @@ services:
       - KSCORE_AGENT_ID=agent-3
     networks:
       - kscore-net
+    logging: *default-logging
+    <<: *resources-light
 
   agent-4:
     build:
@@ -339,6 +396,8 @@ services:
       - KSCORE_AGENT_ID=agent-4
     networks:
       - kscore-net
+    logging: *default-logging
+    <<: *resources-light
 
   agent-5:
     build:
@@ -356,6 +415,8 @@ services:
       - KSCORE_AGENT_ID=agent-5
     networks:
       - kscore-net
+    logging: *default-logging
+    <<: *resources-light
 
 networks:
   kscore-net:

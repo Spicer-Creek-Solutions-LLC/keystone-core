@@ -8,6 +8,23 @@
 # For Podman:
 #   podman-compose -f docker-compose.yml up -d
 
+# Default logging configuration to prevent log explosion
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+# Default resource limits to prevent resource exhaustion
+x-resources: &default-resources
+  deploy:
+    resources:
+      limits:
+        memory: 512M
+        cpus: "1.0"
+      reservations:
+        memory: 128M
+
 services:
   # Control Plane Server with embedded NATS and SQLite
   server:
@@ -20,17 +37,27 @@ services:
     ports:
       - "8080:8080"   # gRPC API
       - "8081:8081"   # HTTP API / Health
+      - "8082:8082"   # Webhook receiver
       - "4222:4222"   # NATS (for agents to connect)
     volumes:
       - server-data:/var/lib/kscore
     environment:
-      - KSCORE_LOG_LEVEL=debug
+      # Use info level by default; set KSCORE_LOG_LEVEL=debug for debugging
+      - KSCORE_LOG_LEVEL=${KSCORE_LOG_LEVEL:-info}
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8081/health/live"]
       interval: 5s
       timeout: 3s
       retries: 10
       start_period: 10s
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "2.0"
+        reservations:
+          memory: 256M
     networks:
       - kscore-net
 
@@ -47,6 +74,8 @@ services:
         condition: service_healthy
     volumes:
       - ./config/agent-web-1.yaml:/etc/kscore/agent.yaml:ro
+    logging: *default-logging
+    <<: *default-resources
     networks:
       - kscore-net
 
@@ -63,6 +92,8 @@ services:
         condition: service_healthy
     volumes:
       - ./config/agent-web-2.yaml:/etc/kscore/agent.yaml:ro
+    logging: *default-logging
+    <<: *default-resources
     networks:
       - kscore-net
 
@@ -79,6 +110,8 @@ services:
         condition: service_healthy
     volumes:
       - ./config/agent-db-1.yaml:/etc/kscore/agent.yaml:ro
+    logging: *default-logging
+    <<: *default-resources
     networks:
       - kscore-net
 

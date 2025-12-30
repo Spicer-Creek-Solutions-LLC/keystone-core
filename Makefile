@@ -1,6 +1,6 @@
 .PHONY: help proto build test clean deps build-all-platforms docs docs-serve docs-pdf docs-all \
        release release-snapshot release-dry-run lint \
-       e2e-build e2e-test e2e-up e2e-down e2e-logs e2e-clean
+       e2e-build e2e-test e2e-up e2e-down e2e-logs e2e-clean e2e-full e2e-perf e2e-scenarios
 
 # Version information
 VERSION ?= dev
@@ -41,7 +41,10 @@ help:
 	@echo ""
 	@echo "E2E testing targets (requires Docker/Podman):"
 	@echo "  e2e-build          - Build container images for E2E testing"
-	@echo "  e2e-test           - Run E2E tests (builds images and runs tests)"
+	@echo "  e2e-test           - Run E2E tests (quick topology tests)"
+	@echo "  e2e-full           - Run full E2E test suite (all tests)"
+	@echo "  e2e-scenarios      - Run E2E scenario tests"
+	@echo "  e2e-perf           - Run E2E performance tests"
 	@echo "  e2e-up             - Start E2E test environment"
 	@echo "  e2e-down           - Stop E2E test environment"
 	@echo "  e2e-logs           - Show logs from E2E containers"
@@ -115,6 +118,8 @@ clean:
 	# C++ build artifacts
 	rm -rf modules/sdk/cpp/build/
 	rm -rf modules/sdk/cpp/examples/*/build/
+	# E2E test reports
+	rm -rf test/e2e/performance/reports/
 
 install-tools:
 	@echo "Installing protoc plugins..."
@@ -267,3 +272,21 @@ e2e-clean:
 	@echo "Cleaning up E2E environment..."
 	$(E2E_COMPOSE) down -v --remove-orphans --rmi local
 	@echo "E2E cleanup complete"
+
+e2e-full: e2e-build
+	@echo "Running full E2E test suite..."
+	KSCORE_E2E_TESTS=1 KSCORE_ROOT=$(shell pwd) go test -v -timeout 30m ./test/e2e/...
+	@echo "Full E2E tests complete"
+	$(E2E_COMPOSE) down -v --remove-orphans
+
+e2e-perf: e2e-build
+	@echo "Running E2E performance tests..."
+	KSCORE_E2E_TESTS=1 KSCORE_PERF_TESTS=1 KSCORE_ROOT=$(shell pwd) go test -v -timeout 30m ./test/e2e/performance/...
+	@echo "Performance tests complete"
+	$(E2E_COMPOSE) down -v --remove-orphans
+
+e2e-scenarios: e2e-build
+	@echo "Running E2E scenario tests..."
+	KSCORE_E2E_TESTS=1 KSCORE_SKIP_BUILD=1 KSCORE_ROOT=$(shell pwd) go test -v -timeout 20m ./test/e2e/scenarios/...
+	@echo "Scenario tests complete"
+	$(E2E_COMPOSE) down -v --remove-orphans

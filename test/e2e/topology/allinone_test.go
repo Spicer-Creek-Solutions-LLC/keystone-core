@@ -23,6 +23,17 @@ func TestMain(m *testing.M) {
 		os.Exit(0)
 	}
 
+	// Check which topology we're testing
+	topology := os.Getenv("KSCORE_TOPOLOGY")
+
+	// If HA cluster topology, don't set up all-in-one environment
+	// HA cluster tests manage their own environment via setupHACluster()
+	if topology == "ha-cluster" {
+		code := m.Run()
+		os.Exit(code)
+	}
+
+	// Default: all-in-one topology
 	// Find compose file
 	composeFile := findComposeFile()
 	if composeFile == "" {
@@ -242,10 +253,11 @@ func TestAllInOne_TargetedBatchCommand(t *testing.T) {
 
 	client := testEnv.Client()
 
-	// Target only web agents using glob pattern
+	// Target only web agents using glob pattern on ID field
+	// Targeting syntax requires field:pattern format (e.g., id:agent-web-*)
 	req := &pb.BatchExecuteCommandRequest{
 		BatchJobId:  "e2e-batch-web-only",
-		Target:      "agent-web-*",
+		Target:      "id:agent-web-*",
 		Command:     "echo",
 		Args:        []string{"web server reporting"},
 		Concurrency: 2,

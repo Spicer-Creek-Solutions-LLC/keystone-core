@@ -32,6 +32,9 @@ type TestEnvironment struct {
 	// ServerHTTPAddr is the address of the control plane HTTP server
 	ServerHTTPAddr string
 
+	// WebhookAddr is the address of the webhook receiver
+	WebhookAddr string
+
 	// grpcConn is the gRPC connection to the server
 	grpcConn *grpc.ClientConn
 
@@ -65,6 +68,10 @@ type Config struct {
 	// ServerHTTPPort is the host port for the HTTP server
 	// Default: 8081
 	ServerHTTPPort int
+
+	// WebhookPort is the host port for the webhook receiver
+	// Default: 8082
+	WebhookPort int
 }
 
 // DefaultConfig returns the default configuration
@@ -75,6 +82,7 @@ func DefaultConfig() *Config {
 		StartupTimeout: 120 * time.Second,
 		ServerGRPCPort: 8080,
 		ServerHTTPPort: 8081,
+		WebhookPort:    8082,
 	}
 }
 
@@ -115,6 +123,7 @@ func New(cfg *Config) (*TestEnvironment, error) {
 		ProjectName:    cfg.ProjectName,
 		ServerGRPCAddr: fmt.Sprintf("localhost:%d", cfg.ServerGRPCPort),
 		ServerHTTPAddr: fmt.Sprintf("http://localhost:%d", cfg.ServerHTTPPort),
+		WebhookAddr:    fmt.Sprintf("http://localhost:%d", cfg.WebhookPort),
 		httpClient:     &http.Client{Timeout: 5 * time.Second},
 	}, nil
 }
@@ -130,6 +139,14 @@ func (e *TestEnvironment) Start(ctx context.Context, cfg *Config) error {
 		"-f", e.ComposeFile,
 		"-p", e.ProjectName,
 	}
+
+	// Always clean up any existing containers first to avoid name conflicts
+	// This handles cases where previous test runs crashed or containers
+	// were started manually outside the test harness
+	fmt.Print("Cleaning up any existing containers...")
+	downArgs := append(args, "down", "-v", "--remove-orphans")
+	_ = e.runCompose(ctx, downArgs...) // Ignore errors - containers might not exist
+	fmt.Println(" done")
 
 	if cfg.BuildImages {
 		// Build images first (quiet mode to avoid flooding terminal)

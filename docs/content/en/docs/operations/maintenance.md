@@ -631,27 +631,57 @@ sudo -u postgres createuser kscore
 sudo -u postgres createdb -O kscore keystonecore
 ```
 
-**2. Export SQLite Data:**
+**2. Plan the Migration (Dry Run):**
 ```bash
 # Stop control plane
 sudo systemctl stop kscore-server
 
-# Export to SQL
-kscore-migrate export \
-  --source sqlite:///var/lib/kscore/state.db \
-  --format sql \
-  --output /tmp/export.sql
+# Dry run to see what will be migrated
+kscore-migrate run \
+  --sqlite /var/lib/kscore/state.db \
+  --postgres "postgres://kscore:password@localhost/keystonecore" \
+  --dry-run --verbose
 ```
 
-**3. Import to PostgreSQL:**
+**3. Run the Migration:**
 ```bash
-kscore-migrate import \
-  --input /tmp/export.sql \
-  --target postgres://kscore:password@localhost/kscore \
-  --validate
+# Migrate all data from SQLite to PostgreSQL
+kscore-migrate run \
+  --sqlite /var/lib/kscore/state.db \
+  --postgres "postgres://kscore:password@localhost/keystonecore"
+
+# Output shows progress:
+#   agents: 0/150
+#   agents: 100/150
+#   agents: 150/150
+#   commands: 0/1234
+#   ...
+#   Migration completed!
+#   Duration: 2.5s
+#   Agents migrated: 150
+#   Commands migrated: 1234
+#   Batch jobs migrated: 45
+#   Batch agent results migrated: 890
 ```
 
-**4. Update Configuration:**
+**4. Validate the Migration:**
+```bash
+# Verify all data was migrated correctly
+kscore-migrate validate \
+  --sqlite /var/lib/kscore/state.db \
+  --postgres "postgres://kscore:password@localhost/keystonecore"
+
+# Output:
+#   Record counts:
+#     Agents:             Source=150  Target=150
+#     Commands:           Source=1234 Target=1234
+#     Batch jobs:         Source=45   Target=45
+#     Batch agent results: Source=890  Target=890
+#
+#   Validation PASSED - all record counts match
+```
+
+**5. Update Configuration:**
 ```yaml
 # /etc/kscore/server.yaml
 storage:
@@ -659,27 +689,55 @@ storage:
   postgresql:
     host: localhost
     port: 5432
-    database: kscore
+    database: keystonecore
     username: kscore
     password: $POSTGRES_PASSWORD
 ```
 
-**5. Start and Verify:**
+**6. Start and Verify:**
 ```bash
 sudo systemctl start kscore-server
 
 # Verify agent count
 kscorectl agent list | wc -l
 
-# Verify state resources
-kscorectl state list | wc -l
+# Verify all agents are healthy
+kscorectl agent list --filter "status:online"
 ```
 
-**6. Backup SQLite (Archive):**
+**7. Backup SQLite (Archive):**
 ```bash
 gzip /var/lib/kscore/state.db
 mv /var/lib/kscore/state.db.gz /var/backups/kscore/sqlite-archive-$(date +%Y%m%d).db.gz
 ```
+
+**Migration Options:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--dry-run` | false | Validate without writing to target |
+| `--batch-size` | 100 | Records per progress update |
+| `--continue-on-error` | false | Continue even if some records fail |
+| `--skip-existing` | true | Skip records already in target |
+| `--verbose` | false | Show detailed progress |
+
+**Incremental Migration:**
+
+If you need to migrate while the system is running (not recommended for production):
+```bash
+# First migration
+kscore-migrate run --sqlite ... --postgres ... --skip-existing
+
+# Later, migrate any new records
+kscore-migrate run --sqlite ... --postgres ... --skip-existing
+```
+
+**Rollback:**
+
+If migration fails, the source SQLite database is unchanged. Simply:
+1. Fix the PostgreSQL issue
+2. Re-run the migration
+3. Or continue using SQLite
 
 ## Data Retention
 

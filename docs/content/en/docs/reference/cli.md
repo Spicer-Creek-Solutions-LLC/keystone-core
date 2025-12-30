@@ -736,6 +736,125 @@ kscorectl gitops promote <application> [flags]
 kscorectl gitops promote myapp --from staging --to production
 ```
 
+## kscore-migrate (Database Migration)
+
+Migrate data between storage backends (SQLite to PostgreSQL).
+
+### migrate run
+
+Run migration from SQLite to PostgreSQL.
+
+```bash
+kscorectl migrate run [flags]
+```
+
+**Required Flags**:
+- `--sqlite string`: Path to SQLite database file
+- `--postgres string`: PostgreSQL connection string
+
+**Optional Flags**:
+- `--dry-run`: Perform a dry run without writing to target
+- `--batch-size int`: Number of records per batch (default: 100)
+- `--continue-on-error`: Continue migration even if some records fail
+- `--skip-existing`: Skip records that already exist in target (default: true)
+- `--verbose`: Enable verbose output
+
+**Examples**:
+```bash
+# Basic migration
+kscorectl migrate run \
+  --sqlite /var/lib/kscore/state.db \
+  --postgres "postgres://kscore:password@localhost/keystonecore"
+
+# Dry run first
+kscorectl migrate run \
+  --sqlite /var/lib/kscore/state.db \
+  --postgres "postgres://kscore:password@localhost/keystonecore" \
+  --dry-run --verbose
+
+# Continue on errors
+kscorectl migrate run \
+  --sqlite /var/lib/kscore/state.db \
+  --postgres "postgres://kscore:password@localhost/keystonecore" \
+  --continue-on-error
+```
+
+**Output**:
+```
+Starting migration from SQLite to PostgreSQL...
+  Mode: DRY RUN (no data will be written)
+  Source: /var/lib/kscore/state.db
+  Target: PostgreSQL
+  Batch size: 100
+  Skip existing: true
+  Continue on error: false
+
+  agents: 0/150
+  agents: 150/150
+  commands: 0/1234
+  commands: 1234/1234
+  batch_jobs: 0/45
+  batch_jobs: 45/45
+  batch_agent_results: 0/890
+  batch_agent_results: 890/890
+
+Migration completed!
+  Duration: 2.534s
+  Agents migrated: 150
+  Commands migrated: 1234
+  Batch jobs migrated: 45
+  Batch agent results migrated: 890
+```
+
+### migrate validate
+
+Validate migration completeness by comparing source and target databases.
+
+```bash
+kscorectl migrate validate [flags]
+```
+
+**Required Flags**:
+- `--sqlite string`: Path to SQLite database file
+- `--postgres string`: PostgreSQL connection string
+
+**Examples**:
+```bash
+kscorectl migrate validate \
+  --sqlite /var/lib/kscore/state.db \
+  --postgres "postgres://kscore:password@localhost/keystonecore"
+```
+
+**Output (Success)**:
+```
+Validating migration...
+  Source: /var/lib/kscore/state.db
+  Target: PostgreSQL
+
+Record counts:
+  Agents:             Source=150  Target=150
+  Commands:           Source=1234 Target=1234
+  Batch jobs:         Source=45   Target=45
+  Batch agent results: Source=890  Target=890
+
+Validation PASSED - all record counts match
+```
+
+**Output (Failure)**:
+```
+Validation FAILED - discrepancies found:
+  - agent count mismatch: source=150, target=148
+  - command count mismatch: source=1234, target=1200
+```
+
+### migrate version
+
+Display version information.
+
+```bash
+kscorectl migrate version
+```
+
 ## Configuration File
 
 Default location: `~/.kscore/config.yaml`

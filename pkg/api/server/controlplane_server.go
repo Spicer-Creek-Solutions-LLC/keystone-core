@@ -8,6 +8,7 @@ import (
 
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 	"github.com/shawnbutts/keystone-core/pkg/controlplane"
+	"github.com/shawnbutts/keystone-core/pkg/policy"
 	"github.com/shawnbutts/keystone-core/pkg/state"
 )
 
@@ -18,6 +19,7 @@ type ControlPlaneServer struct {
 	dispatcher      *controlplane.CommandDispatcher
 	batchDispatcher *controlplane.BatchDispatcher
 	store           state.Store
+	policyEngine    *policy.PolicyEngine
 }
 
 // NewControlPlaneServer creates a new control plane API server
@@ -28,6 +30,16 @@ func NewControlPlaneServer(connMgr *controlplane.ConnectionManager, dispatcher *
 		batchDispatcher: batchDispatcher,
 		store:           store,
 	}
+}
+
+// SetPolicyEngine sets the policy engine for policy evaluation
+func (s *ControlPlaneServer) SetPolicyEngine(engine *policy.PolicyEngine) {
+	s.policyEngine = engine
+}
+
+// GetPolicyEngine returns the policy engine (may be nil if not configured)
+func (s *ControlPlaneServer) GetPolicyEngine() *policy.PolicyEngine {
+	return s.policyEngine
 }
 
 // ListAgents lists all registered agents

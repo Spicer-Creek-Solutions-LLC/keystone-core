@@ -339,17 +339,15 @@ func TestNewStore_SQLite(t *testing.T) {
 	}
 }
 
-func TestNewStore_PostgreSQL(t *testing.T) {
+func TestNewStore_PostgreSQL_RequiresDSN(t *testing.T) {
 	config := &Config{
-		Backend: "postgresql",
+		Backend:       "postgresql",
+		PostgreSQLDSN: "", // Empty DSN should fail
 	}
 
 	_, err := NewStore(config)
 	if err == nil {
-		t.Error("Expected error for unimplemented PostgreSQL backend")
-	}
-	if err.Error() != "PostgreSQL backend not yet implemented" {
-		t.Errorf("Expected 'PostgreSQL backend not yet implemented' error, got: %v", err)
+		t.Error("Expected error for PostgreSQL without DSN")
 	}
 }
 

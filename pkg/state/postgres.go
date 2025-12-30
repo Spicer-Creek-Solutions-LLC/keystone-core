@@ -5,67 +5,67 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/lib/pq"
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 )
 
-// SQLiteStore implements Store using SQLite
-type SQLiteStore struct {
-	db   *sql.DB
-	path string
+// PostgreSQLStore implements Store using PostgreSQL
+type PostgreSQLStore struct {
+	db  *sql.DB
+	dsn string
 }
 
-// NewSQLiteStore creates a new SQLite store
-func NewSQLiteStore(config *Config) (*SQLiteStore, error) {
-	path := config.SQLitePath
-	if path == "" {
-		path = "./data/keystone-core.db"
-	}
-
-	// Ensure directory exists
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create database directory: %w", err)
-	}
-
-	// Build connection string with options
-	connStr := path
-	params := []string{}
-
-	if config.SQLiteWAL {
-		params = append(params, "_journal_mode=WAL")
-	}
-
-	if config.SQLiteBusyTimeout > 0 {
-		params = append(params, fmt.Sprintf("_timeout=%d", config.SQLiteBusyTimeout))
-	}
-
-	if len(params) > 0 {
-		connStr = fmt.Sprintf("%s?%s", path, strings.Join(params, "&"))
+// NewPostgreSQLStore creates a new PostgreSQL store
+func NewPostgreSQLStore(config *Config) (*PostgreSQLStore, error) {
+	dsn := config.PostgreSQLDSN
+	if dsn == "" {
+		return nil, fmt.Errorf("PostgreSQL DSN is required")
 	}
 
 	// Open database
-	db, err := sql.Open("sqlite3", connStr)
+	db, err := sql.Open("postgres", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
-	// Set connection pool settings for SQLite
-	db.SetMaxOpenConns(1) // SQLite only supports one writer
-	db.SetMaxIdleConns(1)
+	// Set connection pool settings
+	if config.PostgreSQLMaxOpen > 0 {
+		db.SetMaxOpenConns(config.PostgreSQLMaxOpen)
+	} else {
+		db.SetMaxOpenConns(25) // Default
+	}
 
-	store := &SQLiteStore{
-		db:   db,
-		path: path,
+	if config.PostgreSQLMaxIdle > 0 {
+		db.SetMaxIdleConns(config.PostgreSQLMaxIdle)
+	} else {
+		db.SetMaxIdleConns(5) // Default
+	}
+
+	if config.PostgreSQLConnMaxLife > 0 {
+		db.SetConnMaxLifetime(config.PostgreSQLConnMaxLife)
+	} else {
+		db.SetConnMaxLifetime(5 * time.Minute) // Default
+	}
+
+	// Verify connection
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := db.PingContext(ctx); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to connect to database: %w", err)
+	}
+
+	store := &PostgreSQLStore{
+		db:  db,
+		dsn: dsn,
 	}
 
 	// Initialize schema
-	if err := store.initSchema(); err != nil {
+	if err := store.initSchema(ctx); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("failed to initialize schema: %w", err)
 	}
@@ -74,49 +74,49 @@ func NewSQLiteStore(config *Config) (*SQLiteStore, error) {
 }
 
 // initSchema creates the database schema
-func (s *SQLiteStore) initSchema() error {
+func (s *PostgreSQLStore) initSchema(ctx context.Context) error {
 	schema := `
 	CREATE TABLE IF NOT EXISTS agents (
 		id TEXT PRIMARY KEY,
 		hostname TEXT NOT NULL,
 		os TEXT NOT NULL,
 		architecture TEXT NOT NULL,
-		ip_addresses TEXT,
+		ip_addresses JSONB,
 		platform_version TEXT,
 		agent_version TEXT,
-		labels TEXT,
+		labels JSONB,
 		status INTEGER NOT NULL,
-		last_heartbeat TIMESTAMP NOT NULL,
-		registered_at TIMESTAMP NOT NULL,
-		updated_at TIMESTAMP NOT NULL,
+		last_heartbeat TIMESTAMP WITH TIME ZONE NOT NULL,
+		registered_at TIMESTAMP WITH TIME ZONE NOT NULL,
+		updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
 		cpu_percent REAL,
 		memory_percent REAL,
 		disk_percent REAL,
-		load_average TEXT
+		load_average JSONB
 	);
 
 	CREATE INDEX IF NOT EXISTS idx_agents_status ON agents(status);
 	CREATE INDEX IF NOT EXISTS idx_agents_last_heartbeat ON agents(last_heartbeat);
+	CREATE INDEX IF NOT EXISTS idx_agents_labels ON agents USING GIN(labels);
 
 	CREATE TABLE IF NOT EXISTS commands (
 		id TEXT PRIMARY KEY,
-		agent_id TEXT NOT NULL,
+		agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
 		command TEXT NOT NULL,
-		args TEXT,
-		env TEXT,
+		args JSONB,
+		env JSONB,
 		working_dir TEXT,
-		user TEXT,
+		"user" TEXT,
 		timeout INTEGER,
 		status INTEGER NOT NULL,
 		exit_code INTEGER,
 		stdout TEXT,
 		stderr TEXT,
 		error TEXT,
-		created_at TIMESTAMP NOT NULL,
-		started_at TIMESTAMP,
-		completed_at TIMESTAMP,
-		duration_ms INTEGER,
-		FOREIGN KEY (agent_id) REFERENCES agents(id)
+		created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+		started_at TIMESTAMP WITH TIME ZONE,
+		completed_at TIMESTAMP WITH TIME ZONE,
+		duration_ms BIGINT
 	);
 
 	CREATE INDEX IF NOT EXISTS idx_commands_agent_id ON commands(agent_id);
@@ -127,17 +127,17 @@ func (s *SQLiteStore) initSchema() error {
 		id TEXT PRIMARY KEY,
 		target TEXT NOT NULL,
 		command TEXT NOT NULL,
-		args TEXT,
-		env TEXT,
+		args JSONB,
+		env JSONB,
 		working_dir TEXT,
-		user TEXT,
+		"user" TEXT,
 		timeout INTEGER,
 		concurrency INTEGER,
 		status INTEGER NOT NULL,
-		created_at TIMESTAMP NOT NULL,
-		started_at TIMESTAMP,
-		completed_at TIMESTAMP,
-		duration_ms INTEGER,
+		created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+		started_at TIMESTAMP WITH TIME ZONE,
+		completed_at TIMESTAMP WITH TIME ZONE,
+		duration_ms BIGINT,
 		total_agents INTEGER DEFAULT 0,
 		completed_agents INTEGER DEFAULT 0,
 		successful_agents INTEGER DEFAULT 0,
@@ -150,28 +150,26 @@ func (s *SQLiteStore) initSchema() error {
 	CREATE INDEX IF NOT EXISTS idx_batch_jobs_target ON batch_jobs(target);
 
 	CREATE TABLE IF NOT EXISTS batch_agent_results (
-		batch_job_id TEXT NOT NULL,
-		agent_id TEXT NOT NULL,
-		success INTEGER NOT NULL,
+		batch_job_id TEXT NOT NULL REFERENCES batch_jobs(id) ON DELETE CASCADE,
+		agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+		success BOOLEAN NOT NULL,
 		exit_code INTEGER,
 		error TEXT,
-		duration_ms INTEGER,
-		created_at TIMESTAMP NOT NULL,
-		PRIMARY KEY (batch_job_id, agent_id),
-		FOREIGN KEY (batch_job_id) REFERENCES batch_jobs(id),
-		FOREIGN KEY (agent_id) REFERENCES agents(id)
+		duration_ms BIGINT,
+		created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+		PRIMARY KEY (batch_job_id, agent_id)
 	);
 
 	CREATE INDEX IF NOT EXISTS idx_batch_agent_results_batch_job_id ON batch_agent_results(batch_job_id);
 	CREATE INDEX IF NOT EXISTS idx_batch_agent_results_agent_id ON batch_agent_results(agent_id);
 	`
 
-	_, err := s.db.Exec(schema)
+	_, err := s.db.ExecContext(ctx, schema)
 	return err
 }
 
 // SaveAgent saves an agent record
-func (s *SQLiteStore) SaveAgent(ctx context.Context, agent *AgentRecord) error {
+func (s *PostgreSQLStore) SaveAgent(ctx context.Context, agent *AgentRecord) error {
 	ipAddresses, _ := json.Marshal(agent.IPAddresses)
 	labels, _ := json.Marshal(agent.Labels)
 	loadAvg, _ := json.Marshal(agent.LoadAverage)
@@ -181,22 +179,22 @@ func (s *SQLiteStore) SaveAgent(ctx context.Context, agent *AgentRecord) error {
 			id, hostname, os, architecture, ip_addresses, platform_version,
 			agent_version, labels, status, last_heartbeat, registered_at,
 			updated_at, cpu_percent, memory_percent, disk_percent, load_average
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 		ON CONFLICT(id) DO UPDATE SET
-			hostname = excluded.hostname,
-			os = excluded.os,
-			architecture = excluded.architecture,
-			ip_addresses = excluded.ip_addresses,
-			platform_version = excluded.platform_version,
-			agent_version = excluded.agent_version,
-			labels = excluded.labels,
-			status = excluded.status,
-			last_heartbeat = excluded.last_heartbeat,
-			updated_at = excluded.updated_at,
-			cpu_percent = excluded.cpu_percent,
-			memory_percent = excluded.memory_percent,
-			disk_percent = excluded.disk_percent,
-			load_average = excluded.load_average
+			hostname = EXCLUDED.hostname,
+			os = EXCLUDED.os,
+			architecture = EXCLUDED.architecture,
+			ip_addresses = EXCLUDED.ip_addresses,
+			platform_version = EXCLUDED.platform_version,
+			agent_version = EXCLUDED.agent_version,
+			labels = EXCLUDED.labels,
+			status = EXCLUDED.status,
+			last_heartbeat = EXCLUDED.last_heartbeat,
+			updated_at = EXCLUDED.updated_at,
+			cpu_percent = EXCLUDED.cpu_percent,
+			memory_percent = EXCLUDED.memory_percent,
+			disk_percent = EXCLUDED.disk_percent,
+			load_average = EXCLUDED.load_average
 	`
 
 	_, err := s.db.ExecContext(ctx, query,
@@ -210,13 +208,13 @@ func (s *SQLiteStore) SaveAgent(ctx context.Context, agent *AgentRecord) error {
 }
 
 // GetAgent retrieves an agent by ID
-func (s *SQLiteStore) GetAgent(ctx context.Context, agentID string) (*AgentRecord, error) {
+func (s *PostgreSQLStore) GetAgent(ctx context.Context, agentID string) (*AgentRecord, error) {
 	query := `
 		SELECT id, hostname, os, architecture, ip_addresses, platform_version,
 			agent_version, labels, status, last_heartbeat, registered_at, updated_at,
 			cpu_percent, memory_percent, disk_percent, load_average
 		FROM agents
-		WHERE id = ?
+		WHERE id = $1
 	`
 
 	var agent AgentRecord
@@ -245,7 +243,7 @@ func (s *SQLiteStore) GetAgent(ctx context.Context, agentID string) (*AgentRecor
 }
 
 // ListAgents lists agents with filtering
-func (s *SQLiteStore) ListAgents(ctx context.Context, filter *AgentFilter) ([]*AgentRecord, error) {
+func (s *PostgreSQLStore) ListAgents(ctx context.Context, filter *AgentFilter) ([]*AgentRecord, error) {
 	query := `
 		SELECT id, hostname, os, architecture, ip_addresses, platform_version,
 			agent_version, labels, status, last_heartbeat, registered_at, updated_at,
@@ -254,31 +252,42 @@ func (s *SQLiteStore) ListAgents(ctx context.Context, filter *AgentFilter) ([]*A
 		WHERE 1=1
 	`
 	args := []interface{}{}
+	paramCount := 0
 
 	if filter != nil {
 		if filter.Status != nil {
-			query += " AND status = ?"
+			paramCount++
+			query += fmt.Sprintf(" AND status = $%d", paramCount)
 			args = append(args, *filter.Status)
 		}
 
 		// Add sorting
 		sortBy := "registered_at"
 		if filter.SortBy != "" {
-			sortBy = filter.SortBy
+			// Validate sort column to prevent SQL injection
+			validColumns := map[string]bool{
+				"id": true, "hostname": true, "os": true, "status": true,
+				"last_heartbeat": true, "registered_at": true, "updated_at": true,
+			}
+			if validColumns[filter.SortBy] {
+				sortBy = filter.SortBy
+			}
 		}
 		sortOrder := "DESC"
-		if filter.SortOrder != "" {
-			sortOrder = strings.ToUpper(filter.SortOrder)
+		if filter.SortOrder != "" && strings.ToUpper(filter.SortOrder) == "ASC" {
+			sortOrder = "ASC"
 		}
 		query += fmt.Sprintf(" ORDER BY %s %s", sortBy, sortOrder)
 
 		// Add pagination
 		if filter.Limit > 0 {
-			query += " LIMIT ?"
+			paramCount++
+			query += fmt.Sprintf(" LIMIT $%d", paramCount)
 			args = append(args, filter.Limit)
 		}
 		if filter.Offset > 0 {
-			query += " OFFSET ?"
+			paramCount++
+			query += fmt.Sprintf(" OFFSET $%d", paramCount)
 			args = append(args, filter.Offset)
 		}
 	}
@@ -315,19 +324,19 @@ func (s *SQLiteStore) ListAgents(ctx context.Context, filter *AgentFilter) ([]*A
 }
 
 // UpdateAgentStatus updates an agent's status
-func (s *SQLiteStore) UpdateAgentStatus(ctx context.Context, agentID string, status pb.AgentStatus, lastHeartbeat time.Time) error {
-	query := `UPDATE agents SET status = ?, last_heartbeat = ?, updated_at = ? WHERE id = ?`
+func (s *PostgreSQLStore) UpdateAgentStatus(ctx context.Context, agentID string, status pb.AgentStatus, lastHeartbeat time.Time) error {
+	query := `UPDATE agents SET status = $1, last_heartbeat = $2, updated_at = $3 WHERE id = $4`
 	_, err := s.db.ExecContext(ctx, query, status, lastHeartbeat, time.Now(), agentID)
 	return err
 }
 
 // UpdateAgentMetrics updates an agent's metrics
-func (s *SQLiteStore) UpdateAgentMetrics(ctx context.Context, agentID string, metrics *pb.SystemMetrics) error {
+func (s *PostgreSQLStore) UpdateAgentMetrics(ctx context.Context, agentID string, metrics *pb.SystemMetrics) error {
 	loadAvg, _ := json.Marshal(metrics.LoadAverage)
 	query := `
 		UPDATE agents
-		SET cpu_percent = ?, memory_percent = ?, disk_percent = ?, load_average = ?, updated_at = ?
-		WHERE id = ?
+		SET cpu_percent = $1, memory_percent = $2, disk_percent = $3, load_average = $4, updated_at = $5
+		WHERE id = $6
 	`
 	_, err := s.db.ExecContext(ctx, query,
 		metrics.CpuPercent, metrics.MemoryPercent, metrics.DiskPercent, loadAvg, time.Now(), agentID,
@@ -336,23 +345,23 @@ func (s *SQLiteStore) UpdateAgentMetrics(ctx context.Context, agentID string, me
 }
 
 // DeleteAgent deletes an agent
-func (s *SQLiteStore) DeleteAgent(ctx context.Context, agentID string) error {
-	query := `DELETE FROM agents WHERE id = ?`
+func (s *PostgreSQLStore) DeleteAgent(ctx context.Context, agentID string) error {
+	query := `DELETE FROM agents WHERE id = $1`
 	_, err := s.db.ExecContext(ctx, query, agentID)
 	return err
 }
 
 // SaveCommand saves a command record
-func (s *SQLiteStore) SaveCommand(ctx context.Context, cmd *CommandRecord) error {
+func (s *PostgreSQLStore) SaveCommand(ctx context.Context, cmd *CommandRecord) error {
 	args, _ := json.Marshal(cmd.Args)
 	env, _ := json.Marshal(cmd.Env)
 
 	query := `
 		INSERT INTO commands (
-			id, agent_id, command, args, env, working_dir, user, timeout,
+			id, agent_id, command, args, env, working_dir, "user", timeout,
 			status, exit_code, stdout, stderr, error, created_at, started_at,
 			completed_at, duration_ms
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
 	`
 
 	_, err := s.db.ExecContext(ctx, query,
@@ -365,13 +374,13 @@ func (s *SQLiteStore) SaveCommand(ctx context.Context, cmd *CommandRecord) error
 }
 
 // GetCommand retrieves a command by ID
-func (s *SQLiteStore) GetCommand(ctx context.Context, commandID string) (*CommandRecord, error) {
+func (s *PostgreSQLStore) GetCommand(ctx context.Context, commandID string) (*CommandRecord, error) {
 	query := `
-		SELECT id, agent_id, command, args, env, working_dir, user, timeout,
+		SELECT id, agent_id, command, args, env, working_dir, "user", timeout,
 			status, exit_code, stdout, stderr, error, created_at, started_at,
 			completed_at, duration_ms
 		FROM commands
-		WHERE id = ?
+		WHERE id = $1
 	`
 
 	var cmd CommandRecord
@@ -398,52 +407,65 @@ func (s *SQLiteStore) GetCommand(ctx context.Context, commandID string) (*Comman
 }
 
 // ListCommands lists commands with filtering
-func (s *SQLiteStore) ListCommands(ctx context.Context, filter *CommandFilter) ([]*CommandRecord, error) {
+func (s *PostgreSQLStore) ListCommands(ctx context.Context, filter *CommandFilter) ([]*CommandRecord, error) {
 	query := `
-		SELECT id, agent_id, command, args, env, working_dir, user, timeout,
+		SELECT id, agent_id, command, args, env, working_dir, "user", timeout,
 			status, exit_code, stdout, stderr, error, created_at, started_at,
 			completed_at, duration_ms
 		FROM commands
 		WHERE 1=1
 	`
 	args := []interface{}{}
+	paramCount := 0
 
 	if filter != nil {
 		if filter.AgentID != "" {
-			query += " AND agent_id = ?"
+			paramCount++
+			query += fmt.Sprintf(" AND agent_id = $%d", paramCount)
 			args = append(args, filter.AgentID)
 		}
 		if filter.Status != nil {
-			query += " AND status = ?"
+			paramCount++
+			query += fmt.Sprintf(" AND status = $%d", paramCount)
 			args = append(args, *filter.Status)
 		}
 		if filter.StartTime != nil {
-			query += " AND created_at >= ?"
+			paramCount++
+			query += fmt.Sprintf(" AND created_at >= $%d", paramCount)
 			args = append(args, *filter.StartTime)
 		}
 		if filter.EndTime != nil {
-			query += " AND created_at <= ?"
+			paramCount++
+			query += fmt.Sprintf(" AND created_at <= $%d", paramCount)
 			args = append(args, *filter.EndTime)
 		}
 
 		// Add sorting
 		sortBy := "created_at"
 		if filter.SortBy != "" {
-			sortBy = filter.SortBy
+			validColumns := map[string]bool{
+				"id": true, "agent_id": true, "command": true, "status": true,
+				"created_at": true, "started_at": true, "completed_at": true,
+			}
+			if validColumns[filter.SortBy] {
+				sortBy = filter.SortBy
+			}
 		}
 		sortOrder := "DESC"
-		if filter.SortOrder != "" {
-			sortOrder = strings.ToUpper(filter.SortOrder)
+		if filter.SortOrder != "" && strings.ToUpper(filter.SortOrder) == "ASC" {
+			sortOrder = "ASC"
 		}
 		query += fmt.Sprintf(" ORDER BY %s %s", sortBy, sortOrder)
 
 		// Add pagination
 		if filter.Limit > 0 {
-			query += " LIMIT ?"
+			paramCount++
+			query += fmt.Sprintf(" LIMIT $%d", paramCount)
 			args = append(args, filter.Limit)
 		}
 		if filter.Offset > 0 {
-			query += " OFFSET ?"
+			paramCount++
+			query += fmt.Sprintf(" OFFSET $%d", paramCount)
 			args = append(args, filter.Offset)
 		}
 	}
@@ -479,19 +501,19 @@ func (s *SQLiteStore) ListCommands(ctx context.Context, filter *CommandFilter) (
 }
 
 // UpdateCommandStatus updates a command's status
-func (s *SQLiteStore) UpdateCommandStatus(ctx context.Context, commandID string, status pb.CommandStatus) error {
-	query := `UPDATE commands SET status = ? WHERE id = ?`
+func (s *PostgreSQLStore) UpdateCommandStatus(ctx context.Context, commandID string, status pb.CommandStatus) error {
+	query := `UPDATE commands SET status = $1 WHERE id = $2`
 	_, err := s.db.ExecContext(ctx, query, status, commandID)
 	return err
 }
 
 // UpdateCommandResult updates command execution result
-func (s *SQLiteStore) UpdateCommandResult(ctx context.Context, commandID string, result *CommandResult) error {
+func (s *PostgreSQLStore) UpdateCommandResult(ctx context.Context, commandID string, result *CommandResult) error {
 	query := `
 		UPDATE commands
-		SET status = ?, exit_code = ?, stdout = ?, stderr = ?, error = ?,
-			started_at = ?, completed_at = ?, duration_ms = ?
-		WHERE id = ?
+		SET status = $1, exit_code = $2, stdout = $3, stderr = $4, error = $5,
+			started_at = $6, completed_at = $7, duration_ms = $8
+		WHERE id = $9
 	`
 	_, err := s.db.ExecContext(ctx, query,
 		result.Status, result.ExitCode, result.Stdout, result.Stderr, result.Error,
@@ -501,31 +523,31 @@ func (s *SQLiteStore) UpdateCommandResult(ctx context.Context, commandID string,
 }
 
 // SaveBatchJob saves a batch job record
-func (s *SQLiteStore) SaveBatchJob(ctx context.Context, job *BatchJobRecord) error {
+func (s *PostgreSQLStore) SaveBatchJob(ctx context.Context, job *BatchJobRecord) error {
 	args, _ := json.Marshal(job.Args)
 	env, _ := json.Marshal(job.Env)
 
 	query := `
 		INSERT INTO batch_jobs (
-			id, target, command, args, env, working_dir, user, timeout,
+			id, target, command, args, env, working_dir, "user", timeout,
 			concurrency, status, created_at, started_at, completed_at,
 			duration_ms, total_agents, completed_agents, successful_agents,
 			failed_agents, success_rate
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
 		ON CONFLICT(id) DO UPDATE SET
-			status = excluded.status,
-			started_at = excluded.started_at,
-			completed_at = excluded.completed_at,
-			duration_ms = excluded.duration_ms,
-			total_agents = excluded.total_agents,
-			completed_agents = excluded.completed_agents,
-			successful_agents = excluded.successful_agents,
-			failed_agents = excluded.failed_agents,
-			success_rate = excluded.success_rate
+			status = EXCLUDED.status,
+			started_at = EXCLUDED.started_at,
+			completed_at = EXCLUDED.completed_at,
+			duration_ms = EXCLUDED.duration_ms,
+			total_agents = EXCLUDED.total_agents,
+			completed_agents = EXCLUDED.completed_agents,
+			successful_agents = EXCLUDED.successful_agents,
+			failed_agents = EXCLUDED.failed_agents,
+			success_rate = EXCLUDED.success_rate
 	`
 
 	_, err := s.db.ExecContext(ctx, query,
-		job.ID, job.Target, job.Command, string(args), string(env),
+		job.ID, job.Target, job.Command, args, env,
 		job.WorkingDir, job.User, job.Timeout, job.Concurrency,
 		job.Status, job.CreatedAt, job.StartedAt, job.CompletedAt,
 		job.DurationMs, job.TotalAgents, job.CompletedAgents,
@@ -536,18 +558,18 @@ func (s *SQLiteStore) SaveBatchJob(ctx context.Context, job *BatchJobRecord) err
 }
 
 // GetBatchJob retrieves a batch job by ID
-func (s *SQLiteStore) GetBatchJob(ctx context.Context, batchJobID string) (*BatchJobRecord, error) {
+func (s *PostgreSQLStore) GetBatchJob(ctx context.Context, batchJobID string) (*BatchJobRecord, error) {
 	query := `
-		SELECT id, target, command, args, env, working_dir, user, timeout,
+		SELECT id, target, command, args, env, working_dir, "user", timeout,
 			   concurrency, status, created_at, started_at, completed_at,
 			   duration_ms, total_agents, completed_agents, successful_agents,
 			   failed_agents, success_rate
 		FROM batch_jobs
-		WHERE id = ?
+		WHERE id = $1
 	`
 
 	var job BatchJobRecord
-	var args, env sql.NullString
+	var args, env []byte
 	var startedAt, completedAt sql.NullTime
 
 	err := s.db.QueryRowContext(ctx, query, batchJobID).Scan(
@@ -565,12 +587,9 @@ func (s *SQLiteStore) GetBatchJob(ctx context.Context, batchJobID string) (*Batc
 		return nil, err
 	}
 
-	if args.Valid {
-		json.Unmarshal([]byte(args.String), &job.Args)
-	}
-	if env.Valid {
-		json.Unmarshal([]byte(env.String), &job.Env)
-	}
+	json.Unmarshal(args, &job.Args)
+	json.Unmarshal(env, &job.Env)
+
 	if startedAt.Valid {
 		t := startedAt.Time
 		job.StartedAt = &t
@@ -584,7 +603,7 @@ func (s *SQLiteStore) GetBatchJob(ctx context.Context, batchJobID string) (*Batc
 	resultsQuery := `
 		SELECT agent_id, success, exit_code, error, duration_ms, created_at
 		FROM batch_agent_results
-		WHERE batch_job_id = ?
+		WHERE batch_job_id = $1
 		ORDER BY created_at
 	`
 
@@ -618,9 +637,9 @@ func (s *SQLiteStore) GetBatchJob(ctx context.Context, batchJobID string) (*Batc
 }
 
 // ListBatchJobs lists batch jobs with optional filtering
-func (s *SQLiteStore) ListBatchJobs(ctx context.Context, filter *BatchJobFilter) ([]*BatchJobRecord, error) {
+func (s *PostgreSQLStore) ListBatchJobs(ctx context.Context, filter *BatchJobFilter) ([]*BatchJobRecord, error) {
 	query := `
-		SELECT id, target, command, args, env, working_dir, user, timeout,
+		SELECT id, target, command, args, env, working_dir, "user", timeout,
 			   concurrency, status, created_at, started_at, completed_at,
 			   duration_ms, total_agents, completed_agents, successful_agents,
 			   failed_agents, success_rate
@@ -629,32 +648,43 @@ func (s *SQLiteStore) ListBatchJobs(ctx context.Context, filter *BatchJobFilter)
 	`
 
 	args := []interface{}{}
+	paramCount := 0
 
 	if filter != nil {
 		if filter.Status != nil {
-			query += " AND status = ?"
+			paramCount++
+			query += fmt.Sprintf(" AND status = $%d", paramCount)
 			args = append(args, *filter.Status)
 		}
 
 		if filter.Target != "" {
-			query += " AND target LIKE ?"
+			paramCount++
+			query += fmt.Sprintf(" AND target ILIKE $%d", paramCount)
 			args = append(args, "%"+filter.Target+"%")
 		}
 
 		if filter.StartTime != nil {
-			query += " AND created_at >= ?"
+			paramCount++
+			query += fmt.Sprintf(" AND created_at >= $%d", paramCount)
 			args = append(args, *filter.StartTime)
 		}
 
 		if filter.EndTime != nil {
-			query += " AND created_at <= ?"
+			paramCount++
+			query += fmt.Sprintf(" AND created_at <= $%d", paramCount)
 			args = append(args, *filter.EndTime)
 		}
 
 		// Sorting
 		sortBy := "created_at"
 		if filter.SortBy != "" {
-			sortBy = filter.SortBy
+			validColumns := map[string]bool{
+				"id": true, "target": true, "command": true, "status": true,
+				"created_at": true, "started_at": true, "completed_at": true,
+			}
+			if validColumns[filter.SortBy] {
+				sortBy = filter.SortBy
+			}
 		}
 		sortOrder := "DESC"
 		if filter.SortOrder == "asc" {
@@ -664,11 +694,13 @@ func (s *SQLiteStore) ListBatchJobs(ctx context.Context, filter *BatchJobFilter)
 
 		// Pagination
 		if filter.Limit > 0 {
-			query += " LIMIT ?"
+			paramCount++
+			query += fmt.Sprintf(" LIMIT $%d", paramCount)
 			args = append(args, filter.Limit)
 		}
 		if filter.Offset > 0 {
-			query += " OFFSET ?"
+			paramCount++
+			query += fmt.Sprintf(" OFFSET $%d", paramCount)
 			args = append(args, filter.Offset)
 		}
 	} else {
@@ -686,11 +718,11 @@ func (s *SQLiteStore) ListBatchJobs(ctx context.Context, filter *BatchJobFilter)
 
 	for rows.Next() {
 		var job BatchJobRecord
-		var argsStr, envStr sql.NullString
+		var argsBytes, envBytes []byte
 		var startedAt, completedAt sql.NullTime
 
 		err := rows.Scan(
-			&job.ID, &job.Target, &job.Command, &argsStr, &envStr,
+			&job.ID, &job.Target, &job.Command, &argsBytes, &envBytes,
 			&job.WorkingDir, &job.User, &job.Timeout, &job.Concurrency,
 			&job.Status, &job.CreatedAt, &startedAt, &completedAt,
 			&job.DurationMs, &job.TotalAgents, &job.CompletedAgents,
@@ -700,12 +732,9 @@ func (s *SQLiteStore) ListBatchJobs(ctx context.Context, filter *BatchJobFilter)
 			return nil, err
 		}
 
-		if argsStr.Valid {
-			json.Unmarshal([]byte(argsStr.String), &job.Args)
-		}
-		if envStr.Valid {
-			json.Unmarshal([]byte(envStr.String), &job.Env)
-		}
+		json.Unmarshal(argsBytes, &job.Args)
+		json.Unmarshal(envBytes, &job.Env)
+
 		if startedAt.Valid {
 			t := startedAt.Time
 			job.StartedAt = &t
@@ -722,25 +751,25 @@ func (s *SQLiteStore) ListBatchJobs(ctx context.Context, filter *BatchJobFilter)
 }
 
 // UpdateBatchJobStatus updates the status of a batch job
-func (s *SQLiteStore) UpdateBatchJobStatus(ctx context.Context, batchJobID string, status pb.BatchJobStatus) error {
-	query := `UPDATE batch_jobs SET status = ? WHERE id = ?`
+func (s *PostgreSQLStore) UpdateBatchJobStatus(ctx context.Context, batchJobID string, status pb.BatchJobStatus) error {
+	query := `UPDATE batch_jobs SET status = $1 WHERE id = $2`
 	_, err := s.db.ExecContext(ctx, query, status, batchJobID)
 	return err
 }
 
 // UpdateBatchJobProgress updates the progress of a batch job
-func (s *SQLiteStore) UpdateBatchJobProgress(ctx context.Context, batchJobID string, progress *BatchJobProgress) error {
+func (s *PostgreSQLStore) UpdateBatchJobProgress(ctx context.Context, batchJobID string, progress *BatchJobProgress) error {
 	query := `
 		UPDATE batch_jobs
-		SET total_agents = ?,
-		    completed_agents = ?,
-		    successful_agents = ?,
-		    failed_agents = ?,
-		    success_rate = ?,
-		    started_at = ?,
-		    completed_at = ?,
-		    duration_ms = ?
-		WHERE id = ?
+		SET total_agents = $1,
+		    completed_agents = $2,
+		    successful_agents = $3,
+		    failed_agents = $4,
+		    success_rate = $5,
+		    started_at = $6,
+		    completed_at = $7,
+		    duration_ms = $8
+		WHERE id = $9
 	`
 
 	_, err := s.db.ExecContext(ctx, query,
@@ -759,16 +788,16 @@ func (s *SQLiteStore) UpdateBatchJobProgress(ctx context.Context, batchJobID str
 }
 
 // SaveBatchAgentResult saves a batch agent result
-func (s *SQLiteStore) SaveBatchAgentResult(ctx context.Context, batchJobID string, result *BatchAgentResultRecord) error {
+func (s *PostgreSQLStore) SaveBatchAgentResult(ctx context.Context, batchJobID string, result *BatchAgentResultRecord) error {
 	query := `
 		INSERT INTO batch_agent_results (
 			batch_job_id, agent_id, success, exit_code, error, duration_ms, created_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT(batch_job_id, agent_id) DO UPDATE SET
-			success = excluded.success,
-			exit_code = excluded.exit_code,
-			error = excluded.error,
-			duration_ms = excluded.duration_ms
+			success = EXCLUDED.success,
+			exit_code = EXCLUDED.exit_code,
+			error = EXCLUDED.error,
+			duration_ms = EXCLUDED.duration_ms
 	`
 
 	_, err := s.db.ExecContext(ctx, query,
@@ -785,11 +814,11 @@ func (s *SQLiteStore) SaveBatchAgentResult(ctx context.Context, batchJobID strin
 }
 
 // Ping checks database connectivity
-func (s *SQLiteStore) Ping(ctx context.Context) error {
+func (s *PostgreSQLStore) Ping(ctx context.Context) error {
 	return s.db.PingContext(ctx)
 }
 
 // Close closes the database connection
-func (s *SQLiteStore) Close() error {
+func (s *PostgreSQLStore) Close() error {
 	return s.db.Close()
 }

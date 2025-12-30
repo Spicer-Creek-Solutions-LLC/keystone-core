@@ -34,3 +34,71 @@ storage:
 # TLS disabled for testing
 tls:
   enabled: false
+
+# Webhook receiver for GitOps integration testing
+webhook:
+  enabled: true
+  port: 8082
+  path: /webhooks
+  authtype: none
+  handlers:
+    - argocd
+    - flux
+    - github
+    - gitlab
+
+# Policy engine for policy enforcement testing
+policy:
+  enabled: true
+  engine: both
+  enforcementmode: enforce
+  policies:
+    # Security policy - OPA (Rego)
+    - id: security-no-root-commands
+      name: No Root Commands
+      description: Blocks commands that require root privileges
+      type: opa
+      category: security
+      severity: high
+      enabled: true
+      code: |
+        package keystone.security
+
+        default allow = true
+
+        # Block dangerous commands
+        deny[msg] {
+          input.command == "rm"
+          contains(input.args[_], "-rf")
+          contains(input.args[_], "/")
+          msg := "Recursive deletion of root paths is not allowed"
+        }
+
+    # Compliance policy - CEL
+    - id: compliance-agent-targeting
+      name: Agent Targeting Validation
+      description: Ensures commands target specific agents, not wildcards in production
+      type: cel
+      category: compliance
+      severity: medium
+      enabled: true
+      code: |
+        resource.target != "*" || context.environment != "production"
+
+    # Operational policy - OPA (Rego)
+    - id: operational-command-audit
+      name: Command Audit
+      description: Logs all command executions for audit trail
+      type: opa
+      category: operational
+      severity: low
+      enabled: true
+      code: |
+        package keystone.operational
+
+        default allow = true
+
+        # All commands are allowed but logged
+        audit[msg] {
+          msg := sprintf("Command executed: %s on agent %s", [input.command, input.agent_id])
+        }
