@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 )
 
@@ -50,7 +50,7 @@ func NewSQLiteStore(config *Config) (*SQLiteStore, error) {
 	}
 
 	// Open database
-	db, err := sql.Open("sqlite3", connStr)
+	db, err := sql.Open("sqlite", connStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}

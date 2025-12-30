@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 // SQLiteEventStore implements EventStore using SQLite
@@ -31,7 +31,7 @@ func NewSQLiteEventStore(config *EventStoreConfig) (*SQLiteEventStore, error) {
 	}
 
 	// Open database
-	db, err := sql.Open("sqlite3", config.Path)
+	db, err := sql.Open("sqlite", config.Path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
