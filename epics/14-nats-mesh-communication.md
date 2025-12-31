@@ -436,6 +436,20 @@ Decouple all agent↔server communication to use NATS as the sole transport laye
   - Interface for CredentialIssuer (issue agent credentials)
   - Placeholder for SPIFFE SVID verification
   - Placeholder for cloud IAM token verification (AWS STS, GCP metadata)
+- **Dual-mode authentication support (for Epic 17 migration)**:
+  - NATS server accepts both JWT/NKey AND mTLS/SVID simultaneously
+  - Configure NATS with multiple authentication methods:
+    ```
+    authorization {
+      # JWT/NKey for legacy agents
+      users: [ ... ]
+      # mTLS for SVID-authenticated agents (via TLS verify)
+    }
+    ```
+  - CredentialIssuer returns credential type indicator (jwt, nkey, svid)
+  - Agent handles different credential types appropriately
+  - Metrics track authentication method usage for migration visibility
+  - Gradual deprecation: warn on JWT/NKey, enforce SVID after cutover date
 
 ### Phase 2: Multi-Endpoint Support (Week 4-5)
 
@@ -1079,6 +1093,58 @@ Server-to-server gRPC coordination channel operates independently of NATS:
 - Minimal traffic when NATS is healthy (heartbeat only)
 - Activated for coordination only when needed
 - Does not replace NATS for normal operations
+
+### Credential Migration (Epic 17 Integration)
+
+This epic provides extensibility hooks for Epic 17 (SPIFFE Identity). During migration from static credentials to SPIFFE SVIDs:
+
+**Dual-Mode Authentication Period**:
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    Credential Migration Timeline                         │
+│                                                                          │
+│  Phase 1: JWT/NKey Only (Pre-Epic 17)                                   │
+│  ├── All agents use JWT or NKey authentication                          │
+│  └── NATS configured for token/nkey auth                                │
+│                                                                          │
+│  Phase 2: Dual-Mode (Epic 17 Implementation)                            │
+│  ├── NATS accepts BOTH JWT/NKey AND mTLS/SVID                          │
+│  ├── New agents get SVIDs by default                                    │
+│  ├── Existing agents continue with JWT/NKey                             │
+│  ├── Metrics show migration progress                                    │
+│  └── Warnings logged for legacy auth                                    │
+│                                                                          │
+│  Phase 3: SVID Required (Post-Migration)                                │
+│  ├── JWT/NKey deprecated and disabled                                   │
+│  ├── All agents must use SVID                                           │
+│  └── Legacy agents fail to connect (planned cutover)                    │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**NATS Configuration for Dual-Mode**:
+```yaml
+# NATS server supports both authentication methods simultaneously
+tls:
+  cert_file: /path/to/server.crt
+  key_file: /path/to/server.key
+  ca_file: /path/to/trust-bundle.pem  # For SVID verification
+  verify_and_map: true                 # Map TLS CN to user
+
+authorization:
+  # Legacy JWT/NKey users (Phase 2 - deprecated after migration)
+  users:
+    - user: "agent-legacy-1"
+      permissions: { ... }
+
+  # SVID-authenticated agents mapped via TLS CN/SAN
+  # spiffe://kscore.example.com/agent/{agent-id} → permissions
+```
+
+**Integration Points with Epic 17**:
+- `IdentityVerifier` interface → Epic 17 attestation engine
+- `CredentialIssuer` interface → Epic 17 SVID issuer
+- Trust bundle distribution → Epic 17 trust bundle manager
+- Credential rotation → Epic 17 SVID rotation
 
 ## Dependencies
 

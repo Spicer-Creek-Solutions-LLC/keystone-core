@@ -392,6 +392,66 @@ Implement comprehensive SPIFFE (Secure Production Identity Framework For Everyon
   - SPIFFE ID generation rules
   - Agent metadata to SPIFFE path mapping
   - Deny rules for suspicious attestation
+- **Bootstrap credential source with embedded SPIFFE**:
+  ```
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │         Bootstrap Credentials with Embedded SPIFFE                  │
+  │                                                                     │
+  │  Q: Where do bootstrap credentials come from if SPIFFE is default? │
+  │  A: Join tokens (one-time secrets) used for initial attestation    │
+  │                                                                     │
+  │  ┌─────────────────────────────────────────────────────────────┐   │
+  │  │  Option 1: Join Token (Recommended for Simple Deployments)  │   │
+  │  │                                                              │   │
+  │  │  1. Operator generates join token via CLI/API                │   │
+  │  │     $ kscorectl agent token create --ttl 5m                  │   │
+  │  │     → Returns: kscore_join_abc123xyz                         │   │
+  │  │                                                              │   │
+  │  │  2. Operator provisions token to agent (out-of-band)         │   │
+  │  │     - Environment variable: KSCORE_JOIN_TOKEN                │   │
+  │  │     - Config file: agent.yaml                                │   │
+  │  │     - Cloud-init / user-data                                 │   │
+  │  │                                                              │   │
+  │  │  3. Agent uses token for Epic 14 bootstrap connection        │   │
+  │  │     - Token is attestation evidence                          │   │
+  │  │     - Server validates token, issues SVID                    │   │
+  │  │     - Token consumed (one-time use)                          │   │
+  │  └──────────────────────────────────────────────────────────────┘   │
+  │                                                                     │
+  │  ┌─────────────────────────────────────────────────────────────┐   │
+  │  │  Option 2: Cloud Instance Identity (Zero-Touch)              │   │
+  │  │                                                              │   │
+  │  │  1. Agent auto-detects cloud environment                     │   │
+  │  │  2. Agent fetches instance identity document (IMDSv2, etc)   │   │
+  │  │  3. Agent uses identity document as attestation evidence     │   │
+  │  │  4. Server validates signature, issues SVID                  │   │
+  │  │                                                              │   │
+  │  │  No bootstrap token needed - cloud identity IS the bootstrap │   │
+  │  └──────────────────────────────────────────────────────────────┘   │
+  │                                                                     │
+  │  ┌─────────────────────────────────────────────────────────────┐   │
+  │  │  Option 3: Kubernetes Service Account (Zero-Touch)           │   │
+  │  │                                                              │   │
+  │  │  1. Agent pod has service account token mounted              │   │
+  │  │  2. Agent uses K8s token as attestation evidence             │   │
+  │  │  3. Server validates token with K8s API, issues SVID         │   │
+  │  └──────────────────────────────────────────────────────────────┘   │
+  │                                                                     │
+  │  Bootstrap credentials (Epic 14) are still used for NATS access    │
+  │  during the attestation phase. The attestation evidence determines │
+  │  WHAT the agent gets (SVID), not HOW it connects initially.        │
+  └─────────────────────────────────────────────────────────────────────┘
+  ```
+  - Join token management:
+    - Create tokens with TTL (default 5 minutes)
+    - Bulk token creation for fleet provisioning
+    - Token usage tracking and audit
+    - Revoke unused tokens
+  - Zero-touch attestation priority:
+    1. Cloud instance identity (if detected)
+    2. Kubernetes service account (if mounted)
+    3. Join token (fallback)
+    4. None (dev mode only, disabled by default)
 
 **T1.4: SVID Issuer Service**
 - SVID issuance (pkg/identity/issuer.go)
@@ -435,6 +495,51 @@ Implement comprehensive SPIFFE (Secure Production Identity Framework For Everyon
   - Replace bootstrap JWT with SVID
   - SVID issuance as part of registration
   - Seamless upgrade from bootstrap to full credentials
+- **Credential transition mechanism** (addresses Epic 14 integration):
+  ```
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │              SVID Credential Transition Flow                        │
+  │                                                                     │
+  │  1. Agent connects with bootstrap credentials (Epic 14 T1.7)       │
+  │     └── Bootstrap JWT/NKey with minimal permissions                │
+  │                                                                     │
+  │  2. Agent sends registration request with attestation evidence     │
+  │     └── Cloud metadata, join token, or other attestation           │
+  │                                                                     │
+  │  3. Server validates attestation (IdentityVerifier interface)      │
+  │     └── Epic 17 attestation engine implements this                 │
+  │                                                                     │
+  │  4. Server issues X.509 SVID (CredentialIssuer interface)          │
+  │     └── Epic 17 SVID issuer implements this                        │
+  │     └── Response includes: SVID cert, private key, trust bundle    │
+  │                                                                     │
+  │  5. Agent DISCONNECTS from NATS                                    │
+  │     └── Clean disconnect, drain in-flight messages                 │
+  │                                                                     │
+  │  6. Agent RECONNECTS with SVID (mTLS)                              │
+  │     └── New TLS connection using X.509 SVID as client cert         │
+  │     └── NATS verifies SVID against trust bundle                    │
+  │     └── SPIFFE ID extracted from SAN for authorization             │
+  │                                                                     │
+  │  7. Full agent permissions now available                           │
+  │     └── Access to kscore.{cluster}.agent.{agent-id}.*              │
+  └─────────────────────────────────────────────────────────────────────┘
+  ```
+  - Reconnection strategy (NOT TLS renegotiation):
+    - NATS doesn't support TLS renegotiation
+    - Agent must disconnect and reconnect with new credentials
+    - JetStream ensures no message loss during brief disconnect
+    - Reconnection typically < 100ms
+  - Atomic transition:
+    - Old credentials invalidated after SVID issued
+    - No window where both credentials are valid
+    - Rollback: agent can request new bootstrap credentials if SVID fails
+- **SVID rotation without disconnect**:
+  - Subsequent rotations use NATS's TLS config reload
+  - Agent receives new SVID before old one expires
+  - Agent updates TLS config in-place
+  - Existing connections continue (session resumption)
+  - New connections use new SVID
 
 ### Phase 2: Production Hardening (Week 5-8)
 
