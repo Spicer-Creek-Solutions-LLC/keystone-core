@@ -144,7 +144,8 @@ These gaps should be addressed before production use.
     ├── 12-e2e-testing.md              # End-to-end & performance testing
     ├── 13-cgo-removal.md              # Pure Go build (no CGO dependencies)
     ├── 14-nats-mesh-communication.md  # NATS-only communication, superclusters, NAT traversal
-    └── 15-observability-enhancements.md  # NATS telemetry, stdout logging, syslog, audit
+    ├── 15-observability-enhancements.md  # NATS telemetry, stdout logging, syslog, audit
+    └── 16-stdlib-system-modules.md       # Cross-platform system management modules
 ```
 
 ## Architecture Overview
@@ -2514,6 +2515,7 @@ Implementation order:
 13. **Epic 13** (CGO Removal) - ✅ COMPLETE - Independent, enables pure Go builds
 14. **Epic 14** (NATS Mesh Communication) - 🔲 PLANNED - Depends on Epic 1, 7, 11 (NATS-only communication, superclusters, NAT traversal)
 15. **Epic 15** (Observability Enhancements) - 🔲 PLANNED - Depends on Epic 7, 14 (NATS telemetry transport, stdout/syslog logging, CLI audit)
+16. **Epic 16** (Stdlib System Modules) - 🔲 PLANNED - Depends on Epic 3, 8 (40+ cross-platform system management modules)
 
 ## Key Architectural Patterns
 
