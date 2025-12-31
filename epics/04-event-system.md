@@ -20,44 +20,34 @@ Implement a comprehensive event-driven automation system that enables reactive o
 
 ## Architecture
 
-```
-┌──────────────────────────────────────────────────────────┐
-│                External Event Sources                    │
-│    Webhooks │ Kafka │ CloudEvents │ Prometheus           │
-└──────────────────┬───────────────────────────────────────┘
-                   │
-                   ▼
-┌──────────────────────────────────────────────────────────┐
-│                  Event Ingestion                         │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
-│  │   Webhook    │  │   Stream     │  │   CloudEvent │  │
-│  │   Receiver   │  │   Consumer   │  │   Adapter    │  │
-│  └──────────────┘  └──────────────┘  └──────────────┘  │
-└──────────────────┬───────────────────────────────────────┘
-                   │
-                   ▼
-┌──────────────────────────────────────────────────────────┐
-│               NATS Event Bus (JetStream)                 │
-│          Topics: agent.*, state.*, job.*, user.*         │
-└──────────────────┬───────────────────────────────────────┘
-                   │
-        ┌──────────┼──────────┐
-        │          │          │
-        ▼          ▼          ▼
-┌──────────┐ ┌──────────┐ ┌──────────────┐
-│  Event   │ │ Reactor  │ │   Event      │
-│  Store   │ │ Engine   │ │   Consumers  │
-│(JetStream│ │          │ │  (External)  │
-└──────────┘ └────┬─────┘ └──────────────┘
-                  │
-                  ▼
-          ┌───────────────┐
-          │  Automated    │
-          │  Actions      │
-          │  (States,     │
-          │   Commands,   │
-          │   Webhooks)   │
-          └───────────────┘
+```mermaid
+flowchart TD
+    subgraph EES["External Event Sources"]
+        Webhooks
+        Kafka
+        CloudEvents
+        Prometheus
+    end
+
+    subgraph EI["Event Ingestion"]
+        WR["Webhook Receiver"]
+        SC["Stream Consumer"]
+        CA["CloudEvent Adapter"]
+    end
+
+    NATS["NATS Event Bus (JetStream)<br/>Topics: agent.*, state.*, job.*, user.*"]
+
+    ES["Event Store<br/>(JetStream)"]
+    RE["Reactor Engine"]
+    EC["Event Consumers<br/>(External)"]
+
+    AA["Automated Actions<br/>(States, Commands, Webhooks)"]
+
+    EES --> EI --> NATS
+    NATS --> ES
+    NATS --> RE
+    NATS --> EC
+    RE --> AA
 ```
 
 ## User Stories

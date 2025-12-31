@@ -12,7 +12,7 @@ import (
 func TestNewStateStore(t *testing.T) {
 	t.Run("valid etcd client", func(t *testing.T) {
 		config := DefaultEtcdConfig()
-		etcdClient, err := NewEtcdClient(config)
+		etcdClient, err := NewEtcdClient(config, "")
 		require.NoError(t, err)
 
 		store, err := NewStateStore(etcdClient)
@@ -30,7 +30,7 @@ func TestNewStateStore(t *testing.T) {
 func TestNewClusterConfigStore(t *testing.T) {
 	t.Run("valid etcd client", func(t *testing.T) {
 		config := DefaultEtcdConfig()
-		etcdClient, err := NewEtcdClient(config)
+		etcdClient, err := NewEtcdClient(config, "")
 		require.NoError(t, err)
 
 		store, err := NewClusterConfigStore(etcdClient)
@@ -48,7 +48,7 @@ func TestNewClusterConfigStore(t *testing.T) {
 func TestNewShardStore(t *testing.T) {
 	t.Run("valid etcd client", func(t *testing.T) {
 		config := DefaultEtcdConfig()
-		etcdClient, err := NewEtcdClient(config)
+		etcdClient, err := NewEtcdClient(config, "")
 		require.NoError(t, err)
 
 		store, err := NewShardStore(etcdClient)
@@ -66,7 +66,7 @@ func TestNewShardStore(t *testing.T) {
 func TestNewCoordinationStore(t *testing.T) {
 	t.Run("valid etcd client", func(t *testing.T) {
 		config := DefaultEtcdConfig()
-		etcdClient, err := NewEtcdClient(config)
+		etcdClient, err := NewEtcdClient(config, "")
 		require.NoError(t, err)
 
 		store, err := NewCoordinationStore(etcdClient)
@@ -83,7 +83,7 @@ func TestNewCoordinationStore(t *testing.T) {
 
 func TestDistributedLock(t *testing.T) {
 	config := DefaultEtcdConfig()
-	etcdClient, err := NewEtcdClient(config)
+	etcdClient, err := NewEtcdClient(config, "")
 	require.NoError(t, err)
 
 	lock := NewDistributedLock(etcdClient, "test-lock")
@@ -93,7 +93,7 @@ func TestDistributedLock(t *testing.T) {
 
 func TestDistributedLock_NotConnected(t *testing.T) {
 	config := DefaultEtcdConfig()
-	etcdClient, err := NewEtcdClient(config)
+	etcdClient, err := NewEtcdClient(config, "")
 	require.NoError(t, err)
 
 	lock := NewDistributedLock(etcdClient, "test-lock")
@@ -120,7 +120,7 @@ func TestDistributedLock_NotConnected(t *testing.T) {
 
 func TestCounter(t *testing.T) {
 	config := DefaultEtcdConfig()
-	etcdClient, err := NewEtcdClient(config)
+	etcdClient, err := NewEtcdClient(config, "")
 	require.NoError(t, err)
 
 	counter := NewCounter(etcdClient, "test-counter")
@@ -129,7 +129,7 @@ func TestCounter(t *testing.T) {
 
 func TestCounter_NotConnected(t *testing.T) {
 	config := DefaultEtcdConfig()
-	etcdClient, err := NewEtcdClient(config)
+	etcdClient, err := NewEtcdClient(config, "")
 	require.NoError(t, err)
 
 	counter := NewCounter(etcdClient, "test-counter")
@@ -168,7 +168,7 @@ func TestCounter_NotConnected(t *testing.T) {
 
 func TestStateStore_NotConnected(t *testing.T) {
 	config := DefaultEtcdConfig()
-	etcdClient, err := NewEtcdClient(config)
+	etcdClient, err := NewEtcdClient(config, "")
 	require.NoError(t, err)
 
 	store, err := NewStateStore(etcdClient)
@@ -204,7 +204,7 @@ func TestStateStore_NotConnected(t *testing.T) {
 
 func TestClusterConfigStore_NotConnected(t *testing.T) {
 	config := DefaultEtcdConfig()
-	etcdClient, err := NewEtcdClient(config)
+	etcdClient, err := NewEtcdClient(config, "")
 	require.NoError(t, err)
 
 	store, err := NewClusterConfigStore(etcdClient)
@@ -235,7 +235,7 @@ func TestClusterConfigStore_NotConnected(t *testing.T) {
 
 func TestShardStore_NotConnected(t *testing.T) {
 	config := DefaultEtcdConfig()
-	etcdClient, err := NewEtcdClient(config)
+	etcdClient, err := NewEtcdClient(config, "")
 	require.NoError(t, err)
 
 	store, err := NewShardStore(etcdClient)
@@ -286,7 +286,7 @@ func TestShardStore_NotConnected(t *testing.T) {
 
 func TestCoordinationStore_NotConnected(t *testing.T) {
 	config := DefaultEtcdConfig()
-	etcdClient, err := NewEtcdClient(config)
+	etcdClient, err := NewEtcdClient(config, "")
 	require.NoError(t, err)
 
 	store, err := NewCoordinationStore(etcdClient)

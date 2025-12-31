@@ -56,6 +56,15 @@ Security hardening and compliance:
 - **Audit logging** - Compliance audit trail
 - **Secret management** - Secure secret storage and rotation
 
+### [Module Registry](registry/)
+Deploy and operate module registries:
+- **Single-node deployment** - Development and small deployments
+- **High-availability setup** - Redundant registry clusters
+- **Kubernetes deployment** - Cloud-native registry with StatefulSets
+- **Multi-region deployment** - Global module distribution
+- **Shared storage options** - NFS, EFS, GCS, Azure Files
+- **Backup and recovery** - Registry data protection
+
 ## Quick Navigation by Role
 
 ### For DevOps Engineers

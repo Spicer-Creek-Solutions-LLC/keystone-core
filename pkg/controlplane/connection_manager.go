@@ -54,6 +54,25 @@ type StoredAgent struct {
 	LastSeen     time.Time
 }
 
+// ConnectionManagerConfig holds configuration for the connection manager
+type ConnectionManagerConfig struct {
+	// HeartbeatTimeout is how long to wait before considering an agent stale
+	HeartbeatTimeout time.Duration
+	// StaleThreshold is how many missed heartbeats before marking agent offline
+	StaleThreshold int
+	// MonitorInterval is how often to check agent health
+	MonitorInterval time.Duration
+}
+
+// DefaultConnectionManagerConfig returns the default configuration
+func DefaultConnectionManagerConfig() *ConnectionManagerConfig {
+	return &ConnectionManagerConfig{
+		HeartbeatTimeout: 60 * time.Second,
+		StaleThreshold:   3,
+		MonitorInterval:  10 * time.Second,
+	}
+}
+
 // ConnectionManager manages agent connections and state
 type ConnectionManager struct {
 	nats   *natsmgr.Manager
@@ -67,6 +86,7 @@ type ConnectionManager struct {
 	// Configuration
 	heartbeatTimeout time.Duration
 	staleThreshold   int
+	monitorInterval  time.Duration
 
 	// Event publishing
 	eventPublisher events.EventPublisher
@@ -75,8 +95,17 @@ type ConnectionManager struct {
 	stateStore AgentStore
 }
 
-// NewConnectionManager creates a new connection manager
+// NewConnectionManager creates a new connection manager with default configuration
 func NewConnectionManager(natsManager *natsmgr.Manager) *ConnectionManager {
+	return NewConnectionManagerWithConfig(natsManager, nil)
+}
+
+// NewConnectionManagerWithConfig creates a new connection manager with custom configuration
+func NewConnectionManagerWithConfig(natsManager *natsmgr.Manager, cfg *ConnectionManagerConfig) *ConnectionManager {
+	if cfg == nil {
+		cfg = DefaultConnectionManagerConfig()
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &ConnectionManager{
@@ -84,8 +113,9 @@ func NewConnectionManager(natsManager *natsmgr.Manager) *ConnectionManager {
 		agents:           make(map[string]*AgentInfo),
 		ctx:              ctx,
 		cancel:           cancel,
-		heartbeatTimeout: 60 * time.Second, // Consider agent stale after 60s
-		staleThreshold:   3,                // Mark offline after 3 missed heartbeats
+		heartbeatTimeout: cfg.HeartbeatTimeout,
+		staleThreshold:   cfg.StaleThreshold,
+		monitorInterval:  cfg.MonitorInterval,
 	}
 }
 
@@ -413,7 +443,12 @@ func (cm *ConnectionManager) handleHeartbeat(msg *nats.Msg) {
 func (cm *ConnectionManager) monitorAgents() {
 	defer cm.wg.Done()
 
-	ticker := time.NewTicker(10 * time.Second)
+	interval := cm.monitorInterval
+	if interval == 0 {
+		interval = 10 * time.Second // fallback default
+	}
+
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {

@@ -3,6 +3,7 @@ package cluster
 import (
 	"fmt"
 	"net"
+	"os"
 	"time"
 )
 
@@ -376,6 +377,16 @@ func (c *EtcdTLSConfig) Validate() error {
 
 	if c.KeyFile == "" {
 		return fmt.Errorf("cluster: tls key_file is required when TLS is enabled")
+	}
+
+	// Block InsecureSkipVerify in production - this is a critical security vulnerability
+	// that allows man-in-the-middle attacks on cluster communication.
+	// Only allow when KSCORE_ALLOW_INSECURE_TLS=1 is set (for development/testing only).
+	if c.InsecureSkipVerify {
+		if os.Getenv("KSCORE_ALLOW_INSECURE_TLS") != "1" {
+			return fmt.Errorf("cluster: insecure_skip_verify is not allowed in production (allows MITM attacks). " +
+				"Set KSCORE_ALLOW_INSECURE_TLS=1 to override for development/testing only")
+		}
 	}
 
 	if c.CAFile == "" && !c.InsecureSkipVerify {

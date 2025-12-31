@@ -32,8 +32,13 @@ func setupTestCommandDispatcher(t *testing.T) (*CommandDispatcher, *ConnectionMa
 		t.Fatalf("Failed to start NATS manager: %v", err)
 	}
 
-	// Setup connection manager
-	cm := NewConnectionManager(natsM)
+	// Setup connection manager with short timeouts for testing
+	cmCfg := &ConnectionManagerConfig{
+		HeartbeatTimeout: 100 * time.Millisecond,
+		StaleThreshold:   2,
+		MonitorInterval:  50 * time.Millisecond,
+	}
+	cm := NewConnectionManagerWithConfig(natsM, cmCfg)
 	if err := cm.Start(); err != nil {
 		t.Fatalf("Failed to start connection manager: %v", err)
 	}

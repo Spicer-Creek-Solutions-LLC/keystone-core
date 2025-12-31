@@ -17,7 +17,7 @@ func TestNewMembershipManager(t *testing.T) {
 		config.AdvertiseAddress = "127.0.0.1"
 
 		etcdConfig := DefaultEtcdConfig()
-		etcdClient, err := NewEtcdClient(etcdConfig)
+		etcdClient, err := NewEtcdClient(etcdConfig, "")
 		require.NoError(t, err)
 
 		manager, err := NewMembershipManager(config, etcdClient)
@@ -27,7 +27,7 @@ func TestNewMembershipManager(t *testing.T) {
 
 	t.Run("nil config", func(t *testing.T) {
 		etcdConfig := DefaultEtcdConfig()
-		etcdClient, err := NewEtcdClient(etcdConfig)
+		etcdClient, err := NewEtcdClient(etcdConfig, "")
 		require.NoError(t, err)
 
 		manager, err := NewMembershipManager(nil, etcdClient)
@@ -50,7 +50,7 @@ func TestMembershipManager_LocalMember(t *testing.T) {
 	config.AdvertiseAddress = "127.0.0.1"
 
 	etcdConfig := DefaultEtcdConfig()
-	etcdClient, err := NewEtcdClient(etcdConfig)
+	etcdClient, err := NewEtcdClient(etcdConfig, "")
 	require.NoError(t, err)
 
 	manager, err := NewMembershipManager(config, etcdClient)
@@ -67,7 +67,7 @@ func TestMembershipManager_MemberCount(t *testing.T) {
 	config.AdvertiseAddress = "127.0.0.1"
 
 	etcdConfig := DefaultEtcdConfig()
-	etcdClient, err := NewEtcdClient(etcdConfig)
+	etcdClient, err := NewEtcdClient(etcdConfig, "")
 	require.NoError(t, err)
 
 	manager, err := NewMembershipManager(config, etcdClient)
@@ -84,7 +84,7 @@ func TestMembershipManager_GetMember(t *testing.T) {
 	config.AdvertiseAddress = "127.0.0.1"
 
 	etcdConfig := DefaultEtcdConfig()
-	etcdClient, err := NewEtcdClient(etcdConfig)
+	etcdClient, err := NewEtcdClient(etcdConfig, "")
 	require.NoError(t, err)
 
 	manager, err := NewMembershipManager(config, etcdClient)
@@ -103,7 +103,7 @@ func TestMembershipManager_ListMembers(t *testing.T) {
 	config.AdvertiseAddress = "127.0.0.1"
 
 	etcdConfig := DefaultEtcdConfig()
-	etcdClient, err := NewEtcdClient(etcdConfig)
+	etcdClient, err := NewEtcdClient(etcdConfig, "")
 	require.NoError(t, err)
 
 	manager, err := NewMembershipManager(config, etcdClient)
@@ -120,7 +120,7 @@ func TestMembershipManager_GetHealthyMembers(t *testing.T) {
 	config.AdvertiseAddress = "127.0.0.1"
 
 	etcdConfig := DefaultEtcdConfig()
-	etcdClient, err := NewEtcdClient(etcdConfig)
+	etcdClient, err := NewEtcdClient(etcdConfig, "")
 	require.NoError(t, err)
 
 	manager, err := NewMembershipManager(config, etcdClient)
@@ -137,7 +137,7 @@ func TestMembershipManager_HasQuorum(t *testing.T) {
 	config.AdvertiseAddress = "127.0.0.1"
 
 	etcdConfig := DefaultEtcdConfig()
-	etcdClient, err := NewEtcdClient(etcdConfig)
+	etcdClient, err := NewEtcdClient(etcdConfig, "")
 	require.NoError(t, err)
 
 	manager, err := NewMembershipManager(config, etcdClient)
@@ -154,7 +154,7 @@ func TestMembershipManager_GetLeader(t *testing.T) {
 	config.AdvertiseAddress = "127.0.0.1"
 
 	etcdConfig := DefaultEtcdConfig()
-	etcdClient, err := NewEtcdClient(etcdConfig)
+	etcdClient, err := NewEtcdClient(etcdConfig, "")
 	require.NoError(t, err)
 
 	manager, err := NewMembershipManager(config, etcdClient)
@@ -171,7 +171,7 @@ func TestMembershipManager_SetLeader(t *testing.T) {
 	config.AdvertiseAddress = "127.0.0.1"
 
 	etcdConfig := DefaultEtcdConfig()
-	etcdClient, err := NewEtcdClient(etcdConfig)
+	etcdClient, err := NewEtcdClient(etcdConfig, "")
 	require.NoError(t, err)
 
 	manager, err := NewMembershipManager(config, etcdClient)
@@ -188,7 +188,7 @@ func TestMembershipManager_Observers(t *testing.T) {
 	config.AdvertiseAddress = "127.0.0.1"
 
 	etcdConfig := DefaultEtcdConfig()
-	etcdClient, err := NewEtcdClient(etcdConfig)
+	etcdClient, err := NewEtcdClient(etcdConfig, "")
 	require.NoError(t, err)
 
 	manager, err := NewMembershipManager(config, etcdClient)
@@ -213,7 +213,7 @@ func TestMembershipManager_GetClusterInfo(t *testing.T) {
 	config.AdvertiseAddress = "127.0.0.1"
 
 	etcdConfig := DefaultEtcdConfig()
-	etcdClient, err := NewEtcdClient(etcdConfig)
+	etcdClient, err := NewEtcdClient(etcdConfig, "")
 	require.NoError(t, err)
 
 	manager, err := NewMembershipManager(config, etcdClient)
@@ -240,7 +240,7 @@ func TestMembershipManager_CreateLocalMember(t *testing.T) {
 		config.AdvertiseAddress = "127.0.0.1"
 
 		etcdConfig := DefaultEtcdConfig()
-		etcdClient, err := NewEtcdClient(etcdConfig)
+		etcdClient, err := NewEtcdClient(etcdConfig, "")
 		require.NoError(t, err)
 
 		manager, err := NewMembershipManager(config, etcdClient)
@@ -263,7 +263,7 @@ func TestMembershipManager_CreateLocalMember(t *testing.T) {
 		config.AdvertiseAddress = "127.0.0.1"
 
 		etcdConfig := DefaultEtcdConfig()
-		etcdClient, err := NewEtcdClient(etcdConfig)
+		etcdClient, err := NewEtcdClient(etcdConfig, "")
 		require.NoError(t, err)
 
 		manager, err := NewMembershipManager(config, etcdClient)
@@ -283,7 +283,7 @@ func TestMembershipManager_StopWithoutStart(t *testing.T) {
 	config.AdvertiseAddress = "127.0.0.1"
 
 	etcdConfig := DefaultEtcdConfig()
-	etcdClient, err := NewEtcdClient(etcdConfig)
+	etcdClient, err := NewEtcdClient(etcdConfig, "")
 	require.NoError(t, err)
 
 	manager, err := NewMembershipManager(config, etcdClient)
@@ -323,7 +323,7 @@ func TestMembershipManager_QuorumCalculation(t *testing.T) {
 			config.QuorumSize = tt.configuredQuorum
 
 			etcdConfig := DefaultEtcdConfig()
-			etcdClient, err := NewEtcdClient(etcdConfig)
+			etcdClient, err := NewEtcdClient(etcdConfig, "")
 			require.NoError(t, err)
 
 			manager, err := NewMembershipManager(config, etcdClient)
@@ -356,7 +356,7 @@ func TestMembershipManager_MemberHealthCheck(t *testing.T) {
 	config.HeartbeatTimeout = 30 * time.Second
 
 	etcdConfig := DefaultEtcdConfig()
-	etcdClient, err := NewEtcdClient(etcdConfig)
+	etcdClient, err := NewEtcdClient(etcdConfig, "")
 	require.NoError(t, err)
 
 	manager, err := NewMembershipManager(config, etcdClient)
@@ -396,7 +396,7 @@ func TestMembershipManager_MemberRecovery(t *testing.T) {
 	config.HeartbeatTimeout = 30 * time.Second
 
 	etcdConfig := DefaultEtcdConfig()
-	etcdClient, err := NewEtcdClient(etcdConfig)
+	etcdClient, err := NewEtcdClient(etcdConfig, "")
 	require.NoError(t, err)
 
 	manager, err := NewMembershipManager(config, etcdClient)
@@ -449,7 +449,7 @@ func TestMembershipManager_RemoveMember(t *testing.T) {
 		config.AdvertiseAddress = "127.0.0.1"
 
 		etcdConfig := DefaultEtcdConfig()
-		etcdClient, err := NewEtcdClient(etcdConfig)
+		etcdClient, err := NewEtcdClient(etcdConfig, "")
 		require.NoError(t, err)
 
 		manager, err := NewMembershipManager(config, etcdClient)
@@ -469,7 +469,7 @@ func TestMembershipManager_RemoveMember(t *testing.T) {
 		config.AdvertiseAddress = "127.0.0.1"
 
 		etcdConfig := DefaultEtcdConfig()
-		etcdClient, err := NewEtcdClient(etcdConfig)
+		etcdClient, err := NewEtcdClient(etcdConfig, "")
 		require.NoError(t, err)
 
 		manager, err := NewMembershipManager(config, etcdClient)
@@ -494,7 +494,7 @@ func TestMembershipManager_RemoveMember(t *testing.T) {
 		config.AdvertiseAddress = "127.0.0.1"
 
 		etcdConfig := DefaultEtcdConfig()
-		etcdClient, err := NewEtcdClient(etcdConfig)
+		etcdClient, err := NewEtcdClient(etcdConfig, "")
 		require.NoError(t, err)
 
 		manager, err := NewMembershipManager(config, etcdClient)
@@ -522,7 +522,7 @@ func TestMembershipManager_RemoveMember(t *testing.T) {
 		config.AdvertiseAddress = "127.0.0.1"
 
 		etcdConfig := DefaultEtcdConfig()
-		etcdClient, err := NewEtcdClient(etcdConfig)
+		etcdClient, err := NewEtcdClient(etcdConfig, "")
 		require.NoError(t, err)
 
 		manager, err := NewMembershipManager(config, etcdClient)

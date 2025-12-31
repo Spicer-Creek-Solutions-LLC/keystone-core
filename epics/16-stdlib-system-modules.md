@@ -75,72 +75,138 @@ Expand Keystone Core's standard library with comprehensive system management mod
 
 ### Module Categories
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                     KEYSTONE CORE STDLIB MODULES                             │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  CORE (Existing)           SYSTEM CONFIG           NETWORK & SECURITY       │
-│  ├── file                  ├── timezone            ├── network              │
-│  ├── package               ├── locale              ├── firewall             │
-│  ├── service               ├── hostname            ├── iptables             │
-│  ├── user                  ├── host                ├── nftables             │
-│  ├── group                 ├── sysctl              ├── firewalld            │
-│  └── cmd                   ├── kernel_module       └── selinux              │
-│                            └── alternatives                                  │
-│                                                                              │
-│  STORAGE & MOUNTS          SCHEDULED TASKS         SSH & CERTS              │
-│  ├── mount                 ├── cron                ├── ssh_authorized_key   │
-│  ├── lvm                   ├── systemd_timer       ├── ssh_known_hosts      │
-│  ├── disk                  └── at                  ├── sshd_config          │
-│  └── swap                                          └── x509                 │
-│                                                                              │
-│  CONTAINERS                DATABASES               WEB SERVERS              │
-│  ├── docker_container      ├── postgres_database   ├── nginx_site           │
-│  ├── docker_image          ├── postgres_user       ├── nginx_config         │
-│  ├── docker_network        ├── mysql_database      ├── apache_site          │
-│  └── podman_container      ├── mysql_user          └── apache_module        │
-│                            └── redis                                         │
-│                                                                              │
-│  VERSION CONTROL           CLOUD                   STDLIB (Starlark)        │
-│  ├── git                   ├── aws_*               ├── std/system           │
-│  └── git_config            ├── gcp_*               ├── std/network          │
-│                            └── azure_*             ├── std/process          │
-│                                                    └── std/template         │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph Core["CORE (Existing)"]
+        file
+        package
+        service
+        user
+        group
+        cmd
+    end
+
+    subgraph SysConfig["SYSTEM CONFIG"]
+        timezone
+        locale
+        hostname
+        host
+        sysctl
+        kernel_module
+        alternatives
+    end
+
+    subgraph NetSec["NETWORK & SECURITY"]
+        network
+        firewall
+        iptables
+        nftables
+        firewalld
+        selinux
+    end
+
+    subgraph Storage["STORAGE & MOUNTS"]
+        mount
+        lvm
+        disk
+        swap
+    end
+
+    subgraph Schedule["SCHEDULED TASKS"]
+        cron
+        systemd_timer
+        at
+    end
+
+    subgraph SSH["SSH & CERTS"]
+        ssh_authorized_key
+        ssh_known_hosts
+        sshd_config
+        x509
+    end
+
+    subgraph Containers["CONTAINERS"]
+        docker_container
+        docker_image
+        docker_network
+        podman_container
+    end
+
+    subgraph DB["DATABASES"]
+        postgres_database
+        postgres_user
+        mysql_database
+        mysql_user
+        redis
+    end
+
+    subgraph Web["WEB SERVERS"]
+        nginx_site
+        nginx_config
+        apache_site
+        apache_module
+    end
+
+    subgraph VCS["VERSION CONTROL"]
+        git
+        git_config
+    end
+
+    subgraph Cloud["CLOUD"]
+        aws_["aws_*"]
+        gcp_["gcp_*"]
+        azure_["azure_*"]
+    end
+
+    subgraph Stdlib["STDLIB (Starlark)"]
+        std_system["std/system"]
+        std_network["std/network"]
+        std_process["std/process"]
+        std_template["std/template"]
+    end
 ```
 
 ### Cross-Platform Strategy
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                      CROSS-PLATFORM ABSTRACTION                              │
-│                                                                              │
-│  Module Interface                                                            │
-│       │                                                                      │
-│       ▼                                                                      │
-│  ┌─────────────────────────────────────────────────────────────────────────┐│
-│  │                     Platform Dispatcher                                 ││
-│  │  switch runtime.GOOS {                                                  ││
-│  │    case "linux":   return linuxProvider.Apply(ctx, decl)               ││
-│  │    case "darwin":  return darwinProvider.Apply(ctx, decl)              ││
-│  │    case "windows": return windowsProvider.Apply(ctx, decl)             ││
-│  │  }                                                                      ││
-│  └─────────────────────────────────────────────────────────────────────────┘│
-│       │                    │                    │                            │
-│       ▼                    ▼                    ▼                            │
-│  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐                    │
-│  │    Linux     │   │    macOS     │   │   Windows    │                    │
-│  │   Provider   │   │   Provider   │   │   Provider   │                    │
-│  ├──────────────┤   ├──────────────┤   ├──────────────┤                    │
-│  │ useradd      │   │ dscl         │   │ net user     │                    │
-│  │ groupadd     │   │ dseditgroup  │   │ net localgrp │                    │
-│  │ systemctl    │   │ launchctl    │   │ sc.exe       │                    │
-│  │ iptables     │   │ pfctl        │   │ netsh        │                    │
-│  │ timedatectl  │   │ systemsetup  │   │ tzutil       │                    │
-│  │ hostnamectl  │   │ scutil       │   │ hostname     │                    │
-│  └──────────────┘   └──────────────┘   └──────────────┘                    │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    MI["Module Interface"]
+
+    subgraph PD["Platform Dispatcher"]
+        Code["switch runtime.GOOS"]
+    end
+
+    subgraph Linux["Linux Provider"]
+        L1["useradd"]
+        L2["groupadd"]
+        L3["systemctl"]
+        L4["iptables"]
+        L5["timedatectl"]
+        L6["hostnamectl"]
+    end
+
+    subgraph macOS["macOS Provider"]
+        M1["dscl"]
+        M2["dseditgroup"]
+        M3["launchctl"]
+        M4["pfctl"]
+        M5["systemsetup"]
+        M6["scutil"]
+    end
+
+    subgraph Windows["Windows Provider"]
+        W1["net user"]
+        W2["net localgrp"]
+        W3["sc.exe"]
+        W4["netsh"]
+        W5["tzutil"]
+        W6["hostname"]
+    end
+
+    MI --> PD
+    PD -->|"linux"| Linux
+    PD -->|"darwin"| macOS
+    PD -->|"windows"| Windows
 ```
 
 ## User Stories

@@ -14,8 +14,9 @@ import (
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 
-	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
+	"github.com/shawnbutts/keystone-core/pkg/api/auth"
 	"github.com/shawnbutts/keystone-core/pkg/api/server"
+	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 	"github.com/shawnbutts/keystone-core/pkg/config"
 	"github.com/shawnbutts/keystone-core/pkg/controlplane"
 	"github.com/shawnbutts/keystone-core/pkg/gitops/webhook"
@@ -164,7 +165,46 @@ func runServer(cmd *cobra.Command, args []string) {
 
 	// Initialize gRPC API server
 	fmt.Println("Initializing gRPC API server...")
-	grpcServer := grpc.NewServer()
+
+	// Configure gRPC server options
+	var grpcOpts []grpc.ServerOption
+
+	// Set up authentication if enabled
+	if cfg.Auth.Enabled {
+		fmt.Printf("Initializing API authentication (type: %s)...\n", cfg.Auth.Type)
+
+		authCfg, err := auth.NewInterceptorConfigFromConfig(cfg.Auth)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to initialize authentication: %v\n", err)
+			os.Exit(1)
+		}
+
+		// Add audit logging for auth events
+		authCfg.AuditLogger = func(ctx context.Context, method string, principal *auth.Principal, err error) {
+			if err != nil {
+				log.Printf("[AUTH] DENIED method=%s error=%v", method, err)
+			} else if principal != nil {
+				log.Printf("[AUTH] ALLOWED method=%s principal=%s role=%s", method, principal.Name, principal.Role)
+			}
+		}
+
+		// Add auth interceptors to gRPC server
+		grpcOpts = append(grpcOpts,
+			grpc.UnaryInterceptor(auth.UnaryServerInterceptor(authCfg)),
+			grpc.StreamInterceptor(auth.StreamServerInterceptor(authCfg)),
+		)
+
+		keyCount := len(cfg.Auth.APIKey.Keys)
+		fmt.Printf("  API authentication enabled with %d API key(s)\n", keyCount)
+		if len(cfg.Auth.BypassMethods) > 0 {
+			fmt.Printf("  Bypass methods: %v\n", cfg.Auth.BypassMethods)
+		}
+	} else {
+		fmt.Println("  WARNING: API authentication is DISABLED - all requests will be allowed")
+		fmt.Println("  This is insecure for production use. Set auth.enabled=true in config.")
+	}
+
+	grpcServer := grpc.NewServer(grpcOpts...)
 	apiServer := server.NewControlPlaneServer(connMgr, dispatcher, batchDispatcher, stateStore)
 	pb.RegisterControlPlaneServiceServer(grpcServer, apiServer)
 
@@ -308,6 +348,11 @@ func runServer(cmd *cobra.Command, args []string) {
 	fmt.Printf("  gRPC API: %s\n", listenAddr)
 	fmt.Printf("  HTTP API: %s\n", httpAddr)
 	fmt.Printf("  Storage: %s\n", cfg.Storage.Backend)
+	if cfg.Auth.Enabled {
+		fmt.Printf("  Authentication: %s (%d keys)\n", cfg.Auth.Type, len(cfg.Auth.APIKey.Keys))
+	} else {
+		fmt.Printf("  Authentication: DISABLED (insecure)\n")
+	}
 	fmt.Println("\nWaiting for agent connections...")
 
 	// Status reporting loop

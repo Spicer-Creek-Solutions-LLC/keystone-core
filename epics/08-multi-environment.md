@@ -21,31 +21,47 @@ Implement comprehensive support for managing diverse infrastructure environments
 
 ## Architecture
 
-```
-┌──────────────────────────────────────────────────────────┐
-│            Keystone Core Control Plane                      │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │        Unified Agent Management                  │   │
-│  │  Discovery │ Targeting │ Orchestration │ State  │   │
-│  └──────────────────────────────────────────────────┘   │
-└─────────────────┬────────────────────────────────────────┘
-                  │
-      ┌───────────┼───────────┬───────────┬─────────┐
-      │           │           │           │         │
-      ▼           ▼           ▼           ▼         ▼
-┌──────────┐ ┌─────────┐ ┌─────────┐ ┌────────┐ ┌──────┐
-│          │ │         │ │  Bare   │ │  Edge  │ │Cloud │
-│   K8s    │ │   VMs   │ │  Metal  │ │Devices │ │ APIs │
-│          │ │         │ │         │ │        │ │      │
-│ ┌──────┐ │ │ ┌─────┐ │ │ ┌─────┐ │ │┌─────┐ │ │      │
-│ │ Pod  │ │ │ │Linux│ │ │ │RHEL │ │ ││ARM  │ │ │ AWS  │
-│ │Agent │ │ │ │Agent│ │ │ │Agent│ │ ││Agent│ │ │ GCP  │
-│ └──────┘ │ │ └─────┘ │ │ └─────┘ │ │└─────┘ │ │Azure │
-│          │ │ ┌─────┐ │ │         │ │        │ │      │
-│ Operator │ │ │Win  │ │ │         │ │Local   │ │      │
-│   Mode   │ │ │Agent│ │ │         │ │NATS    │ │      │
-│          │ │ └─────┘ │ │         │ │        │ │      │
-└──────────┘ └─────────┘ └─────────┘ └────────┘ └──────┘
+```mermaid
+flowchart TD
+    subgraph CP["Keystone Core Control Plane"]
+        subgraph UAM["Unified Agent Management"]
+            Discovery
+            Targeting
+            Orchestration
+            State
+        end
+    end
+
+    subgraph K8s["Kubernetes"]
+        PA["Pod Agent"]
+        OP["Operator Mode"]
+    end
+
+    subgraph VMs["Virtual Machines"]
+        LA["Linux Agent"]
+        WA["Windows Agent"]
+    end
+
+    subgraph BM["Bare Metal"]
+        RA["RHEL Agent"]
+    end
+
+    subgraph Edge["Edge Devices"]
+        AA["ARM Agent"]
+        LN["Local NATS"]
+    end
+
+    subgraph Cloud["Cloud APIs"]
+        AWS
+        GCP
+        Azure
+    end
+
+    CP --> K8s
+    CP --> VMs
+    CP --> BM
+    CP --> Edge
+    CP --> Cloud
 ```
 
 ## User Stories

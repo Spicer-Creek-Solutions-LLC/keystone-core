@@ -20,3 +20,7 @@ agent:
 # TLS disabled for testing
 tls:
   enabled: false
+
+# Auth disabled for E2E testing
+auth:
+  enabled: false

@@ -36,8 +36,72 @@ type Config struct {
 	Storage StorageConfig
 	Agent   AgentConfig
 	TLS     TLSConfig
+	Auth    AuthConfig
 	Webhook WebhookConfig
 	Policy  PolicyConfig
+}
+
+// AuthConfig contains API authentication settings
+type AuthConfig struct {
+	// Enabled controls whether authentication is required (default: true for security)
+	Enabled bool
+	// Type of authentication: apikey, jwt, mtls, or multi (multiple methods)
+	Type string
+	// APIKey authentication settings
+	APIKey APIKeyAuthConfig
+	// JWT authentication settings
+	JWT JWTAuthConfig
+	// mTLS authentication settings (uses TLS config for certificates)
+	MTLS MTLSAuthConfig
+	// Methods allowed to bypass authentication (for health checks, etc.)
+	// Format: "/package.Service/Method" e.g., "/kscore.v1.ControlPlaneService/HealthCheck"
+	BypassMethods []string
+}
+
+// APIKeyAuthConfig contains API key authentication settings
+type APIKeyAuthConfig struct {
+	// Header name for API key (default: X-API-Key)
+	HeaderName string
+	// Metadata key for gRPC (default: x-api-key)
+	MetadataKey string
+	// Static API keys with their associated roles/permissions
+	// Key: API key value, Value: key configuration
+	Keys map[string]APIKeyConfig
+}
+
+// APIKeyConfig contains configuration for a single API key
+type APIKeyConfig struct {
+	// Human-readable name/description for the key
+	Name string
+	// Role assigned to this key: admin, operator, readonly
+	Role string
+	// Enabled flag to allow disabling without removing
+	Enabled bool
+	// Optional expiration time (RFC3339 format)
+	ExpiresAt string
+}
+
+// JWTAuthConfig contains JWT authentication settings
+type JWTAuthConfig struct {
+	// Secret for HS256 signing (mutually exclusive with PublicKeyFile)
+	Secret string
+	// Public key file for RS256/ES256 verification
+	PublicKeyFile string
+	// Issuer to validate (optional)
+	Issuer string
+	// Audience to validate (optional)
+	Audience string
+	// Claim name containing the role (default: role)
+	RoleClaim string
+}
+
+// MTLSAuthConfig contains mTLS authentication settings
+type MTLSAuthConfig struct {
+	// Require client certificates
+	RequireClientCert bool
+	// Map of certificate CN/SAN to role
+	// Key: CN or SAN pattern, Value: role
+	CertRoles map[string]string
 }
 
 // ServerConfig contains control plane server settings
@@ -232,6 +296,13 @@ const (
 
 	DefaultPolicyEngine          = "both"
 	DefaultPolicyEnforcementMode = "enforce"
+
+	// Auth defaults - secure by default
+	DefaultAuthEnabled       = true
+	DefaultAuthType          = "apikey"
+	DefaultAPIKeyHeaderName  = "X-API-Key"
+	DefaultAPIKeyMetadataKey = "x-api-key"
+	DefaultJWTRoleClaim      = "role"
 )
 
 // LoadConfig loads configuration from file and environment variables
@@ -311,6 +382,14 @@ func setDefaults(v *viper.Viper) {
 
 	// TLS defaults
 	v.SetDefault("tls.enabled", false)
+
+	// Auth defaults - secure by default
+	v.SetDefault("auth.enabled", DefaultAuthEnabled)
+	v.SetDefault("auth.type", DefaultAuthType)
+	v.SetDefault("auth.apikey.headername", DefaultAPIKeyHeaderName)
+	v.SetDefault("auth.apikey.metadatakey", DefaultAPIKeyMetadataKey)
+	v.SetDefault("auth.jwt.roleclaim", DefaultJWTRoleClaim)
+	v.SetDefault("auth.mtls.requireclientcert", true)
 
 	// Webhook defaults
 	v.SetDefault("webhook.enabled", false)
@@ -398,6 +477,57 @@ func (c *Config) Validate() error {
 			// valid
 		default:
 			return fmt.Errorf("invalid enforcement mode: %s (must be enforce, audit, or warn)", c.Policy.EnforcementMode)
+		}
+	}
+
+	// Validate auth config
+	if c.Auth.Enabled {
+		switch c.Auth.Type {
+		case "apikey", "jwt", "mtls", "multi":
+			// valid
+		default:
+			return fmt.Errorf("invalid auth type: %s (must be apikey, jwt, mtls, or multi)", c.Auth.Type)
+		}
+
+		// Validate API key config when using apikey or multi auth
+		if c.Auth.Type == "apikey" || c.Auth.Type == "multi" {
+			if len(c.Auth.APIKey.Keys) == 0 {
+				return fmt.Errorf("at least one API key must be configured when auth type is %s", c.Auth.Type)
+			}
+			for key, cfg := range c.Auth.APIKey.Keys {
+				if key == "" {
+					return fmt.Errorf("API key value cannot be empty")
+				}
+				if len(key) < 32 {
+					return fmt.Errorf("API key %q is too short (minimum 32 characters for security)", cfg.Name)
+				}
+				switch cfg.Role {
+				case "admin", "operator", "readonly":
+					// valid
+				default:
+					return fmt.Errorf("invalid role %q for API key %q (must be admin, operator, or readonly)", cfg.Role, cfg.Name)
+				}
+			}
+		}
+
+		// Validate JWT config when using jwt or multi auth
+		if c.Auth.Type == "jwt" || c.Auth.Type == "multi" {
+			if c.Auth.JWT.Secret == "" && c.Auth.JWT.PublicKeyFile == "" {
+				return fmt.Errorf("JWT secret or public key file must be configured when auth type is %s", c.Auth.Type)
+			}
+			if c.Auth.JWT.Secret != "" && c.Auth.JWT.PublicKeyFile != "" {
+				return fmt.Errorf("JWT secret and public key file are mutually exclusive")
+			}
+		}
+
+		// Validate mTLS config when using mtls or multi auth
+		if c.Auth.Type == "mtls" || c.Auth.Type == "multi" {
+			if !c.TLS.Enabled {
+				return fmt.Errorf("TLS must be enabled when using mTLS authentication")
+			}
+			if c.TLS.CAFile == "" {
+				return fmt.Errorf("CA file must be configured for mTLS authentication")
+			}
 		}
 	}
 

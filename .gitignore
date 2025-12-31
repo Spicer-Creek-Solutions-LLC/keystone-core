@@ -50,16 +50,16 @@ coverage.out
 .idea
 
 # Keystone Core binaries (in case built to root)
-kscore-server
-kscore-agent
-kscore-exec
-kscore-monitor
-kscore-module
-kscore-state
-kscore-policy
-kscore-gitops
-kscore-registry
-kscorectl
+/kscore-server
+/kscore-agent
+/kscore-exec
+/kscore-monitor
+/kscore-module
+/kscore-state
+/kscore-policy
+/kscore-gitops
+/kscore-registry
+/kscorectl
 
 # Rust build artifacts
 **/target/

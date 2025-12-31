@@ -236,6 +236,11 @@ func (db *InMemorySumDB) Submit(moduleName, version, hash string) error {
 	return nil
 }
 
+// Record records a module hash (alias for Submit to satisfy SumDBClient interface)
+func (db *InMemorySumDB) Record(moduleName, version, hash string) error {
+	return db.Submit(moduleName, version, hash)
+}
+
 // Clear removes all entries
 func (db *InMemorySumDB) Clear() {
 	db.mu.Lock()

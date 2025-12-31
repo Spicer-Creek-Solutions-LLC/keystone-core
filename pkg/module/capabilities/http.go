@@ -11,6 +11,24 @@ import (
 	"time"
 )
 
+// Default security limits for HTTP capabilities
+const (
+	// DefaultMaxRespSize is 10MB - a reasonable default for most API responses
+	DefaultMaxRespSize = 10 * 1024 * 1024
+	// MaxAllowedRespSize is 100MB - the absolute maximum allowed
+	MaxAllowedRespSize = 100 * 1024 * 1024
+	// DefaultMaxReqSize is 10MB - a reasonable default for request bodies
+	DefaultMaxReqSize = 10 * 1024 * 1024
+	// MaxAllowedReqSize is 100MB - the absolute maximum allowed for requests
+	MaxAllowedReqSize = 100 * 1024 * 1024
+)
+
+// DefaultHTTPRateLimit provides a secure default rate limit
+var DefaultHTTPRateLimit = &RateLimit{
+	Requests: 100,
+	Period:   time.Minute,
+}
+
 // HTTPGetCapability allows making HTTP GET requests
 type HTTPGetCapability struct {
 	AllowedDomains []string      // List of allowed domains (e.g., "api.example.com")
@@ -34,18 +52,34 @@ func (c *HTTPGetCapability) Validate() error {
 		return fmt.Errorf("%w: at least one allowed domain required", ErrInvalidConfiguration)
 	}
 
+	// Validate domain patterns for security
+	for _, domain := range c.AllowedDomains {
+		if err := validateDomainPatternSecurity(domain); err != nil {
+			return fmt.Errorf("%w: %v", ErrInvalidConfiguration, err)
+		}
+	}
+
 	if c.TimeoutMax <= 0 {
 		return fmt.Errorf("%w: timeout must be positive", ErrInvalidConfiguration)
 	}
 
-	if c.MaxRespSize < 0 {
-		return fmt.Errorf("%w: max response size cannot be negative", ErrInvalidConfiguration)
+	// MaxRespSize must be set and within bounds for security
+	if c.MaxRespSize <= 0 {
+		return fmt.Errorf("%w: max response size must be set (got %d, use DefaultMaxRespSize=%d or specify explicitly)",
+			ErrInvalidConfiguration, c.MaxRespSize, DefaultMaxRespSize)
+	}
+	if c.MaxRespSize > MaxAllowedRespSize {
+		return fmt.Errorf("%w: max response size %d exceeds maximum allowed %d",
+			ErrInvalidConfiguration, c.MaxRespSize, MaxAllowedRespSize)
 	}
 
-	if c.RateLimit != nil {
-		if err := c.RateLimit.Validate(); err != nil {
-			return fmt.Errorf("%w: invalid rate limit: %v", ErrInvalidConfiguration, err)
-		}
+	// Rate limiting is required for HTTP capabilities to prevent abuse
+	if c.RateLimit == nil {
+		return fmt.Errorf("%w: rate limit is required (use DefaultHTTPRateLimit or specify explicitly)",
+			ErrInvalidConfiguration)
+	}
+	if err := c.RateLimit.Validate(); err != nil {
+		return fmt.Errorf("%w: invalid rate limit: %v", ErrInvalidConfiguration, err)
 	}
 
 	return nil
@@ -125,22 +159,14 @@ func (c *HTTPGetCapability) Get(ctx *CapabilityContext, urlStr string, headers m
 	}
 	defer resp.Body.Close()
 
-	// Read response body with size limit
-	var body []byte
-	if c.MaxRespSize > 0 {
-		limitedReader := io.LimitReader(resp.Body, c.MaxRespSize+1)
-		body, err = io.ReadAll(limitedReader)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read response: %w", err)
-		}
-		if int64(len(body)) > c.MaxRespSize {
-			return nil, fmt.Errorf("%w: response size exceeds limit %d", ErrMaxSizeExceeded, c.MaxRespSize)
-		}
-	} else {
-		body, err = io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read response: %w", err)
-		}
+	// Read response body with size limit (MaxRespSize is always required)
+	limitedReader := io.LimitReader(resp.Body, c.MaxRespSize+1)
+	body, err := io.ReadAll(limitedReader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	if int64(len(body)) > c.MaxRespSize {
+		return nil, fmt.Errorf("%w: response size exceeds limit %d", ErrMaxSizeExceeded, c.MaxRespSize)
 	}
 
 	return &HTTPResponse{
@@ -174,22 +200,44 @@ func (c *HTTPPostCapability) Validate() error {
 		return fmt.Errorf("%w: at least one allowed domain required", ErrInvalidConfiguration)
 	}
 
+	// Validate domain patterns for security
+	for _, domain := range c.AllowedDomains {
+		if err := validateDomainPatternSecurity(domain); err != nil {
+			return fmt.Errorf("%w: %v", ErrInvalidConfiguration, err)
+		}
+	}
+
 	if c.TimeoutMax <= 0 {
 		return fmt.Errorf("%w: timeout must be positive", ErrInvalidConfiguration)
 	}
 
-	if c.MaxReqSize < 0 {
-		return fmt.Errorf("%w: max request size cannot be negative", ErrInvalidConfiguration)
+	// MaxReqSize must be set and within bounds for security
+	if c.MaxReqSize <= 0 {
+		return fmt.Errorf("%w: max request size must be set (got %d, use DefaultMaxReqSize=%d or specify explicitly)",
+			ErrInvalidConfiguration, c.MaxReqSize, DefaultMaxReqSize)
+	}
+	if c.MaxReqSize > MaxAllowedReqSize {
+		return fmt.Errorf("%w: max request size %d exceeds maximum allowed %d",
+			ErrInvalidConfiguration, c.MaxReqSize, MaxAllowedReqSize)
 	}
 
-	if c.MaxRespSize < 0 {
-		return fmt.Errorf("%w: max response size cannot be negative", ErrInvalidConfiguration)
+	// MaxRespSize must be set and within bounds for security
+	if c.MaxRespSize <= 0 {
+		return fmt.Errorf("%w: max response size must be set (got %d, use DefaultMaxRespSize=%d or specify explicitly)",
+			ErrInvalidConfiguration, c.MaxRespSize, DefaultMaxRespSize)
+	}
+	if c.MaxRespSize > MaxAllowedRespSize {
+		return fmt.Errorf("%w: max response size %d exceeds maximum allowed %d",
+			ErrInvalidConfiguration, c.MaxRespSize, MaxAllowedRespSize)
 	}
 
-	if c.RateLimit != nil {
-		if err := c.RateLimit.Validate(); err != nil {
-			return fmt.Errorf("%w: invalid rate limit: %v", ErrInvalidConfiguration, err)
-		}
+	// Rate limiting is required for HTTP capabilities to prevent abuse
+	if c.RateLimit == nil {
+		return fmt.Errorf("%w: rate limit is required (use DefaultHTTPRateLimit or specify explicitly)",
+			ErrInvalidConfiguration)
+	}
+	if err := c.RateLimit.Validate(); err != nil {
+		return fmt.Errorf("%w: invalid rate limit: %v", ErrInvalidConfiguration, err)
 	}
 
 	return nil
@@ -222,8 +270,8 @@ func (c *HTTPPostCapability) CheckDomain(domain string) error {
 
 // Post performs an HTTP POST request
 func (c *HTTPPostCapability) Post(ctx *CapabilityContext, urlStr string, body []byte, headers map[string]string) (*HTTPResponse, error) {
-	// Check request size
-	if c.MaxReqSize > 0 && int64(len(body)) > c.MaxReqSize {
+	// Check request size (MaxReqSize is always required)
+	if int64(len(body)) > c.MaxReqSize {
 		return nil, fmt.Errorf("%w: request body size %d exceeds limit %d", ErrMaxSizeExceeded, len(body), c.MaxReqSize)
 	}
 
@@ -274,22 +322,14 @@ func (c *HTTPPostCapability) Post(ctx *CapabilityContext, urlStr string, body []
 	}
 	defer resp.Body.Close()
 
-	// Read response body with size limit
-	var respBody []byte
-	if c.MaxRespSize > 0 {
-		limitedReader := io.LimitReader(resp.Body, c.MaxRespSize+1)
-		respBody, err = io.ReadAll(limitedReader)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read response: %w", err)
-		}
-		if int64(len(respBody)) > c.MaxRespSize {
-			return nil, fmt.Errorf("%w: response size exceeds limit %d", ErrMaxSizeExceeded, c.MaxRespSize)
-		}
-	} else {
-		respBody, err = io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read response: %w", err)
-		}
+	// Read response body with size limit (MaxRespSize is always required)
+	limitedReader := io.LimitReader(resp.Body, c.MaxRespSize+1)
+	respBody, err := io.ReadAll(limitedReader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	if int64(len(respBody)) > c.MaxRespSize {
+		return nil, fmt.Errorf("%w: response size exceeds limit %d", ErrMaxSizeExceeded, c.MaxRespSize)
 	}
 
 	return &HTTPResponse{
@@ -375,4 +415,59 @@ func matchesDomain(pattern, domain string) bool {
 	}
 
 	return false
+}
+
+// Dangerous domain patterns that should be blocked
+var dangerousDomainPatterns = []string{
+	"*",            // All domains
+	"*.*",          // All domains with extension
+	"*.*.*",        // All subdomains
+	"*.com",        // All .com domains
+	"*.net",        // All .net domains
+	"*.org",        // All .org domains
+	"*.io",         // All .io domains
+	"*.dev",        // All .dev domains
+	"*.edu",        // All .edu domains
+	"*.gov",        // All .gov domains
+	"*.mil",        // All .mil domains
+	"localhost",    // Localhost (internal services)
+	"*.localhost",  // Localhost subdomains
+	"127.0.0.1",    // Loopback IP
+	"0.0.0.0",      // All interfaces
+	"*.internal",   // Internal domains
+	"*.local",      // Local network domains
+	"*.intranet",   // Intranet domains
+	"10.*.*.*",     // Private IP range
+	"172.16.*.*",   // Private IP range
+	"192.168.*.*",  // Private IP range
+}
+
+// validateDomainPatternSecurity checks if a domain pattern is overly broad or dangerous
+func validateDomainPatternSecurity(pattern string) error {
+	// Normalize the pattern for comparison
+	normalizedPattern := strings.ToLower(strings.TrimSpace(pattern))
+
+	// Check against dangerous patterns
+	for _, dangerous := range dangerousDomainPatterns {
+		if normalizedPattern == dangerous {
+			return fmt.Errorf("domain pattern %q is too broad and could allow access to unintended services", pattern)
+		}
+	}
+
+	// Check for patterns that are just a TLD wildcard
+	if strings.HasPrefix(normalizedPattern, "*.") {
+		suffix := normalizedPattern[2:]
+		// If the suffix has no dots, it's a TLD wildcard (e.g., *.com)
+		if !strings.Contains(suffix, ".") {
+			return fmt.Errorf("domain pattern %q matches all domains under a TLD, which is too broad", pattern)
+		}
+	}
+
+	// Require at least a second-level domain for wildcards
+	// e.g., *.example.com is ok, but *.com is not
+	if normalizedPattern == "*" {
+		return fmt.Errorf("domain pattern %q matches all domains, which is not allowed", pattern)
+	}
+
+	return nil
 }

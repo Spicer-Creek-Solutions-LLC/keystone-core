@@ -21,14 +21,17 @@ func TestHTTPGetCapability_Validate(t *testing.T) {
 			cap: &HTTPGetCapability{
 				AllowedDomains: []string{"api.example.com"},
 				TimeoutMax:     30 * time.Second,
-				MaxRespSize:    1024 * 1024,
+				MaxRespSize:    DefaultMaxRespSize,
+				RateLimit:      DefaultHTTPRateLimit,
 			},
 			expectError: false,
 		},
 		{
 			name: "no allowed domains",
 			cap: &HTTPGetCapability{
-				TimeoutMax: 30 * time.Second,
+				TimeoutMax:  30 * time.Second,
+				MaxRespSize: DefaultMaxRespSize,
+				RateLimit:   DefaultHTTPRateLimit,
 			},
 			expectError: true,
 		},
@@ -37,15 +40,38 @@ func TestHTTPGetCapability_Validate(t *testing.T) {
 			cap: &HTTPGetCapability{
 				AllowedDomains: []string{"api.example.com"},
 				TimeoutMax:     0,
+				MaxRespSize:    DefaultMaxRespSize,
+				RateLimit:      DefaultHTTPRateLimit,
 			},
 			expectError: true,
 		},
 		{
-			name: "negative max response size",
+			name: "zero max response size",
 			cap: &HTTPGetCapability{
 				AllowedDomains: []string{"api.example.com"},
 				TimeoutMax:     30 * time.Second,
-				MaxRespSize:    -1,
+				MaxRespSize:    0,
+				RateLimit:      DefaultHTTPRateLimit,
+			},
+			expectError: true,
+		},
+		{
+			name: "max response size too large",
+			cap: &HTTPGetCapability{
+				AllowedDomains: []string{"api.example.com"},
+				TimeoutMax:     30 * time.Second,
+				MaxRespSize:    MaxAllowedRespSize + 1,
+				RateLimit:      DefaultHTTPRateLimit,
+			},
+			expectError: true,
+		},
+		{
+			name: "nil rate limit",
+			cap: &HTTPGetCapability{
+				AllowedDomains: []string{"api.example.com"},
+				TimeoutMax:     30 * time.Second,
+				MaxRespSize:    DefaultMaxRespSize,
+				RateLimit:      nil,
 			},
 			expectError: true,
 		},
@@ -54,10 +80,31 @@ func TestHTTPGetCapability_Validate(t *testing.T) {
 			cap: &HTTPGetCapability{
 				AllowedDomains: []string{"api.example.com"},
 				TimeoutMax:     30 * time.Second,
+				MaxRespSize:    DefaultMaxRespSize,
 				RateLimit: &RateLimit{
 					Requests: 0,
 					Period:   time.Minute,
 				},
+			},
+			expectError: true,
+		},
+		{
+			name: "dangerous domain pattern - all domains",
+			cap: &HTTPGetCapability{
+				AllowedDomains: []string{"*"},
+				TimeoutMax:     30 * time.Second,
+				MaxRespSize:    DefaultMaxRespSize,
+				RateLimit:      DefaultHTTPRateLimit,
+			},
+			expectError: true,
+		},
+		{
+			name: "dangerous domain pattern - TLD wildcard",
+			cap: &HTTPGetCapability{
+				AllowedDomains: []string{"*.com"},
+				TimeoutMax:     30 * time.Second,
+				MaxRespSize:    DefaultMaxRespSize,
+				RateLimit:      DefaultHTTPRateLimit,
 			},
 			expectError: true,
 		},
@@ -85,7 +132,9 @@ func TestHTTPGetCapability_CheckDomain(t *testing.T) {
 		DeniedDomains: []string{
 			"blocked.example.com",
 		},
-		TimeoutMax: 30 * time.Second,
+		TimeoutMax:  30 * time.Second,
+		MaxRespSize: DefaultMaxRespSize,
+		RateLimit:   DefaultHTTPRateLimit,
 	}
 
 	tests := []struct {
@@ -159,7 +208,8 @@ func TestHTTPGetCapability_Get(t *testing.T) {
 	cap := &HTTPGetCapability{
 		AllowedDomains: []string{serverHost},
 		TimeoutMax:     30 * time.Second,
-		MaxRespSize:    1024,
+		MaxRespSize:    DefaultMaxRespSize,
+		RateLimit:      DefaultHTTPRateLimit,
 	}
 
 	ctx := NewCapabilityContext(context.Background(), "test-module")
@@ -197,6 +247,7 @@ func TestHTTPGetCapability_GetMaxSize(t *testing.T) {
 		AllowedDomains: []string{serverHost},
 		TimeoutMax:     30 * time.Second,
 		MaxRespSize:    50, // Smaller than response
+		RateLimit:      DefaultHTTPRateLimit,
 	}
 
 	ctx := NewCapabilityContext(context.Background(), "test-module")
@@ -221,6 +272,7 @@ func TestHTTPGetCapability_GetRateLimit(t *testing.T) {
 	cap := &HTTPGetCapability{
 		AllowedDomains: []string{serverHost},
 		TimeoutMax:     30 * time.Second,
+		MaxRespSize:    DefaultMaxRespSize,
 		RateLimit: &RateLimit{
 			Requests: 2,
 			Period:   time.Minute,
@@ -261,22 +313,61 @@ func TestHTTPPostCapability_Validate(t *testing.T) {
 				TimeoutMax:     30 * time.Second,
 				MaxReqSize:     1024,
 				MaxRespSize:    1024,
+				RateLimit:      DefaultHTTPRateLimit,
 			},
 			expectError: false,
 		},
 		{
 			name: "no allowed domains",
 			cap: &HTTPPostCapability{
-				TimeoutMax: 30 * time.Second,
+				TimeoutMax:  30 * time.Second,
+				MaxReqSize:  1024,
+				MaxRespSize: 1024,
+				RateLimit:   DefaultHTTPRateLimit,
 			},
 			expectError: true,
 		},
 		{
-			name: "negative max request size",
+			name: "zero max request size",
 			cap: &HTTPPostCapability{
 				AllowedDomains: []string{"api.example.com"},
 				TimeoutMax:     30 * time.Second,
-				MaxReqSize:     -1,
+				MaxReqSize:     0,
+				MaxRespSize:    1024,
+				RateLimit:      DefaultHTTPRateLimit,
+			},
+			expectError: true,
+		},
+		{
+			name: "zero max response size",
+			cap: &HTTPPostCapability{
+				AllowedDomains: []string{"api.example.com"},
+				TimeoutMax:     30 * time.Second,
+				MaxReqSize:     1024,
+				MaxRespSize:    0,
+				RateLimit:      DefaultHTTPRateLimit,
+			},
+			expectError: true,
+		},
+		{
+			name: "nil rate limit",
+			cap: &HTTPPostCapability{
+				AllowedDomains: []string{"api.example.com"},
+				TimeoutMax:     30 * time.Second,
+				MaxReqSize:     1024,
+				MaxRespSize:    1024,
+				RateLimit:      nil,
+			},
+			expectError: true,
+		},
+		{
+			name: "dangerous domain pattern - all domains",
+			cap: &HTTPPostCapability{
+				AllowedDomains: []string{"*"},
+				TimeoutMax:     30 * time.Second,
+				MaxReqSize:     1024,
+				MaxRespSize:    1024,
+				RateLimit:      DefaultHTTPRateLimit,
 			},
 			expectError: true,
 		},
@@ -328,6 +419,7 @@ func TestHTTPPostCapability_Post(t *testing.T) {
 		TimeoutMax:     30 * time.Second,
 		MaxReqSize:     1024,
 		MaxRespSize:    1024,
+		RateLimit:      DefaultHTTPRateLimit,
 	}
 
 	ctx := NewCapabilityContext(context.Background(), "test-module")
@@ -362,6 +454,8 @@ func TestHTTPPostCapability_PostMaxReqSize(t *testing.T) {
 		AllowedDomains: []string{serverHost},
 		TimeoutMax:     30 * time.Second,
 		MaxReqSize:     10,
+		MaxRespSize:    DefaultMaxRespSize,
+		RateLimit:      DefaultHTTPRateLimit,
 	}
 
 	ctx := NewCapabilityContext(context.Background(), "test-module")

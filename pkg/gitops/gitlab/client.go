@@ -72,7 +72,7 @@ func (c *Client) CreateMergeRequest(ctx context.Context, req *MergeRequestReques
 	}
 
 	return &MergeRequestInfo{
-		IID:          mr.IID,
+		IID:          int64(mr.IID),
 		Title:        mr.Title,
 		State:        mr.State,
 		SourceBranch: mr.SourceBranch,
@@ -126,7 +126,7 @@ func (c *Client) CommentOnMR(ctx context.Context, req *CommentRequest) error {
 		Body: &req.Body,
 	}
 
-	_, _, err := c.client.Notes.CreateMergeRequestNote(projectID, req.MRIID, opts)
+	_, _, err := c.client.Notes.CreateMergeRequestNote(projectID, int(req.MRIID), opts)
 	if err != nil {
 		return fmt.Errorf("failed to create merge request note: %w", err)
 	}
@@ -144,7 +144,7 @@ func (c *Client) GetMergeRequest(ctx context.Context, projectID string, iid int6
 		return nil, fmt.Errorf("project ID must be specified")
 	}
 
-	mr, _, err := c.client.MergeRequests.GetMergeRequest(projectID, iid, nil)
+	mr, _, err := c.client.MergeRequests.GetMergeRequest(projectID, int(iid), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get merge request: %w", err)
 	}
@@ -155,7 +155,7 @@ func (c *Client) GetMergeRequest(ctx context.Context, projectID string, iid int6
 	}
 
 	return &MergeRequestInfo{
-		IID:          mr.IID,
+		IID:          int64(mr.IID),
 		Title:        mr.Title,
 		State:        mr.State,
 		SourceBranch: mr.SourceBranch,
@@ -193,7 +193,7 @@ func (c *Client) ListMergeRequests(ctx context.Context, projectID, state string)
 		}
 
 		result[i] = &MergeRequestInfo{
-			IID:          mr.IID,
+			IID:          int64(mr.IID),
 			Title:        mr.Title,
 			State:        mr.State,
 			SourceBranch: mr.SourceBranch,
@@ -221,7 +221,7 @@ func (c *Client) MergeMergeRequest(ctx context.Context, projectID string, iid in
 		MergeCommitMessage: &message,
 	}
 
-	_, _, err := c.client.MergeRequests.AcceptMergeRequest(projectID, iid, opts)
+	_, _, err := c.client.MergeRequests.AcceptMergeRequest(projectID, int(iid), opts)
 	if err != nil {
 		return fmt.Errorf("failed to merge merge request: %w", err)
 	}

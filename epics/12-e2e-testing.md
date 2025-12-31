@@ -126,75 +126,63 @@ tests/
 
 ### Deployment Topologies
 
+```mermaid
+flowchart TD
+    subgraph T1["Topology 1: All-in-One (Development/Small)"]
+        subgraph Server["kscore-server container"]
+            EN["Embedded NATS"]
+            SQ["SQLite DB"]
+            API["API Server"]
+        end
+        A1U["Agent 1<br/>Ubuntu"]
+        A2A["Agent 2<br/>Alpine"]
+        A3D["Agent 3<br/>Debian"]
+        Server --> A1U
+        Server --> A2A
+        Server --> A3D
+    end
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  Topology 1: All-in-One (Development/Small)                    │
-│                                                                 │
-│  ┌─────────────────────────────────────┐                       │
-│  │     kscore-server container         │                       │
-│  │  ┌─────────┐ ┌────────┐ ┌────────┐ │                       │
-│  │  │Embedded │ │ SQLite │ │  API   │ │                       │
-│  │  │  NATS   │ │   DB   │ │ Server │ │                       │
-│  │  └─────────┘ └────────┘ └────────┘ │                       │
-│  └─────────────────┬───────────────────┘                       │
-│                    │                                            │
-│       ┌────────────┼────────────┐                              │
-│       ▼            ▼            ▼                              │
-│  ┌─────────┐  ┌─────────┐  ┌─────────┐                        │
-│  │ Agent 1 │  │ Agent 2 │  │ Agent 3 │                        │
-│  │ Ubuntu  │  │ Alpine  │  │ Debian  │                        │
-│  └─────────┘  └─────────┘  └─────────┘                        │
-└─────────────────────────────────────────────────────────────────┘
 
-┌─────────────────────────────────────────────────────────────────┐
-│  Topology 2: HA Cluster (Production)                           │
-│                                                                 │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐                     │
-│  │ Server 1 │  │ Server 2 │  │ Server 3 │                     │
-│  │ (Leader) │  │(Follower)│  │(Follower)│                     │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘                     │
-│       └─────────────┼─────────────┘                            │
-│                     │                                           │
-│  ┌──────────────────┼──────────────────┐                       │
-│  │                  │                   │                       │
-│  ▼                  ▼                   ▼                       │
-│  ┌────────────┐  ┌────────────┐  ┌────────────┐               │
-│  │ NATS Node1 │  │ NATS Node2 │  │ NATS Node3 │               │
-│  └────────────┘  └────────────┘  └────────────┘               │
-│                     │                                           │
-│  ┌──────────────────┼──────────────────┐                       │
-│  │                  │                   │                       │
-│  ▼                  ▼                   ▼                       │
-│  ┌────────────┐  ┌────────────┐  ┌────────────┐               │
-│  │ PostgreSQL │  │  Primary   │  │  Replica   │               │
-│  │  (etcd)    │  │     DB     │  │     DB     │               │
-│  └────────────┘  └────────────┘  └────────────┘               │
-│                                                                 │
-│  ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐  ... (10+ agents)   │
-│  │ A1  │ │ A2  │ │ A3  │ │ A4  │ │ A5  │                      │
-│  └─────┘ └─────┘ └─────┘ └─────┘ └─────┘                      │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph T2["Topology 2: HA Cluster (Production)"]
+        S1["Server 1<br/>(Leader)"]
+        S2["Server 2<br/>(Follower)"]
+        S3["Server 3<br/>(Follower)"]
 
-┌─────────────────────────────────────────────────────────────────┐
-│  Topology 3: Kubernetes (k3d)                                  │
-│                                                                 │
-│  ┌───────────────────────────────────────────┐                 │
-│  │              k3d Cluster                   │                 │
-│  │  ┌─────────────────────────────────────┐  │                 │
-│  │  │  kscore-operator (Deployment)       │  │                 │
-│  │  └─────────────────────────────────────┘  │                 │
-│  │  ┌─────────────────────────────────────┐  │                 │
-│  │  │  kscore-agents (DaemonSet)          │  │                 │
-│  │  │  ┌───────┐ ┌───────┐ ┌───────┐     │  │                 │
-│  │  │  │ node1 │ │ node2 │ │ node3 │     │  │                 │
-│  │  │  └───────┘ └───────┘ └───────┘     │  │                 │
-│  │  └─────────────────────────────────────┘  │                 │
-│  │  ┌─────────────────────────────────────┐  │                 │
-│  │  │  RemoteExecution CRD instances      │  │                 │
-│  │  │  StateConfig CRD instances          │  │                 │
-│  │  └─────────────────────────────────────┘  │                 │
-│  └───────────────────────────────────────────┘                 │
-└─────────────────────────────────────────────────────────────────┘
+        N1["NATS Node1"]
+        N2["NATS Node2"]
+        N3["NATS Node3"]
+
+        PG["PostgreSQL<br/>(etcd)"]
+        PGP["Primary DB"]
+        PGR["Replica DB"]
+
+        A1["A1"]
+        A2["A2"]
+        A3["A3"]
+        A4["A4"]
+        A5["A5"]
+        AM["... (10+ agents)"]
+
+        S1 & S2 & S3 --> N1 & N2 & N3
+        N1 & N2 & N3 --> PG & PGP & PGR
+    end
+```
+
+```mermaid
+flowchart TD
+    subgraph T3["Topology 3: Kubernetes (k3d)"]
+        subgraph k3d["k3d Cluster"]
+            OP["kscore-operator<br/>(Deployment)"]
+            subgraph DS["kscore-agents (DaemonSet)"]
+                N1["node1"]
+                N2["node2"]
+                N3["node3"]
+            end
+            CRD["RemoteExecution CRD instances<br/>StateConfig CRD instances"]
+        end
+    end
 ```
 
 ## User Stories

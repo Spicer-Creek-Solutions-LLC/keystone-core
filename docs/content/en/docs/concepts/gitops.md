@@ -20,46 +20,33 @@ Keystone Core integrates with GitOps tools to bridge the gap between declarative
 
 ## Architecture
 
-```
-┌──────────────────────────────────────────────┐
-│         GitOps Tools                          │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐   │
-│  │  ArgoCD  │  │   Flux   │  │ GitHub/  │   │
-│  │          │  │          │  │ GitLab   │   │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘   │
-└───────┼─────────────┼─────────────┼──────────┘
-        │             │             │
-        │ Webhooks    │ Webhooks    │ Webhooks
-        │             │             │
-        ↓             ↓             ↓
-┌─────────────────────────────────────────────┐
-│      Keystone Core Webhook Receiver            │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  │
-│  │  ArgoCD  │  │   Flux   │  │ GitHub/  │  │
-│  │ Handler  │  │ Handler  │  │  GitLab  │  │
-│  │          │  │          │  │ Handler  │  │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  │
-└───────┼─────────────┼─────────────┼─────────┘
-        │             │             │
-        └──────────┬──┴─────────────┘
-                   ↓
-         ┌───────────────────┐
-         │  Event Publisher  │
-         └─────────┬─────────┘
-                   │
-        ┌──────────┴──────────┐
-        │                     │
-        ↓                     ↓
-  ┌──────────┐          ┌──────────┐
-  │Deployment│          │ Rollback │
-  │Verifier  │          │  Engine  │
-  └────┬─────┘          └────┬─────┘
-       │                     │
-       ↓                     ↓
-  ┌──────────┐          ┌──────────┐
-  │ Reactor  │          │  GitOps  │
-  │  Engine  │          │   API    │
-  └──────────┘          └──────────┘
+```mermaid
+flowchart TD
+    subgraph GitOps["GitOps Tools"]
+        ArgoCD["ArgoCD"]
+        Flux["Flux"]
+        GitHub["GitHub/GitLab"]
+    end
+
+    subgraph Receiver["Keystone Core Webhook Receiver"]
+        AH["ArgoCD Handler"]
+        FH["Flux Handler"]
+        GH["GitHub/GitLab Handler"]
+    end
+
+    ArgoCD -->|Webhooks| AH
+    Flux -->|Webhooks| FH
+    GitHub -->|Webhooks| GH
+
+    AH --> EP["Event Publisher"]
+    FH --> EP
+    GH --> EP
+
+    EP --> Verifier["Deployment Verifier"]
+    EP --> Rollback["Rollback Engine"]
+
+    Verifier --> Reactor["Reactor Engine"]
+    Rollback --> GitOpsAPI["GitOps API"]
 ```
 
 ## Webhook Integration

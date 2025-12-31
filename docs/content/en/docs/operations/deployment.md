@@ -301,6 +301,7 @@ storage:
 clustering:
   enabled: true
   etcd:
+    mode: external  # Options: embedded, external
     endpoints:
       - "http://etcd1:2379"
       - "http://etcd2:2379"
@@ -312,6 +313,55 @@ logging:
   level: info
   format: json
 ```
+
+### Embedded etcd Mode
+
+For smaller HA deployments (3-5 control plane nodes), you can use embedded etcd mode which runs an etcd server in-process with each control plane node. This eliminates the need for a separate etcd cluster.
+
+**Embedded Mode Configuration:**
+```yaml
+# /etc/kscore/server.yaml
+clustering:
+  enabled: true
+  etcd:
+    mode: embedded
+    embedded:
+      # Unique name for this node in the cluster
+      name: server1
+      # Directory for etcd data
+      data_dir: /var/lib/kscore/etcd
+      # Client listen address
+      listen_client_urls: "http://0.0.0.0:2379"
+      # Peer listen address
+      listen_peer_urls: "http://0.0.0.0:2380"
+      # Advertise client URL (reachable by other components)
+      advertise_client_urls: "http://server1:2379"
+      # Initial advertise peer URL (reachable by other nodes)
+      initial_advertise_peer_urls: "http://server1:2380"
+      # Initial cluster configuration
+      initial_cluster: "server1=http://server1:2380,server2=http://server2:2380,server3=http://server3:2380"
+  election:
+    lease_ttl: 10s
+```
+
+**When to Use Embedded Mode:**
+- 3-5 control plane nodes
+- Simpler deployment without separate etcd cluster
+- Development and staging environments
+- Smaller production deployments
+
+**When to Use External Mode:**
+- 5+ control plane nodes
+- Existing etcd infrastructure
+- Need for independent etcd scaling
+- Strict separation of concerns
+
+**Mixed Deployment:**
+You can start with embedded mode and migrate to external mode later by:
+1. Setting up external etcd cluster
+2. Exporting data from embedded etcd
+3. Importing to external cluster
+4. Updating configuration to `mode: external`
 
 ### Agent Persistence and Handoff
 

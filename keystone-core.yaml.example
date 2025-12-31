@@ -77,3 +77,66 @@ tls:
   # keyfile: "/path/to/key.pem"
   # cafile: "/path/to/ca.pem"
   # insecureskipverify: false
+
+# API Authentication configuration
+# SECURITY: Authentication is ENABLED by default for production safety
+auth:
+  # Enable/disable authentication (default: true)
+  # WARNING: Setting to false allows unauthenticated access to all APIs
+  enabled: true
+
+  # Authentication type: apikey, jwt, mtls, or multi
+  type: apikey
+
+  # API Key authentication settings
+  apikey:
+    # HTTP header name for API key
+    headername: "X-API-Key"
+    # gRPC metadata key for API key
+    metadatakey: "x-api-key"
+
+    # API keys with roles
+    # Key values must be at least 32 characters for security
+    # Generate with: openssl rand -hex 32
+    keys:
+      # Admin key - full access to all operations
+      "REPLACE_WITH_SECURE_KEY_AT_LEAST_32_CHARS_ADMIN":
+        name: admin-key
+        role: admin  # admin, operator, or readonly
+        enabled: true
+        # Optional expiration (RFC3339 format)
+        # expiresat: "2025-12-31T23:59:59Z"
+
+      # Operator key - can execute commands, manage agents
+      # "REPLACE_WITH_SECURE_KEY_AT_LEAST_32_CHARS_OPS":
+      #   name: ops-team
+      #   role: operator
+      #   enabled: true
+
+      # Readonly key - view only access
+      # "REPLACE_WITH_SECURE_KEY_AT_LEAST_32_CHARS_RO":
+      #   name: monitoring
+      #   role: readonly
+      #   enabled: true
+
+  # JWT authentication settings (for type: jwt or multi)
+  # jwt:
+  #   secret: "your-jwt-secret-for-hs256"
+  #   # OR use public key for RS256/ES256
+  #   # publickeyfile: "/path/to/public.pem"
+  #   issuer: "kscore"
+  #   audience: "kscore-api"
+  #   roleclaim: "role"
+
+  # mTLS authentication settings (for type: mtls or multi)
+  # Requires tls.enabled=true and tls.cafile set
+  # mtls:
+  #   requireclientcert: true
+  #   certroles:
+  #     "CN=admin-client": admin
+  #     "CN=ops-client": operator
+
+  # Methods that bypass authentication (health checks, etc.)
+  bypassmethods:
+    - "/grpc.health.v1.Health/Check"
+    - "/grpc.health.v1.Health/Watch"

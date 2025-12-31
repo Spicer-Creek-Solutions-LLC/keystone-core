@@ -50,43 +50,38 @@ Implement a secure, sandboxed plugin system that enables users to extend Keyston
 
 ## Architecture
 
-```
-┌──────────────────────────────────────────────────────────┐
-│                Plugin Distribution                       │
-│  ┌────────────────┐  ┌────────────────┐                 │
-│  │  Transparency  │  │   Cosign       │                 │
-│  │  Log (SumDB)   │  │   Signatures   │                 │
-│  └────────────────┘  └────────────────┘                 │
-└─────────────────┬────────────────────────────────────────┘
-                  │ (verify & download)
-                  ▼
-┌──────────────────────────────────────────────────────────┐
-│              Plugin Registry & Loader                    │
-│  ┌────────────┐  ┌────────────┐  ┌─────────────────┐   │
-│  │  Manifest  │  │ Signature  │  │   Capability    │   │
-│  │  Parser    │  │ Verifier   │  │   Validator     │   │
-│  └────────────┘  └────────────┘  └─────────────────┘   │
-└──────────────────┬───────────────────────────────────────┘
-                   │
-        ┌──────────┴──────────┐
-        │                     │
-        ▼                     ▼
-┌──────────────┐      ┌──────────────┐
-│   Starlark   │      │     WASM     │
-│   Runtime    │      │   Runtime    │
-│              │      │  (wasmtime)  │
-└──────┬───────┘      └──────┬───────┘
-       │                     │
-       └──────────┬──────────┘
-                  │
-                  ▼
-┌──────────────────────────────────────────────────────────┐
-│           Host Capability Layer                          │
-│  ┌──────┐ ┌──────┐ ┌──────┐ ┌────────┐ ┌─────┐        │
-│  │  fs  │ │ http │ │ exec │ │secrets │ │ log │  ...   │
-│  └──────┘ └──────┘ └──────┘ └────────┘ └─────┘        │
-│  (each capability registered only if policy allows)     │
-└──────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph PD["Plugin Distribution"]
+        TL["Transparency Log<br/>(SumDB)"]
+        CS["Cosign Signatures"]
+    end
+
+    subgraph PRL["Plugin Registry & Loader"]
+        MP["Manifest Parser"]
+        SV["Signature Verifier"]
+        CV["Capability Validator"]
+    end
+
+    subgraph RT["Runtimes"]
+        SR["Starlark Runtime"]
+        WR["WASM Runtime<br/>(wazero)"]
+    end
+
+    subgraph HCL["Host Capability Layer"]
+        fs
+        http
+        exec
+        secrets
+        log
+        more["..."]
+    end
+
+    note["Each capability registered only if policy allows"]
+
+    PD -->|"verify & download"| PRL
+    PRL --> RT
+    RT --> HCL
 ```
 
 ## Module Format & Structure

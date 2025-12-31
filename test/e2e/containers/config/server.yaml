@@ -35,6 +35,10 @@ storage:
 tls:
   enabled: false
 
+# Auth disabled for E2E testing
+auth:
+  enabled: false
+
 # Webhook receiver for GitOps integration testing
 webhook:
   enabled: true

@@ -45,7 +45,8 @@ type ExecuteRequest struct {
 type Executor struct {
 	mu              sync.RWMutex
 	runningCommands map[string]*runningCommand
-	killTimeout     time.Duration // Grace period before SIGKILL
+	killTimeout     time.Duration    // Grace period before SIGKILL
+	policy          *CommandPolicy   // Security policy for command validation
 }
 
 // runningCommand tracks a running command
@@ -56,19 +57,33 @@ type runningCommand struct {
 
 // ExecutorOptions configures the executor
 type ExecutorOptions struct {
-	KillTimeout time.Duration // Grace period between SIGTERM and SIGKILL (default: 5s)
+	KillTimeout time.Duration    // Grace period between SIGTERM and SIGKILL (default: 5s)
+	Policy      *CommandPolicy   // Security policy for command validation (default: normal mode)
 }
 
 // NewExecutor creates a new enhanced command executor
 func NewExecutor(opts *ExecutorOptions) *Executor {
 	killTimeout := 5 * time.Second
-	if opts != nil && opts.KillTimeout > 0 {
-		killTimeout = opts.KillTimeout
+	var policy *CommandPolicy
+
+	if opts != nil {
+		if opts.KillTimeout > 0 {
+			killTimeout = opts.KillTimeout
+		}
+		if opts.Policy != nil {
+			policy = opts.Policy
+		}
+	}
+
+	// Default to normal mode policy for security
+	if policy == nil {
+		policy = DefaultPolicy()
 	}
 
 	return &Executor{
 		runningCommands: make(map[string]*runningCommand),
 		killTimeout:     killTimeout,
+		policy:          policy,
 	}
 }
 
@@ -77,6 +92,24 @@ func (e *Executor) Execute(ctx context.Context, req *ExecuteRequest, outputHandl
 	result := &CommandResult{
 		CommandID: req.CommandID,
 		StartTime: time.Now(),
+	}
+
+	// Validate command against security policy
+	if e.policy != nil {
+		var err error
+		if req.Shell != nil || req.ShellType != "" {
+			// Shell execution - use stricter validation
+			err = e.policy.ValidateForShell(req.Command)
+		} else {
+			// Direct execution
+			err = e.policy.Validate(req.Command)
+		}
+		if err != nil {
+			result.Error = fmt.Errorf("command rejected by security policy: %w", err)
+			result.EndTime = time.Now()
+			result.ExitCode = -1
+			return result, result.Error
+		}
 	}
 
 	// Execute with retries
@@ -306,6 +339,20 @@ func (e *Executor) GetRunningCommands() []string {
 	}
 
 	return commandIDs
+}
+
+// GetPolicy returns the current command policy
+func (e *Executor) GetPolicy() *CommandPolicy {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	return e.policy
+}
+
+// SetPolicy updates the command policy
+func (e *Executor) SetPolicy(policy *CommandPolicy) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.policy = policy
 }
 
 // streamOutput reads from a pipe and returns the buffered output

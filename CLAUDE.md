@@ -107,18 +107,18 @@ The following features are documented as complete but have incomplete or stub im
 
 | Feature | Epic | Status | Notes |
 |---------|------|--------|-------|
-| **Embedded etcd mode** | 11 | ❌ NOT IMPLEMENTED | Config exists but no `embed.Etcd` - just connects to localhost. |
-| **OCI Registry client** | 9 | ❌ NOT IMPLEMENTED | `pkg/module/registry/` doesn't exist. |
-| **kscore-registry server** | 9 | ❌ NOT IMPLEMENTED | `cmd/kscore-registry/` doesn't exist. |
-| **kscore-module CLI** | 9 | ❌ NOT IMPLEMENTED | `cmd/kscore-module/` doesn't exist. |
-| **kscore-policy CLI** | 6 | ❌ NOT IMPLEMENTED | `cmd/kscore-policy/` doesn't exist. |
-| **kscore-gitops CLI** | 5 | ❌ NOT IMPLEMENTED | `cmd/kscore-gitops/` doesn't exist. |
+| **Embedded etcd mode** | 11 | ✅ IMPLEMENTED | Uses `go.etcd.io/etcd/server/v3/embed` for true embedded mode. |
+| **OCI Registry client** | 9 | ✅ IMPLEMENTED | `pkg/module/registry/` HTTP registry client with publish/download support. |
+| **kscore-registry server** | 9 | ✅ IMPLEMENTED | HTTP server with Go-mod style API for module distribution. |
+| **kscore-module CLI** | 9 | ✅ IMPLEMENTED | init, validate, build, resolve, tree, verify, sign, publish, install, test commands. |
+| **kscore-policy CLI** | 6 | ✅ IMPLEMENTED | list, validate, check, show, audit, report commands. |
+| **kscore-gitops CLI** | 5 | ✅ IMPLEMENTED | verify, rollback, promote, webhook, status commands. |
 | **Cosign verification** | 9 | ⚠️ STUB | Returns "not yet implemented" error. |
 | **Loki integration** | 7 | ⚠️ PLACEHOLDER | InMemoryLogsQuerier only. |
 | **Jaeger integration** | 7 | ⚠️ PLACEHOLDER | InMemoryTracesQuerier only. |
 | **Kubernetes manifests** | 8/10 | ❌ NOT IMPLEMENTED | `deploy/kubernetes/` doesn't exist. |
 | **Helm charts** | 8/10 | ❌ NOT IMPLEMENTED | No Helm charts exist. |
-| **CI/CD for E2E tests** | 12 | ❌ NOT IMPLEMENTED | No GitHub Actions workflow for E2E tests. |
+| **CI/CD for E2E tests** | 12 | ✅ IMPLEMENTED | `.github/workflows/e2e.yml` GitHub Actions workflow. |
 | **Network partition tests** | 12 | ⚠️ SKIPPED | Require Docker network manipulation. |
 | **Multi-platform E2E** | 12 | ❌ NOT IMPLEMENTED | ARM64, different Linux distros not tested. |
 
@@ -1966,7 +1966,7 @@ Keystone Core fills the gap between declarative GitOps tools and runtime operati
 - Phase 2: Capability system (10 capability types) ✅
 - Phase 3: Cryptographic verification (hash, signature, SumDB, trust) ✅ (Cosign is stub only)
 - Phase 4: Dependency resolution (SemVer, DAG, MVS) ✅
-- Phase 5: Registry & distribution ⚠️ NOT IMPLEMENTED (OCI client, HTTP proxy, kscore-registry missing)
+- Phase 5: Registry & distribution ✅ (HTTP registry client and kscore-registry server implemented)
 - Phase 6: SDKs & stdlib (Starlark, Rust, Go, C++) ✅
 - Phase 7: Module loader orchestration (6-phase loading) ✅
 
@@ -1975,7 +1975,7 @@ Keystone Core fills the gap between declarative GitOps tools and runtime operati
 - 10 capability types with path/domain/command scoping
 - Full cryptographic verification pipeline (Cosign stub only - RSA/ECDSA/Ed25519 work)
 - Dependency resolution with MVS algorithm
-- ~~OCI registry with HTTP proxy and SumDB~~ ⚠️ NOT IMPLEMENTED
+- HTTP registry client and kscore-registry server for module distribution
 - SDK suite for 4 languages (Starlark, Rust, Go, C++)
 - 6 stdlib modules + 4 hello world examples
 - Module loader with caching and orchestration
@@ -1983,9 +1983,9 @@ Keystone Core fills the gap between declarative GitOps tools and runtime operati
 - ~15,000+ lines of production code
 
 **Epic 9 Implementation Gaps**:
-- `pkg/module/registry/` - OCI registry client not implemented
-- `cmd/kscore-registry/` - Registry server not implemented
-- `cmd/kscore-module/` - Module CLI not implemented
+- `pkg/module/registry/` - ✅ HTTP registry client implemented (publish, download, list, auth)
+- `cmd/kscore-registry/` - ✅ HTTP server with Go-mod style API for module distribution
+- `cmd/kscore-module/` - ✅ CLI fully implemented (init, validate, build, sign, publish, install, resolve, tree, verify, test)
 - Cosign verification returns "not yet implemented" error
 
 ### Epic 10: Documentation ✅ COMPLETE
@@ -2389,8 +2389,11 @@ Keystone Core fills the gap between declarative GitOps tools and runtime operati
 - Documented all 8 phases with implementation details
 - Updated Epic Dependencies section
 
-**Epic 11 Implementation Gaps**:
-- Embedded etcd mode: Config and validation exist, but no actual `embed.Etcd` server startup - just connects to localhost
+**Epic 11 Achievements**:
+- Complete embedded etcd mode using `go.etcd.io/etcd/server/v3/embed`
+- Automatic server lifecycle management (start on Connect, stop on Close)
+- Configurable data directory, ports, clustering, and logging
+- All phases 1-8 fully implemented with no remaining gaps
 
 ### Epic 12: End-to-End & Performance Testing ✅ COMPLETE
 

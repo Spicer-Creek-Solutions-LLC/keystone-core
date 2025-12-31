@@ -909,8 +909,168 @@ error: "Detailed error message"
 5. **Meaningful IDs**: Use descriptive state IDs
 6. **Group Related States**: Keep related states together
 
+## Custom Modules
+
+Beyond the built-in state modules, Keystone Core supports custom modules written in Starlark or compiled to WebAssembly (WASM). Custom modules enable extending Keystone Core with organization-specific state types, custom reactors, and specialized policies.
+
+### Module System Overview
+
+Custom modules are versioned, capability-scoped packages that integrate with the Keystone Core plugin system:
+
+- **Starlark Modules**: Python-like syntax, sandboxed execution, deterministic
+- **WASM Modules**: Compiled from Rust, Go (TinyGo), or C++, high performance
+
+### Creating Custom Modules
+
+Use the `kscore-module` CLI to scaffold and manage custom modules:
+
+```bash
+# Initialize a new Starlark module
+kscore-module init myorg/custom-state
+
+# Initialize a Rust WASM module
+kscore-module init --template rust myorg/custom-provider
+```
+
+This creates the module structure:
+
+```
+myorg/custom-state/
+├── module.yaml         # Module manifest
+├── states/             # Starlark state files
+│   └── main.star       # Main module code
+├── tests/              # Test files
+│   └── main_test.star  # Unit tests
+└── README.md           # Documentation
+```
+
+### Module Manifest
+
+The `module.yaml` defines module metadata, capabilities, and dependencies:
+
+```yaml
+name: myorg/custom-state
+version: 0.1.0
+type: starlark
+description: Custom state management module
+
+capabilities:
+  - fs.read    # File system read access
+  - exec       # Command execution
+
+dependencies:
+  std/files: ">=1.0.0"
+
+metadata:
+  repository: "https://github.com/myorg/custom-state"
+  license: "MIT"
+```
+
+### Module Development Workflow
+
+```bash
+# Validate module manifest
+kscore-module validate ./myorg/custom-state
+
+# Run module tests
+kscore-module test ./myorg/custom-state
+
+# Resolve dependencies
+kscore-module resolve ./myorg/custom-state
+
+# Build distributable package
+kscore-module build ./myorg/custom-state
+
+# Verify module integrity
+kscore-module verify ./myorg/custom-state/myorg-custom-state-0.1.0.zip
+```
+
+### Capability System
+
+Modules can only access explicitly granted capabilities. Available capabilities:
+
+| Capability | Description | Scope |
+|------------|-------------|-------|
+| `fs.read` | Read files | Path patterns |
+| `fs.write` | Write files | Path patterns |
+| `http.get` | HTTP GET requests | Domain patterns |
+| `http.post` | HTTP POST requests | Domain patterns |
+| `exec` | Execute commands | Command allowlist |
+| `secrets.read` | Read secrets | Path patterns |
+| `secrets.write` | Write secrets | Path patterns |
+| `log` | Structured logging | Rate limited |
+| `kv` | Key-value storage | Namespace scoped |
+| `time` | Current time | Breaks determinism |
+
+### Starlark Module Example
+
+```python
+# states/main.star
+"""Custom state module for managing application config."""
+
+def ensure_config(name, path, template):
+    """Ensure application config exists with correct content."""
+
+    # Read template
+    content = fs.read(template)
+
+    # Check if file exists with correct content
+    if fs.exists(path):
+        current = fs.read(path)
+        if current == content:
+            return {"result": "unchanged", "comment": "Config already correct"}
+
+    # Write config
+    fs.write(path, content)
+    return {"result": "changed", "comment": "Config updated"}
+
+def main():
+    """Module entry point."""
+    return {"status": "success"}
+```
+
+### Testing Custom Modules
+
+Test files use assertions similar to standard testing frameworks:
+
+```python
+# tests/main_test.star
+"""Tests for custom state module."""
+
+load("//states/main.star", "ensure_config")
+
+def test_ensure_config_creates_file():
+    """Test that config is created correctly."""
+    result = ensure_config("test", "/tmp/test.conf", "/templates/test.conf")
+    assert.eq(result["result"], "changed")
+
+def test_ensure_config_idempotent():
+    """Test idempotency - second run should be unchanged."""
+    ensure_config("test", "/tmp/test.conf", "/templates/test.conf")
+    result = ensure_config("test", "/tmp/test.conf", "/templates/test.conf")
+    assert.eq(result["result"], "unchanged")
+```
+
+### Module Distribution
+
+After development, modules can be distributed via:
+
+1. **OCI Registry**: Push to container registries (Docker Hub, GitHub Container Registry)
+2. **HTTP Server**: Host module ZIPs on any HTTP server
+3. **Git Repository**: Reference modules directly from Git
+
+Distribution commands (coming soon):
+```bash
+# Sign module
+kscore-module sign ./myorg/custom-state/myorg-custom-state-0.1.0.zip
+
+# Publish to registry
+kscore-module publish ./myorg/custom-state/myorg-custom-state-0.1.0.zip
+```
+
 ## See Also
 
 - [State Management Concepts](../../concepts/state-management/) - State management overview
 - [Configuration Reference](../configuration/#state-file-configuration) - State file configuration
 - [CLI Reference](../cli/#kscore-state-state-management) - State CLI commands
+- [CLI Reference - Module Management](../cli/#kscore-module-module-management) - Module CLI commands

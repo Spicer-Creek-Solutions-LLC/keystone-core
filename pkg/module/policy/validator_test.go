@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shawnbutts/keystone-core/pkg/module/manifest"
 	policypkg "github.com/shawnbutts/keystone-core/pkg/policy"
 )
 
@@ -73,7 +72,7 @@ func TestValidateCapability_Blocked(t *testing.T) {
 	engine := NewModulePolicyEngine(policypkg.NewPolicyEngine(registry), config)
 
 	ctx := &ModulePolicyContext{
-		Module: &manifest.Manifest{
+		Module: &ModuleInfo{
 			Name:    "test/module",
 			Version: "1.0.0",
 		},
@@ -145,7 +144,7 @@ func TestValidateCapability_TrustLevel(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := &ModulePolicyContext{
-				Module: &manifest.Manifest{
+				Module: &ModuleInfo{
 					Name:    "test/module",
 					Version: "1.0.0",
 				},
@@ -211,7 +210,7 @@ func TestValidateCapability_EnvironmentRestrictions(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := &ModulePolicyContext{
-				Module: &manifest.Manifest{
+				Module: &ModuleInfo{
 					Name:    "test/module",
 					Version: "1.0.0",
 				},
@@ -244,7 +243,7 @@ func TestValidateCapabilities(t *testing.T) {
 	engine := NewModulePolicyEngine(policypkg.NewPolicyEngine(registry), config)
 
 	ctx := &ModulePolicyContext{
-		Module: &manifest.Manifest{
+		Module: &ModuleInfo{
 			Name:    "test/module",
 			Version: "1.0.0",
 		},
@@ -288,7 +287,7 @@ func TestValidateModule(t *testing.T) {
 	engine := NewModulePolicyEngine(policypkg.NewPolicyEngine(registry), config)
 
 	ctx := &ModulePolicyContext{
-		Module: &manifest.Manifest{
+		Module: &ModuleInfo{
 			Name:    "test/module",
 			Version: "1.0.0",
 		},
@@ -352,7 +351,7 @@ func TestValidateModule_EnforcementMode(t *testing.T) {
 			engine.EnforcementMode = tc.enforcementMode
 
 			ctx := &ModulePolicyContext{
-				Module: &manifest.Manifest{
+				Module: &ModuleInfo{
 					Name:    "test/module",
 					Version: "1.0.0",
 				},
@@ -386,10 +385,10 @@ func TestAddRule(t *testing.T) {
 		Name:     "Test Rule 1",
 		Enabled:  true,
 		Priority: 10,
-		Conditions: RuleConditions{
+		Conditions: PolicyCondition{
 			ModuleNamePattern: "test/*",
 		},
-		Action: RuleAction{
+		Action: PolicyAction{
 			Type: ActionWarn,
 			Warn: "Test warning",
 		},
@@ -400,10 +399,10 @@ func TestAddRule(t *testing.T) {
 		Name:     "Test Rule 2",
 		Enabled:  true,
 		Priority: 20, // Higher priority
-		Conditions: RuleConditions{
+		Conditions: PolicyCondition{
 			ModuleNamePattern: "test/*",
 		},
-		Action: RuleAction{
+		Action: PolicyAction{
 			Type: ActionAllow,
 		},
 	}
@@ -449,7 +448,7 @@ func TestRuleMatches_ModuleNamePattern(t *testing.T) {
 	engine := NewModulePolicyEngine(policypkg.NewPolicyEngine(registry), nil)
 
 	rule := &ModulePolicyRule{
-		Conditions: RuleConditions{
+		Conditions: PolicyCondition{
 			ModuleNamePattern: "test/*",
 		},
 	}
@@ -467,7 +466,7 @@ func TestRuleMatches_ModuleNamePattern(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.moduleName, func(t *testing.T) {
 			ctx := &ModulePolicyContext{
-				Module: &manifest.Manifest{
+				Module: &ModuleInfo{
 					Name: tc.moduleName,
 				},
 			}
@@ -485,11 +484,11 @@ func TestRuleMatches_TrustLevel(t *testing.T) {
 	engine := NewModulePolicyEngine(policypkg.NewPolicyEngine(registry), nil)
 
 	testCases := []struct {
-		name         string
-		minTrust     TrustLevel
-		maxTrust     TrustLevel
-		actualTrust  TrustLevel
-		wantMatch    bool
+		name        string
+		minTrust    TrustLevel
+		maxTrust    TrustLevel
+		actualTrust TrustLevel
+		wantMatch   bool
 	}{
 		{
 			name:        "meets minimum",
@@ -520,14 +519,14 @@ func TestRuleMatches_TrustLevel(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			rule := &ModulePolicyRule{
-				Conditions: RuleConditions{
+				Conditions: PolicyCondition{
 					MinTrustLevel: tc.minTrust,
 					MaxTrustLevel: tc.maxTrust,
 				},
 			}
 
 			ctx := &ModulePolicyContext{
-				Module: &manifest.Manifest{
+				Module: &ModuleInfo{
 					Name: "test/module",
 				},
 				TrustLevel: tc.actualTrust,
@@ -546,7 +545,7 @@ func TestRuleMatches_Environment(t *testing.T) {
 	engine := NewModulePolicyEngine(policypkg.NewPolicyEngine(registry), nil)
 
 	rule := &ModulePolicyRule{
-		Conditions: RuleConditions{
+		Conditions: PolicyCondition{
 			Environments: []string{"prod", "staging"},
 		},
 	}
@@ -563,7 +562,7 @@ func TestRuleMatches_Environment(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.environment, func(t *testing.T) {
 			ctx := &ModulePolicyContext{
-				Module: &manifest.Manifest{
+				Module: &ModuleInfo{
 					Name: "test/module",
 				},
 				Environment: tc.environment,
@@ -582,11 +581,11 @@ func TestRuleMatches_Capabilities(t *testing.T) {
 	engine := NewModulePolicyEngine(policypkg.NewPolicyEngine(registry), nil)
 
 	testCases := []struct {
-		name         string
-		required     []string
-		forbidden    []string
-		actual       []string
-		wantMatch    bool
+		name      string
+		required  []string
+		forbidden []string
+		actual    []string
+		wantMatch bool
 	}{
 		{
 			name:      "has required",
@@ -617,14 +616,14 @@ func TestRuleMatches_Capabilities(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			rule := &ModulePolicyRule{
-				Conditions: RuleConditions{
+				Conditions: PolicyCondition{
 					RequiredCapabilities:  tc.required,
 					ForbiddenCapabilities: tc.forbidden,
 				},
 			}
 
 			ctx := &ModulePolicyContext{
-				Module: &manifest.Manifest{
+				Module: &ModuleInfo{
 					Name: "test/module",
 				},
 				Capabilities: tc.actual,
@@ -644,7 +643,7 @@ func TestApplyRuleAction_Deny(t *testing.T) {
 
 	rule := &ModulePolicyRule{
 		Name: "Deny Rule",
-		Action: RuleAction{
+		Action: PolicyAction{
 			Type:        ActionDeny,
 			BlockReason: "Test deny",
 		},
@@ -671,7 +670,7 @@ func TestApplyRuleAction_Warn(t *testing.T) {
 
 	rule := &ModulePolicyRule{
 		Name: "Warn Rule",
-		Action: RuleAction{
+		Action: PolicyAction{
 			Type: ActionWarn,
 			Warn: "Test warning",
 		},
@@ -703,7 +702,7 @@ func TestApplyRuleAction_Modify(t *testing.T) {
 
 	rule := &ModulePolicyRule{
 		Name: "Modify Rule",
-		Action: RuleAction{
+		Action: PolicyAction{
 			Type:              ActionModify,
 			AllowCapabilities: []string{"http.get", "log"},
 			DenyCapabilities:  []string{"exec"},
@@ -737,7 +736,7 @@ func TestApplyRuleAction_Block(t *testing.T) {
 
 	rule := &ModulePolicyRule{
 		Name: "Block Rule",
-		Action: RuleAction{
+		Action: PolicyAction{
 			Block:       true,
 			BlockReason: "Custom block reason",
 		},
@@ -823,17 +822,17 @@ func TestValidateModule_WithCustomRules(t *testing.T) {
 		Name:     "Deny Dangerous Modules",
 		Enabled:  true,
 		Priority: 100,
-		Conditions: RuleConditions{
+		Conditions: PolicyCondition{
 			ModuleNamePattern: "*/*dangerous*",
 		},
-		Action: RuleAction{
+		Action: PolicyAction{
 			Type:        ActionDeny,
 			BlockReason: "Module name contains 'dangerous'",
 		},
 	})
 
 	ctx := &ModulePolicyContext{
-		Module: &manifest.Manifest{
+		Module: &ModuleInfo{
 			Name:    "test/dangerous-module",
 			Version: "1.0.0",
 		},
@@ -870,17 +869,17 @@ func TestValidateModule_DisabledRule(t *testing.T) {
 		Name:     "Deny All",
 		Enabled:  false, // Disabled
 		Priority: 100,
-		Conditions: RuleConditions{
+		Conditions: PolicyCondition{
 			ModuleNamePattern: "*",
 		},
-		Action: RuleAction{
+		Action: PolicyAction{
 			Type:        ActionDeny,
 			BlockReason: "Should not apply",
 		},
 	})
 
 	ctx := &ModulePolicyContext{
-		Module: &manifest.Manifest{
+		Module: &ModuleInfo{
 			Name:    "test/module",
 			Version: "1.0.0",
 		},

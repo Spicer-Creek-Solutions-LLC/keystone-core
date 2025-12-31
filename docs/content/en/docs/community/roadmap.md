@@ -206,11 +206,11 @@ Support for diverse infrastructure:
 
 Extensible module system:
 
-- **Runtimes**: Starlark (sandboxed Python-like) and WASM (Wasmtime)
+- **Runtimes**: Starlark (sandboxed Python-like) and WASM (wazero - pure Go)
 - **Capability System**: 10 capability types with fine-grained permissions
-- **Cryptographic Verification**: Cosign signatures, SumDB transparency log
+- **Cryptographic Verification**: Hash and signature verification (RSA, ECDSA, Ed25519)
 - **Dependency Resolution**: SemVer constraints, MVS algorithm
-- **Module Registry**: OCI registry with HTTP proxy
+- **Module CLI**: `kscore-module` with 8 commands (init, validate, build, resolve, tree, verify, test)
 - **SDKs**: Starlark, Rust, Go (TinyGo), C++ SDKs
 - **Standard Library**: 6 stdlib modules (files, exec, http, strings, json, crypto)
 - **Module Loader**: 6-phase loading with caching
@@ -220,6 +220,7 @@ Extensible module system:
 - Complete SDK suite for multiple languages
 - Reproducible builds with lock files
 - Content-addressed caching
+- Full module development CLI (kscore-module)
 
 ---
 
@@ -251,10 +252,12 @@ Comprehensive Hugo + Docsy documentation:
 
 Production-ready high availability:
 
-- **etcd Integration**: Distributed consensus with embedded/external modes
+- **etcd Integration**: Distributed consensus with embedded and external modes
+- **Embedded etcd Mode**: In-process etcd for simpler deployments (3-5 nodes)
 - **Leader Election**: etcd-based election with automatic failover
 - **Work Distribution**: Consistent hashing for agent assignment
 - **Cluster Membership**: Health monitoring and quorum management
+- **Agent Handoff**: Seamless agent persistence across control plane failovers
 - **Observability**: 12 cluster metrics, Grafana dashboard, 10 alert rules
 - **CLI Tools**: `kscore-cluster status`, `members`, `leader`, `health`, `rebalance`
 
@@ -262,6 +265,7 @@ Production-ready high availability:
 - Zero-downtime failovers
 - Automatic agent reassignment on node failure
 - Split-brain prevention with quorum checks
+- Embedded etcd for simpler HA deployments
 - Comprehensive cluster metrics and alerting
 
 ---

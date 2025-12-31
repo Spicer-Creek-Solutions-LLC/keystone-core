@@ -19,32 +19,28 @@ Implement a high-performance remote execution system that enables running comman
 
 ## Architecture
 
-```
-┌────────────────────────────────────────────────────────┐
-│                CLI / API Client                        │
-│  kscorectl exec "ls -la" --target "role:webserver"        │
-└───────────────────┬────────────────────────────────────┘
-                    │
-                    ▼
-┌────────────────────────────────────────────────────────┐
-│              Execution Orchestrator                    │
-│  ┌──────────────┐  ┌─────────────┐  ┌──────────────┐ │
-│  │  Target      │  │  Job        │  │  Result      │ │
-│  │  Resolver    │  │  Manager    │  │  Aggregator  │ │
-│  └──────────────┘  └─────────────┘  └──────────────┘ │
-└───────────────────┬────────────────────────────────────┘
-                    │
-                    ▼ (NATS pub/sub)
-┌────────────────────────────────────────────────────────┐
-│                  Agent Executors                       │
-│  ┌─────────────────┐  ┌─────────────────┐            │
-│  │  Command Exec   │  │  Script Exec    │            │
-│  │  (shell, binary)│  │  (inline, file) │            │
-│  └─────────────────┘  └─────────────────┘            │
-│  ┌─────────────────┐  ┌─────────────────┐            │
-│  │  Output Stream  │  │  Exit Handler   │            │
-│  └─────────────────┘  └─────────────────┘            │
-└────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph CLI["CLI / API Client"]
+        CMD["kscorectl exec 'ls -la' --target 'role:webserver'"]
+    end
+
+    subgraph EO["Execution Orchestrator"]
+        TR["Target Resolver"]
+        JM["Job Manager"]
+        RA["Result Aggregator"]
+        TR --- JM --- RA
+    end
+
+    subgraph AE["Agent Executors"]
+        CE["Command Exec<br/>(shell, binary)"]
+        SE["Script Exec<br/>(inline, file)"]
+        OS["Output Stream"]
+        EH["Exit Handler"]
+    end
+
+    CLI --> EO
+    EO -->|"NATS pub/sub"| AE
 ```
 
 ## User Stories

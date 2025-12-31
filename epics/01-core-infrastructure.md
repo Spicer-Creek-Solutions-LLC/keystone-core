@@ -24,27 +24,22 @@ Build the foundational infrastructure for Keystone Core including NATS message b
 
 ## Architecture Components
 
-```
-┌─────────────────────────────────────────────────────────┐
-│              Control Plane Services                     │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │
-│  │  API Server  │  │   State      │  │  Connection  │ │
-│  │  (gRPC/REST) │  │   Manager    │  │   Manager    │ │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘ │
-└─────────┼──────────────────┼──────────────────┼─────────┘
-          │                  │                  │
-          └──────────────────┴──────────────────┘
-                             │
-                      ┌──────▼─────┐
-                      │    NATS    │
-                      │  Cluster   │
-                      └──────┬─────┘
-                             │
-          ┌──────────────────┼──────────────────┐
-          │                  │                  │
-     ┌────▼────┐        ┌────▼────┐       ┌────▼────┐
-     │ Agent 1 │        │ Agent 2 │       │ Agent N │
-     └─────────┘        └─────────┘       └─────────┘
+```mermaid
+flowchart TD
+    subgraph CP["Control Plane Services"]
+        API["API Server<br/>(gRPC/REST)"]
+        SM["State Manager"]
+        CM["Connection Manager"]
+        API --- SM --- CM
+    end
+
+    NATS["NATS Cluster"]
+
+    CP --> NATS
+
+    NATS --> A1["Agent 1"]
+    NATS --> A2["Agent 2"]
+    NATS --> AN["Agent N"]
 ```
 
 ## User Stories

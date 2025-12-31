@@ -22,30 +22,31 @@ Implement comprehensive observability features including metrics, logging, traci
 
 ## Architecture
 
-```
-┌──────────────────────────────────────────────────────────┐
-│              Keystone Core Components                       │
-│  Control Plane │ Agents │ State Engine │ Event System   │
-└────────┬─────────────────────────────────────────────────┘
-         │
-         │ (instrumentation)
-         │
-    ┌────┴─────┬──────────┬──────────┐
-    │          │          │          │
-    ▼          ▼          ▼          ▼
-┌─────────┐ ┌────────┐ ┌────────┐ ┌─────────┐
-│ Metrics │ │  Logs  │ │ Traces │ │ Events  │
-│(Prom)   │ │(JSON)  │ │(OTLP)  │ │(NATS)   │
-└────┬────┘ └───┬────┘ └───┬────┘ └────┬────┘
-     │          │          │          │
-     └──────────┴──────────┴──────────┘
-                    │
-                    ▼
-         ┌──────────────────────┐
-         │  Observability Stack │
-         │  Prometheus │ Loki   │
-         │  Jaeger │ Grafana    │
-         └──────────────────────┘
+```mermaid
+flowchart TD
+    subgraph KC["Keystone Core Components"]
+        CP["Control Plane"]
+        AG["Agents"]
+        SE["State Engine"]
+        ES["Event System"]
+    end
+
+    subgraph Tel["Telemetry"]
+        Metrics["Metrics<br/>(Prometheus)"]
+        Logs["Logs<br/>(JSON)"]
+        Traces["Traces<br/>(OTLP)"]
+        Events["Events<br/>(NATS)"]
+    end
+
+    subgraph OS["Observability Stack"]
+        Prometheus
+        Loki
+        Jaeger
+        Grafana
+    end
+
+    KC -->|"instrumentation"| Tel
+    Tel --> OS
 ```
 
 ## User Stories

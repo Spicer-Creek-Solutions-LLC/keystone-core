@@ -12,14 +12,14 @@ import (
 func TestNewEtcdClient(t *testing.T) {
 	t.Run("valid config", func(t *testing.T) {
 		config := DefaultEtcdConfig()
-		client, err := NewEtcdClient(config)
+		client, err := NewEtcdClient(config, "")
 		require.NoError(t, err)
 		assert.NotNil(t, client)
 		assert.False(t, client.IsConnected())
 	})
 
 	t.Run("nil config", func(t *testing.T) {
-		client, err := NewEtcdClient(nil)
+		client, err := NewEtcdClient(nil, "")
 		assert.Error(t, err)
 		assert.Nil(t, client)
 	})
@@ -28,7 +28,7 @@ func TestNewEtcdClient(t *testing.T) {
 		config := &EtcdConfig{
 			Mode: "invalid",
 		}
-		client, err := NewEtcdClient(config)
+		client, err := NewEtcdClient(config, "")
 		assert.Error(t, err)
 		assert.Nil(t, client)
 	})
@@ -36,7 +36,7 @@ func TestNewEtcdClient(t *testing.T) {
 
 func TestEtcdClient_NotConnected(t *testing.T) {
 	config := DefaultEtcdConfig()
-	client, err := NewEtcdClient(config)
+	client, err := NewEtcdClient(config, "")
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -89,7 +89,7 @@ func TestEtcdClient_NotConnected(t *testing.T) {
 
 func TestEtcdClient_Closed(t *testing.T) {
 	config := DefaultEtcdConfig()
-	client, err := NewEtcdClient(config)
+	client, err := NewEtcdClient(config, "")
 	require.NoError(t, err)
 
 	// Close the client
@@ -122,7 +122,7 @@ func TestEtcdClient_Closed(t *testing.T) {
 func TestEtcdClient_FullKey(t *testing.T) {
 	config := DefaultEtcdConfig()
 	config.KeyPrefix = "/test-prefix"
-	client, err := NewEtcdClient(config)
+	client, err := NewEtcdClient(config, "")
 	require.NoError(t, err)
 
 	// Test the internal fullKey method
@@ -140,7 +140,7 @@ func TestEtcdClient_Endpoints(t *testing.T) {
 			LeasesTTL:      15,
 			KeyPrefix:      "/test",
 		}
-		client, err := NewEtcdClient(config)
+		client, err := NewEtcdClient(config, "")
 		require.NoError(t, err)
 
 		endpoints := client.Endpoints()
@@ -150,7 +150,7 @@ func TestEtcdClient_Endpoints(t *testing.T) {
 	t.Run("embedded mode", func(t *testing.T) {
 		config := DefaultEtcdConfig()
 		config.Embedded.ClientPort = 12379
-		client, err := NewEtcdClient(config)
+		client, err := NewEtcdClient(config, "")
 		require.NoError(t, err)
 
 		endpoints := client.Endpoints()
@@ -160,7 +160,7 @@ func TestEtcdClient_Endpoints(t *testing.T) {
 
 func TestEtcdClient_Session(t *testing.T) {
 	config := DefaultEtcdConfig()
-	client, err := NewEtcdClient(config)
+	client, err := NewEtcdClient(config, "")
 	require.NoError(t, err)
 
 	// Session should be nil before creation
@@ -170,7 +170,7 @@ func TestEtcdClient_Session(t *testing.T) {
 
 func TestTransaction(t *testing.T) {
 	config := DefaultEtcdConfig()
-	client, err := NewEtcdClient(config)
+	client, err := NewEtcdClient(config, "")
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -202,7 +202,7 @@ func TestEtcdClient_WithRetry(t *testing.T) {
 	config := DefaultEtcdConfig()
 	config.MaxRetries = 3
 	config.RetryInterval = 10 * time.Millisecond
-	client, err := NewEtcdClient(config)
+	client, err := NewEtcdClient(config, "")
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
@@ -222,7 +222,7 @@ func TestEtcdClient_WithRetry_Success(t *testing.T) {
 	config := DefaultEtcdConfig()
 	config.MaxRetries = 3
 	config.RetryInterval = 10 * time.Millisecond
-	client, err := NewEtcdClient(config)
+	client, err := NewEtcdClient(config, "")
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -243,7 +243,7 @@ func TestEtcdClient_WithRetry_ContextCanceled(t *testing.T) {
 	config := DefaultEtcdConfig()
 	config.MaxRetries = 10
 	config.RetryInterval = 100 * time.Millisecond
-	client, err := NewEtcdClient(config)
+	client, err := NewEtcdClient(config, "")
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -261,7 +261,7 @@ func TestEtcdClient_WithRetry_ContextCanceled(t *testing.T) {
 
 func TestEtcdClient_Client(t *testing.T) {
 	config := DefaultEtcdConfig()
-	client, err := NewEtcdClient(config)
+	client, err := NewEtcdClient(config, "")
 	require.NoError(t, err)
 
 	// Client should be nil when not connected
@@ -270,7 +270,7 @@ func TestEtcdClient_Client(t *testing.T) {
 
 func TestEtcdClient_DeletePrefix(t *testing.T) {
 	config := DefaultEtcdConfig()
-	client, err := NewEtcdClient(config)
+	client, err := NewEtcdClient(config, "")
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -280,7 +280,7 @@ func TestEtcdClient_DeletePrefix(t *testing.T) {
 
 func TestEtcdClient_RevokeSession(t *testing.T) {
 	config := DefaultEtcdConfig()
-	client, err := NewEtcdClient(config)
+	client, err := NewEtcdClient(config, "")
 	require.NoError(t, err)
 
 	ctx := context.Background()

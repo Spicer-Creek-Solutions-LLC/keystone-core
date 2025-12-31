@@ -43,46 +43,43 @@ Enhance Keystone Core's observability infrastructure to use NATS as the primary 
 
 ### Telemetry Flow Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         KEYSTONE CORE TELEMETRY FLOW                         │
-│                                                                              │
-│  ┌──────────────────┐   ┌──────────────────┐   ┌──────────────────────────┐ │
-│  │ Service Binaries │   │   CLI Binaries   │   │    Agent Binaries        │ │
-│  │ (kscore-server)  │   │ (kscore-exec,..) │   │    (kscore-agent)        │ │
-│  └────────┬─────────┘   └────────┬─────────┘   └────────────┬─────────────┘ │
-│           │                      │                          │               │
-│           ▼                      ▼                          ▼               │
-│  ┌─────────────────────────────────────────────────────────────────────────┐│
-│  │                         OUTPUT LAYER                                    ││
-│  │                                                                         ││
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐   ││
-│  │  │   Stdout    │  │   Syslog    │  │    NATS     │  │  Journald   │   ││
-│  │  │ (default)   │  │ (optional)  │  │ (transport) │  │ (CLI audit) │   ││
-│  │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘   ││
-│  └─────────┼────────────────┼────────────────┼────────────────┼──────────┘│
-│            │                │                │                │            │
-└────────────┼────────────────┼────────────────┼────────────────┼────────────┘
-             │                │                │                │
-             ▼                ▼                ▼                ▼
-    ┌────────────────┐ ┌────────────────┐ ┌──────────────────────────────────┐
-    │   journald     │ │    rsyslog     │ │         NATS CLUSTER            │
-    │ (container/    │ │   (central     │ │                                  │
-    │  systemd)      │ │    syslog)     │ │  Subjects:                       │
-    └────────────────┘ └────────────────┘ │  kscore.telemetry.logs.*        │
-                                          │  kscore.telemetry.metrics.*     │
-                                          │  kscore.telemetry.traces.*      │
-                                          │  kscore.telemetry.audit.*       │
-                                          └──────────────┬───────────────────┘
-                                                         │
-                                          ┌──────────────┴───────────────────┐
-                                          │                                  │
-                                          ▼                                  ▼
-                                  ┌───────────────┐              ┌───────────────┐
-                                  │ TUI Monitor   │              │ Log Collector │
-                                  │ (subscribe)   │              │ (Loki, ELK,   │
-                                  └───────────────┘              │  S3, etc.)    │
-                                                                 └───────────────┘
+```mermaid
+flowchart TD
+    subgraph Sources["Source Binaries"]
+        SB["Service Binaries<br/>(kscore-server)"]
+        CB["CLI Binaries<br/>(kscore-exec, ...)"]
+        AB["Agent Binaries<br/>(kscore-agent)"]
+    end
+
+    subgraph OL["Output Layer"]
+        Stdout["Stdout<br/>(default)"]
+        Syslog["Syslog<br/>(optional)"]
+        NATS_OUT["NATS<br/>(transport)"]
+        Journald_OUT["Journald<br/>(CLI audit)"]
+    end
+
+    Sources --> OL
+
+    Journald["journald<br/>(container/systemd)"]
+    Rsyslog["rsyslog<br/>(central syslog)"]
+
+    subgraph NC["NATS CLUSTER"]
+        S1["kscore.telemetry.logs.*"]
+        S2["kscore.telemetry.metrics.*"]
+        S3["kscore.telemetry.traces.*"]
+        S4["kscore.telemetry.audit.*"]
+    end
+
+    Stdout --> Journald
+    Syslog --> Rsyslog
+    NATS_OUT --> NC
+    Journald_OUT --> Journald
+
+    TUI["TUI Monitor<br/>(subscribe)"]
+    LC["Log Collector<br/>(Loki, ELK, S3, etc.)"]
+
+    NC --> TUI
+    NC --> LC
 ```
 
 ### Logging Output Matrix

@@ -20,42 +20,31 @@ Integrate Keystone Core with GitOps workflows to provide runtime operations, dep
 
 ## Architecture
 
-```
-┌──────────────────────────────────────────────────────────┐
-│              Git Repository (Source of Truth)            │
-│  • Application manifests (ArgoCD/Flux)                   │
-│  • Keystone Core states and reactors                        │
-│  • Configuration and vars data                           │
-└─────────────────┬────────────────────────────────────────┘
-                  │
-        ┌─────────┴─────────┐
-        │                   │
-        ▼                   ▼
-┌──────────────┐    ┌──────────────┐
-│   ArgoCD/    │    │  Keystone Core  │
-│    Flux      │    │   Watcher    │
-│              │    │  (Git sync)  │
-└──────┬───────┘    └──────┬───────┘
-       │                   │
-       │ Webhook           │ Pull states
-       │                   │
-       ▼                   ▼
-┌──────────────────────────────────┐
-│       Keystone Core Control Plane   │
-│  ┌────────────┐  ┌────────────┐ │
-│  │  Webhook   │  │   GitOps   │ │
-│  │  Receiver  │  │   Engine   │ │
-│  └────────────┘  └────────────┘ │
-│  ┌────────────┐  ┌────────────┐ │
-│  │ Deployment │  │  Rollback  │ │
-│  │ Verifier   │  │  Trigger   │ │
-│  └────────────┘  └────────────┘ │
-└──────────────────────────────────┘
-       │
-       │ Execute verification
-       │ Trigger rollback if needed
-       ▼
-  Infrastructure
+```mermaid
+flowchart TD
+    subgraph GR["Git Repository (Source of Truth)"]
+        AM["Application manifests (ArgoCD/Flux)"]
+        KS["Keystone Core states and reactors"]
+        CV["Configuration and vars data"]
+    end
+
+    AF["ArgoCD/Flux"]
+    KW["Keystone Core Watcher<br/>(Git sync)"]
+
+    subgraph CP["Keystone Core Control Plane"]
+        WR["Webhook Receiver"]
+        GE["GitOps Engine"]
+        DV["Deployment Verifier"]
+        RT["Rollback Trigger"]
+    end
+
+    Infra["Infrastructure"]
+
+    GR --> AF
+    GR --> KW
+    AF -->|"Webhook"| WR
+    KW -->|"Pull states"| GE
+    CP -->|"Execute verification<br/>Trigger rollback if needed"| Infra
 ```
 
 ## User Stories

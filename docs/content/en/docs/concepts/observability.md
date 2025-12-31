@@ -22,35 +22,41 @@ Keystone Core provides comprehensive observability through metrics, logging, and
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────┐
-│        Keystone Core Components                 │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  │
-│  │ Control  │  │  Agents  │  │  Plugins │  │
-│  │  Plane   │  │          │  │          │  │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  │
-└───────┼─────────────┼─────────────┼─────────┘
-        │             │             │
-   ┌────┴────┬────────┴────┬────────┴────┐
-   │         │             │             │
-   ↓         ↓             ↓             ↓
-┌────────┐ ┌────────┐  ┌────────┐  ┌────────┐
-│Metrics │ │  Logs  │  │ Traces │  │ Health │
-│(Prom)  │ │(Struct)│  │ (OTLP) │  │Checks  │
-└───┬────┘ └───┬────┘  └───┬────┘  └───┬────┘
-    │          │           │           │
-    ↓          ↓           ↓           ↓
-┌────────┐ ┌────────┐  ┌────────┐  ┌────────┐
-│Prometh-│ │  Loki  │  │Jaeger/ │  │  K8s   │
-│  eus   │ │        │  │ Tempo  │  │ Probes │
-└───┬────┘ └───┬────┘  └───┬────┘  └────────┘
-    │          │           │
-    └──────┬───┴───────┬───┘
-           ↓           ↓
-      ┌────────┐  ┌────────┐
-      │Grafana │  │  TUI   │
-      │Dashbrd │  │Monitor │
-      └────────┘  └────────┘
+```mermaid
+flowchart TD
+    subgraph Components["Keystone Core Components"]
+        CP["Control Plane"]
+        Agents["Agents"]
+        Plugins["Plugins"]
+    end
+
+    CP --> Metrics["Metrics (Prom)"]
+    CP --> Logs["Logs (Struct)"]
+    CP --> Traces["Traces (OTLP)"]
+    CP --> Health["Health Checks"]
+
+    Agents --> Metrics
+    Agents --> Logs
+    Agents --> Traces
+    Agents --> Health
+
+    Plugins --> Metrics
+    Plugins --> Logs
+    Plugins --> Traces
+    Plugins --> Health
+
+    Metrics --> Prometheus["Prometheus"]
+    Logs --> Loki["Loki"]
+    Traces --> Jaeger["Jaeger/Tempo"]
+    Health --> K8s["K8s Probes"]
+
+    Prometheus --> Grafana["Grafana Dashboard"]
+    Loki --> Grafana
+    Jaeger --> Grafana
+
+    Prometheus --> TUI["TUI Monitor"]
+    Loki --> TUI
+    Jaeger --> TUI
 ```
 
 ## Metrics

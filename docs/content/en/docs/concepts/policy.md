@@ -19,47 +19,31 @@ Keystone Core's policy enforcement system enables you to define, enforce, and au
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────┐
-│         Policy Sources                       │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  │
-│  │   OPA    │  │   CEL    │  │ Built-in │  │
-│  │  (Rego)  │  │          │  │ Policies │  │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  │
-└───────┼─────────────┼─────────────┼─────────┘
-        │             │             │
-        └──────────┬──┴─────────────┘
-                   ↓
-         ┌───────────────────┐
-         │  Policy Registry  │
-         │  - Policies       │
-         │  - Policy Sets    │
-         │  - Bindings       │
-         └─────────┬─────────┘
-                   │
-        ┌──────────┴──────────┐
-        │                     │
-        ↓                     ↓
-  ┌──────────┐          ┌──────────┐
-  │   OPA    │          │   CEL    │
-  │ Evaluator│          │ Evaluator│
-  └────┬─────┘          └────┬─────┘
-       │                     │
-       └──────────┬──────────┘
-                  ↓
-        ┌───────────────────┐
-        │  Policy Engine    │
-        │  - Evaluate       │
-        │  - Enforce        │
-        │  - Audit          │
-        └─────────┬─────────┘
-                  │
-       ┌──────────┴──────────┬──────────┐
-       ↓                     ↓          ↓
-┌──────────┐          ┌──────────┐ ┌──────────┐
-│Enforcement│          │Compliance│ │  Event   │
-│  Points  │          │ Auditor  │ │Publisher │
-└──────────┘          └──────────┘ └──────────┘
+```mermaid
+flowchart TD
+    subgraph Sources["Policy Sources"]
+        OPA["OPA (Rego)"]
+        CEL["CEL"]
+        Builtin["Built-in Policies"]
+    end
+
+    OPA --> Registry
+    CEL --> Registry
+    Builtin --> Registry
+
+    Registry["Policy Registry<br/>- Policies<br/>- Policy Sets<br/>- Bindings"]
+
+    Registry --> OPAE["OPA Evaluator"]
+    Registry --> CELE["CEL Evaluator"]
+
+    OPAE --> Engine
+    CELE --> Engine
+
+    Engine["Policy Engine<br/>- Evaluate<br/>- Enforce<br/>- Audit"]
+
+    Engine --> Enforcement["Enforcement Points"]
+    Engine --> Auditor["Compliance Auditor"]
+    Engine --> Publisher["Event Publisher"]
 ```
 
 ## Policy Types

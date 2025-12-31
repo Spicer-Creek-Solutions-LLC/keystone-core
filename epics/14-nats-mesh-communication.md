@@ -53,129 +53,129 @@ Decouple all agent↔server communication to use NATS as the sole transport laye
 
 ### Connection Topology Options
 
+#### TOPOLOGY 1: Traditional (Current)
+
+```mermaid
+flowchart LR
+    Agent --> NC["NATS Cluster<br/>(External)"]
+    NC --> Server
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    TOPOLOGY 1: Traditional (Current)                     │
-│                                                                          │
-│     ┌──────────┐         ┌──────────────┐         ┌──────────┐         │
-│     │  Agent   │───────→ │ NATS Cluster │ ←─────── │  Server  │         │
-│     └──────────┘         │  (External)  │         └──────────┘         │
-│                          └──────────────┘                               │
-└─────────────────────────────────────────────────────────────────────────┘
 
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    TOPOLOGY 2: Server Embedded                           │
-│                                                                          │
-│     ┌──────────┐         ┌──────────────────┐                           │
-│     │  Agent   │───────→ │     Server       │                           │
-│     └──────────┘         │  ┌────────────┐  │                           │
-│                          │  │ Embedded   │  │                           │
-│                          │  │   NATS     │  │                           │
-│                          │  └────────────┘  │                           │
-│                          └──────────────────┘                           │
-└─────────────────────────────────────────────────────────────────────────┘
+#### TOPOLOGY 2: Server Embedded
 
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    TOPOLOGY 3: Agent Embedded (Reverse)                  │
-│                                                                          │
-│     ┌──────────────────┐         ┌──────────┐                           │
-│     │      Agent       │ ←─────── │  Server  │                           │
-│     │  ┌────────────┐  │         └──────────┘                           │
-│     │  │ Embedded   │  │                                                 │
-│     │  │   NATS     │  │   Server connects TO agent's NATS              │
-│     │  └────────────┘  │   (for agents behind NAT with public IP)       │
-│     └──────────────────┘                                                 │
-└─────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    Agent --> Server
+    subgraph Server["Server"]
+        EN["Embedded NATS"]
+    end
+```
 
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    TOPOLOGY 4: Leaf Node Chain                           │
-│                                                                          │
-│     ┌──────────┐         ┌──────────┐         ┌──────────────┐         │
-│     │  Agent   │───────→ │ Edge NATS│───────→ │ NATS Cluster │←─Server │
-│     │  (leaf)  │         │  (leaf)  │         │   (hub)      │         │
-│     └──────────┘         └──────────┘         └──────────────┘         │
-│                                                                          │
-│     Agent → Edge gateway → Hub cluster                                   │
-│     For hierarchical edge deployments                                    │
-└─────────────────────────────────────────────────────────────────────────┘
+#### TOPOLOGY 3: Agent Embedded (Reverse)
 
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    TOPOLOGY 5: Supercluster                              │
-│                                                                          │
-│     Region A                           Region B                          │
-│     ┌────────────────┐                 ┌────────────────┐               │
-│     │ NATS Cluster A │←── Gateway ───→ │ NATS Cluster B │               │
-│     │    + Server    │                 │    + Server    │               │
-│     └───────┬────────┘                 └───────┬────────┘               │
-│             │                                   │                        │
-│        ┌────┴────┐                         ┌────┴────┐                  │
-│        │ Agents  │                         │ Agents  │                  │
-│        │ (local) │                         │ (local) │                  │
-│        └─────────┘                         └─────────┘                  │
-└─────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart RL
+    Server --> Agent
+    subgraph Agent["Agent"]
+        EN["Embedded NATS"]
+    end
+    note["Server connects TO agent's NATS<br/>(for agents behind NAT with public IP)"]
+```
 
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    TOPOLOGY 6: WebSocket Tunnel                          │
-│                                                                          │
-│     Restrictive Network          │ Firewall │         Cloud              │
-│                                  │ (443/80) │                            │
-│     ┌──────────┐                 │    │     │    ┌──────────────┐       │
-│     │  Agent   │────WebSocket───────→│─────────→ │ NATS + Server│       │
-│     └──────────┘                 │    │     │    └──────────────┘       │
-│                                  │          │                            │
-│     Agent uses WSS to traverse firewall                                  │
-└─────────────────────────────────────────────────────────────────────────┘
+#### TOPOLOGY 4: Leaf Node Chain
 
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    TOPOLOGY 7: Bidirectional Gateway                     │
-│                                                                          │
-│     On-Prem (outbound only)                       Cloud                  │
-│                                                                          │
-│     ┌──────────────────┐        ┌──────────────────┐                    │
-│     │ NATS + Agents    │───────→│ NATS + Server    │                    │
-│     │ (initiates conn) │  WS/TLS│ (accepts conn)   │                    │
-│     └──────────────────┘        └──────────────────┘                    │
-│                                                                          │
-│     On-prem NATS initiates outbound connection to cloud                 │
-│     Server commands flow back through same connection                   │
-└─────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    A["Agent<br/>(leaf)"] --> Edge["Edge NATS<br/>(leaf)"]
+    Edge --> Hub["NATS Cluster<br/>(hub)"]
+    Hub --> Server
+    note["Agent → Edge gateway → Hub cluster<br/>For hierarchical edge deployments"]
+```
+
+#### TOPOLOGY 5: Supercluster
+
+```mermaid
+flowchart TD
+    subgraph RA["Region A"]
+        NCA["NATS Cluster A<br/>+ Server"]
+        AgA["Agents (local)"]
+        NCA --> AgA
+    end
+
+    subgraph RB["Region B"]
+        NCB["NATS Cluster B<br/>+ Server"]
+        AgB["Agents (local)"]
+        NCB --> AgB
+    end
+
+    NCA <-->|"Gateway"| NCB
+```
+
+#### TOPOLOGY 6: WebSocket Tunnel
+
+```mermaid
+flowchart LR
+    subgraph RN["Restrictive Network"]
+        Agent
+    end
+
+    FW{{"Firewall<br/>(443/80)"}}
+
+    subgraph Cloud
+        NS["NATS + Server"]
+    end
+
+    Agent -->|"WebSocket"| FW --> NS
+
+    note["Agent uses WSS to traverse firewall"]
+```
+
+#### TOPOLOGY 7: Bidirectional Gateway
+
+```mermaid
+flowchart LR
+    subgraph OP["On-Prem (outbound only)"]
+        NA["NATS + Agents<br/>(initiates conn)"]
+    end
+
+    subgraph Cloud
+        NS["NATS + Server<br/>(accepts conn)"]
+    end
+
+    NA -->|"WS/TLS"| NS
+
+    note["On-prem NATS initiates outbound connection to cloud<br/>Server commands flow back through same connection"]
 ```
 
 ### Protocol Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         Message Flow (All via NATS)                      │
-│                                                                          │
-│  ┌────────────────────────────────────────────────────────────────────┐ │
-│  │                        NATS Subject Hierarchy                      │ │
-│  │                                                                    │ │
-│  │  kscore.{cluster}.agent.register          - Agent registration     │ │
-│  │  kscore.{cluster}.agent.heartbeat         - Agent heartbeats       │ │
-│  │  kscore.{cluster}.agent.{id}.command      - Commands to agent      │ │
-│  │  kscore.{cluster}.agent.{id}.response     - Responses from agent   │ │
-│  │  kscore.{cluster}.agent.{id}.state        - State operations       │ │
-│  │  kscore.{cluster}.agent.{id}.events       - Agent events           │ │
-│  │  kscore.{cluster}.server.announce         - Server announcements   │ │
-│  │  kscore.{cluster}.server.{id}.control     - Server control channel │ │
-│  │  kscore.{cluster}.discovery               - Peer discovery         │ │
-│  │                                                                    │ │
-│  │  {cluster} = logical cluster name for supercluster routing         │ │
-│  └────────────────────────────────────────────────────────────────────┘ │
-│                                                                          │
-│  ┌────────────────────────────────────────────────────────────────────┐ │
-│  │                      Connection Strategies                         │ │
-│  │                                                                    │ │
-│  │  1. Direct TCP     - Standard NATS connection (nats://host:4222)   │ │
-│  │  2. TLS            - Encrypted NATS (tls://host:4222)              │ │
-│  │  3. WebSocket      - WS transport (ws://host:80, wss://host:443)   │ │
-│  │  4. Leaf Node      - Hierarchical connection (leaf://host:7422)    │ │
-│  │  5. Gateway        - Supercluster connection                        │ │
-│  │                                                                    │ │
-│  │  Fallback chain: TLS → WebSocket → Leaf → Gateway                  │ │
-│  └────────────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+#### NATS Subject Hierarchy
+
+| Subject Pattern | Purpose |
+|-----------------|---------|
+| `kscore.{cluster}.agent.register` | Agent registration |
+| `kscore.{cluster}.agent.heartbeat` | Agent heartbeats |
+| `kscore.{cluster}.agent.{id}.command` | Commands to agent |
+| `kscore.{cluster}.agent.{id}.response` | Responses from agent |
+| `kscore.{cluster}.agent.{id}.state` | State operations |
+| `kscore.{cluster}.agent.{id}.events` | Agent events |
+| `kscore.{cluster}.server.announce` | Server announcements |
+| `kscore.{cluster}.server.{id}.control` | Server control channel |
+| `kscore.{cluster}.discovery` | Peer discovery |
+
+> `{cluster}` = logical cluster name for supercluster routing
+
+#### Connection Strategies
+
+| Strategy | Protocol | Description |
+|----------|----------|-------------|
+| Direct TCP | `nats://host:4222` | Standard NATS connection |
+| TLS | `tls://host:4222` | Encrypted NATS |
+| WebSocket | `ws://host:80`, `wss://host:443` | WS transport |
+| Leaf Node | `leaf://host:7422` | Hierarchical connection |
+| Gateway | (cluster config) | Supercluster connection |
+
+**Fallback chain**: TLS → WebSocket → Leaf → Gateway
 
 ## User Stories
 

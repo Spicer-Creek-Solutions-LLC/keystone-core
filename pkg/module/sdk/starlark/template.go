@@ -74,6 +74,7 @@ func (t *ModuleTemplate) Generate(outputDir string) error {
 func (t *ModuleTemplate) generateManifest(path string) error {
 	content := fmt.Sprintf(`name: %s
 version: %s
+type: starlark
 description: %s
 
 capabilities:

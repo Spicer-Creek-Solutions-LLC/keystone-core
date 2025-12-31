@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"log"
 	"os"
 	"sync"
 	"time"
@@ -15,17 +16,20 @@ import (
 
 // EtcdClient wraps the etcd client with additional functionality.
 type EtcdClient struct {
-	config   *EtcdConfig
-	client   *clientv3.Client
-	session  *concurrency.Session
-	mu       sync.RWMutex
-	closed   bool
-	leaseID  clientv3.LeaseID
-	stopChan chan struct{}
+	config         *EtcdConfig
+	client         *clientv3.Client
+	session        *concurrency.Session
+	embeddedServer *EmbeddedEtcdServer
+	memberID       string
+	mu             sync.RWMutex
+	closed         bool
+	leaseID        clientv3.LeaseID
+	stopChan       chan struct{}
 }
 
 // NewEtcdClient creates a new etcd client.
-func NewEtcdClient(config *EtcdConfig) (*EtcdClient, error) {
+// The memberID is used for embedded mode to identify this node in the cluster.
+func NewEtcdClient(config *EtcdConfig, memberID string) (*EtcdClient, error) {
 	if config == nil {
 		return nil, fmt.Errorf("etcd config is required")
 	}
@@ -36,11 +40,13 @@ func NewEtcdClient(config *EtcdConfig) (*EtcdClient, error) {
 
 	return &EtcdClient{
 		config:   config,
+		memberID: memberID,
 		stopChan: make(chan struct{}),
 	}, nil
 }
 
 // Connect establishes a connection to etcd.
+// For embedded mode, this will start an embedded etcd server first.
 func (c *EtcdClient) Connect(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -55,8 +61,25 @@ func (c *EtcdClient) Connect(ctx context.Context) error {
 
 	endpoints := c.config.Endpoints
 	if c.config.Mode == EtcdModeEmbedded {
-		// For embedded mode, connect to local embedded etcd
-		endpoints = []string{fmt.Sprintf("localhost:%d", c.config.Embedded.ClientPort)}
+		// Start embedded etcd server if not already running
+		if c.embeddedServer == nil {
+			server, err := NewEmbeddedEtcdServer(c.config, c.memberID)
+			if err != nil {
+				return fmt.Errorf("failed to create embedded etcd server: %w", err)
+			}
+			c.embeddedServer = server
+		}
+
+		if !c.embeddedServer.IsRunning() {
+			log.Printf("[INFO] Starting embedded etcd server on port %d...", c.config.Embedded.ClientPort)
+			if err := c.embeddedServer.Start(ctx); err != nil {
+				return fmt.Errorf("failed to start embedded etcd server: %w", err)
+			}
+			log.Printf("[INFO] Embedded etcd server started successfully")
+		}
+
+		// Connect to the embedded server
+		endpoints = []string{c.embeddedServer.ClientEndpoint()}
 	}
 
 	clientConfig := clientv3.Config{
@@ -103,6 +126,13 @@ func (c *EtcdClient) Connect(ctx context.Context) error {
 
 // buildTLSConfig builds a TLS configuration from the etcd TLS config.
 func (c *EtcdClient) buildTLSConfig() (*tls.Config, error) {
+	// Log critical security warning if InsecureSkipVerify is enabled
+	if c.config.TLS.InsecureSkipVerify {
+		log.Printf("[SECURITY WARNING] etcd TLS certificate verification is DISABLED (InsecureSkipVerify=true). " +
+			"This allows man-in-the-middle attacks on cluster communication. " +
+			"This should NEVER be used in production environments.")
+	}
+
 	tlsConfig := &tls.Config{
 		InsecureSkipVerify: c.config.TLS.InsecureSkipVerify,
 		ServerName:         c.config.TLS.ServerName,
@@ -133,7 +163,7 @@ func (c *EtcdClient) buildTLSConfig() (*tls.Config, error) {
 	return tlsConfig, nil
 }
 
-// Close closes the etcd client connection.
+// Close closes the etcd client connection and stops the embedded server if running.
 func (c *EtcdClient) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -159,6 +189,16 @@ func (c *EtcdClient) Close() error {
 			errs = append(errs, fmt.Errorf("failed to close client: %w", err))
 		}
 		c.client = nil
+	}
+
+	// Stop embedded server if running
+	if c.embeddedServer != nil {
+		log.Printf("[INFO] Stopping embedded etcd server...")
+		if err := c.embeddedServer.Stop(); err != nil {
+			errs = append(errs, fmt.Errorf("failed to stop embedded server: %w", err))
+		}
+		c.embeddedServer = nil
+		log.Printf("[INFO] Embedded etcd server stopped")
 	}
 
 	if len(errs) > 0 {

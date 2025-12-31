@@ -31,7 +31,13 @@ func setupTestConnectionManager(t *testing.T) (*ConnectionManager, *natsmgr.Mana
 		t.Fatalf("Failed to start NATS manager: %v", err)
 	}
 
-	cm := NewConnectionManager(natsMgr)
+	// Use short timeouts for testing
+	cmCfg := &ConnectionManagerConfig{
+		HeartbeatTimeout: 100 * time.Millisecond,
+		StaleThreshold:   2,
+		MonitorInterval:  50 * time.Millisecond,
+	}
+	cm := NewConnectionManagerWithConfig(natsMgr, cmCfg)
 
 	cleanup := func() {
 		cm.Stop()
@@ -356,7 +362,17 @@ func TestConnectionManager_SendCommand(t *testing.T) {
 		}
 	})
 
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
+
+	// Send a heartbeat to keep agent online (with short test timeouts, it can go offline quickly)
+	hbReq := &pb.HeartbeatRequest{
+		AgentId: "test-agent-cmd",
+		Status:  pb.AgentStatus_AGENT_STATUS_ONLINE,
+	}
+	hbData, _ := proto.Marshal(hbReq)
+	natsMgr.Publish("kscore.agent.heartbeat", hbData)
+
+	time.Sleep(50 * time.Millisecond)
 
 	// Send command to agent
 	cmdReq := &pb.ExecuteCommandRequest{

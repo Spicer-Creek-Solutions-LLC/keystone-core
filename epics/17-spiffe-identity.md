@@ -47,170 +47,123 @@ Implement comprehensive SPIFFE (Secure Production Identity Framework For Everyon
 
 ### SPIFFE Identity Model
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                      SPIFFE Identity Hierarchy                           │
-│                                                                          │
-│  Trust Domain: spiffe://kscore.example.com                              │
-│                                                                          │
-│  ┌────────────────────────────────────────────────────────────────────┐ │
-│  │ Control Plane Identities                                           │ │
-│  │                                                                    │ │
-│  │   spiffe://kscore.example.com/server/{server-id}                   │ │
-│  │   spiffe://kscore.example.com/server/{server-id}/api               │ │
-│  │   spiffe://kscore.example.com/server/{server-id}/nats              │ │
-│  └────────────────────────────────────────────────────────────────────┘ │
-│                                                                          │
-│  ┌────────────────────────────────────────────────────────────────────┐ │
-│  │ Agent Identities                                                   │ │
-│  │                                                                    │ │
-│  │   spiffe://kscore.example.com/agent/{agent-id}                     │ │
-│  │   spiffe://kscore.example.com/agent/{agent-id}/workload/{name}     │ │
-│  └────────────────────────────────────────────────────────────────────┘ │
-│                                                                          │
-│  ┌────────────────────────────────────────────────────────────────────┐ │
-│  │ Service Identities (for integrations)                              │ │
-│  │                                                                    │ │
-│  │   spiffe://kscore.example.com/service/nats                         │ │
-│  │   spiffe://kscore.example.com/service/etcd                         │ │
-│  │   spiffe://kscore.example.com/service/postgres                     │ │
-│  └────────────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────────┘
+**Trust Domain**: `spiffe://kscore.example.com`
+
+```mermaid
+flowchart TD
+    subgraph TD["Trust Domain: spiffe://kscore.example.com"]
+        subgraph CP["Control Plane Identities"]
+            CP1["spiffe://.../server/{server-id}"]
+            CP2["spiffe://.../server/{server-id}/api"]
+            CP3["spiffe://.../server/{server-id}/nats"]
+        end
+
+        subgraph AI["Agent Identities"]
+            AI1["spiffe://.../agent/{agent-id}"]
+            AI2["spiffe://.../agent/{agent-id}/workload/{name}"]
+        end
+
+        subgraph SI["Service Identities"]
+            SI1["spiffe://.../service/nats"]
+            SI2["spiffe://.../service/etcd"]
+            SI3["spiffe://.../service/postgres"]
+        end
+    end
 ```
 
 ### Embedded Identity Provider Architecture
 
+```mermaid
+flowchart TD
+    subgraph Server["kscore-server"]
+        subgraph IP["Identity Provider (embedded)"]
+            CA["CA Manager<br/>- Root CA<br/>- Signing CA<br/>- Rotation"]
+            SVID["SVID Issuer<br/>- X.509 SVID<br/>- JWT-SVID<br/>- Rotation"]
+            TB["Trust Bundle Manager<br/>- Bundle sync<br/>- Federation"]
+            AE["Attestation Engine<br/>- Node attest<br/>- Workload"]
+            RS["Registration Service<br/>- Agent reg<br/>- SVID issue"]
+            WA["Workload API (optional)<br/>- SPIFFE std<br/>- Local socket"]
+        end
+    end
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    Embedded SPIFFE Identity Provider                     │
-│                                                                          │
-│  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │                     kscore-server                                 │   │
-│  │                                                                   │   │
-│  │  ┌─────────────────────────────────────────────────────────────┐ │   │
-│  │  │              Identity Provider (embedded)                    │ │   │
-│  │  │                                                              │ │   │
-│  │  │  ┌───────────────┐  ┌───────────────┐  ┌────────────────┐  │ │   │
-│  │  │  │  CA Manager   │  │ SVID Issuer   │  │ Trust Bundle   │  │ │   │
-│  │  │  │               │  │               │  │   Manager      │  │ │   │
-│  │  │  │ - Root CA     │  │ - X.509 SVID  │  │                │  │ │   │
-│  │  │  │ - Signing CA  │  │ - JWT-SVID    │  │ - Bundle sync  │  │ │   │
-│  │  │  │ - Rotation    │  │ - Rotation    │  │ - Federation   │  │ │   │
-│  │  │  └───────────────┘  └───────────────┘  └────────────────┘  │ │   │
-│  │  │                                                              │ │   │
-│  │  │  ┌───────────────┐  ┌───────────────┐  ┌────────────────┐  │ │   │
-│  │  │  │ Attestation   │  │ Registration  │  │  Workload API  │  │ │   │
-│  │  │  │   Engine      │  │   Service     │  │  (optional)    │  │ │   │
-│  │  │  │               │  │               │  │                │  │ │   │
-│  │  │  │ - Node attest │  │ - Agent reg   │  │ - SPIFFE std   │  │ │   │
-│  │  │  │ - Workload    │  │ - SVID issue  │  │ - Local socket │  │ │   │
-│  │  │  └───────────────┘  └───────────────┘  └────────────────┘  │ │   │
-│  │  └─────────────────────────────────────────────────────────────┘ │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-│  Registration Flow:                                                      │
-│                                                                          │
-│  ┌─────────┐    1. Bootstrap     ┌──────────────────┐                   │
-│  │  Agent  │ ────────────────────│ Identity Provider │                   │
-│  └────┬────┘    credentials      └────────┬─────────┘                   │
-│       │                                    │                             │
-│       │    2. Attestation proof           │                             │
-│       │    (cloud metadata, TPM, etc)     │                             │
-│       │ ─────────────────────────────────→│                             │
-│       │                                    │                             │
-│       │    3. X.509 SVID + Trust Bundle   │                             │
-│       │ ←─────────────────────────────────│                             │
-│       │                                    │                             │
-│       │    4. Use SVID for NATS mTLS      │                             │
-│       │ ─────────────────────────────────→│ NATS                        │
-│       │                                    │                             │
-└─────────────────────────────────────────────────────────────────────────┘
+
+**Registration Flow:**
+
+```mermaid
+sequenceDiagram
+    participant Agent
+    participant IP as Identity Provider
+    participant NATS
+
+    Agent->>IP: 1. Bootstrap credentials
+    Agent->>IP: 2. Attestation proof<br/>(cloud metadata, TPM, etc)
+    IP->>Agent: 3. X.509 SVID + Trust Bundle
+    Agent->>NATS: 4. Use SVID for NATS mTLS
 ```
 
 ### External SPIRE Integration Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    External SPIRE Integration                            │
-│                                                                          │
-│  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │                     SPIRE Server (External)                       │   │
-│  │                                                                   │   │
-│  │  ┌───────────────┐  ┌───────────────┐  ┌────────────────┐       │   │
-│  │  │    Server     │  │ Registration  │  │ Attestation    │       │   │
-│  │  │      CA       │  │   Entries     │  │   Plugins      │       │   │
-│  │  └───────────────┘  └───────────────┘  └────────────────┘       │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                              │                                           │
-│                              │ Node Attestation                          │
-│                              ▼                                           │
-│  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │                     SPIRE Agent (on each node)                    │   │
-│  │                                                                   │   │
-│  │  ┌───────────────┐  ┌───────────────┐  ┌────────────────┐       │   │
-│  │  │  Workload     │  │    SVID       │  │ Workload       │       │   │
-│  │  │    API        │  │    Cache      │  │ Attestation    │       │   │
-│  │  │ (Unix Socket) │  │               │  │                │       │   │
-│  │  └───────┬───────┘  └───────────────┘  └────────────────┘       │   │
-│  └──────────┼───────────────────────────────────────────────────────┘   │
-│             │                                                            │
-│             │ Workload API                                               │
-│             ▼                                                            │
-│  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │                     kscore-agent                                  │   │
-│  │                                                                   │   │
-│  │  ┌───────────────────────────────────────────────────────────┐   │   │
-│  │  │              SPIFFE Workload API Client                    │   │   │
-│  │  │                                                            │   │   │
-│  │  │  - Connect to SPIRE Agent socket                          │   │   │
-│  │  │  - Receive X.509 SVID                                     │   │   │
-│  │  │  - Automatic rotation via streaming                       │   │   │
-│  │  │  - Trust bundle updates                                   │   │   │
-│  │  └───────────────────────────────────────────────────────────┘   │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph SS["SPIRE Server (External)"]
+        SCA["Server CA"]
+        RE["Registration Entries"]
+        AP["Attestation Plugins"]
+    end
+
+    subgraph SA["SPIRE Agent (on each node)"]
+        WA["Workload API<br/>(Unix Socket)"]
+        SC["SVID Cache"]
+        WAT["Workload Attestation"]
+    end
+
+    subgraph KA["kscore-agent"]
+        subgraph WAC["SPIFFE Workload API Client"]
+            C1["Connect to SPIRE Agent socket"]
+            C2["Receive X.509 SVID"]
+            C3["Automatic rotation via streaming"]
+            C4["Trust bundle updates"]
+        end
+    end
+
+    SS -->|"Node Attestation"| SA
+    SA -->|"Workload API"| KA
 ```
 
 ### Cloud Workload Identity Integration
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                 Cloud Workload Identity Integration                      │
-│                                                                          │
-│  ┌─────────────────────┐  ┌─────────────────────┐  ┌─────────────────┐ │
-│  │        AWS          │  │        GCP          │  │      Azure      │ │
-│  │                     │  │                     │  │                 │ │
-│  │  ┌───────────────┐  │  │  ┌───────────────┐  │  │  ┌───────────┐  │ │
-│  │  │ IAM Roles for │  │  │  │   Workload    │  │  │  │ Workload  │  │ │
-│  │  │ Service Accts │  │  │  │   Identity    │  │  │  │ Identity  │  │ │
-│  │  │    (IRSA)     │  │  │  │  Federation   │  │  │  │Federation │  │ │
-│  │  └───────┬───────┘  │  │  └───────┬───────┘  │  │  └─────┬─────┘  │ │
-│  │          │          │  │          │          │  │        │        │ │
-│  │  ┌───────▼───────┐  │  │  ┌───────▼───────┐  │  │  ┌─────▼─────┐  │ │
-│  │  │  STS Token    │  │  │  │ ID Token via  │  │  │  │ Managed   │  │ │
-│  │  │  Exchange     │  │  │  │ Metadata Svc  │  │  │  │ Identity  │  │ │
-│  │  └───────┬───────┘  │  │  └───────┬───────┘  │  │  └─────┬─────┘  │ │
-│  │          │          │  │          │          │  │        │        │ │
-│  └──────────┼──────────┘  └──────────┼──────────┘  └────────┼────────┘ │
-│             │                        │                      │          │
-│             └────────────────────────┼──────────────────────┘          │
-│                                      │                                  │
-│                                      ▼                                  │
-│  ┌──────────────────────────────────────────────────────────────────┐  │
-│  │                     kscore-agent                                  │  │
-│  │                                                                   │  │
-│  │  ┌───────────────────────────────────────────────────────────┐   │  │
-│  │  │           Cloud Identity Attestor                          │   │  │
-│  │  │                                                            │   │  │
-│  │  │  - Detect cloud environment                               │   │  │
-│  │  │  - Retrieve instance identity document                    │   │  │
-│  │  │  - Exchange for SPIFFE SVID                               │   │  │
-│  │  │  - Or use cloud token directly for NATS auth              │   │  │
-│  │  └───────────────────────────────────────────────────────────┘   │  │
-│  └──────────────────────────────────────────────────────────────────┘  │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph AWS["AWS"]
+        IRSA["IAM Roles for<br/>Service Accts (IRSA)"]
+        STS["STS Token Exchange"]
+        IRSA --> STS
+    end
+
+    subgraph GCP["GCP"]
+        WIF["Workload Identity<br/>Federation"]
+        IDT["ID Token via<br/>Metadata Svc"]
+        WIF --> IDT
+    end
+
+    subgraph Azure["Azure"]
+        AWIF["Workload Identity<br/>Federation"]
+        MI["Managed Identity"]
+        AWIF --> MI
+    end
+
+    subgraph KA["kscore-agent"]
+        subgraph CIA["Cloud Identity Attestor"]
+            D1["Detect cloud environment"]
+            D2["Retrieve instance identity document"]
+            D3["Exchange for SPIFFE SVID"]
+            D4["Or use cloud token directly for NATS auth"]
+        end
+    end
+
+    STS --> KA
+    IDT --> KA
+    MI --> KA
 ```
 
 ## User Stories

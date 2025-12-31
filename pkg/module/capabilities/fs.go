@@ -8,6 +8,14 @@ import (
 	"strings"
 )
 
+// Default security limits for filesystem capabilities
+const (
+	// DefaultMaxFileSize is 10MB - a reasonable default for most use cases
+	DefaultMaxFileSize = 10 * 1024 * 1024
+	// MaxAllowedFileSize is 100MB - the absolute maximum allowed
+	MaxAllowedFileSize = 100 * 1024 * 1024
+)
+
 // FSReadCapability allows reading files from the filesystem
 type FSReadCapability struct {
 	AllowedPaths []string // Glob patterns for allowed paths
@@ -26,10 +34,14 @@ func (c *FSReadCapability) Validate() error {
 		return fmt.Errorf("%w: at least one allowed path required", ErrInvalidConfiguration)
 	}
 
-	// Validate glob patterns
+	// Validate glob patterns and check for dangerous patterns
 	for _, pattern := range c.AllowedPaths {
 		if _, err := filepath.Match(pattern, "test"); err != nil {
 			return fmt.Errorf("%w: invalid allowed path pattern %s: %v", ErrInvalidConfiguration, pattern, err)
+		}
+		// Check for overly broad patterns
+		if err := validatePathPatternSecurity(pattern); err != nil {
+			return fmt.Errorf("%w: %v", ErrInvalidConfiguration, err)
 		}
 	}
 
@@ -39,8 +51,14 @@ func (c *FSReadCapability) Validate() error {
 		}
 	}
 
-	if c.MaxFileSize < 0 {
-		return fmt.Errorf("%w: max file size cannot be negative", ErrInvalidConfiguration)
+	// MaxFileSize must be set and within bounds for security
+	if c.MaxFileSize <= 0 {
+		return fmt.Errorf("%w: max file size must be set (got %d, use DefaultMaxFileSize=%d or specify explicitly)",
+			ErrInvalidConfiguration, c.MaxFileSize, DefaultMaxFileSize)
+	}
+	if c.MaxFileSize > MaxAllowedFileSize {
+		return fmt.Errorf("%w: max file size %d exceeds maximum allowed %d",
+			ErrInvalidConfiguration, c.MaxFileSize, MaxAllowedFileSize)
 	}
 
 	return nil
@@ -48,31 +66,52 @@ func (c *FSReadCapability) Validate() error {
 
 // CheckPath validates if a path is allowed
 func (c *FSReadCapability) CheckPath(path string) error {
-	// Clean the path
+	// Clean the path and resolve symlinks to prevent escape attacks
 	cleanPath, err := filepath.Abs(path)
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrInvalidPath, err)
 	}
 
-	// Check denied paths first
-	for _, pattern := range c.DeniedPaths {
-		matched, err := filepath.Match(pattern, cleanPath)
-		if err == nil && matched {
-			return fmt.Errorf("%w: %s matches denied pattern %s", ErrPathDenied, cleanPath, pattern)
+	// Resolve symlinks to get the real path - prevents symlink escape attacks
+	// If the file doesn't exist yet, we can still validate the cleaned path
+	realPath, err := filepath.EvalSymlinks(cleanPath)
+	if err != nil {
+		// If file doesn't exist, that's ok for path checking
+		// But if it's another error, we should still use cleanPath
+		if !os.IsNotExist(err) {
+			// For other errors (e.g., permission denied), use the cleaned path
+			realPath = cleanPath
+		} else {
+			realPath = cleanPath
 		}
 	}
 
-	// Check allowed paths
+	// Check denied paths first (against both cleaned and real paths)
+	for _, pattern := range c.DeniedPaths {
+		matched, err := filepath.Match(pattern, realPath)
+		if err == nil && matched {
+			return fmt.Errorf("%w: %s matches denied pattern %s", ErrPathDenied, realPath, pattern)
+		}
+		// Also check the original clean path in case symlink resolution changed it
+		if cleanPath != realPath {
+			matched, err = filepath.Match(pattern, cleanPath)
+			if err == nil && matched {
+				return fmt.Errorf("%w: %s matches denied pattern %s", ErrPathDenied, cleanPath, pattern)
+			}
+		}
+	}
+
+	// Check allowed paths (use real path for security)
 	allowed := false
 	for _, pattern := range c.AllowedPaths {
 		// Handle ** wildcard for recursive matching
 		if strings.Contains(pattern, "**") {
-			if matchesRecursive(pattern, cleanPath) {
+			if matchesRecursive(pattern, realPath) {
 				allowed = true
 				break
 			}
 		} else {
-			matched, err := filepath.Match(pattern, cleanPath)
+			matched, err := filepath.Match(pattern, realPath)
 			if err == nil && matched {
 				allowed = true
 				break
@@ -81,7 +120,7 @@ func (c *FSReadCapability) CheckPath(path string) error {
 	}
 
 	if !allowed {
-		return fmt.Errorf("%w: %s", ErrPathNotAllowed, cleanPath)
+		return fmt.Errorf("%w: %s", ErrPathNotAllowed, realPath)
 	}
 
 	return nil
@@ -93,16 +132,14 @@ func (c *FSReadCapability) ReadFile(ctx *CapabilityContext, path string) ([]byte
 		return nil, err
 	}
 
-	// Check file size if limit is set
-	if c.MaxFileSize > 0 {
-		info, err := os.Stat(path)
-		if err != nil {
-			return nil, fmt.Errorf("failed to stat file: %w", err)
-		}
+	// Always check file size (MaxFileSize is now required)
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to stat file: %w", err)
+	}
 
-		if info.Size() > c.MaxFileSize {
-			return nil, fmt.Errorf("%w: file size %d exceeds limit %d", ErrMaxSizeExceeded, info.Size(), c.MaxFileSize)
-		}
+	if info.Size() > c.MaxFileSize {
+		return nil, fmt.Errorf("%w: file size %d exceeds limit %d", ErrMaxSizeExceeded, info.Size(), c.MaxFileSize)
 	}
 
 	// Read the file
@@ -146,10 +183,14 @@ func (c *FSWriteCapability) Validate() error {
 		return fmt.Errorf("%w: at least one allowed path required", ErrInvalidConfiguration)
 	}
 
-	// Validate glob patterns
+	// Validate glob patterns and check for dangerous patterns
 	for _, pattern := range c.AllowedPaths {
 		if _, err := filepath.Match(pattern, "test"); err != nil {
 			return fmt.Errorf("%w: invalid allowed path pattern %s: %v", ErrInvalidConfiguration, pattern, err)
+		}
+		// Check for overly broad patterns
+		if err := validatePathPatternSecurity(pattern); err != nil {
+			return fmt.Errorf("%w: %v", ErrInvalidConfiguration, err)
 		}
 	}
 
@@ -159,8 +200,14 @@ func (c *FSWriteCapability) Validate() error {
 		}
 	}
 
-	if c.MaxFileSize < 0 {
-		return fmt.Errorf("%w: max file size cannot be negative", ErrInvalidConfiguration)
+	// MaxFileSize must be set and within bounds for security
+	if c.MaxFileSize <= 0 {
+		return fmt.Errorf("%w: max file size must be set (got %d, use DefaultMaxFileSize=%d or specify explicitly)",
+			ErrInvalidConfiguration, c.MaxFileSize, DefaultMaxFileSize)
+	}
+	if c.MaxFileSize > MaxAllowedFileSize {
+		return fmt.Errorf("%w: max file size %d exceeds maximum allowed %d",
+			ErrInvalidConfiguration, c.MaxFileSize, MaxAllowedFileSize)
 	}
 
 	return nil
@@ -168,31 +215,57 @@ func (c *FSWriteCapability) Validate() error {
 
 // CheckPath validates if a path is allowed
 func (c *FSWriteCapability) CheckPath(path string) error {
-	// Clean the path
+	// Clean the path and resolve symlinks to prevent escape attacks
 	cleanPath, err := filepath.Abs(path)
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrInvalidPath, err)
 	}
 
-	// Check denied paths first
-	for _, pattern := range c.DeniedPaths {
-		matched, err := filepath.Match(pattern, cleanPath)
-		if err == nil && matched {
-			return fmt.Errorf("%w: %s matches denied pattern %s", ErrPathDenied, cleanPath, pattern)
+	// For write operations, we need to check the parent directory if file doesn't exist
+	// Resolve symlinks to get the real path - prevents symlink escape attacks
+	realPath := cleanPath
+	if _, err := os.Stat(cleanPath); err == nil {
+		// File exists, resolve symlinks
+		resolved, err := filepath.EvalSymlinks(cleanPath)
+		if err == nil {
+			realPath = resolved
+		}
+	} else if !os.IsNotExist(err) {
+		// Error other than "file not found"
+		return fmt.Errorf("%w: cannot stat path: %v", ErrInvalidPath, err)
+	} else {
+		// File doesn't exist, check parent directory for symlinks
+		parentDir := filepath.Dir(cleanPath)
+		if resolved, err := filepath.EvalSymlinks(parentDir); err == nil {
+			realPath = filepath.Join(resolved, filepath.Base(cleanPath))
 		}
 	}
 
-	// Check allowed paths
+	// Check denied paths first (against both cleaned and real paths)
+	for _, pattern := range c.DeniedPaths {
+		matched, err := filepath.Match(pattern, realPath)
+		if err == nil && matched {
+			return fmt.Errorf("%w: %s matches denied pattern %s", ErrPathDenied, realPath, pattern)
+		}
+		if cleanPath != realPath {
+			matched, err = filepath.Match(pattern, cleanPath)
+			if err == nil && matched {
+				return fmt.Errorf("%w: %s matches denied pattern %s", ErrPathDenied, cleanPath, pattern)
+			}
+		}
+	}
+
+	// Check allowed paths (use real path for security)
 	allowed := false
 	for _, pattern := range c.AllowedPaths {
 		// Handle ** wildcard for recursive matching
 		if strings.Contains(pattern, "**") {
-			if matchesRecursive(pattern, cleanPath) {
+			if matchesRecursive(pattern, realPath) {
 				allowed = true
 				break
 			}
 		} else {
-			matched, err := filepath.Match(pattern, cleanPath)
+			matched, err := filepath.Match(pattern, realPath)
 			if err == nil && matched {
 				allowed = true
 				break
@@ -201,7 +274,7 @@ func (c *FSWriteCapability) CheckPath(path string) error {
 	}
 
 	if !allowed {
-		return fmt.Errorf("%w: %s", ErrPathNotAllowed, cleanPath)
+		return fmt.Errorf("%w: %s", ErrPathNotAllowed, realPath)
 	}
 
 	return nil
@@ -433,4 +506,80 @@ func matchesRecursiveParts(pattern, path []string) bool {
 
 	// Recurse on remaining segments
 	return matchesRecursiveParts(pattern[1:], path[1:])
+}
+
+// Dangerous path patterns that should be blocked
+var dangerousPathPatterns = []string{
+	"/",          // Root filesystem
+	"/*",         // Everything in root
+	"/**",        // All files recursively from root
+	"/etc",       // System configuration
+	"/etc/*",     // All system config files
+	"/etc/**",    // All system config recursively
+	"/var",       // Variable data
+	"/var/*",     // All variable data
+	"/var/**",    // All variable data recursively
+	"/usr",       // User programs
+	"/usr/*",     // All user programs
+	"/usr/**",    // All user programs recursively
+	"/bin",       // Essential binaries
+	"/bin/*",     // All essential binaries
+	"/sbin",      // System binaries
+	"/sbin/*",    // All system binaries
+	"/root",      // Root home
+	"/root/*",    // All root files
+	"/root/**",   // All root files recursively
+	"/home",      // All user homes
+	"/home/*",    // All user home directories
+	"/home/**",   // All user files recursively
+	"C:\\",       // Windows root
+	"C:\\*",      // Windows root all
+	"C:\\**",     // Windows all files
+	"C:\\Windows",          // Windows system
+	"C:\\Windows\\*",       // Windows system files
+	"C:\\Windows\\**",      // Windows system recursively
+	"C:\\Windows\\System32", // Windows system32
+	"C:\\Windows\\System32\\*",  // All system32 files
+	"C:\\Windows\\System32\\**", // System32 recursively
+}
+
+// validatePathPatternSecurity checks if a path pattern is overly broad or dangerous
+func validatePathPatternSecurity(pattern string) error {
+	// Clean the pattern for comparison
+	cleanPattern := filepath.Clean(pattern)
+
+	// Check against dangerous patterns
+	for _, dangerous := range dangerousPathPatterns {
+		if cleanPattern == dangerous || pattern == dangerous {
+			return fmt.Errorf("pattern %q is too broad and could access sensitive system areas", pattern)
+		}
+	}
+
+	// Warn about patterns that are still risky
+	// Count path components before **
+	parts := strings.Split(cleanPattern, string(filepath.Separator))
+	doubleStarIndex := -1
+	for i, part := range parts {
+		if part == "**" {
+			doubleStarIndex = i
+			break
+		}
+	}
+
+	// If ** is used, require at least 2 path components before it for security
+	// e.g., /app/** is risky but allowed, /** is not allowed
+	if doubleStarIndex >= 0 && doubleStarIndex < 2 {
+		// Count non-empty parts before **
+		nonEmptyParts := 0
+		for i := 0; i < doubleStarIndex; i++ {
+			if parts[i] != "" {
+				nonEmptyParts++
+			}
+		}
+		if nonEmptyParts < 2 {
+			return fmt.Errorf("pattern %q uses ** with insufficient path depth (need at least 2 path components before **)", pattern)
+		}
+	}
+
+	return nil
 }

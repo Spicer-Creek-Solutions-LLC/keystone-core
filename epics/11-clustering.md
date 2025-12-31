@@ -41,38 +41,49 @@ Implement high availability clustering for `kscore-server` using etcd for distri
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Keystone Core Cluster                       │
-│                                                             │
-│  ┌────────────┐      ┌────────────┐      ┌────────────┐   │
-│  │  Server 1  │      │  Server 2  │      │  Server 3  │   │
-│  │  (Leader)  │      │  (Follower)│      │  (Follower)│   │
-│  │            │      │            │      │            │   │
-│  │ - API      │      │ - API      │      │ - API      │   │
-│  │ - Agents   │      │ - Agents   │      │ - Agents   │   │
-│  │ - Jobs     │      │ - Jobs     │      │ - Jobs     │   │
-│  │ - Events   │      │ - Events   │      │ - Events   │   │
-│  └─────┬──────┘      └─────┬──────┘      └─────┬──────┘   │
-│        │                   │                   │           │
-│        └───────────────────┴───────────────────┘           │
-│                            │                                │
-│                    ┌───────┴────────┐                      │
-│                    │  etcd Cluster  │                      │
-│                    │  (3+ members)  │                      │
-│                    │                │                      │
-│                    │ - Membership   │                      │
-│                    │ - Leader Elect │                      │
-│                    │ - Config       │                      │
-│                    │ - Coordination │                      │
-│                    └────────────────┘                      │
-└─────────────────────────────────────────────────────────────┘
-         │                    │                    │
-         ▼                    ▼                    ▼
-    ┌─────────┐          ┌─────────┐         ┌─────────┐
-    │ Agents  │          │ Agents  │         │ Agents  │
-    │ Shard 1 │          │ Shard 2 │         │ Shard 3 │
-    └─────────┘          └─────────┘         └─────────┘
+```mermaid
+flowchart TD
+    subgraph Cluster["Keystone Core Cluster"]
+        subgraph S1["Server 1 (Leader)"]
+            S1A["API"]
+            S1AG["Agents"]
+            S1J["Jobs"]
+            S1E["Events"]
+        end
+
+        subgraph S2["Server 2 (Follower)"]
+            S2A["API"]
+            S2AG["Agents"]
+            S2J["Jobs"]
+            S2E["Events"]
+        end
+
+        subgraph S3["Server 3 (Follower)"]
+            S3A["API"]
+            S3AG["Agents"]
+            S3J["Jobs"]
+            S3E["Events"]
+        end
+
+        subgraph etcd["etcd Cluster (3+ members)"]
+            M["Membership"]
+            LE["Leader Elect"]
+            C["Config"]
+            CO["Coordination"]
+        end
+
+        S1 --- etcd
+        S2 --- etcd
+        S3 --- etcd
+    end
+
+    AS1["Agents Shard 1"]
+    AS2["Agents Shard 2"]
+    AS3["Agents Shard 3"]
+
+    S1 --> AS1
+    S2 --> AS2
+    S3 --> AS3
 ```
 
 ## User Stories

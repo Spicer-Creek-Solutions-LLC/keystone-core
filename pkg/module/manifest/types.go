@@ -69,3 +69,20 @@ func (m *Manifest) Validate() error {
 	}
 	return nil
 }
+
+// ToYAML serializes the manifest to YAML
+func (m *Manifest) ToYAML() ([]byte, error) {
+	return yaml.Marshal(m)
+}
+
+// SaveManifest saves a manifest to a file
+func (m *Manifest) SaveManifest(path string) error {
+	data, err := m.ToYAML()
+	if err != nil {
+		return fmt.Errorf("failed to serialize manifest: %w", err)
+	}
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("failed to write manifest: %w", err)
+	}
+	return nil
+}

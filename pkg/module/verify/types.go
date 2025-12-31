@@ -87,6 +87,11 @@ func (r *VerificationResult) AddWarning(warning string) {
 	r.Warnings = append(r.Warnings, warning)
 }
 
+// IsValid returns true if the verification result is valid (no errors)
+func (r *VerificationResult) IsValid() bool {
+	return r.Verified && len(r.Errors) == 0
+}
+
 // ModuleArtifact represents a module being verified
 type ModuleArtifact struct {
 	Name          string

@@ -47,27 +47,31 @@ However, a critical gap exists in the operational layer:
 
 Keystone Core is **not a replacement** for GitOps or IaC - it's the **operational layer** that makes them production-ready.
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    GitOps / IaC Layer                   │
-│              (Desired State Definition)                 │
-│         ArgoCD, Flux, Terraform, Pulumi                 │
-└─────────────────────────────────────────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────────────┐
-│                     Keystone Core                          │
-│              (Runtime Control Plane)                    │
-│  • Real-time execution    • Continuous compliance       │
-│  • Drift detection        • Operational automation      │
-│  • Event-driven response  • Unified hybrid management   │
-└─────────────────────────────────────────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────────────┐
-│                  Infrastructure                         │
-│     Kubernetes • VMs • Bare Metal • Edge Devices        │
-└─────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph GitOps["GitOps / IaC Layer"]
+        direction LR
+        G1["Desired State Definition"]
+        G2["ArgoCD, Flux, Terraform, Pulumi"]
+    end
+
+    subgraph KS["Keystone Core"]
+        direction LR
+        K1["Runtime Control Plane"]
+        K2["Real-time execution • Continuous compliance"]
+        K3["Drift detection • Operational automation"]
+        K4["Event-driven response • Unified hybrid management"]
+    end
+
+    subgraph Infra["Infrastructure"]
+        direction LR
+        I1["Kubernetes"]
+        I2["VMs"]
+        I3["Bare Metal"]
+        I4["Edge Devices"]
+    end
+
+    GitOps --> KS --> Infra
 ```
 
 ### Comparison Matrix
@@ -88,30 +92,22 @@ Keystone Core is **not a replacement** for GitOps or IaC - it's the **operationa
 
 ### Core Components
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                      Control Plane                           │
-│  ┌────────────┐  ┌─────────────┐  ┌──────────────────┐     │
-│  │  API       │  │  State      │  │  Event/Reactor   │     │
-│  │  Server    │  │  Manager    │  │  Engine          │     │
-│  └────────────┘  └─────────────┘  └──────────────────┘     │
-│         │               │                    │               │
-│         └───────────────┴────────────────────┘               │
-│                         │                                    │
-└─────────────────────────┼────────────────────────────────────┘
-                          │
-                   ┌──────▼──────┐
-                   │    NATS     │
-                   │  Message    │
-                   │    Bus      │
-                   └──────┬──────┘
-                          │
-        ┌─────────────────┼─────────────────┐
-        │                 │                 │
-   ┌────▼────┐      ┌────▼────┐      ┌────▼────┐
-   │ Agent   │      │ Agent   │      │ Agent   │
-   │ (K8s)   │      │ (VM)    │      │ (Edge)  │
-   └─────────┘      └─────────┘      └─────────┘
+```mermaid
+flowchart TD
+    subgraph CP["Control Plane"]
+        API["API Server"]
+        SM["State Manager"]
+        ERE["Event/Reactor Engine"]
+        API --- SM --- ERE
+    end
+
+    NATS["NATS Message Bus"]
+
+    CP --> NATS
+
+    NATS --> A1["Agent (K8s)"]
+    NATS --> A2["Agent (VM)"]
+    NATS --> A3["Agent (Edge)"]
 ```
 
 ### Key Architectural Decisions
@@ -437,10 +433,24 @@ spiffe://kscore.local/module/vendor/firewall-manager
 Keystone Core is designed to start simple and upgrade as you scale:
 
 **Development → Production:**
-```
-Manual TLS          →    SPIFFE/SPIRE
-Embedded NATS      →    External NATS cluster
-SQLite             →    PostgreSQL
+
+```mermaid
+flowchart LR
+    subgraph Dev["Development"]
+        D1["Manual TLS"]
+        D2["Embedded NATS"]
+        D3["SQLite"]
+    end
+
+    subgraph Prod["Production"]
+        P1["SPIFFE/SPIRE"]
+        P2["External NATS cluster"]
+        P3["PostgreSQL"]
+    end
+
+    D1 --> P1
+    D2 --> P2
+    D3 --> P3
 ```
 
 **Migration steps:**

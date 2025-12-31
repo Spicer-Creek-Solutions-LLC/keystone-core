@@ -65,8 +65,13 @@ func TestBatchExecution_EndToEnd(t *testing.T) {
 		t.Fatalf("Failed to ping state store: %v", err)
 	}
 
-	// Initialize connection manager
-	connMgr := NewConnectionManager(natsManager)
+	// Initialize connection manager with short timeouts for testing
+	connMgrConfig := &ConnectionManagerConfig{
+		HeartbeatTimeout: 100 * time.Millisecond, // Very short for tests
+		StaleThreshold:   2,
+		MonitorInterval:  50 * time.Millisecond,
+	}
+	connMgr := NewConnectionManagerWithConfig(natsManager, connMgrConfig)
 	if err := connMgr.Start(); err != nil {
 		t.Fatalf("Failed to start connection manager: %v", err)
 	}

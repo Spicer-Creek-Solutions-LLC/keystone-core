@@ -23,32 +23,26 @@ Implement a comprehensive policy enforcement system that provides continuous com
 
 ## Architecture
 
-```
-┌──────────────────────────────────────────────────────────┐
-│                Policy Definition Layer                   │
-│  ┌────────────┐  ┌────────────┐  ┌────────────────┐    │
-│  │    OPA     │  │    CEL     │  │   Custom       │    │
-│  │  Policies  │  │  Policies  │  │   Validators   │    │
-│  │  (.rego)   │  │            │  │                │    │
-│  └────────────┘  └────────────┘  └────────────────┘    │
-└──────────────────────────────────────────────────────────┘
-                          │
-                          ▼
-┌──────────────────────────────────────────────────────────┐
-│              Policy Enforcement Engine                   │
-│  ┌────────────┐  ┌────────────┐  ┌────────────────┐    │
-│  │   Policy   │  │  Evaluator │  │   Remediation  │    │
-│  │  Compiler  │  │            │  │   Engine       │    │
-│  └────────────┘  └────────────┘  └────────────────┘    │
-│  ┌────────────┐  ┌────────────┐  ┌────────────────┐    │
-│  │   Audit    │  │  Reporter  │  │   Scheduler    │    │
-│  │   Logger   │  │            │  │                │    │
-│  └────────────┘  └────────────┘  └────────────────┘    │
-└──────────────────────────────────────────────────────────┘
-                          │
-                          ▼
-                   Infrastructure
-           (K8s, VMs, Cloud Resources)
+```mermaid
+flowchart TD
+    subgraph PDL["Policy Definition Layer"]
+        OPA["OPA Policies<br/>(.rego)"]
+        CEL["CEL Policies"]
+        CV["Custom Validators"]
+    end
+
+    subgraph PEE["Policy Enforcement Engine"]
+        PC["Policy Compiler"]
+        EV["Evaluator"]
+        RM["Remediation Engine"]
+        AL["Audit Logger"]
+        RP["Reporter"]
+        SC["Scheduler"]
+    end
+
+    Infra["Infrastructure<br/>(K8s, VMs, Cloud Resources)"]
+
+    PDL --> PEE --> Infra
 ```
 
 ## User Stories

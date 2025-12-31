@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -435,14 +436,14 @@ func TestEtcdTLSConfigValidate(t *testing.T) {
 			wantErr: "ca_file is required",
 		},
 		{
-			name: "insecure skip verify",
+			name: "insecure skip verify blocked without env var",
 			config: &EtcdTLSConfig{
 				Enabled:            true,
 				CertFile:           "/path/to/cert",
 				KeyFile:            "/path/to/key",
 				InsecureSkipVerify: true,
 			},
-			wantErr: "",
+			wantErr: "insecure_skip_verify is not allowed in production",
 		},
 	}
 
@@ -457,6 +458,22 @@ func TestEtcdTLSConfigValidate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestEtcdTLSConfigValidate_InsecureWithEnvVar(t *testing.T) {
+	// Test that InsecureSkipVerify is allowed when KSCORE_ALLOW_INSECURE_TLS=1 is set
+	os.Setenv("KSCORE_ALLOW_INSECURE_TLS", "1")
+	defer os.Unsetenv("KSCORE_ALLOW_INSECURE_TLS")
+
+	config := &EtcdTLSConfig{
+		Enabled:            true,
+		CertFile:           "/path/to/cert",
+		KeyFile:            "/path/to/key",
+		InsecureSkipVerify: true,
+	}
+
+	err := config.Validate()
+	assert.NoError(t, err, "InsecureSkipVerify should be allowed when KSCORE_ALLOW_INSECURE_TLS=1")
 }
 
 func TestCalculateQuorumSize(t *testing.T) {

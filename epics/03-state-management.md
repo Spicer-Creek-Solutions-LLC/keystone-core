@@ -20,29 +20,29 @@ Implement declarative state management system that enables idempotent configurat
 
 ## Architecture
 
-```
-┌──────────────────────────────────────────────────────────┐
-│                State Management Layer                    │
-│  ┌─────────────┐  ┌──────────────┐  ┌───────────────┐  │
-│  │   State     │  │  Dependency  │  │   Drift       │  │
-│  │   Compiler  │  │   Resolver   │  │   Detector    │  │
-│  └─────────────┘  └──────────────┘  └───────────────┘  │
-│  ┌─────────────┐  ┌──────────────┐  ┌───────────────┐  │
-│  │  Template   │  │  Renderer    │  │  Validator    │  │
-│  │  Engine     │  │              │  │               │  │
-│  └─────────────┘  └──────────────┘  └───────────────┘  │
-└──────────────────────────────────────────────────────────┘
-                           │
-                           ▼
-┌──────────────────────────────────────────────────────────┐
-│                  State Modules                           │
-│  ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐         │
-│  │ File │ │ Pkg  │ │ Svc  │ │ User │ │ K8s  │   ...   │
-│  └──────┘ └──────┘ └──────┘ └──────┘ └──────┘         │
-└──────────────────────────────────────────────────────────┘
-                           │
-                           ▼
-                    Agent Executors
+```mermaid
+flowchart TD
+    subgraph SML["State Management Layer"]
+        SC["State Compiler"]
+        DR["Dependency Resolver"]
+        DD["Drift Detector"]
+        TE["Template Engine"]
+        RN["Renderer"]
+        VA["Validator"]
+    end
+
+    subgraph SM["State Modules"]
+        File
+        Pkg
+        Svc
+        User
+        K8s
+        More["..."]
+    end
+
+    AE["Agent Executors"]
+
+    SML --> SM --> AE
 ```
 
 ## User Stories

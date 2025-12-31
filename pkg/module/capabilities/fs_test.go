@@ -8,7 +8,19 @@ import (
 	"testing"
 )
 
+// resolveTempDir resolves symlinks in the temp directory path for test patterns
+func resolveTempDir(tmpDir string) string {
+	resolved, err := filepath.EvalSymlinks(tmpDir)
+	if err != nil {
+		return tmpDir
+	}
+	return resolved
+}
+
 func TestFSReadCapability_Validate(t *testing.T) {
+	// Use a safe test path that meets security requirements
+	safeTestPath := "/app/data/test/**"
+
 	tests := []struct {
 		name        string
 		cap         *FSReadCapability
@@ -17,8 +29,8 @@ func TestFSReadCapability_Validate(t *testing.T) {
 		{
 			name: "valid capability",
 			cap: &FSReadCapability{
-				AllowedPaths: []string{"/tmp/*"},
-				MaxFileSize:  1024,
+				AllowedPaths: []string{safeTestPath},
+				MaxFileSize:  DefaultMaxFileSize,
 			},
 			expectError: false,
 		},
@@ -26,6 +38,7 @@ func TestFSReadCapability_Validate(t *testing.T) {
 			name: "no allowed paths",
 			cap: &FSReadCapability{
 				AllowedPaths: []string{},
+				MaxFileSize:  DefaultMaxFileSize,
 			},
 			expectError: true,
 		},
@@ -33,22 +46,56 @@ func TestFSReadCapability_Validate(t *testing.T) {
 			name: "invalid allowed pattern",
 			cap: &FSReadCapability{
 				AllowedPaths: []string{"[invalid"},
+				MaxFileSize:  DefaultMaxFileSize,
 			},
 			expectError: true,
 		},
 		{
 			name: "invalid denied pattern",
 			cap: &FSReadCapability{
-				AllowedPaths: []string{"/tmp/*"},
+				AllowedPaths: []string{safeTestPath},
 				DeniedPaths:  []string{"[invalid"},
+				MaxFileSize:  DefaultMaxFileSize,
+			},
+			expectError: true,
+		},
+		{
+			name: "zero max file size",
+			cap: &FSReadCapability{
+				AllowedPaths: []string{safeTestPath},
+				MaxFileSize:  0,
 			},
 			expectError: true,
 		},
 		{
 			name: "negative max file size",
 			cap: &FSReadCapability{
-				AllowedPaths: []string{"/tmp/*"},
+				AllowedPaths: []string{safeTestPath},
 				MaxFileSize:  -1,
+			},
+			expectError: true,
+		},
+		{
+			name: "max file size too large",
+			cap: &FSReadCapability{
+				AllowedPaths: []string{safeTestPath},
+				MaxFileSize:  MaxAllowedFileSize + 1,
+			},
+			expectError: true,
+		},
+		{
+			name: "dangerous path pattern - root",
+			cap: &FSReadCapability{
+				AllowedPaths: []string{"/**"},
+				MaxFileSize:  DefaultMaxFileSize,
+			},
+			expectError: true,
+		},
+		{
+			name: "dangerous path pattern - etc",
+			cap: &FSReadCapability{
+				AllowedPaths: []string{"/etc/**"},
+				MaxFileSize:  DefaultMaxFileSize,
 			},
 			expectError: true,
 		},
@@ -68,7 +115,7 @@ func TestFSReadCapability_Validate(t *testing.T) {
 }
 
 func TestFSReadCapability_CheckPath(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir := resolveTempDir(t.TempDir())
 
 	cap := &FSReadCapability{
 		AllowedPaths: []string{
@@ -78,6 +125,7 @@ func TestFSReadCapability_CheckPath(t *testing.T) {
 		DeniedPaths: []string{
 			filepath.Join(tmpDir, "denied.txt"),
 		},
+		MaxFileSize: DefaultMaxFileSize,
 	}
 
 	tests := []struct {
@@ -124,7 +172,7 @@ func TestFSReadCapability_CheckPath(t *testing.T) {
 }
 
 func TestFSReadCapability_ReadFile(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir := resolveTempDir(t.TempDir())
 
 	// Create test file
 	testFile := filepath.Join(tmpDir, "test.txt")
@@ -135,7 +183,7 @@ func TestFSReadCapability_ReadFile(t *testing.T) {
 
 	cap := &FSReadCapability{
 		AllowedPaths: []string{filepath.Join(tmpDir, "*")},
-		MaxFileSize:  1024,
+		MaxFileSize:  DefaultMaxFileSize,
 	}
 
 	ctx := NewCapabilityContext(context.Background(), "test-module")
@@ -152,7 +200,7 @@ func TestFSReadCapability_ReadFile(t *testing.T) {
 }
 
 func TestFSReadCapability_ReadFileMaxSize(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir := resolveTempDir(t.TempDir())
 
 	// Create test file
 	testFile := filepath.Join(tmpDir, "test.txt")
@@ -163,7 +211,7 @@ func TestFSReadCapability_ReadFileMaxSize(t *testing.T) {
 
 	cap := &FSReadCapability{
 		AllowedPaths: []string{filepath.Join(tmpDir, "*")},
-		MaxFileSize:  10, // Smaller than file size
+		MaxFileSize:  10, // Smaller than file size - allowed for testing size limits
 	}
 
 	ctx := NewCapabilityContext(context.Background(), "test-module")
@@ -176,7 +224,7 @@ func TestFSReadCapability_ReadFileMaxSize(t *testing.T) {
 }
 
 func TestFSReadCapability_OpenFile(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir := resolveTempDir(t.TempDir())
 
 	// Create test file
 	testFile := filepath.Join(tmpDir, "test.txt")
@@ -187,6 +235,7 @@ func TestFSReadCapability_OpenFile(t *testing.T) {
 
 	cap := &FSReadCapability{
 		AllowedPaths: []string{filepath.Join(tmpDir, "*")},
+		MaxFileSize:  DefaultMaxFileSize,
 	}
 
 	ctx := NewCapabilityContext(context.Background(), "test-module")
@@ -211,6 +260,8 @@ func TestFSReadCapability_OpenFile(t *testing.T) {
 }
 
 func TestFSWriteCapability_Validate(t *testing.T) {
+	safeTestPath := "/app/data/test/**"
+
 	tests := []struct {
 		name        string
 		cap         *FSWriteCapability
@@ -219,8 +270,8 @@ func TestFSWriteCapability_Validate(t *testing.T) {
 		{
 			name: "valid capability",
 			cap: &FSWriteCapability{
-				AllowedPaths: []string{"/tmp/*"},
-				MaxFileSize:  1024,
+				AllowedPaths: []string{safeTestPath},
+				MaxFileSize:  DefaultMaxFileSize,
 			},
 			expectError: false,
 		},
@@ -228,6 +279,7 @@ func TestFSWriteCapability_Validate(t *testing.T) {
 			name: "no allowed paths",
 			cap: &FSWriteCapability{
 				AllowedPaths: []string{},
+				MaxFileSize:  DefaultMaxFileSize,
 			},
 			expectError: true,
 		},
@@ -235,13 +287,22 @@ func TestFSWriteCapability_Validate(t *testing.T) {
 			name: "invalid allowed pattern",
 			cap: &FSWriteCapability{
 				AllowedPaths: []string{"[invalid"},
+				MaxFileSize:  DefaultMaxFileSize,
+			},
+			expectError: true,
+		},
+		{
+			name: "zero max file size",
+			cap: &FSWriteCapability{
+				AllowedPaths: []string{safeTestPath},
+				MaxFileSize:  0,
 			},
 			expectError: true,
 		},
 		{
 			name: "negative max file size",
 			cap: &FSWriteCapability{
-				AllowedPaths: []string{"/tmp/*"},
+				AllowedPaths: []string{safeTestPath},
 				MaxFileSize:  -1,
 			},
 			expectError: true,
@@ -262,11 +323,11 @@ func TestFSWriteCapability_Validate(t *testing.T) {
 }
 
 func TestFSWriteCapability_WriteFile(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir := resolveTempDir(t.TempDir())
 
 	cap := &FSWriteCapability{
 		AllowedPaths: []string{filepath.Join(tmpDir, "*")},
-		MaxFileSize:  1024,
+		MaxFileSize:  DefaultMaxFileSize,
 	}
 
 	ctx := NewCapabilityContext(context.Background(), "test-module")
@@ -292,7 +353,7 @@ func TestFSWriteCapability_WriteFile(t *testing.T) {
 }
 
 func TestFSWriteCapability_WriteFileMaxSize(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir := resolveTempDir(t.TempDir())
 
 	cap := &FSWriteCapability{
 		AllowedPaths: []string{filepath.Join(tmpDir, "*")},
@@ -312,10 +373,11 @@ func TestFSWriteCapability_WriteFileMaxSize(t *testing.T) {
 }
 
 func TestFSWriteCapability_AppendFile(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir := resolveTempDir(t.TempDir())
 
 	cap := &FSWriteCapability{
 		AllowedPaths: []string{filepath.Join(tmpDir, "*")},
+		MaxFileSize:  DefaultMaxFileSize,
 	}
 
 	ctx := NewCapabilityContext(context.Background(), "test-module")
@@ -347,10 +409,11 @@ func TestFSWriteCapability_AppendFile(t *testing.T) {
 }
 
 func TestFSWriteCapability_DeleteFile(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir := resolveTempDir(t.TempDir())
 
 	cap := &FSWriteCapability{
 		AllowedPaths: []string{filepath.Join(tmpDir, "*")},
+		MaxFileSize:  DefaultMaxFileSize,
 	}
 
 	ctx := NewCapabilityContext(context.Background(), "test-module")
@@ -374,10 +437,11 @@ func TestFSWriteCapability_DeleteFile(t *testing.T) {
 }
 
 func TestFSWriteCapability_Mkdir(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir := resolveTempDir(t.TempDir())
 
 	cap := &FSWriteCapability{
 		AllowedPaths: []string{filepath.Join(tmpDir, "*")},
+		MaxFileSize:  DefaultMaxFileSize,
 	}
 
 	ctx := NewCapabilityContext(context.Background(), "test-module")
@@ -401,10 +465,11 @@ func TestFSWriteCapability_Mkdir(t *testing.T) {
 }
 
 func TestFSWriteCapability_MkdirAll(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir := resolveTempDir(t.TempDir())
 
 	cap := &FSWriteCapability{
 		AllowedPaths: []string{filepath.Join(tmpDir, "**")},
+		MaxFileSize:  DefaultMaxFileSize,
 	}
 
 	ctx := NewCapabilityContext(context.Background(), "test-module")
@@ -428,14 +493,16 @@ func TestFSWriteCapability_MkdirAll(t *testing.T) {
 }
 
 func TestFSWriteCapability_CopyFile(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir := resolveTempDir(t.TempDir())
 
 	readCap := &FSReadCapability{
 		AllowedPaths: []string{filepath.Join(tmpDir, "src", "*")},
+		MaxFileSize:  DefaultMaxFileSize,
 	}
 
 	writeCap := &FSWriteCapability{
 		AllowedPaths: []string{filepath.Join(tmpDir, "dst", "*")},
+		MaxFileSize:  DefaultMaxFileSize,
 	}
 
 	ctx := NewCapabilityContext(context.Background(), "test-module")

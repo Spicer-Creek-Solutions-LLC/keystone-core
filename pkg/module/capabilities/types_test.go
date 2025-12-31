@@ -299,8 +299,8 @@ func TestCapabilityInvoker_InvokeError(t *testing.T) {
 	if entry.Success {
 		t.Error("expected failed invocation")
 	}
-	if !errors.Is(entry.Error, expectedErr) {
-		t.Errorf("expected error %v, got %v", expectedErr, entry.Error)
+	if entry.Error != expectedErr.Error() {
+		t.Errorf("expected error %v, got %v", expectedErr.Error(), entry.Error)
 	}
 }
 
