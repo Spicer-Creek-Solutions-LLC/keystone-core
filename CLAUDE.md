@@ -142,7 +142,9 @@ These gaps should be addressed before production use.
     ├── 10-documentation.md            # Hugo + Docsy comprehensive documentation
     ├── 11-clustering.md               # High availability clustering with etcd
     ├── 12-e2e-testing.md              # End-to-end & performance testing
-    └── 13-cgo-removal.md              # Pure Go build (no CGO dependencies)
+    ├── 13-cgo-removal.md              # Pure Go build (no CGO dependencies)
+    ├── 14-nats-mesh-communication.md  # NATS-only communication, superclusters, NAT traversal
+    └── 15-observability-enhancements.md  # NATS telemetry, stdout logging, syslog, audit
 ```
 
 ## Architecture Overview
@@ -2510,6 +2512,8 @@ Implementation order:
 11. **Epic 11** (Clustering) - ✅ COMPLETE (All 8 phases) - Depends on Epic 1, 7 (etcd-based HA clustering, automatic failover, work distribution)
 12. **Epic 12** (E2E Testing) - ✅ COMPLETE - Comprehensive E2E test infrastructure (harness, topologies, scenarios, performance)
 13. **Epic 13** (CGO Removal) - ✅ COMPLETE - Independent, enables pure Go builds
+14. **Epic 14** (NATS Mesh Communication) - 🔲 PLANNED - Depends on Epic 1, 7, 11 (NATS-only communication, superclusters, NAT traversal)
+15. **Epic 15** (Observability Enhancements) - 🔲 PLANNED - Depends on Epic 7, 14 (NATS telemetry transport, stdout/syslog logging, CLI audit)
 
 ## Key Architectural Patterns
 
