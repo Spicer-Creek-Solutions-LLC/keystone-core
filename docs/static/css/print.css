@@ -1,0 +1,583 @@
+/**
+ * Keystone Core Documentation - Print Styles
+ *
+ * Uses CSS Paged Media specifications for professional PDF output.
+ * Works with Paged.js polyfill for browser-based PDF generation.
+ */
+
+/* ==========================================================================
+   Page Setup
+   ========================================================================== */
+
+@page {
+  size: A4;
+  margin: 25mm 20mm 30mm 20mm;
+
+  /* Running header */
+  @top-center {
+    content: string(chapter-title);
+    font-size: 9pt;
+    color: #666;
+    border-bottom: 0.5pt solid #ccc;
+    padding-bottom: 5pt;
+  }
+
+  /* Page numbers */
+  @bottom-center {
+    content: counter(page);
+    font-size: 9pt;
+    color: #666;
+  }
+
+  @bottom-left {
+    content: "Keystone Core Documentation";
+    font-size: 8pt;
+    color: #999;
+  }
+}
+
+/* First page of each section - no header */
+@page :first {
+  @top-center {
+    content: none;
+  }
+}
+
+/* Blank pages */
+@page :blank {
+  @top-center { content: none; }
+  @bottom-center { content: none; }
+  @bottom-left { content: none; }
+}
+
+/* ==========================================================================
+   Typography
+   ========================================================================== */
+
+body {
+  font-family: "Source Sans Pro", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 11pt;
+  line-height: 1.5;
+  color: #333;
+  orphans: 3;
+  widows: 3;
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+  font-family: "Source Sans Pro", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-weight: 600;
+  page-break-after: avoid;
+  break-after: avoid;
+  color: #1a1a1a;
+}
+
+h1 {
+  font-size: 24pt;
+  margin-top: 0;
+  margin-bottom: 20pt;
+  string-set: chapter-title content();
+  page-break-before: always;
+  break-before: page;
+  border-bottom: 2pt solid #2563eb;
+  padding-bottom: 10pt;
+}
+
+/* First h1 should not force page break */
+article > h1:first-child,
+.td-content > h1:first-child,
+main > h1:first-child {
+  page-break-before: avoid;
+  break-before: avoid;
+}
+
+h2 {
+  font-size: 18pt;
+  margin-top: 24pt;
+  margin-bottom: 12pt;
+  border-bottom: 1pt solid #e5e7eb;
+  padding-bottom: 6pt;
+  string-set: section-title content();
+}
+
+h3 {
+  font-size: 14pt;
+  margin-top: 18pt;
+  margin-bottom: 10pt;
+}
+
+h4 {
+  font-size: 12pt;
+  margin-top: 14pt;
+  margin-bottom: 8pt;
+}
+
+h5, h6 {
+  font-size: 11pt;
+  margin-top: 12pt;
+  margin-bottom: 6pt;
+}
+
+/* Paragraphs */
+p {
+  margin-bottom: 10pt;
+  text-align: justify;
+  hyphens: auto;
+}
+
+/* ==========================================================================
+   Links
+   ========================================================================== */
+
+a {
+  color: #2563eb;
+  text-decoration: none;
+}
+
+/* Show URLs for external links in print */
+a[href^="http"]:after {
+  content: " (" attr(href) ")";
+  font-size: 9pt;
+  color: #666;
+  word-break: break-all;
+}
+
+/* Don't show URL for anchor links */
+a[href^="#"]:after {
+  content: none;
+}
+
+/* Don't show URL for relative links */
+a[href^="/"]:after,
+a[href^="."]:after {
+  content: none;
+}
+
+/* ==========================================================================
+   Code Blocks
+   ========================================================================== */
+
+pre, code {
+  font-family: "Source Code Pro", "Fira Code", Consolas, Monaco, "Andale Mono", monospace;
+  font-size: 9pt;
+}
+
+code {
+  background-color: #f3f4f6;
+  padding: 2pt 4pt;
+  border-radius: 3pt;
+  color: #1f2937;
+}
+
+pre {
+  background-color: #1f2937;
+  color: #e5e7eb;
+  padding: 12pt;
+  border-radius: 6pt;
+  overflow-x: auto;
+  page-break-inside: avoid;
+  break-inside: avoid;
+  margin: 12pt 0;
+  border: 1pt solid #374151;
+}
+
+pre code {
+  background-color: transparent;
+  padding: 0;
+  color: inherit;
+  font-size: 9pt;
+  line-height: 1.4;
+}
+
+/* Syntax highlighting adjustments for print */
+.highlight pre {
+  background-color: #f8f9fa;
+  color: #1f2937;
+  border: 1pt solid #e5e7eb;
+}
+
+/* ==========================================================================
+   Tables
+   ========================================================================== */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12pt 0;
+  font-size: 10pt;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+thead {
+  display: table-header-group;
+}
+
+tr {
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+th, td {
+  border: 1pt solid #d1d5db;
+  padding: 8pt 10pt;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background-color: #f3f4f6;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+tr:nth-child(even) td {
+  background-color: #f9fafb;
+}
+
+/* ==========================================================================
+   Lists
+   ========================================================================== */
+
+ul, ol {
+  margin: 10pt 0;
+  padding-left: 20pt;
+}
+
+li {
+  margin-bottom: 4pt;
+}
+
+li > ul, li > ol {
+  margin-top: 4pt;
+  margin-bottom: 4pt;
+}
+
+/* Definition lists */
+dl {
+  margin: 10pt 0;
+}
+
+dt {
+  font-weight: 600;
+  margin-top: 10pt;
+}
+
+dd {
+  margin-left: 20pt;
+  margin-bottom: 6pt;
+}
+
+/* ==========================================================================
+   Blockquotes and Callouts
+   ========================================================================== */
+
+blockquote {
+  margin: 12pt 0;
+  padding: 10pt 15pt;
+  border-left: 4pt solid #2563eb;
+  background-color: #f0f7ff;
+  font-style: italic;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+/* Docsy alerts/callouts */
+.alert {
+  margin: 12pt 0;
+  padding: 12pt 15pt;
+  border-radius: 6pt;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.alert-primary, .alert-info {
+  background-color: #e0f2fe;
+  border-left: 4pt solid #0284c7;
+}
+
+.alert-warning {
+  background-color: #fef3c7;
+  border-left: 4pt solid #d97706;
+}
+
+.alert-danger {
+  background-color: #fee2e2;
+  border-left: 4pt solid #dc2626;
+}
+
+.alert-success {
+  background-color: #dcfce7;
+  border-left: 4pt solid #16a34a;
+}
+
+/* ==========================================================================
+   Images and Figures
+   ========================================================================== */
+
+img {
+  max-width: 100%;
+  height: auto;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+figure {
+  margin: 12pt 0;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+figcaption {
+  font-size: 9pt;
+  color: #666;
+  text-align: center;
+  margin-top: 6pt;
+  font-style: italic;
+}
+
+/* ==========================================================================
+   Table of Contents
+   ========================================================================== */
+
+.toc, nav#TableOfContents {
+  page-break-after: always;
+  break-after: page;
+}
+
+.toc h2, nav#TableOfContents::before {
+  content: "Table of Contents";
+  font-size: 24pt;
+  margin-bottom: 20pt;
+  border-bottom: 2pt solid #2563eb;
+  padding-bottom: 10pt;
+}
+
+.toc ul, nav#TableOfContents ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+.toc li, nav#TableOfContents li {
+  margin-bottom: 6pt;
+}
+
+.toc a, nav#TableOfContents a {
+  text-decoration: none;
+  color: #1a1a1a;
+}
+
+.toc a::after, nav#TableOfContents a::after {
+  content: leader('.') target-counter(attr(href), page);
+  font-size: 10pt;
+}
+
+/* Nested TOC levels */
+.toc ul ul, nav#TableOfContents ul ul {
+  padding-left: 20pt;
+  margin-top: 4pt;
+}
+
+.toc ul ul a, nav#TableOfContents ul ul a {
+  font-size: 10pt;
+}
+
+/* ==========================================================================
+   Cover Page
+   ========================================================================== */
+
+.cover-page {
+  page: cover;
+  page-break-after: always;
+  break-after: page;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  text-align: center;
+}
+
+@page cover {
+  margin: 0;
+  @top-center { content: none; }
+  @bottom-center { content: none; }
+  @bottom-left { content: none; }
+}
+
+.cover-page h1 {
+  font-size: 36pt;
+  border: none;
+  page-break-before: avoid;
+  break-before: avoid;
+  color: #2563eb;
+  margin-bottom: 10pt;
+}
+
+.cover-page .subtitle {
+  font-size: 18pt;
+  color: #666;
+  margin-bottom: 40pt;
+}
+
+.cover-page .version {
+  font-size: 12pt;
+  color: #999;
+}
+
+.cover-page .date {
+  font-size: 11pt;
+  color: #999;
+  margin-top: 10pt;
+}
+
+/* ==========================================================================
+   Page Breaks
+   ========================================================================== */
+
+.page-break-before {
+  page-break-before: always;
+  break-before: page;
+}
+
+.page-break-after {
+  page-break-after: always;
+  break-after: page;
+}
+
+.no-break {
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+/* ==========================================================================
+   Hide Elements for Print
+   ========================================================================== */
+
+/* Hide navigation elements */
+nav.td-navbar,
+.td-sidebar,
+.td-sidebar-nav,
+.td-toc,
+.td-page-meta,
+.td-breadcrumbs,
+footer,
+.edit-page-block,
+.feedback-block,
+.page-meta-links,
+.alert-note-title,
+.btn,
+button,
+.search-form,
+#search,
+.navbar,
+.sidebar,
+.toc-sidebar,
+.nav-tabs,
+.tab-content .nav,
+[role="navigation"],
+.feedback,
+.page-meta,
+.reading-time {
+  display: none !important;
+}
+
+/* Hide interactive elements */
+.copy-code-button,
+.expand-button,
+.collapse-button,
+details summary {
+  display: none !important;
+}
+
+/* Show details content without toggle */
+details {
+  display: block !important;
+}
+
+details > *:not(summary) {
+  display: block !important;
+}
+
+/* ==========================================================================
+   Layout Adjustments
+   ========================================================================== */
+
+/* Full width content */
+.td-main main,
+.td-content,
+article,
+.container,
+.container-fluid {
+  max-width: 100% !important;
+  width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Remove grid layout for print */
+.row {
+  display: block !important;
+}
+
+.col, [class*="col-"] {
+  width: 100% !important;
+  max-width: 100% !important;
+  flex: none !important;
+  padding: 0 !important;
+}
+
+/* ==========================================================================
+   Mermaid Diagrams
+   ========================================================================== */
+
+.mermaid {
+  page-break-inside: avoid;
+  break-inside: avoid;
+  margin: 12pt 0;
+  text-align: center;
+}
+
+.mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ==========================================================================
+   Utility Classes
+   ========================================================================== */
+
+.print-only {
+  display: block !important;
+}
+
+.screen-only {
+  display: none !important;
+}
+
+/* Chapter markers */
+.chapter-start {
+  page-break-before: always;
+  break-before: page;
+}
+
+/* Keep together */
+.keep-together {
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+/* Footnotes */
+.footnote {
+  font-size: 9pt;
+  color: #666;
+}
+
+.footnote-ref {
+  font-size: 8pt;
+  vertical-align: super;
+}

@@ -37,8 +37,11 @@ help:
 	@echo "Documentation targets (output: build/docs/ and build/pdfs/):"
 	@echo "  docs               - Build Hugo documentation site → build/docs/"
 	@echo "  docs-serve         - Build and serve docs locally with live reload"
-	@echo "  docs-pdf           - Generate PDF documentation → build/pdfs/"
+	@echo "  docs-pdf           - Generate PDF documentation (Playwright + print CSS)"
+	@echo "  docs-pdf-simple    - Generate PDFs (fast, minimal formatting)"
+	@echo "  docs-pdf-book      - Generate book-quality PDFs (requires Pandoc+LaTeX)"
 	@echo "  docs-all           - Build site and generate PDFs"
+	@echo "  docs-all-book      - Build site and generate book-quality PDFs"
 	@echo ""
 	@echo "E2E testing targets (requires Docker/Podman):"
 	@echo "  e2e-build          - Build container images for E2E testing"
@@ -196,7 +199,7 @@ docs-serve:
 	@cd docs && hugo server
 
 docs-pdf:
-	@echo "Generating PDF documentation..."
+	@echo "Generating PDF documentation (Paged.js + Playwright)..."
 	@if [ ! -d "docs/node_modules" ]; then \
 		echo "Installing npm dependencies..."; \
 		cd docs && npm install; \
@@ -207,8 +210,28 @@ docs-pdf:
 	fi
 	@cd docs && npm run generate-pdfs
 
+docs-pdf-simple:
+	@echo "Generating PDF documentation (simple mode, no Paged.js)..."
+	@if [ ! -d "docs/node_modules" ]; then \
+		echo "Installing npm dependencies..."; \
+		cd docs && npm install; \
+	fi
+	@if [ ! -d "$$HOME/.cache/ms-playwright/chromium-"* ] 2>/dev/null; then \
+		echo "Installing Playwright browsers..."; \
+		cd docs && npm run install-browsers; \
+	fi
+	@cd docs && node generate-pdfs.js --simple
+
+docs-pdf-book:
+	@echo "Generating book-quality PDFs (Pandoc + LaTeX)..."
+	@echo "Note: Requires pandoc and LaTeX. See docs/generate-pdfs-book.sh for setup."
+	@cd docs && ./generate-pdfs-book.sh
+
 docs-all: docs docs-pdf
 	@echo "Documentation site and PDFs complete"
+
+docs-all-book: docs docs-pdf-book
+	@echo "Documentation site and book-quality PDFs complete"
 
 # Linting
 lint:
