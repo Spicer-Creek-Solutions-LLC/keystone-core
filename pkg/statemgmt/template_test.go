@@ -69,7 +69,7 @@ func TestTemplateRenderer_CustomFunctions(t *testing.T) {
 	}{
 		{"upper", "{{.vars.name | upper}}", "KEYSTONECORE"},
 		{"lower", "{{.vars.name | lower}}", "keystonecore"},
-		{"title", "{{.vars.name | title}}", "Keystone Core"},
+		{"title", "{{.vars.name | title}}", "KeystoneCore"},
 	}
 
 	for _, tt := range tests {

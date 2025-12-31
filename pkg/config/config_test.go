@@ -41,7 +41,7 @@ func TestLoadConfig_Defaults(t *testing.T) {
 
 func TestLoadConfig_FromFile(t *testing.T) {
 	// Create a temporary config file
-	tmpFile, err := os.CreateTemp("", "titan-config-*.yaml")
+	tmpFile, err := os.CreateTemp("", "kscore-config-*.yaml")
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}

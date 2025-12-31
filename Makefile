@@ -1,6 +1,7 @@
 .PHONY: help proto build test clean deps build-all-platforms docs docs-serve docs-pdf docs-all \
        release release-snapshot release-dry-run lint \
-       e2e-build e2e-test e2e-up e2e-down e2e-logs e2e-clean e2e-full e2e-perf e2e-scenarios
+       e2e-build e2e-test e2e-up e2e-down e2e-logs e2e-clean e2e-full e2e-perf e2e-scenarios \
+       e2e-ha e2e-ha-up e2e-ha-down e2e-ha-logs
 
 # Version information
 VERSION ?= dev
@@ -49,6 +50,12 @@ help:
 	@echo "  e2e-down           - Stop E2E test environment"
 	@echo "  e2e-logs           - Show logs from E2E containers"
 	@echo "  e2e-clean          - Remove E2E containers and images"
+	@echo ""
+	@echo "HA Cluster E2E testing targets:"
+	@echo "  e2e-ha             - Run HA cluster E2E tests (3 servers + 5 agents)"
+	@echo "  e2e-ha-up          - Start HA cluster test environment"
+	@echo "  e2e-ha-down        - Stop HA cluster test environment"
+	@echo "  e2e-ha-logs        - Show logs from HA cluster containers"
 	@echo ""
 
 deps:
@@ -290,3 +297,36 @@ e2e-scenarios: e2e-build
 	KSCORE_E2E_TESTS=1 KSCORE_SKIP_BUILD=1 KSCORE_ROOT=$(shell pwd) go test -v -timeout 20m ./test/e2e/scenarios/...
 	@echo "Scenario tests complete"
 	$(E2E_COMPOSE) down -v --remove-orphans
+
+# HA Cluster E2E Testing targets
+HA_COMPOSE := docker compose -f test/e2e/topologies/ha-cluster/docker-compose.yml -p kscore-e2e-ha
+
+e2e-ha-up:
+	@echo "Starting HA cluster E2E test environment..."
+	@echo "Building container images..."
+	$(HA_COMPOSE) build
+	@echo "Starting HA cluster (3 servers + NATS cluster + etcd + PostgreSQL + 5 agents)..."
+	$(HA_COMPOSE) up -d --wait
+	@echo ""
+	@echo "HA Cluster environment is running:"
+	@echo "  Server 1 gRPC: localhost:8080   HTTP: localhost:8081"
+	@echo "  Server 2 gRPC: localhost:8082   HTTP: localhost:8083"
+	@echo "  Server 3 gRPC: localhost:8084   HTTP: localhost:8085"
+	@echo ""
+	@echo "Run 'make e2e-ha-logs' to see container logs"
+
+e2e-ha-down:
+	@echo "Stopping HA cluster E2E test environment..."
+	$(HA_COMPOSE) down -v --remove-orphans
+	@echo "HA cluster environment stopped"
+
+e2e-ha-logs:
+	$(HA_COMPOSE) logs -f
+
+e2e-ha: e2e-build
+	@echo "Running HA cluster E2E tests..."
+	@echo "Building HA cluster images..."
+	$(HA_COMPOSE) build
+	KSCORE_E2E_TESTS=1 KSCORE_TOPOLOGY=ha-cluster KSCORE_SKIP_BUILD=1 KSCORE_ROOT=$(shell pwd) go test -v -timeout 30m ./test/e2e/topology/...
+	@echo "HA cluster E2E tests complete"
+	$(HA_COMPOSE) down -v --remove-orphans

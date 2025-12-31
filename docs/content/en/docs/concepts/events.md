@@ -642,7 +642,7 @@ Check:
 curl http://control-plane:8080/metrics | grep events_published
 
 # Check NATS JetStream
-nats stream info TITAN_EVENTS
+nats stream info KSCORE_EVENTS
 
 # Check subscriber status
 kscorectl event subscribers

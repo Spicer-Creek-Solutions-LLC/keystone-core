@@ -164,7 +164,7 @@ func TestHTTPReceiver_HandleEvent_WithSignature(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/events", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Keystone Core-Signature", signature)
+	req.Header.Set("X-Keystone-Core-Signature", signature)
 
 	w := httptest.NewRecorder()
 	receiver.handleEvent(w, req)
@@ -191,7 +191,7 @@ func TestHTTPReceiver_HandleEvent_InvalidSignature(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/events", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Keystone Core-Signature", "invalid-signature")
+	req.Header.Set("X-Keystone-Core-Signature", "invalid-signature")
 
 	w := httptest.NewRecorder()
 	receiver.handleEvent(w, req)
@@ -413,7 +413,7 @@ func TestHTTPSender_Send_WithSignature(t *testing.T) {
 		body := make([]byte, 0)
 		r.Body.Read(body)
 
-		signature := r.Header.Get("X-Keystone Core-Signature")
+		signature := r.Header.Get("X-Keystone-Core-Signature")
 		if signature != "" {
 			signatureValid = true
 		}

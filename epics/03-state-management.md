@@ -71,7 +71,7 @@ packages:
 files:
   /etc/nginx/nginx.conf:
     state: present
-    source: titan://nginx/nginx.conf
+    source: kscore://nginx/nginx.conf
     user: root
     group: root
     mode: "0644"
@@ -133,7 +133,7 @@ Result: Reloaded (watched file changed)
 files:
   /app/config.yml:
     state: present
-    source: titan://app/config.yml
+    source: kscore://app/config.yml
 
 services:
   app:

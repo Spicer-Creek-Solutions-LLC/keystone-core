@@ -189,9 +189,9 @@ flux:
 # config/git-sync.yaml
 git_repositories:
   - name: infrastructure-states
-    url: git@github.com:myorg/titan-states.git
+    url: git@github.com:myorg/kscore-states.git
     branch: main
-    path: /etc/titan/states
+    path: /etc/kscore/states
     sync_interval: 5m
     paths:
       states: states/
@@ -199,9 +199,9 @@ git_repositories:
       reactors: reactors/
 
   - name: production-config
-    url: git@github.com:myorg/titan-prod.git
+    url: git@github.com:myorg/kscore-prod.git
     branch: production
-    path: /etc/titan/production
+    path: /etc/kscore/production
     sync_interval: 1m
 ```
 

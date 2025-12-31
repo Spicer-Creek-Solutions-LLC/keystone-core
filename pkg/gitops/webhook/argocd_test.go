@@ -85,18 +85,18 @@ func TestArgoCDHandler(t *testing.T) {
 		t.Errorf("event.Data[sync_status] = %v, want %v", event.Data["sync_status"], "Synced")
 	}
 
-	// Test conversion to TitanEvent
-	titanEvent := event.ToTitanEvent()
-	if titanEvent == nil {
-		t.Fatal("ToTitanEvent() returned nil")
+	// Test conversion to KscoreEvent
+	kscoreEvent := event.ToKscoreEvent()
+	if kscoreEvent == nil {
+		t.Fatal("ToKscoreEvent() returned nil")
 	}
 
-	if titanEvent.Type != "gitops.argocd.sync" {
-		t.Errorf("titanEvent.Type = %v, want %v", titanEvent.Type, "gitops.argocd.sync")
+	if kscoreEvent.Type != "gitops.argocd.sync" {
+		t.Errorf("kscoreEvent.Type = %v, want %v", kscoreEvent.Type, "gitops.argocd.sync")
 	}
 
-	if titanEvent.Source != "webhook/argocd" {
-		t.Errorf("titanEvent.Source = %v, want %v", titanEvent.Source, "webhook/argocd")
+	if kscoreEvent.Source != "webhook/argocd" {
+		t.Errorf("kscoreEvent.Source = %v, want %v", kscoreEvent.Source, "webhook/argocd")
 	}
 }
 

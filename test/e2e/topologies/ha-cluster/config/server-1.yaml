@@ -17,14 +17,9 @@ nats:
 
 # Storage configuration - PostgreSQL
 storage:
-  backend: postgres
-  postgres:
-    host: postgres
-    port: 5432
-    user: kscore
-    password: kscore_e2e_password
-    database: kscore
-    sslmode: disable
+  backend: postgresql
+  postgresql:
+    dsn: "postgres://kscore:kscore_e2e_password@postgres:5432/kscore?sslmode=disable"
     maxopenconns: 20
     maxidleconns: 10
     connmaxlifetime: 1h

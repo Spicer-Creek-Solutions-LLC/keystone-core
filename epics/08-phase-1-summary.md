@@ -60,7 +60,7 @@ Custom Resource Definitions for Keystone Core operators:
 
 **RemoteExecution CRD:**
 ```yaml
-apiVersion: titan.io/v1
+apiVersion: keystonecore.io/v1
 kind: RemoteExecution
 spec:
   target:
@@ -77,7 +77,7 @@ status:
 
 **StateConfig CRD:**
 ```yaml
-apiVersion: titan.io/v1
+apiVersion: keystonecore.io/v1
 kind: StateConfig
 spec:
   target:

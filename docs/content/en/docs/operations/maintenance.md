@@ -29,7 +29,7 @@ Keystone Core state should be backed up regularly to prevent data loss.
    - Job execution history
 
 2. **Configuration Files**
-   - `/etc/titan anvil/server.yaml`
+   - `/etc/kscore/server.yaml`
    - `/etc/kscore/agent.yaml`
    - Reactor definitions
    - Policy files

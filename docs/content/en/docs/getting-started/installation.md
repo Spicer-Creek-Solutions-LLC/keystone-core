@@ -423,7 +423,7 @@ nc -zv control-plane.example.com 4222
 ```bash
 # Ensure binaries are in PATH
 echo $PATH
-ls -la /usr/local/bin/titan*
+ls -la /usr/local/bin/kscore*
 
 # Add to PATH if needed
 export PATH="/usr/local/bin:$PATH"

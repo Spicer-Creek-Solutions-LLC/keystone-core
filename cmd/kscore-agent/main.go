@@ -104,7 +104,7 @@ func runAgent(cmd *cobra.Command, args []string) {
 
 	// Create agent
 	fmt.Println("Creating agent instance...")
-	titanAgent, err := agent.NewAgent(
+	agnt, err := agent.NewAgent(
 		cfg.Agent.ID,
 		natsManager,
 		cfg.Agent.HeartbeatInterval,
@@ -117,13 +117,13 @@ func runAgent(cmd *cobra.Command, args []string) {
 	}
 
 	// Start agent services (registration, heartbeat, command subscription)
-	if err := titanAgent.Start(); err != nil {
+	if err := agnt.Start(); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to start agent: %v\n", err)
 		os.Exit(1)
 	}
-	defer titanAgent.Stop()
+	defer agnt.Stop()
 
-	fmt.Printf("Agent %s is running\n", titanAgent.ID())
+	fmt.Printf("Agent %s is running\n", agnt.ID())
 	fmt.Printf("  Heartbeat Interval: %s\n", cfg.Agent.HeartbeatInterval)
 	fmt.Println("Waiting for commands...")
 
@@ -138,7 +138,7 @@ func runAgent(cmd *cobra.Command, args []string) {
 
 	// Graceful shutdown
 	fmt.Println("Stopping agent...")
-	if err := titanAgent.Stop(); err != nil {
+	if err := agnt.Stop(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error stopping agent: %v\n", err)
 	}
 

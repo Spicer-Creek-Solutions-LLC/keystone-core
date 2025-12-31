@@ -106,6 +106,17 @@ type AgentMetadata struct {
 4. Agent sends heartbeat every 30 seconds
 5. If no heartbeat for 90 seconds, mark agent offline
 
+**HA Cluster Agent Handoff**:
+
+In high-availability deployments with multiple control plane servers, agents may register with one server but send heartbeats to another (due to load balancing or failover). The Connection Manager handles this seamlessly:
+
+1. On startup, each control plane loads all known agents from the shared database
+2. When a heartbeat arrives from an "unknown" agent, the server checks the database
+3. If the agent exists in the database, it's loaded into memory and heartbeat processing continues
+4. This enables seamless agent handoff between control plane servers without re-registration
+
+This design ensures agents don't need to re-register when connecting to a different control plane server, providing true high-availability with zero agent disruption during failover.
+
 #### 3. Command Dispatcher
 
 Routes command execution requests to targeted agents.

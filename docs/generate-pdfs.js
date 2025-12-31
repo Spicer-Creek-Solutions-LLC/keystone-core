@@ -167,12 +167,12 @@ async function main() {
   try {
     // Generate section PDFs
     for (const section of SECTIONS) {
-      const outputFile = path.join(OUTPUT_DIR, `titananvil-${section.name}.pdf`);
+      const outputFile = path.join(OUTPUT_DIR, `keystone-core-${section.name}.pdf`);
       await generatePDF(browser, section, outputFile);
     }
 
     // Generate complete documentation PDF
-    const completeOutputFile = path.join(OUTPUT_DIR, 'titananvil-complete.pdf');
+    const completeOutputFile = path.join(OUTPUT_DIR, 'keystone-core-complete.pdf');
     await generateCompletePDF(browser, completeOutputFile);
 
   } finally {

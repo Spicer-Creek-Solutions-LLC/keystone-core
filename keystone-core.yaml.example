@@ -51,13 +51,13 @@ storage:
 
   # SQLite settings
   sqlite:
-    path: "./data/titan-anvil.db"
+    path: "./data/kscore.db"
     wal: true
     busytimeout: 5000  # milliseconds
 
   # PostgreSQL settings (for production)
   # postgresql:
-  #   dsn: "postgres://user:password@localhost:5432/titananvil?sslmode=disable"
+  #   dsn: "postgres://user:password@localhost:5432/kscore?sslmode=disable"
   #   maxopenconns: 25
   #   maxidleconns: 5
   #   connmaxlifetime: 5m

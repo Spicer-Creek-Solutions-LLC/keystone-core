@@ -63,7 +63,8 @@ services:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8222/healthz"]
       interval: 5s
       timeout: 3s
-      retries: 10
+      retries: 20
+      start_period: 30s
 
   nats-2:
     image: nats:2.10-alpine
@@ -86,7 +87,8 @@ services:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8222/healthz"]
       interval: 5s
       timeout: 3s
-      retries: 10
+      retries: 20
+      start_period: 30s
 
   nats-3:
     image: nats:2.10-alpine
@@ -109,7 +111,8 @@ services:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8222/healthz"]
       interval: 5s
       timeout: 3s
-      retries: 10
+      retries: 20
+      start_period: 30s
 
   # ==========================================================================
   # etcd Cluster (3 nodes) for leader election

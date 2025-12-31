@@ -879,7 +879,7 @@ import { Keystone CoreClient } from '@kscore/client';
 
 const client = new Keystone CoreClient({
   baseURL: 'http://control-plane:8080',
-  apiKey: process.env.TITAN_API_KEY
+  apiKey: process.env.KSCORE_API_KEY
 });
 
 const agents = await client.agents.list({

@@ -81,7 +81,7 @@ func NewRuntime(cfg Config) *Runtime {
 
 	// Create thread with limits
 	rt.thread = &starlark.Thread{
-		Name: "titan-module",
+		Name: "kscore-module",
 	}
 
 	// Set max steps if configured
@@ -195,7 +195,7 @@ func (rt *Runtime) Reset() {
 
 	// Create a new thread
 	rt.thread = &starlark.Thread{
-		Name: "titan-module",
+		Name: "kscore-module",
 	}
 
 	if rt.limits.MaxSteps > 0 {

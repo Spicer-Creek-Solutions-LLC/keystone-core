@@ -27,6 +27,33 @@ type AgentInfo struct {
 	HeartbeatMissed int
 }
 
+// AgentStore is an interface for persisting agent state
+type AgentStore interface {
+	// ListAgents returns all agents from the database
+	ListAgents(ctx context.Context, filter *AgentFilter) ([]StoredAgent, error)
+	// GetAgent returns an agent by ID
+	GetAgent(ctx context.Context, agentID string) (*StoredAgent, error)
+}
+
+// AgentFilter is used to filter agents when listing
+type AgentFilter struct {
+	// Status filters by agent status (empty means all)
+	Status string
+}
+
+// StoredAgent represents an agent stored in the database
+type StoredAgent struct {
+	ID           string
+	Hostname     string
+	OS           string
+	Arch         string
+	Status       string
+	Labels       map[string]string
+	IPAddresses  []string
+	RegisteredAt time.Time
+	LastSeen     time.Time
+}
+
 // ConnectionManager manages agent connections and state
 type ConnectionManager struct {
 	nats   *natsmgr.Manager
@@ -43,6 +70,9 @@ type ConnectionManager struct {
 
 	// Event publishing
 	eventPublisher events.EventPublisher
+
+	// State store for agent persistence (optional, for HA clusters)
+	stateStore AgentStore
 }
 
 // NewConnectionManager creates a new connection manager
@@ -59,9 +89,25 @@ func NewConnectionManager(natsManager *natsmgr.Manager) *ConnectionManager {
 	}
 }
 
+// SetStateStore sets the state store for loading agents from the database
+// This is optional but recommended for HA clusters
+func (cm *ConnectionManager) SetStateStore(store AgentStore) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	cm.stateStore = store
+}
+
 // Start starts the connection manager
 func (cm *ConnectionManager) Start() error {
 	fmt.Println("Starting connection manager...")
+
+	// Load agents from database if state store is configured (for HA clusters)
+	if cm.stateStore != nil {
+		if err := cm.loadAgentsFromStore(); err != nil {
+			fmt.Printf("Warning: failed to load agents from database: %v\n", err)
+			// Continue anyway - agents will register as they come online
+		}
+	}
 
 	// Subscribe to agent registration requests
 	if err := cm.subscribeToRegistrations(); err != nil {
@@ -78,6 +124,94 @@ func (cm *ConnectionManager) Start() error {
 	go cm.monitorAgents()
 
 	fmt.Println("Connection manager started")
+	return nil
+}
+
+// loadAgentsFromStore loads agents from the database into memory
+func (cm *ConnectionManager) loadAgentsFromStore() error {
+	ctx, cancel := context.WithTimeout(cm.ctx, 30*time.Second)
+	defer cancel()
+
+	agents, err := cm.stateStore.ListAgents(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to list agents: %w", err)
+	}
+
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	loaded := 0
+	for _, sa := range agents {
+		// Skip if already in memory (shouldn't happen on startup, but be safe)
+		if _, exists := cm.agents[sa.ID]; exists {
+			continue
+		}
+
+		// Convert stored agent to AgentInfo
+		info := &AgentInfo{
+			ID:           sa.ID,
+			RegisteredAt: sa.RegisteredAt,
+			LastHeartbeat: sa.LastSeen,
+			Status:       pb.AgentStatus_AGENT_STATUS_UNSPECIFIED, // Will be updated on first heartbeat
+			Metadata: &pb.AgentMetadata{
+				Hostname:    sa.Hostname,
+				Os:          sa.OS,
+				Arch:        sa.Arch,
+				Labels:      sa.Labels,
+				IpAddresses: sa.IPAddresses,
+			},
+		}
+
+		cm.agents[sa.ID] = info
+		loaded++
+	}
+
+	if loaded > 0 {
+		fmt.Printf("Loaded %d agents from database\n", loaded)
+	}
+
+	return nil
+}
+
+// tryLoadAgentFromStore attempts to load a single agent from the database
+func (cm *ConnectionManager) tryLoadAgentFromStore(agentID string) error {
+	if cm.stateStore == nil {
+		return fmt.Errorf("no state store configured")
+	}
+
+	ctx, cancel := context.WithTimeout(cm.ctx, 5*time.Second)
+	defer cancel()
+
+	sa, err := cm.stateStore.GetAgent(ctx, agentID)
+	if err != nil {
+		return err
+	}
+
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	// Double-check it wasn't added while we were looking it up
+	if _, exists := cm.agents[agentID]; exists {
+		return nil
+	}
+
+	// Convert stored agent to AgentInfo
+	info := &AgentInfo{
+		ID:            sa.ID,
+		RegisteredAt:  sa.RegisteredAt,
+		LastHeartbeat: sa.LastSeen,
+		Status:        pb.AgentStatus_AGENT_STATUS_ONLINE, // They're sending heartbeats, so they're online
+		Metadata: &pb.AgentMetadata{
+			Hostname:    sa.Hostname,
+			Os:          sa.OS,
+			Arch:        sa.Arch,
+			Labels:      sa.Labels,
+			IpAddresses: sa.IPAddresses,
+		},
+	}
+
+	cm.agents[agentID] = info
+	fmt.Printf("Loaded agent %s from database (responding to heartbeat)\n", agentID)
 	return nil
 }
 
@@ -238,10 +372,31 @@ func (cm *ConnectionManager) handleHeartbeat(msg *nats.Msg) {
 	cm.mu.Lock()
 	info, exists := cm.agents[req.AgentId]
 	if !exists {
-		cm.mu.Unlock()
-		fmt.Printf("Heartbeat from unknown agent: %s\n", req.AgentId)
-		tracing.AddEvent(span, "unknown_agent")
-		return
+		// Try to find agent in database (for HA clusters where agent registered with another server)
+		if cm.stateStore != nil {
+			cm.mu.Unlock()
+			if err := cm.tryLoadAgentFromStore(req.AgentId); err == nil {
+				// Agent loaded from database, try again
+				cm.mu.Lock()
+				info, exists = cm.agents[req.AgentId]
+				if !exists {
+					cm.mu.Unlock()
+					fmt.Printf("Heartbeat from unknown agent (not in DB): %s\n", req.AgentId)
+					tracing.AddEvent(span, "unknown_agent")
+					return
+				}
+				// Fall through to update heartbeat
+			} else {
+				fmt.Printf("Heartbeat from unknown agent: %s\n", req.AgentId)
+				tracing.AddEvent(span, "unknown_agent")
+				return
+			}
+		} else {
+			cm.mu.Unlock()
+			fmt.Printf("Heartbeat from unknown agent: %s\n", req.AgentId)
+			tracing.AddEvent(span, "unknown_agent")
+			return
+		}
 	}
 
 	// Update agent info

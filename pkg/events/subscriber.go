@@ -103,7 +103,7 @@ func (s *JetStreamSubscriber) subscribe(subject string, queue string, handler Ev
 	if queue != "" {
 		// Queue subscription with durable consumer
 		// Use queue name as durable name so all queue members share the same consumer
-		durableName := fmt.Sprintf("titan-events-queue-%s", queue)
+		durableName := fmt.Sprintf("kscore-events-queue-%s", queue)
 		natsSub, err = s.js.QueueSubscribe(
 			fullSubject,
 			queue,
@@ -117,7 +117,7 @@ func (s *JetStreamSubscriber) subscribe(subject string, queue string, handler Ev
 	} else {
 		// Regular subscription with durable consumer
 		// Use unique durable name for each subscriber
-		durableName := fmt.Sprintf("titan-events-%s", subID[:8])
+		durableName := fmt.Sprintf("kscore-events-%s", subID[:8])
 		natsSub, err = s.js.Subscribe(
 			fullSubject,
 			msgHandler,

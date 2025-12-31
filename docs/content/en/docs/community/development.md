@@ -270,6 +270,136 @@ go test -bench=BenchmarkStateApply ./pkg/statemgmt/
 go test -bench=. -benchmem ./pkg/events/
 ```
 
+### E2E Tests
+
+E2E tests validate complete system behavior using containerized environments. They require Docker or Podman.
+
+**Prerequisites:**
+```bash
+# Docker must be running
+docker ps
+
+# Or Podman
+podman machine start
+```
+
+**Quick E2E Tests:**
+```bash
+# Run topology tests (all-in-one environment)
+make e2e-test
+
+# This will:
+# 1. Build container images
+# 2. Start control plane + 3 agents
+# 3. Run topology tests
+# 4. Clean up containers
+```
+
+**Full E2E Suite:**
+```bash
+# Run ALL E2E tests (30+ minutes)
+make e2e-full
+
+# Run scenario tests only (feature tests)
+make e2e-scenarios
+
+# Run performance tests
+make e2e-perf
+```
+
+**HA Cluster Tests:**
+```bash
+# Run HA cluster topology tests (3 control planes + 5 agents)
+make e2e-ha
+
+# This deploys:
+# - 3 control plane servers
+# - 3-node NATS cluster
+# - 3-node etcd cluster
+# - PostgreSQL database
+# - 5 agents
+```
+
+**Manual E2E Environment:**
+```bash
+# Start E2E environment without running tests
+make e2e-up
+
+# The environment is now running:
+# Server gRPC: localhost:8080
+# Server HTTP: localhost:8081
+
+# View logs
+make e2e-logs
+
+# Run tests manually
+KSCORE_E2E_TESTS=1 KSCORE_ROOT=$(pwd) go test -v ./test/e2e/topology/...
+
+# Stop environment
+make e2e-down
+```
+
+**Environment Variables:**
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `KSCORE_E2E_TESTS` | - | Set to `1` to enable E2E tests |
+| `KSCORE_PERF_TESTS` | - | Set to `1` to enable performance tests |
+| `KSCORE_TOPOLOGY` | `all-in-one` | Set to `ha-cluster` for HA tests |
+| `KSCORE_SKIP_BUILD` | `0` | Set to `1` to skip image builds |
+| `KSCORE_ROOT` | - | Path to repository root |
+
+**Test Organization:**
+```
+test/e2e/
+├── harness/           # Test environment management
+│   ├── harness.go     # All-in-one environment
+│   ├── ha_harness.go  # HA cluster environment
+│   └── assertions.go  # Test helper functions
+├── containers/        # All-in-one docker-compose
+├── topologies/        # HA cluster configurations
+│   └── ha-cluster/
+│       ├── docker-compose.yml
+│       └── config/    # Server configs
+├── topology/          # Topology tests
+│   ├── allinone_test.go
+│   └── hacluster_test.go
+├── scenarios/         # Feature scenario tests
+│   ├── agent_lifecycle_test.go
+│   ├── remote_exec_test.go
+│   ├── state_management_test.go
+│   ├── event_system_test.go
+│   ├── policy_enforcement_test.go
+│   └── gitops_webhook_test.go
+└── performance/       # Performance tests
+    ├── scale_test.go
+    └── throughput_test.go
+```
+
+**Writing E2E Tests:**
+```go
+func TestMyFeature(t *testing.T) {
+    // Skip if E2E tests not enabled
+    if os.Getenv("KSCORE_E2E_TESTS") != "1" {
+        t.Skip("E2E tests not enabled")
+    }
+
+    ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+    defer cancel()
+
+    // Use the test environment (set up by TestMain)
+    client := testEnv.Client()
+
+    // Wait for agents to be ready
+    err := testEnv.WaitForAgents(ctx, 3, 30*time.Second)
+    require.NoError(t, err)
+
+    // Execute test
+    result, err := testEnv.ExecuteCommandAndWait(ctx, "agent-1", "hostname")
+    require.NoError(t, err)
+    assert.Equal(t, int32(0), result.ExitCode)
+}
+```
+
 ## Linting and Formatting
 
 ### Code Formatting

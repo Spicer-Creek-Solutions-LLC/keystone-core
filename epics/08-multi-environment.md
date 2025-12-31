@@ -67,10 +67,10 @@ Implement comprehensive support for managing diverse infrastructure environments
 **Kubernetes Operator Mode**:
 ```yaml
 # Deploy as operator
-kubectl apply -f https://titan.io/operator.yaml
+kubectl apply -f https://keystonecore.io/operator.yaml
 
 # CRD for remote execution
-apiVersion: titan.io/v1
+apiVersion: keystonecore.io/v1
 kind: RemoteExecution
 metadata:
   name: restart-pods
@@ -83,7 +83,7 @@ spec:
   schedule: "0 2 * * *"  # Daily at 2am
 
 # CRD for state management
-apiVersion: titan.io/v1
+apiVersion: keystonecore.io/v1
 kind: StateConfig
 metadata:
   name: web-app-config
@@ -266,7 +266,7 @@ agent:
   # Local NATS for offline operation
   nats:
     mode: local
-    storage: /var/lib/titan/nats
+    storage: /var/lib/kscore/nats
     sync_interval: 5m  # Sync when connected
 
   # Retry and buffering

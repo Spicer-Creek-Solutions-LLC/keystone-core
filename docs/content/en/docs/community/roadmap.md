@@ -16,17 +16,21 @@ Keystone Core aims to be the operational layer between GitOps/IaC deployments an
 ## Roadmap Overview
 
 ```
-COMPLETED                    IN PROGRESS              PLANNED
+COMPLETED                          REMAINING WORK
 ─────────────────────────────────────────────────────────────────
-Epic 1: Core Infrastructure  Epic 10: Documentation   Epic 11: Clustering
-Epic 2: Remote Execution     (Phases 1-6 complete)    (HA with etcd)
-Epic 3: State Management
-Epic 4: Event System
+Epic 1: Core Infrastructure        Epic 12: E2E Testing
+Epic 2: Remote Execution             - CI/CD Integration
+Epic 3: State Management             - Network partition tests
+Epic 4: Event System                 - Multi-platform validation
 Epic 5: GitOps Integration
-Epic 6: Policy Enforcement
-Epic 7: Observability
-Epic 8: Multi-Environment
-Epic 9: Plugin System
+Epic 6: Policy Enforcement         Future Considerations:
+Epic 7: Observability                - Multi-Tenancy
+Epic 8: Multi-Environment            - Web UI Dashboard
+Epic 9: Plugin System                - ServiceNow Integration
+Epic 10: Documentation
+Epic 11: HA Clustering
+Epic 12: E2E Testing (core)
+Epic 13: CGO Removal
 ```
 
 ## Completed Milestones
@@ -219,53 +223,117 @@ Extensible module system:
 
 ---
 
-## Current Work
+### Epic 10: Documentation ✅
 
-### Epic 10: Documentation 🚧
-
-**Status**: In Progress (Phases 1-6 of 7 complete)
+**Status**: Complete | **Coverage**: 45 pages
 
 Comprehensive Hugo + Docsy documentation:
 
-**Completed**:
-- ✅ Phase 1: Infrastructure (Hugo + Docsy setup)
-- ✅ Phase 2: Getting Started (4 pages)
-- ✅ Phase 3: Core Concepts (10 pages)
-- ✅ Phase 4: Reference Documentation (6 pages)
-- ✅ Phase 5: Operations Guide (6 pages)
-- ✅ Phase 6: Community Documentation (4 pages)
+- **Phase 1**: Infrastructure (Hugo + Docsy setup)
+- **Phase 2**: Getting Started (4 pages)
+- **Phase 3**: Core Concepts (10 pages)
+- **Phase 4**: Reference Documentation (6 pages)
+- **Phase 5**: Operations Guide (6 pages)
+- **Phase 6**: Community Documentation (4 pages)
+- **Phase 7**: Blog & Release Notes (5 pages)
 
-**Remaining**:
-- 🔲 Phase 7: Blog & Release Notes
-
-**Progress**: ~32 documentation pages complete
-
----
-
-## Planned Development
-
-### Epic 11: High Availability Clustering
-
-**Status**: Planned | **Priority**: High
-
-Implement high-availability clustering for production deployments:
-
-**Planned Features**:
-- **etcd Integration**: Distributed consensus for leader election
-- **Active-Passive Failover**: Automatic failover between control plane instances
-- **Work Distribution**: Load balancing across control plane nodes
-- **State Replication**: Consistent state across cluster members
-- **Split-Brain Prevention**: Quorum-based decision making
-
-**Design Goals**:
-- Zero downtime during planned failovers
-- Automatic recovery from node failures
-- Horizontal scaling of control plane
-- Geographic distribution support
+**Key Achievements**:
+- ~21,500 lines of documentation
+- Complete coverage of all features
+- Searchable documentation site
+- PDF generation support
 
 ---
 
-### Future Considerations
+### Epic 11: High Availability Clustering ✅
+
+**Status**: Complete | **Coverage**: >48%
+
+Production-ready high availability:
+
+- **etcd Integration**: Distributed consensus with embedded/external modes
+- **Leader Election**: etcd-based election with automatic failover
+- **Work Distribution**: Consistent hashing for agent assignment
+- **Cluster Membership**: Health monitoring and quorum management
+- **Observability**: 12 cluster metrics, Grafana dashboard, 10 alert rules
+- **CLI Tools**: `kscore-cluster status`, `members`, `leader`, `health`, `rebalance`
+
+**Key Achievements**:
+- Zero-downtime failovers
+- Automatic agent reassignment on node failure
+- Split-brain prevention with quorum checks
+- Comprehensive cluster metrics and alerting
+
+---
+
+### Epic 12: E2E Testing ✅
+
+**Status**: Core Complete | **Remaining**: CI/CD, multi-platform
+
+Comprehensive end-to-end testing framework:
+
+- **Test Harness**: Docker-compose based environment management
+- **Topologies**: All-in-one (dev) and HA Cluster (3 control planes + 5 agents)
+- **Scenario Tests**: Agent lifecycle, remote execution, state management, events, policy, GitOps
+- **Performance Tests**: Scale testing (100+ agents), throughput, latency percentiles
+
+**Test Organization**:
+```
+test/e2e/
+├── harness/          # Test environment management
+├── containers/       # Docker-compose for all-in-one
+├── topologies/       # HA cluster docker-compose
+├── topology/         # Topology-specific tests
+├── scenarios/        # Feature scenario tests
+└── performance/      # Performance and scale tests
+```
+
+**Key Achievements**:
+- Complete E2E test infrastructure
+- HA cluster topology with NATS cluster + etcd + PostgreSQL
+- Performance tests with JSON reports
+- 6 comprehensive scenario test files
+
+**Remaining Work**:
+- CI/CD Integration (GitHub Actions)
+- Network partition chaos tests
+- Multi-platform validation (ARM64, different Linux distros)
+
+---
+
+### Epic 13: CGO Removal ✅
+
+**Status**: Complete
+
+Pure Go build for simplified cross-compilation:
+
+- **SQLite**: Replaced `github.com/mattn/go-sqlite3` with `modernc.org/sqlite`
+- **WASM Runtime**: Using `github.com/tetratelabs/wazero` (pure Go WebAssembly)
+
+**Key Achievements**:
+- `CGO_ENABLED=0 go build ./...` works
+- Cross-compilation without toolchains
+- Alpine/scratch Docker images without libc
+- Simpler CI/CD (no gcc/clang required)
+
+---
+
+## Remaining Work
+
+### E2E Testing Completion
+
+The core E2E testing infrastructure is complete, but some items remain:
+
+| Item | Status | Description |
+|------|--------|-------------|
+| GitHub Actions CI | Not Started | Automate E2E tests on PR/push |
+| Network Partition Tests | Skipped | Requires Docker network manipulation |
+| Multi-Platform Tests | Not Started | ARM64, Ubuntu, Debian, Alpine |
+| Test Dashboard | Not Started | Visualize test results and trends |
+
+---
+
+## Future Considerations
 
 These items are under consideration for future development:
 
@@ -321,9 +389,9 @@ Keystone Core follows [Semantic Versioning](https://semver.org/):
 
 | Version | Target | Scope |
 |---------|--------|-------|
-| v0.10.0 | Current | Documentation complete, bug fixes |
-| v0.11.0 | Next | Clustering foundation |
-| v1.0.0 | Future | Production-ready release |
+| v0.13.0 | Current | CGO removal, pure Go build |
+| v0.14.0 | Next | CI/CD integration, E2E testing refinements |
+| v1.0.0 | Future | Production-ready release (all features complete, full test coverage) |
 
 ### Release Cadence
 

@@ -201,7 +201,7 @@ jetstream {
 }
 
 accounts {
-  TITAN: {
+  KSCORE: {
     jetstream: enabled
     users: [
       {user: "kscore", password: "$NATS_PASSWORD"}
@@ -312,6 +312,27 @@ logging:
   level: info
   format: json
 ```
+
+### Agent Persistence and Handoff
+
+In HA deployments, agents may connect to different control plane servers over time (due to load balancing or failover). Keystone Core handles this automatically:
+
+**How It Works:**
+1. **Startup Loading**: Each control plane server loads all registered agents from the shared PostgreSQL database on startup
+2. **Dynamic Discovery**: When a heartbeat arrives from an agent not in memory, the server checks the database before rejecting it
+3. **Seamless Handoff**: If the agent exists in the database, it's loaded and heartbeat processing continues normally
+
+**Benefits:**
+- Zero agent re-registration during failover
+- Agents can connect to any control plane server
+- Load balancer can route agents freely without session affinity
+- New control plane servers immediately recognize all existing agents
+
+**Requirements:**
+- Shared PostgreSQL database (required for HA)
+- All control plane servers must use the same database
+
+This ensures true high-availability with no agent disruption when control plane servers fail or during rolling updates.
 
 ### Load Balancer Setup
 
@@ -499,9 +520,9 @@ spec:
       - name: agent
         image: kscore/agent:v1.0.0
         env:
-        - name: TITAN_SERVER_URL
+        - name: KSCORE_SERVER_URL
           value: "nats://kscore-nats:4222"
-        - name: TITAN_AGENT_ID
+        - name: KSCORE_AGENT_ID
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
@@ -598,11 +619,11 @@ services:
     ports:
       - "8080:8080"
     environment:
-      TITAN_NATS_URL: "nats://nats:4222"
-      TITAN_STORAGE_TYPE: postgresql
-      TITAN_POSTGRES_HOST: postgres
-      TITAN_POSTGRES_USER: kscore
-      TITAN_POSTGRES_PASSWORD: password
+      KSCORE_NATS_URL: "nats://nats:4222"
+      KSCORE_STORAGE_TYPE: postgresql
+      KSCORE_POSTGRES_HOST: postgres
+      KSCORE_POSTGRES_USER: kscore
+      KSCORE_POSTGRES_PASSWORD: password
     volumes:
       - ./config:/etc/kscore
     healthcheck:

@@ -40,7 +40,7 @@ func TestStateDiffer_NoDrift(t *testing.T) {
 	}
 
 	// Create test file
-	testFile := "/tmp/titan-test-nodrift.txt"
+	testFile := "/tmp/kscore-test-nodrift.txt"
 	createTestFile(t, testFile, "test", 0644)
 	defer removeTestFile(t, testFile)
 
@@ -67,7 +67,7 @@ func TestStateDiffer_NoDrift(t *testing.T) {
 }
 
 func TestStateDiffer_ContentDrift(t *testing.T) {
-	testFile := "/tmp/titan-test-contentdrift.txt"
+	testFile := "/tmp/kscore-test-contentdrift.txt"
 	createTestFile(t, testFile, "old content", 0644)
 	defer removeTestFile(t, testFile)
 
@@ -122,7 +122,7 @@ func TestStateDiffer_MissingFile(t *testing.T) {
 			"file": {
 				{
 					Module: "file",
-					ID:     "/tmp/titan-nonexistent-file.txt",
+					ID:     "/tmp/kscore-nonexistent-file.txt",
 					State:  "present",
 					Parameters: map[string]interface{}{
 						"contents": "test",
@@ -149,8 +149,8 @@ func TestStateDiffer_MissingFile(t *testing.T) {
 }
 
 func TestStateDiffer_MultipleStates(t *testing.T) {
-	testFile1 := "/tmp/titan-test-multi1.txt"
-	testFile2 := "/tmp/titan-test-multi2.txt"
+	testFile1 := "/tmp/kscore-test-multi1.txt"
+	testFile2 := "/tmp/kscore-test-multi2.txt"
 
 	createTestFile(t, testFile1, "correct", 0644)
 	createTestFile(t, testFile2, "wrong", 0644)

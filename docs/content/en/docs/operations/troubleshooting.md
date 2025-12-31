@@ -595,7 +595,7 @@ sudo journalctl -u kscore-agent -f
 **Temporary Debug (Runtime):**
 ```bash
 # Enable debug for single command
-TITAN_LOG_LEVEL=debug kscorectl state apply web-server.yaml
+KSCORE_LOG_LEVEL=debug kscorectl state apply web-server.yaml
 ```
 
 ### Structured Logging

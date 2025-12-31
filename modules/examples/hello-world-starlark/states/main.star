@@ -52,7 +52,7 @@ def main():
 
     # Determine temp directory path (assume Unix for Starlark)
     temp_dir = "/tmp"
-    file_path = "%s/hello-from-titananvil-starlark.txt" % temp_dir
+    file_path = "%s/hello-from-kscore-starlark.txt" % temp_dir
 
     # Create file contents
     contents = "CPU: %s\nSHA256: %s\n" % (cpu_info, hash)

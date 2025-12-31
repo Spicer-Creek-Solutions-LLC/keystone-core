@@ -239,7 +239,7 @@ func (l *StructuredLogger) Close() error {
 }
 
 // Global default logger
-var defaultLogger Logger = NewDefaultLogger("titan")
+var defaultLogger Logger = NewDefaultLogger("kscore")
 var defaultLoggerMu sync.RWMutex
 
 // SetDefault sets the default logger

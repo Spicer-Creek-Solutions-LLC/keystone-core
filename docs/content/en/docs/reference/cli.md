@@ -888,16 +888,16 @@ defaults:
 Override configuration with environment variables:
 
 ```bash
-TITAN_SERVER="http://control-plane:8080"
-TITAN_API_KEY="ta_live_abc123"
-TITAN_CONFIG="/custom/config.yaml"
-TITAN_OUTPUT_FORMAT="json"
-TITAN_NO_COLOR="true"
+KSCORE_SERVER="http://control-plane:8080"
+KSCORE_API_KEY="ta_live_abc123"
+KSCORE_CONFIG="/custom/config.yaml"
+KSCORE_OUTPUT_FORMAT="json"
+KSCORE_NO_COLOR="true"
 ```
 
 **Example**:
 ```bash
-export TITAN_SERVER="http://localhost:8080"
+export KSCORE_SERVER="http://localhost:8080"
 kscorectl exec run "uptime" --target "role:web"
 ```
 

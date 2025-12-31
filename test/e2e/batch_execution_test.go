@@ -37,7 +37,7 @@ type testEnvironment struct {
 // setupTestEnvironment creates a complete test environment with server and infrastructure
 func setupTestEnvironment(t *testing.T) *testEnvironment {
 	// Create temporary directory
-	tmpDir, err := os.MkdirTemp("", "titan-e2e-*")
+	tmpDir, err := os.MkdirTemp("", "kscore-e2e-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}

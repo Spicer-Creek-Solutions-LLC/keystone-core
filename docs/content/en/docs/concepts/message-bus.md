@@ -185,38 +185,38 @@ Keystone Core uses a structured subject namespace:
 ### Agent Communication
 
 ```
-titan.agent.{agent_id}.command     - Commands to specific agent
-titan.agent.{agent_id}.state       - State configs to specific agent
-titan.agent.{agent_id}.event       - Events from specific agent
-titan.agent.*.heartbeat            - Heartbeats from all agents
-titan.agent.register               - Agent registration
+kscore.agent.{agent_id}.command     - Commands to specific agent
+kscore.agent.{agent_id}.state       - State configs to specific agent
+kscore.agent.{agent_id}.event       - Events from specific agent
+kscore.agent.*.heartbeat            - Heartbeats from all agents
+kscore.agent.register               - Agent registration
 ```
 
 ### Control Plane
 
 ```
-titan.command.dispatch             - Command dispatch requests
-titan.command.result               - Command execution results
-titan.state.apply                  - State application requests
-titan.state.result                 - State application results
-titan.event                        - System-wide events
+kscore.command.dispatch             - Command dispatch requests
+kscore.command.result               - Command execution results
+kscore.state.apply                  - State application requests
+kscore.state.result                 - State application results
+kscore.event                        - System-wide events
 ```
 
 ### GitOps
 
 ```
-titan.gitops.webhook.argocd        - ArgoCD webhooks
-titan.gitops.webhook.flux          - Flux webhooks
-titan.gitops.webhook.github        - GitHub webhooks
-titan.gitops.webhook.gitlab        - GitLab webhooks
+kscore.gitops.webhook.argocd        - ArgoCD webhooks
+kscore.gitops.webhook.flux          - Flux webhooks
+kscore.gitops.webhook.github        - GitHub webhooks
+kscore.gitops.webhook.gitlab        - GitLab webhooks
 ```
 
 ### Policy
 
 ```
-titan.policy.evaluate              - Policy evaluation requests
-titan.policy.result                - Policy evaluation results
-titan.policy.violation             - Policy violations
+kscore.policy.evaluate              - Policy evaluation requests
+kscore.policy.result                - Policy evaluation results
+kscore.policy.violation             - Policy violations
 ```
 
 ## JetStream (Event Persistence)
@@ -229,8 +229,8 @@ Keystone Core creates these JetStream streams:
 
 **Events Stream**:
 ```
-Name: TITAN_EVENTS
-Subjects: titan.event, titan.agent.*.event
+Name: KSCORE_EVENTS
+Subjects: kscore.event, kscore.agent.*.event
 Retention: WorkQueue (delete after ack)
 Storage: File
 Max Age: 30 days
@@ -238,8 +238,8 @@ Max Age: 30 days
 
 **Audit Stream**:
 ```
-Name: TITAN_AUDIT
-Subjects: titan.command.result, titan.state.result, titan.policy.*
+Name: KSCORE_AUDIT
+Subjects: kscore.command.result, kscore.state.result, kscore.policy.*
 Retention: Limits (keep based on size/age)
 Storage: File
 Max Age: 90 days
@@ -247,8 +247,8 @@ Max Age: 90 days
 
 **Webhooks Stream**:
 ```
-Name: TITAN_GITOPS
-Subjects: titan.gitops.webhook.*
+Name: KSCORE_GITOPS
+Subjects: kscore.gitops.webhook.*
 Retention: WorkQueue
 Storage: File
 Max Age: 7 days
@@ -347,15 +347,15 @@ NATS supports fine-grained authorization:
 
 ```
 # Control plane can:
-- Publish to titan.command.*
-- Subscribe to titan.agent.*
-- Subscribe to titan.event
+- Publish to kscore.command.*
+- Subscribe to kscore.agent.*
+- Subscribe to kscore.event
 
 # Agents can:
-- Subscribe to titan.agent.{self}.command
-- Subscribe to titan.agent.{self}.state
-- Publish to titan.command.result
-- Publish to titan.event
+- Subscribe to kscore.agent.{self}.command
+- Subscribe to kscore.agent.{self}.state
+- Publish to kscore.command.result
+- Publish to kscore.event
 ```
 
 ### Encryption
@@ -470,7 +470,7 @@ Per-stream metrics:
 {
   "streams": [
     {
-      "name": "TITAN_EVENTS",
+      "name": "KSCORE_EVENTS",
       "messages": 1000000,
       "bytes": 10737418240,
       "num_subjects": 100
@@ -592,10 +592,10 @@ Fix:
 nats stream ls
 
 # Delete old messages
-nats stream purge TITAN_EVENTS
+nats stream purge KSCORE_EVENTS
 
 # Adjust retention
-nats stream edit TITAN_EVENTS --max-age=7d
+nats stream edit KSCORE_EVENTS --max-age=7d
 ```
 
 ### Cluster Split-Brain

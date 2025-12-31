@@ -75,18 +75,18 @@ func TestFluxHandler(t *testing.T) {
 		t.Errorf("event.Data[message] = %v", event.Data["message"])
 	}
 
-	// Test conversion to TitanEvent
-	titanEvent := event.ToTitanEvent()
-	if titanEvent == nil {
-		t.Fatal("ToTitanEvent() returned nil")
+	// Test conversion to KscoreEvent
+	kscoreEvent := event.ToKscoreEvent()
+	if kscoreEvent == nil {
+		t.Fatal("ToKscoreEvent() returned nil")
 	}
 
-	if titanEvent.Type != "gitops.flux.reconciliation" {
-		t.Errorf("titanEvent.Type = %v, want %v", titanEvent.Type, "gitops.flux.reconciliation")
+	if kscoreEvent.Type != "gitops.flux.reconciliation" {
+		t.Errorf("kscoreEvent.Type = %v, want %v", kscoreEvent.Type, "gitops.flux.reconciliation")
 	}
 
-	if titanEvent.Source != "webhook/flux" {
-		t.Errorf("titanEvent.Source = %v, want %v", titanEvent.Source, "webhook/flux")
+	if kscoreEvent.Source != "webhook/flux" {
+		t.Errorf("kscoreEvent.Source = %v, want %v", kscoreEvent.Source, "webhook/flux")
 	}
 }
 

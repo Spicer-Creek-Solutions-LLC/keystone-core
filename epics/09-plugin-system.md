@@ -377,14 +377,14 @@ spec:
 **Example Rust WASM Plugin**:
 ```rust
 // plugins/advanced-parser/src/lib.rs
-use titan_plugin_sdk::prelude::*;
+use kscore_plugin_sdk::prelude::*;
 
-#[titan_plugin]
+#[kscore_plugin]
 pub struct LogParser {
     // Plugin state (isolated per invocation)
 }
 
-#[titan_plugin_impl]
+#[kscore_plugin_impl]
 impl LogParser {
     /// Parse nginx access logs
     /// Capabilities: fs.read, log.debug
@@ -1312,7 +1312,7 @@ def verify_canary_deployment(app_name, canary_version):
 
 **T6.1: Plugin SDK (Multiple Languages)**
 - Starlark SDK (built-in functions, helpers)
-- Rust SDK for WASM (titan-plugin-sdk crate)
+- Rust SDK for WASM (kscore-plugin-sdk crate)
 - Go SDK for WASM (if needed)
 - Type definitions and documentation
 

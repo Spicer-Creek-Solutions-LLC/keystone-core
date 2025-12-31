@@ -176,7 +176,7 @@ logging:
     - type: stdout
       format: json
     - type: file
-      path: /var/log/titan/titan.log
+      path: /var/log/kscore/kscore.log
       format: json
       rotation:
         max_size: 100MB
@@ -207,19 +207,19 @@ logging:
 Trace ID: abc123
 Duration: 2.5s
 
-Span: titan.command.execute
-  ├─ Span: titan.target.resolve (50ms)
+Span: kscore.command.execute
+  ├─ Span: kscore.target.resolve (50ms)
   │   └─ Tags: target="role:web", matched_agents=10
   │
-  ├─ Span: titan.nats.publish (10ms)
+  ├─ Span: kscore.nats.publish (10ms)
   │   └─ Tags: topic="agent.command", agents=10
   │
-  ├─ Span: titan.agent.execute (2.3s) [parallel]
+  ├─ Span: kscore.agent.execute (2.3s) [parallel]
   │   ├─ Agent: web-01 (2.1s) ✓
   │   ├─ Agent: web-02 (2.3s) ✓
   │   └─ Agent: web-03 (1.9s) ✓
   │
-  └─ Span: titan.results.aggregate (100ms)
+  └─ Span: kscore.results.aggregate (100ms)
       └─ Tags: success=3, failed=0
 ```
 
@@ -482,7 +482,7 @@ monitor:
 kscorectl monitor
 
 # Connect to specific control plane
-kscorectl monitor --endpoint prod-titan.example.com:8080
+kscorectl monitor --endpoint prod-kscore.example.com:8080
 
 # Start with specific view
 kscorectl monitor --view agents
@@ -636,15 +636,15 @@ GET /health/status
 **Profiling Endpoints**:
 ```bash
 # CPU profile (30 seconds)
-curl http://titan:6060/debug/pprof/profile?seconds=30 > cpu.prof
+curl http://kscore:6060/debug/pprof/profile?seconds=30 > cpu.prof
 go tool pprof cpu.prof
 
 # Heap profile
-curl http://titan:6060/debug/pprof/heap > heap.prof
+curl http://kscore:6060/debug/pprof/heap > heap.prof
 go tool pprof heap.prof
 
 # Goroutine profile
-curl http://titan:6060/debug/pprof/goroutine > goroutine.prof
+curl http://kscore:6060/debug/pprof/goroutine > goroutine.prof
 
 # Start CPU profiling via API
 kscorectl debug profile --type cpu --duration 30s --output cpu.prof

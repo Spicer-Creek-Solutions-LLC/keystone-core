@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"runtime"
 
-	titansdk "github.com/shawnbutts/kscore-module-sdk-go"
+	kscoresdk "github.com/shawnbutts/kscore-module-sdk-go"
 )
 
 type HelloWorldResult struct {
@@ -23,25 +23,25 @@ type HelloWorldResult struct {
 }
 
 func main() {
-	titansdk.LogInfo("Hello World Go module starting")
+	kscoresdk.LogInfo("Hello World Go module starting")
 
 	// Get CPU information
-	titansdk.LogInfo("Getting CPU information...")
-	cpuInfo, err := titansdk.GetCPUInfo()
+	kscoresdk.LogInfo("Getting CPU information...")
+	cpuInfo, err := kscoresdk.GetCPUInfo()
 	if err != nil {
-		titansdk.LogError(fmt.Sprintf("Failed to get CPU info: %v", err))
+		kscoresdk.LogError(fmt.Sprintf("Failed to get CPU info: %v", err))
 		return
 	}
-	titansdk.LogInfo(fmt.Sprintf("CPU: %s", cpuInfo))
+	kscoresdk.LogInfo(fmt.Sprintf("CPU: %s", cpuInfo))
 
 	// Compute SHA256 hash of CPU info
-	titansdk.LogInfo("Computing SHA256 hash...")
-	hash, err := titansdk.SHA256String(cpuInfo)
+	kscoresdk.LogInfo("Computing SHA256 hash...")
+	hash, err := kscoresdk.SHA256String(cpuInfo)
 	if err != nil {
-		titansdk.LogError(fmt.Sprintf("Failed to compute hash: %v", err))
+		kscoresdk.LogError(fmt.Sprintf("Failed to compute hash: %v", err))
 		return
 	}
-	titansdk.LogInfo(fmt.Sprintf("Hash: %s", hash))
+	kscoresdk.LogInfo(fmt.Sprintf("Hash: %s", hash))
 
 	// Determine temp directory path (cross-platform)
 	var tempDir string
@@ -57,12 +57,12 @@ func main() {
 	contents := fmt.Sprintf("CPU: %s\nSHA256: %s\n", cpuInfo, hash)
 
 	// Write to file
-	titansdk.LogInfo(fmt.Sprintf("Writing to file: %s", filePath))
-	if err := titansdk.WriteString(filePath, contents); err != nil {
-		titansdk.LogError(fmt.Sprintf("Failed to write file: %v", err))
+	kscoresdk.LogInfo(fmt.Sprintf("Writing to file: %s", filePath))
+	if err := kscoresdk.WriteString(filePath, contents); err != nil {
+		kscoresdk.LogError(fmt.Sprintf("Failed to write file: %v", err))
 		return
 	}
-	titansdk.LogInfo("File written successfully")
+	kscoresdk.LogInfo("File written successfully")
 
 	// Return results as JSON
 	result := HelloWorldResult{
@@ -73,10 +73,10 @@ func main() {
 
 	jsonData, err := json.Marshal(result)
 	if err != nil {
-		titansdk.LogError(fmt.Sprintf("Failed to serialize result: %v", err))
+		kscoresdk.LogError(fmt.Sprintf("Failed to serialize result: %v", err))
 		return
 	}
 
-	titansdk.LogInfo(fmt.Sprintf("Result: %s", string(jsonData)))
-	titansdk.LogInfo("Hello World Go module completed successfully")
+	kscoresdk.LogInfo(fmt.Sprintf("Result: %s", string(jsonData)))
+	kscoresdk.LogInfo("Hello World Go module completed successfully")
 }

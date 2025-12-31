@@ -11,7 +11,7 @@ import (
 // TestIntegration_FullWorkflow tests a complete state management workflow
 func TestIntegration_FullWorkflow(t *testing.T) {
 	ctx := context.Background()
-	tmpDir := filepath.Join(os.TempDir(), "titan-integration-test")
+	tmpDir := filepath.Join(os.TempDir(), "kscore-integration-test")
 
 	// Clean up before and after
 	os.RemoveAll(tmpDir)
@@ -187,7 +187,7 @@ cmd:
 // TestIntegration_ComplexDependencies tests state execution with dependencies
 func TestIntegration_ComplexDependencies(t *testing.T) {
 	ctx := context.Background()
-	tmpDir := filepath.Join(os.TempDir(), "titan-integration-deps")
+	tmpDir := filepath.Join(os.TempDir(), "kscore-integration-deps")
 
 	os.RemoveAll(tmpDir)
 	defer os.RemoveAll(tmpDir)
@@ -303,7 +303,7 @@ func TestIntegration_ErrorHandling(t *testing.T) {
 // TestIntegration_CmdModule tests the cmd module
 func TestIntegration_CmdModule(t *testing.T) {
 	ctx := context.Background()
-	tmpDir := filepath.Join(os.TempDir(), "titan-integration-cmd")
+	tmpDir := filepath.Join(os.TempDir(), "kscore-integration-cmd")
 
 	os.RemoveAll(tmpDir)
 	defer os.RemoveAll(tmpDir)
@@ -369,7 +369,7 @@ func TestIntegration_PerformanceBaseline(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	tmpDir := filepath.Join(os.TempDir(), "titan-integration-perf")
+	tmpDir := filepath.Join(os.TempDir(), "kscore-integration-perf")
 
 	os.RemoveAll(tmpDir)
 	defer os.RemoveAll(tmpDir)

@@ -35,7 +35,7 @@ kscorectl api-key create --name "monitoring-system" --role "read-only"
 **Use API Key:**
 ```bash
 # With CLI
-export TITAN_API_KEY="sk_abcdef1234567890"
+export KSCORE_API_KEY="sk_abcdef1234567890"
 kscorectl agent list
 
 # With HTTP API
@@ -145,7 +145,7 @@ nats-server --genkey --user keystonecore > /etc/nats/kscore.creds
 ```conf
 # nats-server.conf
 accounts {
-  TITAN: {
+  KSCORE: {
     users: [
       {
         user: "kscore"
@@ -722,7 +722,7 @@ spec:
   containers:
   - name: kscore-server
     env:
-    - name: TITAN_POSTGRES_PASSWORD
+    - name: KSCORE_POSTGRES_PASSWORD
       valueFrom:
         secretKeyRef:
           name: kscore-secrets

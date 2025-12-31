@@ -87,7 +87,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "titan-module-sdk"
+name = "kscore-module-sdk"
 version = "0.1.0"
 dependencies = [
  "serde",

@@ -30,8 +30,8 @@ type WebhookEvent struct {
 	Data        map[string]interface{} `json:"data"`
 }
 
-// ToTitanEvent converts a webhook event to a Keystone Core event
-func (w *WebhookEvent) ToTitanEvent() *events.Event {
+// ToKscoreEvent converts a webhook event to a Keystone Core event
+func (w *WebhookEvent) ToKscoreEvent() *events.Event {
 	eventType := events.EventType("gitops.webhook")
 	switch w.Type {
 	case WebhookTypeArgoCD:

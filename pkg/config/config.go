@@ -253,8 +253,11 @@ func LoadConfig(cfgFile string) (*Config, error) {
 	}
 
 	// Read from environment variables
-	v.SetEnvPrefix("TITAN")
+	v.SetEnvPrefix("KSCORE")
 	v.AutomaticEnv()
+
+	// Explicit bindings for commonly overridden settings
+	v.BindEnv("agent.id", "KSCORE_AGENT_ID")
 
 	// Read config file (optional)
 	if err := v.ReadInConfig(); err != nil {

@@ -61,7 +61,7 @@ nats:
 storage:
   type: "sqlite"                    # sqlite, postgresql
   sqlite:
-    path: "/var/lib/kscore/titan.db"
+    path: "/var/lib/kscore/kscore.db"
     max_connections: 10
     busy_timeout: "5s"
   postgresql:
@@ -652,33 +652,33 @@ Override configuration with environment variables:
 ### Control Plane
 
 ```bash
-TITAN_API_LISTEN="0.0.0.0:8080"
-TITAN_NATS_MODE="embedded"
-TITAN_NATS_URL="nats://nats:4222"
-TITAN_STORAGE_TYPE="postgresql"
-TITAN_STORAGE_POSTGRES_HOST="postgres"
-TITAN_LOG_LEVEL="info"
-TITAN_LOG_FORMAT="json"
+KSCORE_API_LISTEN="0.0.0.0:8080"
+KSCORE_NATS_MODE="embedded"
+KSCORE_NATS_URL="nats://nats:4222"
+KSCORE_STORAGE_TYPE="postgresql"
+KSCORE_STORAGE_POSTGRES_HOST="postgres"
+KSCORE_LOG_LEVEL="info"
+KSCORE_LOG_FORMAT="json"
 ```
 
 ### Agent
 
 ```bash
-TITAN_CONTROL_PLANE_URL="nats://control-plane:4222"
-TITAN_AGENT_ID="custom-agent-01"
-TITAN_AGENT_DATACENTER="us-east-1"
-TITAN_AGENT_ENVIRONMENT="production"
-TITAN_AGENT_ROLE="web"
-TITAN_LOG_LEVEL="info"
+KSCORE_CONTROL_PLANE_URL="nats://control-plane:4222"
+KSCORE_AGENT_ID="custom-agent-01"
+KSCORE_AGENT_DATACENTER="us-east-1"
+KSCORE_AGENT_ENVIRONMENT="production"
+KSCORE_AGENT_ROLE="web"
+KSCORE_LOG_LEVEL="info"
 ```
 
 ### CLI
 
 ```bash
-TITAN_SERVER="http://control-plane:8080"
-TITAN_API_KEY="ta_live_abc123"
-TITAN_OUTPUT_FORMAT="json"
-TITAN_NO_COLOR="true"
+KSCORE_SERVER="http://control-plane:8080"
+KSCORE_API_KEY="ta_live_abc123"
+KSCORE_OUTPUT_FORMAT="json"
+KSCORE_NO_COLOR="true"
 ```
 
 ## Configuration Validation

@@ -17,7 +17,7 @@ import (
 // TestBatchExecution_EndToEnd tests the complete batch execution flow
 func TestBatchExecution_EndToEnd(t *testing.T) {
 	// Create temporary directory for test database
-	tmpDir, err := os.MkdirTemp("", "titan-batch-test-*")
+	tmpDir, err := os.MkdirTemp("", "kscore-batch-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -246,7 +246,7 @@ func TestBatchExecution_EndToEnd(t *testing.T) {
 // TestBatchExecution_StateRecovery tests that batch jobs can be recovered from database
 func TestBatchExecution_StateRecovery(t *testing.T) {
 	// Create temporary directory for test database
-	tmpDir, err := os.MkdirTemp("", "titan-batch-recovery-*")
+	tmpDir, err := os.MkdirTemp("", "kscore-batch-recovery-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}

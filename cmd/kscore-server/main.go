@@ -113,10 +113,14 @@ func runServer(cmd *cobra.Command, args []string) {
 	// Initialize state store
 	fmt.Println("Initializing state storage...")
 	storeConfig := &state.Config{
-		Backend:           string(cfg.Storage.Backend),
-		SQLitePath:        cfg.Storage.SQLite.Path,
-		SQLiteWAL:         cfg.Storage.SQLite.WAL,
-		SQLiteBusyTimeout: cfg.Storage.SQLite.BusyTimeout,
+		Backend:               string(cfg.Storage.Backend),
+		SQLitePath:            cfg.Storage.SQLite.Path,
+		SQLiteWAL:             cfg.Storage.SQLite.WAL,
+		SQLiteBusyTimeout:     cfg.Storage.SQLite.BusyTimeout,
+		PostgreSQLDSN:         cfg.Storage.PostgreSQL.DSN,
+		PostgreSQLMaxOpen:     cfg.Storage.PostgreSQL.MaxOpenConns,
+		PostgreSQLMaxIdle:     cfg.Storage.PostgreSQL.MaxIdleConns,
+		PostgreSQLConnMaxLife: cfg.Storage.PostgreSQL.ConnMaxLifetime,
 	}
 	stateStore, err := state.NewStore(storeConfig)
 	if err != nil {
@@ -135,6 +139,10 @@ func runServer(cmd *cobra.Command, args []string) {
 	// Initialize connection manager
 	fmt.Println("Initializing connection manager...")
 	connMgr := controlplane.NewConnectionManager(natsManager)
+
+	// Set state store for HA cluster support (allows loading agents from database)
+	connMgr.SetStateStore(&stateStoreAdapter{store: stateStore})
+
 	if err := connMgr.Start(); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to start connection manager: %v\n", err)
 		os.Exit(1)
@@ -361,4 +369,57 @@ type loggingEventProcessor struct{}
 func (p *loggingEventProcessor) ProcessEvent(ctx context.Context, event *webhook.WebhookEvent) error {
 	log.Printf("Webhook event received: type=%s source=%s", event.Type, event.Source)
 	return nil
+}
+
+// stateStoreAdapter adapts state.Store to controlplane.AgentStore
+type stateStoreAdapter struct {
+	store state.Store
+}
+
+func (a *stateStoreAdapter) ListAgents(ctx context.Context, filter *controlplane.AgentFilter) ([]controlplane.StoredAgent, error) {
+	var stateFilter *state.AgentFilter
+	if filter != nil && filter.Status != "" {
+		// Convert status string to pb.AgentStatus if needed
+		stateFilter = &state.AgentFilter{}
+	}
+
+	records, err := a.store.ListAgents(ctx, stateFilter)
+	if err != nil {
+		return nil, err
+	}
+
+	agents := make([]controlplane.StoredAgent, len(records))
+	for i, r := range records {
+		agents[i] = controlplane.StoredAgent{
+			ID:           r.ID,
+			Hostname:     r.Hostname,
+			OS:           r.OS,
+			Arch:         r.Architecture,
+			Status:       r.Status.String(),
+			Labels:       r.Labels,
+			IPAddresses:  r.IPAddresses,
+			RegisteredAt: r.RegisteredAt,
+			LastSeen:     r.LastHeartbeat,
+		}
+	}
+	return agents, nil
+}
+
+func (a *stateStoreAdapter) GetAgent(ctx context.Context, agentID string) (*controlplane.StoredAgent, error) {
+	r, err := a.store.GetAgent(ctx, agentID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &controlplane.StoredAgent{
+		ID:           r.ID,
+		Hostname:     r.Hostname,
+		OS:           r.OS,
+		Arch:         r.Architecture,
+		Status:       r.Status.String(),
+		Labels:       r.Labels,
+		IPAddresses:  r.IPAddresses,
+		RegisteredAt: r.RegisteredAt,
+		LastSeen:     r.LastHeartbeat,
+	}, nil
 }

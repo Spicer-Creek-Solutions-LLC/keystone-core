@@ -4,8 +4,8 @@
 //! are stubbed and will return errors. For real integration testing,
 //! use the Keystone Core test framework with a WASM runtime.
 
-use titan_module_sdk::{Error, Capability, ModuleContext, ModuleResult};
-use titan_module_sdk::host::*;
+use kscore_module_sdk::{Error, Capability, ModuleContext, ModuleResult};
+use kscore_module_sdk::host::*;
 
 #[test]
 fn test_capability_as_str() {
@@ -67,7 +67,7 @@ fn test_error_from_serde() {
 
 #[test]
 fn test_log_level_as_str() {
-    use titan_module_sdk::types::LogLevel;
+    use kscore_module_sdk::types::LogLevel;
 
     assert_eq!(LogLevel::Debug.as_str(), "debug");
     assert_eq!(LogLevel::Info.as_str(), "info");
@@ -182,7 +182,7 @@ fn test_module_context_serialization() {
 
 #[test]
 fn test_exec_result_serialization() {
-    use titan_module_sdk::types::ExecResult;
+    use kscore_module_sdk::types::ExecResult;
 
     let result = ExecResult {
         exit_code: 0,
@@ -199,7 +199,7 @@ fn test_exec_result_serialization() {
 
 #[test]
 fn test_http_response_serialization() {
-    use titan_module_sdk::types::HttpResponse;
+    use kscore_module_sdk::types::HttpResponse;
 
     let response = HttpResponse {
         status_code: 200,

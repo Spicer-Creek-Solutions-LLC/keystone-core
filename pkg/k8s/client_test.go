@@ -131,17 +131,17 @@ func TestExecutionMode(t *testing.T) {
 
 func TestOperatorConfig(t *testing.T) {
 	config := OperatorConfig{
-		Namespace:               "titan-system",
+		Namespace:               "kscore-system",
 		LeaderElection:          true,
-		LeaderElectionID:        "titan-operator",
+		LeaderElectionID:        "kscore-operator",
 		MetricsAddr:             ":8080",
 		ProbeAddr:               ":8081",
 		ReconcileInterval:       1 * time.Minute,
 		MaxConcurrentReconciles: 3,
 	}
 
-	if config.Namespace != "titan-system" {
-		t.Errorf("expected namespace 'titan-system', got '%s'", config.Namespace)
+	if config.Namespace != "kscore-system" {
+		t.Errorf("expected namespace 'kscore-system', got '%s'", config.Namespace)
 	}
 
 	if !config.LeaderElection {

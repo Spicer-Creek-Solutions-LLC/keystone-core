@@ -2,12 +2,12 @@ cmake_minimum_required(VERSION 3.20)
 project(hello-world-cpp)
 
 # Add the Keystone Core SDK
-add_subdirectory(../.. titan-sdk)
+add_subdirectory(../.. kscore-sdk)
 
 # Create the hello-world executable
 add_executable(hello-world main.cpp)
 
-target_link_libraries(hello-world PRIVATE titan-module-sdk)
+target_link_libraries(hello-world PRIVATE kscore-module-sdk)
 
 # WASM-specific settings
 if(CMAKE_SYSTEM_NAME STREQUAL "WASI" OR EMSCRIPTEN)

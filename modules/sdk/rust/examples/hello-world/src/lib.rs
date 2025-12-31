@@ -6,8 +6,8 @@
 //! - Writing the results to a file in the temp directory
 //! - Returning the results
 
-use titan_module_sdk::{module_main, Result, Error};
-use titan_module_sdk::host::{system, crypto, fs, log};
+use kscore_module_sdk::{module_main, Result, Error};
+use kscore_module_sdk::host::{system, crypto, fs, log};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -37,7 +37,7 @@ fn run_hello_world() -> Result<String> {
     #[cfg(not(target_os = "windows"))]
     let temp_dir = "/tmp";
 
-    let file_path = format!("{}/hello-from-titananvil-rust.txt", temp_dir);
+    let file_path = format!("{}/hello-from-kscore-rust.txt", temp_dir);
 
     // Create file contents
     let contents = format!("CPU: {}\nSHA256: {}\n", cpu_info, hash);
