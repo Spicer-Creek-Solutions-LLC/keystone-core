@@ -2,13 +2,20 @@
 
 ## Overview
 
-Decouple all agent/server communication to use NATS as the sole transport layer, enabling flexible deployment topologies that work across NAT, firewalls, and complex network boundaries. Support multiple NATS deployment modes including embedded instances, external clusters, leaf nodes, gateways, and superclusters to enable connectivity in any network environment.
+Decouple all agent↔server communication to use NATS as the sole transport layer, enabling flexible deployment topologies that work across NAT, firewalls, and complex network boundaries. Support multiple NATS deployment modes including embedded instances, external clusters, leaf nodes, gateways, and superclusters to enable connectivity in any network environment.
 
-**Goal**: Enable Keystone Core deployments where agents and servers can communicate regardless of network topology, NAT configuration, or firewall restrictions. All communication flows through NATS, allowing operators to choose the connectivity pattern that fits their infrastructure.
+**Goal**: Enable Keystone Core deployments where agents and servers can communicate regardless of network topology, NAT configuration, or firewall restrictions. All agent communication flows through NATS, allowing operators to choose the connectivity pattern that fits their infrastructure.
+
+**Important Distinction**:
+- **Agent↔Server**: NATS-only (no direct gRPC/TCP)
+- **Server↔Server**: gRPC allowed for cluster coordination (setup, maintenance, recovery when NATS is unavailable)
+- **Client→Server**: gRPC/REST for API (kubectl-style tools) - unchanged
 
 ## Success Criteria
 
 - [ ] All agent↔server communication exclusively uses NATS (no direct gRPC/TCP)
+- [ ] Server↔server gRPC coordination channel for cluster operations when NATS unavailable
+- [ ] Secure agent bootstrap: new agents only get registration topic access until authenticated
 - [ ] Agents can operate with embedded NATS that servers connect to (reverse connection)
 - [ ] Agents can connect to server's embedded NATS instance
 - [ ] Agents and servers can connect to any external NATS cluster
@@ -172,10 +179,10 @@ Decouple all agent/server communication to use NATS as the sole transport layer,
 
 ## User Stories
 
-### US14.1: NATS-Only Communication
+### US14.1: NATS-Only Agent Communication
 **As a** platform operator
 **I want to** all agent↔server communication to use NATS
-**So that** I have a single, well-understood transport layer
+**So that** I have a single, well-understood transport layer for agents
 
 **Acceptance Criteria**:
 - Remove all direct gRPC connections between agents and servers
@@ -185,6 +192,8 @@ Decouple all agent/server communication to use NATS as the sole transport layer,
 - Health monitoring flows through NATS
 - Existing functionality preserved (no regression)
 - Performance within 10% of current implementation
+- Server↔server gRPC retained for cluster coordination (NATS outage recovery, cluster setup)
+- Server gRPC channel provides cluster health, leader info, and coordination when NATS unavailable
 
 ### US14.2: Agent Embedded NATS (Reverse Connection)
 **As a** platform operator
@@ -305,6 +314,38 @@ Decouple all agent/server communication to use NATS as the sole transport layer,
 - Configurable buffer size
 - Buffer overflow handling (backpressure/drop)
 
+### US14.11: Secure Agent Bootstrap Registration
+**As a** platform operator
+**I want to** new agents to have minimal NATS permissions until authenticated
+**So that** untrusted agents cannot access or disrupt other agents' communication
+
+**Acceptance Criteria**:
+- New agents receive bootstrap credentials with minimal permissions
+- Bootstrap credentials only allow publishing to `kscore.{cluster}.agent.register`
+- Bootstrap credentials only allow subscribing to `kscore.{cluster}.agent.{bootstrap_id}.register-response`
+- After successful registration, agent receives full credentials with agent-specific permissions
+- Full credentials allow agent's own subjects (`kscore.{cluster}.agent.{agent_id}.*`)
+- Credential exchange is atomic (no window where agent has both credentials)
+- Bootstrap credentials can be rotated without affecting registered agents
+- Design supports future identity provider integration (SPIFFE/SPIRE, cloud IAM)
+- Credential format is extensible (currently: NKey/JWT, future: SPIFFE SVID)
+- Audit log of all bootstrap and registration events
+
+### US14.12: Server-to-Server Coordination Channel
+**As a** platform operator
+**I want to** servers to coordinate directly when NATS is unavailable
+**So that** the cluster can recover from NATS outages and maintain consistency
+
+**Acceptance Criteria**:
+- Servers maintain gRPC connections to other cluster members
+- Coordination channel works independently of NATS connectivity
+- Channel supports: cluster health checks, leader election fallback, NATS recovery coordination
+- Servers can determine cluster quorum via gRPC when NATS is partitioned
+- Servers can coordinate NATS cluster recovery/restart
+- Channel uses mTLS for authentication
+- Channel is lightweight (minimal traffic when NATS is healthy)
+- Metrics for coordination channel health
+
 ## Technical Tasks
 
 ### Phase 1: NATS-Only Communication Refactor (Week 1-3)
@@ -348,6 +389,53 @@ Decouple all agent/server communication to use NATS as the sole transport layer,
 - Implement NATS sub for commands
 - Implement NATS pub for responses
 - Add reconnection with message replay
+
+**T1.6: Server-to-Server gRPC Coordination Channel**
+- Define gRPC service for server coordination (pkg/api/coordination.proto)
+  - ClusterHealth RPC: Get cluster health status
+  - GetLeader RPC: Determine current leader
+  - NATSStatus RPC: Report NATS connectivity status per server
+  - RecoveryCoordinate RPC: Coordinate NATS recovery actions
+  - Heartbeat RPC: Server-to-server liveness check
+- Implement coordination gRPC server (pkg/cluster/coordination_server.go)
+- Implement coordination gRPC client (pkg/cluster/coordination_client.go)
+- Maintain mesh connections to all known cluster members
+- Use mTLS for authentication (same certs as existing server TLS)
+- Lightweight heartbeat when NATS is healthy (fallback only)
+- Coordinate NATS restart/recovery when NATS cluster fails
+- Add coordination channel metrics (kscore_server_coordination_*)
+- Integration with existing Epic 11 cluster membership
+
+**T1.7: Secure Agent Bootstrap Registration**
+- Define bootstrap credential format (pkg/nats/bootstrap.go)
+  - Bootstrap JWT with minimal claims
+  - Bootstrap NKey for initial connection
+  - Short TTL (configurable, default 5 minutes)
+- Implement BootstrapCredentialProvider interface
+  - Generate bootstrap credentials on demand
+  - Validate bootstrap credentials
+  - Revoke bootstrap credentials
+  - Extensibility point for future SPIFFE/SPIRE integration
+- Configure NATS authorization for bootstrap:
+  - Bootstrap account with limited permissions
+  - Publish: `kscore.{cluster}.agent.register` only
+  - Subscribe: `kscore.{cluster}.agent.{bootstrap_id}.register-response` only
+  - No access to other agent subjects, events, or commands
+- Implement credential exchange in registration flow:
+  - Agent connects with bootstrap credentials
+  - Agent publishes registration request
+  - Server validates agent identity (pre-shared key, cloud metadata, etc.)
+  - Server generates agent-specific credentials
+  - Server responds with credentials on bootstrap response subject
+  - Agent reconnects with new credentials
+- Add NATS account switching support (bootstrap → agent account)
+- Implement credential rotation without agent restart
+- Audit logging for all bootstrap/registration events
+- Design extensibility for future identity providers:
+  - Interface for IdentityVerifier (verify agent claims)
+  - Interface for CredentialIssuer (issue agent credentials)
+  - Placeholder for SPIFFE SVID verification
+  - Placeholder for cloud IAM token verification (AWS STS, GCP metadata)
 
 ### Phase 2: Multi-Endpoint Support (Week 4-5)
 
@@ -878,6 +966,120 @@ agent:
 - Rate limiting for connections
 - DDoS protection recommendations
 
+### Bootstrap Authentication (Agent Registration Security)
+
+New agents connecting to NATS must follow a secure bootstrap process that limits their access until identity is verified:
+
+**Bootstrap Credentials (Minimal Permissions)**:
+```
+# Bootstrap NATS account permissions (example)
+bootstrap_account:
+  permissions:
+    publish:
+      allow:
+        - "kscore.{cluster}.agent.register"
+    subscribe:
+      allow:
+        - "kscore.{cluster}.agent.{bootstrap_id}.register-response"
+    deny:
+      - ">"  # Deny all other subjects
+```
+
+**Registration Flow**:
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    Secure Agent Registration Flow                        │
+│                                                                          │
+│  1. Agent obtains bootstrap credentials (pre-provisioned or on-demand)  │
+│     ┌─────────┐                                                         │
+│     │  Agent  │ ← Bootstrap JWT/NKey (minimal permissions, short TTL)   │
+│     └────┬────┘                                                         │
+│          │                                                              │
+│  2. Agent connects to NATS with bootstrap credentials                   │
+│          │                                                              │
+│          ▼                                                              │
+│     ┌─────────────────────────────────────────────────────────────┐    │
+│     │ NATS (Bootstrap Account)                                    │    │
+│     │ - Can only publish: kscore.{cluster}.agent.register         │    │
+│     │ - Can only subscribe: kscore.{cluster}.agent.{id}.reg-resp  │    │
+│     │ - No access to other agents' subjects                       │    │
+│     └──────────────────────┬──────────────────────────────────────┘    │
+│                            │                                            │
+│  3. Agent publishes registration request with identity proof            │
+│          │                                                              │
+│          ▼                                                              │
+│     ┌─────────────────────────────────────────────────────────────┐    │
+│     │ Control Plane Server                                        │    │
+│     │ - Validates identity (PSK, cloud metadata, attestation)     │    │
+│     │ - Generates agent-specific NATS credentials                 │    │
+│     │ - Responds on agent's bootstrap response subject            │    │
+│     └──────────────────────┬──────────────────────────────────────┘    │
+│                            │                                            │
+│  4. Server sends full credentials on bootstrap response subject         │
+│          │                                                              │
+│          ▼                                                              │
+│     ┌─────────────────────────────────────────────────────────────┐    │
+│     │ Agent receives credentials                                  │    │
+│     │ - New JWT with agent-specific claims                        │    │
+│     │ - Full permissions for agent's own subjects                 │    │
+│     └──────────────────────┬──────────────────────────────────────┘    │
+│                            │                                            │
+│  5. Agent reconnects with full credentials                              │
+│          │                                                              │
+│          ▼                                                              │
+│     ┌─────────────────────────────────────────────────────────────┐    │
+│     │ NATS (Agent Account)                                        │    │
+│     │ - Full access: kscore.{cluster}.agent.{agent_id}.*          │    │
+│     │ - Subscribe to commands, publish responses                  │    │
+│     └─────────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**Identity Verification Options** (pluggable via IdentityVerifier interface):
+- Pre-shared key (simple deployments)
+- Cloud instance metadata (AWS IMDSv2, GCP metadata, Azure IMDS)
+- TPM attestation (high-security environments)
+- Future: SPIFFE SVID verification
+- Future: Kubernetes service account token
+
+**Credential Formats** (pluggable via CredentialIssuer interface):
+- NATS JWT with custom claims (current)
+- NATS NKey pairs (current)
+- Future: SPIFFE SVID (X.509 or JWT-SVID)
+- Future: Cloud IAM tokens
+
+**Security Properties**:
+- Bootstrap credentials have short TTL (default: 5 minutes)
+- Bootstrap credentials can be bulk-revoked without affecting registered agents
+- Full credentials are agent-specific (cannot impersonate other agents)
+- Audit trail for all bootstrap and registration events
+- Rate limiting on registration endpoint
+
+### Server-to-Server Coordination Security
+
+Server-to-server gRPC coordination channel operates independently of NATS:
+
+**Authentication**:
+- mTLS required (uses existing server TLS certificates)
+- Certificate CN/SAN must match expected server identity
+- Certificate rotation supported
+
+**Authorization**:
+- Only cluster member servers can connect
+- Server identity verified against cluster membership (etcd)
+- Operations logged for audit
+
+**Use Cases**:
+- NATS cluster health checking when NATS is degraded
+- Leader election fallback when NATS is unavailable
+- Coordinated NATS cluster recovery/restart
+- Cluster quorum verification during network partitions
+
+**Lightweight Design**:
+- Minimal traffic when NATS is healthy (heartbeat only)
+- Activated for coordination only when needed
+- Does not replace NATS for normal operations
+
 ## Dependencies
 
 - **NATS Server 2.10+**: Required for WebSocket, leaf nodes, superclusters
@@ -931,6 +1133,27 @@ kscore_nats_buffer_overflow_total{agent_id,policy}
 kscore_nats_buffer_drain_duration_seconds{agent_id}
 ```
 
+### Server Coordination Metrics
+```
+kscore_server_coordination_connections_total{peer_server_id,status}
+kscore_server_coordination_rpc_total{peer_server_id,method,status}
+kscore_server_coordination_rpc_duration_seconds{peer_server_id,method}
+kscore_server_coordination_nats_recovery_total{outcome}
+kscore_server_coordination_leader_fallback_total
+kscore_server_coordination_heartbeat_latency_seconds{peer_server_id}
+```
+
+### Bootstrap Authentication Metrics
+```
+kscore_agent_bootstrap_requests_total{status}           # success, rejected, expired
+kscore_agent_bootstrap_duration_seconds                 # time from bootstrap to full registration
+kscore_agent_bootstrap_identity_verification_total{method,status}  # psk, cloud_metadata, etc.
+kscore_agent_credential_issued_total{type}              # jwt, nkey
+kscore_agent_credential_rotation_total{agent_id,status}
+kscore_agent_bootstrap_credentials_active               # current active bootstrap credentials
+kscore_agent_bootstrap_rate_limited_total               # rate limiting triggered
+```
+
 ## Testing Strategy
 
 ### Unit Tests
@@ -976,7 +1199,11 @@ kscore_nats_buffer_drain_duration_seconds{agent_id}
 ## Definition of Done
 
 - [ ] All 11 phases completed
-- [ ] NATS-only communication working
+- [ ] NATS-only agent↔server communication working
+- [ ] Server↔server gRPC coordination channel implemented and tested
+- [ ] Secure agent bootstrap registration with minimal permissions
+- [ ] Bootstrap credential lifecycle (issue, validate, revoke, rotate)
+- [ ] Identity verification extensibility points (future SPIFFE/SPIRE support)
 - [ ] All 7 topologies tested and documented
 - [ ] WebSocket transport working
 - [ ] Leaf node chains working
@@ -984,8 +1211,8 @@ kscore_nats_buffer_drain_duration_seconds{agent_id}
 - [ ] Discovery mechanisms implemented
 - [ ] Message reliability verified (no loss)
 - [ ] Performance benchmarks met
-- [ ] Security review completed
-- [ ] Documentation complete
+- [ ] Security review completed (including bootstrap flow)
+- [ ] Documentation complete (including bootstrap and coordination)
 - [ ] Migration guide available
 - [ ] Chaos tests passing
 - [ ] Production deployment tested
