@@ -1,0 +1,300 @@
+# NATS Mesh Alert Rules for Epic 14
+# Phase 9: Observability - T9.4 Alerting
+
+groups:
+  - name: nats_mesh_connection
+    interval: 30s
+    rules:
+      - alert: NATSConnectionFailureRateHigh
+        expr: |
+          sum(rate(kscore_nats_connection_errors_total[5m])) by (endpoint)
+          /
+          (sum(rate(kscore_nats_connections_total[5m])) by (endpoint) + 0.001)
+          > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High NATS connection failure rate on {{ $labels.endpoint }}"
+          description: "Connection failure rate is {{ $value | humanizePercentage }} (>10%) on endpoint {{ $labels.endpoint }}"
+          runbook_url: "https://docs.keystonecore.io/troubleshooting/nats-connections"
+
+      - alert: NATSConnectionFailureRateCritical
+        expr: |
+          sum(rate(kscore_nats_connection_errors_total[5m])) by (endpoint)
+          /
+          (sum(rate(kscore_nats_connections_total[5m])) by (endpoint) + 0.001)
+          > 0.5
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical NATS connection failure rate on {{ $labels.endpoint }}"
+          description: "Connection failure rate is {{ $value | humanizePercentage }} (>50%) on endpoint {{ $labels.endpoint }}"
+          runbook_url: "https://docs.keystonecore.io/troubleshooting/nats-connections"
+
+      - alert: NATSNoActiveConnections
+        expr: sum(kscore_nats_connections_total{status="success"}) == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No active NATS connections"
+          description: "There are no active NATS connections. All agents may be disconnected."
+          runbook_url: "https://docs.keystonecore.io/troubleshooting/nats-connections"
+
+      - alert: NATSFrequentReconnections
+        expr: sum(rate(kscore_nats_reconnections_total[5m])) by (endpoint) > 5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Frequent NATS reconnections on {{ $labels.endpoint }}"
+          description: "Reconnection rate is {{ $value }}/min on endpoint {{ $labels.endpoint }}, indicating connection instability."
+          runbook_url: "https://docs.keystonecore.io/troubleshooting/nats-reconnections"
+
+  - name: nats_mesh_latency
+    interval: 30s
+    rules:
+      - alert: NATSHighConnectionLatency
+        expr: |
+          histogram_quantile(0.95, rate(kscore_nats_connection_latency_seconds_bucket[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High NATS connection latency"
+          description: "95th percentile connection latency is {{ $value | humanizeDuration }}, exceeding 500ms threshold."
+          runbook_url: "https://docs.keystonecore.io/troubleshooting/nats-latency"
+
+      - alert: NATSGatewayHighLatency
+        expr: |
+          histogram_quantile(0.95, rate(kscore_nats_gateway_latency_seconds_bucket[5m])) by (local_cluster, remote_cluster) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High gateway latency between {{ $labels.local_cluster }} and {{ $labels.remote_cluster }}"
+          description: "95th percentile gateway latency is {{ $value | humanizeDuration }}, exceeding 1s threshold."
+          runbook_url: "https://docs.keystonecore.io/troubleshooting/nats-gateway"
+
+      - alert: NATSGatewayCriticalLatency
+        expr: |
+          histogram_quantile(0.95, rate(kscore_nats_gateway_latency_seconds_bucket[5m])) by (local_cluster, remote_cluster) > 5
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical gateway latency between {{ $labels.local_cluster }} and {{ $labels.remote_cluster }}"
+          description: "95th percentile gateway latency is {{ $value | humanizeDuration }}, exceeding 5s threshold. Cross-cluster operations may fail."
+          runbook_url: "https://docs.keystonecore.io/troubleshooting/nats-gateway"
+
+  - name: nats_mesh_buffer
+    interval: 30s
+    rules:
+      - alert: NATSBufferOverflow
+        expr: rate(kscore_nats_buffer_overflow_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "NATS message buffer overflow detected"
+          description: "Buffer overflow rate is {{ $value }}/min. Messages may be lost during connection issues."
+          runbook_url: "https://docs.keystonecore.io/troubleshooting/nats-buffer"
+
+      - alert: NATSBufferHigh
+        expr: kscore_nats_buffer_size > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "NATS buffer size is high"
+          description: "Buffer contains {{ $value }} messages. This may indicate connection issues preventing message delivery."
+          runbook_url: "https://docs.keystonecore.io/troubleshooting/nats-buffer"
+
+      - alert: NATSBufferCritical
+        expr: kscore_nats_buffer_size > 10000
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "NATS buffer size is critical"
+          description: "Buffer contains {{ $value }} messages. Connection is likely down and messages are accumulating."
+          runbook_url: "https://docs.keystonecore.io/troubleshooting/nats-buffer"
+
+  - name: nats_mesh_delivery
+    interval: 30s
+    rules:
+      - alert: NATSDeliveryFailureRateHigh
+        expr: |
+          rate(kscore_nats_delivery_failed_total[5m])
+          /
+          (rate(kscore_nats_delivery_acked_total[5m]) + rate(kscore_nats_delivery_failed_total[5m]) + 0.001)
+          > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High NATS message delivery failure rate"
+          description: "Delivery failure rate is {{ $value | humanizePercentage }} (>5%). Check connection health and DLQ."
+          runbook_url: "https://docs.keystonecore.io/troubleshooting/nats-delivery"
+
+      - alert: NATSDeliveryPendingHigh
+        expr: kscore_nats_delivery_pending > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High number of pending NATS deliveries"
+          description: "{{ $value }} messages are pending delivery. This may indicate slow consumers or connection issues."
+          runbook_url: "https://docs.keystonecore.io/troubleshooting/nats-delivery"
+
+      - alert: NATSHighDuplicateRate
+        expr: |
+          rate(kscore_nats_duplicates_detected_total[5m])
+          /
+          (rate(kscore_nats_messages_total{direction="received"}[5m]) + 0.001)
+          > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High NATS message duplicate rate"
+          description: "Duplicate rate is {{ $value | humanizePercentage }} (>10%). This may indicate message retry storms."
+          runbook_url: "https://docs.keystonecore.io/troubleshooting/nats-dedup"
+
+  - name: nats_mesh_circuit_breaker
+    interval: 30s
+    rules:
+      - alert: NATSCircuitBreakerOpen
+        expr: kscore_nats_circuit_breaker_state == 2  # 2 = open
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "NATS circuit breaker is open"
+          description: "Circuit breaker is open for endpoint, blocking requests. This indicates repeated failures."
+          runbook_url: "https://docs.keystonecore.io/troubleshooting/nats-circuit-breaker"
+
+      - alert: NATSCircuitBreakerOpenProlonged
+        expr: kscore_nats_circuit_breaker_state == 2
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "NATS circuit breaker stuck open"
+          description: "Circuit breaker has been open for >10 minutes. Manual investigation required."
+          runbook_url: "https://docs.keystonecore.io/troubleshooting/nats-circuit-breaker"
+
+  - name: nats_mesh_topology
+    interval: 60s
+    rules:
+      - alert: NATSLeafNodeDisconnected
+        expr: delta(kscore_nats_leaf_nodes_total[5m]) < -1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "NATS leaf nodes disconnected from {{ $labels.hub }}"
+          description: "{{ $value | abs }} leaf nodes have disconnected from hub {{ $labels.hub }} in the last 5 minutes."
+          runbook_url: "https://docs.keystonecore.io/troubleshooting/nats-leaf-nodes"
+
+      - alert: NATSNoLeafNodes
+        expr: sum(kscore_nats_leaf_nodes_total) by (hub) == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No NATS leaf nodes connected to hub {{ $labels.hub }}"
+          description: "Hub {{ $labels.hub }} has no connected leaf nodes. Edge agents may be disconnected."
+          runbook_url: "https://docs.keystonecore.io/troubleshooting/nats-leaf-nodes"
+
+      - alert: NATSGatewayDisconnected
+        expr: kscore_nats_gateway_connections_total == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "NATS gateway disconnected between {{ $labels.local_cluster }} and {{ $labels.remote_cluster }}"
+          description: "Supercluster gateway connection is down. Cross-cluster operations will fail."
+          runbook_url: "https://docs.keystonecore.io/troubleshooting/nats-gateway"
+
+  - name: nats_mesh_failover
+    interval: 30s
+    rules:
+      - alert: NATSHighFailoverRate
+        expr: rate(kscore_nats_failovers_total[10m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High NATS endpoint failover rate"
+          description: "Failover rate is {{ $value }}/min. This indicates primary endpoint instability."
+          runbook_url: "https://docs.keystonecore.io/troubleshooting/nats-failover"
+
+      - alert: NATSFailoverFlapping
+        expr: |
+          sum(rate(kscore_nats_failovers_total[5m])) by (from, to)
+          > 5
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "NATS endpoint failover flapping between {{ $labels.from }} and {{ $labels.to }}"
+          description: "Rapid failover flapping detected ({{ $value }}/min). Both endpoints may be unstable."
+          runbook_url: "https://docs.keystonecore.io/troubleshooting/nats-failover"
+
+  - name: nats_mesh_bootstrap
+    interval: 60s
+    rules:
+      - alert: NATSBootstrapFailureRateHigh
+        expr: |
+          rate(kscore_nats_bootstrap_requests_total{status="rejected"}[5m])
+          /
+          (rate(kscore_nats_bootstrap_requests_total[5m]) + 0.001)
+          > 0.2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High NATS agent bootstrap rejection rate"
+          description: "{{ $value | humanizePercentage }} of bootstrap requests are being rejected. Check agent credentials and identity verification."
+          runbook_url: "https://docs.keystonecore.io/troubleshooting/nats-bootstrap"
+
+      - alert: NATSBootstrapExpiredHigh
+        expr: rate(kscore_nats_bootstrap_requests_total{status="expired"}[5m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High rate of expired NATS bootstrap credentials"
+          description: "Expired bootstrap rate is {{ $value }}/min. Agents may be taking too long to complete registration."
+          runbook_url: "https://docs.keystonecore.io/troubleshooting/nats-bootstrap"
+
+  - name: nats_mesh_coordination
+    interval: 30s
+    rules:
+      - alert: NATSCoordinationRPCErrors
+        expr: |
+          rate(kscore_nats_coordination_rpcs_total{status="error"}[5m])
+          /
+          (rate(kscore_nats_coordination_rpcs_total[5m]) + 0.001)
+          > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High NATS server coordination RPC error rate"
+          description: "Coordination RPC error rate is {{ $value | humanizePercentage }} for method {{ $labels.method }}. Server-to-server communication may be degraded."
+          runbook_url: "https://docs.keystonecore.io/troubleshooting/nats-coordination"
+
+      - alert: NATSCoordinationHighLatency
+        expr: |
+          histogram_quantile(0.95, rate(kscore_nats_coordination_latency_seconds_bucket[5m])) by (method) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High NATS coordination RPC latency for {{ $labels.method }}"
+          description: "95th percentile coordination latency is {{ $value | humanizeDuration }} for method {{ $labels.method }}."
+          runbook_url: "https://docs.keystonecore.io/troubleshooting/nats-coordination"

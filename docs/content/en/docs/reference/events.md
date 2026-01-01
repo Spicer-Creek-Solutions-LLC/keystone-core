@@ -7,12 +7,13 @@ description: >
 
 ## Overview
 
-Keystone Core emits 15 standard event types across 5 categories. All events follow a consistent schema and support CEL-based filtering.
+Keystone Core emits 22 standard event types across 6 categories. All events follow a consistent schema and support CEL-based filtering.
 
 **Event Categories**:
 - [Agent Events](#agent-events) (4 types)
 - [Job Events](#job-events) (3 types)
 - [State Events](#state-events) (5 types)
+- [Bootstrap Events](#bootstrap-events) (7 types)
 - [System Events](#system-events) (2 types)
 - [User Events](#user-events) (1 type)
 
@@ -367,6 +368,120 @@ Emitted when configuration drift detected.
 - `medium` → event severity: `warning`
 - `high` → event severity: `error`
 - `critical` → event severity: `critical`
+
+## Bootstrap Events
+
+Events related to agent bootstrap registration flow.
+
+### bootstrap.generate
+
+Emitted when a bootstrap credential is generated.
+
+**Severity**: `info`
+
+**Data Fields**:
+```json
+{
+  "credential_id": "boot-abc123",
+  "cluster": "production",
+  "ttl": 300,
+  "max_uses": 1,
+  "credential_type": "nkey"
+}
+```
+
+### bootstrap.validate
+
+Emitted when a bootstrap credential is validated.
+
+**Severity**: `info` (success) / `warning` (failure)
+
+**Data Fields**:
+```json
+{
+  "credential_id": "boot-abc123",
+  "cluster": "production",
+  "success": true,
+  "error": ""
+}
+```
+
+### bootstrap.use
+
+Emitted when a bootstrap credential is used for registration.
+
+**Severity**: `info`
+
+**Data Fields**:
+```json
+{
+  "credential_id": "boot-abc123",
+  "agent_id": "web-01",
+  "cluster": "production",
+  "source_ip": "10.0.1.100"
+}
+```
+
+### bootstrap.register
+
+Emitted when an agent successfully registers via bootstrap.
+
+**Severity**: `info`
+
+**Data Fields**:
+```json
+{
+  "credential_id": "boot-abc123",
+  "agent_id": "web-01",
+  "cluster": "production",
+  "success": true,
+  "source_ip": "10.0.1.100"
+}
+```
+
+### bootstrap.revoke
+
+Emitted when a bootstrap credential is revoked.
+
+**Severity**: `info`
+
+**Data Fields**:
+```json
+{
+  "credential_id": "boot-abc123",
+  "cluster": "production",
+  "reason": "security concern"
+}
+```
+
+### bootstrap.expire
+
+Emitted when a bootstrap credential expires.
+
+**Severity**: `info`
+
+**Data Fields**:
+```json
+{
+  "credential_id": "boot-abc123",
+  "cluster": "production",
+  "expired_at": "2024-01-15T10:35:45Z"
+}
+```
+
+### bootstrap.cleanup
+
+Emitted when expired credentials are cleaned up.
+
+**Severity**: `debug`
+
+**Data Fields**:
+```json
+{
+  "cluster": "production",
+  "cleaned_count": 5
+}
+```
 
 ## System Events
 

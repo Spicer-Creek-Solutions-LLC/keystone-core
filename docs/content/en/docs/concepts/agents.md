@@ -451,11 +451,61 @@ Commands execute in sandboxed environments:
 - Process isolation
 - Job objects for resource limits
 
+### Bootstrap Registration
+
+New agents use a secure bootstrap flow to register with the control plane:
+
+```mermaid
+sequenceDiagram
+    participant A as Agent
+    participant N as NATS
+    participant CP as Control Plane
+
+    Note over A: Agent starts with bootstrap credential
+    A->>N: Connect (bootstrap creds - limited permissions)
+    A->>N: Publish registration request
+    N->>CP: Forward to control plane
+    CP->>CP: Validate identity
+    CP->>N: Respond with permanent credentials
+    N->>A: Receive permanent credentials
+    A->>N: Reconnect with permanent credentials
+    Note over A: Agent now has full access
+```
+
+**Bootstrap Credential Types**:
+- **NKey**: NATS NKey-based authentication (recommended)
+- **Token**: Simple token authentication
+- **JWT**: JWT-based authentication with claims
+
+**Security Properties**:
+- **Time-limited**: Bootstrap credentials expire (default 5 minutes, max 24 hours)
+- **Minimal permissions**: Can only publish to registration topic
+- **Single-use**: Optionally limited to one registration
+- **Audited**: All bootstrap events logged
+
+**Configuration**:
+```yaml
+bootstrap:
+  enabled: true
+  credential_type: nkey  # nkey, token, or jwt
+  ttl: 5m                # Time-to-live
+  max_ttl: 24h           # Maximum allowed TTL
+  max_uses: 1            # 0 = unlimited
+  allowed_agent_ids: []  # Empty = any agent ID
+  allowed_labels: {}     # Required labels for registration
+```
+
+**Extensibility**:
+- `IdentityVerifier` interface for custom identity verification (SPIFFE, cloud IAM)
+- `CredentialIssuer` interface for custom credential generation
+- Integration points for future SPIFFE/SPIRE support
+
 ### Authentication
 
 Agents authenticate to control plane using:
 - NATS credentials (JWT-based)
 - TLS client certificates
+- NKey-based authentication (recommended for production)
 - Shared secrets (less secure, not recommended)
 
 ### Permissions

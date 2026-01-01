@@ -6,9 +6,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
-	natsmgr "github.com/shawnbutts/keystone-core/pkg/nats"
 	"github.com/shawnbutts/keystone-core/pkg/events"
+	natsmgr "github.com/shawnbutts/keystone-core/pkg/nats"
 	"github.com/shawnbutts/keystone-core/pkg/tracing"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -56,6 +57,12 @@ type StoredAgent struct {
 
 // ConnectionManagerConfig holds configuration for the connection manager
 type ConnectionManagerConfig struct {
+	// Cluster is the logical cluster name for subject namespacing
+	// If empty, defaults to "default"
+	Cluster string
+	// ServerID is a unique identifier for this control plane server
+	// If empty, a UUID will be generated
+	ServerID string
 	// HeartbeatTimeout is how long to wait before considering an agent stale
 	HeartbeatTimeout time.Duration
 	// StaleThreshold is how many missed heartbeats before marking agent offline
@@ -83,6 +90,11 @@ type ConnectionManager struct {
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 
+	// NATS subject management
+	subjects *natsmgr.SubjectBuilder
+	cluster  string
+	serverID string
+
 	// Configuration
 	heartbeatTimeout time.Duration
 	staleThreshold   int
@@ -106,6 +118,17 @@ func NewConnectionManagerWithConfig(natsManager *natsmgr.Manager, cfg *Connectio
 		cfg = DefaultConnectionManagerConfig()
 	}
 
+	// Set defaults for cluster and server ID
+	cluster := cfg.Cluster
+	if cluster == "" {
+		cluster = natsmgr.DefaultCluster
+	}
+
+	serverID := cfg.ServerID
+	if serverID == "" {
+		serverID = uuid.New().String()
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &ConnectionManager{
@@ -113,6 +136,9 @@ func NewConnectionManagerWithConfig(natsManager *natsmgr.Manager, cfg *Connectio
 		agents:           make(map[string]*AgentInfo),
 		ctx:              ctx,
 		cancel:           cancel,
+		subjects:         natsmgr.NewSubjectBuilder(cluster),
+		cluster:          cluster,
+		serverID:         serverID,
 		heartbeatTimeout: cfg.HeartbeatTimeout,
 		staleThreshold:   cfg.StaleThreshold,
 		monitorInterval:  cfg.MonitorInterval,
@@ -127,9 +153,19 @@ func (cm *ConnectionManager) SetStateStore(store AgentStore) {
 	cm.stateStore = store
 }
 
+// Cluster returns the cluster name
+func (cm *ConnectionManager) Cluster() string {
+	return cm.cluster
+}
+
+// ServerID returns the server ID
+func (cm *ConnectionManager) ServerID() string {
+	return cm.serverID
+}
+
 // Start starts the connection manager
 func (cm *ConnectionManager) Start() error {
-	fmt.Println("Starting connection manager...")
+	fmt.Printf("Starting connection manager (cluster=%s, server=%s)...\n", cm.cluster, cm.serverID)
 
 	// Load agents from database if state store is configured (for HA clusters)
 	if cm.stateStore != nil {
@@ -256,7 +292,7 @@ func (cm *ConnectionManager) Stop() error {
 
 // subscribeToRegistrations subscribes to agent registration requests
 func (cm *ConnectionManager) subscribeToRegistrations() error {
-	subject := "kscore.agent.register"
+	subject := cm.subjects.AgentRegister()
 
 	_, err := cm.nats.Subscribe(subject, func(msg *nats.Msg) {
 		cm.handleRegistration(msg)
@@ -272,7 +308,7 @@ func (cm *ConnectionManager) subscribeToRegistrations() error {
 
 // subscribeToHeartbeats subscribes to agent heartbeats
 func (cm *ConnectionManager) subscribeToHeartbeats() error {
-	subject := "kscore.agent.heartbeat"
+	subject := cm.subjects.AgentHeartbeat()
 
 	_, err := cm.nats.Subscribe(subject, func(msg *nats.Msg) {
 		cm.handleHeartbeat(msg)
@@ -588,8 +624,8 @@ func (cm *ConnectionManager) SendCommandWithContext(ctx context.Context, agentID
 
 	// Send command to agent-specific subject with trace context
 	// Set reply subject so agent can send responses back
-	subject := fmt.Sprintf("kscore.agent.%s.command", agentID)
-	replySubject := fmt.Sprintf("kscore.controlplane.command.%s.response", command.CommandId)
+	subject := cm.subjects.AgentCommand(agentID)
+	replySubject := cm.subjects.CommandResponse(command.CommandId)
 	msg := &nats.Msg{
 		Subject: subject,
 		Reply:   replySubject,

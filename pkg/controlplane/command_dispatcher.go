@@ -56,8 +56,9 @@ func NewCommandDispatcher(connMgr *ConnectionManager, store state.Store) *Comman
 // Start starts the command dispatcher and subscribes to command responses
 func (cd *CommandDispatcher) Start() error {
 	// Subscribe to command responses from agents
-	// Subject pattern: kscore.controlplane.command.*.response (wildcard for command ID)
-	sub, err := cd.connMgr.nats.Conn().Subscribe("kscore.controlplane.command.*.response", func(msg *nats.Msg) {
+	// Subject pattern: kscore.{cluster}.command.*.response (wildcard for command ID)
+	subject := cd.connMgr.subjects.CommandResponseWildcard()
+	sub, err := cd.connMgr.nats.Conn().Subscribe(subject, func(msg *nats.Msg) {
 		var resp pb.ExecuteCommandResponse
 		if err := proto.Unmarshal(msg.Data, &resp); err != nil {
 			fmt.Printf("Failed to unmarshal command response: %v\n", err)
@@ -69,7 +70,7 @@ func (cd *CommandDispatcher) Start() error {
 		return fmt.Errorf("failed to subscribe to command responses: %w", err)
 	}
 	cd.responseSub = sub
-	fmt.Println("Command dispatcher started, subscribed to command responses")
+	fmt.Printf("Command dispatcher started, subscribed to command responses on %s\n", subject)
 	return nil
 }
 

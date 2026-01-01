@@ -127,7 +127,7 @@ func TestAgent_Register(t *testing.T) {
 		}
 
 		// Mock control plane responder
-		_, err = mgr.Subscribe("kscore.agent.register", func(msg *nats.Msg) {
+		_, err = mgr.Subscribe("kscore.default.agent.register", func(msg *nats.Msg) {
 			var req pb.RegisterRequest
 			if err := proto.Unmarshal(msg.Data, &req); err != nil {
 				t.Errorf("Failed to unmarshal register request: %v", err)
@@ -181,7 +181,7 @@ func TestAgent_SendHeartbeat(t *testing.T) {
 
 	// Subscribe to heartbeats
 	heartbeatReceived := make(chan bool, 1)
-	_, err = mgr.Subscribe("kscore.agent.heartbeat", func(msg *nats.Msg) {
+	_, err = mgr.Subscribe("kscore.default.agent.heartbeat", func(msg *nats.Msg) {
 		var req pb.HeartbeatRequest
 		if err := proto.Unmarshal(msg.Data, &req); err != nil {
 			t.Errorf("Failed to unmarshal heartbeat: %v", err)
@@ -262,7 +262,7 @@ func TestAgent_SubscribeToCommands(t *testing.T) {
 	}
 
 	// Verify subscription by sending a command
-	subject := fmt.Sprintf("kscore.agent.%s.command", agent.ID())
+	subject := fmt.Sprintf("kscore.default.agent.%s.command", agent.ID())
 
 	// Create a simple command request
 	req := &pb.ExecuteCommandRequest{
@@ -313,7 +313,7 @@ func TestAgent_HandleCommandRequest(t *testing.T) {
 	data, _ := proto.Marshal(req)
 
 	// Send command and wait for response
-	subject := fmt.Sprintf("kscore.agent.%s.command", agent.ID())
+	subject := fmt.Sprintf("kscore.default.agent.%s.command", agent.ID())
 
 	// Create a channel to receive responses
 	responseChan := make(chan *pb.ExecuteCommandResponse, 5)
@@ -515,7 +515,7 @@ func TestAgent_HeartbeatLoop(t *testing.T) {
 	heartbeatCount := 0
 	heartbeatChan := make(chan bool, 10)
 
-	_, err = mgr.Subscribe("kscore.agent.heartbeat", func(msg *nats.Msg) {
+	_, err = mgr.Subscribe("kscore.default.agent.heartbeat", func(msg *nats.Msg) {
 		heartbeatChan <- true
 	})
 	if err != nil {
@@ -665,7 +665,7 @@ func TestAgent_HandleCommandRequest_InvalidProto(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Send invalid protobuf data
-	subject := fmt.Sprintf("kscore.agent.%s.command", agent.ID())
+	subject := fmt.Sprintf("kscore.default.agent.%s.command", agent.ID())
 	invalidData := []byte("not a valid protobuf message")
 
 	// Create a channel to receive error response
@@ -876,7 +876,7 @@ func TestAgent_HandleCommandRequest_CommandFailure(t *testing.T) {
 	data, _ := proto.Marshal(req)
 
 	// Send command and wait for response
-	subject := fmt.Sprintf("kscore.agent.%s.command", agent.ID())
+	subject := fmt.Sprintf("kscore.default.agent.%s.command", agent.ID())
 
 	// Create a channel to receive responses
 	responseChan := make(chan *pb.ExecuteCommandResponse, 5)

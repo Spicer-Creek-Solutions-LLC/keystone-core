@@ -1,0 +1,395 @@
+syntax = "proto3";
+
+package keystone.core.v1;
+
+option go_package = "github.com/shawnbutts/keystone-core/pkg/api/v1;v1";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+
+// CoordinationService defines the server-to-server coordination protocol.
+// This service is used for cluster coordination when NATS is unavailable.
+// All RPCs require mTLS authentication.
+service CoordinationService {
+  // ClusterHealth returns the health status of the cluster from this server's perspective
+  rpc ClusterHealth(ClusterHealthRequest) returns (ClusterHealthResponse);
+
+  // GetLeader returns information about the current cluster leader
+  rpc GetLeader(GetLeaderRequest) returns (GetLeaderResponse);
+
+  // NATSStatus returns the NATS connectivity status for this server
+  rpc NATSStatus(NATSStatusRequest) returns (NATSStatusResponse);
+
+  // RecoveryCoordinate coordinates NATS recovery actions across servers
+  rpc RecoveryCoordinate(RecoveryCoordinateRequest) returns (RecoveryCoordinateResponse);
+
+  // Heartbeat performs a lightweight liveness check between servers
+  rpc Heartbeat(ServerHeartbeatRequest) returns (ServerHeartbeatResponse);
+
+  // PropagateState propagates cluster state changes when NATS is down
+  rpc PropagateState(PropagateStateRequest) returns (PropagateStateResponse);
+}
+
+// ClusterHealthRequest requests cluster health information
+message ClusterHealthRequest {
+  // Request ID for correlation
+  string request_id = 1;
+
+  // Include detailed member status
+  bool include_members = 2;
+
+  // Include NATS status
+  bool include_nats = 3;
+}
+
+// ClusterHealthResponse contains cluster health information
+message ClusterHealthResponse {
+  // Request ID for correlation
+  string request_id = 1;
+
+  // Overall cluster health status
+  ClusterHealthStatus status = 2;
+
+  // Cluster name
+  string cluster = 3;
+
+  // Number of healthy members
+  int32 healthy_members = 4;
+
+  // Total number of members
+  int32 total_members = 5;
+
+  // Whether cluster has quorum
+  bool has_quorum = 6;
+
+  // Current leader ID (empty if no leader)
+  string leader_id = 7;
+
+  // Member statuses (if include_members was true)
+  repeated MemberStatus members = 8;
+
+  // NATS status (if include_nats was true)
+  NATSClusterStatus nats_status = 9;
+
+  // Response timestamp
+  google.protobuf.Timestamp timestamp = 10;
+}
+
+// ClusterHealthStatus represents the overall cluster health
+enum ClusterHealthStatus {
+  CLUSTER_HEALTH_STATUS_UNSPECIFIED = 0;
+  CLUSTER_HEALTH_STATUS_HEALTHY = 1;
+  CLUSTER_HEALTH_STATUS_DEGRADED = 2;
+  CLUSTER_HEALTH_STATUS_UNHEALTHY = 3;
+  CLUSTER_HEALTH_STATUS_UNKNOWN = 4;
+}
+
+// MemberStatus contains status information for a cluster member
+message MemberStatus {
+  // Member ID
+  string member_id = 1;
+
+  // Member address (host:port)
+  string address = 2;
+
+  // Member health status
+  MemberHealthStatus status = 3;
+
+  // Is this member the leader
+  bool is_leader = 4;
+
+  // Last heartbeat timestamp
+  google.protobuf.Timestamp last_heartbeat = 5;
+
+  // Member uptime
+  google.protobuf.Duration uptime = 6;
+
+  // Number of agents connected to this member
+  int32 agent_count = 7;
+
+  // NATS connectivity status
+  bool nats_connected = 8;
+}
+
+// MemberHealthStatus represents a member's health
+enum MemberHealthStatus {
+  MEMBER_HEALTH_STATUS_UNSPECIFIED = 0;
+  MEMBER_HEALTH_STATUS_HEALTHY = 1;
+  MEMBER_HEALTH_STATUS_DEGRADED = 2;
+  MEMBER_HEALTH_STATUS_UNHEALTHY = 3;
+  MEMBER_HEALTH_STATUS_UNKNOWN = 4;
+}
+
+// NATSClusterStatus contains NATS cluster connectivity information
+message NATSClusterStatus {
+  // Overall NATS cluster status
+  NATSHealthStatus status = 1;
+
+  // Number of connected NATS servers
+  int32 connected_servers = 2;
+
+  // Total expected NATS servers
+  int32 total_servers = 3;
+
+  // JetStream available
+  bool jetstream_available = 4;
+
+  // Per-server NATS status
+  repeated NATSServerStatus servers = 5;
+}
+
+// NATSHealthStatus represents NATS cluster health
+enum NATSHealthStatus {
+  NATS_HEALTH_STATUS_UNSPECIFIED = 0;
+  NATS_HEALTH_STATUS_HEALTHY = 1;
+  NATS_HEALTH_STATUS_DEGRADED = 2;
+  NATS_HEALTH_STATUS_UNHEALTHY = 3;
+  NATS_HEALTH_STATUS_UNKNOWN = 4;
+}
+
+// NATSServerStatus contains status for a single NATS server
+message NATSServerStatus {
+  // NATS server address
+  string address = 1;
+
+  // Connection status
+  bool connected = 2;
+
+  // Last seen timestamp
+  google.protobuf.Timestamp last_seen = 3;
+
+  // Error message if not connected
+  string error = 4;
+}
+
+// GetLeaderRequest requests current leader information
+message GetLeaderRequest {
+  // Request ID for correlation
+  string request_id = 1;
+}
+
+// GetLeaderResponse contains leader information
+message GetLeaderResponse {
+  // Request ID for correlation
+  string request_id = 1;
+
+  // Whether a leader exists
+  bool has_leader = 2;
+
+  // Leader member ID
+  string leader_id = 3;
+
+  // Leader address (host:port)
+  string leader_address = 4;
+
+  // Leader term/epoch
+  int64 leader_term = 5;
+
+  // When leadership was acquired
+  google.protobuf.Timestamp leader_since = 6;
+
+  // Response timestamp
+  google.protobuf.Timestamp timestamp = 7;
+}
+
+// NATSStatusRequest requests NATS connectivity status
+message NATSStatusRequest {
+  // Request ID for correlation
+  string request_id = 1;
+
+  // Server ID making the request
+  string requester_id = 2;
+}
+
+// NATSStatusResponse contains NATS connectivity status
+message NATSStatusResponse {
+  // Request ID for correlation
+  string request_id = 1;
+
+  // Server ID responding
+  string server_id = 2;
+
+  // NATS connection status
+  NATSConnectionStatus connection_status = 3;
+
+  // NATS server URLs connected to
+  repeated string connected_urls = 4;
+
+  // JetStream status
+  JetStreamStatus jetstream_status = 5;
+
+  // Last successful publish timestamp
+  google.protobuf.Timestamp last_publish = 6;
+
+  // Last successful subscribe timestamp
+  google.protobuf.Timestamp last_subscribe = 7;
+
+  // Error details if not healthy
+  string error = 8;
+
+  // Response timestamp
+  google.protobuf.Timestamp timestamp = 9;
+}
+
+// NATSConnectionStatus represents NATS connection state
+enum NATSConnectionStatus {
+  NATS_CONNECTION_STATUS_UNSPECIFIED = 0;
+  NATS_CONNECTION_STATUS_CONNECTED = 1;
+  NATS_CONNECTION_STATUS_CONNECTING = 2;
+  NATS_CONNECTION_STATUS_RECONNECTING = 3;
+  NATS_CONNECTION_STATUS_DISCONNECTED = 4;
+  NATS_CONNECTION_STATUS_CLOSED = 5;
+}
+
+// JetStreamStatus contains JetStream availability information
+message JetStreamStatus {
+  // JetStream available
+  bool available = 1;
+
+  // JetStream domain
+  string domain = 2;
+
+  // Number of streams
+  int32 stream_count = 3;
+
+  // Number of consumers
+  int32 consumer_count = 4;
+}
+
+// RecoveryCoordinateRequest coordinates NATS recovery actions
+message RecoveryCoordinateRequest {
+  // Request ID for correlation
+  string request_id = 1;
+
+  // Server ID initiating recovery
+  string initiator_id = 2;
+
+  // Recovery action to take
+  RecoveryAction action = 3;
+
+  // Target NATS server (if applicable)
+  string target_server = 4;
+
+  // Recovery parameters
+  map<string, string> parameters = 5;
+}
+
+// RecoveryAction represents a NATS recovery action
+enum RecoveryAction {
+  RECOVERY_ACTION_UNSPECIFIED = 0;
+  RECOVERY_ACTION_RESTART_EMBEDDED = 1;
+  RECOVERY_ACTION_RECONNECT = 2;
+  RECOVERY_ACTION_FAILOVER = 3;
+  RECOVERY_ACTION_DRAIN = 4;
+  RECOVERY_ACTION_PAUSE = 5;
+  RECOVERY_ACTION_RESUME = 6;
+}
+
+// RecoveryCoordinateResponse contains recovery action result
+message RecoveryCoordinateResponse {
+  // Request ID for correlation
+  string request_id = 1;
+
+  // Server ID responding
+  string server_id = 2;
+
+  // Whether the action was accepted
+  bool accepted = 3;
+
+  // Recovery state after action
+  RecoveryState state = 4;
+
+  // Error message if not accepted or failed
+  string error = 5;
+
+  // Response timestamp
+  google.protobuf.Timestamp timestamp = 6;
+}
+
+// RecoveryState represents recovery progress
+enum RecoveryState {
+  RECOVERY_STATE_UNSPECIFIED = 0;
+  RECOVERY_STATE_IDLE = 1;
+  RECOVERY_STATE_IN_PROGRESS = 2;
+  RECOVERY_STATE_COMPLETED = 3;
+  RECOVERY_STATE_FAILED = 4;
+}
+
+// ServerHeartbeatRequest is a lightweight liveness check
+message ServerHeartbeatRequest {
+  // Sender server ID
+  string sender_id = 1;
+
+  // Sender timestamp
+  google.protobuf.Timestamp timestamp = 2;
+
+  // Sequence number (for ordering)
+  int64 sequence = 3;
+}
+
+// ServerHeartbeatResponse acknowledges the heartbeat
+message ServerHeartbeatResponse {
+  // Responder server ID
+  string responder_id = 1;
+
+  // Responder timestamp
+  google.protobuf.Timestamp timestamp = 2;
+
+  // Echo back the sequence number
+  int64 sequence = 3;
+
+  // Round-trip latency (from sender's timestamp to now)
+  google.protobuf.Duration latency = 4;
+}
+
+// PropagateStateRequest propagates state changes when NATS is down
+message PropagateStateRequest {
+  // Request ID for correlation
+  string request_id = 1;
+
+  // Server ID sending the update
+  string sender_id = 2;
+
+  // State update type
+  StateUpdateType update_type = 3;
+
+  // Serialized state data
+  bytes state_data = 4;
+
+  // State version/sequence
+  int64 version = 5;
+
+  // Timestamp of the original state change
+  google.protobuf.Timestamp state_timestamp = 6;
+}
+
+// StateUpdateType represents the type of state update
+enum StateUpdateType {
+  STATE_UPDATE_TYPE_UNSPECIFIED = 0;
+  STATE_UPDATE_TYPE_AGENT_REGISTER = 1;
+  STATE_UPDATE_TYPE_AGENT_HEARTBEAT = 2;
+  STATE_UPDATE_TYPE_AGENT_DISCONNECT = 3;
+  STATE_UPDATE_TYPE_COMMAND_RESULT = 4;
+  STATE_UPDATE_TYPE_MEMBERSHIP_CHANGE = 5;
+}
+
+// PropagateStateResponse acknowledges state propagation
+message PropagateStateResponse {
+  // Request ID for correlation
+  string request_id = 1;
+
+  // Server ID acknowledging
+  string server_id = 2;
+
+  // Whether the update was applied
+  bool applied = 3;
+
+  // Current version on this server
+  int64 current_version = 4;
+
+  // Error message if not applied
+  string error = 5;
+
+  // Response timestamp
+  google.protobuf.Timestamp timestamp = 6;
+}

@@ -26,6 +26,10 @@ type Agent struct {
 	metadataInterval  time.Duration
 	commandTimeout    time.Duration
 
+	// NATS subject management
+	subjects *natsmgr.SubjectBuilder
+	cluster  string
+
 	ctx    context.Context
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
@@ -35,11 +39,46 @@ type Agent struct {
 	lastMetadata time.Time
 }
 
-// NewAgent creates a new agent instance
+// AgentConfig holds configuration for an agent
+type AgentConfig struct {
+	// ID is the unique identifier for this agent (optional, auto-generated if empty)
+	ID string
+	// Cluster is the logical cluster name for subject namespacing (defaults to "default")
+	Cluster string
+	// HeartbeatInterval is how often to send heartbeats
+	HeartbeatInterval time.Duration
+	// MetadataInterval is how often to refresh metadata
+	MetadataInterval time.Duration
+	// CommandTimeout is the default timeout for commands
+	CommandTimeout time.Duration
+}
+
+// NewAgent creates a new agent instance (legacy constructor)
 func NewAgent(id string, natsManager *natsmgr.Manager, heartbeatInterval, metadataInterval, commandTimeout time.Duration) (*Agent, error) {
+	return NewAgentWithConfig(natsManager, &AgentConfig{
+		ID:                id,
+		HeartbeatInterval: heartbeatInterval,
+		MetadataInterval:  metadataInterval,
+		CommandTimeout:    commandTimeout,
+	})
+}
+
+// NewAgentWithConfig creates a new agent instance with configuration
+func NewAgentWithConfig(natsManager *natsmgr.Manager, cfg *AgentConfig) (*Agent, error) {
+	if cfg == nil {
+		cfg = &AgentConfig{}
+	}
+
 	// Generate ID if not provided
+	id := cfg.ID
 	if id == "" {
 		id = uuid.New().String()
+	}
+
+	// Set cluster default
+	cluster := cfg.Cluster
+	if cluster == "" {
+		cluster = natsmgr.DefaultCluster
 	}
 
 	// Collect initial metadata
@@ -55,17 +94,24 @@ func NewAgent(id string, natsManager *natsmgr.Manager, heartbeatInterval, metada
 		nats:              natsManager,
 		executor:          NewExecutor(),
 		metadata:          metadata,
-		heartbeatInterval: heartbeatInterval,
-		metadataInterval:  metadataInterval,
-		commandTimeout:    commandTimeout,
+		heartbeatInterval: cfg.HeartbeatInterval,
+		metadataInterval:  cfg.MetadataInterval,
+		commandTimeout:    cfg.CommandTimeout,
+		subjects:          natsmgr.NewSubjectBuilder(cluster),
+		cluster:           cluster,
 		ctx:               ctx,
 		cancel:            cancel,
 	}, nil
 }
 
+// Cluster returns the cluster name
+func (a *Agent) Cluster() string {
+	return a.cluster
+}
+
 // Start starts the agent services
 func (a *Agent) Start() error {
-	fmt.Printf("Starting agent %s\n", a.id)
+	fmt.Printf("Starting agent %s (cluster=%s)\n", a.id, a.cluster)
 
 	// Register with control plane
 	if err := a.register(); err != nil {
@@ -128,7 +174,7 @@ func (a *Agent) register() error {
 	}
 
 	// Send registration via NATS
-	subject := "kscore.agent.register"
+	subject := a.subjects.AgentRegister()
 	msg, err := a.nats.PublishRequest(subject, data, 10*time.Second)
 	if err != nil {
 		// If no response, we might be in development mode or control plane is not ready
@@ -213,7 +259,7 @@ func (a *Agent) sendHeartbeat() error {
 	}
 
 	// Send via NATS (fire and forget, or request for config updates)
-	subject := "kscore.agent.heartbeat"
+	subject := a.subjects.AgentHeartbeat()
 	if err := a.nats.Publish(subject, data); err != nil {
 		return fmt.Errorf("failed to publish heartbeat: %w", err)
 	}
@@ -255,7 +301,7 @@ func (a *Agent) updateMetadata() {
 // subscribeToCommands subscribes to command execution requests
 func (a *Agent) subscribeToCommands() error {
 	// Subscribe to agent-specific commands
-	subject := fmt.Sprintf("kscore.agent.%s.command", a.id)
+	subject := a.subjects.AgentCommand(a.id)
 
 	_, err := a.nats.Subscribe(subject, func(msg *nats.Msg) {
 		a.handleCommandRequest(msg)

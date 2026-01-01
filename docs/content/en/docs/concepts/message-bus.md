@@ -180,44 +180,110 @@ nats:
 
 ## NATS Subjects (Topics)
 
-Keystone Core uses a structured subject namespace:
+Keystone Core uses a structured, cluster-prefixed subject namespace:
+
+```
+kscore.{cluster}.{category}.{entity}.{operation}
+```
+
+The `{cluster}` prefix enables multi-cluster deployments (superclusters) where messages are routed to the correct cluster.
 
 ### Agent Communication
 
 ```
-kscore.agent.{agent_id}.command     - Commands to specific agent
-kscore.agent.{agent_id}.state       - State configs to specific agent
-kscore.agent.{agent_id}.event       - Events from specific agent
-kscore.agent.*.heartbeat            - Heartbeats from all agents
-kscore.agent.register               - Agent registration
+kscore.{cluster}.agent.register           - Agent registration
+kscore.{cluster}.agent.heartbeat          - Agent heartbeats
+kscore.{cluster}.agent.{id}.command       - Commands to specific agent
+kscore.{cluster}.agent.{id}.response      - Responses from specific agent
+kscore.{cluster}.agent.{id}.state         - State operations
+kscore.{cluster}.agent.{id}.events        - Agent events
 ```
 
-### Control Plane
+### Bootstrap (Secure Registration)
+
+New agents start with minimal permissions and use bootstrap subjects:
 
 ```
-kscore.command.dispatch             - Command dispatch requests
-kscore.command.result               - Command execution results
-kscore.state.apply                  - State application requests
-kscore.state.result                 - State application results
-kscore.event                        - System-wide events
+kscore.{cluster}.bootstrap.{id}.register  - Bootstrap registration request
+kscore.{cluster}.bootstrap.{id}.response  - Bootstrap registration response
+```
+
+Bootstrap credentials can only access these subjects until permanent credentials are issued.
+
+### Server Communication
+
+```
+kscore.{cluster}.server.announce          - Server announcements
+kscore.{cluster}.server.{id}.control      - Server control channel
+kscore.{cluster}.discovery                - Peer discovery
+```
+
+### Command Execution
+
+```
+kscore.{cluster}.command.dispatch         - Command dispatch requests
+kscore.{cluster}.command.result           - Command execution results
+kscore.{cluster}.command.{id}.*           - Per-command channels
+```
+
+### State Management
+
+```
+kscore.{cluster}.state.apply              - State application requests
+kscore.{cluster}.state.result             - State application results
+```
+
+### Events
+
+```
+kscore.{cluster}.event                    - System-wide events
+kscore.{cluster}.event.{type}             - Events by type
 ```
 
 ### GitOps
 
 ```
-kscore.gitops.webhook.argocd        - ArgoCD webhooks
-kscore.gitops.webhook.flux          - Flux webhooks
-kscore.gitops.webhook.github        - GitHub webhooks
-kscore.gitops.webhook.gitlab        - GitLab webhooks
+kscore.{cluster}.gitops.webhook.argocd    - ArgoCD webhooks
+kscore.{cluster}.gitops.webhook.flux      - Flux webhooks
+kscore.{cluster}.gitops.webhook.github    - GitHub webhooks
+kscore.{cluster}.gitops.webhook.gitlab    - GitLab webhooks
 ```
 
 ### Policy
 
 ```
-kscore.policy.evaluate              - Policy evaluation requests
-kscore.policy.result                - Policy evaluation results
-kscore.policy.violation             - Policy violations
+kscore.{cluster}.policy.evaluate          - Policy evaluation requests
+kscore.{cluster}.policy.result            - Policy evaluation results
+kscore.{cluster}.policy.violation         - Policy violations
 ```
+
+### Message Envelope
+
+All messages include a standard envelope with routing metadata:
+
+```json
+{
+  "message_id": "uuid",
+  "correlation_id": "uuid",
+  "cluster": "production",
+  "priority": "normal",
+  "ttl": 300,
+  "timestamp": "2025-01-15T10:30:00Z",
+  "trace": {
+    "trace_id": "abc123",
+    "span_id": "def456"
+  },
+  "payload": { ... }
+}
+```
+
+**Envelope Fields**:
+- `message_id`: Unique message identifier for deduplication
+- `correlation_id`: Links related messages (request/response)
+- `cluster`: Target cluster for supercluster routing
+- `priority`: Message priority (low, normal, high, critical)
+- `ttl`: Time-to-live in seconds
+- `trace`: Distributed tracing context
 
 ## JetStream (Event Persistence)
 
