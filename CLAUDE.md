@@ -147,7 +147,8 @@ These gaps should be addressed before production use.
     ├── 15-observability-enhancements.md  # NATS telemetry, stdout logging, syslog, audit
     ├── 16-stdlib-system-modules.md       # Cross-platform system management modules
     ├── 17-spiffe-identity.md             # SPIFFE/SPIRE identity framework
-    └── 18-ipv6-support.md                # Full IPv6 and dual-stack support
+    ├── 18-ipv6-support.md                # Full IPv6 and dual-stack support
+    └── 19-observability-gateway.md       # Telemetry gateway for isolated agents
 ```
 
 ## Architecture Overview
@@ -3136,6 +3137,7 @@ Implementation order:
 16. **Epic 16** (Stdlib System Modules) - 🔲 PLANNED - Depends on Epic 3, 8 (40+ cross-platform system management modules)
 17. **Epic 17** (SPIFFE Identity) - 🔲 PLANNED - Depends on Epic 1, 11, 14 (embedded SPIFFE identity provider, external SPIRE/cloud/mesh integration)
 18. **Epic 18** (IPv6 Support) - 🔲 PLANNED - Depends on Epic 1, 11, 14 (full IPv6 and dual-stack support for all components)
+19. **Epic 19** (Observability Gateway) - 🔲 PLANNED - Depends on Epic 7, 14, 15 (telemetry gateway for isolated agents, Prometheus/Loki/Tempo bridge)
 
 ## Key Architectural Patterns
 
