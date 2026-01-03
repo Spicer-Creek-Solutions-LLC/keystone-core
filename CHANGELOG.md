@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - NATS health check endpoint (changed from /healthz to /varz)
 
 ### Added
+- 5 new Nginx state modules: nginx_upstream (load balancing), nginx_proxy (reverse proxy), nginx_ssl (SSL/TLS), nginx_location (location blocks), nginx_rate_limit (rate limiting)
 - NATS restart coordination with recovery actions (restart embedded, reconnect, failover, drain)
 - State propagation handlers with version tracking for all 5 state types
 - NATSController and StatePropagator interfaces for cluster coordination
@@ -45,6 +46,313 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Standardized domain to keystonecore.io
 - Converted ASCII diagrams to Mermaid across all documentation
 - Updated roadmap to reflect current project state
+
+## [0.16.0] - 2025-01-XX (In Progress)
+
+### Added - Epic 16: Standard Library System Modules
+- **Phase 1: Cross-Platform User/Group**
+  - Windows user management using `net user` command
+  - Windows group management using `net localgroup` command
+  - PowerShell-based group membership queries
+  - Full platform support: Linux (useradd/groupadd), macOS (dscl), Windows (net)
+  - User properties: fullname, comment, home directory, active, password
+  - Group properties: description, members
+
+- **Phase 2: Network Configuration**
+  - Network module (pkg/statemgmt/module_network.go)
+    - States: configured, absent, dhcp
+    - Parameters: interface, address, gateway, dns, mtu, metric, search_domains
+    - Auto-detection of network managers
+  - Linux network manager support
+    - NetworkManager (nmcli)
+    - netplan
+    - ifupdown (/etc/network/interfaces)
+    - systemd-networkd
+  - macOS network support (networksetup command)
+  - Windows network support (netsh command)
+  - Route module (pkg/statemgmt/module_route.go)
+    - States: present, absent
+    - Parameters: destination, gateway, interface, metric, table
+    - Linux (ip route), macOS (route), Windows (route -p)
+    - CIDR notation, host routes, and default route support
+  - Comprehensive test coverage (27 tests)
+  - User documentation for network and route modules
+
+- **Phase 3: Firewall Management**
+  - Cross-platform firewall abstraction (pkg/statemgmt/module_firewall.go)
+    - States: present, absent
+    - Parameters: protocol, port, port_range, source, destination, interface, action, direction, zone, chain, table, profile, comment
+    - Automatic backend detection (firewalld → nftables → iptables on Linux)
+    - Platform support: Linux (iptables, nftables, firewalld), macOS (pf), Windows (netsh)
+  - Linux iptables module (pkg/statemgmt/module_iptables.go)
+    - States: present, absent, flush, policy
+    - Full table/chain control (filter, nat, mangle, raw, security)
+    - Match extensions (state, multiport)
+    - NAT support (SNAT, DNAT, MASQUERADE)
+  - Linux nftables module (pkg/statemgmt/module_nftables.go)
+    - States: present, absent
+    - Address families (ip, ip6, inet, arp, bridge, netdev)
+    - Atomic table/chain/rule management
+    - Base and regular chain types
+  - Linux firewalld module (pkg/statemgmt/module_firewalld.go)
+    - States: present, absent
+    - Zone-based configuration
+    - Service, port, source, interface, rich rule management
+    - Masquerading and port forwarding
+    - Permanent and runtime modes
+  - Comprehensive test coverage (18 tests)
+  - User documentation for firewall, iptables, nftables, and firewalld modules
+
+- **Phase 4: Scheduled Tasks**
+  - Cron module for Linux (pkg/statemgmt/module_cron.go)
+    - States: present, absent
+    - 5-field schedule (minute, hour, day, month, weekday)
+    - Special schedules (@reboot, @daily, @weekly, @monthly, @yearly, @hourly)
+    - Per-user crontab support
+    - Disabled entry support (commented out but tracked)
+  - Systemd timer module for Linux (pkg/statemgmt/module_systemd_timer.go)
+    - States: present, absent
+    - Creates both .timer and .service unit files
+    - OnCalendar, OnBootSec, OnUnitActiveSec triggers
+    - Persistent timers for missed runs
+    - Environment variables and working directory
+  - Launchd module for macOS (pkg/statemgmt/module_launchd.go)
+    - States: present, absent
+    - Calendar interval and start interval scheduling
+    - WatchPaths and QueueDirectories for event triggers
+    - KeepAlive for continuous services
+    - plist file generation with launchctl integration
+  - Scheduled task module for Windows (pkg/statemgmt/module_scheduled_task.go)
+    - States: present, absent
+    - Trigger types: once, daily, weekly, monthly, at_logon, at_startup, on_idle
+    - Days of week/month scheduling
+    - Repeat intervals and run levels (limited, highest)
+    - schtasks.exe integration
+  - At module for Unix (pkg/statemgmt/module_at.go)
+    - States: present, absent
+    - Flexible time formats (HH:MM, midnight, noon, now + N hours)
+    - Queue priority support (a-z, A-Z)
+    - Job tracking via marker comments
+  - Comprehensive test coverage (51 tests)
+  - User documentation for all 5 scheduled task modules
+
+- **Phase 5: Mount and Storage**
+  - Mount module for cross-platform mount management (pkg/statemgmt/module_mount.go)
+    - States: mounted, unmounted, present, absent
+    - Linux: /proc/mounts parsing, /etc/fstab management
+    - macOS: diskutil and mount command integration
+    - Windows: net use for network shares (limited)
+    - Persistent mount configuration via fstab
+  - Swap module for Linux (pkg/statemgmt/module_swap.go)
+    - States: enabled, disabled, present, absent
+    - Swap file creation via fallocate or dd
+    - Size parsing (G/GB, M/MB, K/KB suffixes)
+    - mkswap, swapon, swapoff integration
+    - Persistent swap via /etc/fstab
+  - LVM modules for Linux (pkg/statemgmt/module_lvm.go)
+    - lvm_pv: Physical volume management (pvcreate, pvremove)
+    - lvm_vg: Volume group management (vgcreate, vgextend, vgremove)
+    - lvm_lv: Logical volume management (lvcreate, lvextend, lvremove)
+    - Size formats: absolute (10G) and percentage (100%FREE)
+    - Optional filesystem creation on new LV
+  - Disk module for Linux (pkg/statemgmt/module_disk.go)
+    - States: present, absent, formatted
+    - parted command integration for partition operations
+    - GPT and MSDOS partition table support
+    - Partition flags: boot, lvm, raid, esp
+  - Filesystem module for Linux (pkg/statemgmt/module_disk.go)
+    - States: present, absent
+    - mkfs support: ext4, ext3, xfs, btrfs, vfat, ntfs
+    - wipefs for filesystem removal
+    - blkid for filesystem detection
+  - Comprehensive test coverage (51 tests)
+  - User documentation for all 7 storage modules
+
+- **Phase 6: SSH and Security**
+  - SSH Authorized Keys module (pkg/statemgmt/module_ssh.go)
+    - States: present, absent
+    - Parameters: user, key, key_type, comment, options
+    - Linux and macOS support via ~/.ssh/authorized_keys
+    - SSH key options support (no-port-forwarding, command, etc.)
+  - SSH Known Hosts module
+    - States: present, absent
+    - Parameters: host, key, key_type, user, path, hash_known_hosts
+    - Host key scanning via ssh-keyscan
+    - System-wide and per-user known_hosts support
+  - SSHD Config module
+    - States: present, absent
+    - Parameters: name, value, path, backup
+    - Case-insensitive directive matching
+    - Backup before modification
+  - SELinux module (pkg/statemgmt/module_security.go)
+    - States: enforcing, permissive, disabled
+    - getenforce/setenforce command integration
+    - Persistent mode via /etc/selinux/config
+  - SELinux Boolean module
+    - States: on, off
+    - getsebool/setsebool command integration
+    - Persistent flag support
+  - AppArmor module
+    - States: enforce, complain, disabled
+    - aa-enforce, aa-complain, aa-disable command integration
+    - Profile status parsing from /sys/kernel/security/apparmor/profiles
+  - AppArmor Profile module
+    - States: present, absent
+    - Parameters: name, source, content, mode
+    - Profile installation to /etc/apparmor.d/
+    - apparmor_parser for loading/unloading
+  - Comprehensive test coverage (22 tests)
+  - User documentation for all 7 SSH and security modules
+
+- **Phase 7: System Configuration**
+  - Timezone module (pkg/statemgmt/module_system.go)
+    - States: present
+    - Parameters: name (IANA timezone)
+    - Linux: timedatectl/etc/timezone, macOS: systemsetup, Windows: tzutil
+  - Locale module
+    - States: present
+    - Parameters: name (e.g., en_US.UTF-8)
+    - Linux: localectl, macOS: partial, Windows: not supported
+  - Hostname module
+    - States: present
+    - Parameters: name, fqdn
+    - Linux: hostnamectl, macOS: scutil, Windows: wmic
+  - Hosts module
+    - States: present, absent
+    - Parameters: ip, name/names
+    - Cross-platform: /etc/hosts (Linux/macOS), drivers\etc\hosts (Windows)
+    - Multi-hostname entry support with order-independent comparison
+  - Sysctl module (Linux only)
+    - States: present, absent
+    - Parameters: name, value, persist
+    - /proc/sys and sysctl command integration
+    - Persistent config via /etc/sysctl.d/
+  - Kernel Module module (Linux only)
+    - States: loaded, unloaded, blacklisted
+    - Parameters: name, params, persist
+    - modprobe/rmmod commands, /proc/modules parsing
+    - Persistent: /etc/modules-load.d/, Blacklist: /etc/modprobe.d/
+  - Comprehensive test coverage (26 tests)
+  - User documentation for all 6 system configuration modules
+
+- **Phase 8: Container Management**
+  - Docker Container module (pkg/statemgmt/module_docker.go)
+    - States: running, stopped, absent
+    - Parameters: name, image, ports, volumes, env, network, restart, command, force
+    - Container lifecycle management (create, start, stop, remove)
+  - Docker Image module
+    - States: present, absent
+    - Parameters: name, tag, force
+    - docker pull/rmi integration
+  - Docker Network module
+    - States: present, absent
+    - Parameters: name, driver, subnet, gateway, ip_range
+    - docker network create/rm integration
+  - Docker Volume module
+    - States: present, absent
+    - Parameters: name, driver, opts, force
+    - Driver options support for NFS/other drivers
+  - Podman Container module (same interface as Docker)
+    - States: running, stopped, absent
+  - Podman Image module
+    - States: present, absent
+  - Podman Network module
+    - States: present, absent
+  - Podman Volume module
+    - States: present, absent
+  - Container runtime detector (auto-detect Docker or Podman)
+  - Comprehensive test coverage (30 tests)
+  - User documentation for all 8 container modules
+
+- **Phase 9: Database Primitives**
+  - PostgreSQL Database module (pkg/statemgmt/module_database.go)
+    - States: present, absent
+    - Parameters: name, owner, encoding, lc_collate, lc_ctype, template, host, port, user
+    - psql command integration with PGPASSWORD env var
+  - PostgreSQL User module
+    - States: present, absent
+    - Parameters: name, password, superuser, createdb, createrole, login, host, port, user
+    - Role attribute management (SUPERUSER, CREATEDB, CREATEROLE, LOGIN)
+  - PostgreSQL Extension module
+    - States: present, absent
+    - Parameters: name, database, schema, version, host, port, user
+    - CREATE EXTENSION / DROP EXTENSION integration
+  - MySQL Database module
+    - States: present, absent
+    - Parameters: name, character_set, collation, host, port, socket, user, password
+    - mysql command integration with TCP and Unix socket support
+  - MySQL User module
+    - States: present, absent
+    - Parameters: name, password, host, privileges, host, port, socket, user
+    - GRANT/REVOKE privilege management
+  - Redis module
+    - States: present, absent
+    - Types: config (redis configuration), acl (ACL user management)
+    - Parameters: key, value, user, password, rules, host, port
+    - CONFIG SET/GET for configuration
+    - ACL SETUSER/DELUSER for user management
+  - Helper functions: escapePostgresString, quotePostgresIdentifier, escapeMySQLString, escapeMySQLIdentifier
+  - Comprehensive test coverage (28 tests)
+  - User documentation for all 6 database modules
+
+- **Phase 10: Web Server Configuration**
+  - Nginx Site module (pkg/statemgmt/module_web.go)
+    - States: enabled, disabled, absent
+    - Parameters: name, content, source, reload
+    - sites-available/sites-enabled pattern
+    - nginx -t validation before reload
+  - Nginx Config module
+    - States: present, absent
+    - Parameters: name, content, source, dest, reload
+    - Config snippet management (conf.d or custom paths)
+  - Apache Site module
+    - States: enabled, disabled, absent
+    - Parameters: name, content, source, reload
+    - a2ensite/a2dissite integration with fallback to symlinks
+  - Apache Module module
+    - States: enabled, disabled
+    - Parameters: name, reload
+    - a2enmod/a2dismod integration
+  - Platform support: Linux (system paths), macOS (Homebrew paths)
+  - Comprehensive test coverage (18 tests)
+  - User documentation for all 4 web server modules
+
+- **Phase 11: Version Control**
+  - Git module (pkg/statemgmt/module_git.go)
+    - States: present, absent, latest
+    - Parameters: repo, dest, version, force, depth, recursive, ssh_key
+    - Clone repositories with shallow clone and submodule support
+    - SSH key authentication for private repos
+    - Behind count detection for update checks
+  - Git Config module
+    - States: present, absent
+    - Parameters: name, value, scope, file
+    - Scopes: global, system, local, worktree
+    - Custom config file support
+  - Platform support: Linux, macOS, Windows (requires git in PATH)
+  - Comprehensive test coverage (18 tests)
+  - User documentation for git and git_config modules
+
+- **Phase 12: Certificates**
+  - X509 module (pkg/statemgmt/module_x509.go)
+    - States: present, absent
+    - Parameters: path, key_path, common_name, organization, country, validity_days, key_type, key_size, self_signed, is_ca, san_names, san_ips
+    - Key types: RSA (2048, 4096), ECDSA (P-256, P-384, P-521), Ed25519
+    - Self-signed certificate generation with SAN support
+  - CA module
+    - States: present, absent
+    - Parameters: path, key_path, common_name, organization, country, validity_days, key_type, key_size, max_path_len
+    - CA certificate and key generation
+    - SignCertificate method for CSR signing
+  - ACME module
+    - States: present, absent, renewed
+    - Parameters: path, key_path, domain, email, challenge, staging, renew_days, webroot, dns_provider
+    - Challenge types: http-01, dns-01
+    - Renewal threshold monitoring
+    - Framework for external ACME tool integration
+  - Platform support: Linux, macOS, Windows
+  - Comprehensive test coverage (27 tests)
+  - User documentation for x509, ca, acme modules
 
 ## [0.15.0] - 2025-01-XX
 
@@ -546,7 +854,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/keystone-core/keystone-core/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/keystone-core/keystone-core/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/keystone-core/keystone-core/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/keystone-core/keystone-core/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/keystone-core/keystone-core/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/keystone-core/keystone-core/compare/v0.12.0...v0.13.0

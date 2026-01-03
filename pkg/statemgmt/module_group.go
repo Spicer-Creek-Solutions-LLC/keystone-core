@@ -180,6 +180,9 @@ func (m *GroupModule) createGroup(ctx context.Context, decl *StateDeclaration, r
 	} else if runtime.GOOS == "darwin" {
 		// macOS: use dscl (Directory Service command line)
 		return m.createGroupDarwin(ctx, decl, result)
+	} else if runtime.GOOS == "windows" {
+		// Windows: use net localgroup
+		return m.createGroupWindows(ctx, decl, result)
 	} else {
 		return fmt.Errorf("group creation not supported on %s", runtime.GOOS)
 	}
@@ -287,6 +290,9 @@ func (m *GroupModule) modifyGroup(ctx context.Context, decl *StateDeclaration, r
 	} else if runtime.GOOS == "darwin" {
 		// macOS: use dscl
 		return m.modifyGroupDarwin(ctx, decl, result)
+	} else if runtime.GOOS == "windows" {
+		// Windows: use net localgroup
+		return m.modifyGroupWindows(ctx, decl, result)
 	} else {
 		return fmt.Errorf("group modification not supported on %s", runtime.GOOS)
 	}
@@ -362,6 +368,13 @@ func (m *GroupModule) deleteGroup(ctx context.Context, decl *StateDeclaration, r
 		if err := m.dsclDelete(ctx, groupPath); err != nil {
 			return fmt.Errorf("failed to delete group: %w", err)
 		}
+	} else if runtime.GOOS == "windows" {
+		// Windows: use net localgroup /delete
+		cmd := exec.CommandContext(ctx, "net", "localgroup", groupName, "/delete")
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("failed to delete group: %w (output: %s)", err, string(output))
+		}
 	} else {
 		return fmt.Errorf("group deletion not supported on %s", runtime.GOOS)
 	}
@@ -374,6 +387,10 @@ func (m *GroupModule) deleteGroup(ctx context.Context, decl *StateDeclaration, r
 func (m *GroupModule) getGroupMembers(groupName string) ([]string, error) {
 	if runtime.GOOS == "darwin" {
 		return m.getGroupMembersDarwin(groupName)
+	}
+
+	if runtime.GOOS == "windows" {
+		return m.getGroupMembersWindows(groupName)
 	}
 
 	if runtime.GOOS != "linux" && runtime.GOOS != "freebsd" {
@@ -603,6 +620,173 @@ func (m *GroupModule) updateGroupMembersDarwin(ctx context.Context, groupName st
 	for _, member := range currentMembers {
 		if !desiredMap[member] {
 			if err := m.removeUserFromGroupDarwin(ctx, groupName, member); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// createGroupWindows creates a group on Windows using net localgroup
+func (m *GroupModule) createGroupWindows(ctx context.Context, decl *StateDeclaration, result *StateResult) error {
+	groupName := decl.ID
+
+	// Build net localgroup command
+	args := []string{"localgroup", groupName, "/add"}
+
+	// Comment/description
+	if comment := getStringParameter(decl, "description", ""); comment != "" {
+		args = append(args, fmt.Sprintf("/comment:\"%s\"", comment))
+	}
+
+	cmd := exec.CommandContext(ctx, "net", args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to create group: %w (output: %s)", err, string(output))
+	}
+
+	// Add members if specified
+	if members := getStringSliceParameter(decl, "members"); members != nil && len(members) > 0 {
+		for _, member := range members {
+			if err := m.addUserToGroupWindows(ctx, groupName, member); err != nil {
+				result.Comment = fmt.Sprintf("Group %s created (warning: failed to add member %s: %v)", groupName, member, err)
+			}
+		}
+	}
+
+	if result.Comment == "" {
+		result.Comment = fmt.Sprintf("Group %s created", groupName)
+	}
+	return nil
+}
+
+// modifyGroupWindows modifies a group on Windows
+func (m *GroupModule) modifyGroupWindows(ctx context.Context, decl *StateDeclaration, result *StateResult) error {
+	groupName := decl.ID
+	var modified bool
+
+	// Note: Windows net localgroup doesn't support modifying group properties directly
+	// GID is not applicable on Windows (SIDs are used instead)
+	// Comment can only be set at creation time with net localgroup
+
+	// Update members if specified
+	if members := getStringSliceParameter(decl, "members"); members != nil {
+		if err := m.updateGroupMembersWindows(ctx, groupName, members); err != nil {
+			return err
+		}
+		modified = true
+	}
+
+	if !modified {
+		result.Comment = "No changes needed"
+	} else {
+		result.Comment = fmt.Sprintf("Group %s modified", groupName)
+	}
+	return nil
+}
+
+// getGroupMembersWindows gets the members of a group on Windows
+func (m *GroupModule) getGroupMembersWindows(groupName string) ([]string, error) {
+	// Use net localgroup to list members
+	cmd := exec.Command("net", "localgroup", groupName)
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get group members: %w", err)
+	}
+
+	// Parse output - members are listed after "Members" line and before "The command completed"
+	var members []string
+	lines := strings.Split(string(output), "\n")
+	inMemberSection := false
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+
+		// Skip empty lines and dashes
+		if line == "" || strings.HasPrefix(line, "---") {
+			continue
+		}
+
+		// Check for "Members" header
+		if strings.HasPrefix(line, "Members") {
+			inMemberSection = true
+			continue
+		}
+
+		// Check for end of member section
+		if strings.HasPrefix(line, "The command completed") {
+			break
+		}
+
+		// If we're in the member section and the line is not empty, it's a member
+		if inMemberSection && line != "" {
+			// Remove domain prefix if present (e.g., "DOMAIN\username" -> "username")
+			if idx := strings.LastIndex(line, "\\"); idx >= 0 {
+				line = line[idx+1:]
+			}
+			members = append(members, line)
+		}
+	}
+
+	return members, nil
+}
+
+// addUserToGroupWindows adds a user to a group on Windows
+func (m *GroupModule) addUserToGroupWindows(ctx context.Context, groupName, username string) error {
+	cmd := exec.CommandContext(ctx, "net", "localgroup", groupName, username, "/add")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		// Check if user is already a member (error 1378)
+		if strings.Contains(string(output), "1378") || strings.Contains(string(output), "already a member") {
+			return nil
+		}
+		return fmt.Errorf("failed to add user to group: %w (output: %s)", err, string(output))
+	}
+	return nil
+}
+
+// removeUserFromGroupWindows removes a user from a group on Windows
+func (m *GroupModule) removeUserFromGroupWindows(ctx context.Context, groupName, username string) error {
+	cmd := exec.CommandContext(ctx, "net", "localgroup", groupName, username, "/delete")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to remove user from group: %w (output: %s)", err, string(output))
+	}
+	return nil
+}
+
+// updateGroupMembersWindows updates the members of a group on Windows
+func (m *GroupModule) updateGroupMembersWindows(ctx context.Context, groupName string, desiredMembers []string) error {
+	currentMembers, err := m.getGroupMembersWindows(groupName)
+	if err != nil {
+		return err
+	}
+
+	// Build maps for comparison (case-insensitive on Windows)
+	currentMap := make(map[string]bool)
+	for _, member := range currentMembers {
+		currentMap[strings.ToLower(member)] = true
+	}
+
+	desiredMap := make(map[string]bool)
+	for _, member := range desiredMembers {
+		desiredMap[strings.ToLower(member)] = true
+	}
+
+	// Add missing members
+	for _, member := range desiredMembers {
+		if !currentMap[strings.ToLower(member)] {
+			if err := m.addUserToGroupWindows(ctx, groupName, member); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Remove extra members
+	for _, member := range currentMembers {
+		if !desiredMap[strings.ToLower(member)] {
+			if err := m.removeUserFromGroupWindows(ctx, groupName, member); err != nil {
 				return err
 			}
 		}

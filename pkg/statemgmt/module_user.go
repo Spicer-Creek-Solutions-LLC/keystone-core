@@ -235,6 +235,9 @@ func (m *UserModule) createUser(ctx context.Context, decl *StateDeclaration, res
 	} else if runtime.GOOS == "darwin" {
 		// macOS: use dscl (Directory Service command line)
 		return m.createUserDarwin(ctx, decl, result)
+	} else if runtime.GOOS == "windows" {
+		// Windows: use net user
+		return m.createUserWindows(ctx, decl, result)
 	} else {
 		return fmt.Errorf("user creation not supported on %s", runtime.GOOS)
 	}
@@ -376,6 +379,9 @@ func (m *UserModule) modifyUser(ctx context.Context, decl *StateDeclaration, res
 	} else if runtime.GOOS == "darwin" {
 		// macOS: use dscl
 		return m.modifyUserDarwin(ctx, decl, result)
+	} else if runtime.GOOS == "windows" {
+		// Windows: use net user
+		return m.modifyUserWindows(ctx, decl, result)
 	} else {
 		return fmt.Errorf("user modification not supported on %s", runtime.GOOS)
 	}
@@ -472,6 +478,13 @@ func (m *UserModule) deleteUser(ctx context.Context, decl *StateDeclaration, res
 		if err := m.dsclDelete(ctx, userPath); err != nil {
 			return fmt.Errorf("failed to delete user: %w", err)
 		}
+	} else if runtime.GOOS == "windows" {
+		// Windows: use net user /delete
+		cmd := exec.CommandContext(ctx, "net", "user", username, "/delete")
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("failed to delete user: %w (output: %s)", err, string(output))
+		}
 	} else {
 		return fmt.Errorf("user deletion not supported on %s", runtime.GOOS)
 	}
@@ -499,6 +512,11 @@ func (m *UserModule) getUserShell(username string) (string, error) {
 		return "", fmt.Errorf("failed to parse dscl output")
 	}
 
+	if runtime.GOOS == "windows" {
+		// Windows doesn't have a user shell concept
+		return "", nil
+	}
+
 	if runtime.GOOS != "linux" && runtime.GOOS != "freebsd" {
 		return "", fmt.Errorf("unsupported OS: %s", runtime.GOOS)
 	}
@@ -520,6 +538,10 @@ func (m *UserModule) getUserShell(username string) (string, error) {
 
 // getUserGroups gets the user's groups
 func (m *UserModule) getUserGroups(username string) ([]string, error) {
+	if runtime.GOOS == "windows" {
+		return m.getUserGroupsWindows(context.Background(), username)
+	}
+
 	cmd := exec.Command("groups", username)
 	output, err := cmd.Output()
 	if err != nil {
@@ -649,6 +671,219 @@ func (m *UserModule) addUserToGroupDarwin(ctx context.Context, username, groupna
 	if err != nil {
 		return fmt.Errorf("failed to add user to group: %w (output: %s)", err, string(output))
 	}
+	return nil
+}
+
+// createUserWindows creates a user on Windows using net user
+func (m *UserModule) createUserWindows(ctx context.Context, decl *StateDeclaration, result *StateResult) error {
+	username := decl.ID
+
+	// Build net user command
+	// net user username password /add [options]
+	args := []string{"user", username}
+
+	// Get password (required for creation)
+	password := getStringParameter(decl, "password", "")
+	if password == "" {
+		// Generate a random password if not provided (user must change it)
+		password = "*" // Prompts for password or uses empty if run non-interactively
+	}
+	args = append(args, password, "/add")
+
+	// Full name
+	if fullname := getStringParameter(decl, "fullname", ""); fullname != "" {
+		args = append(args, fmt.Sprintf("/fullname:\"%s\"", fullname))
+	}
+
+	// Comment/description
+	if comment := getStringParameter(decl, "comment", ""); comment != "" {
+		args = append(args, fmt.Sprintf("/comment:\"%s\"", comment))
+	}
+
+	// Home directory
+	if home := getStringParameter(decl, "home", ""); home != "" {
+		args = append(args, fmt.Sprintf("/homedir:\"%s\"", home))
+	}
+
+	// Account active
+	if !getBoolParameter(decl, "active", true) {
+		args = append(args, "/active:no")
+	}
+
+	// Password never expires
+	if getBoolParameter(decl, "password_never_expires", false) {
+		args = append(args, "/expires:never")
+	}
+
+	cmd := exec.CommandContext(ctx, "net", args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to create user: %w (output: %s)", err, string(output))
+	}
+
+	// Add to groups if specified
+	if groups := getStringSliceParameter(decl, "groups"); groups != nil && len(groups) > 0 {
+		for _, group := range groups {
+			if err := m.addUserToGroupWindows(ctx, username, group); err != nil {
+				result.Comment = fmt.Sprintf("User %s created (warning: failed to add to group %s: %v)", username, group, err)
+			}
+		}
+	}
+
+	if result.Comment == "" {
+		result.Comment = fmt.Sprintf("User %s created", username)
+	}
+	return nil
+}
+
+// modifyUserWindows modifies a user on Windows using net user
+func (m *UserModule) modifyUserWindows(ctx context.Context, decl *StateDeclaration, result *StateResult) error {
+	username := decl.ID
+	var modified bool
+
+	// Build net user command for modifications
+	args := []string{"user", username}
+
+	// Full name
+	if fullname := getStringParameter(decl, "fullname", ""); fullname != "" {
+		args = append(args, fmt.Sprintf("/fullname:\"%s\"", fullname))
+		modified = true
+	}
+
+	// Comment/description
+	if comment := getStringParameter(decl, "comment", ""); comment != "" {
+		args = append(args, fmt.Sprintf("/comment:\"%s\"", comment))
+		modified = true
+	}
+
+	// Home directory
+	if home := getStringParameter(decl, "home", ""); home != "" {
+		args = append(args, fmt.Sprintf("/homedir:\"%s\"", home))
+		modified = true
+	}
+
+	// Account active
+	if active, ok := decl.Parameters["active"].(bool); ok {
+		if active {
+			args = append(args, "/active:yes")
+		} else {
+			args = append(args, "/active:no")
+		}
+		modified = true
+	}
+
+	// Password
+	if password := getStringParameter(decl, "password", ""); password != "" {
+		args = append(args, password)
+		modified = true
+	}
+
+	if modified && len(args) > 2 {
+		cmd := exec.CommandContext(ctx, "net", args...)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("failed to modify user: %w (output: %s)", err, string(output))
+		}
+	}
+
+	// Update groups if specified
+	if groups := getStringSliceParameter(decl, "groups"); groups != nil {
+		if err := m.updateGroupMembershipWindows(ctx, username, groups); err != nil {
+			return err
+		}
+		modified = true
+	}
+
+	if !modified {
+		result.Comment = "No changes needed"
+	} else {
+		result.Comment = fmt.Sprintf("User %s modified", username)
+	}
+	return nil
+}
+
+// addUserToGroupWindows adds a user to a local group on Windows
+func (m *UserModule) addUserToGroupWindows(ctx context.Context, username, groupname string) error {
+	cmd := exec.CommandContext(ctx, "net", "localgroup", groupname, username, "/add")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		// Check if user is already a member (not an error)
+		if strings.Contains(string(output), "1378") || strings.Contains(string(output), "already a member") {
+			return nil
+		}
+		return fmt.Errorf("failed to add user to group: %w (output: %s)", err, string(output))
+	}
+	return nil
+}
+
+// removeUserFromGroupWindows removes a user from a local group on Windows
+func (m *UserModule) removeUserFromGroupWindows(ctx context.Context, username, groupname string) error {
+	cmd := exec.CommandContext(ctx, "net", "localgroup", groupname, username, "/delete")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to remove user from group: %w (output: %s)", err, string(output))
+	}
+	return nil
+}
+
+// getUserGroupsWindows gets the groups a user belongs to on Windows
+func (m *UserModule) getUserGroupsWindows(ctx context.Context, username string) ([]string, error) {
+	// Use PowerShell to get user's group membership
+	script := fmt.Sprintf(`Get-LocalGroup | Where-Object { (Get-LocalGroupMember -Group $_.Name -ErrorAction SilentlyContinue | Where-Object { $_.Name -like '*\%s' }) } | Select-Object -ExpandProperty Name`, username)
+	cmd := exec.CommandContext(ctx, "powershell", "-NoProfile", "-Command", script)
+	output, err := cmd.Output()
+	if err != nil {
+		// Fallback: return empty list (user might have no groups)
+		return []string{}, nil
+	}
+
+	var groups []string
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			groups = append(groups, line)
+		}
+	}
+	return groups, nil
+}
+
+// updateGroupMembershipWindows updates a user's group membership on Windows
+func (m *UserModule) updateGroupMembershipWindows(ctx context.Context, username string, desiredGroups []string) error {
+	currentGroups, err := m.getUserGroupsWindows(ctx, username)
+	if err != nil {
+		return err
+	}
+
+	// Build maps for comparison
+	currentMap := make(map[string]bool)
+	for _, g := range currentGroups {
+		currentMap[strings.ToLower(g)] = true
+	}
+
+	desiredMap := make(map[string]bool)
+	for _, g := range desiredGroups {
+		desiredMap[strings.ToLower(g)] = true
+	}
+
+	// Add missing groups
+	for _, group := range desiredGroups {
+		if !currentMap[strings.ToLower(group)] {
+			if err := m.addUserToGroupWindows(ctx, username, group); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Remove extra groups (except built-in "Users" group)
+	for _, group := range currentGroups {
+		if !desiredMap[strings.ToLower(group)] && strings.ToLower(group) != "users" {
+			if err := m.removeUserFromGroupWindows(ctx, username, group); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 

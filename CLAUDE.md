@@ -3542,6 +3542,761 @@ All 10 phases implemented:
 - Phase 8: TUI Monitor Real-time Updates
 - Phase 9: Documentation
 
+### Epic 16: Standard Library System Modules 🚧 IN PROGRESS
+
+**Implementation Plan:** 14 phases (26 weeks total)
+
+**Goal**: Expand Keystone Core's standard library with cross-platform system management modules inspired by Salt Project's state modules, enabling infrastructure automation across Linux, macOS, and Windows.
+
+**Current Status**: Phase 8 COMPLETE
+
+**Phase 1: Cross-Platform User/Group (Weeks 1-2) ✅ COMPLETE**
+
+- **T1.1: Windows User Module** ✅ COMPLETE
+  - Added Windows support to `pkg/statemgmt/module_user.go`
+  - `createUserWindows()` using `net user /add` command
+  - `modifyUserWindows()` for user property changes
+  - `deleteUser()` updated with Windows support
+  - `getUserGroupsWindows()` using PowerShell
+  - `updateGroupMembershipWindows()` for group add/remove
+  - Handles fullname, comment, home directory, active flag
+  - Password and password_never_expires support
+
+- **T1.2: Windows Group Module** ✅ COMPLETE
+  - Added Windows support to `pkg/statemgmt/module_group.go`
+  - `createGroupWindows()` using `net localgroup /add`
+  - `modifyGroupWindows()` for group property changes
+  - `deleteGroup()` updated with Windows support
+  - `getGroupMembersWindows()` parsing `net localgroup` output
+  - `updateGroupMembersWindows()` for member add/remove
+  - Description/comment support
+
+- **T1.3: Existing Linux Support** ✅ ALREADY IMPLEMENTED
+  - useradd, usermod, userdel for user management
+  - groupadd, groupmod, groupdel for group management
+
+- **T1.4: Existing macOS Support** ✅ ALREADY IMPLEMENTED
+  - dscl commands for user management
+  - dscl commands for group management
+
+**Phase 2: Network Configuration (Weeks 3-4) ✅ COMPLETE**
+
+- **T2.1: Network Module Design** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_network.go` (720+ lines)
+  - NetworkModule with BaseModule pattern
+  - States: configured, absent, dhcp
+  - NetworkConfig struct for parameters
+  - NetworkManager enum for platform detection
+  - Helper functions: normalizeAddress, cidrToNetmask, stringSlicesEqual
+
+- **T2.2: Linux Network Providers** ✅ COMPLETE
+  - NetworkManager detection and support (nmcli)
+  - netplan detection and support
+  - ifupdown detection and support (/etc/network/interfaces)
+  - systemd-networkd detection and support
+  - Auto-detection via detectNetworkManager()
+
+- **T2.3: macOS Network Provider** ✅ COMPLETE
+  - networksetup command integration
+  - Static IP configuration
+  - DHCP configuration
+  - DNS and search domain support
+
+- **T2.4: Windows Network Provider** ✅ COMPLETE
+  - netsh command integration
+  - Static IP configuration
+  - DHCP configuration
+  - DNS server configuration
+
+- **T2.5: Route Management** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_route.go` (508 lines)
+  - RouteModule with BaseModule pattern
+  - States: present, absent
+  - RouteConfig struct: destination, gateway, interface, metric, table
+  - Linux: `ip route` commands with table support
+  - macOS: `route` commands with -net/-host
+  - Windows: `route` commands with -p for persistent
+  - CIDR to netmask conversion
+  - Host route and default route support
+
+- **T2.6: Tests** ✅ COMPLETE
+  - module_network_test.go: 14 tests
+    - NewNetworkModule, ParseConfig, DetectNetworkManager
+    - NormalizeAddress, CIDRToNetmask, StringSlicesEqual
+    - Check with nonexistent interface, absent state
+  - module_route_test.go: 13 tests
+    - NewRouteModule, ParseConfig, Check operations
+    - Validation tests, host route, zero route
+    - Apply already-absent test
+
+- **T2.7: Documentation** ✅ COMPLETE
+  - Updated docs/content/en/docs/reference/modules.md
+  - Network module section: states, parameters, examples, platform support
+  - Route module section: states, parameters, examples, validation
+
+**Phase 3: Firewall Management (Weeks 5-6) ✅ COMPLETE**
+
+- **T3.1: Firewall Abstraction Layer** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_firewall.go` (700+ lines)
+  - FirewallModule with BaseModule pattern
+  - States: present, absent
+  - FirewallConfig struct for cross-platform parameters
+  - FirewallBackend enum: FBUnknown, FBIptables, FBNftables, FBFirewalld, FBPF, FBNetsh
+  - FirewallAction enum: FAAccept, FADrop, FAReject
+  - FirewallDirection enum: FDInput, FDOutput, FDForward
+  - detectFirewallBackend() with priority: firewalld → nftables → iptables on Linux
+  - Platform dispatch via runtime.GOOS switch
+
+- **T3.2: iptables Provider** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_iptables.go` (350+ lines)
+  - IptablesModule with direct iptables control
+  - States: present, absent, flush, policy
+  - IptablesConfig with table, chain, protocol, source, destination, jump, match, etc.
+  - Tables: filter, nat, mangle, raw, security
+  - Chains: INPUT, OUTPUT, FORWARD, PREROUTING, POSTROUTING, custom
+  - Match extensions: state, multiport
+  - NAT targets: SNAT, DNAT, MASQUERADE
+  - Rule checking with `-C`, insertion with `-I`, deletion with `-D`
+
+- **T3.3: nftables Provider** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_nftables.go` (350+ lines)
+  - NftablesModule for modern nftables firewall
+  - States: present, absent
+  - NftablesConfig with family, table, chain, chain_type, chain_hook, chain_priority, etc.
+  - Families: ip, ip6, inet, arp, bridge, netdev
+  - Atomic table/chain/rule management
+  - Auto-creation of tables and chains
+  - Base chains with type, hook, priority, policy
+  - Rule content matching for idempotency
+
+- **T3.4: firewalld Provider** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_firewalld.go` (450+ lines)
+  - FirewalldModule for zone-based firewall
+  - States: present, absent
+  - FirewalldConfig with zone, service, port, rich_rule, source, interface, etc.
+  - Zone management: public, internal, external, dmz, trusted, drop, etc.
+  - Service, port, source, interface management
+  - Rich rule support for complex matching
+  - Masquerading and port forwarding
+  - ICMP block support
+  - Permanent and immediate mode flags
+
+- **T3.5: pf Provider (macOS/BSD)** ✅ COMPLETE
+  - Integrated in module_firewall.go
+  - Uses anchor-based rule management (`com.keystone.core`)
+  - pfctl commands for rule management
+  - Anchor isolation for safety
+
+- **T3.6: Windows Firewall Provider** ✅ COMPLETE
+  - Integrated in module_firewall.go
+  - Uses netsh advfirewall commands
+  - Profile support: domain, private, public, any
+  - Rule names derived from comments
+
+- **T3.7: Tests** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_firewall_test.go` (500+ lines)
+  - 18 tests covering all firewall modules
+  - ParseConfig, DetectBackend, BuildRuleDescription tests
+  - Constants validation tests
+  - Check operation tests for all modules
+
+- **T3.8: Documentation** ✅ COMPLETE
+  - Updated docs/content/en/docs/reference/modules.md
+  - Firewall module section: overview, states, parameters, platform behavior, examples
+  - Iptables module section: states, parameters, chain management, examples
+  - Nftables module section: states, parameters, atomic operations, examples
+  - Firewalld module section: states, parameters, zone reference, examples
+
+**Phase 4: Scheduled Tasks (Weeks 7-8) ✅ COMPLETE**
+
+- **T4.1: Cron Module (Linux)** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_cron.go` (300+ lines)
+  - CronModule with BaseModule pattern
+  - States: present, absent
+  - CronConfig with command, minute, hour, day, month, weekday, special, user, disabled
+  - Special schedules: @reboot, @yearly, @monthly, @weekly, @daily, @hourly
+  - Crontab file reading and writing
+  - Entry building with comment tracking for idempotency
+  - Per-user crontab support
+
+- **T4.2: Systemd Timer Module (Linux)** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_systemd_timer.go` (400+ lines)
+  - SystemdTimerModule with BaseModule pattern
+  - States: present, absent
+  - SystemdTimerConfig with command, description, on_calendar, on_boot_sec, on_unit_active_sec, etc.
+  - Creates both .timer and .service unit files
+  - Timer unit with OnCalendar, OnBootSec, AccuracySec, Persistent, etc.
+  - Service unit with ExecStart, User, Group, WorkingDirectory, Environment
+  - systemctl enable/start/stop/disable integration
+
+- **T4.3: Launchd Module (macOS)** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_launchd.go` (400+ lines)
+  - LaunchdModule with BaseModule pattern
+  - States: present, absent
+  - LaunchdConfig with label, program, program_arguments, run_at_load, start_interval, etc.
+  - StartCalendarInterval for calendar-based scheduling
+  - WatchPaths and QueueDirectories for event-based triggers
+  - KeepAlive for continuous services
+  - Environment variables, user/group, nice value support
+  - plist file generation with proper XML formatting
+  - launchctl load/unload/bootstrap integration
+
+- **T4.4: Scheduled Task Module (Windows)** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_scheduled_task.go` (460+ lines)
+  - ScheduledTaskModule with BaseModule pattern
+  - States: present, absent
+  - ScheduledTaskConfig with trigger_type, execute, arguments, start_time, start_date, etc.
+  - Trigger types: once, daily, weekly, monthly, at_logon, at_startup, on_idle
+  - Days of week, months of year, days of month for scheduling
+  - Repeat interval and duration support
+  - Run level (limited, highest) and user credentials
+  - schtasks.exe command integration
+
+- **T4.5: At Module (Unix)** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_at.go` (310+ lines)
+  - AtModule with BaseModule pattern
+  - States: present, absent
+  - AtConfig with command, time, date, queue, send_mail, no_mail
+  - Flexible time formats: HH:MM, midnight, noon, now + N hours/minutes
+  - Date support: tomorrow, next week, YYYY-MM-DD
+  - Queue priority (a-z, A-Z)
+  - Job tracking via marker comments (# Keystone Core: {id})
+  - atq/atrm commands for job management
+
+- **T4.6: Tests** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_scheduled_test.go` (500+ lines)
+  - 51 tests covering all scheduled task modules
+  - CronModule: NewCronModule, ParseConfig (5 scenarios), BuildEntry, RemoveEntry
+  - SystemdTimerModule: NewSystemdTimerModule, ParseConfig (5 scenarios), GenerateTimerUnit, GenerateServiceUnit
+  - LaunchdModule: NewLaunchdModule, ParseConfig (4 scenarios), GeneratePlist
+  - ScheduledTaskModule: NewScheduledTaskModule, ParseConfig (5 scenarios), BuildTriggerArgs, GetTaskName
+  - AtModule: NewAtModule, ParseConfig (7 scenarios)
+
+- **T4.7: Documentation** ✅ COMPLETE
+  - Updated docs/content/en/docs/reference/modules.md
+  - Added Scheduled Task Modules category to overview (5 modules)
+  - Cron module section: platform, states, parameters, examples
+  - Systemd_Timer module section: platform, states, parameters, examples
+  - Launchd module section: platform, states, parameters, examples
+  - Scheduled_Task module section: platform, states, parameters, examples
+  - At module section: platform, states, parameters, examples, important notes
+
+**Phase 5: Mount and Storage (Weeks 9-10) ✅ COMPLETE**
+
+- **T5.1: Mount Module** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_mount.go` (600+ lines)
+  - MountModule with BaseModule pattern
+  - States: mounted, unmounted, present, absent
+  - MountConfig with device, path, fstype, options, dump, pass, persist, create_path, owner, group, mode
+  - Linux: /proc/mounts parsing, /etc/fstab management
+  - macOS: diskutil and mount command integration
+  - Windows: net use for network shares (limited)
+  - fstab entry management for persistent mounts
+  - Mount point directory creation with permissions
+
+- **T5.2: Swap Module (Linux)** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_swap.go` (480+ lines)
+  - SwapModule with BaseModule pattern
+  - States: enabled, disabled, present, absent
+  - SwapConfig with path, size, priority, persist, label, uuid
+  - Size parsing: G/GB, M/MB, K/KB suffixes, plain numbers as MiB
+  - Swap file creation via fallocate or dd
+  - mkswap for swap formatting with label/uuid
+  - swapon/swapoff for enabling/disabling
+  - /proc/swaps parsing for status check
+  - /etc/fstab integration for persistent swap
+
+- **T5.3: LVM Module** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_lvm.go` (850+ lines)
+  - LVMPVModule for physical volumes
+    - States: present, absent
+    - pvcreate/pvremove command integration
+    - pvs parsing for status check
+  - LVMVGModule for volume groups
+    - States: present, absent
+    - VGConfig with name, devices, pe_size
+    - vgcreate/vgextend/vgremove command integration
+    - vgs parsing for status check
+  - LVMLVModule for logical volumes
+    - States: present, absent
+    - LVConfig with name, vg, size, thin_pool, snapshot, fstype
+    - Size formats: absolute (10G) and percentage (100%FREE)
+    - lvcreate/lvextend/lvremove command integration
+    - lvs parsing for status check
+    - Optional filesystem creation on new LV
+
+- **T5.4: Disk Module** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_disk.go` (750+ lines)
+  - DiskModule for partition management
+    - States: present, absent, formatted
+    - DiskConfig with device, number, start, end, size, type, table_type, fstype, label, flags
+    - parted command integration for partition operations
+    - GPT and MSDOS partition table support
+    - Partition flags: boot, lvm, raid, esp
+    - Partition number management
+  - FilesystemModule for filesystem creation
+    - States: present, absent
+    - FilesystemConfig with device, fstype, label, uuid, force, options
+    - mkfs.ext4, mkfs.ext3, mkfs.xfs, mkfs.btrfs, mkfs.vfat, mkfs.ntfs support
+    - blkid for filesystem detection
+    - wipefs for filesystem removal
+
+- **T5.5: Tests** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_storage_test.go` (960+ lines)
+  - 51 tests covering all storage modules
+  - MountModule: creation, states, Check with/without path, Apply, Test, config parsing
+  - SwapModule: creation, states, Check, Apply, Test, parseSize (8 scenarios)
+  - LVMPVModule: creation, states, Check, missing device validation, Apply, Test
+  - LVMVGModule: creation, states, Check, missing name validation, Apply, Test
+  - LVMLVModule: creation, states, Check, missing name/vg validation, Apply, Test
+  - DiskModule: creation, states, Check, missing device validation, Apply, Test
+  - FilesystemModule: creation, states, Check, missing device/fstype validation, Apply, Test, FSTypes
+  - StorageModules_ImplementInterface: validates Module interface
+  - StorageModules_ValidStates: validates expected states for all 7 modules
+  - Linux-only tests properly skip on macOS/Windows
+
+- **T5.6: Documentation** ✅ COMPLETE
+  - Updated docs/content/en/docs/reference/modules.md
+  - Changed module count from 29 to 36
+  - Added Storage Modules category to overview (7 modules)
+  - Mount module section: platform support, states, parameters, examples (basic, persistent, NFS)
+  - Swap module section: states, parameters, examples (create, disable, remove)
+  - Lvm_Pv module section: states, parameters, examples (create, remove)
+  - Lvm_Vg module section: states, parameters, examples (create, extend)
+  - Lvm_Lv module section: states, parameters, examples (create, with fs, all free space)
+  - Disk module section: states, parameters, examples (GPT, boot, LVM)
+  - Filesystem module section: states, parameters, examples (ext4, xfs, recreate, remove)
+  - Complete LVM + Filesystem example showing full workflow
+
+**Phase 6: SSH and Security (Weeks 11-12) ✅ COMPLETE**
+
+- **T6.1: SSH Authorized Keys Module** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_ssh.go` (650+ lines)
+  - AuthorizedKeysModule with BaseModule pattern
+  - States: present, absent
+  - Parameters: user (required), key (required), key_type, comment, options
+  - Key parsing with support for options prefix (e.g., no-port-forwarding)
+  - Cross-platform: Linux and macOS via ~/.ssh/authorized_keys
+  - User home directory detection via getent passwd
+  - Ownership management when running as root
+
+- **T6.2: SSH Known Hosts Module** ✅ COMPLETE
+  - KnownHostsModule with BaseModule pattern
+  - States: present, absent
+  - Parameters: host (required), key, key_type, user, path, hash_known_hosts
+  - Host key scanning via ssh-keyscan when key not provided
+  - System-wide (/etc/ssh/ssh_known_hosts) and per-user (~/.ssh/known_hosts) support
+  - Multiple host aliases parsing (host,ip format)
+  - Hash hostname support for security
+
+- **T6.3: SSHD Config Module** ✅ COMPLETE
+  - SSHDConfigModule with BaseModule pattern
+  - States: present, absent
+  - Parameters: name (required), value, path, backup
+  - Case-insensitive directive matching (SSH standard)
+  - Backup file creation before modification
+  - Comment-out removal instead of deletion for safety
+  - Default path: /etc/ssh/sshd_config
+
+- **T6.4: SELinux Module** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_security.go` (550+ lines)
+  - SELinuxModule for enforcement mode
+  - States: enforcing, permissive, disabled
+  - Parameters: persistent
+  - getenforce/setenforce command integration
+  - /etc/selinux/config modification for persistent changes
+  - Reboot notification for disabled state
+
+- **T6.5: SELinux Boolean Module** ✅ COMPLETE
+  - SELinuxBooleanModule for boolean values
+  - States: on, off
+  - Parameters: name (required), persistent
+  - getsebool/setsebool command integration
+  - Persistent flag (-P) for across-reboot changes
+
+- **T6.6: AppArmor Module** ✅ COMPLETE
+  - AppArmorModule for profile enforcement
+  - States: enforce, complain, disabled
+  - Parameters: profile (required)
+  - /sys/kernel/security/apparmor/profiles parsing
+  - aa-enforce, aa-complain, aa-disable command integration
+
+- **T6.7: AppArmor Profile Module** ✅ COMPLETE
+  - AppArmorProfileModule for profile installation
+  - States: present, absent
+  - Parameters: name (required), source, content, mode
+  - Profile installation to /etc/apparmor.d/
+  - apparmor_parser for loading/unloading profiles
+  - Support for both source file and inline content
+
+- **T6.8: Tests** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_ssh_security_test.go` (350+ lines)
+  - 22 tests covering all SSH and security modules
+  - AuthorizedKeysModule: creation, states, missing user/key validation, key parsing
+  - KnownHostsModule: creation, states, missing host validation, host parsing
+  - SSHDConfigModule: creation, states, missing name validation, config parsing, set value
+  - SELinuxModule: creation, states, non-Linux error
+  - SELinuxBooleanModule: creation, states, missing name validation
+  - AppArmorModule: creation, states, non-Linux error, missing profile validation
+  - AppArmorProfileModule: creation, states, non-Linux error, missing name validation
+  - Platform-aware test skipping (Linux-only modules skip on macOS/Windows)
+
+- **T6.9: Documentation** ✅ COMPLETE
+  - Updated docs/content/en/docs/reference/modules.md
+  - Changed module count from 36 to 42
+  - Added SSH Modules category (3 modules)
+  - Added Security Modules category (4 modules)
+  - authorized_keys module section: platform, states, parameters, examples
+  - known_hosts module section: platform, states, parameters, examples
+  - sshd_config module section: platform, states, parameters, examples
+  - selinux module section: platform, states, parameters, examples
+  - selinux_boolean module section: platform, states, parameters, examples
+  - apparmor module section: platform, states, parameters, examples
+  - apparmor_profile module section: platform, states, parameters, examples
+  - Added Cross-Platform Compatibility entries for SSH and security modules
+
+**Phase 7: System Configuration (Weeks 13-14) ✅ COMPLETE**
+
+- **T7.1: Timezone Module** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_system.go` (900+ lines)
+  - TimezoneModule with BaseModule pattern
+  - States: present
+  - Parameters: name (required, IANA timezone)
+  - Linux: timedatectl (systemd), /etc/timezone (non-systemd)
+  - macOS: systemsetup command
+  - Windows: tzutil command
+
+- **T7.2: Locale Module** ✅ COMPLETE
+  - LocaleModule with BaseModule pattern
+  - States: present
+  - Parameters: name (required, e.g., en_US.UTF-8)
+  - Linux: localectl (systemd)
+  - macOS: Partial support via defaults
+  - Windows: Not supported
+
+- **T7.3: Hostname Module** ✅ COMPLETE
+  - HostnameModule with BaseModule pattern
+  - States: present
+  - Parameters: name (required), fqdn
+  - Linux: hostnamectl (systemd), /etc/hostname (non-systemd)
+  - macOS: scutil command
+  - Windows: wmic command
+
+- **T7.4: Hosts Module** ✅ COMPLETE
+  - HostsModule with BaseModule pattern
+  - States: present, absent
+  - Parameters: ip (required), name/names
+  - Cross-platform hosts file management
+  - Linux/macOS: /etc/hosts
+  - Windows: C:\Windows\System32\drivers\etc\hosts
+  - Entry parsing with multi-hostname support
+  - namesMatch helper for order-independent comparison
+
+- **T7.5: Sysctl Module** ✅ COMPLETE
+  - SysctlModule with BaseModule pattern
+  - States: present, absent
+  - Parameters: name (required), value, persist
+  - Linux only: /proc/sys and sysctl command
+  - Persistent config via /etc/sysctl.d/
+  - Non-Linux returns appropriate error
+
+- **T7.6: Kernel Module Module** ✅ COMPLETE
+  - KernelModuleModule with BaseModule pattern
+  - States: loaded, unloaded, blacklisted
+  - Parameters: name (required), params, persist
+  - Linux only: modprobe, rmmod commands
+  - /proc/modules parsing for load status
+  - Persistent config via /etc/modules-load.d/
+  - Blacklist via /etc/modprobe.d/
+
+- **T7.7: Tests** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_system_test.go` (300+ lines)
+  - 26 tests covering all system modules
+  - TimezoneModule: creation, states, missing name, getCurrentTimezone
+  - LocaleModule: creation, states, missing name, Windows error
+  - HostnameModule: creation, states, missing name, current hostname check
+  - HostsModule: creation, states, missing IP/name, entry parsing, add/remove entry
+  - SysctlModule: creation, states, non-Linux error, missing name, getValue
+  - KernelModuleModule: creation, states, non-Linux error, missing name, isLoaded
+  - Helper test: namesMatch function
+  - Platform-aware test skipping (Linux-only modules skip on macOS/Windows)
+
+- **T7.8: Documentation** ✅ COMPLETE
+  - Updated docs/content/en/docs/reference/modules.md
+  - Changed module count from 42 to 48
+  - Added System Configuration Modules category (6 modules)
+  - timezone module section: platform, states, parameters, examples
+  - locale module section: platform, states, parameters, examples
+  - hostname module section: platform, states, parameters, examples
+  - hosts module section: platform, states, parameters, examples
+  - sysctl module section: platform, states, parameters, examples
+  - kernel_module module section: platform, states, parameters, examples
+
+**Phase 8: Container Management (Weeks 15-16) ✅ COMPLETE**
+
+- **T8.1: Docker Container Module** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_docker.go` (1300+ lines)
+  - DockerContainerModule with BaseModule pattern
+  - States: running, stopped, absent
+  - Parameters: name, image, ports, volumes, env, network, restart, command, force
+  - Container lifecycle: create, start, stop, remove
+  - JSON inspect for container state detection
+
+- **T8.2: Docker Image Module** ✅ COMPLETE
+  - DockerImageModule with BaseModule pattern
+  - States: present, absent
+  - Parameters: name, tag, force
+  - docker pull/rmi integration
+
+- **T8.3: Docker Network Module** ✅ COMPLETE
+  - DockerNetworkModule with BaseModule pattern
+  - States: present, absent
+  - Parameters: name, driver, subnet, gateway, ip_range
+  - docker network create/rm integration
+
+- **T8.4: Docker Volume Module** ✅ COMPLETE
+  - DockerVolumeModule with BaseModule pattern
+  - States: present, absent
+  - Parameters: name, driver, opts, force
+  - docker volume create/rm integration
+  - Driver options support for NFS/other drivers
+
+- **T8.5: Podman Container Module** ✅ COMPLETE
+  - PodmanContainerModule with same interface as Docker
+  - States: running, stopped, absent
+  - Parameters: same as docker_container
+  - podman commands integration
+
+- **T8.6: Podman Image Module** ✅ COMPLETE
+  - PodmanImageModule with same interface as Docker
+  - States: present, absent
+  - podman pull/rmi integration
+
+- **T8.7: Podman Network Module** ✅ COMPLETE
+  - PodmanNetworkModule with same interface as Docker
+  - States: present, absent
+  - podman network create/rm integration
+
+- **T8.8: Podman Volume Module** ✅ COMPLETE
+  - PodmanVolumeModule with same interface as Docker
+  - States: present, absent
+  - podman volume create/rm integration
+
+- **T8.9: Container Runtime Detector** ✅ COMPLETE
+  - DetectContainerRuntime() - auto-detect docker or podman
+  - GetContainerRuntimeVersion() - get runtime version
+  - ListContainers() - list containers for given runtime
+  - ContainerRuntime enum: docker, podman, unknown
+
+- **T8.10: Tests** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_docker_test.go` (350+ lines)
+  - 30 tests covering all container modules
+  - Module creation and state validation tests
+  - Parameter validation tests (missing name, missing image)
+  - Helper function tests (getEnvParameters, getDriverOpts)
+  - Container runtime detection tests
+  - Integration tests (require Docker/Podman)
+
+- **T8.11: Documentation** ✅ COMPLETE
+  - Updated docs/content/en/docs/reference/modules.md
+  - Changed module count from 48 to 56
+  - Added Container Modules category (8 modules)
+  - All 8 container module sections with states, parameters, examples
+
+**Phase 9: Database Primitives (Weeks 17-18) ✅ COMPLETE**
+
+- **T9.1: PostgreSQL Database Module** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_database.go` (850+ lines)
+  - PostgresDatabaseModule with BaseModule pattern
+  - States: present, absent
+  - Parameters: name, host, port, user, password, maintenance_db, owner, encoding, template, lc_collate, lc_ctype
+  - psql command integration for CREATE/DROP DATABASE
+
+- **T9.2: PostgreSQL User Module** ✅ COMPLETE
+  - PostgresUserModule with BaseModule pattern
+  - States: present, absent
+  - Parameters: name, role_password, superuser, createdb, createrole, login, replication, connection_limit
+  - CREATE/ALTER ROLE integration with all PostgreSQL role attributes
+
+- **T9.3: PostgreSQL Extension Module** ✅ COMPLETE
+  - PostgresExtensionModule with BaseModule pattern
+  - States: present, absent
+  - Parameters: name, database, schema, version, cascade
+  - CREATE EXTENSION/DROP EXTENSION integration
+
+- **T9.4: MySQL Database Module** ✅ COMPLETE
+  - MySQLDatabaseModule with BaseModule pattern
+  - States: present, absent
+  - Parameters: name, host, port, user, password, socket, charset, collation
+  - mysql command integration with TCP and socket support
+
+- **T9.5: MySQL User Module** ✅ COMPLETE
+  - MySQLUserModule with BaseModule pattern
+  - States: present, absent
+  - Parameters: name, host_name, user_password, priv (grant format "db.table:PRIV1,PRIV2")
+  - CREATE USER, DROP USER, GRANT integration
+
+- **T9.6: Redis Module** ✅ COMPLETE
+  - RedisModule with BaseModule pattern
+  - States: present, absent
+  - Types: config, acl
+  - Config parameters: name, value (CONFIG SET/GET)
+  - ACL parameters: acl_password, acl_rules (ACL SETUSER/DELUSER)
+  - redis-cli integration with TCP and socket support
+
+- **T9.7: Helper Functions** ✅ COMPLETE
+  - escapePostgresString() - escape single quotes for PostgreSQL
+  - quotePostgresIdentifier() - quote identifiers with special characters
+  - escapeMySQLString() - escape quotes and backslashes for MySQL
+  - escapeMySQLIdentifier() - escape backticks for MySQL
+
+- **T9.8: Tests** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_database_test.go` (340+ lines)
+  - 28 tests covering all database modules (25 pass, 3 skip)
+  - Module creation and state validation tests
+  - Parameter validation tests (missing name, missing database)
+  - Helper function tests (escape functions, quote functions)
+  - Connection args tests for all modules
+  - Grant SQL building tests for MySQL
+  - Integration tests (require database tools)
+
+- **T9.9: Documentation** ✅ COMPLETE
+  - Updated docs/content/en/docs/reference/modules.md
+  - Changed module count from 56 to 62
+  - Added Database Modules category (6 modules)
+  - Full documentation for all 6 database modules with states, parameters, examples
+
+**Phase 10: Web Server Configuration (Weeks 19-20) ✅ COMPLETE**
+
+- **T10.1: Nginx Site Module** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_web.go` (700+ lines)
+  - NginxSiteModule with BaseModule pattern
+  - States: enabled, disabled, absent
+  - Parameters: name, content, source, reload
+  - Sites-available/sites-enabled pattern
+  - Symlink management for enabling/disabling
+  - nginx -t validation before reload
+  - nginx -s reload integration
+
+- **T10.2: Nginx Config Module** ✅ COMPLETE
+  - NginxConfigModule with BaseModule pattern
+  - States: present, absent
+  - Parameters: name, content, source, dest, reload
+  - Config snippet management (conf.d or custom paths)
+  - Validation and reload integration
+
+- **T10.3: Apache Site Module** ✅ COMPLETE
+  - ApacheSiteModule with BaseModule pattern
+  - States: enabled, disabled, absent
+  - Parameters: name, content, source, reload
+  - a2ensite/a2dissite integration with fallback to symlinks
+  - apachectl/apache2ctl graceful reload
+
+- **T10.4: Apache Module Module** ✅ COMPLETE
+  - ApacheModuleModule with BaseModule pattern
+  - States: enabled, disabled
+  - Parameters: name, reload
+  - a2enmod/a2dismod integration
+  - Module availability detection
+
+- **T10.5: Platform Support** ✅ COMPLETE
+  - Linux: /etc/nginx, /etc/apache2 paths
+  - macOS: Homebrew paths (/usr/local/etc/nginx, /usr/local/etc/httpd)
+  - Windows: Not supported (returns error)
+  - Path auto-detection based on runtime.GOOS
+
+- **T10.6: Tests** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_web_test.go` (300+ lines)
+  - 18 tests (13 pass, 5 skip for Windows/missing tools)
+  - Module creation and state validation tests
+  - Parameter validation tests (missing name)
+  - Platform-specific path tests
+  - Integration tests (require nginx/apache)
+
+- **T10.7: Documentation** ✅ COMPLETE
+  - Updated docs/content/en/docs/reference/modules.md
+  - Changed module count from 62 to 66
+  - Added Web Server Modules category (4 modules)
+  - Full documentation for all 4 web server modules with states, parameters, examples
+
+**Phase 11: Version Control (Week 21) ✅ COMPLETE**
+
+- **T11.1: Git Module** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_git.go` (600+ lines)
+  - GitModule with BaseModule pattern
+  - States: present, absent, latest
+  - Parameters: repo, dest, version, force, depth, recursive, ssh_key
+  - Clone repositories with shallow clone support
+  - SSH key authentication for private repos
+  - Submodule support with recursive init
+  - Working tree status detection
+  - Behind count for update detection
+
+- **T11.2: Git Config Module** ✅ COMPLETE
+  - GitConfigModule with BaseModule pattern
+  - States: present, absent
+  - Parameters: name, value, scope, file
+  - Scopes: global, system, local, worktree
+  - Custom config file support
+  - Config value get/set/unset operations
+
+- **T11.3: Tests** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_git_test.go` (450+ lines)
+  - 18 tests for git and git_config modules
+  - Parameter validation tests
+  - Clone and update integration tests
+  - Config set/unset integration tests
+  - Path helper tests
+
+- **T11.4: Documentation** ✅ COMPLETE
+  - Updated docs/content/en/docs/reference/modules.md
+  - Changed module count from 66 to 68
+  - Added Version Control Modules category (2 modules)
+  - Full documentation for git and git_config modules
+
+**Phase 12: Certificates (Week 22) ✅ COMPLETE**
+
+- **T12.1: X509 Module** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_x509.go` (990+ lines)
+  - X509Module with BaseModule pattern
+  - States: present, absent
+  - Parameters: path, key_path, common_name, organization, country, validity_days, key_type, key_size, self_signed, is_ca, san_names, san_ips
+  - Key types: RSA (2048, 4096), ECDSA (P-256, P-384, P-521), Ed25519
+  - Self-signed certificate generation
+  - Subject Alternative Names (DNS and IP)
+  - Certificate metadata extraction
+
+- **T12.2: CA Module** ✅ COMPLETE
+  - CAModule with BaseModule pattern
+  - States: present, absent
+  - Parameters: path, key_path, common_name, organization, country, validity_days, key_type, key_size, max_path_len
+  - CA certificate and key generation
+  - SignCertificate method for CSR signing
+  - Intermediate CA support with max_path_len
+
+- **T12.3: ACME Module** ✅ COMPLETE
+  - ACMEModule with BaseModule pattern
+  - States: present, absent, renewed
+  - Parameters: path, key_path, domain, email, challenge, staging, renew_days, webroot, dns_provider
+  - Challenge types: http-01, dns-01
+  - Renewal threshold monitoring
+  - Certificate state tracking and metadata extraction
+  - Framework for external ACME tool integration (certbot/lego)
+
+- **T12.4: Tests** ✅ COMPLETE
+  - Created `pkg/statemgmt/module_x509_test.go` (900+ lines)
+  - 27 tests for x509, ca, acme modules
+  - RSA, ECDSA, Ed25519 key generation tests
+  - CA creation and certificate signing tests
+  - ACME renewal detection tests
+  - Certificate metadata validation
+
+- **T12.5: Documentation** ✅ COMPLETE
+  - Updated docs/content/en/docs/reference/modules.md
+  - Changed module count from 68 to 71
+  - Added Certificate Modules category (3 modules)
+  - Full documentation for x509, ca, acme modules
+
 ## Epic Dependencies
 
 Implementation order:
@@ -3560,7 +4315,7 @@ Implementation order:
 13. **Epic 13** (CGO Removal) - ✅ COMPLETE - Independent, enables pure Go builds
 14. **Epic 14** (NATS Mesh Communication) - ✅ COMPLETE - Depends on Epic 1, 7, 11 (NATS-only communication, superclusters, NAT traversal)
 15. **Epic 15** (Observability Enhancements) - ✅ COMPLETE - Depends on Epic 7, 14 (NATS telemetry transport, stdout/syslog logging, CLI audit)
-16. **Epic 16** (Stdlib System Modules) - 🔲 PLANNED - Depends on Epic 3, 8 (40+ cross-platform system management modules)
+16. **Epic 16** (Stdlib System Modules) - 🚧 IN PROGRESS - Depends on Epic 3, 8 (40+ cross-platform system management modules)
 17. **Epic 17** (SPIFFE Identity) - 🔲 PLANNED - Depends on Epic 1, 11, 14 (embedded SPIFFE identity provider, external SPIRE/cloud/mesh integration)
 18. **Epic 18** (IPv6 Support) - 🔲 PLANNED - Depends on Epic 1, 11, 14 (full IPv6 and dual-stack support for all components)
 19. **Epic 19** (Observability Gateway) - 🔲 PLANNED - Depends on Epic 7, 14, 15 (telemetry gateway for isolated agents, Prometheus/Loki/Tempo bridge)

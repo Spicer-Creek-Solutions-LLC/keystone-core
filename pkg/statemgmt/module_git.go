@@ -1,0 +1,700 @@
+package statemgmt
+
+import (
+	"bytes"
+	"context"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strings"
+)
+
+// ============================================================================
+// Git Module - Manage Git repositories
+// ============================================================================
+
+// GitModule manages Git repositories
+type GitModule struct {
+	*BaseModule
+}
+
+// NewGitModule creates a new Git module
+func NewGitModule() *GitModule {
+	return &GitModule{
+		BaseModule: NewBaseModule("git", []string{"present", "absent", "latest"}),
+	}
+}
+
+// Check examines the current state of a Git repository
+func (m *GitModule) Check(ctx context.Context, decl *StateDeclaration) (*ModuleCheckResult, error) {
+	dest := getStringParameter(decl, "dest", "")
+	if dest == "" {
+		return nil, fmt.Errorf("dest parameter is required")
+	}
+
+	repo := getStringParameter(decl, "repo", "")
+	if repo == "" && decl.State != "absent" {
+		return nil, fmt.Errorf("repo parameter is required for state %s", decl.State)
+	}
+
+	version := getStringParameter(decl, "version", "HEAD")
+
+	result := &ModuleCheckResult{
+		Metadata: make(map[string]interface{}),
+	}
+
+	// Check if destination exists
+	info, err := os.Stat(dest)
+	if os.IsNotExist(err) {
+		result.Present = false
+		result.Matches = decl.State == "absent"
+		return result, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to stat %s: %w", dest, err)
+	}
+
+	if !info.IsDir() {
+		return nil, fmt.Errorf("dest %s exists but is not a directory", dest)
+	}
+
+	// Check if it's a git repository
+	gitDir := filepath.Join(dest, ".git")
+	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
+		result.Present = false
+		result.Matches = decl.State == "absent"
+		result.Metadata["exists"] = true
+		result.Metadata["is_git_repo"] = false
+		return result, nil
+	}
+
+	result.Present = true
+	result.Metadata["exists"] = true
+	result.Metadata["is_git_repo"] = true
+
+	// Get current remote URL
+	remoteURL, err := m.getRemoteURL(dest)
+	if err == nil {
+		result.Metadata["remote_url"] = remoteURL
+	}
+
+	// Get current commit
+	currentCommit, err := m.getCurrentCommit(dest)
+	if err == nil {
+		result.Metadata["current_commit"] = currentCommit
+	}
+
+	// Get current branch
+	currentBranch, err := m.getCurrentBranch(dest)
+	if err == nil {
+		result.Metadata["current_branch"] = currentBranch
+	}
+
+	// Check if clean
+	isClean, err := m.isWorkingTreeClean(dest)
+	if err == nil {
+		result.Metadata["is_clean"] = isClean
+	}
+
+	switch decl.State {
+	case "absent":
+		result.Matches = false
+		result.Diff = map[string]interface{}{
+			"current": "present",
+			"desired": "absent",
+		}
+	case "present":
+		// Just needs to exist as a git repo
+		result.Matches = true
+		result.CurrentState = "present"
+	case "latest":
+		// Check if we're at the desired version
+		if version == "HEAD" || version == "" {
+			// Fetch and compare with origin
+			behindCount, err := m.getBehindCount(dest)
+			if err == nil {
+				result.Metadata["behind_count"] = behindCount
+				result.Matches = behindCount == 0
+				if behindCount > 0 {
+					result.Diff = map[string]interface{}{
+						"behind": behindCount,
+					}
+				}
+			} else {
+				// Can't determine, assume needs update
+				result.Matches = false
+			}
+		} else {
+			// Check if at specific version/tag/branch
+			atVersion, err := m.isAtVersion(dest, version)
+			if err == nil {
+				result.Matches = atVersion
+				if !atVersion {
+					result.Diff = map[string]interface{}{
+						"current_version": currentCommit,
+						"desired_version": version,
+					}
+				}
+			} else {
+				result.Matches = false
+			}
+		}
+		result.CurrentState = "present"
+	}
+
+	return result, nil
+}
+
+// Apply ensures the Git repository is in the desired state
+func (m *GitModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+	dest := getStringParameter(decl, "dest", "")
+	repo := getStringParameter(decl, "repo", "")
+	version := getStringParameter(decl, "version", "HEAD")
+	force := getBoolParameter(decl, "force", false)
+	depth := getIntParameter(decl, "depth", 0)
+	recursive := getBoolParameter(decl, "recursive", true)
+	sshKey := getStringParameter(decl, "ssh_key", "")
+
+	result := &StateResult{
+		StateID: decl.ID,
+		Module:  m.Name(),
+	}
+
+	check, err := m.Check(ctx, decl)
+	if err != nil {
+		result.Success = false
+		result.Comment = fmt.Sprintf("Check failed: %v", err)
+		return result, nil
+	}
+
+	if check.Matches {
+		result.Success = true
+		result.Changed = false
+		result.Comment = "Repository already in desired state"
+		return result, nil
+	}
+
+	switch decl.State {
+	case "absent":
+		if check.Present {
+			if err := os.RemoveAll(dest); err != nil {
+				result.Success = false
+				result.Comment = fmt.Sprintf("Failed to remove repository: %v", err)
+				return result, nil
+			}
+			result.Success = true
+			result.Changed = true
+			result.Comment = fmt.Sprintf("Removed repository at %s", dest)
+		} else {
+			result.Success = true
+			result.Changed = false
+			result.Comment = "Repository already absent"
+		}
+
+	case "present", "latest":
+		if !check.Present {
+			// Clone the repository
+			args := []string{"clone"}
+			if depth > 0 {
+				args = append(args, "--depth", fmt.Sprintf("%d", depth))
+			}
+			if recursive {
+				args = append(args, "--recursive")
+			}
+			if version != "" && version != "HEAD" {
+				args = append(args, "--branch", version)
+			}
+			args = append(args, repo, dest)
+
+			if err := m.runGitCommand(ctx, "", args, sshKey); err != nil {
+				result.Success = false
+				result.Comment = fmt.Sprintf("Failed to clone repository: %v", err)
+				return result, nil
+			}
+			result.Success = true
+			result.Changed = true
+			result.Comment = fmt.Sprintf("Cloned %s to %s", repo, dest)
+		} else if decl.State == "latest" {
+			// Repository exists, update it
+			if force {
+				// Reset hard to clean state
+				if err := m.runGitCommand(ctx, dest, []string{"reset", "--hard"}, ""); err != nil {
+					result.Success = false
+					result.Comment = fmt.Sprintf("Failed to reset repository: %v", err)
+					return result, nil
+				}
+				// Clean untracked files
+				if err := m.runGitCommand(ctx, dest, []string{"clean", "-fd"}, ""); err != nil {
+					result.Success = false
+					result.Comment = fmt.Sprintf("Failed to clean repository: %v", err)
+					return result, nil
+				}
+			}
+
+			// Fetch updates
+			if err := m.runGitCommand(ctx, dest, []string{"fetch", "--all"}, sshKey); err != nil {
+				result.Success = false
+				result.Comment = fmt.Sprintf("Failed to fetch updates: %v", err)
+				return result, nil
+			}
+
+			// Checkout/pull to desired version
+			if version != "" && version != "HEAD" {
+				if err := m.runGitCommand(ctx, dest, []string{"checkout", version}, ""); err != nil {
+					result.Success = false
+					result.Comment = fmt.Sprintf("Failed to checkout %s: %v", version, err)
+					return result, nil
+				}
+			}
+
+			// Pull if on a branch
+			currentBranch, _ := m.getCurrentBranch(dest)
+			if currentBranch != "" && !strings.HasPrefix(currentBranch, "(") {
+				pullArgs := []string{"pull"}
+				if force {
+					pullArgs = append(pullArgs, "--force")
+				}
+				if err := m.runGitCommand(ctx, dest, pullArgs, sshKey); err != nil {
+					// Pull might fail if detached HEAD, that's ok
+					if !strings.Contains(err.Error(), "detached HEAD") {
+						result.Success = false
+						result.Comment = fmt.Sprintf("Failed to pull updates: %v", err)
+						return result, nil
+					}
+				}
+			}
+
+			// Update submodules if recursive
+			if recursive {
+				if err := m.runGitCommand(ctx, dest, []string{"submodule", "update", "--init", "--recursive"}, sshKey); err != nil {
+					// Submodule update might fail if no submodules, that's ok
+					if !strings.Contains(err.Error(), "No submodule") {
+						result.Success = false
+						result.Comment = fmt.Sprintf("Failed to update submodules: %v", err)
+						return result, nil
+					}
+				}
+			}
+
+			result.Success = true
+			result.Changed = true
+			result.Comment = fmt.Sprintf("Updated repository at %s", dest)
+		} else {
+			result.Success = true
+			result.Changed = false
+			result.Comment = "Repository already present"
+		}
+	}
+
+	return result, nil
+}
+
+// Test validates module parameters
+func (m *GitModule) Test(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+	result := &StateResult{
+		StateID: decl.ID,
+		Module:  m.Name(),
+	}
+
+	// Check required parameters
+	dest := getStringParameter(decl, "dest", "")
+	if dest == "" {
+		result.Success = false
+		result.Comment = "dest parameter is required"
+		return result, nil
+	}
+
+	if decl.State != "absent" {
+		repo := getStringParameter(decl, "repo", "")
+		if repo == "" {
+			result.Success = false
+			result.Comment = "repo parameter is required for state " + decl.State
+			return result, nil
+		}
+	}
+
+	// Check if git is available
+	if _, err := exec.LookPath("git"); err != nil {
+		result.Success = false
+		result.Comment = "git command not found in PATH"
+		return result, nil
+	}
+
+	result.Success = true
+	result.Comment = "Git module parameters are valid"
+	return result, nil
+}
+
+// Helper methods
+
+func (m *GitModule) runGitCommand(ctx context.Context, dir string, args []string, sshKey string) error {
+	cmd := exec.CommandContext(ctx, "git", args...)
+	if dir != "" {
+		cmd.Dir = dir
+	}
+
+	// Set up SSH key if provided
+	if sshKey != "" {
+		sshCmd := fmt.Sprintf("ssh -i %s -o StrictHostKeyChecking=no", sshKey)
+		cmd.Env = append(os.Environ(), "GIT_SSH_COMMAND="+sshCmd)
+	}
+
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("%v: %s", err, stderr.String())
+	}
+	return nil
+}
+
+func (m *GitModule) getRemoteURL(dir string) (string, error) {
+	cmd := exec.Command("git", "-C", dir, "config", "--get", "remote.origin.url")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+func (m *GitModule) getCurrentCommit(dir string) (string, error) {
+	cmd := exec.Command("git", "-C", dir, "rev-parse", "HEAD")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+func (m *GitModule) getCurrentBranch(dir string) (string, error) {
+	cmd := exec.Command("git", "-C", dir, "rev-parse", "--abbrev-ref", "HEAD")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+func (m *GitModule) isWorkingTreeClean(dir string) (bool, error) {
+	cmd := exec.Command("git", "-C", dir, "status", "--porcelain")
+	output, err := cmd.Output()
+	if err != nil {
+		return false, err
+	}
+	return len(strings.TrimSpace(string(output))) == 0, nil
+}
+
+func (m *GitModule) getBehindCount(dir string) (int, error) {
+	// Fetch first
+	exec.Command("git", "-C", dir, "fetch").Run()
+
+	// Get behind count
+	cmd := exec.Command("git", "-C", dir, "rev-list", "--count", "HEAD..@{u}")
+	output, err := cmd.Output()
+	if err != nil {
+		return 0, err
+	}
+	var count int
+	fmt.Sscanf(strings.TrimSpace(string(output)), "%d", &count)
+	return count, nil
+}
+
+func (m *GitModule) isAtVersion(dir, version string) (bool, error) {
+	// Get commit hash of the version
+	cmd := exec.Command("git", "-C", dir, "rev-parse", version)
+	versionCommit, err := cmd.Output()
+	if err != nil {
+		return false, err
+	}
+
+	// Get current commit
+	currentCommit, err := m.getCurrentCommit(dir)
+	if err != nil {
+		return false, err
+	}
+
+	return strings.TrimSpace(string(versionCommit)) == currentCommit, nil
+}
+
+// ============================================================================
+// Git Config Module - Manage Git configuration
+// ============================================================================
+
+// GitConfigModule manages Git configuration settings
+type GitConfigModule struct {
+	*BaseModule
+}
+
+// NewGitConfigModule creates a new Git config module
+func NewGitConfigModule() *GitConfigModule {
+	return &GitConfigModule{
+		BaseModule: NewBaseModule("git_config", []string{"present", "absent"}),
+	}
+}
+
+// Check examines the current state of a Git configuration setting
+func (m *GitConfigModule) Check(ctx context.Context, decl *StateDeclaration) (*ModuleCheckResult, error) {
+	name := getStringParameter(decl, "name", "")
+	if name == "" {
+		return nil, fmt.Errorf("name parameter is required")
+	}
+
+	scope := getStringParameter(decl, "scope", "global")
+	file := getStringParameter(decl, "file", "")
+	value := getStringParameter(decl, "value", "")
+
+	result := &ModuleCheckResult{
+		Metadata: make(map[string]interface{}),
+	}
+
+	// Get current value
+	currentValue, err := m.getConfigValue(name, scope, file)
+	if err != nil {
+		result.Present = false
+		result.Matches = decl.State == "absent"
+		return result, nil
+	}
+
+	result.Present = true
+	result.Metadata["current_value"] = currentValue
+	result.Metadata["scope"] = scope
+
+	switch decl.State {
+	case "absent":
+		result.Matches = false
+		result.Diff = map[string]interface{}{
+			"current": currentValue,
+			"desired": "absent",
+		}
+	case "present":
+		if value == "" {
+			// Just check existence
+			result.Matches = true
+		} else {
+			result.Matches = currentValue == value
+			if !result.Matches {
+				result.Diff = map[string]interface{}{
+					"current": currentValue,
+					"desired": value,
+				}
+			}
+		}
+	}
+
+	result.CurrentState = "present"
+	return result, nil
+}
+
+// Apply ensures the Git configuration is in the desired state
+func (m *GitConfigModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+	name := getStringParameter(decl, "name", "")
+	value := getStringParameter(decl, "value", "")
+	scope := getStringParameter(decl, "scope", "global")
+	file := getStringParameter(decl, "file", "")
+
+	result := &StateResult{
+		StateID: decl.ID,
+		Module:  m.Name(),
+	}
+
+	check, err := m.Check(ctx, decl)
+	if err != nil {
+		result.Success = false
+		result.Comment = fmt.Sprintf("Check failed: %v", err)
+		return result, nil
+	}
+
+	if check.Matches {
+		result.Success = true
+		result.Changed = false
+		result.Comment = "Git config already in desired state"
+		return result, nil
+	}
+
+	switch decl.State {
+	case "absent":
+		if check.Present {
+			if err := m.unsetConfigValue(name, scope, file); err != nil {
+				result.Success = false
+				result.Comment = fmt.Sprintf("Failed to unset config: %v", err)
+				return result, nil
+			}
+			result.Success = true
+			result.Changed = true
+			result.Comment = fmt.Sprintf("Removed git config %s", name)
+		} else {
+			result.Success = true
+			result.Changed = false
+			result.Comment = "Git config already absent"
+		}
+
+	case "present":
+		if err := m.setConfigValue(name, value, scope, file); err != nil {
+			result.Success = false
+			result.Comment = fmt.Sprintf("Failed to set config: %v", err)
+			return result, nil
+		}
+		result.Success = true
+		result.Changed = true
+		if check.Present {
+			result.Comment = fmt.Sprintf("Updated git config %s to %s", name, value)
+		} else {
+			result.Comment = fmt.Sprintf("Set git config %s to %s", name, value)
+		}
+	}
+
+	return result, nil
+}
+
+// Test validates module parameters
+func (m *GitConfigModule) Test(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+	result := &StateResult{
+		StateID: decl.ID,
+		Module:  m.Name(),
+	}
+
+	// Check required parameters
+	name := getStringParameter(decl, "name", "")
+	if name == "" {
+		result.Success = false
+		result.Comment = "name parameter is required"
+		return result, nil
+	}
+
+	if decl.State == "present" {
+		value := getStringParameter(decl, "value", "")
+		if value == "" {
+			result.Success = false
+			result.Comment = "value parameter is required for state present"
+			return result, nil
+		}
+	}
+
+	// Validate scope
+	scope := getStringParameter(decl, "scope", "global")
+	validScopes := map[string]bool{"global": true, "system": true, "local": true, "worktree": true}
+	if !validScopes[scope] {
+		result.Success = false
+		result.Comment = fmt.Sprintf("invalid scope: %s (must be global, system, local, or worktree)", scope)
+		return result, nil
+	}
+
+	// Check if git is available
+	if _, err := exec.LookPath("git"); err != nil {
+		result.Success = false
+		result.Comment = "git command not found in PATH"
+		return result, nil
+	}
+
+	result.Success = true
+	result.Comment = "Git config module parameters are valid"
+	return result, nil
+}
+
+// Helper methods
+
+func (m *GitConfigModule) getConfigValue(name, scope, file string) (string, error) {
+	args := []string{"config"}
+
+	if file != "" {
+		args = append(args, "--file", file)
+	} else {
+		switch scope {
+		case "system":
+			args = append(args, "--system")
+		case "global":
+			args = append(args, "--global")
+		case "local":
+			args = append(args, "--local")
+		case "worktree":
+			args = append(args, "--worktree")
+		}
+	}
+
+	args = append(args, "--get", name)
+
+	cmd := exec.Command("git", args...)
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+func (m *GitConfigModule) setConfigValue(name, value, scope, file string) error {
+	args := []string{"config"}
+
+	if file != "" {
+		args = append(args, "--file", file)
+	} else {
+		switch scope {
+		case "system":
+			args = append(args, "--system")
+		case "global":
+			args = append(args, "--global")
+		case "local":
+			args = append(args, "--local")
+		case "worktree":
+			args = append(args, "--worktree")
+		}
+	}
+
+	args = append(args, name, value)
+
+	cmd := exec.Command("git", args...)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("%v: %s", err, stderr.String())
+	}
+	return nil
+}
+
+func (m *GitConfigModule) unsetConfigValue(name, scope, file string) error {
+	args := []string{"config"}
+
+	if file != "" {
+		args = append(args, "--file", file)
+	} else {
+		switch scope {
+		case "system":
+			args = append(args, "--system")
+		case "global":
+			args = append(args, "--global")
+		case "local":
+			args = append(args, "--local")
+		case "worktree":
+			args = append(args, "--worktree")
+		}
+	}
+
+	args = append(args, "--unset", name)
+
+	cmd := exec.Command("git", args...)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("%v: %s", err, stderr.String())
+	}
+	return nil
+}
+
+// getGitConfigPath returns the path to the git config file for the given scope
+func getGitConfigPath(scope string) string {
+	switch scope {
+	case "system":
+		if runtime.GOOS == "windows" {
+			return filepath.Join(os.Getenv("ProgramFiles"), "Git", "etc", "gitconfig")
+		}
+		return "/etc/gitconfig"
+	case "global":
+		home, _ := os.UserHomeDir()
+		return filepath.Join(home, ".gitconfig")
+	default:
+		return ""
+	}
+}
