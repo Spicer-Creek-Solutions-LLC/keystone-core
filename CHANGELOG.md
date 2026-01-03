@@ -46,6 +46,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Converted ASCII diagrams to Mermaid across all documentation
 - Updated roadmap to reflect current project state
 
+## [0.15.0] - 2025-01-XX
+
+### Added - Epic 15: Observability Enhancements
+- **Phase 1: Stdout-First Logging**
+  - Removed file output option from logging configuration
+  - Enhanced stdout output with structured JSON format
+  - Environment variable configuration (KSCORE_LOG_LEVEL, KSCORE_LOG_FORMAT)
+  - Updated logging factory with consistent logger creation
+
+- **Phase 2: Syslog Integration**
+  - RFC 5424 compliant syslog output (pkg/logging/syslog.go)
+  - Multiple transport options: Unix socket, UDP, TCP, TLS
+  - Facility/severity mapping from log levels
+  - Cross-platform support (Linux, macOS, Windows Event Log)
+
+- **Phase 3: CLI Audit Logging**
+  - AuditLogger interface with structured audit entries (pkg/audit/audit.go)
+  - OS-native audit backends (journald, syslog, Windows Event Log)
+  - CLI tool integration (kscore-exec, kscore-state)
+  - Sensitive data redaction in audit entries
+
+- **Phase 4: NATS Log Transport**
+  - NATSLogPublisher for log transport over NATS (pkg/logging/nats.go)
+  - Subject hierarchy: kscore.telemetry.logs.{cluster}.{source}.{level}
+  - In-memory buffering with configurable overflow policies
+  - JetStream persistence support
+
+- **Phase 5: NATS Metrics Push**
+  - NATSMetricsPublisher for metrics transport (pkg/metrics/nats.go)
+  - Prometheus and OpenMetrics format support
+  - Configurable push interval
+  - Works alongside /metrics pull endpoint
+
+- **Phase 6: NATS Trace Export**
+  - NATSTraceExporter for OTLP traces over NATS (pkg/tracing/nats_exporter.go)
+  - Batch span export with configurable flush interval
+  - Integration with existing OpenTelemetry tracing
+
+- **Phase 7: TUI Monitor NATS Integration**
+  - TelemetrySubscriber for real-time NATS updates (cmd/kscore-monitor/events/)
+  - LogMsg, MetricMsg, TraceMsg, AuditMsg Bubble Tea messages
+  - LogBuffer and MetricBuffer for data management
+  - Real-time updates to Logs and Metrics views
+
+- **Phase 8: Centralized Audit System**
+  - NATS-based audit event publishing (pkg/audit/nats.go)
+  - Audit event types: authentication, authorization, operations, administration
+  - JetStream persistence with configurable retention
+
+- **Phase 9: Documentation**
+  - Updated observability concepts documentation
+  - NATS telemetry architecture diagrams
+  - CLI audit logging configuration guide
+
 ## [0.14.0] - 2025-01-XX
 
 ### Added - Epic 14: NATS Mesh Communication
@@ -492,7 +546,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/keystone-core/keystone-core/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/keystone-core/keystone-core/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/keystone-core/keystone-core/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/keystone-core/keystone-core/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/keystone-core/keystone-core/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/keystone-core/keystone-core/compare/v0.11.0...v0.12.0

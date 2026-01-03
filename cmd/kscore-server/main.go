@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -20,11 +19,15 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/config"
 	"github.com/shawnbutts/keystone-core/pkg/controlplane"
 	"github.com/shawnbutts/keystone-core/pkg/gitops/webhook"
+	"github.com/shawnbutts/keystone-core/pkg/logging"
 	natsmgr "github.com/shawnbutts/keystone-core/pkg/nats"
 	"github.com/shawnbutts/keystone-core/pkg/policy"
 	"github.com/shawnbutts/keystone-core/pkg/state"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
+
+// logger is the structured logger for kscore-server (Epic 15)
+var logger logging.Logger
 
 var (
 	cfgFile string
@@ -52,67 +55,82 @@ var versionCmd = &cobra.Command{
 }
 
 func runServer(cmd *cobra.Command, args []string) {
-	// Print version
+	// Initialize logger early (use env vars before config is loaded)
+	logger = logging.InitDefaultLogger("kscore-server")
+
+	// Get version info
 	info := version.Get()
-	fmt.Printf("Starting %s\n", info.String())
+	logger.Info("Starting Keystone Core server",
+		logging.String("version", info.Version),
+		logging.String("commit", info.GitCommit),
+		logging.String("build_date", info.BuildDate),
+	)
 
 	// Load configuration
 	cfg, err := config.LoadConfig(cfgFile)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to load configuration: %v\n", err)
+		logger.Error("Failed to load configuration", logging.Error(err))
 		os.Exit(1)
 	}
 
 	// Validate configuration
 	if err := cfg.Validate(); err != nil {
-		fmt.Fprintf(os.Stderr, "Invalid configuration: %v\n", err)
+		logger.Error("Invalid configuration", logging.Error(err))
 		os.Exit(1)
 	}
 
-	fmt.Printf("Configuration loaded successfully\n")
-	fmt.Printf("  NATS Mode: %s\n", cfg.NATS.Mode)
+	// Re-initialize logger with config settings (Epic 15)
+	logger = logging.InitDefaultLoggerFromConfig(&cfg.Logging, "kscore-server")
+
+	logger.Info("Configuration loaded successfully")
 	if cfg.NATS.Mode == config.NATSModeEmbedded {
-		fmt.Printf("  Embedded NATS Port: %d\n", cfg.NATS.Embedded.Port)
-		fmt.Printf("  JetStream Enabled: %v\n", cfg.NATS.Embedded.EnableJetStream)
+		logger.Info("NATS configuration",
+			logging.String("mode", string(cfg.NATS.Mode)),
+			logging.Int("port", cfg.NATS.Embedded.Port),
+			logging.Bool("jetstream", cfg.NATS.Embedded.EnableJetStream),
+		)
 	} else {
-		fmt.Printf("  NATS URL: %s\n", cfg.NATS.URL)
+		logger.Info("NATS configuration",
+			logging.String("mode", string(cfg.NATS.Mode)),
+			logging.String("url", cfg.NATS.URL),
+		)
 	}
-	fmt.Printf("  Storage Backend: %s\n", cfg.Storage.Backend)
+	logger.Info("Storage configuration", logging.String("backend", string(cfg.Storage.Backend)))
 
 	// Create context for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	// Initialize NATS manager
-	fmt.Println("Initializing NATS manager...")
+	logger.Info("Initializing NATS manager")
 	natsManager, err := natsmgr.NewManager(&cfg.NATS)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to create NATS manager: %v\n", err)
+		logger.Error("Failed to create NATS manager", logging.Error(err))
 		os.Exit(1)
 	}
 
 	// Start NATS manager
 	if err := natsManager.Start(); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to start NATS manager: %v\n", err)
+		logger.Error("Failed to start NATS manager", logging.Error(err))
 		os.Exit(1)
 	}
 	defer natsManager.Shutdown()
 
 	if natsManager.IsEmbedded() {
-		fmt.Printf("Embedded NATS server started on port %d\n", cfg.NATS.Embedded.Port)
+		logger.Info("Embedded NATS server started", logging.Int("port", cfg.NATS.Embedded.Port))
 	} else {
-		fmt.Printf("Connected to external NATS at %s\n", cfg.NATS.URL)
+		logger.Info("Connected to external NATS", logging.String("url", cfg.NATS.URL))
 	}
 
 	// Health check
 	if err := natsManager.Health(); err != nil {
-		fmt.Fprintf(os.Stderr, "NATS health check failed: %v\n", err)
+		logger.Error("NATS health check failed", logging.Error(err))
 		os.Exit(1)
 	}
-	fmt.Println("NATS health check passed")
+	logger.Info("NATS health check passed")
 
 	// Initialize state store
-	fmt.Println("Initializing state storage...")
+	logger.Info("Initializing state storage")
 	storeConfig := &state.Config{
 		Backend:               string(cfg.Storage.Backend),
 		SQLitePath:            cfg.Storage.SQLite.Path,
@@ -125,66 +143,73 @@ func runServer(cmd *cobra.Command, args []string) {
 	}
 	stateStore, err := state.NewStore(storeConfig)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to create state store: %v\n", err)
+		logger.Error("Failed to create state store", logging.Error(err))
 		os.Exit(1)
 	}
 	defer stateStore.Close()
 
 	// Test database connection
 	if err := stateStore.Ping(ctx); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to connect to database: %v\n", err)
+		logger.Error("Failed to connect to database", logging.Error(err))
 		os.Exit(1)
 	}
-	fmt.Printf("State storage initialized (%s)\n", cfg.Storage.Backend)
+	logger.Info("State storage initialized", logging.String("backend", string(cfg.Storage.Backend)))
 
 	// Initialize connection manager
-	fmt.Println("Initializing connection manager...")
+	logger.Info("Initializing connection manager")
 	connMgr := controlplane.NewConnectionManager(natsManager)
 
 	// Set state store for HA cluster support (allows loading agents from database)
 	connMgr.SetStateStore(&stateStoreAdapter{store: stateStore})
 
 	if err := connMgr.Start(); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to start connection manager: %v\n", err)
+		logger.Error("Failed to start connection manager", logging.Error(err))
 		os.Exit(1)
 	}
 	defer connMgr.Stop()
 
 	// Initialize command dispatcher
-	fmt.Println("Initializing command dispatcher...")
+	logger.Info("Initializing command dispatcher")
 	dispatcher := controlplane.NewCommandDispatcher(connMgr, stateStore)
 	if err := dispatcher.Start(); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to start command dispatcher: %v\n", err)
+		logger.Error("Failed to start command dispatcher", logging.Error(err))
 		os.Exit(1)
 	}
 	defer dispatcher.Stop()
 
 	// Initialize batch dispatcher
-	fmt.Println("Initializing batch dispatcher...")
+	logger.Info("Initializing batch dispatcher")
 	batchDispatcher := controlplane.NewBatchDispatcher(connMgr, dispatcher, stateStore)
 
 	// Initialize gRPC API server
-	fmt.Println("Initializing gRPC API server...")
+	logger.Info("Initializing gRPC API server")
 
 	// Configure gRPC server options
 	var grpcOpts []grpc.ServerOption
 
 	// Set up authentication if enabled
 	if cfg.Auth.Enabled {
-		fmt.Printf("Initializing API authentication (type: %s)...\n", cfg.Auth.Type)
+		logger.Info("Initializing API authentication", logging.String("type", cfg.Auth.Type))
 
 		authCfg, err := auth.NewInterceptorConfigFromConfig(cfg.Auth)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to initialize authentication: %v\n", err)
+			logger.Error("Failed to initialize authentication", logging.Error(err))
 			os.Exit(1)
 		}
 
-		// Add audit logging for auth events
-		authCfg.AuditLogger = func(ctx context.Context, method string, principal *auth.Principal, err error) {
-			if err != nil {
-				log.Printf("[AUTH] DENIED method=%s error=%v", method, err)
+		// Add audit logging for auth events (using structured logger)
+		authCfg.AuditLogger = func(ctx context.Context, method string, principal *auth.Principal, authErr error) {
+			if authErr != nil {
+				logger.Warn("Authentication denied",
+					logging.String("method", method),
+					logging.Error(authErr),
+				)
 			} else if principal != nil {
-				log.Printf("[AUTH] ALLOWED method=%s principal=%s role=%s", method, principal.Name, principal.Role)
+				logger.Debug("Authentication allowed",
+					logging.String("method", method),
+					logging.String("principal", principal.Name),
+					logging.String("role", string(principal.Role)),
+				)
 			}
 		}
 
@@ -195,13 +220,13 @@ func runServer(cmd *cobra.Command, args []string) {
 		)
 
 		keyCount := len(cfg.Auth.APIKey.Keys)
-		fmt.Printf("  API authentication enabled with %d API key(s)\n", keyCount)
-		if len(cfg.Auth.BypassMethods) > 0 {
-			fmt.Printf("  Bypass methods: %v\n", cfg.Auth.BypassMethods)
-		}
+		logger.Info("API authentication enabled",
+			logging.Int("key_count", keyCount),
+			logging.Any("bypass_methods", cfg.Auth.BypassMethods),
+		)
 	} else {
-		fmt.Println("  WARNING: API authentication is DISABLED - all requests will be allowed")
-		fmt.Println("  This is insecure for production use. Set auth.enabled=true in config.")
+		logger.Warn("API authentication is DISABLED - all requests will be allowed")
+		logger.Warn("This is insecure for production use. Set auth.enabled=true in config.")
 	}
 
 	grpcServer := grpc.NewServer(grpcOpts...)
@@ -212,14 +237,14 @@ func runServer(cmd *cobra.Command, args []string) {
 	listenAddr := fmt.Sprintf("%s:%d", cfg.Server.ListenAddr, cfg.Server.GRPCPort)
 	listener, err := net.Listen("tcp", listenAddr)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to listen on %s: %v\n", listenAddr, err)
+		logger.Error("Failed to listen", logging.String("address", listenAddr), logging.Error(err))
 		os.Exit(1)
 	}
 
 	go func() {
-		fmt.Printf("gRPC API server listening on %s\n", listenAddr)
+		logger.Info("gRPC API server listening", logging.String("address", listenAddr))
 		if err := grpcServer.Serve(listener); err != nil {
-			fmt.Fprintf(os.Stderr, "gRPC server error: %v\n", err)
+			logger.Error("gRPC server error", logging.Error(err))
 		}
 	}()
 	defer grpcServer.GracefulStop()
@@ -256,9 +281,9 @@ func runServer(cmd *cobra.Command, args []string) {
 	}
 
 	go func() {
-		fmt.Printf("HTTP health server listening on %s\n", httpAddr)
+		logger.Info("HTTP health server listening", logging.String("address", httpAddr))
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			fmt.Fprintf(os.Stderr, "HTTP server error: %v\n", err)
+			logger.Error("HTTP server error", logging.Error(err))
 		}
 	}()
 	defer httpServer.Shutdown(context.Background())
@@ -267,7 +292,7 @@ func runServer(cmd *cobra.Command, args []string) {
 	var policyEngine *policy.PolicyEngine
 	var policyRegistry *policy.Registry
 	if cfg.Policy.Enabled {
-		fmt.Println("Initializing policy engine...")
+		logger.Info("Initializing policy engine")
 		policyRegistry = policy.NewRegistry()
 
 		// Register configured policies
@@ -286,14 +311,23 @@ func runServer(cmd *cobra.Command, args []string) {
 				Enabled:     policyDef.Enabled,
 			}
 			if err := policyRegistry.RegisterPolicy(p); err != nil {
-				fmt.Fprintf(os.Stderr, "Failed to register policy %s: %v\n", policyDef.ID, err)
+				logger.Error("Failed to register policy",
+					logging.String("policy_id", policyDef.ID),
+					logging.Error(err),
+				)
 			} else {
-				fmt.Printf("  Registered policy: %s (%s)\n", policyDef.ID, policyDef.Type)
+				logger.Info("Registered policy",
+					logging.String("policy_id", policyDef.ID),
+					logging.String("type", policyDef.Type),
+				)
 			}
 		}
 
 		policyEngine = policy.NewPolicyEngine(policyRegistry)
-		fmt.Printf("Policy engine initialized (engine: %s, mode: %s)\n", cfg.Policy.Engine, cfg.Policy.EnforcementMode)
+		logger.Info("Policy engine initialized",
+			logging.String("engine", cfg.Policy.Engine),
+			logging.String("mode", cfg.Policy.EnforcementMode),
+		)
 
 		// Store policy engine in API server for use
 		apiServer.SetPolicyEngine(policyEngine)
@@ -302,7 +336,7 @@ func runServer(cmd *cobra.Command, args []string) {
 	// Initialize webhook receiver if enabled
 	var webhookReceiver *webhook.Receiver
 	if cfg.Webhook.Enabled {
-		fmt.Println("Initializing webhook receiver...")
+		logger.Info("Initializing webhook receiver")
 
 		// Create webhook config
 		webhookConfig := &webhook.WebhookConfig{
@@ -331,29 +365,29 @@ func runServer(cmd *cobra.Command, args []string) {
 		}
 
 		// Create a simple event processor that logs events
-		processor := &loggingEventProcessor{}
+		processor := &loggingEventProcessor{logger: logger}
 		webhookReceiver = webhook.NewReceiver(webhookConfig, processor)
 
 		go func() {
 			webhookAddr := fmt.Sprintf("%s:%d", cfg.Server.ListenAddr, cfg.Webhook.Port)
-			fmt.Printf("Webhook receiver listening on %s%s\n", webhookAddr, cfg.Webhook.Path)
+			logger.Info("Webhook receiver listening",
+				logging.String("address", webhookAddr),
+				logging.String("path", cfg.Webhook.Path),
+			)
 			if err := webhookReceiver.Start(); err != nil {
-				fmt.Fprintf(os.Stderr, "Webhook receiver error: %v\n", err)
+				logger.Error("Webhook receiver error", logging.Error(err))
 			}
 		}()
 		defer webhookReceiver.Stop(context.Background())
 	}
 
-	fmt.Printf("\nKeystone Core server started successfully\n")
-	fmt.Printf("  gRPC API: %s\n", listenAddr)
-	fmt.Printf("  HTTP API: %s\n", httpAddr)
-	fmt.Printf("  Storage: %s\n", cfg.Storage.Backend)
-	if cfg.Auth.Enabled {
-		fmt.Printf("  Authentication: %s (%d keys)\n", cfg.Auth.Type, len(cfg.Auth.APIKey.Keys))
-	} else {
-		fmt.Printf("  Authentication: DISABLED (insecure)\n")
-	}
-	fmt.Println("\nWaiting for agent connections...")
+	logger.Info("Keystone Core server started successfully",
+		logging.String("grpc_api", listenAddr),
+		logging.String("http_api", httpAddr),
+		logging.String("storage", string(cfg.Storage.Backend)),
+		logging.Bool("auth_enabled", cfg.Auth.Enabled),
+	)
+	logger.Info("Waiting for agent connections")
 
 	// Status reporting loop
 	statusTicker := time.NewTicker(30 * time.Second)
@@ -368,37 +402,40 @@ func runServer(cmd *cobra.Command, args []string) {
 		case <-statusTicker.C:
 			total := connMgr.GetAgentCount()
 			online := connMgr.GetOnlineAgentCount()
-			fmt.Printf("[%s] Agents: %d total, %d online\n", time.Now().Format("15:04:05"), total, online)
+			logger.Debug("Agent status",
+				logging.Int("total", total),
+				logging.Int("online", online),
+			)
 		case <-sigChan:
-			fmt.Println("\nReceived shutdown signal, shutting down gracefully...")
+			logger.Info("Received shutdown signal, shutting down gracefully")
 			goto shutdown
 		case <-ctx.Done():
-			fmt.Println("\nContext cancelled, shutting down...")
+			logger.Info("Context cancelled, shutting down")
 			goto shutdown
 		}
 	}
 
 shutdown:
 	// Graceful shutdown
-	fmt.Println("Stopping gRPC server...")
+	logger.Info("Stopping gRPC server")
 	grpcServer.GracefulStop()
 
-	fmt.Println("Stopping connection manager...")
+	logger.Info("Stopping connection manager")
 	if err := connMgr.Stop(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error stopping connection manager: %v\n", err)
+		logger.Error("Error stopping connection manager", logging.Error(err))
 	}
 
-	fmt.Println("Closing state store...")
+	logger.Info("Closing state store")
 	if err := stateStore.Close(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error closing state store: %v\n", err)
+		logger.Error("Error closing state store", logging.Error(err))
 	}
 
-	fmt.Println("Shutting down NATS manager...")
+	logger.Info("Shutting down NATS manager")
 	if err := natsManager.Shutdown(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error during shutdown: %v\n", err)
+		logger.Error("Error during shutdown", logging.Error(err))
 	}
 
-	fmt.Println("Server shutdown complete")
+	logger.Info("Server shutdown complete")
 }
 
 func main() {
@@ -409,10 +446,15 @@ func main() {
 }
 
 // loggingEventProcessor logs webhook events (simple implementation for now)
-type loggingEventProcessor struct{}
+type loggingEventProcessor struct {
+	logger logging.Logger
+}
 
 func (p *loggingEventProcessor) ProcessEvent(ctx context.Context, event *webhook.WebhookEvent) error {
-	log.Printf("Webhook event received: type=%s source=%s", event.Type, event.Source)
+	p.logger.Info("Webhook event received",
+		logging.String("type", string(event.Type)),
+		logging.String("source", event.Source),
+	)
 	return nil
 }
 

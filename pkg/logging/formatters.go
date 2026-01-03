@@ -28,6 +28,29 @@ func (f *JSONFormatter) Format(entry *Entry) ([]byte, error) {
 		output["correlation_id"] = entry.CorrelationID
 	}
 
+	// Add metadata if present (Epic 15)
+	if entry.Metadata != nil {
+		metadata := make(map[string]interface{})
+		if entry.Metadata.Host != "" {
+			metadata["host"] = entry.Metadata.Host
+		}
+		if entry.Metadata.PID != 0 {
+			metadata["pid"] = entry.Metadata.PID
+		}
+		if entry.Metadata.Version != "" {
+			metadata["version"] = entry.Metadata.Version
+		}
+		if entry.Metadata.Service != "" {
+			metadata["service"] = entry.Metadata.Service
+		}
+		if entry.Metadata.Caller != "" {
+			metadata["caller"] = entry.Metadata.Caller
+		}
+		if len(metadata) > 0 {
+			output["metadata"] = metadata
+		}
+	}
+
 	// Add fields
 	for k, v := range entry.Fields {
 		output[k] = v

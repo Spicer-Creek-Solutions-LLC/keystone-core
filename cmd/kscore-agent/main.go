@@ -8,11 +8,16 @@ import (
 	"syscall"
 
 	"github.com/spf13/cobra"
+
 	"github.com/shawnbutts/keystone-core/pkg/agent"
 	"github.com/shawnbutts/keystone-core/pkg/config"
+	"github.com/shawnbutts/keystone-core/pkg/logging"
 	natsmgr "github.com/shawnbutts/keystone-core/pkg/nats"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
+
+// logger is the structured logger for kscore-agent (Epic 15)
+var logger logging.Logger
 
 var (
 	cfgFile string
@@ -40,14 +45,21 @@ var versionCmd = &cobra.Command{
 }
 
 func runAgent(cmd *cobra.Command, args []string) {
-	// Print version
+	// Initialize logger early (use env vars before config is loaded)
+	logger = logging.InitDefaultLogger("kscore-agent")
+
+	// Get version info
 	info := version.Get()
-	fmt.Printf("Starting %s\n", info.String())
+	logger.Info("Starting Keystone Core agent",
+		logging.String("version", info.Version),
+		logging.String("commit", info.GitCommit),
+		logging.String("build_date", info.BuildDate),
+	)
 
 	// Load configuration
 	cfg, err := config.LoadConfig(cfgFile)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to load configuration: %v\n", err)
+		logger.Error("Failed to load configuration", logging.Error(err))
 		os.Exit(1)
 	}
 
@@ -58,52 +70,56 @@ func runAgent(cmd *cobra.Command, args []string) {
 
 	// Validate configuration
 	if err := cfg.Validate(); err != nil {
-		fmt.Fprintf(os.Stderr, "Invalid configuration: %v\n", err)
+		logger.Error("Invalid configuration", logging.Error(err))
 		os.Exit(1)
 	}
 
+	// Re-initialize logger with config settings (Epic 15)
+	logger = logging.InitDefaultLoggerFromConfig(&cfg.Logging, "kscore-agent")
+
 	// Collect system metadata
 	hostname, _ := os.Hostname()
-	fmt.Printf("Agent Information:\n")
-	fmt.Printf("  Hostname: %s\n", hostname)
-	fmt.Printf("  OS: %s\n", runtime.GOOS)
-	fmt.Printf("  Architecture: %s\n", runtime.GOARCH)
-	fmt.Printf("  Agent ID: %s\n", cfg.Agent.ID)
-	fmt.Printf("  NATS Mode: %s\n", cfg.NATS.Mode)
+	logger.Info("Agent information",
+		logging.String("hostname", hostname),
+		logging.String("os", runtime.GOOS),
+		logging.String("arch", runtime.GOARCH),
+		logging.String("agent_id", cfg.Agent.ID),
+		logging.String("nats_mode", string(cfg.NATS.Mode)),
+	)
 
 	// Initialize NATS manager
-	fmt.Println("Initializing NATS manager...")
+	logger.Info("Initializing NATS manager")
 	natsManager, err := natsmgr.NewManager(&cfg.NATS)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to create NATS manager: %v\n", err)
+		logger.Error("Failed to create NATS manager", logging.Error(err))
 		os.Exit(1)
 	}
 
 	// Start NATS manager
 	if err := natsManager.Start(); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to start NATS manager: %v\n", err)
+		logger.Error("Failed to start NATS manager", logging.Error(err))
 		os.Exit(1)
 	}
 	defer natsManager.Shutdown()
 
 	if natsManager.IsEmbedded() {
-		fmt.Printf("Embedded NATS server started on port %d\n", cfg.NATS.Embedded.Port)
+		logger.Info("Embedded NATS server started", logging.Int("port", cfg.NATS.Embedded.Port))
 		if cfg.NATS.Mode == config.NATSModeLeaf {
-			fmt.Printf("Running as leaf node, connected to: %v\n", cfg.NATS.Embedded.LeafNodeURLs)
+			logger.Info("Running as leaf node", logging.Any("leaf_urls", cfg.NATS.Embedded.LeafNodeURLs))
 		}
 	} else {
-		fmt.Printf("Connected to external NATS at %s\n", cfg.NATS.URL)
+		logger.Info("Connected to external NATS", logging.String("url", cfg.NATS.URL))
 	}
 
 	// Health check
 	if err := natsManager.Health(); err != nil {
-		fmt.Fprintf(os.Stderr, "NATS health check failed: %v\n", err)
+		logger.Error("NATS health check failed", logging.Error(err))
 		os.Exit(1)
 	}
-	fmt.Println("NATS health check passed")
+	logger.Info("NATS health check passed")
 
 	// Create agent
-	fmt.Println("Creating agent instance...")
+	logger.Info("Creating agent instance")
 	agnt, err := agent.NewAgent(
 		cfg.Agent.ID,
 		natsManager,
@@ -112,20 +128,22 @@ func runAgent(cmd *cobra.Command, args []string) {
 		cfg.Agent.CommandTimeout,
 	)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to create agent: %v\n", err)
+		logger.Error("Failed to create agent", logging.Error(err))
 		os.Exit(1)
 	}
 
 	// Start agent services (registration, heartbeat, command subscription)
 	if err := agnt.Start(); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to start agent: %v\n", err)
+		logger.Error("Failed to start agent", logging.Error(err))
 		os.Exit(1)
 	}
 	defer agnt.Stop()
 
-	fmt.Printf("Agent %s is running\n", agnt.ID())
-	fmt.Printf("  Heartbeat Interval: %s\n", cfg.Agent.HeartbeatInterval)
-	fmt.Println("Waiting for commands...")
+	logger.Info("Agent is running",
+		logging.String("agent_id", agnt.ID()),
+		logging.Duration("heartbeat_interval", cfg.Agent.HeartbeatInterval),
+	)
+	logger.Info("Waiting for commands")
 
 	// Wait for termination signal
 	sigChan := make(chan os.Signal, 1)
@@ -133,21 +151,21 @@ func runAgent(cmd *cobra.Command, args []string) {
 
 	select {
 	case <-sigChan:
-		fmt.Println("\nReceived shutdown signal, shutting down gracefully...")
+		logger.Info("Received shutdown signal, shutting down gracefully")
 	}
 
 	// Graceful shutdown
-	fmt.Println("Stopping agent...")
+	logger.Info("Stopping agent")
 	if err := agnt.Stop(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error stopping agent: %v\n", err)
+		logger.Error("Error stopping agent", logging.Error(err))
 	}
 
-	fmt.Println("Shutting down NATS manager...")
+	logger.Info("Shutting down NATS manager")
 	if err := natsManager.Shutdown(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error during shutdown: %v\n", err)
+		logger.Error("Error during shutdown", logging.Error(err))
 	}
 
-	fmt.Println("Agent shutdown complete")
+	logger.Info("Agent shutdown complete")
 }
 
 func main() {

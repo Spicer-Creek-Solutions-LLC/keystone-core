@@ -163,6 +163,13 @@ func (l *StructuredLogger) log(level Level, msg string, fields ...Field) {
 		Fields:        make(map[string]interface{}),
 	}
 
+	// Add metadata if enabled (Epic 15)
+	l.mu.RLock()
+	if l.config.IncludeMetadata && l.config.Metadata != nil {
+		entry.Metadata = l.config.Metadata
+	}
+	l.mu.RUnlock()
+
 	// Add base fields
 	l.mu.RLock()
 	for k, v := range l.baseFields {

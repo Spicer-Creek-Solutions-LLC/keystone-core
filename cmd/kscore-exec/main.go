@@ -12,13 +12,16 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
+	"github.com/shawnbutts/keystone-core/pkg/audit"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
 var (
 	// Global flags
-	serverAddr string
-	timeout    time.Duration
+	serverAddr  string
+	timeout     time.Duration
+	auditLevel  string
+	auditOutput string
 
 	rootCmd = &cobra.Command{
 		Use:   "exec",
@@ -53,6 +56,8 @@ func init() {
 	// Global flags
 	rootCmd.PersistentFlags().StringVar(&serverAddr, "server", "localhost:50051", "Keystone Core server address")
 	rootCmd.PersistentFlags().DurationVar(&timeout, "timeout", 5*time.Minute, "Request timeout")
+	rootCmd.PersistentFlags().StringVar(&auditLevel, "audit-level", "all", "Audit logging level (all, errors, none)")
+	rootCmd.PersistentFlags().StringVar(&auditOutput, "audit-output", "auto", "Audit output backend (auto, syslog, journald, stderr, none)")
 
 	// Add subcommands
 	rootCmd.AddCommand(versionCmd)
@@ -62,6 +67,17 @@ func init() {
 }
 
 func main() {
+	// Initialize audit logging (Epic 15)
+	auditConfig := &audit.AuditConfig{
+		Level:   audit.AuditLevel(auditLevel),
+		Backend: auditOutput,
+	}
+	if err := audit.Init("kscore-exec", auditConfig); err != nil {
+		// Don't fail if audit logging can't be initialized, just warn
+		fmt.Fprintf(os.Stderr, "Warning: failed to initialize audit logging: %v\n", err)
+	}
+	defer audit.Close()
+
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
@@ -142,11 +158,32 @@ func init() {
 }
 
 func runExecute(cmd *cobra.Command, args []string) error {
+	startTime := time.Now()
+	ctx := context.Background()
+
+	// Create audit entry (Epic 15)
+	auditEntry := audit.StartEntry(audit.ActionCommandExecuted, "run")
+	auditEntry.Args = args
+
+	// Helper to log audit on exit
+	logAudit := func(result audit.AuditResult, exitCode int, err error) {
+		auditEntry.Result = result
+		auditEntry.ExitCode = exitCode
+		auditEntry.DurationMS = time.Since(startTime).Milliseconds()
+		if err != nil {
+			auditEntry.Error = err.Error()
+		}
+		_ = audit.Log(ctx, auditEntry)
+	}
+
 	if len(args) < 1 {
-		return fmt.Errorf("target expression is required")
+		err := fmt.Errorf("target expression is required")
+		logAudit(audit.ResultFailure, 1, err)
+		return err
 	}
 
 	target := args[0]
+	auditEntry.Target = target
 
 	// Find the command after "--"
 	var command string
@@ -155,7 +192,9 @@ func runExecute(cmd *cobra.Command, args []string) error {
 	for i, arg := range args {
 		if arg == "--" {
 			if i+1 >= len(args) {
-				return fmt.Errorf("command is required after '--'")
+				err := fmt.Errorf("command is required after '--'")
+				logAudit(audit.ResultFailure, 1, err)
+				return err
 			}
 			command = args[i+1]
 			if i+2 < len(args) {
@@ -168,7 +207,9 @@ func runExecute(cmd *cobra.Command, args []string) error {
 	if command == "" {
 		// No "--" separator, assume everything after target is the command
 		if len(args) < 2 {
-			return fmt.Errorf("command is required")
+			err := fmt.Errorf("command is required")
+			logAudit(audit.ResultFailure, 1, err)
+			return err
 		}
 		command = args[1]
 		if len(args) > 2 {
@@ -181,7 +222,9 @@ func runExecute(cmd *cobra.Command, args []string) error {
 	for _, e := range runEnv {
 		parts := strings.SplitN(e, "=", 2)
 		if len(parts) != 2 {
-			return fmt.Errorf("invalid environment variable format: %s (expected KEY=VALUE)", e)
+			err := fmt.Errorf("invalid environment variable format: %s (expected KEY=VALUE)", e)
+			logAudit(audit.ResultFailure, 1, err)
+			return err
 		}
 		envMap[parts[0]] = parts[1]
 	}
@@ -189,6 +232,7 @@ func runExecute(cmd *cobra.Command, args []string) error {
 	// Create client
 	client, conn, err := createClient()
 	if err != nil {
+		logAudit(audit.ResultFailure, 1, err)
 		return err
 	}
 	defer conn.Close()
@@ -207,13 +251,15 @@ func runExecute(cmd *cobra.Command, args []string) error {
 		ContinueOnFailure: runContinueOnError,
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	execCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	// Execute batch command
-	stream, err := client.BatchExecuteCommand(ctx, req)
+	stream, err := client.BatchExecuteCommand(execCtx, req)
 	if err != nil {
-		return fmt.Errorf("failed to execute batch command: %w", err)
+		err = fmt.Errorf("failed to execute batch command: %w", err)
+		logAudit(audit.ResultFailure, 1, err)
+		return err
 	}
 
 	var batchJobID string
@@ -230,7 +276,9 @@ func runExecute(cmd *cobra.Command, args []string) error {
 			if err.Error() == "EOF" {
 				break
 			}
-			return fmt.Errorf("stream error: %w", err)
+			err = fmt.Errorf("stream error: %w", err)
+			logAudit(audit.ResultFailure, 1, err)
+			return err
 		}
 
 		batchJobID = resp.BatchJobId
@@ -255,7 +303,9 @@ func runExecute(cmd *cobra.Command, args []string) error {
 
 		case pb.BatchResponseType_BATCH_RESPONSE_TYPE_BATCH_FAILED:
 			fmt.Printf("\nBatch execution failed: %s\n", resp.Error)
-			return fmt.Errorf("batch execution failed")
+			err := fmt.Errorf("batch execution failed: %s", resp.Error)
+			logAudit(audit.ResultFailure, 1, err)
+			return err
 		}
 	}
 
@@ -286,8 +336,24 @@ func runExecute(cmd *cobra.Command, args []string) error {
 
 	// Exit with error if batch failed
 	if summary != nil && summary.Failed > 0 {
+		auditEntry.AgentsMatched = int(summary.Total)
+		auditEntry.Extra = map[string]interface{}{
+			"successful": summary.Successful,
+			"failed":     summary.Failed,
+		}
+		logAudit(audit.ResultFailure, 1, fmt.Errorf("%d agents failed", summary.Failed))
 		os.Exit(1)
 	}
+
+	// Log success
+	if summary != nil {
+		auditEntry.AgentsMatched = int(summary.Total)
+		auditEntry.Extra = map[string]interface{}{
+			"successful": summary.Successful,
+			"failed":     summary.Failed,
+		}
+	}
+	logAudit(audit.ResultSuccess, 0, nil)
 
 	return nil
 }

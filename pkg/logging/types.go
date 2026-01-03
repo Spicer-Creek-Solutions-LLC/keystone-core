@@ -60,6 +60,17 @@ type Entry struct {
 	Message       string                 `json:"message"`
 	CorrelationID string                 `json:"correlation_id,omitempty"`
 	Fields        map[string]interface{} `json:"fields,omitempty"`
+	// Metadata fields for stdout-first logging (Epic 15)
+	Metadata *EntryMetadata `json:"metadata,omitempty"`
+}
+
+// EntryMetadata contains system metadata for log entries
+type EntryMetadata struct {
+	Host    string `json:"host,omitempty"`    // Hostname of the machine
+	PID     int    `json:"pid,omitempty"`     // Process ID
+	Version string `json:"version,omitempty"` // Application version
+	Service string `json:"service,omitempty"` // Service name (kscore-server, kscore-agent)
+	Caller  string `json:"caller,omitempty"`  // File:line of the caller
 }
 
 // Logger defines the interface for structured logging
@@ -223,4 +234,10 @@ type Config struct {
 
 	// IncludeCaller includes caller information in logs
 	IncludeCaller bool
+
+	// IncludeMetadata enables metadata in log entries (Epic 15)
+	IncludeMetadata bool
+
+	// Metadata is the static metadata to include in all entries
+	Metadata *EntryMetadata
 }

@@ -2,11 +2,13 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/config"
+	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/events"
 )
 
 // StateDriftModel represents the state drift view
@@ -247,11 +249,14 @@ Press 'r' to refresh or '1' to return to dashboard.`)
 
 // LogsModel represents the logs view
 type LogsModel struct {
-	config   *config.Config
-	viewport viewport.Model
-	width    int
-	height   int
-	ready    bool
+	config    *config.Config
+	viewport  viewport.Model
+	logBuffer *events.LogBuffer
+	filter    string
+	paused    bool
+	width     int
+	height    int
+	ready     bool
 }
 
 // NewLogsModel creates a new logs model
@@ -263,8 +268,9 @@ func NewLogsModel(cfg *config.Config) *LogsModel {
 		Padding(1)
 
 	return &LogsModel{
-		config:   cfg,
-		viewport: vp,
+		config:    cfg,
+		viewport:  vp,
+		logBuffer: events.NewLogBuffer(1000),
 	}
 }
 
@@ -290,10 +296,21 @@ func (m *LogsModel) Update(msg tea.Msg) (interface{}, tea.Cmd) {
 			m.viewport.Height = m.height - 6
 		}
 
+	case events.LogMsg:
+		if msg.Log != nil && !m.paused {
+			m.logBuffer.Add(msg.Log)
+			m.updateViewport()
+		}
+
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "r":
 			return m, m.Fetch()
+		case "c":
+			m.logBuffer.Clear()
+			m.updateViewport()
+		case "p", " ":
+			m.paused = !m.paused
 		}
 	}
 
@@ -311,13 +328,25 @@ func (m *LogsModel) View() string {
 		Foreground(lipgloss.Color("62")).
 		Render("Log Stream")
 
+	// Status line with count and paused indicator
+	statusStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
+	pausedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("226")).Bold(true)
+
+	status := statusStyle.Render(fmt.Sprintf("Logs: %d", m.logBuffer.Count()))
+	if m.paused {
+		status += " " + pausedStyle.Render("[PAUSED]")
+	} else {
+		status += " " + lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Render("[LIVE]")
+	}
+
 	help := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241")).
-		Render("↑/↓: Scroll • /: Filter • c: Clear • 1: Dashboard • q: Quit")
+		Render("↑/↓: Scroll • p/space: Pause • c: Clear • 1: Dashboard • q: Quit")
 
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
 		title,
+		status,
 		"",
 		m.viewport.View(),
 		"",
@@ -330,56 +359,70 @@ func (m *LogsModel) Fetch() tea.Cmd {
 }
 
 func (m *LogsModel) updateViewport() {
-	debugStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
-	infoStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("39"))
-	warnStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("226"))
+	logs := m.logBuffer.All()
 
-	content := fmt.Sprintf(`%s
-%s
-%s
+	if len(logs) == 0 {
+		content := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("245")).
+			Render(`Waiting for log messages...
 
-Log Streaming
-
-This view will display structured logs from:
+This view displays structured logs from:
 - Control Plane services
 - Agent operations
 - State management operations
 - Policy evaluations
 - Job executions
 
-Features:
-- Real-time log streaming
-- Search and filtering by level, component, message
-- Color-coded by severity
-- Correlation ID tracking
-- Structured field display
-- Export capabilities
+Log streaming requires NATS telemetry transport to be configured.
+Logs will appear here in real-time once connected.
 
-Log levels:
-- DEBUG: Detailed diagnostic information
-- INFO: General informational messages
-- WARN: Warning messages for potential issues
-- ERROR: Error events that might still allow operation
-- CRITICAL: Critical errors requiring immediate attention
+Press 'p' or space to pause/resume, 'c' to clear.`)
+		m.viewport.SetContent(content)
+		return
+	}
 
-Note: Log streaming requires the logging infrastructure
-to be configured with remote log collection enabled.
+	// Style definitions for log levels
+	debugStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
+	infoStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("39"))
+	warnStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("226"))
+	errorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
 
-Press 'r' to refresh or '1' to return to dashboard.`,
-		infoStyle.Render("2024-12-26 10:30:15 [INFO] Control plane started"),
-		debugStyle.Render("2024-12-26 10:30:16 [DEBUG] NATS connection established"),
-		warnStyle.Render("2024-12-26 10:30:17 [WARN] No agents connected yet"))
+	var lines []string
+	for _, log := range logs {
+		var style lipgloss.Style
+		switch strings.ToLower(log.Level) {
+		case "debug":
+			style = debugStyle
+		case "info":
+			style = infoStyle
+		case "warn", "warning":
+			style = warnStyle
+		case "error", "critical":
+			style = errorStyle
+		default:
+			style = debugStyle
+		}
 
-	m.viewport.SetContent(content)
+		// Format: timestamp [LEVEL] service: message
+		line := fmt.Sprintf("%s [%s] %s: %s",
+			log.Timestamp,
+			strings.ToUpper(log.Level),
+			log.Service,
+			log.Message)
+		lines = append(lines, style.Render(line))
+	}
+
+	m.viewport.SetContent(strings.Join(lines, "\n"))
 }
 
 // MetricsModel represents the metrics view
 type MetricsModel struct {
-	config   *config.Config
-	viewport viewport.Model
-	width    int
-	height   int
-	ready    bool
+	config       *config.Config
+	viewport     viewport.Model
+	metricBuffer *events.MetricBuffer
+	width        int
+	height       int
+	ready        bool
 }
 
 // NewMetricsModel creates a new metrics model
@@ -391,8 +434,9 @@ func NewMetricsModel(cfg *config.Config) *MetricsModel {
 		Padding(1)
 
 	return &MetricsModel{
-		config:   cfg,
-		viewport: vp,
+		config:       cfg,
+		viewport:     vp,
+		metricBuffer: events.NewMetricBuffer(),
 	}
 }
 
@@ -418,10 +462,19 @@ func (m *MetricsModel) Update(msg tea.Msg) (interface{}, tea.Cmd) {
 			m.viewport.Height = m.height - 6
 		}
 
+	case events.MetricMsg:
+		if msg.Metric != nil {
+			m.metricBuffer.Add(msg.Metric)
+			m.updateViewport()
+		}
+
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "r":
 			return m, m.Fetch()
+		case "c":
+			m.metricBuffer.Clear()
+			m.updateViewport()
 		}
 	}
 
@@ -439,13 +492,19 @@ func (m *MetricsModel) View() string {
 		Foreground(lipgloss.Color("62")).
 		Render("Metrics & Performance")
 
+	// Status line with metric count
+	status := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("245")).
+		Render(fmt.Sprintf("Unique metrics: %d", m.metricBuffer.Count()))
+
 	help := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241")).
-		Render("↑/↓: Scroll • r: Refresh • 1: Dashboard • q: Quit")
+		Render("↑/↓: Scroll • r: Refresh • c: Clear • 1: Dashboard • q: Quit")
 
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
 		title,
+		status,
 		"",
 		m.viewport.View(),
 		"",
@@ -458,52 +517,81 @@ func (m *MetricsModel) Fetch() tea.Cmd {
 }
 
 func (m *MetricsModel) updateViewport() {
-	content := `System Metrics Overview
+	metrics := m.metricBuffer.All()
 
-Control Plane Metrics:
-├─ API Requests:        0 req/s (avg: 0.0 req/s)
-├─ Event Processing:    0 events/s
-├─ Active Connections:  0
-├─ Memory Usage:        0.0 MB
-└─ Goroutines:          0
+	if len(metrics) == 0 {
+		content := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("245")).
+			Render(`Waiting for metrics...
 
-Agent Metrics:
-├─ Total Agents:        0
-├─ Online:              0
-├─ Average CPU:         0.0%
-├─ Average Memory:      0.0%
-└─ Average Disk:        0.0%
+This view displays real-time performance metrics:
+- Control Plane metrics (API, events, connections)
+- Agent metrics (CPU, memory, disk)
+- Job execution metrics
+- State management metrics
+- Policy evaluation metrics
 
-Job Execution Metrics:
-├─ Commands/Hour:       0
-├─ Success Rate:        0.0%
-├─ Average Duration:    0.0s
-└─ Queue Depth:         0
+Metrics streaming requires NATS telemetry transport to be configured.
+Metrics will appear here in real-time once connected.
 
-State Management Metrics:
-├─ Resources Managed:   0
-├─ Drift Checks/Hour:   0
-├─ Changes Applied:     0
-└─ Average Check Time:  0.0s
+Press 'r' to refresh, 'c' to clear.`)
+		m.viewport.SetContent(content)
+		return
+	}
 
-Policy Metrics:
-├─ Evaluations/Hour:    0
-├─ Violations:          0
-├─ Compliance Score:    100.0%
-└─ Average Eval Time:   0.0s
+	// Style definitions for metric types
+	counterStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("39"))
+	gaugeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
+	histogramStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("226"))
+	defaultStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
 
-This view will display:
-- Real-time performance metrics
-- Resource utilization trends
-- Historical charts and graphs
-- Percentile latencies (P50, P95, P99)
-- Throughput and error rates
-- Custom metric dashboards
+	// Group metrics by service
+	serviceMetrics := make(map[string][]*struct {
+		Name  string
+		Type  string
+		Value float64
+	})
 
-Note: Metrics collection requires Prometheus integration
-or OpenTelemetry instrumentation to be configured.
+	for _, metric := range metrics {
+		svc := metric.Service
+		if svc == "" {
+			svc = "unknown"
+		}
+		serviceMetrics[svc] = append(serviceMetrics[svc], &struct {
+			Name  string
+			Type  string
+			Value float64
+		}{
+			Name:  metric.Name,
+			Type:  metric.Type,
+			Value: metric.Value,
+		})
+	}
 
-Press 'r' to refresh or '1' to return to dashboard.`
+	var lines []string
+	lines = append(lines, lipgloss.NewStyle().Bold(true).Render("System Metrics Overview"))
+	lines = append(lines, "")
 
-	m.viewport.SetContent(content)
+	for service, svcMetrics := range serviceMetrics {
+		lines = append(lines, lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("62")).Render(service+":"))
+		for _, metric := range svcMetrics {
+			var style lipgloss.Style
+			switch strings.ToLower(metric.Type) {
+			case "counter":
+				style = counterStyle
+			case "gauge":
+				style = gaugeStyle
+			case "histogram", "summary":
+				style = histogramStyle
+			default:
+				style = defaultStyle
+			}
+
+			line := fmt.Sprintf("  ├─ %s: %.2f (%s)", metric.Name, metric.Value, metric.Type)
+			lines = append(lines, style.Render(line))
+		}
+		lines = append(lines, "")
+	}
+
+	m.viewport.SetContent(strings.Join(lines, "\n"))
 }

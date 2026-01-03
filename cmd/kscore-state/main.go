@@ -9,11 +9,16 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/shawnbutts/keystone-core/pkg/audit"
 	"github.com/shawnbutts/keystone-core/pkg/statemgmt"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
 var (
+	// Global flags
+	auditLevel  string
+	auditOutput string
+
 	rootCmd = &cobra.Command{
 		Use:   "state",
 		Short: "Declarative state management for infrastructure",
@@ -47,6 +52,10 @@ Examples:
 )
 
 func init() {
+	// Global flags
+	rootCmd.PersistentFlags().StringVar(&auditLevel, "audit-level", "all", "Audit logging level (all, errors, none)")
+	rootCmd.PersistentFlags().StringVar(&auditOutput, "audit-output", "auto", "Audit output backend (auto, syslog, journald, stderr, none)")
+
 	// Add subcommands
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(applyCmd)
@@ -55,6 +64,16 @@ func init() {
 }
 
 func main() {
+	// Initialize audit logging (Epic 15)
+	auditConfig := &audit.AuditConfig{
+		Level:   audit.AuditLevel(auditLevel),
+		Backend: auditOutput,
+	}
+	if err := audit.Init("kscore-state", auditConfig); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to initialize audit logging: %v\n", err)
+	}
+	defer audit.Close()
+
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
@@ -95,7 +114,30 @@ func init() {
 }
 
 func applyExecute(cmd *cobra.Command, args []string) error {
+	startTime := time.Now()
+	ctx := context.Background()
+
+	// Create audit entry (Epic 15)
+	action := audit.ActionStateApplied
+	auditEntry := audit.StartEntry(action, "apply")
+	auditEntry.Args = args
+	if applyDryRun {
+		auditEntry.Extra = map[string]interface{}{"dry_run": true}
+	}
+
+	// Helper to log audit on exit
+	logAudit := func(result audit.AuditResult, exitCode int, err error) {
+		auditEntry.Result = result
+		auditEntry.ExitCode = exitCode
+		auditEntry.DurationMS = time.Since(startTime).Milliseconds()
+		if err != nil {
+			auditEntry.Error = err.Error()
+		}
+		_ = audit.Log(ctx, auditEntry)
+	}
+
 	stateFilePath := args[0]
+	auditEntry.Target = stateFilePath
 
 	fmt.Printf("Loading state file: %s\n", stateFilePath)
 
@@ -104,13 +146,17 @@ func applyExecute(cmd *cobra.Command, args []string) error {
 	parser := statemgmt.NewParser(baseDir)
 	stateFile, err := parser.ParseFile(stateFilePath)
 	if err != nil {
-		return fmt.Errorf("failed to parse state file: %w", err)
+		err = fmt.Errorf("failed to parse state file: %w", err)
+		logAudit(audit.ResultFailure, 1, err)
+		return err
 	}
 
 	// Validate state file
 	validator := statemgmt.NewValidator()
 	if errs := validator.Validate(stateFile); len(errs) > 0 {
-		return fmt.Errorf("validation failed: %v", errs)
+		err := fmt.Errorf("validation failed: %v", errs)
+		logAudit(audit.ResultFailure, 1, err)
+		return err
 	}
 
 	// Load vars if specified
@@ -121,7 +167,9 @@ func applyExecute(cmd *cobra.Command, args []string) error {
 		varsParser := statemgmt.NewParser(varsBaseDir)
 		varsFile, err := varsParser.ParseFile(applyVarsFile)
 		if err != nil {
-			return fmt.Errorf("failed to parse vars file: %w", err)
+			err = fmt.Errorf("failed to parse vars file: %w", err)
+			logAudit(audit.ResultFailure, 1, err)
+			return err
 		}
 		// Extract vars from first state file metadata
 		if len(varsFile.Variables) > 0 {
@@ -134,7 +182,9 @@ func applyExecute(cmd *cobra.Command, args []string) error {
 
 	// Render templates in state file
 	if err := statemgmt.RenderStateFile(stateFile, vars, facts); err != nil {
-		return fmt.Errorf("failed to render templates: %w", err)
+		err = fmt.Errorf("failed to render templates: %w", err)
+		logAudit(audit.ResultFailure, 1, err)
+		return err
 	}
 
 	// Execute state
@@ -147,13 +197,11 @@ func applyExecute(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Printf("%s state: %s\n\n", mode, stateFile.Metadata.Description)
 
-	ctx := context.Background()
-	startTime := time.Now()
-
 	run, err := executor.ExecuteState(ctx, stateFile)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "\nExecution failed: %v\n", err)
 		printRunSummary(run, time.Since(startTime))
+		logAudit(audit.ResultFailure, 1, err)
 		return err
 	}
 
@@ -163,8 +211,28 @@ func applyExecute(cmd *cobra.Command, args []string) error {
 
 	// Exit with error if any states failed
 	if run.Summary != nil && run.Summary.Failed > 0 {
+		auditEntry.Extra = map[string]interface{}{
+			"dry_run":   applyDryRun,
+			"total":     run.Summary.Total,
+			"succeeded": run.Summary.Succeeded,
+			"failed":    run.Summary.Failed,
+			"changed":   run.Summary.Changed,
+		}
+		logAudit(audit.ResultFailure, 1, fmt.Errorf("%d states failed", run.Summary.Failed))
 		os.Exit(1)
 	}
+
+	// Log success
+	if run.Summary != nil {
+		auditEntry.Extra = map[string]interface{}{
+			"dry_run":   applyDryRun,
+			"total":     run.Summary.Total,
+			"succeeded": run.Summary.Succeeded,
+			"failed":    run.Summary.Failed,
+			"changed":   run.Summary.Changed,
+		}
+	}
+	logAudit(audit.ResultSuccess, 0, nil)
 
 	return nil
 }
@@ -234,7 +302,26 @@ func init() {
 }
 
 func driftExecute(cmd *cobra.Command, args []string) error {
+	startTime := time.Now()
+	ctx := context.Background()
+
+	// Create audit entry (Epic 15)
+	auditEntry := audit.StartEntry(audit.ActionStateApplied, "drift")
+	auditEntry.Args = args
+
+	// Helper to log audit on exit
+	logAudit := func(result audit.AuditResult, exitCode int, err error) {
+		auditEntry.Result = result
+		auditEntry.ExitCode = exitCode
+		auditEntry.DurationMS = time.Since(startTime).Milliseconds()
+		if err != nil {
+			auditEntry.Error = err.Error()
+		}
+		_ = audit.Log(ctx, auditEntry)
+	}
+
 	stateFilePath := args[0]
+	auditEntry.Target = stateFilePath
 
 	fmt.Printf("Loading state file: %s\n", stateFilePath)
 
@@ -243,13 +330,17 @@ func driftExecute(cmd *cobra.Command, args []string) error {
 	parser := statemgmt.NewParser(baseDir)
 	stateFile, err := parser.ParseFile(stateFilePath)
 	if err != nil {
-		return fmt.Errorf("failed to parse state file: %w", err)
+		err = fmt.Errorf("failed to parse state file: %w", err)
+		logAudit(audit.ResultFailure, 1, err)
+		return err
 	}
 
 	// Validate state file
 	validator := statemgmt.NewValidator()
 	if errs := validator.Validate(stateFile); len(errs) > 0 {
-		return fmt.Errorf("validation failed: %v", errs)
+		err := fmt.Errorf("validation failed: %v", errs)
+		logAudit(audit.ResultFailure, 1, err)
+		return err
 	}
 
 	// Load vars if specified
@@ -260,7 +351,9 @@ func driftExecute(cmd *cobra.Command, args []string) error {
 		varsParser := statemgmt.NewParser(varsBaseDir)
 		varsFile, err := varsParser.ParseFile(driftVarsFile)
 		if err != nil {
-			return fmt.Errorf("failed to parse vars file: %w", err)
+			err = fmt.Errorf("failed to parse vars file: %w", err)
+			logAudit(audit.ResultFailure, 1, err)
+			return err
 		}
 		if len(varsFile.Variables) > 0 {
 			vars = statemgmt.LoadVarsFromYAML(varsFile.Variables)
@@ -272,7 +365,9 @@ func driftExecute(cmd *cobra.Command, args []string) error {
 
 	// Render templates in state file
 	if err := statemgmt.RenderStateFile(stateFile, vars, facts); err != nil {
-		return fmt.Errorf("failed to render templates: %w", err)
+		err = fmt.Errorf("failed to render templates: %w", err)
+		logAudit(audit.ResultFailure, 1, err)
+		return err
 	}
 
 	fmt.Printf("Checking drift for: %s\n\n", stateFile.Metadata.Description)
@@ -281,7 +376,9 @@ func driftExecute(cmd *cobra.Command, args []string) error {
 	differ := statemgmt.NewStateDiffer()
 	report, err := differ.CheckDrift(stateFile)
 	if err != nil {
-		return fmt.Errorf("drift check failed: %w", err)
+		err = fmt.Errorf("drift check failed: %w", err)
+		logAudit(audit.ResultFailure, 1, err)
+		return err
 	}
 
 	// Print drift report
@@ -290,8 +387,28 @@ func driftExecute(cmd *cobra.Command, args []string) error {
 
 	// Exit with error if drift detected
 	if report.Summary.OverallSeverity != statemgmt.DriftNone {
+		auditEntry.Extra = map[string]interface{}{
+			"severity":    string(report.Summary.OverallSeverity),
+			"total":       report.Summary.Total,
+			"no_drift":    report.Summary.NoDrift,
+			"low_drift":   report.Summary.LowDrift,
+			"medium_drift": report.Summary.MediumDrift,
+			"high_drift":  report.Summary.HighDrift,
+		}
+		logAudit(audit.ResultFailure, 1, fmt.Errorf("drift detected: %s severity", report.Summary.OverallSeverity))
 		os.Exit(1)
 	}
+
+	// Log success - no drift
+	auditEntry.Extra = map[string]interface{}{
+		"severity":    string(report.Summary.OverallSeverity),
+		"total":       report.Summary.Total,
+		"no_drift":    report.Summary.NoDrift,
+		"low_drift":   report.Summary.LowDrift,
+		"medium_drift": report.Summary.MediumDrift,
+		"high_drift":  report.Summary.HighDrift,
+	}
+	logAudit(audit.ResultSuccess, 0, nil)
 
 	return nil
 }

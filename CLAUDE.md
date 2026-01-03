@@ -99,7 +99,7 @@ This repository contains working implementations of **Epics 1-11**. The project 
 - High availability clustering with etcd-based coordination, leader election, and automatic failover (Epic 11 complete)
 - Comprehensive test suite (>79% coverage across all core packages)
 
-**Current Status**: Epic 1-13 COMPLETE ✅ (E2E Testing Infrastructure Built)
+**Current Status**: Epic 1-15 COMPLETE ✅ (Observability Enhancements with NATS Telemetry)
 
 ### ⚠️ Known Implementation Gaps
 
@@ -3234,6 +3234,314 @@ All 10 phases implemented:
 - Phase 9: Observability
 - Phase 10: Documentation
 
+### Epic 15: Observability Enhancements ✅ COMPLETE
+
+**Implementation Plan:** 9 phases (18 weeks total)
+
+**Goal**: Enhance Keystone Core's observability infrastructure to use NATS as the primary transport for all telemetry data, implement stdout-first logging for journald/container integration, and add comprehensive audit logging.
+
+**Current Status**: All 9 phases COMPLETE ✅
+
+**Phase 1: Stdout-First Logging Refactor (Weeks 1-2) ✅ COMPLETE**
+
+- **T1.1: Add LoggingConfig to config** ✅ COMPLETE
+- **T1.2: Enhance stdout output with metadata** ✅ COMPLETE
+- **T1.3: Update service logging** ✅ COMPLETE
+- **T1.4: Environment variable configuration** ✅ COMPLETE
+- Test coverage: 26 tests passing for pkg/logging
+
+**Phase 2: Syslog Integration (Week 3-4) ✅ COMPLETE**
+
+- **T2.1: RFC 5424 Syslog Formatter** ✅ COMPLETE
+  - Created `pkg/logging/syslog.go` with RFC 5424 support
+  - `SyslogFormatter` with structured data (SD-ELEMENT)
+  - Priority calculation: `facility * 8 + severity`
+  - RFC 3339 timestamp format, hostname, app-name, procid, msgid
+  - Structured data: `[kscore@49152 key="value"]` format
+  - IANA private enterprise number 49152 placeholder
+
+- **T2.2: BSD Syslog Formatter** ✅ COMPLETE
+  - `BSDSyslogFormatter` for RFC 3164 compatibility
+  - BSD timestamp format (Mmm dd HH:MM:SS)
+  - Tag[PID]: format for process identification
+
+- **T2.3: Syslog Output** ✅ COMPLETE
+  - `SyslogOutput` with multiple transports:
+    - Unix socket (/dev/log, /var/run/syslog)
+    - UDP
+    - TCP
+    - TLS-encrypted TCP (tcp+tls)
+  - Auto-reconnect on connection failure
+  - Dial timeout and write retry logic
+  - Thread-safe with mutex
+
+- **T2.4: Factory Integration** ✅ COMPLETE
+  - Updated `pkg/logging/factory.go` to support syslog output
+  - `SyslogConfig` parsing from config
+  - Fallback to stdout if syslog connection fails
+  - TLS configuration support
+
+- Test coverage: 15 tests passing for syslog functionality
+
+**Phase 3: CLI Audit Logging (Week 5-6) ✅ COMPLETE**
+
+- **T3.1: Audit Logging Infrastructure** ✅ COMPLETE
+  - Created `pkg/audit/audit.go` with core audit types
+  - `AuditLevel`: all, errors, none
+  - `AuditAction`: 14 action types (command_executed, state_applied, etc.)
+  - `AuditResult`: success, failure, denied, timeout
+  - `AuditEntry` with comprehensive fields (user, UID, TTY, PID, tool, command, args, target, result, duration, correlation ID, extra)
+  - `Auditor` coordinator with redaction support
+  - Global audit functions: `Init()`, `Log()`, `StartEntry()`, `Close()`
+  - Sensitive data redaction (passwords, tokens, secrets, keys)
+
+- **T3.2: OS-Specific Audit Backends** ✅ COMPLETE
+  - Created `pkg/audit/backends.go` with multiple backends:
+    - `SyslogAuditLogger` - RFC 3164 syslog with priority calculation
+    - `JournaldAuditLogger` - systemd journal with structured fields (KSCORE_*)
+    - `StderrAuditLogger` - JSON to stderr for container environments
+    - `FileAuditLogger` - JSON lines to file
+    - `MemoryAuditLogger` - In-memory for testing
+    - `MultiAuditLogger` - Fan-out to multiple backends
+    - `TimeoutAuditLogger` - Timeout wrapper
+    - `NoopAuditLogger` - No-op for disabled logging
+  - Auto-detection: Linux (journald → syslog), macOS (syslog), Windows (stderr)
+
+- **T3.3: CLI Integration** ✅ COMPLETE
+  - Integrated audit logging into `kscore-exec`:
+    - All run command executions logged
+    - Target expression and agents matched tracked
+    - Success/failure results with exit codes
+    - Duration tracking
+  - Integrated audit logging into `kscore-state`:
+    - Apply, check, and drift commands logged
+    - State execution results tracked
+    - Dry-run mode indicated
+  - Audit flags: `--audit-level`, `--audit-output`
+
+- Test coverage: 20 tests passing for pkg/audit
+
+**Phase 4: NATS Log Transport (Week 7-8) ✅ COMPLETE**
+
+- **T4.1: NATS Log Transport Infrastructure** ✅ COMPLETE
+  - Created `pkg/logging/nats.go` with centralized log collection
+  - `NATSLogConfig` with URL, subject, service name, buffering settings
+  - `NATSLogMessage` structure for JSON serialization
+  - Subject routing: per-level (`kscore.logs.{level}`) and per-service options
+  - Async publishing with configurable buffer size (default 10000)
+  - Flush interval for batched publishing
+  - Authentication support: token, user/password, NKey, credentials file
+
+- **T4.2: NATS Log Output** ✅ COMPLETE
+  - `NATSOutput` implementing Output interface
+  - Buffered message channel with non-blocking publish
+  - Background flush goroutine
+  - Stats tracking: messages published, dropped, errors
+  - Graceful shutdown with flush
+
+- **T4.3: NATS Log Formatter** ✅ COMPLETE
+  - `NATSFormatter` for JSON serialization
+  - Includes: timestamp, level, logger, message, correlation_id, service, caller
+  - Metadata extraction for caller info
+
+- **T4.4: NATS Log Subscriber** ✅ COMPLETE
+  - `NATSLogSubscriber` for consuming centralized logs
+  - Handler callback pattern
+  - Multiple subscription support
+
+- Test coverage: 19 tests passing for pkg/logging NATS functionality
+
+**Phase 5: NATS Metrics Transport (Week 9-10) ✅ COMPLETE**
+
+- **T5.1: NATS Metrics Collector** ✅ COMPLETE
+  - Created `pkg/metrics/nats.go` with centralized metrics collection
+  - `NATSMetricsConfig` with URL, subject, service name, batching settings
+  - Implements `Collector` interface (IncCounter, SetGauge, ObserveHistogram, etc.)
+  - Subject routing: per-metric (`kscore.metrics.{service}.{name}`)
+  - Batch publishing with configurable interval (default 10s)
+
+- **T5.2: Metric Types** ✅ COMPLETE
+  - Counter: increment and add operations
+  - Gauge: set, increment, decrement operations
+  - Histogram: observation with configurable buckets
+  - Summary: observation with quantile calculation (P50, P90, P95, P99)
+  - `NATSMetricMessage` structure for JSON serialization
+
+- **T5.3: Metric Publishing** ✅ COMPLETE
+  - Batched publishing for efficiency
+  - Background flush goroutine
+  - Stats tracking: messages published, dropped
+  - Graceful shutdown with final flush
+
+- **T5.4: Metric Subscriber** ✅ COMPLETE
+  - `NATSMetricsSubscriber` for consuming centralized metrics
+  - Handler callback pattern
+  - Wildcard subscription support
+
+- Test coverage: 64.6% for pkg/metrics (NATS functionality)
+
+**Phase 6: NATS Trace Transport (Week 11-12) ✅ COMPLETE**
+
+- **T6.1: NATS Span Exporter** ✅ COMPLETE
+  - Created `pkg/tracing/nats_exporter.go` with centralized trace collection
+  - `NATSExporterConfig` with URL, subject, service name, batching settings
+  - `NATSSpan` structure matching OpenTelemetry model:
+    - trace_id, span_id, parent_span_id
+    - name, kind (internal, server, client, producer, consumer)
+    - start_time, end_time, duration_ns
+    - status, status_message
+    - attributes, events, links
+    - service, host, version
+  - Batch publishing with configurable batch size (default 100) and flush interval (default 5s)
+
+- **T6.2: Span Events and Links** ✅ COMPLETE
+  - `NATSSpanEvent` for span events with timestamp and attributes
+  - `NATSSpanLink` for linking to other spans
+  - `NATSSpanBatch` for batch publishing
+
+- **T6.3: SpanBuilder** ✅ COMPLETE
+  - Fluent API for constructing spans
+  - `WithParentSpanID`, `WithKind`, `WithStatus`
+  - `WithStartTime`, `WithEndTime`, `WithDuration`
+  - `WithAttribute`, `WithEvent`, `WithLink`
+  - `WithService`, `WithHost`, `WithVersion`
+  - Duration auto-calculation from start/end times
+
+- **T6.4: Span Subscriber** ✅ COMPLETE
+  - `NATSSpanSubscriber` for consuming centralized traces
+  - Handler callback pattern
+
+- Test coverage: 51.9% for pkg/tracing (NATS exporter - 20 tests)
+
+**Phase 7: NATS Audit Transport (Week 13-14) ✅ COMPLETE**
+
+- **T7.1: NATS Audit Logger** ✅ COMPLETE
+  - Created `pkg/audit/nats.go` with centralized audit collection
+  - `NATSAuditConfig` with URL, subject, service name, buffering settings
+  - `NATSAuditLogger` implementing `AuditLogger` interface
+  - Subject routing: per-tool and per-action (`kscore.audit.{tool}.{action}`)
+  - Async buffered publishing with batch processing
+  - Authentication support: token, user/password, NKey, credentials file
+
+- **T7.2: NATS Audit Message** ✅ COMPLETE
+  - `NATSAuditMessage` for JSON serialization
+  - All audit fields: user, uid, tty, pid, tool, command, args, target
+  - Result tracking: success, failure, denied, timeout
+  - Duration, exit code, correlation ID, error message
+  - Service and hostname metadata
+  - Extra data for action-specific information
+
+- **T7.3: NATS Audit Subscriber** ✅ COMPLETE
+  - `NATSAuditSubscriber` for consuming centralized audit logs
+  - Handler callback pattern
+  - `NATSAuditBatch` for batch operations
+
+- **T7.4: Audit Aggregator** ✅ COMPLETE
+  - `NATSAuditAggregator` for in-memory audit analysis
+  - Filter methods: FilterByUser, FilterByAction, FilterByResult, FilterByTool, FilterByTimeRange
+  - Max size with oldest-first eviction
+  - `NATSAuditSummary` with comprehensive statistics:
+    - Total, success, failure, denied, timeout counts
+    - Counts by action, tool, user
+    - Unique users count
+    - Oldest/newest entry timestamps
+
+- Test coverage: 48.6% for pkg/audit (25 NATS tests)
+
+**Phase 8: TUI Monitor Real-time Updates (Week 15-16) ✅ COMPLETE**
+
+- **T8.1: Telemetry Subscriber Infrastructure** ✅ COMPLETE
+  - Created `cmd/kscore-monitor/events/telemetry.go` with NATS integration
+  - `TelemetryConfig` with NATS URL and subject configuration
+  - `TelemetrySubscriber` managing all telemetry subscriptions:
+    - Log subscription (kscore.logs.>)
+    - Metric subscription (kscore.metrics.>)
+    - Trace subscription (kscore.traces.>)
+    - Audit subscription (kscore.audit.>)
+  - Stats tracking for received messages per stream
+  - NATS reconnection handling with event emission
+
+- **T8.2: Bubble Tea Message Types** ✅ COMPLETE
+  - `LogMsg` for log message events
+  - `MetricMsg` for metric message events
+  - `TraceMsg` for trace batch events
+  - `AuditMsg` for audit message events
+  - Error propagation for connection issues
+
+- **T8.3: Data Buffers** ✅ COMPLETE
+  - `LogBuffer` ring buffer for log messages:
+    - Configurable max size (default 1000)
+    - Add, All, Last, FilterByLevel, Clear, Count methods
+    - Thread-safe with mutex
+    - Oldest-first eviction when full
+  - `MetricBuffer` for latest metric values:
+    - Key-value storage (service:name)
+    - Add, Get, All, FilterByService, FilterByType, Clear, Count methods
+    - Auto-updates existing metrics (latest value wins)
+    - Thread-safe with mutex
+
+- **T8.4: UI View Integration** ✅ COMPLETE
+  - Updated `LogsModel` in `cmd/kscore-monitor/ui/view_state_policy_logs_metrics.go`:
+    - Integrated LogBuffer for message storage
+    - Handle LogMsg in Update() method
+    - Pause/resume functionality (p/space keys)
+    - Clear functionality (c key)
+    - Live/Paused status indicator
+    - Color-coded log levels (debug, info, warn, error)
+    - Real-time log rendering with timestamp, level, service, message
+  - Updated `MetricsModel`:
+    - Integrated MetricBuffer for metric storage
+    - Handle MetricMsg in Update() method
+    - Clear functionality (c key)
+    - Metric count display
+    - Group metrics by service
+    - Color-coded metric types (counter, gauge, histogram)
+    - Real-time metric rendering with name, value, type
+
+- **T8.5: Subscription Helpers** ✅ COMPLETE
+  - Added `Subscription()` method to all subscriber types:
+    - `pkg/logging/nats.go` - NATSSubscriber.Subscription()
+    - `pkg/metrics/nats.go` - NATSMetricsSubscriber.Subscription()
+    - `pkg/tracing/nats_exporter.go` - NATSSpanSubscriber.Subscription()
+    - `pkg/audit/nats.go` - NATSAuditSubscriber.Subscription()
+  - Added `NewNATSLogSubscriber` alias for clarity
+  - Added `NewNATSMetricsMessageSubscriber` wrapper for single-message handling
+
+- Test coverage: 16 tests passing for cmd/kscore-monitor/events
+
+**Phase 9: Documentation (Week 17-18) ✅ COMPLETE**
+
+- **T9.1: Update Observability Documentation** ✅ COMPLETE
+  - Updated `docs/content/en/docs/concepts/observability.md` with Epic 15 features
+  - Added "NATS Log Transport" section with configuration and message format
+  - Added "Stdout-First Logging" section with container/systemd integration
+  - Added "Syslog Integration" section with RFC 5424/3164 formats
+  - Added "NATS Telemetry Transport" section with metrics and trace transport
+  - Added "Audit Logging" section with entry format, actions, and configuration
+  - Updated "TUI Monitor" section with NATS integration details
+
+- **T9.2: Documentation Sections Added** ✅ COMPLETE
+  - NATS Log Transport: URL, subject routing, message format, subscription examples
+  - Stdout-First Logging: Environment variables, container integration, journald
+  - Syslog Integration: RFC 5424/3164, transports (unix, udp, tcp, tcp+tls), TLS config
+  - NATS Metrics Transport: Batch format, subject routing, subscription examples
+  - NATS Trace Transport: Span format, batch format, OpenTelemetry-compatible
+  - Audit Logging: Entry format, 14 audit actions, multi-backend configuration
+  - NATS Audit Transport: Subject routing (per-tool, per-action), CLI integration
+  - Sensitive Data Redaction: Automatic password/token/secret redaction
+  - TUI NATS Integration: Subject subscriptions, configuration examples
+
+**Epic 15 Complete!** All 9 phases implemented:
+- Phase 1: Stdout-First Logging Refactor
+- Phase 2: Syslog Integration
+- Phase 3: CLI Audit Logging
+- Phase 4: NATS Log Transport
+- Phase 5: NATS Metrics Transport
+- Phase 6: NATS Trace Transport
+- Phase 7: NATS Audit Transport
+- Phase 8: TUI Monitor Real-time Updates
+- Phase 9: Documentation
+
 ## Epic Dependencies
 
 Implementation order:
@@ -3251,7 +3559,7 @@ Implementation order:
 12. **Epic 12** (E2E Testing) - ✅ COMPLETE - Comprehensive E2E test infrastructure (harness, topologies, scenarios, performance)
 13. **Epic 13** (CGO Removal) - ✅ COMPLETE - Independent, enables pure Go builds
 14. **Epic 14** (NATS Mesh Communication) - ✅ COMPLETE - Depends on Epic 1, 7, 11 (NATS-only communication, superclusters, NAT traversal)
-15. **Epic 15** (Observability Enhancements) - 🔲 PLANNED - Depends on Epic 7, 14 (NATS telemetry transport, stdout/syslog logging, CLI audit)
+15. **Epic 15** (Observability Enhancements) - ✅ COMPLETE - Depends on Epic 7, 14 (NATS telemetry transport, stdout/syslog logging, CLI audit)
 16. **Epic 16** (Stdlib System Modules) - 🔲 PLANNED - Depends on Epic 3, 8 (40+ cross-platform system management modules)
 17. **Epic 17** (SPIFFE Identity) - 🔲 PLANNED - Depends on Epic 1, 11, 14 (embedded SPIFFE identity provider, external SPIRE/cloud/mesh integration)
 18. **Epic 18** (IPv6 Support) - 🔲 PLANNED - Depends on Epic 1, 11, 14 (full IPv6 and dual-stack support for all components)

@@ -39,6 +39,52 @@ type Config struct {
 	Auth    AuthConfig
 	Webhook WebhookConfig
 	Policy  PolicyConfig
+	Logging LoggingConfig
+}
+
+// LoggingConfig contains logging settings
+type LoggingConfig struct {
+	// Level: debug, info, warn, error (default: info)
+	Level string
+	// Format: json (default), logfmt, text
+	Format string
+	// Output: stdout (default), syslog
+	// Note: file output is intentionally not supported - use journald or container log drivers
+	Output string
+	// IncludeCaller includes caller file:line in log entries
+	IncludeCaller bool
+	// IncludeStacktrace includes stack traces for error level logs
+	IncludeStacktrace bool
+	// Syslog configuration (when output: syslog)
+	Syslog SyslogConfig
+}
+
+// SyslogConfig contains syslog output settings (RFC 5424)
+type SyslogConfig struct {
+	// Network: unix, udp, tcp, tcp+tls (default: unix)
+	Network string
+	// Address: /dev/log (unix) or host:port (udp/tcp)
+	Address string
+	// Facility: local0-local7, daemon, user (default: daemon)
+	Facility string
+	// AppName: application name in syslog messages (default: kscore-server/kscore-agent)
+	AppName string
+	// TLS configuration for tcp+tls
+	TLS SyslogTLSConfig
+}
+
+// SyslogTLSConfig contains TLS settings for syslog
+type SyslogTLSConfig struct {
+	// Enabled enables TLS for syslog connections
+	Enabled bool
+	// CACert is the CA certificate file path
+	CACert string
+	// Cert is the client certificate file path
+	Cert string
+	// Key is the client key file path
+	Key string
+	// SkipVerify skips TLS verification (insecure)
+	SkipVerify bool
 }
 
 // AuthConfig contains API authentication settings
@@ -303,6 +349,14 @@ const (
 	DefaultAPIKeyHeaderName  = "X-API-Key"
 	DefaultAPIKeyMetadataKey = "x-api-key"
 	DefaultJWTRoleClaim      = "role"
+
+	// Logging defaults - stdout first, no file output
+	DefaultLoggingLevel         = "info"
+	DefaultLoggingFormat        = "json"
+	DefaultLoggingOutput        = "stdout"
+	DefaultSyslogNetwork        = "unix"
+	DefaultSyslogAddress        = "/dev/log"
+	DefaultSyslogFacility       = "daemon"
 )
 
 // LoadConfig loads configuration from file and environment variables
@@ -329,6 +383,11 @@ func LoadConfig(cfgFile string) (*Config, error) {
 
 	// Explicit bindings for commonly overridden settings
 	v.BindEnv("agent.id", "KSCORE_AGENT_ID")
+
+	// Logging environment variable bindings (T1.4: Epic 15)
+	v.BindEnv("logging.level", "KSCORE_LOG_LEVEL")
+	v.BindEnv("logging.format", "KSCORE_LOG_FORMAT")
+	v.BindEnv("logging.output", "KSCORE_LOG_OUTPUT")
 
 	// Read config file (optional)
 	if err := v.ReadInConfig(); err != nil {
@@ -402,6 +461,16 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("policy.enabled", false)
 	v.SetDefault("policy.engine", DefaultPolicyEngine)
 	v.SetDefault("policy.enforcementmode", DefaultPolicyEnforcementMode)
+
+	// Logging defaults - stdout first, no file output (Epic 15)
+	v.SetDefault("logging.level", DefaultLoggingLevel)
+	v.SetDefault("logging.format", DefaultLoggingFormat)
+	v.SetDefault("logging.output", DefaultLoggingOutput)
+	v.SetDefault("logging.includecaller", false)
+	v.SetDefault("logging.includestacktrace", true)
+	v.SetDefault("logging.syslog.network", DefaultSyslogNetwork)
+	v.SetDefault("logging.syslog.address", DefaultSyslogAddress)
+	v.SetDefault("logging.syslog.facility", DefaultSyslogFacility)
 }
 
 // Validate checks if the configuration is valid
@@ -528,6 +597,41 @@ func (c *Config) Validate() error {
 			if c.TLS.CAFile == "" {
 				return fmt.Errorf("CA file must be configured for mTLS authentication")
 			}
+		}
+	}
+
+	// Validate logging config (Epic 15)
+	switch c.Logging.Level {
+	case "", "debug", "info", "warn", "error":
+		// valid (empty uses default)
+	default:
+		return fmt.Errorf("invalid log level: %s (must be debug, info, warn, or error)", c.Logging.Level)
+	}
+	switch c.Logging.Format {
+	case "", "json", "logfmt", "text":
+		// valid (empty uses default)
+	default:
+		return fmt.Errorf("invalid log format: %s (must be json, logfmt, or text)", c.Logging.Format)
+	}
+	switch c.Logging.Output {
+	case "", "stdout", "syslog":
+		// valid (empty uses default)
+	default:
+		return fmt.Errorf("invalid log output: %s (must be stdout or syslog)", c.Logging.Output)
+	}
+	// Validate syslog config when output is syslog
+	if c.Logging.Output == "syslog" {
+		switch c.Logging.Syslog.Network {
+		case "", "unix", "udp", "tcp", "tcp+tls":
+			// valid
+		default:
+			return fmt.Errorf("invalid syslog network: %s (must be unix, udp, tcp, or tcp+tls)", c.Logging.Syslog.Network)
+		}
+		switch c.Logging.Syslog.Facility {
+		case "", "daemon", "user", "local0", "local1", "local2", "local3", "local4", "local5", "local6", "local7":
+			// valid
+		default:
+			return fmt.Errorf("invalid syslog facility: %s", c.Logging.Syslog.Facility)
 		}
 	}
 

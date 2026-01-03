@@ -316,6 +316,144 @@ logging:
   compress: true
 ```
 
+### NATS Log Transport
+
+Send logs to a centralized collector via NATS:
+
+```yaml
+logging:
+  nats:
+    enabled: true
+    url: "nats://localhost:4222"
+    subject: "kscore.logs"
+    subject_per_level: true    # Use kscore.logs.{level}
+    subject_per_service: false # Use kscore.logs.{service}
+    buffer_size: 10000         # Async buffer size
+    flush_interval: 1s         # Flush interval
+
+    # Authentication
+    token: ""
+    user: ""
+    password: ""
+    nkey_file: ""
+    cred_file: ""
+```
+
+**Message Format** (JSON):
+```json
+{
+  "timestamp": "2024-01-15T10:30:45.123Z",
+  "level": "info",
+  "logger": "command-dispatcher",
+  "message": "Command executed successfully",
+  "correlation_id": "job-abc123",
+  "service": "kscore-server",
+  "caller": "dispatcher.go:123",
+  "fields": {
+    "job_id": "abc123",
+    "agent_id": "web-01"
+  }
+}
+```
+
+**Subject Routing**:
+- Default: `kscore.logs`
+- Per-level: `kscore.logs.info`, `kscore.logs.error`
+- Per-service: `kscore.logs.kscore-server`
+
+**Subscribe to logs**:
+```bash
+# All logs
+nats sub "kscore.logs.>"
+
+# Error logs only
+nats sub "kscore.logs.error"
+
+# Logs from specific service
+nats sub "kscore.logs.kscore-server"
+```
+
+### Stdout-First Logging
+
+Keystone Core defaults to stdout logging for container/systemd integration:
+
+```yaml
+logging:
+  output: stdout     # stdout (default), stderr, file
+  format: json       # json (default), logfmt, text
+  level: info        # debug, info, warn, error
+
+  # Include caller info
+  caller: true       # Include file:line in logs
+
+  # Environment variables override config
+  # KSCORE_LOG_LEVEL, KSCORE_LOG_FORMAT, KSCORE_LOG_OUTPUT
+```
+
+**Container Integration** (Docker/Kubernetes):
+```bash
+# View logs via container runtime
+docker logs kscore-server
+kubectl logs deployment/kscore-server
+
+# Structured logs work with:
+# - Docker json-file driver
+# - Kubernetes logging agents (Fluentd, Fluent Bit)
+# - CloudWatch Container Insights
+# - Google Cloud Logging
+```
+
+**systemd/journald Integration**:
+```bash
+# View logs via journalctl
+journalctl -u kscore-server -f
+
+# Filter by level (in JSON format)
+journalctl -u kscore-server -o json | jq 'select(.level == "error")'
+```
+
+### Syslog Integration
+
+Send logs to syslog for traditional infrastructure:
+
+```yaml
+logging:
+  syslog:
+    enabled: true
+    transport: unix    # unix, udp, tcp, tcp+tls
+    address: "/dev/log"  # or host:port for network
+    facility: local0
+
+    # RFC 5424 (modern, default)
+    format: rfc5424
+    app_name: kscore-server
+
+    # RFC 3164 (BSD syslog)
+    # format: bsd
+
+    # TLS for tcp+tls transport
+    tls:
+      cert_file: /etc/kscore/certs/client.crt
+      key_file: /etc/kscore/certs/client.key
+      ca_file: /etc/kscore/certs/ca.crt
+```
+
+**RFC 5424 Format**:
+```
+<134>1 2024-01-15T10:30:45.123Z hostname kscore-server 1234 - [kscore@49152 level="info" correlation_id="abc123"] Command executed
+```
+
+**BSD Format** (RFC 3164):
+```
+<134>Jan 15 10:30:45 hostname kscore-server[1234]: Command executed
+```
+
+**rsyslog Configuration**:
+```
+# /etc/rsyslog.d/kscore.conf
+local0.* /var/log/kscore.log
+```
+
 ### Loki Integration
 
 Send logs to Grafana Loki:
@@ -665,14 +803,40 @@ Terminal-based real-time monitoring (`kscore-monitor`):
 - Output logs
 
 **7. Logs**:
-- Structured log streaming
-- Filter by level, logger
-- Correlation ID search
+- Real-time log streaming via NATS
+- Color-coded by level (debug, info, warn, error)
+- Pause/resume with `p` or `space`
+- Clear logs with `c`
+- Live/Paused status indicator
 
 **8. Metrics**:
-- Performance metrics
-- Resource utilization
-- Real-time graphs
+- Real-time metrics via NATS
+- Grouped by service
+- Color-coded by type (counter, gauge, histogram)
+- Clear metrics with `c`
+
+### NATS Telemetry Integration
+
+The TUI monitor connects to NATS for real-time telemetry streaming:
+
+```bash
+# Start monitor with NATS URL
+kscorectl monitor --nats-url nats://localhost:4222
+
+# Or configure in config file
+monitor:
+  nats_url: "nats://localhost:4222"
+  log_subject: "kscore.logs.>"
+  metric_subject: "kscore.metrics.>"
+  trace_subject: "kscore.traces.>"
+  audit_subject: "kscore.audit.>"
+```
+
+**Subscribed subjects**:
+- `kscore.logs.>` - Log messages
+- `kscore.metrics.>` - Metric updates
+- `kscore.traces.>` - Trace spans
+- `kscore.audit.>` - Audit entries
 
 ### Navigation
 
@@ -804,6 +968,267 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
 ```
+
+## NATS Telemetry Transport
+
+Keystone Core supports NATS as a unified transport for all telemetry data (logs, metrics, traces, audit). This enables centralized collection without requiring separate backends for each telemetry type.
+
+### NATS Metrics Transport
+
+Send metrics to a centralized collector via NATS:
+
+```yaml
+metrics:
+  nats:
+    enabled: true
+    url: "nats://localhost:4222"
+    subject: "kscore.metrics"
+    service_name: "kscore-server"
+    batch_size: 100        # Metrics per batch
+    flush_interval: 10s    # Batch flush interval
+
+    # Authentication
+    token: ""
+    user: ""
+    password: ""
+    nkey_file: ""
+    cred_file: ""
+```
+
+**Message Format** (JSON batch):
+```json
+{
+  "timestamp": "2024-01-15T10:30:45.123Z",
+  "service": "kscore-server",
+  "host": "server-01",
+  "metrics": [
+    {
+      "name": "api_requests_total",
+      "type": "counter",
+      "value": 12345,
+      "labels": {"method": "POST", "path": "/api/exec"}
+    },
+    {
+      "name": "api_request_duration_seconds",
+      "type": "histogram",
+      "value": 0.025,
+      "labels": {"method": "POST"}
+    }
+  ]
+}
+```
+
+**Subscribe to metrics**:
+```bash
+# All metrics
+nats sub "kscore.metrics.>"
+
+# Metrics from specific service
+nats sub "kscore.metrics.kscore-server"
+```
+
+### NATS Trace Transport
+
+Send trace spans to a centralized collector via NATS:
+
+```yaml
+tracing:
+  nats:
+    enabled: true
+    url: "nats://localhost:4222"
+    subject: "kscore.traces"
+    service_name: "kscore-server"
+    batch_size: 100        # Spans per batch
+    flush_interval: 5s     # Batch flush interval
+    buffer_size: 10000     # Span buffer size
+```
+
+**Span Format** (JSON):
+```json
+{
+  "trace_id": "1234567890abcdef",
+  "span_id": "abc123def456",
+  "parent_span_id": "def456abc123",
+  "name": "Execute Command",
+  "kind": "server",
+  "start_time": "2024-01-15T10:30:45.000Z",
+  "end_time": "2024-01-15T10:30:46.234Z",
+  "duration_ns": 1234000000,
+  "status": "ok",
+  "attributes": {
+    "agent_id": "web-01",
+    "command": "systemctl restart nginx"
+  },
+  "events": [
+    {"name": "command.started", "timestamp": "..."}
+  ]
+}
+```
+
+**Batch Format**:
+```json
+{
+  "timestamp": "2024-01-15T10:30:45Z",
+  "service": "kscore-server",
+  "host": "server-01",
+  "spans": [/* array of spans */]
+}
+```
+
+## Audit Logging
+
+Keystone Core provides comprehensive audit logging for security and compliance:
+
+### Audit Entry Format
+
+```json
+{
+  "timestamp": "2024-01-15T10:30:45.123Z",
+  "user": "admin",
+  "uid": 1000,
+  "tty": "pts/0",
+  "pid": 12345,
+  "tool": "kscore-exec",
+  "command": "run",
+  "args": ["--target", "role:web", "systemctl restart nginx"],
+  "target": "role:web",
+  "action": "command_executed",
+  "result": "success",
+  "exit_code": 0,
+  "duration_ms": 1234,
+  "correlation_id": "job-abc123",
+  "extra": {
+    "agents_matched": 50,
+    "agents_succeeded": 50
+  }
+}
+```
+
+### Audit Actions
+
+- `command_executed`: Remote command execution
+- `state_applied`: State file application
+- `state_checked`: State drift check
+- `policy_evaluated`: Policy evaluation
+- `agent_connected`: Agent registration
+- `agent_disconnected`: Agent disconnection
+- `config_changed`: Configuration modification
+- `secret_accessed`: Secret retrieval
+- `job_created`: Batch job creation
+- `job_completed`: Batch job completion
+- `webhook_received`: GitOps webhook received
+- `rollback_triggered`: Rollback initiated
+- `promotion_requested`: Environment promotion
+- `plugin_loaded`: Module loaded
+
+### Audit Configuration
+
+```yaml
+audit:
+  level: all             # all, errors, none
+  output: auto           # auto, syslog, journald, stderr, file, nats
+
+  # Syslog backend (Linux default)
+  syslog:
+    facility: auth       # auth, local0-7
+
+  # Journald backend (systemd)
+  journald:
+    identifier: kscore-audit
+
+  # File backend
+  file:
+    path: /var/log/kscore/audit.log
+    max_size: 100MB
+    max_backups: 10
+
+  # NATS backend
+  nats:
+    url: "nats://localhost:4222"
+    subject: "kscore.audit"
+    buffer_size: 10000
+```
+
+### NATS Audit Transport
+
+Send audit logs to a centralized collector via NATS:
+
+```yaml
+audit:
+  nats:
+    enabled: true
+    url: "nats://localhost:4222"
+    subject: "kscore.audit"
+    subject_per_tool: true   # Use kscore.audit.{tool}
+    buffer_size: 10000
+    flush_interval: 1s
+```
+
+**Subject Routing**:
+- Default: `kscore.audit`
+- Per-tool: `kscore.audit.kscore-exec`
+- Per-action: `kscore.audit.{tool}.{action}`
+
+**Subscribe to audit logs**:
+```bash
+# All audit logs
+nats sub "kscore.audit.>"
+
+# Audit logs from kscore-exec
+nats sub "kscore.audit.kscore-exec.>"
+
+# Failed operations
+nats sub "kscore.audit.>" | jq 'select(.result == "failure")'
+```
+
+### CLI Audit Integration
+
+Audit logging is integrated into all CLI tools:
+
+```bash
+# kscore-exec logs command executions
+kscorectl exec --target "role:web" "systemctl restart nginx"
+# → Audit: command_executed, result=success, agents=50
+
+# kscore-state logs state applications
+kscorectl state apply webserver.yaml
+# → Audit: state_applied, result=success, changes=3
+
+# kscore-state logs drift checks
+kscorectl state drift webserver.yaml
+# → Audit: state_checked, result=success, drift=2
+```
+
+**Override audit settings**:
+```bash
+# Disable audit logging
+kscorectl exec --audit-level none "echo test"
+
+# Log to file
+kscorectl exec --audit-output file:/var/log/audit.log "echo test"
+```
+
+### Sensitive Data Redaction
+
+Audit logs automatically redact sensitive data:
+
+```bash
+# Input
+kscorectl exec "mysql -p secret123 -e 'SELECT *'"
+
+# Audit entry (redacted)
+{
+  "args": ["mysql", "-p", "[REDACTED]", "-e", "SELECT *"],
+  ...
+}
+```
+
+**Redacted patterns**:
+- Passwords (`-p`, `--password`)
+- Tokens (`--token`, `-t`)
+- Secrets (`--secret`)
+- Keys (`--key`, `--api-key`)
+- Credentials (`--creds`, `--credentials`)
 
 ## Performance Profiling
 
