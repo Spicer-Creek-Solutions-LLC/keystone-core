@@ -1,0 +1,17 @@
+{{- if and (not (include "kscore-server.isHAMode" .)) (eq .Values.storage.backend "sqlite") .Values.storage.sqlite.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "kscore-server.fullname" . }}-data
+  labels:
+    {{- include "kscore-server.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    {{- toYaml .Values.storage.sqlite.persistence.accessModes | nindent 4 }}
+  {{- if or .Values.global.storageClass .Values.storage.sqlite.persistence.storageClass }}
+  storageClassName: {{ .Values.storage.sqlite.persistence.storageClass | default .Values.global.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.storage.sqlite.persistence.size }}
+{{- end }}

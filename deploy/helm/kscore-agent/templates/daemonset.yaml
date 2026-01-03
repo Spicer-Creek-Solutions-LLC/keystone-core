@@ -1,0 +1,188 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "kscore-agent.fullname" . }}
+  labels:
+    {{- include "kscore-agent.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "kscore-agent.selectorLabels" . | nindent 6 }}
+  updateStrategy:
+    type: {{ .Values.updateStrategy.type }}
+    {{- if eq .Values.updateStrategy.type "RollingUpdate" }}
+    rollingUpdate:
+      maxUnavailable: {{ .Values.updateStrategy.rollingUpdate.maxUnavailable | default 1 }}
+    {{- end }}
+  minReadySeconds: {{ .Values.minReadySeconds | default 0 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "kscore-agent.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "kscore-agent.serviceAccountName" . }}
+      {{- if .Values.priorityClassName }}
+      priorityClassName: {{ .Values.priorityClassName }}
+      {{- end }}
+      hostNetwork: {{ .Values.hostNetwork | default false }}
+      hostPID: {{ .Values.hostPID | default false }}
+      dnsPolicy: {{ include "kscore-agent.dnsPolicy" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- if .Values.runAsRoot }}
+            runAsUser: 0
+            runAsGroup: 0
+            {{- end }}
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - "--config"
+            - "/etc/kscore/agent.yaml"
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            {{- if .Values.agent.id }}
+            - name: KSCORE_AGENT_ID
+              value: {{ .Values.agent.id | quote }}
+            {{- else }}
+            - name: KSCORE_AGENT_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            {{- end }}
+            {{- if .Values.nats.auth.enabled }}
+            {{- if .Values.nats.auth.tokenSecretName }}
+            - name: NATS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.nats.auth.tokenSecretName }}
+                  key: {{ .Values.nats.auth.tokenSecretKey | default "nats-token" }}
+            {{- end }}
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.extraEnvFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            {{- if .Values.telemetry.prometheus.enabled }}
+            - name: metrics
+              containerPort: {{ .Values.telemetry.prometheus.port }}
+              protocol: TCP
+            {{- end }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/kscore
+              readOnly: true
+            - name: workdir
+              mountPath: {{ .Values.execution.workDir | default "/tmp/kscore" }}
+            {{- if .Values.state.enabled }}
+            - name: state
+              mountPath: {{ .Values.state.stateDir | default "/var/lib/kscore/states" }}
+            - name: cache
+              mountPath: {{ .Values.state.cacheDir | default "/var/cache/kscore" }}
+            {{- end }}
+            {{- if and .Values.hostPaths.enabled .Values.hostPaths.root.enabled }}
+            - name: host-root
+              mountPath: {{ .Values.hostPaths.root.mountPath | default "/host" }}
+              readOnly: {{ .Values.hostPaths.root.readOnly | default false }}
+            {{- end }}
+            {{- range .Values.hostPaths.extra }}
+            - name: {{ .name }}
+              mountPath: {{ .mountPath }}
+              readOnly: {{ .readOnly | default false }}
+            {{- end }}
+            {{- if .Values.server.tls.enabled }}
+            - name: tls
+              mountPath: /etc/kscore/tls
+              readOnly: true
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      {{- with .Values.extraInitContainers }}
+      initContainers:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "kscore-agent.fullname" . }}-config
+        - name: workdir
+          emptyDir: {}
+        {{- if .Values.state.enabled }}
+        - name: state
+          emptyDir: {}
+        - name: cache
+          emptyDir: {}
+        {{- end }}
+        {{- if and .Values.hostPaths.enabled .Values.hostPaths.root.enabled }}
+        - name: host-root
+          hostPath:
+            path: {{ .Values.hostPaths.root.path | default "/" }}
+            type: Directory
+        {{- end }}
+        {{- range .Values.hostPaths.extra }}
+        - name: {{ .name }}
+          hostPath:
+            path: {{ .path }}
+            type: {{ .type | default "Directory" }}
+        {{- end }}
+        {{- if .Values.server.tls.enabled }}
+        - name: tls
+          secret:
+            secretName: {{ .Values.server.tls.certSecretName | default (printf "%s-tls" (include "kscore-agent.fullname" .)) }}
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

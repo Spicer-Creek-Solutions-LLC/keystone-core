@@ -80,10 +80,35 @@ func (e *Executor) Execute(ctx context.Context, req *ExecuteCommandRequest, outp
 		cmd.Env = env
 	}
 
-	// TODO: Set user if specified (requires platform-specific code)
-	// if req.User != "" {
-	//     cmd.SysProcAttr = setUser(req.User)
-	// }
+	// Set user if specified (platform-specific)
+	if req.User != "" {
+		userSwitch, err := LookupUserForSwitch(req.User)
+		if err != nil {
+			result.Error = fmt.Errorf("failed to lookup user %q: %w", req.User, err)
+			result.EndTime = time.Now()
+			return result, result.Error
+		}
+
+		if userSwitch != nil {
+			// Check if we can switch to this user
+			if err := CanSwitchUser(req.User); err != nil {
+				result.Error = err
+				result.EndTime = time.Now()
+				return result, err
+			}
+
+			cmd.SysProcAttr = SetUserCredential(cmd.SysProcAttr, userSwitch)
+
+			// Set HOME environment variable for the target user
+			if userSwitch.HomeDir != "" {
+				if cmd.Env == nil {
+					cmd.Env = []string{}
+				}
+				cmd.Env = append(cmd.Env, fmt.Sprintf("HOME=%s", userSwitch.HomeDir))
+				cmd.Env = append(cmd.Env, fmt.Sprintf("USER=%s", userSwitch.Username))
+			}
+		}
+	}
 
 	// Get stdout and stderr pipes
 	stdout, err := cmd.StdoutPipe()

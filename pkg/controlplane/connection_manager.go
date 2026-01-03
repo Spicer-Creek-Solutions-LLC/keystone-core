@@ -34,6 +34,8 @@ type AgentStore interface {
 	ListAgents(ctx context.Context, filter *AgentFilter) ([]StoredAgent, error)
 	// GetAgent returns an agent by ID
 	GetAgent(ctx context.Context, agentID string) (*StoredAgent, error)
+	// SaveAgent saves an agent to the database (for HA cluster support)
+	SaveAgent(ctx context.Context, agent *StoredAgent) error
 }
 
 // AgentFilter is used to filter agents when listing
@@ -365,6 +367,24 @@ func (cm *ConnectionManager) handleRegistration(msg *nats.Msg) {
 	info.LastHeartbeat = time.Now()
 	info.HeartbeatMissed = 0
 	cm.mu.Unlock()
+
+	// Save agent to database for HA cluster support
+	if cm.stateStore != nil {
+		storedAgent := &StoredAgent{
+			ID:           req.AgentId,
+			Hostname:     req.Metadata.GetHostname(),
+			OS:           req.Metadata.GetOs(),
+			Arch:         req.Metadata.GetArch(),
+			Status:       "online",
+			Labels:       req.Metadata.GetLabels(),
+			IPAddresses:  req.Metadata.GetIpAddresses(),
+			RegisteredAt: info.RegisteredAt,
+			LastSeen:     info.LastHeartbeat,
+		}
+		if err := cm.stateStore.SaveAgent(ctx, storedAgent); err != nil {
+			fmt.Printf("Warning: failed to save agent %s to database: %v\n", req.AgentId, err)
+		}
+	}
 
 	// Emit agent.connect event
 	if !exists {

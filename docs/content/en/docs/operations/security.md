@@ -57,16 +57,52 @@ kscorectl api-key create --name "monitoring-system" --role "read-only"
 
 ### Token-Based Authentication (JWT)
 
-**Configuration:**
+Keystone Core supports JWT (JSON Web Token) authentication with multiple signing algorithms.
+
+**Supported Algorithms:**
+| Algorithm | Type | Key Size | Use Case |
+|-----------|------|----------|----------|
+| HS256/384/512 | HMAC | 256+ bits | Shared secret, simple deployments |
+| RS256/384/512 | RSA | 2048+ bits | Public/private key, distributed systems |
+| ES256/384/512 | ECDSA | P-256/384/521 | Compact tokens, mobile clients |
+
+**HMAC Configuration (Symmetric Key):**
 ```yaml
 # server.yaml
-api:
-  authentication:
-    method: jwt
-    jwt:
-      secret: "$JWT_SECRET"  # 256-bit secret
-      issuer: "kscore"
-      expiry: "24h"
+auth:
+  type: jwt
+  jwt:
+    secret: "$JWT_SECRET"        # 256-bit minimum (32+ characters)
+    issuer: "kscore"             # Token issuer (validated if set)
+    audience: "kscore-api"       # Token audience (validated if set)
+    role_claim: "role"           # Claim containing user role
+```
+
+**RSA/ECDSA Configuration (Asymmetric Key):**
+```yaml
+# server.yaml
+auth:
+  type: jwt
+  jwt:
+    public_key_file: /etc/kscore/jwt-public.pem  # RSA or ECDSA public key
+    issuer: "https://auth.example.com"
+    audience: "kscore-api"
+    role_claim: "role"
+```
+
+**JWT Claims Structure:**
+```json
+{
+  "sub": "user-123",           // Subject (user ID)
+  "name": "Alice Admin",       // Display name (optional)
+  "email": "alice@example.com",// Email (optional)
+  "role": "admin",             // Role: admin, operator, readonly
+  "iss": "kscore",             // Issuer
+  "aud": "kscore-api",         // Audience
+  "exp": 1705401600,           // Expiration time
+  "iat": 1705315200,           // Issued at
+  "jti": "unique-token-id"     // JWT ID (optional)
+}
 ```
 
 **Generate Token:**
@@ -84,9 +120,29 @@ kscorectl auth login --username admin --password $ADMIN_PASSWORD
 kscorectl auth refresh
 ```
 
+**Using JWT with External Identity Providers:**
+```yaml
+# Integration with Auth0, Okta, Keycloak, etc.
+auth:
+  type: jwt
+  jwt:
+    public_key_file: /etc/kscore/idp-public.pem  # From your IdP
+    issuer: "https://your-tenant.auth0.com/"
+    audience: "kscore-api"
+    role_claim: "https://kscore.io/role"  # Custom claim namespace
+```
+
 ### Certificate-Based Authentication (mTLS)
 
-**Recommended for production** - Strongest authentication method.
+**Recommended for production** - Strongest authentication method with certificate-based identity.
+
+Keystone Core's mTLS authenticator extracts identity from client certificates and maps certificate attributes to roles using flexible pattern matching.
+
+**Identity Extraction (in priority order):**
+1. Common Name (CN) from certificate subject
+2. DNS Subject Alternative Names (SANs)
+3. Email Subject Alternative Names
+4. URI Subject Alternative Names (including SPIFFE IDs)
 
 **Generate Certificates:**
 ```bash
@@ -102,25 +158,76 @@ openssl req -new -key server-key.pem -out server.csr \
 openssl x509 -req -days 365 -in server.csr -CA ca.pem -CAkey ca-key.pem \
   -CAcreateserial -out server-cert.pem
 
-# Create client certificate
-openssl genrsa -out client-key.pem 4096
-openssl req -new -key client-key.pem -out client.csr \
-  -subj "/CN=kscore-client"
-openssl x509 -req -days 365 -in client.csr -CA ca.pem -CAkey ca-key.pem \
-  -CAcreateserial -out client-cert.pem
+# Create admin client certificate
+openssl genrsa -out admin-key.pem 4096
+openssl req -new -key admin-key.pem -out admin.csr \
+  -subj "/CN=admin.kscore.example.com"
+openssl x509 -req -days 365 -in admin.csr -CA ca.pem -CAkey ca-key.pem \
+  -CAcreateserial -out admin-cert.pem
+
+# Create operator client certificate
+openssl genrsa -out operator-key.pem 4096
+openssl req -new -key operator-key.pem -out operator.csr \
+  -subj "/CN=operator.ops.example.com"
+openssl x509 -req -days 365 -in operator.csr -CA ca.pem -CAkey ca-key.pem \
+  -CAcreateserial -out operator-cert.pem
 ```
 
-**Server Configuration:**
+**Server Configuration with Role Mapping:**
 ```yaml
 # server.yaml
+auth:
+  type: mtls
+  mtls:
+    require_client_cert: true
+    cert_roles:
+      # Exact matches
+      "admin.kscore.example.com": admin
+
+      # Wildcard patterns (* matches one level, no dots)
+      "*.admin.example.com": admin
+      "*.ops.example.com": operator
+
+      # Double wildcard (** matches anything including dots)
+      "**.readonly.example.com": readonly
+
+      # Email SANs
+      "admin@example.com": admin
+      "*@ops.example.com": operator
+
+      # SPIFFE IDs (URI SANs)
+      "spiffe://cluster.local/ns/admin/**": admin
+      "spiffe://cluster.local/ns/ops/**": operator
+
+      # Catch-all fallback (lowest priority)
+      "**": readonly
+
 api:
   tls:
     enabled: true
     cert_file: /etc/kscore/certs/server-cert.pem
     key_file: /etc/kscore/certs/server-key.pem
     ca_file: /etc/kscore/certs/ca.pem
-    client_auth: require  # Require client certificates
+    client_auth: require
 ```
+
+**Pattern Matching Rules:**
+
+| Pattern | Matches | Does Not Match |
+|---------|---------|----------------|
+| `*.example.com` | `api.example.com` | `api.sub.example.com` |
+| `**.example.com` | `api.sub.example.com` | `other.com` |
+| `svc-*.ops.example.com` | `svc-api.ops.example.com` | `api.ops.example.com` |
+| `admin@*` | `admin@internal` | `admin@external.com` (has dot) |
+| `admin@**` | `admin@external.com` | `user@external.com` |
+| `spiffe://cluster.local/**` | Any SPIFFE ID in cluster | Other trust domains |
+
+**Pattern Priority:**
+Patterns are matched in specificity order (most specific first):
+1. Exact matches (no wildcards)
+2. Single wildcards (`*`)
+3. Double wildcards (`**`)
+4. Longer patterns before shorter
 
 **Client Configuration:**
 ```yaml
@@ -131,6 +238,34 @@ api:
     cert_file: ~/.kscore/certs/client-cert.pem
     key_file: ~/.kscore/certs/client-key.pem
     ca_file: ~/.kscore/certs/ca.pem
+```
+
+**Certificate Metadata:**
+The authenticator extracts and logs certificate metadata for auditing:
+- `cn`: Common Name
+- `serial`: Certificate serial number
+- `issuer`: Issuer CN
+- `org`: Organization(s)
+- `dns_names`: DNS SANs (comma-separated)
+- `emails`: Email SANs (comma-separated)
+- `not_before`, `not_after`: Validity period
+
+**Multi-Method Authentication:**
+Combine mTLS with other methods for defense in depth:
+```yaml
+auth:
+  type: multi  # Try methods in order
+  mtls:
+    require_client_cert: false  # Optional client cert
+    cert_roles:
+      "*.admin.example.com": admin
+  apikey:
+    keys:
+      - id: "backup-key"
+        secret_hash: "$2a$..."
+        role: operator
+  jwt:
+    secret: "$JWT_SECRET"
 ```
 
 ### NATS Authentication
@@ -475,24 +610,26 @@ database:
 ### Network Segmentation
 
 **Recommended Network Layout:**
-```
-┌─────────────────────────────────────────────┐
-│  Management Network (10.0.1.0/24)          │
-│  - Bastion/Jump host                       │
-│  - Admin workstations                      │
-└─────────────────┬───────────────────────────┘
-                  │
-┌─────────────────┴───────────────────────────┐
-│  Control Plane Network (10.0.2.0/24)       │
-│  - Keystone Core servers                      │
-│  - NATS cluster                            │
-│  - PostgreSQL                              │
-└─────────────────┬───────────────────────────┘
-                  │
-┌─────────────────┴───────────────────────────┐
-│  Agent Network (10.0.10.0/16)              │
-│  - Agents on managed nodes                 │
-└─────────────────────────────────────────────┘
+
+```mermaid
+flowchart TB
+    subgraph M["Management Network (10.0.1.0/24)"]
+        M1[Bastion/Jump host]
+        M2[Admin workstations]
+    end
+
+    subgraph C["Control Plane Network (10.0.2.0/24)"]
+        C1[Keystone Core servers]
+        C2[NATS cluster]
+        C3[PostgreSQL]
+    end
+
+    subgraph A["Agent Network (10.0.10.0/16)"]
+        A1[Agents on managed nodes]
+    end
+
+    M --> C
+    C --> A
 ```
 
 **Firewall Rules:**
@@ -728,6 +865,114 @@ spec:
           name: kscore-secrets
           key: postgres-password
 ```
+
+## Module Security
+
+Keystone Core's module system uses capability-based security to ensure modules cannot access system resources without explicit authorization.
+
+### Capability-Based Access Control
+
+Modules operate under a **no ambient authority** model:
+
+- **No default permissions**: Modules cannot access files, network, or execute commands by default
+- **Explicit capability grants**: Each capability must be declared in the module manifest
+- **Operator override**: Operators can restrict capabilities beyond what modules declare
+- **Capability locking**: Lock module capabilities to prevent escalation on updates
+
+### Sandboxed Execution
+
+Modules run in isolated execution environments:
+
+| Runtime | Isolation Mechanism | Resource Limits |
+|---------|---------------------|-----------------|
+| Starlark | Deterministic execution, no I/O by default | Step limit, timeout |
+| WASM | Memory isolation, no syscalls | Memory limit, fuel metering |
+
+### Deploying Capability Policy
+
+Create a capability policy to restrict module permissions:
+
+```yaml
+# /etc/kscore/capability-policy.yaml
+schema_version: 1
+
+defaults:
+  trust: none
+  denied_capabilities:
+    - exec           # Deny command execution by default
+    - secrets.write  # Deny secret modification
+
+  capabilities:
+    fs.write:
+      denied_paths:
+        - /etc/**
+        - /root/**
+        - /usr/**
+        - /bin/**
+
+modules:
+  # Trust internal modules
+  internal/approved-deployer:
+    trust: full
+
+  # Heavily restrict third-party modules
+  community/external-reporter:
+    trust: none
+    denied_capabilities:
+      - exec
+      - fs.write
+      - secrets.*
+    capabilities:
+      http.get:
+        allowed_domains:
+          - api.approved-service.com
+        rate_limit: 10
+```
+
+### Locking Module Capabilities
+
+Prevent capability escalation across module updates:
+
+```bash
+# Lock a module's capabilities
+kscorectl module lock my-org/production-module \
+  --reason "Production deployment - capabilities frozen"
+
+# View lock status
+kscorectl module lock show my-org/production-module
+
+# Unlock (requires admin role)
+kscorectl module unlock my-org/production-module
+```
+
+When a locked module is updated:
+- New capabilities are **blocked**
+- Removed capabilities are **allowed**
+- More restrictive configurations are **allowed**
+
+### Module Security Audit
+
+```bash
+# List all modules and their capabilities
+kscorectl module list --show-capabilities
+
+# Show capability policy evaluation for a module
+kscorectl module capabilities show my-org/web-deployer
+
+# Export capability grants for compliance review
+kscorectl module capabilities export --format csv > capabilities-report.csv
+```
+
+### Module Security Checklist
+
+- [ ] Capability policy deployed (`/etc/kscore/capability-policy.yaml`)
+- [ ] `exec` capability denied by default
+- [ ] Third-party modules have explicit policy entries
+- [ ] Production modules are capability-locked
+- [ ] Allowed paths/domains scoped to necessary resources
+- [ ] Rate limits configured for HTTP capabilities
+
+For complete module security documentation, see [Module System & Security](/docs/concepts/modules/).
 
 ## Security Checklist
 

@@ -11,18 +11,20 @@ import (
 
 // PolicyEngine coordinates policy evaluation across different evaluators
 type PolicyEngine struct {
-	registry     *Registry
-	opaEvaluator *OPAEvaluator
-	celEvaluator *CELEvaluator
-	mu           sync.RWMutex
+	registry         *Registry
+	opaEvaluator     *OPAEvaluator
+	celEvaluator     *CELEvaluator
+	builtinEvaluator *BuiltinEvaluator
+	mu               sync.RWMutex
 }
 
 // NewPolicyEngine creates a new policy engine
 func NewPolicyEngine(registry *Registry) *PolicyEngine {
 	return &PolicyEngine{
-		registry:     registry,
-		opaEvaluator: NewOPAEvaluator(),
-		celEvaluator: NewCELEvaluator(),
+		registry:         registry,
+		opaEvaluator:     NewOPAEvaluator(),
+		celEvaluator:     NewCELEvaluator(),
+		builtinEvaluator: NewBuiltinEvaluator(),
 	}
 }
 
@@ -336,7 +338,7 @@ func (e *PolicyEngine) ValidatePolicy(ctx context.Context, policy *Policy) error
 	case PolicyTypeCEL:
 		return e.celEvaluator.ValidatePolicy(ctx, policy.Policy)
 	case PolicyTypeBuiltin:
-		return nil // Built-in policies are always valid
+		return e.builtinEvaluator.ValidatePolicy(ctx, policy.Policy)
 	default:
 		return fmt.Errorf("unknown policy type: %s", policy.Type)
 	}
@@ -358,17 +360,12 @@ func (e *PolicyEngine) evaluatePolicy(ctx context.Context, policy *Policy, input
 
 // evaluateBuiltinPolicy evaluates built-in policies
 func (e *PolicyEngine) evaluateBuiltinPolicy(ctx context.Context, policy *Policy, input *EvaluationInput) (*EvaluationResult, error) {
-	// Built-in policies would be implemented here
-	// For now, return a placeholder
-	return &EvaluationResult{
-		PolicyID:    policy.ID,
-		PolicyName:  policy.Name,
-		Allowed:     true,
-		Message:     "Built-in policy evaluation not yet implemented",
-		EvaluatedAt: time.Now(),
-		Violations:  make([]Violation, 0),
-		Warnings:    []string{"Built-in policy type not yet implemented"},
-	}, nil
+	return e.builtinEvaluator.Evaluate(ctx, policy, input)
+}
+
+// ListBuiltinPolicies returns a list of available built-in policy names
+func (e *PolicyEngine) ListBuiltinPolicies() []BuiltinPolicyName {
+	return e.builtinEvaluator.ListBuiltinPolicies()
 }
 
 // aggregateResults aggregates multiple evaluation results

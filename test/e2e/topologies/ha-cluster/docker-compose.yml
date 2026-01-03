@@ -60,7 +60,8 @@ services:
     logging: *default-logging
     <<: *resources-light
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8222/healthz"]
+      # Use /varz instead of /healthz - JetStream sync can take time in clusters
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8222/varz"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -84,7 +85,8 @@ services:
     logging: *default-logging
     <<: *resources-light
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8222/healthz"]
+      # Use /varz instead of /healthz - JetStream sync can take time in clusters
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8222/varz"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -108,7 +110,8 @@ services:
     logging: *default-logging
     <<: *resources-light
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8222/healthz"]
+      # Use /varz instead of /healthz - JetStream sync can take time in clusters
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8222/varz"]
       interval: 5s
       timeout: 3s
       retries: 20

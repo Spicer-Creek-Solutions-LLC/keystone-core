@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # =============================================================================
 # Keystone Core PDF Book Generator using pdf-book-exporter
@@ -51,6 +51,23 @@ check_dependencies() {
         missing+=("Pygments (pip install Pygments)")
     fi
 
+    # Check for mermaid-cli (mmdc)
+    MMDC_PATH=""
+    if command -v mmdc &> /dev/null; then
+        MMDC_PATH="mmdc"
+    elif [ -x "$SCRIPT_DIR/node_modules/.bin/mmdc" ]; then
+        MMDC_PATH="$SCRIPT_DIR/node_modules/.bin/mmdc"
+    elif [ -x "$PROJECT_ROOT/node_modules/.bin/mmdc" ]; then
+        MMDC_PATH="$PROJECT_ROOT/node_modules/.bin/mmdc"
+    fi
+
+    if [ -z "$MMDC_PATH" ]; then
+        log_warn "mermaid-cli (mmdc) not found - Mermaid diagrams will not be rendered"
+        log_info "  Install with: cd docs && npm install"
+    else
+        log_success "  Found mermaid-cli: $MMDC_PATH"
+    fi
+
     if [ ${#missing[@]} -gt 0 ]; then
         log_error "Missing dependencies:"
         for dep in "${missing[@]}"; do
@@ -58,15 +75,87 @@ check_dependencies() {
         done
         echo ""
         log_info "Installation instructions:"
-        echo "  macOS:   brew install pandoc && brew install --cask mactex"
+        echo "  macOS:   brew install pandoc && brew install mermaid-cli && brew install --cask basictex && sudo tlmgr install framed"
         echo "  Ubuntu:  sudo apt install pandoc texlive-full"
-        echo "  Python:  pip install Pygments"
+        echo "  Python:  pip3 install Pygments"
         echo ""
         log_warn "Falling back to standard PDF generator..."
         exec node "$SCRIPT_DIR/generate-pdfs.js"
     fi
 
     log_success "All dependencies found"
+}
+
+# Global diagram counter for unique naming
+DIAGRAM_COUNTER=0
+
+# Convert Mermaid code blocks to images
+process_mermaid_diagrams() {
+    local input_file=$1
+    local output_file=$2
+    local diagram_dir="$OUTPUT_DIR/mermaid-diagrams"
+
+    if [ -z "$MMDC_PATH" ]; then
+        # No mmdc available, just copy the file
+        cp "$input_file" "$output_file"
+        return
+    fi
+
+    mkdir -p "$diagram_dir"
+
+    local diagram_count=0
+    local temp_file=$(mktemp)
+    local in_mermaid=false
+    local mermaid_content=""
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ "$line" =~ ^\`\`\`mermaid ]]; then
+            in_mermaid=true
+            mermaid_content=""
+            continue
+        elif [[ "$line" =~ ^\`\`\` ]] && [ "$in_mermaid" = true ]; then
+            in_mermaid=false
+            DIAGRAM_COUNTER=$((DIAGRAM_COUNTER + 1))
+            diagram_count=$((diagram_count + 1))
+
+            # Save mermaid content to temp file
+            local mmd_file="$diagram_dir/diagram_${DIAGRAM_COUNTER}.mmd"
+            local png_file="$diagram_dir/diagram_${DIAGRAM_COUNTER}.png"
+
+            echo "$mermaid_content" > "$mmd_file"
+
+            # Convert to PNG using mmdc
+            if "$MMDC_PATH" -i "$mmd_file" -o "$png_file" -b white -s 2 2>/dev/null; then
+                # Insert image reference instead of code block
+                echo "" >> "$temp_file"
+                echo "![Diagram ${DIAGRAM_COUNTER}](${png_file})" >> "$temp_file"
+                echo "" >> "$temp_file"
+            else
+                # If conversion fails, keep as code block
+                log_warn "    Failed to render Mermaid diagram ${DIAGRAM_COUNTER}"
+                echo '```' >> "$temp_file"
+                echo "$mermaid_content" >> "$temp_file"
+                echo '```' >> "$temp_file"
+            fi
+            continue
+        fi
+
+        if [ "$in_mermaid" = true ]; then
+            if [ -n "$mermaid_content" ]; then
+                mermaid_content="${mermaid_content}"$'\n'"${line}"
+            else
+                mermaid_content="$line"
+            fi
+        else
+            echo "$line" >> "$temp_file"
+        fi
+    done < "$input_file"
+
+    mv "$temp_file" "$output_file"
+
+    if [ $diagram_count -gt 0 ]; then
+        log_info "    Converted $diagram_count Mermaid diagram(s) to images"
+    fi
 }
 
 # Create output directory
@@ -204,13 +293,15 @@ main() {
     for section in "${!sections[@]}"; do
         title="${sections[$section]}"
         md_file="$OUTPUT_DIR/${section}.md"
+        md_processed="$OUTPUT_DIR/${section}-processed.md"
         pdf_file="$OUTPUT_DIR/keystone-core-${section}-book.pdf"
 
         generate_combined_markdown "$section" "$title"
-        generate_pdf_pandoc "$md_file" "$pdf_file" "$title"
+        process_mermaid_diagrams "$md_file" "$md_processed"
+        generate_pdf_pandoc "$md_processed" "$pdf_file" "$title"
 
         # Cleanup intermediate markdown
-        rm -f "$md_file"
+        rm -f "$md_file" "$md_processed"
     done
 
     echo ""
@@ -268,10 +359,15 @@ EOF
         fi
     done
 
-    generate_pdf_pandoc "$complete_md" "$complete_pdf" "Complete Documentation"
+    # Process Mermaid diagrams
+    complete_md_processed="$OUTPUT_DIR/complete-processed.md"
+    process_mermaid_diagrams "$complete_md" "$complete_md_processed"
+
+    generate_pdf_pandoc "$complete_md_processed" "$complete_pdf" "Complete Documentation"
 
     # Cleanup
-    rm -f "$complete_md"
+    rm -f "$complete_md" "$complete_md_processed"
+    rm -rf "$OUTPUT_DIR/mermaid-diagrams"
 
     echo ""
     log_success "=== PDF Book Generation Complete ==="

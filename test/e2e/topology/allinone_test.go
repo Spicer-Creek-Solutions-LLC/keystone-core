@@ -76,6 +76,14 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
+// skipIfHACluster skips the test if running HA cluster topology
+// All-in-one tests should skip when KSCORE_TOPOLOGY=ha-cluster
+func skipIfHACluster(t *testing.T) {
+	if os.Getenv("KSCORE_TOPOLOGY") == "ha-cluster" {
+		t.Skip("Skipping: all-in-one tests are not run in HA cluster mode")
+	}
+}
+
 func findComposeFile() string {
 	// Try various relative paths
 	candidates := []string{
@@ -104,6 +112,8 @@ func findComposeFile() string {
 
 // TestAllInOne_AgentRegistration tests that agents register with the control plane
 func TestAllInOne_AgentRegistration(t *testing.T) {
+	skipIfHACluster(t)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
@@ -148,6 +158,8 @@ func TestAllInOne_AgentRegistration(t *testing.T) {
 
 // TestAllInOne_AgentHealth tests that agents are healthy
 func TestAllInOne_AgentHealth(t *testing.T) {
+	skipIfHACluster(t)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -168,6 +180,8 @@ func TestAllInOne_AgentHealth(t *testing.T) {
 
 // TestAllInOne_SingleAgentCommand tests executing a command on a single agent
 func TestAllInOne_SingleAgentCommand(t *testing.T) {
+	skipIfHACluster(t)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -186,6 +200,8 @@ func TestAllInOne_SingleAgentCommand(t *testing.T) {
 
 // TestAllInOne_BatchCommand tests batch command execution across multiple agents
 func TestAllInOne_BatchCommand(t *testing.T) {
+	skipIfHACluster(t)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
@@ -248,6 +264,8 @@ func TestAllInOne_BatchCommand(t *testing.T) {
 
 // TestAllInOne_TargetedBatchCommand tests targeting specific agents
 func TestAllInOne_TargetedBatchCommand(t *testing.T) {
+	skipIfHACluster(t)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
@@ -294,6 +312,8 @@ func TestAllInOne_TargetedBatchCommand(t *testing.T) {
 
 // TestAllInOne_GetBatchJobStatus tests retrieving batch job status
 func TestAllInOne_GetBatchJobStatus(t *testing.T) {
+	skipIfHACluster(t)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -329,6 +349,8 @@ func TestAllInOne_GetBatchJobStatus(t *testing.T) {
 
 // TestAllInOne_ListBatchJobs tests listing batch jobs
 func TestAllInOne_ListBatchJobs(t *testing.T) {
+	skipIfHACluster(t)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 

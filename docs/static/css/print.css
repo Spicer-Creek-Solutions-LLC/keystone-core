@@ -540,11 +540,53 @@ article,
   break-inside: avoid;
   margin: 12pt 0;
   text-align: center;
+  background-color: #ffffff !important;
+  padding: 16pt !important;
+  border-radius: 4pt;
 }
 
 .mermaid svg {
   max-width: 100%;
   height: auto;
+  background-color: transparent !important;
+}
+
+/* Force light theme colors for Mermaid diagram elements */
+.mermaid .node rect,
+.mermaid .node circle,
+.mermaid .node ellipse,
+.mermaid .node polygon,
+.mermaid .node path {
+  fill: #f5f5f5 !important;
+  stroke: #333333 !important;
+}
+
+.mermaid .edgePath .path,
+.mermaid .flowchart-link {
+  stroke: #333333 !important;
+}
+
+.mermaid .edgeLabel {
+  background-color: #ffffff !important;
+  color: #333333 !important;
+}
+
+.mermaid .label,
+.mermaid .nodeLabel,
+.mermaid .node text,
+.mermaid text {
+  fill: #333333 !important;
+  color: #333333 !important;
+}
+
+.mermaid .cluster rect {
+  fill: #ececec !important;
+  stroke: #999999 !important;
+}
+
+.mermaid .marker {
+  fill: #333333 !important;
+  stroke: #333333 !important;
 }
 
 /* ==========================================================================

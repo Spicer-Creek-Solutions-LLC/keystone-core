@@ -3,6 +3,7 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -27,14 +28,25 @@ type CoordinationServer struct {
 	leader     LeaderElection
 	nats       NATSStatusProvider
 
+	// NATS control and state propagation
+	natsController  NATSController
+	statePropagator StatePropagator
+
 	// Recovery state tracking
 	recoveryMu    sync.RWMutex
 	recoveryState pb.RecoveryState
 
+	// State version tracking for consistency
+	stateVersionMu sync.RWMutex
+	stateVersions  map[string]int64 // key: state type, value: version
+
 	// Metrics
-	heartbeatCount   int64
-	lastHeartbeatAt  time.Time
-	metricsLock      sync.RWMutex
+	heartbeatCount     int64
+	lastHeartbeatAt    time.Time
+	recoveryCount      int64
+	propagationCount   int64
+	propagationErrors  int64
+	metricsLock        sync.RWMutex
 
 	// Server start time for uptime calculation
 	startTime time.Time
@@ -52,6 +64,40 @@ type NATSStatusProvider interface {
 	LastPublishTime() time.Time
 	// LastSubscribeTime returns the time of the last successful subscribe
 	LastSubscribeTime() time.Time
+}
+
+// NATSController provides control operations for NATS.
+type NATSController interface {
+	// RestartEmbedded restarts the embedded NATS server (returns error if not embedded mode)
+	RestartEmbedded(ctx context.Context) error
+	// Reconnect forces a reconnection to NATS servers
+	Reconnect(ctx context.Context) error
+	// Drain gracefully drains all connections before disconnect
+	Drain(ctx context.Context) error
+	// Failover switches to backup NATS servers
+	Failover(ctx context.Context, targetURLs []string) error
+	// IsEmbedded returns true if running in embedded NATS mode
+	IsEmbedded() bool
+}
+
+// StatePropagator handles propagation of state changes to local storage.
+// The data parameter contains serialized state that includes entity identifiers.
+type StatePropagator interface {
+	// PropagateAgentRegister handles agent registration propagation
+	// data contains serialized agent registration info including agent ID
+	PropagateAgentRegister(ctx context.Context, data []byte) error
+	// PropagateAgentHeartbeat handles agent heartbeat propagation
+	// data contains serialized heartbeat info including agent ID
+	PropagateAgentHeartbeat(ctx context.Context, data []byte) error
+	// PropagateAgentDisconnect handles agent disconnect propagation
+	// data contains serialized disconnect info including agent ID
+	PropagateAgentDisconnect(ctx context.Context, data []byte) error
+	// PropagateCommandResult handles command result propagation
+	// data contains serialized command result including command ID
+	PropagateCommandResult(ctx context.Context, data []byte) error
+	// PropagateMembershipChange handles membership change propagation
+	// data contains serialized membership change including member ID
+	PropagateMembershipChange(ctx context.Context, data []byte) error
 }
 
 // CoordinationServerConfig holds configuration for the coordination server.
@@ -86,9 +132,20 @@ func NewCoordinationServer(
 		health:        health,
 		leader:        leader,
 		nats:          nats,
+		stateVersions: make(map[string]int64),
 		recoveryState: pb.RecoveryState_RECOVERY_STATE_IDLE,
 		startTime:     time.Now(),
 	}, nil
+}
+
+// SetNATSController sets the NATS controller for recovery operations.
+func (s *CoordinationServer) SetNATSController(controller NATSController) {
+	s.natsController = controller
+}
+
+// SetStatePropagator sets the state propagator for state synchronization.
+func (s *CoordinationServer) SetStatePropagator(propagator StatePropagator) {
+	s.statePropagator = propagator
 }
 
 // Register registers the coordination service with a gRPC server.
@@ -253,24 +310,49 @@ func (s *CoordinationServer) RecoveryCoordinate(ctx context.Context, req *pb.Rec
 	// Process the recovery action
 	switch req.Action {
 	case pb.RecoveryAction_RECOVERY_ACTION_RESTART_EMBEDDED:
-		// TODO: Implement embedded NATS restart
+		if err := s.executeRestartEmbedded(ctx); err != nil {
+			resp.Accepted = false
+			resp.State = pb.RecoveryState_RECOVERY_STATE_FAILED
+			resp.Error = err.Error()
+			return resp, nil
+		}
 		resp.Accepted = true
-		resp.State = pb.RecoveryState_RECOVERY_STATE_IN_PROGRESS
+		resp.State = pb.RecoveryState_RECOVERY_STATE_IDLE
 
 	case pb.RecoveryAction_RECOVERY_ACTION_RECONNECT:
-		// TODO: Implement NATS reconnection
+		if err := s.executeReconnect(ctx); err != nil {
+			resp.Accepted = false
+			resp.State = pb.RecoveryState_RECOVERY_STATE_FAILED
+			resp.Error = err.Error()
+			return resp, nil
+		}
 		resp.Accepted = true
-		resp.State = pb.RecoveryState_RECOVERY_STATE_IN_PROGRESS
+		resp.State = pb.RecoveryState_RECOVERY_STATE_IDLE
 
 	case pb.RecoveryAction_RECOVERY_ACTION_FAILOVER:
-		// TODO: Implement NATS failover
+		// Extract target URLs from parameters (comma-separated list)
+		var targetURLs []string
+		if urlsStr, ok := req.Parameters["target_urls"]; ok && urlsStr != "" {
+			targetURLs = strings.Split(urlsStr, ",")
+		}
+		if err := s.executeFailover(ctx, targetURLs); err != nil {
+			resp.Accepted = false
+			resp.State = pb.RecoveryState_RECOVERY_STATE_FAILED
+			resp.Error = err.Error()
+			return resp, nil
+		}
 		resp.Accepted = true
-		resp.State = pb.RecoveryState_RECOVERY_STATE_IN_PROGRESS
+		resp.State = pb.RecoveryState_RECOVERY_STATE_IDLE
 
 	case pb.RecoveryAction_RECOVERY_ACTION_DRAIN:
-		// TODO: Implement connection draining
+		if err := s.executeDrain(ctx); err != nil {
+			resp.Accepted = false
+			resp.State = pb.RecoveryState_RECOVERY_STATE_FAILED
+			resp.Error = err.Error()
+			return resp, nil
+		}
 		resp.Accepted = true
-		resp.State = pb.RecoveryState_RECOVERY_STATE_IN_PROGRESS
+		resp.State = pb.RecoveryState_RECOVERY_STATE_IDLE
 
 	case pb.RecoveryAction_RECOVERY_ACTION_PAUSE:
 		s.recoveryMu.Lock()
@@ -284,7 +366,124 @@ func (s *CoordinationServer) RecoveryCoordinate(ctx context.Context, req *pb.Rec
 		resp.Error = fmt.Sprintf("unknown recovery action: %v", req.Action)
 	}
 
+	// Update metrics
+	s.metricsLock.Lock()
+	s.recoveryCount++
+	s.metricsLock.Unlock()
+
 	return resp, nil
+}
+
+// executeRestartEmbedded restarts the embedded NATS server.
+func (s *CoordinationServer) executeRestartEmbedded(ctx context.Context) error {
+	if s.natsController == nil {
+		return fmt.Errorf("NATS controller not configured")
+	}
+
+	if !s.natsController.IsEmbedded() {
+		return fmt.Errorf("not running in embedded NATS mode")
+	}
+
+	s.recoveryMu.Lock()
+	s.recoveryState = pb.RecoveryState_RECOVERY_STATE_IN_PROGRESS
+	s.recoveryMu.Unlock()
+
+	defer func() {
+		s.recoveryMu.Lock()
+		s.recoveryState = pb.RecoveryState_RECOVERY_STATE_IDLE
+		s.recoveryMu.Unlock()
+	}()
+
+	if err := s.natsController.RestartEmbedded(ctx); err != nil {
+		s.recoveryMu.Lock()
+		s.recoveryState = pb.RecoveryState_RECOVERY_STATE_FAILED
+		s.recoveryMu.Unlock()
+		return fmt.Errorf("failed to restart embedded NATS: %w", err)
+	}
+
+	return nil
+}
+
+// executeReconnect forces a reconnection to NATS servers.
+func (s *CoordinationServer) executeReconnect(ctx context.Context) error {
+	if s.natsController == nil {
+		return fmt.Errorf("NATS controller not configured")
+	}
+
+	s.recoveryMu.Lock()
+	s.recoveryState = pb.RecoveryState_RECOVERY_STATE_IN_PROGRESS
+	s.recoveryMu.Unlock()
+
+	defer func() {
+		s.recoveryMu.Lock()
+		s.recoveryState = pb.RecoveryState_RECOVERY_STATE_IDLE
+		s.recoveryMu.Unlock()
+	}()
+
+	if err := s.natsController.Reconnect(ctx); err != nil {
+		s.recoveryMu.Lock()
+		s.recoveryState = pb.RecoveryState_RECOVERY_STATE_FAILED
+		s.recoveryMu.Unlock()
+		return fmt.Errorf("failed to reconnect to NATS: %w", err)
+	}
+
+	return nil
+}
+
+// executeFailover switches to backup NATS servers.
+func (s *CoordinationServer) executeFailover(ctx context.Context, targetURLs []string) error {
+	if s.natsController == nil {
+		return fmt.Errorf("NATS controller not configured")
+	}
+
+	if len(targetURLs) == 0 {
+		return fmt.Errorf("no target URLs provided for failover")
+	}
+
+	s.recoveryMu.Lock()
+	s.recoveryState = pb.RecoveryState_RECOVERY_STATE_IN_PROGRESS
+	s.recoveryMu.Unlock()
+
+	defer func() {
+		s.recoveryMu.Lock()
+		s.recoveryState = pb.RecoveryState_RECOVERY_STATE_IDLE
+		s.recoveryMu.Unlock()
+	}()
+
+	if err := s.natsController.Failover(ctx, targetURLs); err != nil {
+		s.recoveryMu.Lock()
+		s.recoveryState = pb.RecoveryState_RECOVERY_STATE_FAILED
+		s.recoveryMu.Unlock()
+		return fmt.Errorf("failed to failover to target NATS servers: %w", err)
+	}
+
+	return nil
+}
+
+// executeDrain gracefully drains all NATS connections.
+func (s *CoordinationServer) executeDrain(ctx context.Context) error {
+	if s.natsController == nil {
+		return fmt.Errorf("NATS controller not configured")
+	}
+
+	s.recoveryMu.Lock()
+	s.recoveryState = pb.RecoveryState_RECOVERY_STATE_IN_PROGRESS
+	s.recoveryMu.Unlock()
+
+	defer func() {
+		s.recoveryMu.Lock()
+		s.recoveryState = pb.RecoveryState_RECOVERY_STATE_IDLE
+		s.recoveryMu.Unlock()
+	}()
+
+	if err := s.natsController.Drain(ctx); err != nil {
+		s.recoveryMu.Lock()
+		s.recoveryState = pb.RecoveryState_RECOVERY_STATE_FAILED
+		s.recoveryMu.Unlock()
+		return fmt.Errorf("failed to drain NATS connections: %w", err)
+	}
+
+	return nil
 }
 
 // Heartbeat performs a lightweight liveness check between servers.
@@ -324,39 +523,134 @@ func (s *CoordinationServer) PropagateState(ctx context.Context, req *pb.Propaga
 		Timestamp: timestamppb.Now(),
 	}
 
+	// Check version to avoid applying stale updates
+	if !s.shouldApplyUpdate(req.UpdateType.String(), req.Version) {
+		resp.Applied = false
+		resp.Error = "stale update: version too old"
+		resp.CurrentVersion = s.getCurrentVersion(req.UpdateType.String())
+		return resp, nil
+	}
+
 	// Process the state update based on type
+	var err error
 	switch req.UpdateType {
 	case pb.StateUpdateType_STATE_UPDATE_TYPE_AGENT_REGISTER:
-		// TODO: Handle agent registration state propagation
-		resp.Applied = true
-		resp.CurrentVersion = req.Version
+		err = s.propagateAgentRegister(ctx, req.StateData)
 
 	case pb.StateUpdateType_STATE_UPDATE_TYPE_AGENT_HEARTBEAT:
-		// TODO: Handle agent heartbeat state propagation
-		resp.Applied = true
-		resp.CurrentVersion = req.Version
+		err = s.propagateAgentHeartbeat(ctx, req.StateData)
 
 	case pb.StateUpdateType_STATE_UPDATE_TYPE_AGENT_DISCONNECT:
-		// TODO: Handle agent disconnect state propagation
-		resp.Applied = true
-		resp.CurrentVersion = req.Version
+		err = s.propagateAgentDisconnect(ctx, req.StateData)
 
 	case pb.StateUpdateType_STATE_UPDATE_TYPE_COMMAND_RESULT:
-		// TODO: Handle command result state propagation
-		resp.Applied = true
-		resp.CurrentVersion = req.Version
+		err = s.propagateCommandResult(ctx, req.StateData)
 
 	case pb.StateUpdateType_STATE_UPDATE_TYPE_MEMBERSHIP_CHANGE:
-		// TODO: Handle membership change state propagation
-		resp.Applied = true
-		resp.CurrentVersion = req.Version
+		err = s.propagateMembershipChange(ctx, req.StateData)
 
 	default:
 		resp.Applied = false
 		resp.Error = fmt.Sprintf("unknown state update type: %v", req.UpdateType)
+		return resp, nil
 	}
 
+	// Update metrics
+	s.metricsLock.Lock()
+	s.propagationCount++
+	if err != nil {
+		s.propagationErrors++
+	}
+	s.metricsLock.Unlock()
+
+	if err != nil {
+		resp.Applied = false
+		resp.Error = err.Error()
+		resp.CurrentVersion = s.getCurrentVersion(req.UpdateType.String())
+		return resp, nil
+	}
+
+	// Update version tracking
+	s.updateVersion(req.UpdateType.String(), req.Version)
+
+	resp.Applied = true
+	resp.CurrentVersion = req.Version
 	return resp, nil
+}
+
+// shouldApplyUpdate checks if an update should be applied based on version.
+func (s *CoordinationServer) shouldApplyUpdate(updateType string, version int64) bool {
+	s.stateVersionMu.RLock()
+	defer s.stateVersionMu.RUnlock()
+
+	currentVersion, exists := s.stateVersions[updateType]
+	if !exists {
+		return true // First update of this type
+	}
+
+	return version > currentVersion
+}
+
+// getCurrentVersion returns the current version for a state type.
+func (s *CoordinationServer) getCurrentVersion(updateType string) int64 {
+	s.stateVersionMu.RLock()
+	defer s.stateVersionMu.RUnlock()
+	return s.stateVersions[updateType]
+}
+
+// updateVersion updates the version for a state type.
+func (s *CoordinationServer) updateVersion(updateType string, version int64) {
+	s.stateVersionMu.Lock()
+	defer s.stateVersionMu.Unlock()
+	if s.stateVersions == nil {
+		s.stateVersions = make(map[string]int64)
+	}
+	s.stateVersions[updateType] = version
+}
+
+// propagateAgentRegister handles agent registration propagation.
+func (s *CoordinationServer) propagateAgentRegister(ctx context.Context, data []byte) error {
+	if s.statePropagator == nil {
+		// No propagator configured - just accept the update
+		return nil
+	}
+	return s.statePropagator.PropagateAgentRegister(ctx, data)
+}
+
+// propagateAgentHeartbeat handles agent heartbeat propagation.
+func (s *CoordinationServer) propagateAgentHeartbeat(ctx context.Context, data []byte) error {
+	if s.statePropagator == nil {
+		// No propagator configured - just accept the update
+		return nil
+	}
+	return s.statePropagator.PropagateAgentHeartbeat(ctx, data)
+}
+
+// propagateAgentDisconnect handles agent disconnect propagation.
+func (s *CoordinationServer) propagateAgentDisconnect(ctx context.Context, data []byte) error {
+	if s.statePropagator == nil {
+		// No propagator configured - just accept the update
+		return nil
+	}
+	return s.statePropagator.PropagateAgentDisconnect(ctx, data)
+}
+
+// propagateCommandResult handles command result propagation.
+func (s *CoordinationServer) propagateCommandResult(ctx context.Context, data []byte) error {
+	if s.statePropagator == nil {
+		// No propagator configured - just accept the update
+		return nil
+	}
+	return s.statePropagator.PropagateCommandResult(ctx, data)
+}
+
+// propagateMembershipChange handles membership change propagation.
+func (s *CoordinationServer) propagateMembershipChange(ctx context.Context, data []byte) error {
+	if s.statePropagator == nil {
+		// No propagator configured - just accept the update
+		return nil
+	}
+	return s.statePropagator.PropagateMembershipChange(ctx, data)
 }
 
 // getNATSClusterStatus builds the NATS cluster status response.

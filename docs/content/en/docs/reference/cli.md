@@ -1058,7 +1058,7 @@ kscorectl module publish <path> [flags]
 ```
 
 **Flags**:
-- `--registry string`: Registry URL (default: KSCORE_REGISTRY env or https://registry.keystone-core.io)
+- `--registry string`: Registry URL (default: KSCORE_REGISTRY env or https://registry.keystonecore.io)
 - `--token string`: Authentication token (or KSCORE_REGISTRY_TOKEN env)
 - `--username string`: Username for basic auth (or KSCORE_REGISTRY_USERNAME env)
 - `--password string`: Password for basic auth (or KSCORE_REGISTRY_PASSWORD env)
@@ -1100,7 +1100,7 @@ Type: starlark
 
 SHA256: sha256:f28f3dbe8066d05fff31e9ef18f7655b...
 
-Registry: https://registry.keystone-core.io
+Registry: https://registry.keystonecore.io
 
 === Dry Run ===
 ✓ Module file exists
@@ -1122,7 +1122,7 @@ Type: starlark
 
 SHA256: sha256:f28f3dbe8066d05fff31e9ef18f7655b...
 
-Registry: https://registry.keystone-core.io
+Registry: https://registry.keystonecore.io
 
 Publishing module... done
 
@@ -1130,7 +1130,7 @@ Publishing module... done
 Module: myorg/my-module@1.0.0
 Hash: sha256:f28f3dbe8066d05fff31e9ef18f7655b...
 Size: 1.3 KB
-URL: https://registry.keystone-core.io/myorg/my-module/@v/1.0.0.zip
+URL: https://registry.keystonecore.io/myorg/my-module/@v/1.0.0.zip
 Signature: ✓ verified
 Published: 2024-01-15 10:30:45
 
@@ -1150,7 +1150,7 @@ kscorectl module sign my-module-1.0.0.zip --generate-key ed25519
 kscorectl module publish my-module-1.0.0.zip --signature my-module-1.0.0.zip.sig
 ```
 
-**Note**: Publishing requires a running module registry. The default registry (registry.keystone-core.io) is a placeholder - use `--registry` to specify your own registry instance.
+**Note**: Publishing requires a running module registry. The default registry (registry.keystonecore.io) is a placeholder - use `--registry` to specify your own registry instance.
 
 ### module install
 
@@ -1161,7 +1161,7 @@ kscorectl module install <module[@version]> [modules...] [flags]
 ```
 
 **Flags**:
-- `--registry string`: Registry URL (defaults to KSCORE_REGISTRY env var or https://registry.keystone-core.io)
+- `--registry string`: Registry URL (defaults to KSCORE_REGISTRY env var or https://registry.keystonecore.io)
 - `--token string`: Authentication token (can also use KSCORE_REGISTRY_TOKEN)
 - `--username string`: Username for basic auth (can also use KSCORE_REGISTRY_USERNAME)
 - `--password string`: Password for basic auth (can also use KSCORE_REGISTRY_PASSWORD)
@@ -1205,7 +1205,7 @@ kscorectl module install myorg/webserver --registry https://registry.example.com
 
 **Output**:
 ```
-Registry: https://registry.keystone-core.io
+Registry: https://registry.keystonecore.io
 Cache: /Users/user/.kscore/modules
 Modules: modules
 
@@ -1224,7 +1224,7 @@ Installed: 1
 ✓ Installation complete!
 ```
 
-**Note**: Installing requires a running module registry. The default registry (registry.keystone-core.io) is a placeholder - use `--registry` to specify your own registry instance.
+**Note**: Installing requires a running module registry. The default registry (registry.keystonecore.io) is a placeholder - use `--registry` to specify your own registry instance.
 
 ## kscore-policy (Policy Management)
 
@@ -1854,6 +1854,230 @@ promo-001    promotion    completed    myapp: staging → production    2024-01-
 verify-001   verification passed       post-deploy-checks             2024-01-15 05:00:45  30s
 
 Total: 3 operations
+```
+
+## kscore-cluster (Cluster Management)
+
+Manage high-availability cluster operations. Only available when running in HA cluster mode.
+
+### cluster status
+
+Display cluster status and health.
+
+```bash
+kscorectl cluster status [flags]
+```
+
+**Flags**:
+- `-o, --output string`: Output format (table, json, yaml) (default: table)
+- `-w, --watch`: Watch for changes
+
+**Output**:
+```
+Cluster: kscore-prod
+Status:  healthy
+Quorum:  yes (2/3)
+Leader:  server-1
+
+MEMBER     STATUS    AGENTS  LAST HEARTBEAT
+server-1   healthy   50      2024-01-15T10:30:45Z (leader)
+server-2   healthy   48      2024-01-15T10:30:44Z
+server-3   healthy   52      2024-01-15T10:30:45Z
+```
+
+### cluster members
+
+List cluster members with details.
+
+```bash
+kscorectl cluster members [flags]
+```
+
+**Flags**:
+- `-o, --output string`: Output format (table, json, yaml)
+- `--filter string`: Filter members by status (healthy, degraded, unhealthy)
+
+**Example**:
+```bash
+kscorectl cluster members --output json
+```
+
+### cluster leader
+
+Show current cluster leader.
+
+```bash
+kscorectl cluster leader
+```
+
+**Output**:
+```
+Leader: server-1
+Address: 192.168.1.10:5000
+Elected: 2024-01-14T08:00:00Z (1d 2h 30m ago)
+```
+
+### cluster health
+
+Perform cluster health check.
+
+```bash
+kscorectl cluster health [flags]
+```
+
+**Flags**:
+- `-v, --verbose`: Show detailed health information
+
+**Output**:
+```
+Cluster Health: HEALTHY
+
+✓ Quorum established (3/3 members healthy)
+✓ Leader elected (server-1)
+✓ etcd connectivity OK
+✓ NATS cluster connected
+✓ All agents assigned
+
+Total agents: 150
+Agent distribution: server-1=50, server-2=48, server-3=52
+```
+
+### cluster backup
+
+Create cluster state backup.
+
+```bash
+kscorectl cluster backup [flags]
+```
+
+**Flags**:
+- `-o, --output string`: Output file path (default: stdout)
+- `--format string`: Output format (json, yaml) (default: json)
+
+**Examples**:
+```bash
+# Backup to stdout
+kscorectl cluster backup
+
+# Backup to file
+kscorectl cluster backup -o /var/backups/kscore/cluster-backup.json
+
+# Backup in YAML format
+kscorectl cluster backup --format yaml -o cluster-backup.yaml
+```
+
+**Output** (JSON):
+```json
+{
+  "version": "1.0",
+  "timestamp": "2024-01-15T10:30:45Z",
+  "cluster": {
+    "name": "kscore-prod",
+    "quorum_size": 2,
+    "leader_id": "server-1",
+    "members": [...]
+  },
+  "shards": [...],
+  "config": {...}
+}
+```
+
+### cluster restore
+
+Restore cluster state from backup.
+
+```bash
+kscorectl cluster restore <backup-file> [flags]
+```
+
+**Flags**:
+- `--force`: Override safety checks
+- `--shards-only`: Restore only shard assignments
+- `--config-only`: Restore only configuration
+- `--dry-run`: Show what would be restored without making changes
+
+**Examples**:
+```bash
+# Basic restore
+kscorectl cluster restore cluster-backup.json
+
+# Force restore on healthy cluster
+kscorectl cluster restore cluster-backup.json --force
+
+# Dry run to preview changes
+kscorectl cluster restore cluster-backup.json --dry-run
+
+# Restore only configuration
+kscorectl cluster restore cluster-backup.json --config-only
+```
+
+**Output**:
+```
+Restoring cluster state from cluster-backup.json...
+
+Backup Info:
+  Version:   1.0
+  Timestamp: 2024-01-15T10:30:45Z
+  Cluster:   kscore-prod
+
+Restore Summary:
+  Shards restored:  150
+  Config restored:  5
+
+Warnings:
+  - Agent web-05 assigned to unavailable member server-3, reassigned to server-1
+
+Cluster restore completed successfully.
+```
+
+### cluster rebalance
+
+Trigger agent rebalancing across cluster members.
+
+```bash
+kscorectl cluster rebalance [flags]
+```
+
+**Flags**:
+- `--dry-run`: Show what would change without making changes
+- `--target string`: Target member to rebalance from
+
+**Output**:
+```
+Rebalancing agents across cluster members...
+
+Before:
+  server-1: 80 agents
+  server-2: 40 agents
+  server-3: 30 agents
+
+After:
+  server-1: 50 agents
+  server-2: 50 agents
+  server-3: 50 agents
+
+Agents moved: 15
+Rebalance completed successfully.
+```
+
+### cluster remove
+
+Remove an unhealthy member from the cluster.
+
+```bash
+kscorectl cluster remove <member-id> [flags]
+```
+
+**Flags**:
+- `--force`: Force removal without reassigning agents first
+
+**Example**:
+```bash
+# Remove unhealthy member (agents will be reassigned)
+kscorectl cluster remove server-3
+
+# Force remove without waiting for reassignment
+kscorectl cluster remove server-3 --force
 ```
 
 ## kscore-migrate (Database Migration)

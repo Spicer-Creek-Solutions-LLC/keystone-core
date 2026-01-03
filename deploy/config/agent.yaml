@@ -1,5 +1,5 @@
 # Keystone Core Agent Configuration
-# See https://docs.kscore.dev/docs/reference/configuration/ for full reference
+# See https://docs.keystonecore.io/docs/reference/configuration/ for full reference
 
 # Agent identification
 agent:

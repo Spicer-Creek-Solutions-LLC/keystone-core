@@ -44,7 +44,33 @@ func (s *ControlPlaneServer) GetPolicyEngine() *policy.PolicyEngine {
 
 // ListAgents lists all registered agents
 func (s *ControlPlaneServer) ListAgents(ctx context.Context, req *pb.ListAgentsRequest) (*pb.ListAgentsResponse, error) {
-	// Get agents from connection manager (live state)
+	// In HA mode, query the database for a complete view of all agents
+	// across all control plane servers (they share the same database)
+	if s.store != nil {
+		filter := &state.AgentFilter{
+			Limit: int(req.PageSize),
+		}
+		if req.Status != pb.AgentStatus_AGENT_STATUS_UNSPECIFIED {
+			filter.Status = &req.Status
+		}
+
+		agents, err := s.store.ListAgents(ctx, filter)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list agents from store: %w", err)
+		}
+
+		pbAgents := make([]*pb.AgentInfo, 0, len(agents))
+		for _, agent := range agents {
+			pbAgents = append(pbAgents, convertAgentRecordToProto(agent))
+		}
+
+		return &pb.ListAgentsResponse{
+			Agents:     pbAgents,
+			TotalCount: int32(len(pbAgents)),
+		}, nil
+	}
+
+	// Fallback to connection manager (in-memory) if no store is configured
 	agents := s.connMgr.ListAgents()
 
 	// Filter by status if specified
@@ -80,6 +106,19 @@ func (s *ControlPlaneServer) ListAgents(ctx context.Context, req *pb.ListAgentsR
 
 // GetAgent retrieves information about a specific agent
 func (s *ControlPlaneServer) GetAgent(ctx context.Context, req *pb.GetAgentRequest) (*pb.GetAgentResponse, error) {
+	// In HA mode, query the database for agent info (shared across all servers)
+	if s.store != nil {
+		agent, err := s.store.GetAgent(ctx, req.AgentId)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get agent: %w", err)
+		}
+
+		return &pb.GetAgentResponse{
+			Agent: convertAgentRecordToProto(agent),
+		}, nil
+	}
+
+	// Fallback to connection manager (in-memory) if no store is configured
 	agent, err := s.connMgr.GetAgent(req.AgentId)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent: %w", err)

@@ -1,5 +1,5 @@
 # Keystone Core Server Configuration
-# See https://docs.kscore.dev/docs/reference/configuration/ for full reference
+# See https://docs.keystonecore.io/docs/reference/configuration/ for full reference
 
 # Server settings
 server:

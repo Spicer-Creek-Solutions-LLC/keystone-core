@@ -35,5 +35,8 @@ cluster:
   electiontimeout: 15s
   leasettl: 30
 
+auth:
+  enabled: false
+
 tls:
   enabled: false

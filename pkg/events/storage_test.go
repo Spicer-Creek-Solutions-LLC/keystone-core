@@ -283,7 +283,9 @@ func TestEventStore_Query_Pagination(t *testing.T) {
 		events = append(events, NewEvent(EventTypeAgentConnect).Source("/test").Build())
 	}
 
-	store.StoreBatch(ctx, events)
+	if err := store.StoreBatch(ctx, events); err != nil {
+		t.Fatalf("StoreBatch failed: %v", err)
+	}
 
 	// Get first page (5 events)
 	query := NewEventQuery().WithPagination(5, 0)

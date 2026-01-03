@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kscore-system
+  labels:
+    app.kubernetes.io/name: keystone-core
+    app.kubernetes.io/component: system

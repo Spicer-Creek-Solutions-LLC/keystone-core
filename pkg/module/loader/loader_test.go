@@ -243,19 +243,67 @@ func TestModuleLoader_CreateCapability(t *testing.T) {
 
 func TestParseMemoryLimit(t *testing.T) {
 	tests := []struct {
+		name     string
 		input    string
 		expected uint64
 	}{
-		{"", 64 * 1024 * 1024},      // default
-		{"10MB", 64 * 1024 * 1024},  // TODO: implement parsing
-		{"100MB", 64 * 1024 * 1024}, // TODO: implement parsing
+		// Default cases
+		{"empty string", "", 64 * 1024 * 1024},
+		{"whitespace only", "   ", 64 * 1024 * 1024},
+
+		// Plain bytes
+		{"plain bytes", "1048576", 1048576},
+		{"plain bytes float", "1.5", 1},
+
+		// Decimal units (KB, MB, GB, TB)
+		{"10KB decimal", "10KB", 10 * 1000},
+		{"10MB decimal", "10MB", 10 * 1000 * 1000},
+		{"100MB decimal", "100MB", 100 * 1000 * 1000},
+		{"1GB decimal", "1GB", 1000 * 1000 * 1000},
+		{"1TB decimal", "1TB", 1000 * 1000 * 1000 * 1000},
+
+		// Binary units (Ki, Mi, Gi, Ti) - Kubernetes style
+		{"64Mi binary", "64Mi", 64 * 1024 * 1024},
+		{"128Mi binary", "128Mi", 128 * 1024 * 1024},
+		{"1Gi binary", "1Gi", 1024 * 1024 * 1024},
+		{"2Gi binary", "2Gi", 2 * 1024 * 1024 * 1024},
+		{"512Ki binary", "512Ki", 512 * 1024},
+
+		// Binary units (KiB, MiB, GiB, TiB)
+		{"64MiB binary", "64MiB", 64 * 1024 * 1024},
+		{"1GiB binary", "1GiB", 1024 * 1024 * 1024},
+
+		// Short binary units (K, M, G, T)
+		{"64M short", "64M", 64 * 1024 * 1024},
+		{"1G short", "1G", 1024 * 1024 * 1024},
+
+		// Case insensitivity
+		{"lowercase mb", "10mb", 10 * 1000 * 1000},
+		{"lowercase mi", "64mi", 64 * 1024 * 1024},
+		{"lowercase gi", "1gi", 1024 * 1024 * 1024},
+
+		// With whitespace
+		{"with leading space", " 64Mi", 64 * 1024 * 1024},
+		{"with trailing space", "64Mi ", 64 * 1024 * 1024},
+		{"with space between", "64 Mi", 64 * 1024 * 1024},
+
+		// Floating point values
+		{"1.5Gi float", "1.5Gi", uint64(1.5 * 1024 * 1024 * 1024)},
+		{"0.5GB float", "0.5GB", uint64(0.5 * 1000 * 1000 * 1000)},
+
+		// Invalid inputs (should return default)
+		{"invalid suffix", "10XB", 64 * 1024 * 1024},
+		{"no number", "MB", 64 * 1024 * 1024},
+		{"negative", "-10MB", 64 * 1024 * 1024},
 	}
 
 	for _, tt := range tests {
-		result := parseMemoryLimit(tt.input)
-		if result != tt.expected {
-			t.Errorf("parseMemoryLimit(%q) = %d, want %d", tt.input, result, tt.expected)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			result := parseMemoryLimit(tt.input)
+			if result != tt.expected {
+				t.Errorf("parseMemoryLimit(%q) = %d, want %d", tt.input, result, tt.expected)
+			}
+		})
 	}
 }
 

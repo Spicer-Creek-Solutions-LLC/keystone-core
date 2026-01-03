@@ -1,0 +1,18 @@
+{{- if .Values.telemetry.prometheus.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kscore-agent.fullname" . }}
+  labels:
+    {{- include "kscore-agent.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - port: {{ .Values.telemetry.prometheus.port }}
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+  selector:
+    {{- include "kscore-agent.selectorLabels" . | nindent 4 }}
+{{- end }}

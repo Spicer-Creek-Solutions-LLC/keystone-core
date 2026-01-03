@@ -1,4 +1,4 @@
-baseURL = "https://docs.kscore.dev/"
+baseURL = "https://docs.keystonecore.io/"
 title = "Keystone Core Documentation"
 theme = "docsy"
 publishDir = "../build/docs"

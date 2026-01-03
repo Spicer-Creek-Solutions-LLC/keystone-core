@@ -22,7 +22,7 @@ Before reaching out for help, please:
 
 | Resource | Purpose | Link |
 |----------|---------|------|
-| Documentation | User guides and reference | [docs.kscore.dev](/) |
+| Documentation | User guides and reference | [docs.keystonecore.io](/) |
 | GitHub Issues | Bug reports and feature requests | [github.com/shawnbutts/keystone-core/issues](https://github.com/shawnbutts/keystone-core/issues) |
 | GitHub Discussions | Q&A and community discussions | [github.com/shawnbutts/keystone-core/discussions](https://github.com/shawnbutts/keystone-core/discussions) |
 | Discord | Real-time community chat | [discord.gg/kscore](https://discord.gg/kscore) |
@@ -220,7 +220,7 @@ Have an idea? Request it on GitHub:
 
 For security issues, please:
 
-1. **Email**: security@kscore.dev
+1. **Email**: security@keystonecore.io
 2. **Include**: Detailed description, reproduction steps, impact assessment
 3. **Wait**: We'll respond within 48 hours
 
@@ -330,7 +330,7 @@ For organizations requiring guaranteed support SLAs:
 - **Training**: Custom training sessions for your team
 - **Custom development**: Feature prioritization and custom integrations
 
-**Contact**: enterprise@kscore.dev
+**Contact**: enterprise@keystonecore.io
 
 ### Professional Services
 
@@ -344,7 +344,7 @@ Available professional services:
 | **Performance Tuning** | Optimize for your scale and workload |
 | **Training Workshops** | On-site or virtual training sessions |
 
-**Contact**: services@kscore.dev
+**Contact**: services@keystonecore.io
 
 ---
 
@@ -387,7 +387,7 @@ You can contribute by helping others:
 1. **Answer questions** on GitHub Discussions
 2. **Respond to issues** with solutions you've found
 3. **Improve documentation** based on common questions
-4. **Write blog posts** about solving specific problems
+4. **Share knowledge** by writing articles about solving specific problems
 
 ### Become a Community Expert
 
@@ -426,6 +426,6 @@ Share your experience:
 | GitHub Discussions | Community Q&A | 1-3 days |
 | Discord | Real-time chat | Minutes to hours |
 | GitHub Issues | Bug reports, features | 1-5 days |
-| security@kscore.dev | Security issues | 48 hours |
-| enterprise@kscore.dev | Enterprise inquiries | 1 business day |
-| services@kscore.dev | Professional services | 1 business day |
+| security@keystonecore.io | Security issues | 48 hours |
+| enterprise@keystonecore.io | Enterprise inquiries | 1 business day |
+| services@keystonecore.io | Professional services | 1 business day |

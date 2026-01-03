@@ -1,0 +1,41 @@
+{{- if .Values.rbac.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "kscore-agent.fullname" . }}
+  labels:
+    {{- include "kscore-agent.labels" . | nindent 4 }}
+rules:
+  # Read-only access to nodes (for node metadata)
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  # Read-only access to pods (for container info)
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  # Read-only access to namespaces
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch"]
+  # Execute commands in pods (for Kubernetes state modules)
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]
+  # Read ConfigMaps and Secrets (for state modules)
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["get", "list", "watch"]
+  # Read Deployments, StatefulSets, DaemonSets (for status)
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "daemonsets", "replicasets"]
+    verbs: ["get", "list", "watch"]
+  # Read Services
+  - apiGroups: [""]
+    resources: ["services", "endpoints"]
+    verbs: ["get", "list", "watch"]
+  {{- with .Values.rbac.rules }}
+  # Additional custom rules
+  {{- toYaml . | nindent 2 }}
+  {{- end }}
+{{- end }}

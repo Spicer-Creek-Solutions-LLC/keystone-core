@@ -178,7 +178,8 @@ func (m *GroupModule) createGroup(ctx context.Context, decl *StateDeclaration, r
 		args = append(args, groupName)
 
 	} else if runtime.GOOS == "darwin" {
-		return fmt.Errorf("group creation on macOS requires dscl commands (not yet implemented)")
+		// macOS: use dscl (Directory Service command line)
+		return m.createGroupDarwin(ctx, decl, result)
 	} else {
 		return fmt.Errorf("group creation not supported on %s", runtime.GOOS)
 	}
@@ -199,6 +200,61 @@ func (m *GroupModule) createGroup(ctx context.Context, decl *StateDeclaration, r
 	}
 
 	result.Comment = fmt.Sprintf("Group %s created", groupName)
+	return nil
+}
+
+// createGroupDarwin creates a group on macOS using dscl
+func (m *GroupModule) createGroupDarwin(ctx context.Context, decl *StateDeclaration, result *StateResult) error {
+	groupName := decl.ID
+	groupPath := "/Groups/" + groupName
+
+	// Get or generate GID
+	gid := getIntParameter(decl, "gid", -1)
+	if gid < 0 {
+		// Find next available GID (start at 501 for regular groups)
+		var err error
+		gid, err = m.findNextAvailableGID(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to find available GID: %w", err)
+		}
+	}
+
+	// Get real name (defaults to group name)
+	realName := getStringParameter(decl, "description", groupName)
+
+	// Create group record
+	if err := m.dsclCreate(ctx, groupPath); err != nil {
+		return fmt.Errorf("failed to create group record: %w", err)
+	}
+
+	// Set group properties
+	properties := map[string]string{
+		"PrimaryGroupID": strconv.Itoa(gid),
+		"RealName":       realName,
+		"Password":       "*", // No password (standard for groups)
+	}
+
+	for prop, value := range properties {
+		if err := m.dsclCreateProperty(ctx, groupPath, prop, value); err != nil {
+			// Try to clean up on failure
+			_ = m.dsclDelete(ctx, groupPath)
+			return fmt.Errorf("failed to set %s: %w", prop, err)
+		}
+	}
+
+	// Add members if specified
+	if members := getStringSliceParameter(decl, "members"); members != nil && len(members) > 0 {
+		for _, member := range members {
+			if err := m.addUserToGroupDarwin(ctx, groupName, member); err != nil {
+				// Log but don't fail - user might not exist
+				result.Comment = fmt.Sprintf("Group %s created (warning: failed to add member %s: %v)", groupName, member, err)
+			}
+		}
+	}
+
+	if result.Comment == "" {
+		result.Comment = fmt.Sprintf("Group %s created", groupName)
+	}
 	return nil
 }
 
@@ -229,7 +285,8 @@ func (m *GroupModule) modifyGroup(ctx context.Context, decl *StateDeclaration, r
 		args = append(args, groupName)
 
 	} else if runtime.GOOS == "darwin" {
-		return fmt.Errorf("group modification on macOS requires dscl commands (not yet implemented)")
+		// macOS: use dscl
+		return m.modifyGroupDarwin(ctx, decl, result)
 	} else {
 		return fmt.Errorf("group modification not supported on %s", runtime.GOOS)
 	}
@@ -251,22 +308,62 @@ func (m *GroupModule) modifyGroup(ctx context.Context, decl *StateDeclaration, r
 	return nil
 }
 
+// modifyGroupDarwin modifies a group on macOS using dscl
+func (m *GroupModule) modifyGroupDarwin(ctx context.Context, decl *StateDeclaration, result *StateResult) error {
+	groupName := decl.ID
+	groupPath := "/Groups/" + groupName
+	var modified bool
+
+	// Update GID if specified
+	if gid := getIntParameter(decl, "gid", -1); gid >= 0 {
+		if err := m.dsclCreateProperty(ctx, groupPath, "PrimaryGroupID", strconv.Itoa(gid)); err != nil {
+			return fmt.Errorf("failed to set GID: %w", err)
+		}
+		modified = true
+	}
+
+	// Update description if specified
+	if desc := getStringParameter(decl, "description", ""); desc != "" {
+		if err := m.dsclCreateProperty(ctx, groupPath, "RealName", desc); err != nil {
+			return fmt.Errorf("failed to set description: %w", err)
+		}
+		modified = true
+	}
+
+	// Update members if specified
+	if members := getStringSliceParameter(decl, "members"); members != nil {
+		if err := m.updateGroupMembersDarwin(ctx, groupName, members); err != nil {
+			return err
+		}
+		modified = true
+	}
+
+	if !modified {
+		result.Comment = "No changes needed"
+	} else {
+		result.Comment = fmt.Sprintf("Group %s modified", groupName)
+	}
+	return nil
+}
+
 // deleteGroup deletes a group
 func (m *GroupModule) deleteGroup(ctx context.Context, decl *StateDeclaration, result *StateResult) error {
 	groupName := decl.ID
-	var cmd *exec.Cmd
 
 	if runtime.GOOS == "linux" || runtime.GOOS == "freebsd" {
-		cmd = exec.CommandContext(ctx, "groupdel", groupName)
+		cmd := exec.CommandContext(ctx, "groupdel", groupName)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("failed to delete group: %w (output: %s)", err, string(output))
+		}
 	} else if runtime.GOOS == "darwin" {
-		return fmt.Errorf("group deletion on macOS requires dscl commands (not yet implemented)")
+		// macOS: use dscl to delete group
+		groupPath := "/Groups/" + groupName
+		if err := m.dsclDelete(ctx, groupPath); err != nil {
+			return fmt.Errorf("failed to delete group: %w", err)
+		}
 	} else {
 		return fmt.Errorf("group deletion not supported on %s", runtime.GOOS)
-	}
-
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to delete group: %w (output: %s)", err, string(output))
 	}
 
 	result.Comment = fmt.Sprintf("Group %s deleted", groupName)
@@ -275,8 +372,12 @@ func (m *GroupModule) deleteGroup(ctx context.Context, decl *StateDeclaration, r
 
 // getGroupMembers gets the members of a group
 func (m *GroupModule) getGroupMembers(groupName string) ([]string, error) {
+	if runtime.GOOS == "darwin" {
+		return m.getGroupMembersDarwin(groupName)
+	}
+
 	if runtime.GOOS != "linux" && runtime.GOOS != "freebsd" {
-		return nil, fmt.Errorf("unsupported OS")
+		return nil, fmt.Errorf("unsupported OS: %s", runtime.GOOS)
 	}
 
 	cmd := exec.Command("getent", "group", groupName)
@@ -296,6 +397,43 @@ func (m *GroupModule) getGroupMembers(groupName string) ([]string, error) {
 	}
 
 	return nil, fmt.Errorf("failed to parse group entry")
+}
+
+// getGroupMembersDarwin gets the members of a group on macOS using dscl
+func (m *GroupModule) getGroupMembersDarwin(groupName string) ([]string, error) {
+	groupPath := "/Groups/" + groupName
+
+	// Read GroupMembership property
+	cmd := exec.Command("dscl", ".", "-read", groupPath, "GroupMembership")
+	output, err := cmd.Output()
+	if err != nil {
+		// GroupMembership might not exist if group has no members
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			// Exit code 185 means the key doesn't exist (no members)
+			if exitErr.ExitCode() != 0 {
+				return []string{}, nil
+			}
+		}
+		return nil, fmt.Errorf("failed to read group members: %w", err)
+	}
+
+	// Parse output: "GroupMembership: user1 user2 user3"
+	outputStr := strings.TrimSpace(string(output))
+	if outputStr == "" {
+		return []string{}, nil
+	}
+
+	// Split on first colon and take the rest
+	if idx := strings.Index(outputStr, ":"); idx >= 0 {
+		membersStr := strings.TrimSpace(outputStr[idx+1:])
+		if membersStr == "" {
+			return []string{}, nil
+		}
+		members := strings.Fields(membersStr)
+		return members, nil
+	}
+
+	return []string{}, nil
 }
 
 // updateGroupMembers updates the members of a group
@@ -354,6 +492,122 @@ func (m *GroupModule) removeUserFromGroup(ctx context.Context, groupName, userna
 	if err != nil {
 		return fmt.Errorf("failed to remove user from group: %w (output: %s)", err, string(output))
 	}
+	return nil
+}
+
+// dsclCreate creates a new record in Directory Services
+func (m *GroupModule) dsclCreate(ctx context.Context, path string) error {
+	cmd := exec.CommandContext(ctx, "dscl", ".", "-create", path)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("dscl create failed: %w (output: %s)", err, string(output))
+	}
+	return nil
+}
+
+// dsclCreateProperty sets a property on a Directory Services record
+func (m *GroupModule) dsclCreateProperty(ctx context.Context, path, property, value string) error {
+	cmd := exec.CommandContext(ctx, "dscl", ".", "-create", path, property, value)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("dscl create property failed: %w (output: %s)", err, string(output))
+	}
+	return nil
+}
+
+// dsclDelete deletes a record from Directory Services
+func (m *GroupModule) dsclDelete(ctx context.Context, path string) error {
+	cmd := exec.CommandContext(ctx, "dscl", ".", "-delete", path)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("dscl delete failed: %w (output: %s)", err, string(output))
+	}
+	return nil
+}
+
+// findNextAvailableGID finds the next available GID on macOS
+func (m *GroupModule) findNextAvailableGID(ctx context.Context) (int, error) {
+	// List all groups and find the highest GID >= 501
+	cmd := exec.CommandContext(ctx, "dscl", ".", "-list", "/Groups", "PrimaryGroupID")
+	output, err := cmd.Output()
+	if err != nil {
+		return 0, fmt.Errorf("failed to list groups: %w", err)
+	}
+
+	maxGID := 500 // Start at 500, so first available is 501
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		fields := strings.Fields(line)
+		if len(fields) >= 2 {
+			if gid, err := strconv.Atoi(fields[len(fields)-1]); err == nil {
+				if gid >= 501 && gid > maxGID {
+					maxGID = gid
+				}
+			}
+		}
+	}
+
+	return maxGID + 1, nil
+}
+
+// addUserToGroupDarwin adds a user to a group on macOS
+func (m *GroupModule) addUserToGroupDarwin(ctx context.Context, groupName, username string) error {
+	groupPath := "/Groups/" + groupName
+	cmd := exec.CommandContext(ctx, "dscl", ".", "-append", groupPath, "GroupMembership", username)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to add user to group: %w (output: %s)", err, string(output))
+	}
+	return nil
+}
+
+// removeUserFromGroupDarwin removes a user from a group on macOS
+func (m *GroupModule) removeUserFromGroupDarwin(ctx context.Context, groupName, username string) error {
+	groupPath := "/Groups/" + groupName
+	cmd := exec.CommandContext(ctx, "dscl", ".", "-delete", groupPath, "GroupMembership", username)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to remove user from group: %w (output: %s)", err, string(output))
+	}
+	return nil
+}
+
+// updateGroupMembersDarwin updates the members of a group on macOS
+func (m *GroupModule) updateGroupMembersDarwin(ctx context.Context, groupName string, desiredMembers []string) error {
+	currentMembers, err := m.getGroupMembersDarwin(groupName)
+	if err != nil {
+		return err
+	}
+
+	// Determine which members to add and remove
+	currentMap := make(map[string]bool)
+	for _, member := range currentMembers {
+		currentMap[member] = true
+	}
+
+	desiredMap := make(map[string]bool)
+	for _, member := range desiredMembers {
+		desiredMap[member] = true
+	}
+
+	// Add missing members
+	for _, member := range desiredMembers {
+		if !currentMap[member] {
+			if err := m.addUserToGroupDarwin(ctx, groupName, member); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Remove extra members
+	for _, member := range currentMembers {
+		if !desiredMap[member] {
+			if err := m.removeUserFromGroupDarwin(ctx, groupName, member); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 

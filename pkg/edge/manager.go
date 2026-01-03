@@ -5,6 +5,8 @@ import (
 	"runtime"
 	"sync"
 	"time"
+
+	"github.com/shirou/gopsutil/v3/cpu"
 )
 
 // DefaultManager implements the Manager interface
@@ -18,6 +20,11 @@ type DefaultManager struct {
 	lastConnected     time.Time
 	reconnectAttempts int
 	startTime         time.Time
+
+	// CPU tracking
+	lastCPUPercent float64
+	lastCPUUpdate  time.Time
+	cpuMu          sync.RWMutex
 }
 
 // NewManager creates a new edge manager
@@ -64,6 +71,37 @@ func (m *DefaultManager) SetMode(mode OperationMode) error {
 	return nil
 }
 
+// getCPUUsage returns the current CPU usage percentage.
+// If the cached value is recent (within 5 seconds), it returns the cached value.
+// Otherwise, it performs a quick non-blocking check using gopsutil.
+func (m *DefaultManager) getCPUUsage() float64 {
+	m.cpuMu.RLock()
+	// If we have a recent CPU measurement, use it
+	if time.Since(m.lastCPUUpdate) < 5*time.Second && m.lastCPUPercent > 0 {
+		cpu := m.lastCPUPercent
+		m.cpuMu.RUnlock()
+		return cpu
+	}
+	m.cpuMu.RUnlock()
+
+	// Get CPU usage with a short sampling interval (100ms)
+	// This blocks briefly but provides accurate data
+	percents, err := cpu.Percent(100*time.Millisecond, false)
+	if err != nil || len(percents) == 0 {
+		return 0
+	}
+
+	cpuPercent := percents[0]
+
+	// Cache the result
+	m.cpuMu.Lock()
+	m.lastCPUPercent = cpuPercent
+	m.lastCPUUpdate = time.Now()
+	m.cpuMu.Unlock()
+
+	return cpuPercent
+}
+
 // GetStatus returns current edge status
 func (m *DefaultManager) GetStatus() (*Status, error) {
 	m.mu.RLock()
@@ -86,10 +124,17 @@ func (m *DefaultManager) GetStatus() (*Status, error) {
 	runtime.ReadMemStats(&memStats)
 	memoryUsageMB := int(memStats.Alloc / 1024 / 1024)
 
+	// Get CPU usage
+	cpuPercent := m.getCPUUsage()
+
 	// Check if resource constrained
 	resourceConstrained := false
 	if m.config.EnableLightweightMode {
 		if memoryUsageMB > m.config.MaxMemoryMB {
+			resourceConstrained = true
+		}
+		// Also consider CPU constraint if CPU is very high
+		if cpuPercent > 90 {
 			resourceConstrained = true
 		}
 	}
@@ -103,7 +148,7 @@ func (m *DefaultManager) GetStatus() (*Status, error) {
 		CachedStatesCount:   stats.TotalEntries,
 		CachedCommandsCount: 0, // TODO: separate state vs command counts
 		MemoryUsageMB:       memoryUsageMB,
-		CPUUsagePercent:     0, // TODO: implement CPU tracking
+		CPUUsagePercent:     int(cpuPercent),
 		UptimeSeconds:       int64(time.Since(m.startTime).Seconds()),
 		ResourceConstrained: resourceConstrained,
 	}
@@ -163,8 +208,11 @@ func (m *DefaultManager) CheckResourceConstraints() (bool, error) {
 		return true, nil
 	}
 
-	// TODO: Check CPU constraint
-	// This would require periodic CPU monitoring
+	// Check CPU constraint - consider constrained if CPU is above 90%
+	cpuPercent := m.getCPUUsage()
+	if cpuPercent > 90 {
+		return true, nil
+	}
 
 	return false, nil
 }

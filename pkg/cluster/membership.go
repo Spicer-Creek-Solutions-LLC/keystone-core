@@ -650,6 +650,130 @@ func (m *MembershipManager) GetClusterInfo() *ClusterInfo {
 	}
 }
 
+// AddMemberRequest contains the information needed to add a new member via API.
+type AddMemberRequest struct {
+	// ID is the unique identifier for this member (optional, generated if empty)
+	ID string `json:"id,omitempty"`
+
+	// Name is the human-readable name for this member (optional)
+	Name string `json:"name,omitempty"`
+
+	// Address is the network address (host:port) for API communication
+	Address string `json:"address"`
+
+	// GRPCAddress is the gRPC endpoint address (optional, derived from Address if empty)
+	GRPCAddress string `json:"grpc_address,omitempty"`
+
+	// NATSAddress is the NATS endpoint for agent connections (optional)
+	NATSAddress string `json:"nats_address,omitempty"`
+
+	// Metadata contains additional member information (optional)
+	Metadata map[string]string `json:"metadata,omitempty"`
+}
+
+// Validate validates the AddMemberRequest.
+func (r *AddMemberRequest) Validate() error {
+	if r.Address == "" {
+		return fmt.Errorf("address is required")
+	}
+	return nil
+}
+
+// AddMember adds a new member to the cluster via API.
+// This allows pre-seeding the cluster with expected members or adding members
+// that haven't started yet. The member will be in "unknown" status until it
+// actually starts and reports in.
+func (m *MembershipManager) AddMember(ctx context.Context, req *AddMemberRequest) (*Member, error) {
+	if req == nil {
+		return nil, fmt.Errorf("request is required")
+	}
+
+	if err := req.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid request: %w", err)
+	}
+
+	// Generate ID if not provided
+	memberID := req.ID
+	if memberID == "" {
+		memberID = uuid.New().String()
+	}
+
+	// Generate name if not provided
+	memberName := req.Name
+	if memberName == "" {
+		if len(memberID) >= 8 {
+			memberName = "member-" + memberID[:8]
+		} else {
+			memberName = "member-" + memberID
+		}
+	}
+
+	// Derive gRPC address from address if not provided
+	grpcAddress := req.GRPCAddress
+	if grpcAddress == "" {
+		grpcAddress = req.Address
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Check if member already exists
+	if _, exists := m.members[memberID]; exists {
+		return nil, fmt.Errorf("member %s already exists", memberID)
+	}
+
+	// Check if address is already in use
+	for _, existing := range m.members {
+		if existing.Address == req.Address {
+			return nil, fmt.Errorf("address %s is already in use by member %s", req.Address, existing.ID)
+		}
+	}
+
+	// Create the member
+	member := &Member{
+		ID:            memberID,
+		Name:          memberName,
+		Address:       req.Address,
+		GRPCAddress:   grpcAddress,
+		NATSAddress:   req.NATSAddress,
+		Status:        MemberStatusUnknown, // Unknown until it starts and reports in
+		IsLeader:      false,
+		Version:       "", // Will be set when member starts
+		JoinedAt:      time.Now().UTC(),
+		LastHeartbeat: time.Time{}, // No heartbeat yet
+		Metadata:      req.Metadata,
+	}
+
+	if member.Metadata == nil {
+		member.Metadata = make(map[string]string)
+	}
+	member.Metadata["added_via"] = "api"
+
+	// Store in etcd (without lease - this is a persistent entry)
+	data, err := json.Marshal(member)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal member: %w", err)
+	}
+
+	key := memberKeyPrefix + memberID
+	if err := m.etcd.Put(ctx, key, data, 5*time.Second); err != nil {
+		return nil, fmt.Errorf("failed to store member in etcd: %w", err)
+	}
+
+	// Add to local cache
+	m.members[memberID] = member
+
+	// Notify observers
+	m.notifyObserversLocked(MembershipEvent{
+		Type:      MembershipEventJoined,
+		Member:    member.Clone(),
+		Timestamp: time.Now().UTC(),
+		Reason:    "member added via API",
+	})
+
+	return member.Clone(), nil
+}
+
 // RemoveMember removes a member from the cluster.
 // If force is false, the member must be unhealthy to be removed.
 // If force is true, the member is removed regardless of health status.

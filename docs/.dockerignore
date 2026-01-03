@@ -1,0 +1,28 @@
+# Ignore build outputs (they'll be regenerated in container)
+../build/
+node_modules/
+
+# Ignore git directories
+.git/
+../.git/
+
+# Ignore other project directories not needed for docs
+../cmd/
+../pkg/
+../test/
+../modules/
+../deploy/
+../epics/
+../api/
+../.github/
+
+# Ignore IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Ignore OS files
+.DS_Store
+Thumbs.db

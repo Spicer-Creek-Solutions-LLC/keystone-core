@@ -1,8 +1,14 @@
 package events
 
 import (
+	"crypto/rand"
+	"encoding/binary"
+	"sync/atomic"
 	"time"
 )
+
+// eventCounter is used to ensure unique event IDs even when created in the same nanosecond
+var eventCounter uint64
 
 // EventType represents the type of event
 type EventType string
@@ -304,15 +310,41 @@ func (b *EventBuilder) Build() *Event {
 
 // generateEventID generates a unique event ID
 func generateEventID() string {
-	return "evt-" + time.Now().Format("20060102150405") + "-" + randString(8)
+	counter := atomic.AddUint64(&eventCounter, 1)
+	return "evt-" + time.Now().Format("20060102150405") + "-" + randString(8) + "-" + encodeCounter(counter)
 }
 
-// randString generates a random string of length n
+// encodeCounter encodes a counter as a short string
+func encodeCounter(n uint64) string {
+	const chars = "0123456789abcdefghijklmnopqrstuvwxyz"
+	if n == 0 {
+		return "0"
+	}
+	result := make([]byte, 0, 8)
+	for n > 0 {
+		result = append(result, chars[n%36])
+		n /= 36
+	}
+	return string(result)
+}
+
+// randString generates a random string of length n using crypto/rand
 func randString(n int) string {
 	const letters = "abcdefghijklmnopqrstuvwxyz0123456789"
 	b := make([]byte, n)
+	// Read random bytes
+	randBytes := make([]byte, n)
+	if _, err := rand.Read(randBytes); err != nil {
+		// Fallback to time-based if crypto/rand fails
+		var seed uint64
+		binary.Read(rand.Reader, binary.LittleEndian, &seed)
+		for i := range b {
+			b[i] = letters[(seed+uint64(i))%uint64(len(letters))]
+		}
+		return string(b)
+	}
 	for i := range b {
-		b[i] = letters[time.Now().UnixNano()%int64(len(letters))]
+		b[i] = letters[randBytes[i]%byte(len(letters))]
 	}
 	return string(b)
 }

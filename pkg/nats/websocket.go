@@ -477,6 +477,11 @@ func (d *ProxyDialer) directDial(ctx context.Context, network, addr string) (net
 }
 
 func (d *ProxyDialer) sendConnect(conn net.Conn, targetAddr string) error {
+	// For NTLM, use multi-step authentication
+	if d.config.AuthType == ProxyAuthNTLM {
+		return d.sendConnectNTLM(conn, targetAddr)
+	}
+
 	// Build CONNECT request
 	req := fmt.Sprintf("CONNECT %s HTTP/1.1\r\nHost: %s\r\n", targetAddr, targetAddr)
 
@@ -515,6 +520,129 @@ func (d *ProxyDialer) sendConnect(conn net.Conn, targetAddr string) error {
 	return nil
 }
 
+// sendConnectNTLM handles NTLM proxy authentication with multi-step challenge-response
+func (d *ProxyDialer) sendConnectNTLM(conn net.Conn, targetAddr string) error {
+	// Parse domain from username (DOMAIN\user or user@domain format)
+	domain, username := parseNTLMCredentials(d.config.Username)
+
+	// Create NTLM authenticator
+	ntlm := NewNTLMAuth(domain, username, d.config.Password)
+
+	// Step 1: Send CONNECT with Type 1 (Negotiate) message
+	negotiateMsg, err := ntlm.GenerateNegotiateMessage()
+	if err != nil {
+		return fmt.Errorf("generate NTLM negotiate message: %w", err)
+	}
+
+	req := fmt.Sprintf("CONNECT %s HTTP/1.1\r\nHost: %s\r\n", targetAddr, targetAddr)
+	req += fmt.Sprintf("Proxy-Authorization: NTLM %s\r\n", base64Encode(negotiateMsg))
+
+	// Add custom tunnel headers
+	for key, value := range d.config.TunnelHeaders {
+		req += fmt.Sprintf("%s: %s\r\n", key, value)
+	}
+	req += "\r\n"
+
+	if _, err := conn.Write([]byte(req)); err != nil {
+		return fmt.Errorf("write NTLM negotiate request: %w", err)
+	}
+
+	// Step 2: Read challenge response (expect 407 with Type 2 message)
+	reader := bufio.NewReader(conn)
+	resp, err := http.ReadResponse(reader, nil)
+	if err != nil {
+		return fmt.Errorf("read NTLM challenge response: %w", err)
+	}
+	resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		// Some proxies may accept negotiate message directly (unlikely but possible)
+		return nil
+	}
+
+	if resp.StatusCode != http.StatusProxyAuthRequired {
+		return fmt.Errorf("expected 407 Proxy Authentication Required, got %d: %s", resp.StatusCode, resp.Status)
+	}
+
+	// Parse Type 2 (Challenge) message from Proxy-Authenticate header
+	authHeader := resp.Header.Get("Proxy-Authenticate")
+	if authHeader == "" {
+		return fmt.Errorf("no Proxy-Authenticate header in challenge response")
+	}
+
+	challengeData, err := parseNTLMChallengeHeader(authHeader)
+	if err != nil {
+		return fmt.Errorf("parse NTLM challenge: %w", err)
+	}
+
+	challenge, err := ntlm.ParseChallengeMessage(challengeData)
+	if err != nil {
+		return fmt.Errorf("parse NTLM challenge message: %w", err)
+	}
+
+	// Step 3: Send CONNECT with Type 3 (Authenticate) message
+	authMsg, err := ntlm.GenerateAuthenticateMessage(challenge)
+	if err != nil {
+		return fmt.Errorf("generate NTLM authenticate message: %w", err)
+	}
+
+	req = fmt.Sprintf("CONNECT %s HTTP/1.1\r\nHost: %s\r\n", targetAddr, targetAddr)
+	req += fmt.Sprintf("Proxy-Authorization: NTLM %s\r\n", base64Encode(authMsg))
+
+	// Add custom tunnel headers
+	for key, value := range d.config.TunnelHeaders {
+		req += fmt.Sprintf("%s: %s\r\n", key, value)
+	}
+	req += "\r\n"
+
+	if _, err := conn.Write([]byte(req)); err != nil {
+		return fmt.Errorf("write NTLM authenticate request: %w", err)
+	}
+
+	// Step 4: Read final response
+	resp, err = http.ReadResponse(reader, nil)
+	if err != nil {
+		return fmt.Errorf("read NTLM final response: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("NTLM authentication failed with status %d: %s", resp.StatusCode, resp.Status)
+	}
+
+	return nil
+}
+
+// parseNTLMCredentials parses domain and username from DOMAIN\user or user@domain format
+func parseNTLMCredentials(username string) (domain, user string) {
+	// Check for DOMAIN\user format
+	if idx := strings.Index(username, "\\"); idx >= 0 {
+		return username[:idx], username[idx+1:]
+	}
+	// Check for user@domain format
+	if idx := strings.Index(username, "@"); idx >= 0 {
+		return username[idx+1:], username[:idx]
+	}
+	// No domain specified
+	return "", username
+}
+
+// parseNTLMChallengeHeader parses the Proxy-Authenticate header for NTLM challenge
+func parseNTLMChallengeHeader(header string) ([]byte, error) {
+	// Header format: "NTLM <base64-encoded-challenge>"
+	const prefix = "NTLM "
+	if !strings.HasPrefix(header, prefix) {
+		return nil, fmt.Errorf("invalid NTLM auth header format: %s", header)
+	}
+
+	encoded := strings.TrimSpace(strings.TrimPrefix(header, prefix))
+	decoded, err := base64Decode(encoded)
+	if err != nil {
+		return nil, fmt.Errorf("base64 decode NTLM challenge: %w", err)
+	}
+	return decoded, nil
+}
+
 func (d *ProxyDialer) buildAuthHeader() string {
 	switch d.config.AuthType {
 	case ProxyAuthBasic:
@@ -527,8 +655,8 @@ func (d *ProxyDialer) buildAuthHeader() string {
 		// Full implementation would parse WWW-Authenticate header
 		return ""
 	case ProxyAuthNTLM:
-		// NTLM requires multi-step negotiation
-		// This is a placeholder - full NTLM is complex
+		// NTLM is handled separately in sendConnectNTLM() due to multi-step challenge-response
+		// This case should not be reached as sendConnect() checks for NTLM first
 		return ""
 	default:
 		return ""

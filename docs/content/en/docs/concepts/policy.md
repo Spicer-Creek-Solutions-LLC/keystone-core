@@ -103,13 +103,375 @@ resource.critical && context.approved
 
 **Best for**: Common patterns without writing code
 
-Keystone Core provides built-in policies for:
-- Required tags
-- Resource naming conventions
-- Environment restrictions
-- Approved package versions
-- File permissions
-- Service configurations
+Keystone Core provides 14 built-in policies that cover common security, compliance, and operational requirements without requiring OPA or CEL knowledge:
+
+| Policy | Description |
+|--------|-------------|
+| `require-labels` | Require specific labels on resources |
+| `require-owner` | Require owner/team annotations |
+| `allowed-environments` | Restrict to specific environments |
+| `allowed-actions` | Restrict to specific actions |
+| `deny-privileged` | Block privileged execution |
+| `allowed-users` | Restrict to specific users |
+| `denied-users` | Block specific users |
+| `time-window` | Restrict operations to time windows |
+| `no-root-execution` | Block running as root |
+| `require-approval` | Require approval for actions |
+| `max-concurrent` | Limit concurrent operations |
+| `resource-quota` | Enforce resource quotas |
+| `pattern-deny` | Block resources matching patterns |
+| `pattern-allow` | Only allow resources matching patterns |
+
+#### Built-in Policy Configuration
+
+Built-in policies use JSON configuration:
+
+```yaml
+id: "production-labels"
+name: "Production Resource Labels"
+type: builtin
+category: compliance
+severity: medium
+enforcement: enforce
+code: |
+  {
+    "name": "require-labels",
+    "config": {
+      "labels": ["env", "team", "cost-center"],
+      "require_values": true
+    }
+  }
+```
+
+#### require-labels
+
+Require specific labels on resources:
+
+```json
+{
+  "name": "require-labels",
+  "config": {
+    "labels": ["env", "team", "owner"],
+    "label_patterns": ["^app\\..*"],
+    "require_values": true
+  }
+}
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `labels` | []string | Required label keys |
+| `label_patterns` | []string | Regex patterns for label keys |
+| `require_values` | bool | If true, labels must have non-empty values |
+
+#### require-owner
+
+Require owner/team annotations:
+
+```json
+{
+  "name": "require-owner",
+  "config": {
+    "owner_label": "owner",
+    "team_label": "team",
+    "valid_owners": ["alice@example.com", "bob@example.com"],
+    "valid_teams": ["platform", "security", "sre"]
+  }
+}
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `owner_label` | string | Label key for owner |
+| `team_label` | string | Label key for team |
+| `valid_owners` | []string | Optional list of valid owners |
+| `valid_teams` | []string | Optional list of valid teams |
+
+#### allowed-environments
+
+Restrict operations to specific environments:
+
+```json
+{
+  "name": "allowed-environments",
+  "config": {
+    "environments": ["dev", "staging", "production"],
+    "environment_key": "environment"
+  }
+}
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `environments` | []string | Allowed environment values |
+| `environment_key` | string | Context key for environment (default: "environment") |
+
+#### allowed-actions
+
+Restrict to specific actions:
+
+```json
+{
+  "name": "allowed-actions",
+  "config": {
+    "actions": ["read", "list", "get"],
+    "action_patterns": ["^get.*", "^list.*"]
+  }
+}
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `actions` | []string | Exact action names allowed |
+| `action_patterns` | []string | Regex patterns for allowed actions |
+
+#### deny-privileged
+
+Block privileged execution:
+
+```json
+{
+  "name": "deny-privileged",
+  "config": {}
+}
+```
+
+Blocks operations when:
+- `context.privileged` is `true`
+- `context.run_as_user` is `"root"` or `"0"`
+
+#### allowed-users and denied-users
+
+Control user access:
+
+```json
+{
+  "name": "allowed-users",
+  "config": {
+    "users": ["alice", "bob", "ops-team"],
+    "user_patterns": ["^admin-.*"],
+    "groups": ["admins", "operators"]
+  }
+}
+```
+
+```json
+{
+  "name": "denied-users",
+  "config": {
+    "users": ["malicious", "banned"],
+    "user_patterns": ["^bot-.*", "^test-.*"]
+  }
+}
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `users` | []string | Exact usernames |
+| `user_patterns` | []string | Regex patterns for usernames |
+| `groups` | []string | Group names (from `context.user_groups`) |
+
+#### time-window
+
+Restrict operations to time windows:
+
+```json
+{
+  "name": "time-window",
+  "config": {
+    "allowed_days": [1, 2, 3, 4, 5],
+    "allowed_hours_start": 9,
+    "allowed_hours_end": 17,
+    "timezone": "America/New_York",
+    "blocked_dates": ["2024-12-25", "2024-01-01"]
+  }
+}
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `allowed_days` | []int | Days when allowed (0=Sunday, 6=Saturday) |
+| `allowed_hours_start` | int | Start hour (0-23) |
+| `allowed_hours_end` | int | End hour (0-23) |
+| `timezone` | string | Timezone (default: UTC) |
+| `blocked_dates` | []string | Specific dates to block (YYYY-MM-DD) |
+
+#### no-root-execution
+
+Block running as root with exceptions:
+
+```json
+{
+  "name": "no-root-execution",
+  "config": {
+    "allowed_users": ["admin", "ops-lead"],
+    "allowed_actions": ["system-maintenance", "emergency-fix"]
+  }
+}
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `allowed_users` | []string | Users allowed to run as root |
+| `allowed_actions` | []string | Actions allowed as root |
+
+#### require-approval
+
+Require approval for sensitive actions:
+
+```json
+{
+  "name": "require-approval",
+  "config": {
+    "actions": ["delete", "terminate", "destroy"],
+    "approvers": ["admin@example.com", "security@example.com"],
+    "min_approvals": 2
+  }
+}
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `actions` | []string | Actions requiring approval |
+| `approvers` | []string | Users who can approve |
+| `min_approvals` | int | Minimum approvals required |
+
+Approval status is checked via `context.approved` boolean.
+
+#### max-concurrent
+
+Limit concurrent operations:
+
+```json
+{
+  "name": "max-concurrent",
+  "config": {
+    "max_concurrent": 10,
+    "scope": "global"
+  }
+}
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `max_concurrent` | int | Maximum concurrent operations |
+| `scope` | string | Count scope: "global", "user", "resource" |
+
+Current count is provided via `context.concurrent_count`.
+
+#### resource-quota
+
+Enforce resource quotas:
+
+```json
+{
+  "name": "resource-quota",
+  "config": {
+    "max_resources": 1000,
+    "max_per_user": 50,
+    "max_per_team": 200
+  }
+}
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `max_resources` | int | Maximum total resources |
+| `max_per_user` | int | Maximum resources per user |
+| `max_per_team` | int | Maximum resources per team |
+
+Counts are provided via `context.total_resources`, `context.user_resources`.
+
+#### pattern-deny and pattern-allow
+
+Control resources by name patterns:
+
+```json
+{
+  "name": "pattern-deny",
+  "config": {
+    "patterns": ["^test-.*", "^dev-.*", ".*-deprecated$"],
+    "field": "name"
+  }
+}
+```
+
+```json
+{
+  "name": "pattern-allow",
+  "config": {
+    "patterns": ["^prod-.*", "^staging-.*"],
+    "field": "metadata.name"
+  }
+}
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `patterns` | []string | Regex patterns to match |
+| `field` | string | Resource field to match (default: "name", supports dot notation) |
+
+#### Built-in Policy Examples
+
+**Business Hours Only**:
+```yaml
+id: "business-hours-only"
+name: "Business Hours Deployment Window"
+type: builtin
+category: operational
+severity: medium
+enforcement: enforce
+code: |
+  {
+    "name": "time-window",
+    "config": {
+      "allowed_days": [1, 2, 3, 4, 5],
+      "allowed_hours_start": 9,
+      "allowed_hours_end": 17,
+      "timezone": "America/New_York",
+      "blocked_dates": ["2024-12-25", "2024-01-01"]
+    }
+  }
+```
+
+**No Production Deletion Without Approval**:
+```yaml
+id: "prod-delete-approval"
+name: "Production Delete Requires Approval"
+type: builtin
+category: security
+severity: critical
+enforcement: enforce
+code: |
+  {
+    "name": "require-approval",
+    "config": {
+      "actions": ["delete", "destroy", "terminate"],
+      "min_approvals": 1
+    }
+  }
+targets:
+  - environment: production
+```
+
+**Block Test Resources in Production**:
+```yaml
+id: "no-test-in-prod"
+name: "Block Test Resources in Production"
+type: builtin
+category: compliance
+severity: high
+enforcement: enforce
+code: |
+  {
+    "name": "pattern-deny",
+    "config": {
+      "patterns": ["^test-.*", "^dev-.*", ".*-temp$"]
+    }
+  }
+targets:
+  - environment: production
+```
 
 ## Policy Definition
 

@@ -2,6 +2,8 @@ package hardware
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
 	"runtime"
 	"strings"
 	"time"
@@ -12,6 +14,39 @@ import (
 	"github.com/shirou/gopsutil/v3/mem"
 	"github.com/shirou/gopsutil/v3/net"
 )
+
+// fileExists checks if a file exists
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return !info.IsDir()
+}
+
+// dirExists checks if a directory exists
+func dirExists(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return info.IsDir()
+}
+
+// execLookPath looks for an executable in PATH
+func execLookPath(name string) (string, error) {
+	return exec.LookPath(name)
+}
+
+// execCommand runs a command and returns its output
+func execCommand(name string, args ...string) (string, error) {
+	cmd := exec.Command(name, args...)
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return string(output), nil
+}
 
 // DefaultDetector is the default hardware detector implementation
 type DefaultDetector struct {
@@ -237,20 +272,185 @@ func (d *DefaultDetector) DetectSystem() (*SystemInfo, error) {
 
 // DetectBMC detects BMC/IPMI information
 func (d *DefaultDetector) DetectBMC() (*BMCInfo, error) {
-	// BMC detection requires IPMI tools or specialized libraries
-	// For now, return a placeholder indicating BMC detection is not yet implemented
 	bmcInfo := &BMCInfo{
 		Present: false,
 	}
 
-	// TODO: Implement IPMI detection using ipmitool or go-ipmi library
-	// This would require:
-	// 1. Check if IPMI is available (ipmitool presence)
-	// 2. Query BMC information (ipmitool bmc info)
-	// 3. Get network configuration (ipmitool lan print)
-	// 4. Get firmware version
+	// Try multiple detection methods in order of reliability
+
+	// Method 1: Check for IPMI device files (Linux)
+	if runtime.GOOS == "linux" {
+		if d.detectIPMIDevice() {
+			bmcInfo.Present = true
+		}
+	}
+
+	// Method 2: Try ipmitool if available
+	if d.hasIPMITool() {
+		info, err := d.detectBMCViaIPMITool()
+		if err == nil && info != nil {
+			return info, nil
+		}
+		// If ipmitool exists but failed, BMC might still be present
+		// but not accessible (permissions, etc.)
+		if bmcInfo.Present {
+			return bmcInfo, nil
+		}
+	}
+
+	// Method 3: Check DMI/SMBIOS for IPMI interface (Linux)
+	if runtime.GOOS == "linux" {
+		if d.detectIPMIViaDMI() {
+			bmcInfo.Present = true
+		}
+	}
 
 	return bmcInfo, nil
+}
+
+// detectIPMIDevice checks for IPMI device files on Linux
+func (d *DefaultDetector) detectIPMIDevice() bool {
+	// Common IPMI device paths
+	ipmiDevices := []string{
+		"/dev/ipmi0",
+		"/dev/ipmi/0",
+		"/dev/ipmidev/0",
+	}
+
+	for _, device := range ipmiDevices {
+		if fileExists(device) {
+			return true
+		}
+	}
+
+	// Check sysfs for IPMI devices
+	if dirExists("/sys/class/ipmi") {
+		return true
+	}
+
+	return false
+}
+
+// detectIPMIViaDMI checks DMI/SMBIOS for IPMI interface information
+func (d *DefaultDetector) detectIPMIViaDMI() bool {
+	// Check DMI type 38 (IPMI Device Information)
+	dmiPath := "/sys/class/dmi/id/product_name"
+	if !fileExists(dmiPath) {
+		return false
+	}
+
+	// Check for common BMC-related files in sysfs
+	bmcIndicators := []string{
+		"/sys/devices/platform/ipmi_si.0",
+		"/sys/devices/platform/ipmi_ssif.0",
+		"/sys/module/ipmi_si",
+		"/sys/module/ipmi_ssif",
+		"/sys/module/ipmi_devintf",
+	}
+
+	for _, indicator := range bmcIndicators {
+		if fileExists(indicator) || dirExists(indicator) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// hasIPMITool checks if ipmitool is available in PATH
+func (d *DefaultDetector) hasIPMITool() bool {
+	_, err := execLookPath("ipmitool")
+	return err == nil
+}
+
+// detectBMCViaIPMITool uses ipmitool to get detailed BMC information
+func (d *DefaultDetector) detectBMCViaIPMITool() (*BMCInfo, error) {
+	bmcInfo := &BMCInfo{
+		Present: true,
+	}
+
+	// Get BMC info
+	bmcOutput, err := execCommand("ipmitool", "bmc", "info")
+	if err != nil {
+		return nil, fmt.Errorf("failed to run ipmitool bmc info: %w", err)
+	}
+
+	// Parse BMC info output
+	parseBMCInfo(bmcOutput, bmcInfo)
+
+	// Get LAN configuration (channel 1 is most common)
+	lanOutput, err := execCommand("ipmitool", "lan", "print", "1")
+	if err == nil {
+		parseLANInfo(lanOutput, bmcInfo)
+	}
+
+	return bmcInfo, nil
+}
+
+// parseBMCInfo parses the output of 'ipmitool bmc info'
+func parseBMCInfo(output string, info *BMCInfo) {
+	lines := strings.Split(output, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+
+		switch key {
+		case "Firmware Revision":
+			info.FirmwareVersion = value
+		case "Manufacturer ID":
+			info.Manufacturer = value
+		case "Manufacturer Name":
+			// Prefer name over ID
+			if info.Manufacturer == "" || !strings.Contains(info.Manufacturer, "(") {
+				info.Manufacturer = value
+			}
+		case "Product ID":
+			info.ProductID = value
+		case "Product Name":
+			// Append to ProductID if available
+			if info.ProductID != "" {
+				info.ProductID = info.ProductID + " (" + value + ")"
+			} else {
+				info.ProductID = value
+			}
+		}
+	}
+}
+
+// parseLANInfo parses the output of 'ipmitool lan print'
+func parseLANInfo(output string, info *BMCInfo) {
+	lines := strings.Split(output, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+
+		switch key {
+		case "IP Address":
+			info.IPAddress = value
+		case "MAC Address":
+			info.MACAddress = value
+		}
+	}
 }
 
 // Global default detector instance

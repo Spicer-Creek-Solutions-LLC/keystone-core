@@ -531,3 +531,345 @@ func TestEventProcessorDistributor_ShouldProcessEvent(t *testing.T) {
 		t.Error("ShouldProcessEvent() should return false for non-local partition")
 	}
 }
+
+func TestEventProcessorDistributor_GetLocalProcessingStats(t *testing.T) {
+	config := DefaultEventProcessorConfig()
+	etcd := &EtcdClient{}
+	clusterConfig := &Config{ClusterName: "test", HeartbeatInterval: time.Second}
+	mm := &MembershipManager{
+		config:   clusterConfig,
+		etcd:     etcd,
+		members:  make(map[string]*Member),
+		stopChan: make(chan struct{}),
+		doneChan: make(chan struct{}),
+	}
+	leaderConfig := &Config{ClusterName: "test", ElectionTimeout: 15 * time.Second}
+	le, _ := NewLeaderElector(leaderConfig, etcd, "member-1")
+
+	epd, _ := NewEventProcessorDistributor(config, etcd, mm, le)
+
+	// Add partitions with stats
+	epd.mu.Lock()
+	epd.partitions[0] = &EventPartitionInfo{PartitionID: 0, ProcessedCount: 100, ErrorCount: 5}
+	epd.partitions[1] = &EventPartitionInfo{PartitionID: 1, ProcessedCount: 200, ErrorCount: 10}
+	epd.localPartitions[0] = true // Only partition 0 is local
+	epd.mu.Unlock()
+
+	processed, errors := epd.GetLocalProcessingStats()
+
+	// Only local partition (0) should be counted
+	if processed != 100 {
+		t.Errorf("Local processed = %v, want 100", processed)
+	}
+	if errors != 5 {
+		t.Errorf("Local errors = %v, want 5", errors)
+	}
+}
+
+func TestEventProcessorDistributor_GetOffset(t *testing.T) {
+	config := DefaultEventProcessorConfig()
+	etcd := &EtcdClient{}
+	clusterConfig := &Config{ClusterName: "test", HeartbeatInterval: time.Second}
+	mm := &MembershipManager{
+		config:   clusterConfig,
+		etcd:     etcd,
+		members:  make(map[string]*Member),
+		stopChan: make(chan struct{}),
+		doneChan: make(chan struct{}),
+	}
+	leaderConfig := &Config{ClusterName: "test", ElectionTimeout: 15 * time.Second}
+	le, _ := NewLeaderElector(leaderConfig, etcd, "member-1")
+
+	epd, _ := NewEventProcessorDistributor(config, etcd, mm, le)
+
+	// Non-existent partition
+	_, err := epd.GetOffset(0)
+	if err == nil {
+		t.Error("GetOffset() should fail for non-existent partition")
+	}
+
+	// Add partition with offset
+	epd.mu.Lock()
+	epd.partitions[0] = &EventPartitionInfo{PartitionID: 0, LastProcessed: 500}
+	epd.mu.Unlock()
+
+	offset, err := epd.GetOffset(0)
+	if err != nil {
+		t.Errorf("GetOffset() error = %v", err)
+	}
+	if offset != 500 {
+		t.Errorf("GetOffset() = %v, want 500", offset)
+	}
+}
+
+func TestEventProcessorDistributor_DispatchEvent_NoHandler(t *testing.T) {
+	config := DefaultEventProcessorConfig()
+	etcd := &EtcdClient{}
+	clusterConfig := &Config{ClusterName: "test", HeartbeatInterval: time.Second}
+	mm := &MembershipManager{
+		config:   clusterConfig,
+		etcd:     etcd,
+		members:  make(map[string]*Member),
+		stopChan: make(chan struct{}),
+		doneChan: make(chan struct{}),
+	}
+	leaderConfig := &Config{ClusterName: "test", ElectionTimeout: 15 * time.Second}
+	le, _ := NewLeaderElector(leaderConfig, etcd, "member-1")
+
+	epd, _ := NewEventProcessorDistributor(config, etcd, mm, le)
+
+	// Set local partition for partition 0
+	epd.mu.Lock()
+	epd.localPartitions[0] = true
+	epd.mu.Unlock()
+
+	// Custom partitioner to always return 0
+	epd.SetPartitioner(func(eventType, eventID string) int {
+		return 0
+	})
+
+	ctx := context.Background()
+
+	// Dispatch without handler should succeed (no-op)
+	err := epd.DispatchEvent(ctx, "test.event", "event-1", []byte("data"))
+	if err != nil {
+		t.Errorf("DispatchEvent() without handler should succeed, got error: %v", err)
+	}
+}
+
+func TestEventProcessorDistributor_DispatchEvent_NotOwned(t *testing.T) {
+	config := DefaultEventProcessorConfig()
+	etcd := &EtcdClient{}
+	clusterConfig := &Config{ClusterName: "test", HeartbeatInterval: time.Second}
+	mm := &MembershipManager{
+		config:   clusterConfig,
+		etcd:     etcd,
+		members:  make(map[string]*Member),
+		stopChan: make(chan struct{}),
+		doneChan: make(chan struct{}),
+	}
+	leaderConfig := &Config{ClusterName: "test", ElectionTimeout: 15 * time.Second}
+	le, _ := NewLeaderElector(leaderConfig, etcd, "member-1")
+
+	epd, _ := NewEventProcessorDistributor(config, etcd, mm, le)
+
+	ctx := context.Background()
+
+	// Dispatch to non-owned partition should fail
+	err := epd.DispatchEvent(ctx, "test.event", "event-1", []byte("data"))
+	if err == nil {
+		t.Error("DispatchEvent() should fail for non-owned partition")
+	}
+}
+
+func TestEventProcessorDistributor_Stop_NotStarted(t *testing.T) {
+	config := DefaultEventProcessorConfig()
+	etcd := &EtcdClient{}
+	clusterConfig := &Config{ClusterName: "test", HeartbeatInterval: time.Second}
+	mm := &MembershipManager{
+		config:   clusterConfig,
+		etcd:     etcd,
+		members:  make(map[string]*Member),
+		stopChan: make(chan struct{}),
+		doneChan: make(chan struct{}),
+	}
+	leaderConfig := &Config{ClusterName: "test", ElectionTimeout: 15 * time.Second}
+	le, _ := NewLeaderElector(leaderConfig, etcd, "member-1")
+
+	epd, _ := NewEventProcessorDistributor(config, etcd, mm, le)
+
+	ctx := context.Background()
+
+	// Stop without start should succeed
+	err := epd.Stop(ctx)
+	if err != nil {
+		t.Errorf("Stop() without start should succeed, got error: %v", err)
+	}
+}
+
+func TestEventProcessorDistributor_ProcessEventBatch(t *testing.T) {
+	config := DefaultEventProcessorConfig()
+	etcd := &EtcdClient{}
+	clusterConfig := &Config{ClusterName: "test", HeartbeatInterval: time.Second}
+	mm := &MembershipManager{
+		config:   clusterConfig,
+		etcd:     etcd,
+		members:  make(map[string]*Member),
+		stopChan: make(chan struct{}),
+		doneChan: make(chan struct{}),
+	}
+	leaderConfig := &Config{ClusterName: "test", ElectionTimeout: 15 * time.Second}
+	le, _ := NewLeaderElector(leaderConfig, etcd, "member-1")
+
+	epd, _ := NewEventProcessorDistributor(config, etcd, mm, le)
+
+	// Set local partitions
+	epd.mu.Lock()
+	epd.localPartitions[0] = true
+	epd.localPartitions[5] = true
+	epd.mu.Unlock()
+
+	// Custom partitioner
+	epd.SetPartitioner(func(eventType, eventID string) int {
+		if eventID == "local-1" || eventID == "local-2" {
+			return 0
+		}
+		return 10 // Non-local
+	})
+
+	ctx := context.Background()
+
+	events := []struct {
+		Type string
+		ID   string
+		Data []byte
+	}{
+		{"test.event", "local-1", []byte("data1")},
+		{"test.event", "local-2", []byte("data2")},
+		{"test.event", "remote-1", []byte("data3")},
+	}
+
+	processed, skipped, errors := epd.ProcessEventBatch(ctx, events)
+
+	// 2 local events should be processed (no handler = success)
+	// 1 remote event should be skipped
+	if processed != 2 {
+		t.Errorf("Processed = %v, want 2", processed)
+	}
+	if skipped != 1 {
+		t.Errorf("Skipped = %v, want 1", skipped)
+	}
+	if errors != 0 {
+		t.Errorf("Errors = %v, want 0", errors)
+	}
+}
+
+func TestEventPartitionInfo_ZeroValues(t *testing.T) {
+	info := &EventPartitionInfo{}
+
+	if info.PartitionID != 0 {
+		t.Errorf("PartitionID zero value = %v, want 0", info.PartitionID)
+	}
+	if info.OwnerMemberID != "" {
+		t.Errorf("OwnerMemberID zero value = %v, want empty", info.OwnerMemberID)
+	}
+	if info.LastProcessed != 0 {
+		t.Errorf("LastProcessed zero value = %v, want 0", info.LastProcessed)
+	}
+	if info.ProcessedCount != 0 {
+		t.Errorf("ProcessedCount zero value = %v, want 0", info.ProcessedCount)
+	}
+	if info.ErrorCount != 0 {
+		t.Errorf("ErrorCount zero value = %v, want 0", info.ErrorCount)
+	}
+	if !info.AssignedAt.IsZero() {
+		t.Error("AssignedAt should be zero by default")
+	}
+}
+
+func TestEventProcessorConfig_ZeroValues(t *testing.T) {
+	config := &EventProcessorConfig{}
+
+	if config.NumPartitions != 0 {
+		t.Errorf("NumPartitions zero value = %v, want 0", config.NumPartitions)
+	}
+	if config.BatchSize != 0 {
+		t.Errorf("BatchSize zero value = %v, want 0", config.BatchSize)
+	}
+	if config.MaxRetries != 0 {
+		t.Errorf("MaxRetries zero value = %v, want 0", config.MaxRetries)
+	}
+}
+
+func TestEventProcessorDistributor_MultipleHandlers(t *testing.T) {
+	config := DefaultEventProcessorConfig()
+	etcd := &EtcdClient{}
+	clusterConfig := &Config{ClusterName: "test", HeartbeatInterval: time.Second}
+	mm := &MembershipManager{
+		config:   clusterConfig,
+		etcd:     etcd,
+		members:  make(map[string]*Member),
+		stopChan: make(chan struct{}),
+		doneChan: make(chan struct{}),
+	}
+	leaderConfig := &Config{ClusterName: "test", ElectionTimeout: 15 * time.Second}
+	le, _ := NewLeaderElector(leaderConfig, etcd, "member-1")
+
+	epd, _ := NewEventProcessorDistributor(config, etcd, mm, le)
+
+	// Register multiple handlers
+	handler1Called := false
+	handler2Called := false
+
+	epd.RegisterHandler("event.type1", func(ctx context.Context, eventType string, eventData []byte) error {
+		handler1Called = true
+		return nil
+	})
+
+	epd.RegisterHandler("event.type2", func(ctx context.Context, eventType string, eventData []byte) error {
+		handler2Called = true
+		return nil
+	})
+
+	// Verify both handlers registered
+	epd.mu.RLock()
+	handlerCount := len(epd.handlers)
+	epd.mu.RUnlock()
+
+	if handlerCount != 2 {
+		t.Errorf("Handler count = %v, want 2", handlerCount)
+	}
+
+	// Unregister one
+	epd.UnregisterHandler("event.type1")
+
+	epd.mu.RLock()
+	handlerCount = len(epd.handlers)
+	epd.mu.RUnlock()
+
+	if handlerCount != 1 {
+		t.Errorf("Handler count after unregister = %v, want 1", handlerCount)
+	}
+
+	// Suppress unused warnings
+	_ = handler1Called
+	_ = handler2Called
+}
+
+func TestEventPartitionDistribution(t *testing.T) {
+	config := DefaultEventProcessorConfig()
+	etcd := &EtcdClient{}
+	clusterConfig := &Config{ClusterName: "test", HeartbeatInterval: time.Second}
+	mm := &MembershipManager{
+		config:   clusterConfig,
+		etcd:     etcd,
+		members:  make(map[string]*Member),
+		stopChan: make(chan struct{}),
+		doneChan: make(chan struct{}),
+	}
+	leaderConfig := &Config{ClusterName: "test", ElectionTimeout: 15 * time.Second}
+	le, _ := NewLeaderElector(leaderConfig, etcd, "member-1")
+
+	epd, _ := NewEventProcessorDistributor(config, etcd, mm, le)
+
+	// Test partition distribution across many events
+	partitionCounts := make(map[int]int)
+	for i := 0; i < 1000; i++ {
+		eventType := "test.event"
+		eventID := string(rune('a' + (i % 26)))
+		partition := epd.GetPartition(eventType, eventID)
+		partitionCounts[partition]++
+	}
+
+	// Should use multiple partitions
+	if len(partitionCounts) < 5 {
+		t.Errorf("Poor partition distribution: only %v partitions used", len(partitionCounts))
+	}
+
+	// All partitions should be within range
+	for p := range partitionCounts {
+		if p < 0 || p >= config.NumPartitions {
+			t.Errorf("Partition %v out of range [0, %v)", p, config.NumPartitions)
+		}
+	}
+}

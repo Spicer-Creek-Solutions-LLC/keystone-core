@@ -139,6 +139,124 @@ type DeploymentInfo struct {
 	UpdatedReplicas int32
 }
 
+// StatefulSetInfo holds statefulset-specific information
+type StatefulSetInfo struct {
+	ResourceInfo
+	// Replicas is the desired number of replicas
+	Replicas int32
+	// ReadyReplicas is the number of ready replicas
+	ReadyReplicas int32
+	// CurrentReplicas is the number of current replicas
+	CurrentReplicas int32
+	// UpdatedReplicas is the number of updated replicas
+	UpdatedReplicas int32
+	// CurrentRevision is the current revision
+	CurrentRevision string
+	// UpdateRevision is the update revision
+	UpdateRevision string
+	// ServiceName is the headless service name
+	ServiceName string
+	// PodManagementPolicy is the pod management policy (OrderedReady or Parallel)
+	PodManagementPolicy string
+	// UpdateStrategy is the update strategy (RollingUpdate or OnDelete)
+	UpdateStrategy string
+}
+
+// DaemonSetInfo holds daemonset-specific information
+type DaemonSetInfo struct {
+	ResourceInfo
+	// DesiredNumberScheduled is the desired number of pods
+	DesiredNumberScheduled int32
+	// CurrentNumberScheduled is the current number of pods
+	CurrentNumberScheduled int32
+	// NumberReady is the number of ready pods
+	NumberReady int32
+	// NumberAvailable is the number of available pods
+	NumberAvailable int32
+	// NumberMisscheduled is the number of misscheduled pods
+	NumberMisscheduled int32
+	// UpdatedNumberScheduled is the number of updated pods
+	UpdatedNumberScheduled int32
+	// UpdateStrategy is the update strategy (RollingUpdate or OnDelete)
+	UpdateStrategy string
+}
+
+// JobInfo holds job-specific information
+type JobInfo struct {
+	ResourceInfo
+	// Active is the number of actively running pods
+	Active int32
+	// Succeeded is the number of pods that completed successfully
+	Succeeded int32
+	// Failed is the number of pods that failed
+	Failed int32
+	// Completions is the desired number of completions
+	Completions int32
+	// Parallelism is the max number of pods running at once
+	Parallelism int32
+	// BackoffLimit is the number of retries before marking as failed
+	BackoffLimit int32
+	// StartTime is when the job started
+	StartTime *time.Time
+	// CompletionTime is when the job completed
+	CompletionTime *time.Time
+}
+
+// CronJobInfo holds cronjob-specific information
+type CronJobInfo struct {
+	ResourceInfo
+	// Schedule is the cron schedule string
+	Schedule string
+	// Suspend indicates if the cronjob is suspended
+	Suspend bool
+	// ConcurrencyPolicy is Allow, Forbid, or Replace
+	ConcurrencyPolicy string
+	// LastScheduleTime is when the job was last scheduled
+	LastScheduleTime *time.Time
+	// LastSuccessfulTime is when the job last succeeded
+	LastSuccessfulTime *time.Time
+	// ActiveJobs is the number of currently running jobs
+	ActiveJobs int32
+}
+
+// PVCInfo holds persistent volume claim information
+type PVCInfo struct {
+	ResourceInfo
+	// Phase is the PVC phase (Pending, Bound, Lost)
+	Phase string
+	// StorageClassName is the storage class
+	StorageClassName string
+	// VolumeName is the bound volume name
+	VolumeName string
+	// AccessModes are the access modes
+	AccessModes []string
+	// RequestedStorage is the requested storage size
+	RequestedStorage string
+	// AllocatedStorage is the actual allocated storage
+	AllocatedStorage string
+}
+
+// HPAInfo holds horizontal pod autoscaler information
+type HPAInfo struct {
+	ResourceInfo
+	// MinReplicas is the minimum number of replicas
+	MinReplicas int32
+	// MaxReplicas is the maximum number of replicas
+	MaxReplicas int32
+	// CurrentReplicas is the current number of replicas
+	CurrentReplicas int32
+	// DesiredReplicas is the desired number of replicas
+	DesiredReplicas int32
+	// TargetKind is the kind of the scale target (Deployment, StatefulSet, etc.)
+	TargetKind string
+	// TargetName is the name of the scale target
+	TargetName string
+	// CurrentCPUUtilization is the current CPU utilization percentage
+	CurrentCPUUtilization *int32
+	// TargetCPUUtilization is the target CPU utilization percentage
+	TargetCPUUtilization *int32
+}
+
 // ServiceInfo holds service-specific information
 type ServiceInfo struct {
 	ResourceInfo
@@ -320,6 +438,150 @@ type ClientInterface interface {
 
 	// GetClusterInfo returns information about the cluster
 	GetClusterInfo() (*ClusterInfo, error)
+
+	// GetNamespace retrieves namespace information
+	GetNamespace(name string) (*NamespaceInfo, error)
+
+	// ListNamespaces lists all namespaces
+	ListNamespaces() ([]NamespaceInfo, error)
+
+	// CreateNamespace creates a new namespace
+	CreateNamespace(spec NamespaceSpec) error
+
+	// UpdateNamespace updates a namespace's labels and annotations
+	UpdateNamespace(spec NamespaceSpec) error
+
+	// DeleteNamespace deletes a namespace
+	DeleteNamespace(name string) error
+
+	// CreateDeployment creates a new deployment
+	CreateDeployment(namespace string, spec DeploymentSpec) error
+
+	// UpdateDeployment updates a deployment
+	UpdateDeployment(namespace string, spec DeploymentSpec) error
+
+	// DeleteDeployment deletes a deployment
+	DeleteDeployment(namespace, name string) error
+
+	// ScaleDeployment scales a deployment to specified replicas
+	ScaleDeployment(namespace, name string, replicas int32) error
+
+	// CreateService creates a new service
+	CreateService(namespace string, spec ServiceSpec) error
+
+	// UpdateService updates a service
+	UpdateService(namespace string, spec ServiceSpec) error
+
+	// DeleteService deletes a service
+	DeleteService(namespace, name string) error
+
+	// GetConfigMap retrieves configmap information
+	GetConfigMap(namespace, name string) (*ConfigMapInfo, error)
+
+	// CreateConfigMap creates a new configmap
+	CreateConfigMap(namespace string, spec ConfigMapSpec) error
+
+	// UpdateConfigMap updates a configmap
+	UpdateConfigMap(namespace string, spec ConfigMapSpec) error
+
+	// DeleteConfigMap deletes a configmap
+	DeleteConfigMap(namespace, name string) error
+
+	// GetSecret retrieves secret information
+	GetSecret(namespace, name string) (*SecretInfo, error)
+
+	// CreateSecret creates a new secret
+	CreateSecret(namespace string, spec SecretSpec) error
+
+	// UpdateSecret updates a secret
+	UpdateSecret(namespace string, spec SecretSpec) error
+
+	// DeleteSecret deletes a secret
+	DeleteSecret(namespace, name string) error
+
+	// GetIngress retrieves ingress information
+	GetIngress(namespace, name string) (*IngressInfo, error)
+
+	// CreateIngress creates a new ingress
+	CreateIngress(namespace string, spec IngressSpec) error
+
+	// UpdateIngress updates an ingress
+	UpdateIngress(namespace string, spec IngressSpec) error
+
+	// DeleteIngress deletes an ingress
+	DeleteIngress(namespace, name string) error
+
+	// GetStatefulSet retrieves statefulset information
+	GetStatefulSet(namespace, name string) (*StatefulSetInfo, error)
+
+	// CreateStatefulSet creates a new statefulset
+	CreateStatefulSet(namespace string, spec StatefulSetSpec) error
+
+	// UpdateStatefulSet updates a statefulset
+	UpdateStatefulSet(namespace string, spec StatefulSetSpec) error
+
+	// DeleteStatefulSet deletes a statefulset
+	DeleteStatefulSet(namespace, name string) error
+
+	// ScaleStatefulSet scales a statefulset to specified replicas
+	ScaleStatefulSet(namespace, name string, replicas int32) error
+
+	// GetDaemonSet retrieves daemonset information
+	GetDaemonSet(namespace, name string) (*DaemonSetInfo, error)
+
+	// CreateDaemonSet creates a new daemonset
+	CreateDaemonSet(namespace string, spec DaemonSetSpec) error
+
+	// UpdateDaemonSet updates a daemonset
+	UpdateDaemonSet(namespace string, spec DaemonSetSpec) error
+
+	// DeleteDaemonSet deletes a daemonset
+	DeleteDaemonSet(namespace, name string) error
+
+	// GetJob retrieves job information
+	GetJob(namespace, name string) (*JobInfo, error)
+
+	// CreateJob creates a new job
+	CreateJob(namespace string, spec JobSpec) error
+
+	// DeleteJob deletes a job
+	DeleteJob(namespace, name string) error
+
+	// GetCronJob retrieves cronjob information
+	GetCronJob(namespace, name string) (*CronJobInfo, error)
+
+	// CreateCronJob creates a new cronjob
+	CreateCronJob(namespace string, spec CronJobSpec) error
+
+	// UpdateCronJob updates a cronjob
+	UpdateCronJob(namespace string, spec CronJobSpec) error
+
+	// DeleteCronJob deletes a cronjob
+	DeleteCronJob(namespace, name string) error
+
+	// GetPVC retrieves persistent volume claim information
+	GetPVC(namespace, name string) (*PVCInfo, error)
+
+	// CreatePVC creates a new persistent volume claim
+	CreatePVC(namespace string, spec PVCSpec) error
+
+	// UpdatePVC updates a persistent volume claim
+	UpdatePVC(namespace string, spec PVCSpec) error
+
+	// DeletePVC deletes a persistent volume claim
+	DeletePVC(namespace, name string) error
+
+	// GetHPA retrieves horizontal pod autoscaler information
+	GetHPA(namespace, name string) (*HPAInfo, error)
+
+	// CreateHPA creates a new horizontal pod autoscaler
+	CreateHPA(namespace string, spec HPASpec) error
+
+	// UpdateHPA updates a horizontal pod autoscaler
+	UpdateHPA(namespace string, spec HPASpec) error
+
+	// DeleteHPA deletes a horizontal pod autoscaler
+	DeleteHPA(namespace, name string) error
 }
 
 // ClusterInfo holds information about a Kubernetes cluster
@@ -332,4 +594,352 @@ type ClusterInfo struct {
 	Namespaces int
 	// APIServer is the API server endpoint
 	APIServer string
+}
+
+// NamespaceInfo holds namespace-specific information
+type NamespaceInfo struct {
+	ResourceInfo
+	// Phase is the namespace phase (Active, Terminating)
+	Phase string
+	// Finalizers are namespace finalizers
+	Finalizers []string
+}
+
+// NamespaceSpec defines namespace creation parameters
+type NamespaceSpec struct {
+	// Name of the namespace
+	Name string
+	// Labels to apply to the namespace
+	Labels map[string]string
+	// Annotations to apply to the namespace
+	Annotations map[string]string
+}
+
+// DeploymentSpec defines deployment creation/update parameters
+type DeploymentSpec struct {
+	// Name of the deployment
+	Name string
+	// Replicas is the desired number of replicas
+	Replicas int32
+	// Labels to apply to the deployment
+	Labels map[string]string
+	// Annotations to apply to the deployment
+	Annotations map[string]string
+	// Image is the container image (required for create)
+	Image string
+	// ContainerPort is the container port to expose
+	ContainerPort int32
+	// Selector labels for pod selection
+	Selector map[string]string
+}
+
+// StatefulSetSpec defines statefulset creation/update parameters
+type StatefulSetSpec struct {
+	// Name of the statefulset
+	Name string
+	// Replicas is the desired number of replicas
+	Replicas int32
+	// Labels to apply to the statefulset
+	Labels map[string]string
+	// Annotations to apply to the statefulset
+	Annotations map[string]string
+	// Image is the container image (required for create)
+	Image string
+	// ContainerPort is the container port to expose
+	ContainerPort int32
+	// Selector labels for pod selection
+	Selector map[string]string
+	// ServiceName is the headless service name (required for create)
+	ServiceName string
+	// PodManagementPolicy is the pod management policy (OrderedReady or Parallel)
+	// Default: OrderedReady
+	PodManagementPolicy string
+	// UpdateStrategy is the update strategy (RollingUpdate or OnDelete)
+	// Default: RollingUpdate
+	UpdateStrategy string
+	// VolumeClaimTemplates defines persistent volume claims for stateful pods
+	VolumeClaimTemplates []VolumeClaimTemplate
+}
+
+// VolumeClaimTemplate defines a persistent volume claim template for StatefulSet
+type VolumeClaimTemplate struct {
+	// Name of the volume claim
+	Name string
+	// StorageClassName is the storage class for the volume
+	StorageClassName string
+	// AccessModes are the access modes for the volume (ReadWriteOnce, ReadOnlyMany, ReadWriteMany)
+	AccessModes []string
+	// StorageSize is the storage size (e.g., "10Gi")
+	StorageSize string
+}
+
+// DaemonSetSpec defines daemonset creation/update parameters
+type DaemonSetSpec struct {
+	// Name of the daemonset
+	Name string
+	// Labels to apply to the daemonset
+	Labels map[string]string
+	// Annotations to apply to the daemonset
+	Annotations map[string]string
+	// Image is the container image (required for create)
+	Image string
+	// ContainerPort is the container port to expose
+	ContainerPort int32
+	// Selector labels for pod selection
+	Selector map[string]string
+	// UpdateStrategy is the update strategy (RollingUpdate or OnDelete)
+	// Default: RollingUpdate
+	UpdateStrategy string
+	// NodeSelector for scheduling pods on specific nodes
+	NodeSelector map[string]string
+}
+
+// JobSpec defines job creation/update parameters
+type JobSpec struct {
+	// Name of the job
+	Name string
+	// Labels to apply to the job
+	Labels map[string]string
+	// Annotations to apply to the job
+	Annotations map[string]string
+	// Image is the container image (required for create)
+	Image string
+	// Command is the command to run
+	Command []string
+	// Args are the command arguments
+	Args []string
+	// Completions is the desired number of completions (default: 1)
+	Completions int32
+	// Parallelism is the max number of pods running at once (default: 1)
+	Parallelism int32
+	// BackoffLimit is the number of retries before marking as failed (default: 6)
+	BackoffLimit int32
+	// ActiveDeadlineSeconds is the max duration the job can run
+	ActiveDeadlineSeconds *int64
+	// TTLSecondsAfterFinished is how long to keep the job after completion
+	TTLSecondsAfterFinished *int32
+	// RestartPolicy is the restart policy (Never or OnFailure)
+	RestartPolicy string
+}
+
+// CronJobSpec defines cronjob creation/update parameters
+type CronJobSpec struct {
+	// Name of the cronjob
+	Name string
+	// Labels to apply to the cronjob
+	Labels map[string]string
+	// Annotations to apply to the cronjob
+	Annotations map[string]string
+	// Schedule is the cron schedule string (required)
+	Schedule string
+	// Image is the container image (required for create)
+	Image string
+	// Command is the command to run
+	Command []string
+	// Args are the command arguments
+	Args []string
+	// Suspend indicates if the cronjob should be suspended
+	Suspend bool
+	// ConcurrencyPolicy is Allow, Forbid, or Replace (default: Allow)
+	ConcurrencyPolicy string
+	// SuccessfulJobsHistoryLimit is how many successful jobs to keep
+	SuccessfulJobsHistoryLimit *int32
+	// FailedJobsHistoryLimit is how many failed jobs to keep
+	FailedJobsHistoryLimit *int32
+	// StartingDeadlineSeconds is the deadline for starting the job
+	StartingDeadlineSeconds *int64
+	// RestartPolicy is the restart policy (Never or OnFailure)
+	RestartPolicy string
+}
+
+// PVCSpec defines persistent volume claim creation/update parameters
+type PVCSpec struct {
+	// Name of the PVC
+	Name string
+	// Labels to apply to the PVC
+	Labels map[string]string
+	// Annotations to apply to the PVC
+	Annotations map[string]string
+	// StorageClassName is the storage class
+	StorageClassName string
+	// AccessModes are the access modes (ReadWriteOnce, ReadOnlyMany, ReadWriteMany)
+	AccessModes []string
+	// StorageSize is the requested storage size (e.g., "10Gi")
+	StorageSize string
+	// VolumeName is the name of a specific PV to bind to
+	VolumeName string
+	// VolumeMode is Filesystem or Block (default: Filesystem)
+	VolumeMode string
+}
+
+// HPASpec defines horizontal pod autoscaler creation/update parameters
+type HPASpec struct {
+	// Name of the HPA
+	Name string
+	// Labels to apply to the HPA
+	Labels map[string]string
+	// Annotations to apply to the HPA
+	Annotations map[string]string
+	// TargetKind is the kind of the scale target (Deployment, StatefulSet, etc.)
+	TargetKind string
+	// TargetName is the name of the scale target
+	TargetName string
+	// MinReplicas is the minimum number of replicas (default: 1)
+	MinReplicas int32
+	// MaxReplicas is the maximum number of replicas (required)
+	MaxReplicas int32
+	// TargetCPUUtilization is the target CPU utilization percentage
+	TargetCPUUtilization *int32
+	// TargetMemoryUtilization is the target memory utilization percentage
+	TargetMemoryUtilization *int32
+}
+
+// ServiceSpec defines service creation/update parameters
+type ServiceSpec struct {
+	// Name of the service
+	Name string
+	// Type is the service type (ClusterIP, NodePort, LoadBalancer, ExternalName)
+	Type string
+	// Selector labels for pod selection
+	Selector map[string]string
+	// Ports is the list of service ports
+	Ports []ServicePortSpec
+	// Labels to apply to the service
+	Labels map[string]string
+	// Annotations to apply to the service
+	Annotations map[string]string
+	// ClusterIP is the cluster IP (optional, "None" for headless)
+	ClusterIP string
+	// ExternalName is the external name for ExternalName type services
+	ExternalName string
+}
+
+// ServicePortSpec defines a service port for creation/update
+type ServicePortSpec struct {
+	// Name of the port (required if multiple ports)
+	Name string
+	// Protocol (TCP, UDP, SCTP) - defaults to TCP
+	Protocol string
+	// Port is the service port number
+	Port int32
+	// TargetPort is the target port on the pod (defaults to Port)
+	TargetPort int32
+	// NodePort for NodePort/LoadBalancer services (optional, auto-assigned if 0)
+	NodePort int32
+}
+
+// ConfigMapInfo holds configmap-specific information
+type ConfigMapInfo struct {
+	ResourceInfo
+	// Data holds the key-value data pairs
+	Data map[string]string
+	// BinaryData holds the binary data (base64 encoded in YAML)
+	BinaryData map[string][]byte
+}
+
+// ConfigMapSpec defines configmap creation/update parameters
+type ConfigMapSpec struct {
+	// Name of the configmap
+	Name string
+	// Labels to apply to the configmap
+	Labels map[string]string
+	// Annotations to apply to the configmap
+	Annotations map[string]string
+	// Data holds the key-value data pairs
+	Data map[string]string
+	// BinaryData holds the binary data
+	BinaryData map[string][]byte
+}
+
+// SecretInfo holds secret-specific information
+type SecretInfo struct {
+	ResourceInfo
+	// Type is the secret type (Opaque, kubernetes.io/tls, etc.)
+	Type string
+	// Data holds the secret data (base64 decoded)
+	Data map[string][]byte
+}
+
+// SecretSpec defines secret creation/update parameters
+type SecretSpec struct {
+	// Name of the secret
+	Name string
+	// Type is the secret type (Opaque, kubernetes.io/tls, kubernetes.io/dockerconfigjson, etc.)
+	// Default: "Opaque"
+	Type string
+	// Labels to apply to the secret
+	Labels map[string]string
+	// Annotations to apply to the secret
+	Annotations map[string]string
+	// Data holds the secret data (already base64 encoded or raw bytes)
+	Data map[string][]byte
+	// StringData holds secret data as strings (converted to Data on creation)
+	StringData map[string]string
+}
+
+// IngressInfo holds ingress-specific information
+type IngressInfo struct {
+	ResourceInfo
+	// IngressClassName is the name of the IngressClass
+	IngressClassName string
+	// Rules contains the list of host rules
+	Rules []IngressRule
+	// TLS contains TLS configuration
+	TLS []IngressTLS
+	// DefaultBackend is the default backend for the ingress
+	DefaultBackend *IngressBackend
+	// LoadBalancer contains the current status of the load-balancer
+	LoadBalancerIngress []string
+}
+
+// IngressRule represents an ingress rule
+type IngressRule struct {
+	// Host is the fully qualified domain name of a network host
+	Host string
+	// Paths contains the list of paths for the host
+	Paths []IngressPath
+}
+
+// IngressPath represents a path and backend for an ingress rule
+type IngressPath struct {
+	// Path is the path to match
+	Path string
+	// PathType is the type of path matching (Exact, Prefix, ImplementationSpecific)
+	PathType string
+	// Backend is the backend to route traffic to
+	Backend IngressBackend
+}
+
+// IngressBackend represents a backend for an ingress
+type IngressBackend struct {
+	// ServiceName is the name of the service
+	ServiceName string
+	// ServicePort is the port of the service
+	ServicePort int32
+}
+
+// IngressTLS represents TLS configuration for an ingress
+type IngressTLS struct {
+	// Hosts are the hosts included in the TLS certificate
+	Hosts []string
+	// SecretName is the name of the secret containing the TLS certificate
+	SecretName string
+}
+
+// IngressSpec defines ingress creation/update parameters
+type IngressSpec struct {
+	// Name of the ingress
+	Name string
+	// IngressClassName is the name of the IngressClass to use
+	IngressClassName string
+	// Labels to apply to the ingress
+	Labels map[string]string
+	// Annotations to apply to the ingress
+	Annotations map[string]string
+	// Rules contains the list of host rules
+	Rules []IngressRule
+	// TLS contains TLS configuration
+	TLS []IngressTLS
+	// DefaultBackend is the default backend for unmatched requests
+	DefaultBackend *IngressBackend
 }

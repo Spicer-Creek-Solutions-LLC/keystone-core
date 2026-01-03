@@ -145,8 +145,8 @@ brew install kscore
 
 ```bash
 # Add repository
-curl -fsSL https://apt.kscore.dev/gpg | sudo gpg --dearmor -o /usr/share/keyrings/kscore.gpg
-echo "deb [signed-by=/usr/share/keyrings/kscore.gpg] https://apt.kscore.dev stable main" | \
+curl -fsSL https://apt.keystonecore.io/gpg | sudo gpg --dearmor -o /usr/share/keyrings/kscore.gpg
+echo "deb [signed-by=/usr/share/keyrings/kscore.gpg] https://apt.keystonecore.io stable main" | \
   sudo tee /etc/apt/sources.list.d/kscore.list
 
 # Install
@@ -161,10 +161,10 @@ sudo apt install kscore
 sudo tee /etc/yum.repos.d/kscore.repo <<EOF
 [kscore]
 name=Keystone Core Repository
-baseurl=https://yum.kscore.dev/stable/\$basearch
+baseurl=https://yum.keystonecore.io/stable/\$basearch
 enabled=1
 gpgcheck=1
-gpgkey=https://yum.kscore.dev/gpg
+gpgkey=https://yum.keystonecore.io/gpg
 EOF
 
 # Install
@@ -205,7 +205,7 @@ Deploy using Helm:
 
 ```bash
 # Add Helm repository
-helm repo add keystonecore https://charts.kscore.dev
+helm repo add keystonecore https://charts.keystonecore.io
 helm repo update
 
 # Install control plane

@@ -84,28 +84,46 @@ func (e *GitExecutor) Execute(ctx context.Context, config *RollbackConfig, reque
 	return result, nil
 }
 
-// GetPreviousRevision gets the previous commit
+// GetPreviousRevision gets the previous commit (parent of HEAD)
 func (e *GitExecutor) GetPreviousRevision(ctx context.Context, config *RollbackConfig) (string, error) {
 	repo, ok := e.manager.GetRepository(config.Application)
 	if !ok {
 		return "", fmt.Errorf("repository not found: %s", config.Application)
 	}
 
-	// In a real implementation, this would use git log to get previous commit
-	// For now, we return an error indicating this needs implementation
-	currentCommit, err := repo.GetCurrentCommit()
+	previousCommit, err := repo.GetPreviousCommit()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to get previous commit: %w", err)
 	}
 
-	// This is a placeholder - real implementation would get parent commit
-	return currentCommit, nil
+	return previousCommit, nil
 }
 
 // GetLastKnownGood gets the last known good commit
+// Since Git doesn't track deployment success, this returns the previous commit
+// as the best approximation. For production use, you should track deployment
+// status externally (e.g., via annotations, tags, or a deployment database).
 func (e *GitExecutor) GetLastKnownGood(ctx context.Context, config *RollbackConfig) (string, error) {
-	// In a real implementation, this would check deployment history
-	// and find the last successful deployment commit
-	// For now, we delegate to GetPreviousRevision
-	return e.GetPreviousRevision(ctx, config)
+	repo, ok := e.manager.GetRepository(config.Application)
+	if !ok {
+		return "", fmt.Errorf("repository not found: %s", config.Application)
+	}
+
+	// Get commit history to find a previous deployment
+	// In a more sophisticated implementation, you would:
+	// 1. Look for Git tags marking successful deployments
+	// 2. Check an external deployment database
+	// 3. Use annotations on commits
+	history, err := repo.GetCommitHistory(10)
+	if err != nil {
+		return "", fmt.Errorf("failed to get commit history: %w", err)
+	}
+
+	if len(history) < 2 {
+		return "", fmt.Errorf("no previous commits available (history has %d commits)", len(history))
+	}
+
+	// Return the second commit (first previous) as the best approximation
+	// The first commit is HEAD (current), second is previous
+	return history[1].Hash, nil
 }

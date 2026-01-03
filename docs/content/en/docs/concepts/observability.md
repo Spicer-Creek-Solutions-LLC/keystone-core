@@ -431,6 +431,104 @@ Min Duration: 1s
 Max Duration: 10s
 ```
 
+### Programmatic Querying
+
+Keystone Core provides Go clients for querying Loki and Jaeger programmatically:
+
+**Loki Client**:
+```go
+import "github.com/shawnbutts/keystone-core/pkg/query"
+
+// Simple client
+client := query.NewLokiQuerier("http://loki:3100")
+
+// With full configuration
+client := query.NewLokiQuerierWithConfig(&query.LokiConfig{
+    Address:  "http://loki:3100",
+    Username: "admin",          // Optional: basic auth
+    Password: "secret",
+    TenantID: "my-org",         // Optional: multi-tenant
+    Timeout:  30 * time.Second,
+})
+
+// Query logs
+result, err := client.Query(ctx, &query.LogsQuery{
+    Query: `{service="kscore-server"} |= "error"`,
+    Range: query.TimeRange{
+        Start: time.Now().Add(-1 * time.Hour),
+        End:   time.Now(),
+    },
+    Limit:     100,
+    Direction: "backward",  // Most recent first
+})
+
+// Get available labels
+labels, err := client.Labels(ctx, start, end)
+
+// Get values for a label
+values, err := client.LabelValues(ctx, "service", start, end)
+```
+
+**Jaeger Client**:
+```go
+import "github.com/shawnbutts/keystone-core/pkg/query"
+
+// Simple client
+client := query.NewJaegerQuerier("http://jaeger-query:16686")
+
+// With full configuration
+client := query.NewJaegerQuerierWithConfig(&query.JaegerConfig{
+    Address:  "http://jaeger-query:16686",
+    Username: "admin",          // Optional: basic auth
+    Password: "secret",
+    Timeout:  30 * time.Second,
+})
+
+// Query traces
+result, err := client.Query(ctx, &query.TracesQuery{
+    Service:   "kscore-server",
+    Operation: "Execute Command",
+    Tags: map[string]string{
+        "agent_id": "web-01",
+    },
+    Range: &query.TimeRange{
+        Start: time.Now().Add(-1 * time.Hour),
+        End:   time.Now(),
+    },
+    MinDuration: 100 * time.Millisecond,
+    Limit:       20,
+})
+
+// Get a specific trace
+trace, err := client.GetTrace(ctx, "abc123def456")
+
+// Get available services
+services, err := client.GetServices(ctx)
+
+// Get operations for a service
+operations, err := client.GetOperations(ctx, "kscore-server")
+```
+
+**Query Results**:
+
+```go
+// Loki results
+for _, entry := range result.Entries {
+    fmt.Printf("[%s] %s\n", entry.Timestamp, entry.Line)
+    for k, v := range entry.Labels {
+        fmt.Printf("  %s=%s\n", k, v)
+    }
+}
+
+// Jaeger results
+for _, trace := range result.Traces {
+    fmt.Printf("Trace: %s (%d spans)\n", trace.TraceID, len(trace.Spans))
+    for _, span := range trace.Spans {
+        fmt.Printf("  %s: %s (%v)\n", span.SpanID, span.OperationName, span.Duration)
+    }
+}
+```
+
 ## Grafana Dashboards
 
 Keystone Core provides 6 pre-built Grafana dashboards:

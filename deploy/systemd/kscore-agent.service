@@ -1,6 +1,6 @@
 [Unit]
 Description=Keystone Core Agent
-Documentation=https://docs.kscore.dev
+Documentation=https://docs.keystonecore.io
 After=network-online.target
 Wants=network-online.target
 

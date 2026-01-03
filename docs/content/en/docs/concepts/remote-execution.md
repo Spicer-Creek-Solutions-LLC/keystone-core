@@ -497,6 +497,96 @@ security:
     - dd
 ```
 
+### User Switching (RunAs)
+
+Execute commands as a specific user on the target system. This is useful for running commands with appropriate privileges without giving the agent root access to everything.
+
+**CLI Usage:**
+```bash
+# Run as specific user
+kscorectl exec run "whoami" --target "role:web" --user "www-data"
+
+# Run package installation as root
+kscorectl exec run "apt-get install -y nginx" --target "role:web" --user "root"
+
+# Run application commands as service user
+kscorectl exec run "/opt/app/bin/migrate" --target "role:api" --user "appuser"
+```
+
+**Platform Support:**
+
+| Platform | Mechanism | Requirements |
+|----------|-----------|--------------|
+| Linux | setuid/setgid | Agent runs as root |
+| macOS | setuid/setgid | Agent runs as root |
+| BSD | setuid/setgid | Agent runs as root |
+| Windows | Not supported | Use Windows services or scheduled tasks |
+
+**How It Works (Unix):**
+1. Agent looks up the target user by name or UID
+2. Retrieves UID, GID, and supplementary groups
+3. Sets `HOME` and `USER` environment variables
+4. Executes command with user's credentials via `syscall.Credential`
+
+**Configuration:**
+```yaml
+# Agent config - allow user switching
+security:
+  allow_user_switching: true
+  allowed_users:
+    - root
+    - www-data
+    - appuser
+    - postgres
+```
+
+**Error Handling:**
+```bash
+# User doesn't exist
+kscorectl exec run "cmd" --target "web-01" --user "nonexistent"
+# Error: user "nonexistent" not found
+
+# Agent not running as root
+kscorectl exec run "cmd" --target "web-01" --user "www-data"
+# Error: switching to user "www-data" requires root privileges
+
+# Windows (not supported)
+kscorectl exec run "cmd" --target "windows-01" --user "Administrator"
+# Error: user switching on Windows requires password-based authentication
+```
+
+**Best Practices:**
+1. **Principle of Least Privilege**: Run commands as the minimum required user
+2. **Avoid Root When Possible**: Use service users for application commands
+3. **Allowlist Users**: Configure `allowed_users` to restrict which users can be switched to
+4. **Audit User Switching**: Monitor audit logs for user switching events
+
+**Example: Database Backup**
+```bash
+# Run backup as postgres user (has access to data directory)
+kscorectl exec run "pg_dump mydb > /backup/mydb.sql" \
+  --target "role:db" \
+  --user "postgres" \
+  --timeout 30m
+```
+
+**Example: Web Server Restart**
+```bash
+# Restart nginx as root
+kscorectl exec run "systemctl restart nginx" \
+  --target "role:web" \
+  --user "root"
+```
+
+**Example: Application Deployment**
+```bash
+# Deploy as application user
+kscorectl exec run "/opt/app/bin/deploy.sh" \
+  --target "role:api" \
+  --user "appuser" \
+  --env "DEPLOY_VERSION=1.2.3"
+```
+
 ### Execution Permissions
 
 Commands run with agent's permissions by default.
@@ -518,6 +608,9 @@ kscorectl exec run "sudo systemctl restart nginx" --target "role:web"
 # No implicit elevation
 kscorectl exec run "systemctl restart nginx" --target "role:web"
 # → Fails with permission denied (unless agent runs as root)
+
+# Alternative: Use --user flag (requires agent running as root)
+kscorectl exec run "systemctl restart nginx" --target "role:web" --user "root"
 ```
 
 ## Performance

@@ -15,5 +15,8 @@ agent:
   commandtimeout: 60s
   metadatainterval: 30s
 
+auth:
+  enabled: false
+
 tls:
   enabled: false

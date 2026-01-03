@@ -151,36 +151,30 @@ Built-in monitoring and troubleshooting tools.
 
 ## Architecture Overview
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                     GitOps Layer                         │
-│            (ArgoCD, Flux, GitHub, GitLab)               │
-└────────────────────┬────────────────────────────────────┘
-                     │ webhooks
-                     ↓
-┌─────────────────────────────────────────────────────────┐
-│                  Keystone Core Control Plane                │
-│  ┌─────────────┐  ┌──────────────┐  ┌────────────────┐  │
-│  │  API Server │  │ State Manager│  │ Event/Reactor  │  │
-│  │   (gRPC)    │  │   (SQLite/   │  │    Engine      │  │
-│  │             │  │  PostgreSQL) │  │  (JetStream)   │  │
-│  └─────────────┘  └──────────────┘  └────────────────┘  │
-│          │                │                  │           │
-│          └────────────────┴──────────────────┘           │
-│                           │                              │
-│                      NATS Message Bus                    │
-│              (embedded or external cluster)              │
-└────────────────────┬────────────────────────────────────┘
-                     │ bi-directional messaging
-                     ↓
-┌─────────────────────────────────────────────────────────┐
-│                    Agent Fleet                           │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐               │
-│  │   K8s    │  │    VMs   │  │  Edge    │               │
-│  │  Pods    │  │ (Linux/  │  │ Devices  │  ...          │
-│  │          │  │ Windows) │  │          │               │
-│  └──────────┘  └──────────┘  └──────────┘               │
-└─────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph GitOps["GitOps Layer"]
+        GO[ArgoCD / Flux / GitHub / GitLab]
+    end
+
+    subgraph CP["Keystone Core Control Plane"]
+        API[API Server<br/>gRPC]
+        SM[State Manager<br/>SQLite/PostgreSQL]
+        EE[Event/Reactor<br/>Engine]
+        NATS[NATS Message Bus<br/>embedded or external cluster]
+
+        API & SM & EE --> NATS
+    end
+
+    subgraph Agents["Agent Fleet"]
+        K8S[K8s Pods]
+        VMS[VMs<br/>Linux/Windows]
+        Edge[Edge Devices]
+        More[...]
+    end
+
+    GitOps -->|webhooks| CP
+    NATS <-->|bi-directional messaging| Agents
 ```
 
 ### Key Components

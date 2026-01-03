@@ -1,0 +1,207 @@
+# =============================================================================
+# KEYSTONE CORE SERVER - HIGH AVAILABILITY VALUES OVERRIDE
+# =============================================================================
+# Use with: helm install kscore ./kscore-server -f values-ha.yaml
+# =============================================================================
+
+# Enable HA deployment mode (uses StatefulSet instead of Deployment)
+deploymentMode: ha
+
+# 3 replicas for quorum (2 can fail)
+replicaCount: 3
+
+# -----------------------------------------------------------------------------
+# External NATS Cluster
+# -----------------------------------------------------------------------------
+nats:
+  enabled: true  # Deploy Bitnami NATS subchart
+  mode: external
+
+  # NATS subchart configuration
+  replicaCount: 3
+  cluster:
+    enabled: true
+  jetstream:
+    enabled: true
+    memStorage:
+      enabled: true
+      size: 1Gi
+    fileStorage:
+      enabled: true
+      size: 10Gi
+  auth:
+    enabled: true
+    token: ""
+    existingSecret: ""
+
+# -----------------------------------------------------------------------------
+# PostgreSQL Storage Backend
+# -----------------------------------------------------------------------------
+storage:
+  backend: postgresql
+  postgresql:
+    database: kscore
+    username: kscore
+    sslMode: require
+    maxOpenConns: 50
+    maxIdleConns: 10
+
+# Enable Bitnami PostgreSQL subchart
+postgresql:
+  enabled: true
+  auth:
+    username: kscore
+    database: kscore
+  primary:
+    persistence:
+      size: 100Gi
+  readReplicas:
+    replicaCount: 2
+    persistence:
+      size: 100Gi
+
+# -----------------------------------------------------------------------------
+# Cluster Coordination (etcd)
+# -----------------------------------------------------------------------------
+cluster:
+  enabled: true
+  clusterName: "keystone-core"
+  heartbeatInterval: "5s"
+  heartbeatTimeout: "30s"
+  electionTimeout: "15s"
+
+  etcd:
+    mode: external
+    dialTimeout: "5s"
+    requestTimeout: "10s"
+    leasesTTL: 15
+    keyPrefix: "/keystone-core"
+
+# Enable Bitnami etcd subchart
+etcd:
+  enabled: true
+  replicaCount: 3
+  auth:
+    rbac:
+      enabled: false
+  persistence:
+    enabled: true
+    size: 8Gi
+
+# -----------------------------------------------------------------------------
+# TLS (Recommended for Production)
+# -----------------------------------------------------------------------------
+tls:
+  enabled: true
+  certManager:
+    enabled: true
+    issuerName: "letsencrypt-prod"
+    issuerKind: "ClusterIssuer"
+
+# -----------------------------------------------------------------------------
+# HA-Specific Resource Allocation
+# -----------------------------------------------------------------------------
+resources:
+  limits:
+    cpu: 4000m
+    memory: 2Gi
+  requests:
+    cpu: 1000m
+    memory: 512Mi
+
+# Pod disruption budget (at least 2 pods must be available)
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+# Persistence for StatefulSet volumes
+persistence:
+  enabled: true
+  size: 50Gi
+
+# Rolling update strategy
+updateStrategy:
+  type: RollingUpdate
+  partition: 0
+
+# Spread pods across nodes
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: kscore-server
+        topologyKey: kubernetes.io/hostname
+
+# Spread across availability zones
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: kscore-server
+
+# -----------------------------------------------------------------------------
+# Observability
+# -----------------------------------------------------------------------------
+serviceMonitor:
+  enabled: true
+  interval: 15s
+
+prometheusRule:
+  enabled: true
+  groups:
+    controlPlane: true
+    agents: true
+    stateManagement: true
+    policy: true
+    gitops: true
+    nats: true
+    cluster: true
+
+grafanaDashboards:
+  enabled: true
+  dashboards:
+    overview: true
+    controlPlaneHealth: true
+    agentFleet: true
+    stateManagement: true
+    policyCompliance: true
+    gitopsOperations: true
+    clusterHealth: true
+
+# -----------------------------------------------------------------------------
+# Ingress (Optional)
+# -----------------------------------------------------------------------------
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: kscore.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+          backend: http
+  tls:
+    - secretName: kscore-tls
+      hosts:
+        - kscore.example.com
+
+grpcIngress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: "GRPC"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: grpc.kscore.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: kscore-grpc-tls
+      hosts:
+        - grpc.kscore.example.com

@@ -4,6 +4,7 @@ package topology
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -600,17 +601,19 @@ func TestHACluster_ContinuousOperation(t *testing.T) {
 	skipIfNotHACluster(t)
 	env := setupHACluster(t)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
-	defer cancel()
-
 	// Run multiple batch commands in parallel
 	for i := 0; i < 3; i++ {
+		i := i // capture loop variable
 		t.Run("batch", func(t *testing.T) {
 			t.Parallel()
 
+			// Create context inside subtest to avoid cancellation when parent returns
+			ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+			defer cancel()
+
 			client := env.Client()
 			stream, err := client.BatchExecuteCommand(ctx, &pb.BatchExecuteCommandRequest{
-				BatchJobId:  "continuous-op-test",
+				BatchJobId:  fmt.Sprintf("continuous-op-test-%d", i),
 				Target:      "*",
 				Command:     "hostname",
 				Concurrency: 5,

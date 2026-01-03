@@ -15,6 +15,11 @@ func Parse(data []byte) (*Manifest, error) {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidYAML, err)
 	}
 
+	// Parse capabilities from raw YAML (supports both list and map formats)
+	if err := manifest.parseCapabilities(); err != nil {
+		return nil, fmt.Errorf("failed to parse capabilities: %w", err)
+	}
+
 	if err := manifest.Validate(); err != nil {
 		return nil, err
 	}
@@ -59,6 +64,21 @@ func ParseLockFileFromFile(filename string) (*LockFile, error) {
 
 // Marshal converts a manifest to YAML bytes
 func Marshal(manifest *Manifest) ([]byte, error) {
+	// Ensure CapabilitiesRaw is populated from Capabilities for serialization
+	if len(manifest.Capabilities) > 0 && manifest.CapabilitiesRaw.Kind == 0 {
+		manifest.CapabilitiesRaw = yaml.Node{
+			Kind:    yaml.SequenceNode,
+			Tag:     "!!seq",
+			Content: make([]*yaml.Node, len(manifest.Capabilities)),
+		}
+		for i, cap := range manifest.Capabilities {
+			manifest.CapabilitiesRaw.Content[i] = &yaml.Node{
+				Kind:  yaml.ScalarNode,
+				Tag:   "!!str",
+				Value: cap,
+			}
+		}
+	}
 	return yaml.Marshal(manifest)
 }
 

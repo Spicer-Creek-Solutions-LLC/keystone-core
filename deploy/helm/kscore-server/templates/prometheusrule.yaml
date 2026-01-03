@@ -1,0 +1,268 @@
+{{- if .Values.prometheusRule.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "kscore-server.fullname" . }}
+  {{- if .Values.prometheusRule.namespace }}
+  namespace: {{ .Values.prometheusRule.namespace }}
+  {{- end }}
+  labels:
+    {{- include "kscore-server.labels" . | nindent 4 }}
+    {{- with .Values.prometheusRule.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+    {{- if .Values.prometheusRule.groups.controlPlane }}
+    - name: kscore-control-plane
+      rules:
+        - alert: KscoreControlPlaneDown
+          expr: up{job="{{ include "kscore-server.fullname" . }}"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Keystone Core control plane is down"
+            description: "Control plane instance {{ "{{ $labels.instance }}" }} has been down for more than 2 minutes."
+
+        - alert: KscoreControlPlaneHighMemory
+          expr: process_resident_memory_bytes{job="{{ include "kscore-server.fullname" . }}"} / 1024 / 1024 > 1500
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Keystone Core control plane high memory usage"
+            description: "Control plane {{ "{{ $labels.instance }}" }} is using more than 1.5GB memory."
+
+        - alert: KscoreControlPlaneHighGoroutines
+          expr: go_goroutines{job="{{ include "kscore-server.fullname" . }}"} > 500
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Keystone Core control plane high goroutine count"
+            description: "Control plane {{ "{{ $labels.instance }}" }} has more than 500 goroutines."
+
+        - alert: KscoreAPIHighLatency
+          expr: histogram_quantile(0.99, rate(kscore_api_request_duration_seconds_bucket[5m])) > 1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Keystone Core API high latency"
+            description: "API p99 latency is above 1 second."
+
+        - alert: KscoreAPIHighErrorRate
+          expr: sum(rate(kscore_api_request_total{status=~"5.."}[5m])) / sum(rate(kscore_api_request_total[5m])) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Keystone Core API high error rate"
+            description: "API error rate is above 5%."
+    {{- end }}
+
+    {{- if .Values.prometheusRule.groups.agents }}
+    - name: kscore-agents
+      rules:
+        - alert: KscoreLowAgentAvailability
+          expr: (sum(kscore_agents_connected) / sum(kscore_agents_total)) * 100 < 90
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Low Keystone Core agent availability"
+            description: "Less than 90% of agents are connected."
+
+        - alert: KscoreCriticalAgentAvailability
+          expr: (sum(kscore_agents_connected) / sum(kscore_agents_total)) * 100 < 75
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Critical Keystone Core agent availability"
+            description: "Less than 75% of agents are connected."
+
+        - alert: KscoreAgentHighResourceUsage
+          expr: kscore_agent_cpu_usage_percent > 90
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Keystone Core agent high CPU usage"
+            description: "Agent {{ "{{ $labels.agent_id }}" }} CPU usage is above 90%."
+
+        - alert: KscoreAgentCommandFailures
+          expr: rate(kscore_agent_commands_failed_total[5m]) > 0.1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Keystone Core agent command failures"
+            description: "Agent {{ "{{ $labels.agent_id }}" }} has high command failure rate."
+    {{- end }}
+
+    {{- if .Values.prometheusRule.groups.stateManagement }}
+    - name: kscore-state-management
+      rules:
+        - alert: KscoreStateApplicationFailures
+          expr: rate(kscore_state_applications_failed_total[5m]) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Keystone Core state application failures"
+            description: "State applications are failing."
+
+        - alert: KscoreHighDriftRate
+          expr: rate(kscore_state_drift_detected_total[1h]) > 10
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High configuration drift rate"
+            description: "High rate of drift detection events."
+
+        - alert: KscoreSlowStateApplication
+          expr: histogram_quantile(0.99, rate(kscore_state_application_duration_seconds_bucket[5m])) > 60
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Slow state applications"
+            description: "State application p99 latency is above 60 seconds."
+    {{- end }}
+
+    {{- if .Values.prometheusRule.groups.policy }}
+    - name: kscore-policy
+      rules:
+        - alert: KscoreCriticalPolicyViolations
+          expr: rate(kscore_policy_violations_total{severity="critical"}[5m]) > 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Critical policy violations detected"
+            description: "Critical policy violations are occurring."
+
+        - alert: KscoreHighPolicyViolations
+          expr: sum(rate(kscore_policy_violations_total{severity="high"}[5m])) > 5
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High policy violation rate"
+            description: "High number of policy violations."
+
+        - alert: KscoreLowComplianceScore
+          expr: kscore_compliance_score < 80
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Low compliance score"
+            description: "Compliance score is below 80%."
+    {{- end }}
+
+    {{- if .Values.prometheusRule.groups.gitops }}
+    - name: kscore-gitops
+      rules:
+        - alert: KscoreVerificationFailures
+          expr: rate(kscore_gitops_verification_failed_total[15m]) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "GitOps verification failures"
+            description: "Deployment verifications are failing."
+
+        - alert: KscoreHighRollbackRate
+          expr: rate(kscore_gitops_rollback_total[1h]) > 3
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High rollback rate"
+            description: "High number of deployment rollbacks."
+
+        - alert: KscoreWebhookErrors
+          expr: rate(kscore_webhook_errors_total[5m]) > 0.1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Webhook processing errors"
+            description: "Webhook processing is failing."
+    {{- end }}
+
+    {{- if .Values.prometheusRule.groups.nats }}
+    - name: kscore-nats
+      rules:
+        - alert: KscoreNATSHighMemory
+          expr: nats_varz_mem > 2147483648
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "NATS high memory usage"
+            description: "NATS server memory usage is above 2GB."
+
+        - alert: KscoreNATSSlowConsumers
+          expr: nats_varz_slow_consumers > 0
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "NATS slow consumers"
+            description: "NATS has slow consumers."
+
+        - alert: KscoreNATSHighConnections
+          expr: nats_varz_connections > 5000
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "NATS high connection count"
+            description: "NATS has more than 5000 connections."
+    {{- end }}
+
+    {{- if .Values.prometheusRule.groups.cluster }}
+    - name: kscore-cluster
+      rules:
+        - alert: KscoreClusterNoQuorum
+          expr: kscore_cluster_has_quorum == 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Keystone Core cluster has no quorum"
+            description: "Cluster has lost quorum and cannot accept writes."
+
+        - alert: KscoreClusterMemberUnhealthy
+          expr: kscore_cluster_member_status{status!="healthy"} > 0
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Keystone Core cluster member unhealthy"
+            description: "Cluster member {{ "{{ $labels.member }}" }} is unhealthy."
+
+        - alert: KscoreClusterFrequentLeaderChanges
+          expr: increase(kscore_cluster_leader_changes_total[10m]) > 3
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Frequent leader changes"
+            description: "Cluster is experiencing frequent leader elections."
+
+        - alert: KscoreEtcdHighLatency
+          expr: histogram_quantile(0.99, rate(kscore_cluster_etcd_operation_duration_seconds_bucket[5m])) > 0.5
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High etcd latency"
+            description: "etcd operation p99 latency is above 500ms."
+    {{- end }}
+{{- end }}

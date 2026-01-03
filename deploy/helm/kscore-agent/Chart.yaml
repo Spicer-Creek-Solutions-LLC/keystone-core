@@ -1,0 +1,22 @@
+apiVersion: v2
+name: kscore-agent
+description: Keystone Core Agent - Lightweight agent for managed nodes
+type: application
+version: 0.1.0
+appVersion: "0.10.0"
+kubeVersion: ">=1.23.0-0"
+home: https://keystonecore.io
+sources:
+  - https://github.com/keystone-core/keystone-core
+maintainers:
+  - name: Keystone Core Team
+    email: maintainers@keystonecore.io
+keywords:
+  - keystone-core
+  - agent
+  - infrastructure
+  - daemonset
+  - configuration-management
+annotations:
+  artifacthub.io/license: Apache-2.0
+  artifacthub.io/category: integration-delivery

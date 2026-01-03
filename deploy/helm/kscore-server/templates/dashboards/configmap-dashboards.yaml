@@ -1,0 +1,101 @@
+{{- if .Values.grafanaDashboards.enabled }}
+{{- $dashboardFiles := dict
+    "kscore-overview" "kscore-overview.json"
+    "control-plane-health" "control-plane-health.json"
+    "agent-fleet" "agent-fleet.json"
+    "state-management" "state-management.json"
+    "policy-compliance" "policy-compliance.json"
+    "gitops-operations" "gitops-operations.json"
+    "cluster-health" "cluster-health.json"
+}}
+{{- $dashboardsEnabled := .Values.grafanaDashboards.dashboards }}
+{{- range $key, $file := $dashboardFiles }}
+{{- $enableKey := $key | replace "-" "" | title | untitle }}
+{{- $checkKey := "" }}
+{{- if eq $key "kscore-overview" }}{{ $checkKey = "overview" }}
+{{- else if eq $key "control-plane-health" }}{{ $checkKey = "controlPlaneHealth" }}
+{{- else if eq $key "agent-fleet" }}{{ $checkKey = "agentFleet" }}
+{{- else if eq $key "state-management" }}{{ $checkKey = "stateManagement" }}
+{{- else if eq $key "policy-compliance" }}{{ $checkKey = "policyCompliance" }}
+{{- else if eq $key "gitops-operations" }}{{ $checkKey = "gitopsOperations" }}
+{{- else if eq $key "cluster-health" }}{{ $checkKey = "clusterHealth" }}
+{{- end }}
+{{- if index $dashboardsEnabled $checkKey }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kscore-server.fullname" $ }}-dashboard-{{ $key }}
+  labels:
+    {{- include "kscore-server.labels" $ | nindent 4 }}
+    {{- with $.Values.grafanaDashboards.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+data:
+  {{ $file }}: |
+    {
+      "annotations": {
+        "list": []
+      },
+      "description": "Keystone Core {{ $key | replace "-" " " | title }} Dashboard",
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 0,
+      "id": null,
+      "links": [],
+      "liveNow": false,
+      "panels": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 24,
+            "x": 0,
+            "y": 0
+          },
+          "id": 1,
+          "options": {
+            "content": "# {{ $key | replace "-" " " | title }}\n\nThis dashboard provides monitoring for Keystone Core {{ $key | replace "-" " " }}.\n\n**Note:** For full dashboards with all panels, copy the dashboards from `deploy/grafana/dashboards/` in the Keystone Core repository.",
+            "mode": "markdown"
+          },
+          "title": "About",
+          "type": "text"
+        }
+      ],
+      "refresh": "30s",
+      "schemaVersion": 38,
+      "style": "dark",
+      "tags": ["keystone-core"],
+      "templating": {
+        "list": [
+          {
+            "current": {},
+            "hide": 0,
+            "includeAll": false,
+            "label": "Prometheus",
+            "name": "DS_PROMETHEUS",
+            "options": [],
+            "query": "prometheus",
+            "refresh": 1,
+            "regex": "",
+            "type": "datasource"
+          }
+        ]
+      },
+      "time": {
+        "from": "now-1h",
+        "to": "now"
+      },
+      "timepicker": {},
+      "timezone": "browser",
+      "title": "Keystone Core - {{ $key | replace "-" " " | title }}",
+      "uid": "kscore-{{ $key }}",
+      "version": 1,
+      "weekStart": ""
+    }
+{{- end }}
+{{- end }}
+{{- end }}

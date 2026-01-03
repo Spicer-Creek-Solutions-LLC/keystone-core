@@ -418,6 +418,8 @@ server:
 
 ### Proxy Support
 
+WebSocket connections can traverse HTTP proxies, including corporate proxies requiring authentication:
+
 ```yaml
 agent:
   nats:
@@ -432,6 +434,31 @@ agent:
           - "*.internal.com"
           - "10.0.0.0/8"
 ```
+
+**Proxy Authentication Types**:
+
+| Type | Description | Use Case |
+|------|-------------|----------|
+| `none` | No authentication | Open proxies |
+| `basic` | HTTP Basic Auth | Simple username/password |
+| `digest` | HTTP Digest Auth | Slightly more secure than basic |
+| `ntlm` | NTLM authentication | Corporate Windows environments |
+
+**NTLM Authentication** is commonly required in enterprise Windows environments. It uses a challenge-response mechanism:
+
+```yaml
+agent:
+  nats:
+    websocket:
+      proxy:
+        url: http://proxy.corp.com:8080
+        auth:
+          type: ntlm
+          username: DOMAIN\user  # or user@domain.com
+          password: secret
+```
+
+NTLM supports both `DOMAIN\user` and `user@domain.com` formats. The domain is extracted automatically from the username.
 
 ## Discovery & Auto-Configuration
 

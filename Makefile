@@ -1,4 +1,5 @@
 .PHONY: help proto build test clean deps build-all-platforms docs docs-serve docs-pdf docs-all \
+       docs-container-build docs-pdf-container docs-pdf-book-container docs-all-container \
        release release-snapshot release-dry-run lint \
        e2e-build e2e-test e2e-up e2e-down e2e-logs e2e-clean e2e-full e2e-perf e2e-scenarios \
        e2e-ha e2e-ha-up e2e-ha-down e2e-ha-logs
@@ -42,6 +43,12 @@ help:
 	@echo "  docs-pdf-book      - Generate book-quality PDFs (requires Pandoc+LaTeX)"
 	@echo "  docs-all           - Build site and generate PDFs"
 	@echo "  docs-all-book      - Build site and generate book-quality PDFs"
+	@echo ""
+	@echo "Containerized documentation (no local deps required):"
+	@echo "  docs-container-build     - Build docs container image"
+	@echo "  docs-pdf-container       - Generate PDFs using container (Docker/Podman)"
+	@echo "  docs-pdf-book-container  - Generate book-quality PDFs using container"
+	@echo "  docs-all-container       - Build site and generate all PDFs in container"
 	@echo ""
 	@echo "E2E testing targets (requires Docker/Podman):"
 	@echo "  e2e-build          - Build container images for E2E testing"
@@ -232,6 +239,50 @@ docs-all: docs docs-pdf
 
 docs-all-book: docs docs-pdf-book
 	@echo "Documentation site and book-quality PDFs complete"
+
+# Container-based documentation targets (Docker/Podman)
+# Automatically detects docker or podman
+CONTAINER_ENGINE := $(shell command -v podman 2>/dev/null || command -v docker 2>/dev/null)
+DOCS_IMAGE := kscore-docs
+
+docs-container-build:
+	@echo "Building documentation container image..."
+	@if [ -z "$(CONTAINER_ENGINE)" ]; then \
+		echo "Error: Neither docker nor podman found in PATH"; \
+		exit 1; \
+	fi
+	$(CONTAINER_ENGINE) build -t $(DOCS_IMAGE) docs/
+	@echo "Documentation container image built: $(DOCS_IMAGE)"
+
+docs-pdf-container: docs-container-build
+	@echo "Generating PDF documentation using container..."
+	@mkdir -p build/pdfs
+	$(CONTAINER_ENGINE) run --rm \
+		-v "$(shell pwd)":/workspace \
+		-w /workspace/docs \
+		$(DOCS_IMAGE) \
+		bash -c "hugo --quiet && npm run generate-pdfs"
+	@echo "PDFs generated: build/pdfs/"
+
+docs-pdf-book-container: docs-container-build
+	@echo "Generating book-quality PDFs using container..."
+	@mkdir -p build/pdfs
+	$(CONTAINER_ENGINE) run --rm \
+		-v "$(shell pwd)":/workspace \
+		-w /workspace/docs \
+		$(DOCS_IMAGE) \
+		bash -c "hugo --quiet && ./generate-pdfs-book.sh"
+	@echo "Book-quality PDFs generated: build/pdfs/"
+
+docs-all-container: docs-container-build
+	@echo "Building documentation site and all PDFs using container..."
+	@mkdir -p build/pdfs
+	$(CONTAINER_ENGINE) run --rm \
+		-v "$(shell pwd)":/workspace \
+		-w /workspace/docs \
+		$(DOCS_IMAGE) \
+		bash -c "hugo --quiet && npm run generate-pdfs && ./generate-pdfs-book.sh"
+	@echo "Documentation site and PDFs complete"
 
 # Linting
 lint:

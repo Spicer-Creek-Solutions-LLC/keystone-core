@@ -2,8 +2,14 @@ package query
 
 import (
 	"context"
+	"crypto/tls"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -197,27 +203,434 @@ func getTraceDuration(trace *TraceResult) time.Duration {
 	return end.Sub(start)
 }
 
+// JaegerConfig holds configuration for the Jaeger querier
+type JaegerConfig struct {
+	// Address is the Jaeger query service address (e.g., "http://jaeger-query:16686")
+	Address string
+
+	// Username for basic auth (optional)
+	Username string
+
+	// Password for basic auth (optional)
+	Password string
+
+	// TLSConfig for secure connections (optional)
+	TLSConfig *tls.Config
+
+	// Timeout for HTTP requests
+	Timeout time.Duration
+}
+
 // JaegerQuerier queries traces from Jaeger
 type JaegerQuerier struct {
-	address string
-	// In a real implementation, this would have a Jaeger client
+	config *JaegerConfig
+	client *http.Client
 }
 
 // NewJaegerQuerier creates a new Jaeger traces querier
 func NewJaegerQuerier(address string) *JaegerQuerier {
+	return NewJaegerQuerierWithConfig(&JaegerConfig{
+		Address: address,
+		Timeout: 30 * time.Second,
+	})
+}
+
+// NewJaegerQuerierWithConfig creates a new Jaeger traces querier with full configuration
+func NewJaegerQuerierWithConfig(config *JaegerConfig) *JaegerQuerier {
+	if config.Timeout == 0 {
+		config.Timeout = 30 * time.Second
+	}
+
+	transport := &http.Transport{}
+	if config.TLSConfig != nil {
+		transport.TLSClientConfig = config.TLSConfig
+	}
+
 	return &JaegerQuerier{
-		address: address,
+		config: config,
+		client: &http.Client{
+			Timeout:   config.Timeout,
+			Transport: transport,
+		},
 	}
 }
 
-// Query executes a traces query against Jaeger
+// jaegerTracesResponse represents the Jaeger traces API response
+type jaegerTracesResponse struct {
+	Data   []jaegerTrace `json:"data"`
+	Total  int           `json:"total"`
+	Limit  int           `json:"limit"`
+	Offset int           `json:"offset"`
+	Errors []struct {
+		Code int    `json:"code"`
+		Msg  string `json:"msg"`
+	} `json:"errors,omitempty"`
+}
+
+// jaegerTrace represents a trace in Jaeger's format
+type jaegerTrace struct {
+	TraceID   string                   `json:"traceID"`
+	Spans     []jaegerSpan             `json:"spans"`
+	Processes map[string]jaegerProcess `json:"processes"`
+	Warnings  []string                 `json:"warnings,omitempty"`
+}
+
+// jaegerSpan represents a span in Jaeger's format
+type jaegerSpan struct {
+	TraceID       string           `json:"traceID"`
+	SpanID        string           `json:"spanID"`
+	OperationName string           `json:"operationName"`
+	References    []jaegerSpanRef  `json:"references,omitempty"`
+	StartTime     int64            `json:"startTime"` // microseconds since epoch
+	Duration      int64            `json:"duration"`  // microseconds
+	Tags          []jaegerKeyValue `json:"tags,omitempty"`
+	Logs          []jaegerLog      `json:"logs,omitempty"`
+	ProcessID     string           `json:"processID"`
+	Warnings      []string         `json:"warnings,omitempty"`
+}
+
+// jaegerSpanRef represents a reference to another span
+type jaegerSpanRef struct {
+	RefType string `json:"refType"`
+	TraceID string `json:"traceID"`
+	SpanID  string `json:"spanID"`
+}
+
+// jaegerKeyValue represents a key-value pair in Jaeger's format
+type jaegerKeyValue struct {
+	Key   string      `json:"key"`
+	Type  string      `json:"type"`
+	Value interface{} `json:"value"`
+}
+
+// jaegerLog represents a log entry in a span
+type jaegerLog struct {
+	Timestamp int64            `json:"timestamp"` // microseconds since epoch
+	Fields    []jaegerKeyValue `json:"fields"`
+}
+
+// jaegerProcess represents a process in Jaeger's format
+type jaegerProcess struct {
+	ServiceName string           `json:"serviceName"`
+	Tags        []jaegerKeyValue `json:"tags,omitempty"`
+}
+
+// Query executes a traces query against Jaeger using the search API
 func (j *JaegerQuerier) Query(ctx context.Context, query *TracesQuery) (*TracesResult, error) {
-	// This is a placeholder - a real implementation would use the Jaeger API
-	return nil, fmt.Errorf("Jaeger querier not implemented - use in-memory querier for testing")
+	// Build the query URL
+	baseURL := j.config.Address
+	if baseURL == "" {
+		return nil, fmt.Errorf("jaeger address not configured")
+	}
+
+	// Use the traces search endpoint
+	endpoint := fmt.Sprintf("%s/api/traces", baseURL)
+
+	// Build query parameters
+	params := url.Values{}
+
+	if query.Service != "" {
+		params.Set("service", query.Service)
+	}
+
+	if query.Operation != "" {
+		params.Set("operation", query.Operation)
+	}
+
+	// Add tags as JSON
+	if len(query.Tags) > 0 {
+		tagsJSON, err := json.Marshal(query.Tags)
+		if err == nil {
+			params.Set("tags", string(tagsJSON))
+		}
+	}
+
+	// Time range (Jaeger expects microseconds)
+	if query.Range != nil {
+		params.Set("start", strconv.FormatInt(query.Range.Start.UnixMicro(), 10))
+		params.Set("end", strconv.FormatInt(query.Range.End.UnixMicro(), 10))
+	}
+
+	// Duration filters (Jaeger expects duration strings like "100ms" or microseconds)
+	if query.MinDuration > 0 {
+		params.Set("minDuration", strconv.FormatInt(query.MinDuration.Microseconds(), 10)+"us")
+	}
+	if query.MaxDuration > 0 {
+		params.Set("maxDuration", strconv.FormatInt(query.MaxDuration.Microseconds(), 10)+"us")
+	}
+
+	// Limit
+	limit := query.Limit
+	if limit == 0 {
+		limit = 20
+	}
+	params.Set("limit", strconv.Itoa(limit))
+
+	fullURL := fmt.Sprintf("%s?%s", endpoint, params.Encode())
+
+	// Create HTTP request
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fullURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Add headers
+	req.Header.Set("Accept", "application/json")
+
+	// Add authentication if configured
+	if j.config.Username != "" && j.config.Password != "" {
+		req.SetBasicAuth(j.config.Username, j.config.Password)
+	}
+
+	// Execute request
+	resp, err := j.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("jaeger request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	// Check for HTTP errors
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("jaeger returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Parse response
+	var jaegerResp jaegerTracesResponse
+	if err := json.Unmarshal(body, &jaegerResp); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	// Check for errors
+	if len(jaegerResp.Errors) > 0 {
+		return nil, fmt.Errorf("jaeger query failed: %s", jaegerResp.Errors[0].Msg)
+	}
+
+	// Convert to our format
+	traces := make([]TraceResult, len(jaegerResp.Data))
+	for i, jt := range jaegerResp.Data {
+		traces[i] = convertJaegerTrace(&jt)
+	}
+
+	return &TracesResult{
+		Traces: traces,
+		Total:  jaegerResp.Total,
+	}, nil
 }
 
 // GetTrace retrieves a specific trace from Jaeger
 func (j *JaegerQuerier) GetTrace(ctx context.Context, traceID string) (*TraceResult, error) {
-	// This is a placeholder - a real implementation would use the Jaeger API
-	return nil, fmt.Errorf("Jaeger querier not implemented - use in-memory querier for testing")
+	// Build the query URL
+	baseURL := j.config.Address
+	if baseURL == "" {
+		return nil, fmt.Errorf("jaeger address not configured")
+	}
+
+	endpoint := fmt.Sprintf("%s/api/traces/%s", baseURL, url.PathEscape(traceID))
+
+	// Create HTTP request
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Accept", "application/json")
+	if j.config.Username != "" && j.config.Password != "" {
+		req.SetBasicAuth(j.config.Username, j.config.Password)
+	}
+
+	// Execute request
+	resp, err := j.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("jaeger request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("trace not found: %s", traceID)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("jaeger returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Parse response (single trace response)
+	var jaegerResp jaegerTracesResponse
+	if err := json.Unmarshal(body, &jaegerResp); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	if len(jaegerResp.Data) == 0 {
+		return nil, fmt.Errorf("trace not found: %s", traceID)
+	}
+
+	trace := convertJaegerTrace(&jaegerResp.Data[0])
+	return &trace, nil
+}
+
+// GetServices retrieves available service names from Jaeger
+func (j *JaegerQuerier) GetServices(ctx context.Context) ([]string, error) {
+	endpoint := fmt.Sprintf("%s/api/services", j.config.Address)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Accept", "application/json")
+	if j.config.Username != "" && j.config.Password != "" {
+		req.SetBasicAuth(j.config.Username, j.config.Password)
+	}
+
+	resp, err := j.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("jaeger request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("jaeger returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var servicesResp struct {
+		Data   []string `json:"data"`
+		Total  int      `json:"total"`
+		Errors []struct {
+			Code int    `json:"code"`
+			Msg  string `json:"msg"`
+		} `json:"errors,omitempty"`
+	}
+	if err := json.Unmarshal(body, &servicesResp); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return servicesResp.Data, nil
+}
+
+// GetOperations retrieves available operations for a service from Jaeger
+func (j *JaegerQuerier) GetOperations(ctx context.Context, service string) ([]string, error) {
+	endpoint := fmt.Sprintf("%s/api/services/%s/operations", j.config.Address, url.PathEscape(service))
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Accept", "application/json")
+	if j.config.Username != "" && j.config.Password != "" {
+		req.SetBasicAuth(j.config.Username, j.config.Password)
+	}
+
+	resp, err := j.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("jaeger request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("jaeger returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var opsResp struct {
+		Data   []string `json:"data"`
+		Total  int      `json:"total"`
+		Errors []struct {
+			Code int    `json:"code"`
+			Msg  string `json:"msg"`
+		} `json:"errors,omitempty"`
+	}
+	if err := json.Unmarshal(body, &opsResp); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return opsResp.Data, nil
+}
+
+// convertJaegerTrace converts a Jaeger trace to our format
+func convertJaegerTrace(jt *jaegerTrace) TraceResult {
+	// Convert spans
+	spans := make([]Span, len(jt.Spans))
+	for i, js := range jt.Spans {
+		spans[i] = Span{
+			TraceID:       js.TraceID,
+			SpanID:        js.SpanID,
+			OperationName: js.OperationName,
+			References:    convertJaegerRefs(js.References),
+			StartTime:     time.UnixMicro(js.StartTime),
+			Duration:      time.Duration(js.Duration) * time.Microsecond,
+			Tags:          convertJaegerTags(js.Tags),
+			Logs:          convertJaegerLogs(js.Logs),
+			ProcessID:     js.ProcessID,
+		}
+	}
+
+	// Convert processes
+	processes := make(map[string]Process, len(jt.Processes))
+	for id, jp := range jt.Processes {
+		processes[id] = Process{
+			ServiceName: jp.ServiceName,
+			Tags:        convertJaegerTags(jp.Tags),
+		}
+	}
+
+	return TraceResult{
+		TraceID:   jt.TraceID,
+		Spans:     spans,
+		Processes: processes,
+		Warnings:  jt.Warnings,
+	}
+}
+
+// convertJaegerRefs converts Jaeger span references to our format
+func convertJaegerRefs(refs []jaegerSpanRef) []SpanRef {
+	result := make([]SpanRef, len(refs))
+	for i, ref := range refs {
+		result[i] = SpanRef{
+			RefType: ref.RefType,
+			TraceID: ref.TraceID,
+			SpanID:  ref.SpanID,
+		}
+	}
+	return result
+}
+
+// convertJaegerTags converts Jaeger key-value pairs to our format
+func convertJaegerTags(tags []jaegerKeyValue) map[string]interface{} {
+	result := make(map[string]interface{}, len(tags))
+	for _, tag := range tags {
+		result[tag.Key] = tag.Value
+	}
+	return result
+}
+
+// convertJaegerLogs converts Jaeger logs to our format
+func convertJaegerLogs(logs []jaegerLog) []SpanLog {
+	result := make([]SpanLog, len(logs))
+	for i, log := range logs {
+		result[i] = SpanLog{
+			Timestamp: time.UnixMicro(log.Timestamp),
+			Fields:    convertJaegerTags(log.Fields),
+		}
+	}
+	return result
 }

@@ -219,6 +219,149 @@ func TestDetectCaching(t *testing.T) {
 	}
 }
 
+func TestParseBMCInfo(t *testing.T) {
+	// Sample ipmitool bmc info output
+	output := `Device ID                 : 32
+Device Revision           : 1
+Firmware Revision         : 2.65
+IPMI Version              : 2.0
+Manufacturer ID           : 10876
+Manufacturer Name         : Supermicro
+Product ID                : 2083 (0x0823)
+Product Name              : AOC-SLG3-4E2P
+Device Available          : yes
+Provides Device SDRs      : no
+Additional Device Support :
+    Sensor Device
+    SDR Repository Device
+    SEL Device
+    FRU Inventory Device
+    IPMB Event Receiver
+    Bridge
+    Chassis Device
+Aux Firmware Rev Info     :
+    0x00
+    0x00
+    0x00
+    0x00`
+
+	info := &BMCInfo{}
+	parseBMCInfo(output, info)
+
+	if info.FirmwareVersion != "2.65" {
+		t.Errorf("expected firmware version '2.65', got '%s'", info.FirmwareVersion)
+	}
+	if info.Manufacturer != "Supermicro" {
+		t.Errorf("expected manufacturer 'Supermicro', got '%s'", info.Manufacturer)
+	}
+	if info.ProductID != "2083 (0x0823) (AOC-SLG3-4E2P)" {
+		t.Errorf("expected product ID '2083 (0x0823) (AOC-SLG3-4E2P)', got '%s'", info.ProductID)
+	}
+}
+
+func TestParseBMCInfoMinimal(t *testing.T) {
+	// Minimal output with just Manufacturer ID
+	output := `Manufacturer ID           : 10876
+Firmware Revision         : 1.23`
+
+	info := &BMCInfo{}
+	parseBMCInfo(output, info)
+
+	if info.FirmwareVersion != "1.23" {
+		t.Errorf("expected firmware version '1.23', got '%s'", info.FirmwareVersion)
+	}
+	if info.Manufacturer != "10876" {
+		t.Errorf("expected manufacturer '10876', got '%s'", info.Manufacturer)
+	}
+}
+
+func TestParseLANInfo(t *testing.T) {
+	// Sample ipmitool lan print output
+	output := `Set in Progress         : Set Complete
+Auth Type Support       : NONE MD2 MD5 PASSWORD
+Auth Type Enable        : Callback : MD2 MD5 PASSWORD
+                        : User     : MD2 MD5 PASSWORD
+                        : Operator : MD2 MD5 PASSWORD
+                        : Admin    : MD2 MD5 PASSWORD
+                        : OEM      : MD2 MD5 PASSWORD
+IP Address Source       : Static Address
+IP Address              : 192.168.1.100
+Subnet Mask             : 255.255.255.0
+MAC Address             : 3c:ec:ef:12:34:56
+SNMP Community String   : public
+IP Header               : TTL=0x00 Flags=0x00 Precedence=0x00 TOS=0x00
+BMC ARP Control         : ARP Responses Enabled, Gratuitous ARP Disabled
+Default Gateway IP      : 192.168.1.1
+Default Gateway MAC     : 00:00:00:00:00:00
+802.1q VLAN ID          : Disabled
+802.1q VLAN Priority    : 0
+RMCP+ Cipher Suites     : 1,2,3,6,7,8,11,12
+Cipher Suite Priv Max   : aaaaXXXXXXXXXXX
+                        :     X=Cipher Suite Unused
+                        :     c=CALLBACK
+                        :     u=USER
+                        :     o=OPERATOR
+                        :     a=ADMIN
+                        :     O=OEM`
+
+	info := &BMCInfo{}
+	parseLANInfo(output, info)
+
+	if info.IPAddress != "192.168.1.100" {
+		t.Errorf("expected IP address '192.168.1.100', got '%s'", info.IPAddress)
+	}
+	if info.MACAddress != "3c:ec:ef:12:34:56" {
+		t.Errorf("expected MAC address '3c:ec:ef:12:34:56', got '%s'", info.MACAddress)
+	}
+}
+
+func TestParseLANInfoEmpty(t *testing.T) {
+	info := &BMCInfo{}
+	parseLANInfo("", info)
+
+	if info.IPAddress != "" {
+		t.Errorf("expected empty IP address, got '%s'", info.IPAddress)
+	}
+	if info.MACAddress != "" {
+		t.Errorf("expected empty MAC address, got '%s'", info.MACAddress)
+	}
+}
+
+func TestFileExists(t *testing.T) {
+	// Test existing file
+	exists := fileExists("/etc/passwd") // Should exist on macOS/Linux
+	if !exists {
+		// Skip on non-Unix systems
+		t.Log("Skipping fileExists test for /etc/passwd")
+	}
+
+	// Test non-existing file
+	exists = fileExists("/nonexistent/path/to/file")
+	if exists {
+		t.Error("expected fileExists to return false for non-existent file")
+	}
+}
+
+func TestDirExists(t *testing.T) {
+	// Test existing directory
+	exists := dirExists("/tmp")
+	if !exists {
+		t.Log("Skipping dirExists test for /tmp")
+	}
+
+	// Test non-existing directory
+	exists = dirExists("/nonexistent/path/to/dir")
+	if exists {
+		t.Error("expected dirExists to return false for non-existent directory")
+	}
+
+	// Test file (not a directory)
+	exists = dirExists("/etc/passwd")
+	if exists {
+		t.Error("expected dirExists to return false for a file")
+	}
+}
+
 func TestGlobalDetectors(t *testing.T) {
 	// Test global Detect function
 	info, err := Detect()

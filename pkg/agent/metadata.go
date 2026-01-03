@@ -5,6 +5,12 @@ import (
 	"net"
 	"os"
 	"runtime"
+	"time"
+
+	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/disk"
+	"github.com/shirou/gopsutil/v3/load"
+	"github.com/shirou/gopsutil/v3/mem"
 
 	"github.com/shawnbutts/keystone-core/pkg/hardware"
 	"github.com/shawnbutts/keystone-core/pkg/platform"
@@ -166,23 +172,91 @@ type SystemMetrics struct {
 	MemoryUsage   uint64
 }
 
-// CollectMetrics gathers current system metrics
+// CollectMetrics gathers current system metrics using gopsutil
 func CollectMetrics() (*SystemMetrics, error) {
 	metrics := &SystemMetrics{
 		NumGoroutines: runtime.NumGoroutine(),
 	}
 
-	// Get memory stats
+	// Get Go runtime memory stats
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
 	metrics.MemoryUsage = memStats.Alloc
 
-	// TODO: Add actual CPU, memory, disk metrics using a library like gopsutil
-	// For now, return basic info
-	metrics.CPUPercent = 0.0
-	metrics.MemoryPercent = 0.0
-	metrics.DiskPercent = 0.0
-	metrics.LoadAverage = []float32{0.0, 0.0, 0.0}
+	// Get CPU usage (percentage over 200ms interval)
+	cpuPercents, err := cpu.Percent(200*time.Millisecond, false)
+	if err == nil && len(cpuPercents) > 0 {
+		metrics.CPUPercent = float32(cpuPercents[0])
+	}
+
+	// Get memory usage
+	memInfo, err := mem.VirtualMemory()
+	if err == nil {
+		metrics.MemoryPercent = float32(memInfo.UsedPercent)
+	}
+
+	// Get disk usage (root filesystem)
+	diskInfo, err := disk.Usage("/")
+	if err == nil {
+		metrics.DiskPercent = float32(diskInfo.UsedPercent)
+	}
+
+	// Get load average (Unix systems only, returns 0 on Windows)
+	loadInfo, err := load.Avg()
+	if err == nil && loadInfo != nil {
+		metrics.LoadAverage = []float32{
+			float32(loadInfo.Load1),
+			float32(loadInfo.Load5),
+			float32(loadInfo.Load15),
+		}
+	} else {
+		metrics.LoadAverage = []float32{0.0, 0.0, 0.0}
+	}
+
+	return metrics, nil
+}
+
+// CollectMetricsNonBlocking gathers system metrics without blocking for CPU measurement.
+// Use this for frequent polling where the 200ms CPU measurement delay is not acceptable.
+func CollectMetricsNonBlocking() (*SystemMetrics, error) {
+	metrics := &SystemMetrics{
+		NumGoroutines: runtime.NumGoroutine(),
+	}
+
+	// Get Go runtime memory stats
+	var memStats runtime.MemStats
+	runtime.ReadMemStats(&memStats)
+	metrics.MemoryUsage = memStats.Alloc
+
+	// Get CPU usage (instantaneous - less accurate but non-blocking)
+	cpuPercents, err := cpu.Percent(0, false)
+	if err == nil && len(cpuPercents) > 0 {
+		metrics.CPUPercent = float32(cpuPercents[0])
+	}
+
+	// Get memory usage
+	memInfo, err := mem.VirtualMemory()
+	if err == nil {
+		metrics.MemoryPercent = float32(memInfo.UsedPercent)
+	}
+
+	// Get disk usage (root filesystem)
+	diskInfo, err := disk.Usage("/")
+	if err == nil {
+		metrics.DiskPercent = float32(diskInfo.UsedPercent)
+	}
+
+	// Get load average
+	loadInfo, err := load.Avg()
+	if err == nil && loadInfo != nil {
+		metrics.LoadAverage = []float32{
+			float32(loadInfo.Load1),
+			float32(loadInfo.Load5),
+			float32(loadInfo.Load15),
+		}
+	} else {
+		metrics.LoadAverage = []float32{0.0, 0.0, 0.0}
+	}
 
 	return metrics, nil
 }

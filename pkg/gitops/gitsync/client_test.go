@@ -488,3 +488,307 @@ func TestManagerSyncAll(t *testing.T) {
 		t.Errorf("Results count = %d, want 2", len(results))
 	}
 }
+
+// createTestRepoWithMultipleCommits creates a test repo with multiple commits
+func createTestRepoWithMultipleCommits(t *testing.T, path string, numCommits int) *git.Repository {
+	t.Helper()
+
+	gitRepo, err := git.PlainInit(path, false)
+	if err != nil {
+		t.Fatalf("Failed to init repo: %v", err)
+	}
+
+	worktree, err := gitRepo.Worktree()
+	if err != nil {
+		t.Fatalf("Failed to get worktree: %v", err)
+	}
+
+	for i := 0; i < numCommits; i++ {
+		filename := filepath.Join(path, "file"+filepath.Base(time.Now().String())+".txt")
+		err = os.WriteFile(filename, []byte("content "+time.Now().String()), 0644)
+		if err != nil {
+			t.Fatalf("Failed to write file: %v", err)
+		}
+
+		_, err = worktree.Add(filepath.Base(filename))
+		if err != nil {
+			t.Fatalf("Failed to add file: %v", err)
+		}
+
+		_, err = worktree.Commit("Commit "+time.Now().String(), &git.CommitOptions{
+			Author: &object.Signature{
+				Name:  "Test User",
+				Email: "test@example.com",
+				When:  time.Now(),
+			},
+		})
+		if err != nil {
+			t.Fatalf("Failed to commit: %v", err)
+		}
+
+		// Small delay to ensure different timestamps
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	return gitRepo
+}
+
+func TestRepositoryGetPreviousCommit(t *testing.T) {
+	tmpDir := t.TempDir()
+	createTestRepoWithMultipleCommits(t, tmpDir, 3)
+
+	cfg := &RepositoryConfig{
+		Name:      "test-repo",
+		URL:       "file://" + tmpDir,
+		Branch:    "master",
+		LocalPath: tmpDir,
+		Auth: AuthConfig{
+			Type: AuthTypeNone,
+		},
+	}
+
+	repo, err := NewRepository(cfg)
+	if err != nil {
+		t.Fatalf("NewRepository failed: %v", err)
+	}
+
+	err = repo.Open()
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+
+	currentCommit, err := repo.GetCurrentCommit()
+	if err != nil {
+		t.Fatalf("GetCurrentCommit failed: %v", err)
+	}
+
+	previousCommit, err := repo.GetPreviousCommit()
+	if err != nil {
+		t.Fatalf("GetPreviousCommit failed: %v", err)
+	}
+
+	if previousCommit == "" {
+		t.Error("Previous commit hash should not be empty")
+	}
+
+	if len(previousCommit) != 40 {
+		t.Errorf("Previous commit hash length = %d, want 40", len(previousCommit))
+	}
+
+	if previousCommit == currentCommit {
+		t.Error("Previous commit should be different from current commit")
+	}
+}
+
+func TestRepositoryGetPreviousCommit_RootCommit(t *testing.T) {
+	tmpDir := t.TempDir()
+	// Create repo with only one commit
+	createTestRepo(t, tmpDir)
+
+	cfg := &RepositoryConfig{
+		Name:      "test-repo",
+		URL:       "file://" + tmpDir,
+		Branch:    "master",
+		LocalPath: tmpDir,
+		Auth: AuthConfig{
+			Type: AuthTypeNone,
+		},
+	}
+
+	repo, err := NewRepository(cfg)
+	if err != nil {
+		t.Fatalf("NewRepository failed: %v", err)
+	}
+
+	err = repo.Open()
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+
+	_, err = repo.GetPreviousCommit()
+	if err == nil {
+		t.Error("GetPreviousCommit should fail for root commit")
+	}
+}
+
+func TestRepositoryGetCommitHistory(t *testing.T) {
+	tmpDir := t.TempDir()
+	createTestRepoWithMultipleCommits(t, tmpDir, 5)
+
+	cfg := &RepositoryConfig{
+		Name:      "test-repo",
+		URL:       "file://" + tmpDir,
+		Branch:    "master",
+		LocalPath: tmpDir,
+		Auth: AuthConfig{
+			Type: AuthTypeNone,
+		},
+	}
+
+	repo, err := NewRepository(cfg)
+	if err != nil {
+		t.Fatalf("NewRepository failed: %v", err)
+	}
+
+	err = repo.Open()
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+
+	// Get all 5 commits
+	history, err := repo.GetCommitHistory(5)
+	if err != nil {
+		t.Fatalf("GetCommitHistory failed: %v", err)
+	}
+
+	if len(history) != 5 {
+		t.Errorf("History length = %d, want 5", len(history))
+	}
+
+	// Verify commits are in order (newest first)
+	for i := 0; i < len(history)-1; i++ {
+		if history[i].Timestamp.Before(history[i+1].Timestamp) {
+			t.Errorf("Commits should be ordered newest first")
+		}
+	}
+
+	// Verify each commit has required fields
+	for i, commit := range history {
+		if commit.Hash == "" {
+			t.Errorf("Commit %d: Hash should not be empty", i)
+		}
+		if len(commit.Hash) != 40 {
+			t.Errorf("Commit %d: Hash length = %d, want 40", i, len(commit.Hash))
+		}
+		if commit.Message == "" {
+			t.Errorf("Commit %d: Message should not be empty", i)
+		}
+		if commit.Author == "" {
+			t.Errorf("Commit %d: Author should not be empty", i)
+		}
+	}
+}
+
+func TestRepositoryGetCommitHistory_Limit(t *testing.T) {
+	tmpDir := t.TempDir()
+	createTestRepoWithMultipleCommits(t, tmpDir, 5)
+
+	cfg := &RepositoryConfig{
+		Name:      "test-repo",
+		URL:       "file://" + tmpDir,
+		Branch:    "master",
+		LocalPath: tmpDir,
+		Auth: AuthConfig{
+			Type: AuthTypeNone,
+		},
+	}
+
+	repo, err := NewRepository(cfg)
+	if err != nil {
+		t.Fatalf("NewRepository failed: %v", err)
+	}
+
+	err = repo.Open()
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+
+	// Get only 2 commits
+	history, err := repo.GetCommitHistory(2)
+	if err != nil {
+		t.Fatalf("GetCommitHistory failed: %v", err)
+	}
+
+	if len(history) != 2 {
+		t.Errorf("History length = %d, want 2", len(history))
+	}
+}
+
+func TestRepositoryGetCommit(t *testing.T) {
+	tmpDir := t.TempDir()
+	createTestRepoWithMultipleCommits(t, tmpDir, 3)
+
+	cfg := &RepositoryConfig{
+		Name:      "test-repo",
+		URL:       "file://" + tmpDir,
+		Branch:    "master",
+		LocalPath: tmpDir,
+		Auth: AuthConfig{
+			Type: AuthTypeNone,
+		},
+	}
+
+	repo, err := NewRepository(cfg)
+	if err != nil {
+		t.Fatalf("NewRepository failed: %v", err)
+	}
+
+	err = repo.Open()
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+
+	// Get current commit hash
+	currentHash, err := repo.GetCurrentCommit()
+	if err != nil {
+		t.Fatalf("GetCurrentCommit failed: %v", err)
+	}
+
+	// Get commit info
+	commit, err := repo.GetCommit(currentHash)
+	if err != nil {
+		t.Fatalf("GetCommit failed: %v", err)
+	}
+
+	if commit.Hash != currentHash {
+		t.Errorf("Hash = %s, want %s", commit.Hash, currentHash)
+	}
+
+	if commit.Author == "" {
+		t.Error("Author should not be empty")
+	}
+
+	if commit.AuthorEmail == "" {
+		t.Error("AuthorEmail should not be empty")
+	}
+
+	if commit.Message == "" {
+		t.Error("Message should not be empty")
+	}
+
+	// Current commit should have a parent
+	if commit.ParentHash == "" {
+		t.Error("ParentHash should not be empty for non-root commit")
+	}
+}
+
+func TestRepositoryGetCommit_NotFound(t *testing.T) {
+	tmpDir := t.TempDir()
+	createTestRepo(t, tmpDir)
+
+	cfg := &RepositoryConfig{
+		Name:      "test-repo",
+		URL:       "file://" + tmpDir,
+		Branch:    "master",
+		LocalPath: tmpDir,
+		Auth: AuthConfig{
+			Type: AuthTypeNone,
+		},
+	}
+
+	repo, err := NewRepository(cfg)
+	if err != nil {
+		t.Fatalf("NewRepository failed: %v", err)
+	}
+
+	err = repo.Open()
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+
+	// Try to get a non-existent commit
+	_, err = repo.GetCommit("0000000000000000000000000000000000000000")
+	if err == nil {
+		t.Error("GetCommit should fail for non-existent commit")
+	}
+}

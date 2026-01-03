@@ -39,6 +39,10 @@ cluster:
   electiontimeout: 15s
   leasettl: 30
 
+# Authentication disabled for testing
+auth:
+  enabled: false
+
 # TLS disabled for testing
 tls:
   enabled: false

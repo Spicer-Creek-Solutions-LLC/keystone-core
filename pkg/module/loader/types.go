@@ -20,6 +20,9 @@ type LoadOptions struct {
 	// SkipPolicyValidation bypasses policy validation (DANGEROUS - dev only)
 	SkipPolicyValidation bool
 
+	// SkipCapabilityPolicyValidation bypasses capability policy validation
+	SkipCapabilityPolicyValidation bool
+
 	// TrustLevel for policy evaluation
 	TrustLevel policy.TrustLevel
 
@@ -34,6 +37,12 @@ type LoadOptions struct {
 
 	// CapabilityBackends for pluggable capability implementations
 	CapabilityBackends *CapabilityBackends
+
+	// PreviousCapabilities is set when updating a module, to check for lock violations
+	PreviousCapabilities []string
+
+	// User who is loading the module (for audit purposes)
+	User string
 }
 
 // CapabilityBackends provides pluggable implementations for capabilities
@@ -72,8 +81,14 @@ type LoadResult struct {
 	// PolicyResult from policy validation
 	PolicyResult *policy.ModulePolicyResult
 
+	// CapabilityPolicyDecisions contains policy decisions for each capability
+	CapabilityPolicyDecisions map[string]*capabilities.PolicyDecision
+
 	// RegisteredCapabilities that were granted
 	RegisteredCapabilities []string
+
+	// DeniedCapabilities that were blocked by policy
+	DeniedCapabilities []string
 
 	// LoadDuration time taken to load
 	LoadDuration time.Duration
@@ -137,14 +152,16 @@ type LoadEvent struct {
 type LoadEventType string
 
 const (
-	LoadEventStart          LoadEventType = "load_start"
-	LoadEventManifestParsed LoadEventType = "manifest_parsed"
-	LoadEventVerifying      LoadEventType = "verifying"
-	LoadEventVerified       LoadEventType = "verified"
-	LoadEventPolicyCheck    LoadEventType = "policy_check"
-	LoadEventPolicyApproved LoadEventType = "policy_approved"
-	LoadEventRuntimeInit    LoadEventType = "runtime_init"
-	LoadEventCapabilities   LoadEventType = "capabilities_registered"
-	LoadEventComplete       LoadEventType = "load_complete"
-	LoadEventFailed         LoadEventType = "load_failed"
+	LoadEventStart                  LoadEventType = "load_start"
+	LoadEventManifestParsed         LoadEventType = "manifest_parsed"
+	LoadEventVerifying              LoadEventType = "verifying"
+	LoadEventVerified               LoadEventType = "verified"
+	LoadEventPolicyCheck            LoadEventType = "policy_check"
+	LoadEventPolicyApproved         LoadEventType = "policy_approved"
+	LoadEventCapabilityPolicyCheck  LoadEventType = "capability_policy_check"
+	LoadEventCapabilityLockCheck    LoadEventType = "capability_lock_check"
+	LoadEventRuntimeInit            LoadEventType = "runtime_init"
+	LoadEventCapabilities           LoadEventType = "capabilities_registered"
+	LoadEventComplete               LoadEventType = "load_complete"
+	LoadEventFailed                 LoadEventType = "load_failed"
 )

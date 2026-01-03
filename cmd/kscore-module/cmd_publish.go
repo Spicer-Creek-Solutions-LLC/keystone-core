@@ -57,7 +57,7 @@ Examples:
 }
 
 func init() {
-	publishCmd.Flags().StringVar(&publishRegistry, "registry", "", "Registry URL (defaults to KSCORE_REGISTRY or https://registry.keystone-core.io)")
+	publishCmd.Flags().StringVar(&publishRegistry, "registry", "", "Registry URL (defaults to KSCORE_REGISTRY or https://registry.keystonecore.io)")
 	publishCmd.Flags().StringVar(&publishToken, "token", "", "Authentication token (can also use KSCORE_REGISTRY_TOKEN)")
 	publishCmd.Flags().StringVar(&publishUsername, "username", "", "Username for basic auth (can also use KSCORE_REGISTRY_USERNAME)")
 	publishCmd.Flags().StringVar(&publishPassword, "password", "", "Password for basic auth (can also use KSCORE_REGISTRY_PASSWORD)")
@@ -123,7 +123,7 @@ func publishExecute(cmd *cobra.Command, args []string) error {
 		registryURL = os.Getenv("KSCORE_REGISTRY")
 	}
 	if registryURL == "" {
-		registryURL = "https://registry.keystone-core.io"
+		registryURL = "https://registry.keystonecore.io"
 	}
 	registryURL = strings.TrimSuffix(registryURL, "/")
 

@@ -383,3 +383,228 @@ func TestInitSystemString(t *testing.T) {
 		}
 	}
 }
+
+func TestDistroTypeString(t *testing.T) {
+	tests := []struct {
+		distro   DistroType
+		expected string
+	}{
+		{DistroUbuntu, "ubuntu"},
+		{DistroDebian, "debian"},
+		{DistroCentOS, "centos"},
+		{DistroRHEL, "rhel"},
+		{DistroFedora, "fedora"},
+		{DistroAlpine, "alpine"},
+		{DistroArch, "arch"},
+		{DistroOpenSUSE, "opensuse"},
+		{DistroAmazonLinux, "amzn"},
+		{DistroUnknown, "unknown"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.expected, func(t *testing.T) {
+			if tt.distro.String() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, tt.distro.String())
+			}
+		})
+	}
+}
+
+func TestInfoIsMacOS(t *testing.T) {
+	tests := []struct {
+		name   string
+		os     OSType
+		expect bool
+	}{
+		{"macos", OSMacOS, true},
+		{"linux", OSLinux, false},
+		{"windows", OSWindows, false},
+		{"bsd", OSBSD, false},
+		{"unknown", OSUnknown, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			info := &Info{OS: tt.os}
+			if info.IsMacOS() != tt.expect {
+				t.Errorf("IsMacOS() = %v, want %v", info.IsMacOS(), tt.expect)
+			}
+		})
+	}
+}
+
+func TestInfoIsBSD(t *testing.T) {
+	tests := []struct {
+		name   string
+		os     OSType
+		expect bool
+	}{
+		{"bsd", OSBSD, true},
+		{"linux", OSLinux, false},
+		{"windows", OSWindows, false},
+		{"macos", OSMacOS, false},
+		{"unknown", OSUnknown, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			info := &Info{OS: tt.os}
+			if info.IsBSD() != tt.expect {
+				t.Errorf("IsBSD() = %v, want %v", info.IsBSD(), tt.expect)
+			}
+		})
+	}
+}
+
+func TestInfoUsesYum(t *testing.T) {
+	tests := []struct {
+		name   string
+		pm     PackageManager
+		expect bool
+	}{
+		{"yum", PackageManagerYum, true},
+		{"apt", PackageManagerAPT, false},
+		{"dnf", PackageManagerDNF, false},
+		{"unknown", PackageManagerUnknown, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			info := &Info{PackageManager: tt.pm}
+			if info.UsesYum() != tt.expect {
+				t.Errorf("UsesYum() = %v, want %v", info.UsesYum(), tt.expect)
+			}
+		})
+	}
+}
+
+func TestInfoUsesDNF(t *testing.T) {
+	tests := []struct {
+		name   string
+		pm     PackageManager
+		expect bool
+	}{
+		{"dnf", PackageManagerDNF, true},
+		{"apt", PackageManagerAPT, false},
+		{"yum", PackageManagerYum, false},
+		{"unknown", PackageManagerUnknown, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			info := &Info{PackageManager: tt.pm}
+			if info.UsesDNF() != tt.expect {
+				t.Errorf("UsesDNF() = %v, want %v", info.UsesDNF(), tt.expect)
+			}
+		})
+	}
+}
+
+func TestInfoRHELBased_AllDistros(t *testing.T) {
+	tests := []struct {
+		distro DistroType
+		expect bool
+	}{
+		{DistroCentOS, true},
+		{DistroRHEL, true},
+		{DistroFedora, true},
+		{DistroAmazonLinux, true},
+		{DistroUbuntu, false},
+		{DistroDebian, false},
+		{DistroAlpine, false},
+		{DistroArch, false},
+		{DistroOpenSUSE, false},
+		{DistroUnknown, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.distro), func(t *testing.T) {
+			info := &Info{Distro: tt.distro}
+			if info.IsRHELBased() != tt.expect {
+				t.Errorf("IsRHELBased() for %s = %v, want %v", tt.distro, info.IsRHELBased(), tt.expect)
+			}
+		})
+	}
+}
+
+func TestInfoDebianBased_AllDistros(t *testing.T) {
+	tests := []struct {
+		distro DistroType
+		expect bool
+	}{
+		{DistroUbuntu, true},
+		{DistroDebian, true},
+		{DistroCentOS, false},
+		{DistroRHEL, false},
+		{DistroFedora, false},
+		{DistroAlpine, false},
+		{DistroArch, false},
+		{DistroOpenSUSE, false},
+		{DistroUnknown, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.distro), func(t *testing.T) {
+			info := &Info{Distro: tt.distro}
+			if info.IsDebianBased() != tt.expect {
+				t.Errorf("IsDebianBased() for %s = %v, want %v", tt.distro, info.IsDebianBased(), tt.expect)
+			}
+		})
+	}
+}
+
+func TestInfoMetadata(t *testing.T) {
+	info := &Info{
+		OS:       OSLinux,
+		Distro:   DistroUbuntu,
+		Version:  "22.04",
+		Arch:     ArchAMD64,
+		Metadata: map[string]interface{}{"kernel": "5.15.0"},
+	}
+
+	if info.Metadata["kernel"] != "5.15.0" {
+		t.Errorf("Metadata[kernel] = %v, want 5.15.0", info.Metadata["kernel"])
+	}
+
+	if info.Version != "22.04" {
+		t.Errorf("Version = %s, want 22.04", info.Version)
+	}
+}
+
+func TestInfoVirtualization(t *testing.T) {
+	info := &Info{
+		IsVirtual:          true,
+		VirtualizationType: "kvm",
+		IsContainer:        false,
+		ContainerType:      "",
+	}
+
+	if !info.IsVirtual {
+		t.Error("IsVirtual = false, want true")
+	}
+	if info.VirtualizationType != "kvm" {
+		t.Errorf("VirtualizationType = %s, want kvm", info.VirtualizationType)
+	}
+	if info.IsContainer {
+		t.Error("IsContainer = true, want false")
+	}
+}
+
+func TestInfoContainer(t *testing.T) {
+	info := &Info{
+		IsVirtual:          false,
+		VirtualizationType: "",
+		IsContainer:        true,
+		ContainerType:      "docker",
+	}
+
+	if info.IsVirtual {
+		t.Error("IsVirtual = true, want false")
+	}
+	if !info.IsContainer {
+		t.Error("IsContainer = false, want true")
+	}
+	if info.ContainerType != "docker" {
+		t.Errorf("ContainerType = %s, want docker", info.ContainerType)
+	}
+}

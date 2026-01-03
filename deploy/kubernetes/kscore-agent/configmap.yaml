@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kscore-agent-config
+  namespace: kscore-system
+  labels:
+    app.kubernetes.io/name: kscore-agent
+    app.kubernetes.io/component: agent
+data:
+  agent.yaml: |
+    # Keystone Core Agent Configuration
+    server:
+      address: "kscore-server.kscore-system.svc.cluster.local:9090"
+
+    agent:
+      # ID is set via KSCORE_AGENT_ID environment variable (node name)
+      labels:
+        role: kubernetes-node
+      heartbeatInterval: "30s"
+      reconnectWait: "5s"
+      maxReconnects: -1
+
+    nats:
+      mode: direct
+      url: "nats://kscore-server.kscore-system.svc.cluster.local:4222"
+
+    execution:
+      workDir: "/tmp/kscore"
+      timeout: "5m"
+      allowPrivileged: false
+
+    state:
+      enabled: true
+      stateDir: "/var/lib/kscore/states"
+      cacheDir: "/var/cache/kscore"
+
+    logging:
+      level: info
+      format: json
+      output: stdout
+
+    telemetry:
+      enabled: true
+      prometheus:
+        enabled: true
+        port: 9100
+        path: "/metrics"

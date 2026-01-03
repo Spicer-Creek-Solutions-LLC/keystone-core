@@ -20,26 +20,19 @@ Perfect for development, testing, and small deployments (<50 managed nodes).
 
 ### Architecture
 
-```
-┌─────────────────────────────────────┐
-│  Single Server                      │
-│                                     │
-│  ┌──────────────────────────────┐  │
-│  │  kscore-server           │  │
-│  │  - API Server                │  │
-│  │  - State Manager             │  │
-│  │  - Event Engine              │  │
-│  │  - Embedded NATS             │  │
-│  │  - SQLite Database           │  │
-│  └──────────────────────────────┘  │
-│                                     │
-└─────────────────────────────────────┘
-           ↑
-           │ (NATS)
-           ↓
-    ┌─────────────┐
-    │   Agents    │
-    └─────────────┘
+```mermaid
+flowchart TB
+    subgraph Server["Single Server"]
+        subgraph KS["kscore-server"]
+            API[API Server]
+            SM[State Manager]
+            EE[Event Engine]
+            NATS[Embedded NATS]
+            SQL[(SQLite Database)]
+        end
+    end
+
+    Agents[Agents] <-->|NATS| KS
 ```
 
 ### Installation
@@ -135,30 +128,43 @@ Production-ready deployment with automatic failover (99.9%+ uptime).
 
 ### Architecture
 
-```
-                    ┌─────────────────┐
-                    │  Load Balancer  │
-                    └────────┬────────┘
-                             │
-         ┌───────────────────┼───────────────────┐
-         │                   │                   │
-    ┌────▼────┐         ┌────▼────┐         ┌───▼─────┐
-    │ Server1 │         │ Server2 │         │ Server3 │
-    │ (Active)│         │(Standby)│         │(Standby)│
-    └────┬────┘         └────┬────┘         └────┬────┘
-         │                   │                   │
-         └───────────────────┼───────────────────┘
-                             │
-                    ┌────────▼────────┐
-                    │  NATS Cluster   │
-                    │  (3+ nodes)     │
-                    └────────┬────────┘
-                             │
-                    ┌────────▼────────┐
-                    │  PostgreSQL     │
-                    │  (Primary +     │
-                    │   Replicas)     │
-                    └─────────────────┘
+```mermaid
+flowchart TB
+    subgraph LB["Load Balancer"]
+        HAProxy[HAProxy / nginx / Cloud LB]
+    end
+
+    subgraph ControlPlane["Control Plane Cluster"]
+        S1["Server 1<br/>(Leader)"]
+        S2["Server 2<br/>(Follower)"]
+        S3["Server 3<br/>(Follower)"]
+    end
+
+    subgraph NATS["NATS Cluster"]
+        N1[nats-1]
+        N2[nats-2]
+        N3[nats-3]
+    end
+
+    subgraph DB["PostgreSQL"]
+        PG1[(Primary)]
+        PG2[(Replica)]
+        PG3[(Replica)]
+    end
+
+    subgraph etcd["etcd Cluster"]
+        E1[etcd-1]
+        E2[etcd-2]
+        E3[etcd-3]
+    end
+
+    Agents[Agents] <-->|NATS| NATS
+    LB --> S1 & S2 & S3
+    S1 & S2 & S3 <-->|NATS| NATS
+    S1 & S2 & S3 -->|SQL| DB
+    S1 & S2 & S3 <-->|Leader Election| etcd
+
+    PG1 --> PG2 & PG3
 ```
 
 ### Prerequisites
@@ -425,193 +431,421 @@ psql -U kscore -c "SELECT * FROM pg_stat_replication;"
 
 ## Kubernetes Deployment
 
-Native Kubernetes deployment with Helm charts.
+Keystone Core provides two options for Kubernetes deployment:
+1. **Helm Charts** - Full-featured charts with HA support and Bitnami dependencies
+2. **Raw Manifests** - Kustomize-based manifests for simple deployments
 
 ### Prerequisites
 
 - Kubernetes 1.23+
-- Helm 3.8+
+- Helm 3.8+ (for Helm deployment)
 - kubectl configured
 - Persistent storage provisioner (for PostgreSQL and NATS JetStream)
 
 ### Architecture
 
-```
-Kubernetes Cluster
-├── Namespace: kscore
-├── Deployment: kscore-server (3 replicas)
-├── StatefulSet: nats (3 replicas)
-├── StatefulSet: postgresql (1 primary + 2 replicas)
-├── Service: kscore-api (LoadBalancer)
-├── Service: nats (ClusterIP)
-├── Service: postgresql (ClusterIP)
-├── ConfigMap: server-config
-└── Secret: credentials
+```mermaid
+flowchart TB
+    subgraph K8s["Kubernetes Cluster"]
+        subgraph NS["Namespace: kscore-system"]
+            subgraph Server["Control Plane"]
+                D1[kscore-server<br/>Deployment/StatefulSet]
+                SVC1[kscore-server<br/>Service]
+            end
+
+            subgraph Agent["Agents"]
+                DS[kscore-agent<br/>DaemonSet]
+            end
+
+            subgraph Deps["Dependencies (HA Mode)"]
+                NATS[NATS StatefulSet<br/>3 replicas]
+                PG[(PostgreSQL<br/>Primary + Replicas)]
+                ETCD[etcd StatefulSet<br/>3 replicas]
+            end
+
+            CM[ConfigMaps]
+            SEC[Secrets]
+            PVC[(PersistentVolumeClaims)]
+        end
+
+        ING[Ingress Controller]
+    end
+
+    Users -->|HTTPS| ING --> SVC1
+    D1 <--> NATS
+    D1 --> PG
+    D1 <--> ETCD
+    DS <-->|NATS| NATS
 ```
 
-### Installation with Helm
+### Option 1: Helm Charts (Recommended)
 
-**Add Helm Repository:**
+Keystone Core provides two Helm charts in `deploy/helm/`:
+- **kscore-server** - Control plane (Deployment or StatefulSet for HA)
+- **kscore-agent** - Agent DaemonSet
+
+#### Quick Start (Single-Node)
+
 ```bash
-helm repo add keystonecore https://charts.kscore.io
-helm repo update
+# Install control plane with embedded NATS and SQLite
+helm install kscore ./deploy/helm/kscore-server \
+  --namespace kscore-system \
+  --create-namespace
+
+# Install agents
+helm install kscore-agent ./deploy/helm/kscore-agent \
+  --namespace kscore-system
 ```
 
-**Create Namespace:**
-```bash
-kubectl create namespace kscore
-```
+#### HA Deployment with External Dependencies
 
-**Install Chart:**
 ```bash
-helm install keystonecore keystonecore/kscore \
-  --namespace kscore \
-  --set server.replicas=3 \
-  --set nats.cluster.enabled=true \
-  --set nats.cluster.replicas=3 \
+# Install with HA configuration
+helm install kscore ./deploy/helm/kscore-server \
+  --namespace kscore-system \
+  --create-namespace \
+  --values ./deploy/helm/kscore-server/values-ha.yaml
+
+# Or customize HA settings inline
+helm install kscore ./deploy/helm/kscore-server \
+  --namespace kscore-system \
+  --create-namespace \
+  --set deploymentMode=ha \
+  --set replicaCount=3 \
+  --set cluster.enabled=true \
+  --set nats.enabled=true \
   --set postgresql.enabled=true \
-  --set postgresql.replication.enabled=true \
-  --set postgresql.replication.readReplicas=2
+  --set etcd.enabled=true
 ```
 
-**Custom Values (values.yaml):**
+#### Server Chart Values
+
+The server chart (`deploy/helm/kscore-server/values.yaml`) provides extensive configuration:
+
 ```yaml
+# Deployment mode: single or ha
+deploymentMode: single
+replicaCount: 1
+
+# Container image
+image:
+  repository: ghcr.io/keystone-core/kscore-server
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+# Server configuration
 server:
-  replicas: 3
-  image:
-    repository: kscore/server
-    tag: "v1.0.0"
+  grpc:
+    port: 9090
+  http:
+    port: 8080
+  metrics:
+    port: 9100
 
-  resources:
-    requests:
-      cpu: "1000m"
-      memory: "2Gi"
-    limits:
-      cpu: "2000m"
-      memory: "4Gi"
-
-  persistence:
-    enabled: false  # Using external PostgreSQL
-
+# NATS configuration
 nats:
-  cluster:
-    enabled: true
-    replicas: 3
+  mode: embedded  # embedded or external
+  embedded:
+    port: 4222
+    jetstream:
+      enabled: true
+  # For external NATS:
+  # external:
+  #   urls:
+  #     - nats://nats-0.nats:4222
+  #     - nats://nats-1.nats:4222
+  #     - nats://nats-2.nats:4222
 
-  jetstream:
-    enabled: true
-    storage:
-      size: 10Gi
-      storageClass: "fast-ssd"
+# Storage backend
+storage:
+  type: sqlite  # sqlite or postgresql
+  sqlite:
+    path: /data/state.db
+  # postgresql:
+  #   host: postgresql
+  #   port: 5432
+  #   database: kscore
+  #   username: kscore
 
-postgresql:
-  enabled: true
-  auth:
-    username: kscore
-    password: "" # Set via secret
-    database: kscore
+# HA Clustering (requires etcd)
+cluster:
+  enabled: false
+  etcd:
+    mode: external
+    endpoints:
+      - http://etcd-0.etcd:2379
+      - http://etcd-1.etcd:2379
+      - http://etcd-2.etcd:2379
 
-  primary:
-    resources:
-      requests:
-        cpu: "1000m"
-        memory: "4Gi"
-    persistence:
-      size: 50Gi
-      storageClass: "fast-ssd"
+# Resource limits
+resources:
+  requests:
+    cpu: 500m
+    memory: 512Mi
+  limits:
+    cpu: 2000m
+    memory: 2Gi
 
-  replication:
-    enabled: true
-    readReplicas: 2
+# Observability
+serviceMonitor:
+  enabled: false
+  interval: 30s
 
+prometheusRule:
+  enabled: false
+
+grafanaDashboards:
+  enabled: false
+
+# Ingress
 ingress:
-  enabled: true
+  enabled: false
   className: nginx
-  annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
   hosts:
     - host: kscore.example.com
       paths:
         - path: /
           pathType: Prefix
-  tls:
-    - secretName: kscore-tls
-      hosts:
-        - kscore.example.com
 ```
 
-**Install with Custom Values:**
-```bash
-helm install keystonecore keystonecore/kscore \
-  --namespace kscore \
-  --values values.yaml
-```
+#### Agent Chart Values
 
-### Deploy Agents as DaemonSet
+The agent chart (`deploy/helm/kscore-agent/values.yaml`):
 
 ```yaml
-apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  name: kscore-agent
-  namespace: kscore
-spec:
-  selector:
-    matchLabels:
-      app: kscore-agent
-  template:
-    metadata:
-      labels:
-        app: kscore-agent
-    spec:
-      hostNetwork: true
-      hostPID: true
-      containers:
-      - name: agent
-        image: kscore/agent:v1.0.0
-        env:
-        - name: KSCORE_SERVER_URL
-          value: "nats://kscore-nats:4222"
-        - name: KSCORE_AGENT_ID
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
-        volumeMounts:
-        - name: host-root
-          mountPath: /host
-          readOnly: true
-        securityContext:
-          privileged: true
-      volumes:
-      - name: host-root
-        hostPath:
-          path: /
+image:
+  repository: ghcr.io/keystone-core/kscore-agent
+  tag: "latest"
+
+# Agent configuration
+agent:
+  serverAddress: kscore-server.kscore-system.svc:9090
+  labels:
+    role: kubernetes
+
+# Host access
+hostNetwork: false
+hostPID: false
+
+# Security context
+securityContext:
+  privileged: false
+  capabilities:
+    add:
+      - SYS_PTRACE
+
+# Resources
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+# Node selection
+nodeSelector: {}
+tolerations: []
+affinity: {}
+```
+
+### Option 2: Raw Kubernetes Manifests
+
+For simpler deployments without Helm, use the Kustomize-based manifests in `deploy/kubernetes/`:
+
+```
+deploy/kubernetes/
+├── kustomization.yaml      # Deploy everything
+├── kscore-server/          # Control plane
+│   ├── kustomization.yaml
+│   ├── namespace.yaml
+│   ├── configmap.yaml
+│   ├── serviceaccount.yaml
+│   ├── pvc.yaml
+│   ├── deployment.yaml
+│   └── service.yaml
+└── kscore-agent/           # Agent DaemonSet
+    ├── kustomization.yaml
+    ├── configmap.yaml
+    ├── serviceaccount.yaml
+    ├── daemonset.yaml
+    └── service.yaml
+```
+
+#### Deploy with Kustomize
+
+```bash
+# Deploy server and agents
+kubectl apply -k deploy/kubernetes/
+
+# Or deploy components separately
+kubectl apply -k deploy/kubernetes/kscore-server/
+kubectl apply -k deploy/kubernetes/kscore-agent/
+
+# Check status
+kubectl -n kscore-system get pods
+```
+
+#### Customize with Overlays
+
+Create overlays for environment-specific configuration:
+
+```bash
+mkdir -p deploy/kubernetes/overlays/production
+```
+
+```yaml
+# deploy/kubernetes/overlays/production/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../
+
+# Change image tags
+images:
+  - name: ghcr.io/keystone-core/kscore-server
+    newTag: v0.10.0
+  - name: ghcr.io/keystone-core/kscore-agent
+    newTag: v0.10.0
+
+# Change namespace
+namespace: kscore-production
+
+# Add resource limits patch
+patches:
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: 2Gi
+    target:
+      kind: Deployment
+      name: kscore-server
+```
+
+```bash
+# Deploy production overlay
+kubectl apply -k deploy/kubernetes/overlays/production/
 ```
 
 ### Verification
 
 ```bash
 # Check pods
-kubectl get pods -n kscore
+kubectl get pods -n kscore-system
 
-# Expected output:
-# NAME                                 READY   STATUS    RESTARTS
+# Expected output (single-node):
+# NAME                             READY   STATUS    RESTARTS
+# kscore-server-xxxxxxxxx-xxxxx   1/1     Running   0
+# kscore-agent-xxxxx              1/1     Running   0
+# kscore-agent-yyyyy              1/1     Running   0
+
+# Expected output (HA mode with dependencies):
+# NAME                             READY   STATUS    RESTARTS
 # kscore-server-0                  1/1     Running   0
 # kscore-server-1                  1/1     Running   0
 # kscore-server-2                  1/1     Running   0
-# nats-0                               1/1     Running   0
-# nats-1                               1/1     Running   0
-# nats-2                               1/1     Running   0
-# postgresql-0                         1/1     Running   0
-# postgresql-read-0                    1/1     Running   0
-# postgresql-read-1                    1/1     Running   0
+# nats-0                           1/1     Running   0
+# nats-1                           1/1     Running   0
+# nats-2                           1/1     Running   0
+# etcd-0                           1/1     Running   0
+# etcd-1                           1/1     Running   0
+# etcd-2                           1/1     Running   0
+# postgresql-0                     1/1     Running   0
 # kscore-agent-xxxxx               1/1     Running   0
 
 # Check services
-kubectl get svc -n kscore
+kubectl get svc -n kscore-system
 
-# Access API
-kubectl port-forward -n kscore svc/kscore-api 8080:8080
+# Access API via port-forward
+kubectl port-forward -n kscore-system svc/kscore-server 8080:8080 9090:9090
+
+# Check cluster status (HA mode)
+kscorectl cluster status
+```
+
+### Accessing the Server
+
+**Port Forward (Development):**
+```bash
+# gRPC API
+kubectl -n kscore-system port-forward svc/kscore-server 9090:9090
+
+# HTTP API
+kubectl -n kscore-system port-forward svc/kscore-server 8080:8080
+```
+
+**Ingress (Production):**
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kscore-server
+  namespace: kscore-system
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - kscore.example.com
+      secretName: kscore-tls
+  rules:
+    - host: kscore.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kscore-server
+                port:
+                  name: http
+```
+
+### Monitoring with Prometheus
+
+Enable ServiceMonitor for Prometheus Operator:
+
+```bash
+# With Helm
+helm upgrade kscore ./deploy/helm/kscore-server \
+  --namespace kscore-system \
+  --set serviceMonitor.enabled=true \
+  --set prometheusRule.enabled=true \
+  --set grafanaDashboards.enabled=true
+```
+
+Or apply ServiceMonitor manually:
+
+```yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kscore-server
+  namespace: kscore-system
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kscore-server
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+```
+
+### Uninstall
+
+```bash
+# Helm
+helm uninstall kscore -n kscore-system
+helm uninstall kscore-agent -n kscore-system
+
+# Kustomize
+kubectl delete -k deploy/kubernetes/
+
+# Delete namespace (removes all resources)
+kubectl delete namespace kscore-system
 ```
 
 ## Docker Compose Deployment

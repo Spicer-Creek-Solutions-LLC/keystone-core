@@ -3,6 +3,7 @@ package nats
 import (
 	"context"
 	"net"
+	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -384,6 +385,16 @@ func TestKubernetesDiscoveryConfig_Validate(t *testing.T) {
 }
 
 func TestNewKubernetesDiscoverer(t *testing.T) {
+	// Skip if kubeconfig is not available (not running in Kubernetes or without kubeconfig)
+	if os.Getenv("KUBECONFIG") == "" {
+		home, _ := os.UserHomeDir()
+		if home != "" {
+			if _, err := os.Stat(home + "/.kube/config"); os.IsNotExist(err) {
+				t.Skip("Skipping: no kubeconfig available")
+			}
+		}
+	}
+
 	cfg := &KubernetesDiscoveryConfig{
 		ServiceName: "nats",
 		Namespace:   "default",
@@ -502,6 +513,13 @@ func TestNewServiceRegistryDiscoverer(t *testing.T) {
 }
 
 func TestServiceRegistryDiscoverer_Discover(t *testing.T) {
+	// Skip if Consul is not running locally
+	conn, err := net.DialTimeout("tcp", "localhost:8500", 100*time.Millisecond)
+	if err != nil {
+		t.Skip("Skipping: Consul not available at localhost:8500")
+	}
+	conn.Close()
+
 	cfg := &ServiceRegistryConfig{
 		Type:        "consul",
 		Address:     "localhost:8500",
@@ -514,14 +532,13 @@ func TestServiceRegistryDiscoverer_Discover(t *testing.T) {
 	}
 	defer d.Close()
 
-	// Discover should return empty (placeholder implementation)
+	// Discover may return empty if no NATS services are registered
 	endpoints, err := d.Discover(context.Background())
 	if err != nil {
 		t.Errorf("Discover() error = %v", err)
 	}
-	if len(endpoints) != 0 {
-		t.Errorf("Discover() = %v, want empty", endpoints)
-	}
+	// Just verify we got a valid response (empty is OK)
+	_ = endpoints
 }
 
 // ============================================================================
@@ -1085,6 +1102,16 @@ func TestMDNSDiscoverer_Watch(t *testing.T) {
 }
 
 func TestKubernetesDiscoverer_Watch(t *testing.T) {
+	// Skip if kubeconfig is not available (not running in Kubernetes or without kubeconfig)
+	if os.Getenv("KUBECONFIG") == "" {
+		home, _ := os.UserHomeDir()
+		if home != "" {
+			if _, err := os.Stat(home + "/.kube/config"); os.IsNotExist(err) {
+				t.Skip("Skipping: no kubeconfig available")
+			}
+		}
+	}
+
 	cfg := &KubernetesDiscoveryConfig{
 		ServiceName:     "nats",
 		RefreshInterval: 50 * time.Millisecond,

@@ -16,21 +16,22 @@ Keystone Core aims to be the operational layer between GitOps/IaC deployments an
 ## Roadmap Overview
 
 ```
-COMPLETED                          REMAINING WORK
-─────────────────────────────────────────────────────────────────
-Epic 1: Core Infrastructure        Epic 12: E2E Testing
-Epic 2: Remote Execution             - CI/CD Integration
-Epic 3: State Management             - Network partition tests
-Epic 4: Event System                 - Multi-platform validation
-Epic 5: GitOps Integration
-Epic 6: Policy Enforcement         Future Considerations:
-Epic 7: Observability                - Multi-Tenancy
-Epic 8: Multi-Environment            - Web UI Dashboard
-Epic 9: Plugin System                - ServiceNow Integration
-Epic 10: Documentation
-Epic 11: HA Clustering
-Epic 12: E2E Testing (core)
+COMPLETED (Epics 1-14)                 PLANNED (Epics 15-20)
+───────────────────────────────────────────────────────────────────────
+Epic 1: Core Infrastructure            Epic 15: Observability Enhancements
+Epic 2: Remote Execution               Epic 16: Stdlib System Modules
+Epic 3: State Management               Epic 17: SPIFFE Identity Framework
+Epic 4: Event System                   Epic 18: IPv6 Support
+Epic 5: GitOps Integration             Epic 19: Observability Gateway
+Epic 6: Policy Enforcement             Epic 20: Windows Support
+Epic 7: Observability
+Epic 8: Multi-Environment            Future Considerations:
+Epic 9: Plugin System                  - Multi-Tenancy
+Epic 10: Documentation                 - Web UI Dashboard
+Epic 11: HA Clustering                 - ServiceNow Integration
+Epic 12: E2E Testing
 Epic 13: CGO Removal
+Epic 14: NATS Mesh Communication
 ```
 
 ## Completed Milestones
@@ -208,12 +209,13 @@ Extensible module system:
 
 - **Runtimes**: Starlark (sandboxed Python-like) and WASM (wazero - pure Go)
 - **Capability System**: 10 capability types with fine-grained permissions
-- **Cryptographic Verification**: Hash and signature verification (RSA, ECDSA, Ed25519)
+- **Cryptographic Verification**: Hash and signature verification (RSA, ECDSA, Ed25519), Cosign support
 - **Dependency Resolution**: SemVer constraints, MVS algorithm
-- **Module CLI**: `kscore-module` with 8 commands (init, validate, build, resolve, tree, verify, test)
+- **Module CLI**: `kscore-module` with 10 commands (init, validate, build, sign, publish, install, resolve, tree, verify, test)
 - **SDKs**: Starlark, Rust, Go (TinyGo), C++ SDKs
 - **Standard Library**: 6 stdlib modules (files, exec, http, strings, json, crypto)
-- **Module Loader**: 6-phase loading with caching
+- **Module Loader**: 7-phase loading with capability policy and caching
+- **Registry**: OCI registry client + HTTP registry server
 
 **Key Achievements**:
 - Secure, sandboxed plugin execution
@@ -221,6 +223,7 @@ Extensible module system:
 - Reproducible builds with lock files
 - Content-addressed caching
 - Full module development CLI (kscore-module)
+- Capability policy system for operator control
 
 ---
 
@@ -272,14 +275,16 @@ Production-ready high availability:
 
 ### Epic 12: E2E Testing ✅
 
-**Status**: Core Complete | **Remaining**: CI/CD, multi-platform
+**Status**: Complete
 
 Comprehensive end-to-end testing framework:
 
 - **Test Harness**: Docker-compose based environment management
+- **HA Cluster Harness**: Multi-server environment with lifecycle control
 - **Topologies**: All-in-one (dev) and HA Cluster (3 control planes + 5 agents)
 - **Scenario Tests**: Agent lifecycle, remote execution, state management, events, policy, GitOps
 - **Performance Tests**: Scale testing (100+ agents), throughput, latency percentiles
+- **CI/CD**: GitHub Actions workflow for automated E2E tests
 
 **Test Organization**:
 ```
@@ -297,11 +302,7 @@ test/e2e/
 - HA cluster topology with NATS cluster + etcd + PostgreSQL
 - Performance tests with JSON reports
 - 6 comprehensive scenario test files
-
-**Remaining Work**:
-- CI/CD Integration (GitHub Actions)
-- Network partition chaos tests
-- Multi-platform validation (ARM64, different Linux distros)
+- CI/CD integration via GitHub Actions
 
 ---
 
@@ -322,18 +323,130 @@ Pure Go build for simplified cross-compilation:
 
 ---
 
-## Remaining Work
+### Epic 14: NATS Mesh Communication ✅
 
-### E2E Testing Completion
+**Status**: Complete | **Coverage**: >70%
 
-The core E2E testing infrastructure is complete, but some items remain:
+NATS-only communication with advanced networking:
 
-| Item | Status | Description |
-|------|--------|-------------|
-| GitHub Actions CI | Not Started | Automate E2E tests on PR/push |
-| Network Partition Tests | Skipped | Requires Docker network manipulation |
-| Multi-Platform Tests | Not Started | ARM64, Ubuntu, Debian, Alpine |
-| Test Dashboard | Not Started | Visualize test results and trends |
+- **NATS-Only Communication**: All agent-server communication via NATS (gRPC retained for client API only)
+- **Subject Namespace**: Cluster-prefixed subjects with category-based organization
+- **Multi-Endpoint Support**: Priority-based failover, circuit breakers, health-based routing
+- **Agent Embedded NATS**: Reverse connection mode for NAT traversal
+- **Leaf Node Support**: Hub-spoke topology with local persistence during outages
+- **Supercluster**: Multi-region gateway architecture with cross-cluster agent management
+- **WebSocket Transport**: Firewall-friendly connections with HTTP proxy support
+- **Discovery**: DNS, mDNS, Kubernetes, Consul, etcd-based endpoint discovery
+- **Reliability**: Message buffering, delivery guarantees (at-most-once, at-least-once, exactly-once)
+- **Observability**: 30+ NATS mesh metrics, Grafana dashboard, 25 alert rules
+
+**Key Achievements**:
+- Flexible deployment across NAT, firewalls, and complex networks
+- Automatic endpoint discovery and failover
+- Local message buffering during network outages
+- Multi-region supercluster support
+- Comprehensive observability and debugging tools
+
+---
+
+## Planned Epics
+
+### Epic 15: Observability Enhancements
+
+**Status**: Planned | **Depends on**: Epic 7, 14
+
+Enhanced telemetry transport and logging:
+
+- **NATS Telemetry Transport**: Route metrics, logs, traces over NATS mesh
+- **Stdout/Stderr Logging**: Structured logging to stdout for container environments
+- **Syslog Integration**: RFC 5424 syslog output for enterprise environments
+- **CLI Audit Logging**: Comprehensive audit trail for all CLI operations
+- **Telemetry Aggregation**: Aggregate telemetry from leaf nodes at hub
+
+---
+
+### Epic 16: Stdlib System Modules
+
+**Status**: Planned | **Depends on**: Epic 3, 8
+
+40+ cross-platform system management modules inspired by Salt Project:
+
+- **Core**: Cross-platform user/group management (Linux, macOS, Windows)
+- **Network**: Interface config, routes, firewall (iptables, nftables, pf, netsh)
+- **Schedule**: cron, systemd timers, launchd, Windows Task Scheduler
+- **Storage**: mount, swap, LVM, disk management
+- **SSH**: authorized_keys, known_hosts, sshd_config
+- **Security**: SELinux, AppArmor policy management
+- **System**: timezone, locale, hostname, hosts, sysctl, kernel_module
+- **Container**: Docker/Podman containers, images, networks, volumes
+- **Database**: PostgreSQL, MySQL, Redis primitives
+- **Web**: Nginx and Apache site/module management
+- **VCS**: Git repository and config management
+- **PKI**: X509 certificates, CA management, ACME/Let's Encrypt
+
+---
+
+### Epic 17: SPIFFE Identity Framework
+
+**Status**: Planned | **Depends on**: Epic 1, 11, 14
+
+Zero-configuration identity and mTLS:
+
+- **Embedded Identity Provider**: Built-in SPIFFE identity for zero-configuration mTLS
+- **Automatic CA Management**: Generation, rotation, and persistence of root CA
+- **SVID Issuance**: Automatic SVID issuance and rotation for agents
+- **NATS mTLS**: Use SVIDs for NATS authentication
+- **External Provider Integration**: SPIRE Server, AWS IRSA, GCP Workload Identity, Azure MI
+- **Service Mesh Integration**: Istio, Consul Connect, Linkerd trust federation
+- **Trust Domain Federation**: Multi-cluster identity federation
+
+---
+
+### Epic 18: IPv6 Support
+
+**Status**: Planned | **Depends on**: Epic 1, 11, 14
+
+Full IPv6 and dual-stack support:
+
+- **Control Plane**: IPv6 listening and client connections
+- **NATS Mesh**: IPv6 endpoints, dual-stack discovery
+- **Agent Communication**: IPv6 heartbeat and command channels
+- **Targeting**: IPv6-aware agent targeting expressions
+- **Health Checks**: IPv6 health check endpoints
+- **Documentation**: IPv6 deployment guides
+
+---
+
+### Epic 19: Observability Gateway
+
+**Status**: Planned | **Depends on**: Epic 7, 14, 15
+
+Telemetry gateway for isolated agents:
+
+- **Gateway Architecture**: Centralized telemetry collection point
+- **Prometheus Bridge**: Expose agent metrics as Prometheus remote write
+- **Loki Bridge**: Forward logs to Loki via the gateway
+- **Tempo Bridge**: Forward traces to Tempo via the gateway
+- **Buffering**: Local telemetry buffering during gateway outages
+- **Aggregation**: Pre-aggregate metrics at the gateway
+- **Security**: mTLS authentication for telemetry streams
+
+---
+
+### Epic 20: Windows Support
+
+**Status**: Planned | **Depends on**: Epic 1, 2, 3, 13
+
+Production-grade Windows agent:
+
+- **Windows Service**: Run kscore-agent as Windows service
+- **State Modules**: Windows-specific modules (registry, IIS, Windows features)
+- **Package Management**: Chocolatey, winget, MSI integration
+- **Service Management**: Windows service state module
+- **User/Group Management**: Windows user and group modules via net commands
+- **Firewall**: Windows Firewall state module
+- **MSI Installer**: Windows installer package
+- **Development Environment**: Windows dev setup documentation
 
 ---
 
@@ -393,9 +506,10 @@ Keystone Core follows [Semantic Versioning](https://semver.org/):
 
 | Version | Target | Scope |
 |---------|--------|-------|
-| v0.13.0 | Current | CGO removal, pure Go build |
-| v0.14.0 | Next | CI/CD integration, E2E testing refinements |
-| v1.0.0 | Future | Production-ready release (all features complete, full test coverage) |
+| v0.14.0 | Current | NATS Mesh Communication complete |
+| v0.15.0 | Next | Observability enhancements |
+| v0.16.0 | Planned | Stdlib system modules |
+| v1.0.0 | Future | Production-ready release (all core features complete) |
 
 ### Release Cadence
 
@@ -458,6 +572,6 @@ The roadmap is reviewed and updated monthly. Major changes are announced on Disc
 ## Stay Updated
 
 - **GitHub Releases**: Watch the [repository](https://github.com/shawnbutts/keystone-core) for release notifications
+- **Changelog**: See [CHANGELOG.md](https://github.com/shawnbutts/keystone-core/blob/main/CHANGELOG.md) for detailed release notes
 - **Discord**: Join for real-time updates and discussions
 - **Twitter**: Follow [@kscore](https://twitter.com/kscore) for announcements
-- **Blog**: Subscribe to the blog for detailed release notes and feature announcements

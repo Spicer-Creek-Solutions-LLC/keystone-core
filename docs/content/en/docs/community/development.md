@@ -477,6 +477,63 @@ go run ./cmd/kscore-agent --server-url=nats://localhost:4222
 ./build/bin/kscore-monitor
 ```
 
+### Testing kscore-monitor
+
+The TUI monitor (`kscore-monitor`) can be tested against local containerized clusters:
+
+**Option 1: All-in-One Cluster (Simpler)**
+
+```bash
+# Start the all-in-one cluster (1 server + 3 agents)
+docker compose -f test/e2e/containers/docker-compose.yml up -d
+
+# Wait for the cluster to be healthy (~10 seconds)
+sleep 10
+
+# Build and run the monitor
+go build -o /tmp/kscore-monitor ./cmd/kscore-monitor
+/tmp/kscore-monitor --control-plane localhost:50051 --nats-url nats://localhost:4222
+
+# When done, stop the cluster
+docker compose -f test/e2e/containers/docker-compose.yml down
+```
+
+**Option 2: HA Cluster (Full Stack)**
+
+```bash
+# Start the HA cluster (3 servers + 5 agents + NATS cluster + etcd + PostgreSQL)
+docker compose -f test/e2e/topologies/ha-cluster/docker-compose.yml up -d
+
+# Wait for all servers to be healthy (~20 seconds)
+sleep 20
+
+# Build and run the monitor (note: port 8080 for HA cluster)
+go build -o /tmp/kscore-monitor ./cmd/kscore-monitor
+/tmp/kscore-monitor --control-plane localhost:8080 --nats-url nats://localhost:4222
+
+# When done, stop the cluster
+docker compose -f test/e2e/topologies/ha-cluster/docker-compose.yml down
+```
+
+**Port Reference:**
+
+| Topology | gRPC Port | HTTP Port | NATS Port |
+|----------|-----------|-----------|-----------|
+| All-in-one | 50051 | 8080 | 4222 |
+| HA Server 1 | 8080 | 8081 | 4222 |
+| HA Server 2 | 8082 | 8083 | 4223 |
+| HA Server 3 | 8084 | 8085 | 4224 |
+
+**Monitor Features:**
+- Press `1-8` to switch between views (Dashboard, Agents, Events, Drift, Policy, Jobs, Logs, Metrics)
+- Press `?` for help
+- Press `q` to quit
+- Data auto-refreshes every 2 seconds (configurable with `--refresh`)
+
+{{% alert title="Note" %}}
+The "failed to subscribe to events" warning is expected if JetStream doesn't have an events stream configured. The monitor works fine without live events - it fetches data via gRPC.
+{{% /alert %}}
+
 ### Development Configuration
 
 Create a development config file:

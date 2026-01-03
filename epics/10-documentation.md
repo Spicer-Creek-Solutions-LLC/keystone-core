@@ -653,7 +653,7 @@ docs/
 
 ## Deliverables
 
-1. **Documentation Website**: docs.kscore.dev (or GitHub Pages)
+1. **Documentation Website**: docs.keystonecore.io (or GitHub Pages)
 2. **PDF Document**: Keystone Core-Complete-Guide-v1.0.pdf (200+ pages)
 3. **Source Repository**: docs/ directory in main repo
 4. **CI/CD Pipeline**: Automated build and deployment

@@ -213,6 +213,29 @@ max_payload: 8MB
 max_pending_size: 512MB
 ```
 
+**HA Cluster Recovery (via CoordinationService):**
+
+When NATS issues occur in an HA cluster, use the server-to-server coordination channel:
+
+```bash
+# Check NATS status on a server
+grpcurl -cacert ca.crt -cert client.crt -key client.key \
+  -d '{"request_id": "check-1", "requester_id": "admin"}' \
+  server1:9443 keystone.core.v1.CoordinationService/NATSStatus
+
+# Force reconnection
+grpcurl -cacert ca.crt -cert client.crt -key client.key \
+  -d '{"request_id": "recovery-1", "initiator_id": "admin", "action": "RECOVERY_ACTION_RECONNECT"}' \
+  server1:9443 keystone.core.v1.CoordinationService/RecoveryCoordinate
+
+# Failover to backup NATS servers
+grpcurl -cacert ca.crt -cert client.crt -key client.key \
+  -d '{"request_id": "recovery-2", "initiator_id": "admin", "action": "RECOVERY_ACTION_FAILOVER", "parameters": {"target_urls": "nats://backup1:4222"}}' \
+  server1:9443 keystone.core.v1.CoordinationService/RecoveryCoordinate
+```
+
+See [Maintenance - NATS Recovery](/docs/operations/maintenance/#nats-recovery-ha-only) for detailed procedures.
+
 ## State Application Failures
 
 ### Symptoms
@@ -880,7 +903,7 @@ echo "Diagnostic bundle: ${BUNDLE_DIR}.tar.gz"
 ### Before Opening an Issue
 
 1. Search existing issues: https://github.com/shawnbutts/keystone-core/issues
-2. Check documentation: https://docs.kscore.io
+2. Check documentation: https://docs.keystonecore.io
 3. Review logs with debug logging enabled
 4. Collect diagnostic bundle
 5. Try the solution in a test environment first

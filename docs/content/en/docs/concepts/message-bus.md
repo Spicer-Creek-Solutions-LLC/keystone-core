@@ -178,6 +178,128 @@ nats:
 - Automatic sync when connected
 - Graceful degradation when disconnected
 
+## NATS Endpoint Discovery
+
+When running in external cluster mode, Keystone Core supports multiple methods for discovering NATS server endpoints dynamically. This is useful in environments where NATS endpoints may change (e.g., Kubernetes, auto-scaling groups).
+
+### Discovery Methods
+
+#### 1. Static URLs
+
+The simplest approach - list NATS servers explicitly:
+
+```yaml
+nats:
+  mode: external
+  urls:
+    - nats://nats1.example.com:4222
+    - nats://nats2.example.com:4222
+    - nats://nats3.example.com:4222
+```
+
+#### 2. DNS Discovery
+
+Discover NATS servers via DNS SRV or A records:
+
+```yaml
+nats:
+  discovery:
+    method: dns
+    dns:
+      name: _nats._tcp.nats.example.com  # SRV record
+      # or for A records:
+      # name: nats.example.com
+      port: 4222  # Default port if not in SRV
+      refresh_interval: 30s
+```
+
+DNS returns multiple A records or SRV records, and the client connects to all discovered endpoints.
+
+#### 3. Kubernetes Discovery
+
+Discover NATS endpoints from Kubernetes Services or StatefulSets:
+
+```yaml
+nats:
+  discovery:
+    method: kubernetes
+    kubernetes:
+      service_name: nats
+      namespace: nats-system  # Optional, defaults to current namespace
+      port_name: client       # Optional, port name to use
+      label_selector: "app=nats"  # Optional, filter by labels
+      refresh_interval: 30s
+```
+
+The Kubernetes discoverer uses the EndpointSlices API (preferred) or Endpoints API as fallback. It automatically detects when running inside a cluster and uses the in-cluster config, or uses your kubeconfig when running locally.
+
+#### 4. Consul Discovery
+
+Discover NATS servers registered in Consul:
+
+```yaml
+nats:
+  discovery:
+    method: consul
+    consul:
+      address: consul.example.com:8500
+      service_name: nats
+      datacenter: dc1          # Optional
+      token: consul-acl-token  # Optional, for ACL-enabled Consul
+      tls:
+        enabled: true
+        ca_file: /etc/certs/consul-ca.crt
+      refresh_interval: 30s
+```
+
+The Consul discoverer queries the health API to find healthy NATS service instances.
+
+#### 5. etcd Discovery
+
+Discover NATS servers from etcd key-value store:
+
+```yaml
+nats:
+  discovery:
+    method: etcd
+    etcd:
+      endpoints:
+        - etcd1.example.com:2379
+        - etcd2.example.com:2379
+      prefix: /services/nats/  # Key prefix to watch
+      tls:
+        enabled: true
+        ca_file: /etc/certs/etcd-ca.crt
+        cert_file: /etc/certs/etcd-client.crt
+        key_file: /etc/certs/etcd-client.key
+      refresh_interval: 30s
+```
+
+etcd entries can be stored in two formats:
+- **JSON**: `{"host": "nats1.example.com", "port": 4222}`
+- **Simple**: `nats1.example.com:4222`
+
+### Discovery Features
+
+All discovery methods support:
+
+- **Automatic Refresh**: Endpoints are periodically re-discovered
+- **Watch Mode**: Real-time updates when endpoints change
+- **Health Filtering**: Only healthy endpoints are returned
+- **Metadata**: Additional endpoint metadata (datacenter, tags, weight)
+- **Priority/Weight**: For load balancing decisions
+- **TLS Support**: Secure connections to discovery backends
+
+### Failover Behavior
+
+When using discovery:
+
+1. Initial discovery on startup
+2. Connect to all discovered endpoints
+3. Periodic refresh discovers new endpoints
+4. Failed endpoints are automatically removed
+5. New endpoints are added without restart
+
 ## NATS Subjects (Topics)
 
 Keystone Core uses a structured, cluster-prefixed subject namespace:

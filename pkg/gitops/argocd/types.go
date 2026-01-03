@@ -106,3 +106,67 @@ type AnnotationUpdate struct {
 	// Annotations to set
 	Annotations map[string]string
 }
+
+// RevisionHistoryEntry represents a single deployment history entry
+type RevisionHistoryEntry struct {
+	// Revision is the git commit SHA or tag
+	Revision string
+
+	// DeployedAt is when this revision was deployed
+	DeployedAt time.Time
+
+	// ID is the deployment ID (incrementing number)
+	ID int64
+
+	// Source is the application source at the time of deployment
+	Source *ApplicationSource
+
+	// DeployStartedAt is when the deployment started
+	DeployStartedAt time.Time
+}
+
+// ApplicationSource represents the source of an ArgoCD application
+type ApplicationSource struct {
+	// RepoURL is the git repository URL
+	RepoURL string
+
+	// Path is the path within the repository
+	Path string
+
+	// TargetRevision is the target revision (branch, tag, or commit)
+	TargetRevision string
+
+	// Chart is the Helm chart name (for Helm applications)
+	Chart string
+}
+
+// RevisionHistory is a list of revision history entries
+type RevisionHistory []*RevisionHistoryEntry
+
+// GetPrevious returns the previous revision (n-1) if it exists
+func (h RevisionHistory) GetPrevious() *RevisionHistoryEntry {
+	if len(h) < 2 {
+		return nil
+	}
+	// History is typically ordered newest first
+	return h[1]
+}
+
+// GetByID returns the history entry with the given ID
+func (h RevisionHistory) GetByID(id int64) *RevisionHistoryEntry {
+	for _, entry := range h {
+		if entry.ID == id {
+			return entry
+		}
+	}
+	return nil
+}
+
+// GetLastHealthy would return the last healthy deployment
+// Note: Health status is not stored in history, so this returns nil
+// Real implementation would need to track health status separately
+func (h RevisionHistory) GetLastHealthy() *RevisionHistoryEntry {
+	// ArgoCD doesn't store health status in history
+	// The caller should track this separately or use a different approach
+	return nil
+}

@@ -652,6 +652,281 @@ POST /api/v1/gitops/rollback
 }
 ```
 
+### Cluster (HA Only)
+
+These endpoints are available only when running in high-availability cluster mode.
+
+#### Get Cluster Status
+
+```http
+GET /api/v1/cluster/status
+```
+
+**Response**:
+```json
+{
+  "cluster_name": "kscore-prod",
+  "has_quorum": true,
+  "quorum_size": 2,
+  "member_count": 3,
+  "healthy_count": 3,
+  "leader_id": "server-1"
+}
+```
+
+#### List Cluster Members
+
+```http
+GET /api/v1/cluster/members
+```
+
+**Response**:
+```json
+{
+  "members": [
+    {
+      "id": "server-1",
+      "address": "192.168.1.10:5000",
+      "status": "healthy",
+      "is_leader": true,
+      "agent_count": 50,
+      "last_heartbeat": "2024-01-15T10:30:45Z"
+    },
+    {
+      "id": "server-2",
+      "address": "192.168.1.11:5000",
+      "status": "healthy",
+      "is_leader": false,
+      "agent_count": 48,
+      "last_heartbeat": "2024-01-15T10:30:44Z"
+    },
+    {
+      "id": "server-3",
+      "address": "192.168.1.12:5000",
+      "status": "healthy",
+      "is_leader": false,
+      "agent_count": 52,
+      "last_heartbeat": "2024-01-15T10:30:45Z"
+    }
+  ],
+  "total": 3
+}
+```
+
+#### Add Cluster Member
+
+```http
+POST /api/v1/cluster/members
+```
+
+Pre-registers a cluster member before it starts. This enables external orchestration tools (Kubernetes operators, Terraform) to prepare the cluster for new members.
+
+**Request Body**:
+```json
+{
+  "id": "server-4",
+  "name": "server-4",
+  "address": "192.168.1.13:5000",
+  "grpc_address": "192.168.1.13:5001",
+  "nats_address": "192.168.1.13:4222",
+  "metadata": {
+    "region": "us-west-2",
+    "zone": "a"
+  }
+}
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `id` | No | Unique member ID (auto-generated UUID if not provided) |
+| `name` | No | Human-readable name (auto-generated from ID if not provided) |
+| `address` | **Yes** | Primary address for the member (host:port) |
+| `grpc_address` | No | gRPC API address (defaults to `address` if not provided) |
+| `nats_address` | No | NATS address for messaging |
+| `metadata` | No | Custom key-value metadata |
+
+**Response** (201 Created):
+```json
+{
+  "id": "server-4",
+  "name": "server-4",
+  "address": "192.168.1.13:5000",
+  "grpc_address": "192.168.1.13:5001",
+  "nats_address": "192.168.1.13:4222",
+  "status": "unknown",
+  "metadata": {
+    "region": "us-west-2",
+    "zone": "a"
+  },
+  "joined_at": "2024-01-15T10:35:00Z"
+}
+```
+
+**Error Responses**:
+- `400 Bad Request`: Missing required `address` field
+- `409 Conflict`: Member ID or address already exists
+
+**Notes**:
+- The member starts with `unknown` status until it actually starts and begins heartbeating
+- Members added via API are stored persistently (no lease) so they survive control plane restarts
+- Once the member starts, it will be detected and its status will update to `healthy`
+
+#### Get Current Leader
+
+```http
+GET /api/v1/cluster/leader
+```
+
+**Response**:
+```json
+{
+  "leader_id": "server-1",
+  "address": "192.168.1.10:5000",
+  "elected_at": "2024-01-14T08:00:00Z"
+}
+```
+
+#### Create Cluster Backup
+
+```http
+GET /api/v1/cluster/backup
+```
+
+Creates a complete backup of the cluster state including membership, shard assignments, and configuration.
+
+**Response**:
+```json
+{
+  "version": "1.0",
+  "timestamp": "2024-01-15T10:30:45Z",
+  "cluster": {
+    "name": "kscore-prod",
+    "quorum_size": 2,
+    "leader_id": "server-1",
+    "members": [
+      {
+        "id": "server-1",
+        "address": "192.168.1.10:5000",
+        "status": "healthy",
+        "is_leader": true
+      },
+      {
+        "id": "server-2",
+        "address": "192.168.1.11:5000",
+        "status": "healthy",
+        "is_leader": false
+      }
+    ]
+  },
+  "shards": [
+    {
+      "agent_id": "web-01",
+      "member_id": "server-1",
+      "assigned_at": "2024-01-10T08:00:00Z"
+    },
+    {
+      "agent_id": "web-02",
+      "member_id": "server-2",
+      "assigned_at": "2024-01-10T08:01:00Z"
+    }
+  ],
+  "config": {
+    "setting1": "value1",
+    "setting2": "value2"
+  }
+}
+```
+
+**Example** (save backup to file):
+```bash
+curl -H "Authorization: Bearer $API_KEY" \
+  http://control-plane:8080/api/v1/cluster/backup > cluster-backup.json
+```
+
+#### Restore Cluster from Backup
+
+```http
+POST /api/v1/cluster/restore
+```
+
+Restores cluster state from a backup. Use with caution in production.
+
+**Query Parameters**:
+- `force` (bool): Override safety checks (default: false)
+- `restore_shards` (bool): Restore shard assignments (default: true)
+- `restore_config` (bool): Restore cluster configuration (default: true)
+
+**Request Body**: The backup JSON from `GET /api/v1/cluster/backup`
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "Cluster restored successfully",
+  "shards_restored": 150,
+  "config_restored": 5,
+  "warnings": [
+    "Agent web-05 assigned to unavailable member server-3, reassigned to server-1"
+  ]
+}
+```
+
+**Safety Checks**:
+- Backup version must be compatible (1.0 supported)
+- Backup must have valid timestamp
+- Cluster name must match (prevents restoring wrong backup)
+- Cluster should not be healthy (use `?force=true` to override)
+
+**Example**:
+```bash
+# Restore with default options
+curl -X POST \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d @cluster-backup.json \
+  http://control-plane:8080/api/v1/cluster/restore
+
+# Force restore on healthy cluster (use with caution)
+curl -X POST \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d @cluster-backup.json \
+  "http://control-plane:8080/api/v1/cluster/restore?force=true"
+
+# Restore only configuration (not shard assignments)
+curl -X POST \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d @cluster-backup.json \
+  "http://control-plane:8080/api/v1/cluster/restore?restore_shards=false"
+```
+
+#### Trigger Agent Rebalance
+
+```http
+POST /api/v1/cluster/rebalance
+```
+
+Redistributes agents across cluster members for better load balancing.
+
+**Response**:
+```json
+{
+  "success": true,
+  "agents_moved": 15,
+  "before": {
+    "server-1": 80,
+    "server-2": 40,
+    "server-3": 30
+  },
+  "after": {
+    "server-1": 50,
+    "server-2": 50,
+    "server-3": 50
+  }
+}
+```
+
 ## gRPC Services
 
 ### AgentService
@@ -704,6 +979,60 @@ service PolicyService {
   rpc GetComplianceReport(GetComplianceReportRequest) returns (ComplianceReport);
 }
 ```
+
+### ClusterService
+
+```protobuf
+service ClusterService {
+  rpc GetClusterStatus(GetClusterStatusRequest) returns (ClusterStatus);
+  rpc ListMembers(ListMembersRequest) returns (ListMembersResponse);
+  rpc GetLeader(GetLeaderRequest) returns (LeaderInfo);
+  rpc CreateBackup(CreateBackupRequest) returns (BackupData);
+  rpc RestoreBackup(RestoreBackupRequest) returns (RestoreResult);
+  rpc TriggerRebalance(RebalanceRequest) returns (RebalanceResult);
+}
+```
+
+### CoordinationService (Server-to-Server)
+
+The CoordinationService provides server-to-server coordination when NATS is unavailable. It requires mTLS authentication.
+
+```protobuf
+service CoordinationService {
+  // ClusterHealth returns cluster health from this server's perspective
+  rpc ClusterHealth(ClusterHealthRequest) returns (ClusterHealthResponse);
+
+  // GetLeader returns current cluster leader information
+  rpc GetLeader(GetLeaderRequest) returns (GetLeaderResponse);
+
+  // NATSStatus returns NATS connectivity status for this server
+  rpc NATSStatus(NATSStatusRequest) returns (NATSStatusResponse);
+
+  // RecoveryCoordinate coordinates NATS recovery actions
+  rpc RecoveryCoordinate(RecoveryCoordinateRequest) returns (RecoveryCoordinateResponse);
+
+  // Heartbeat performs lightweight liveness check between servers
+  rpc Heartbeat(ServerHeartbeatRequest) returns (ServerHeartbeatResponse);
+
+  // PropagateState propagates state changes when NATS is down
+  rpc PropagateState(PropagateStateRequest) returns (PropagateStateResponse);
+}
+```
+
+**RecoveryAction Types**:
+- `RESTART_EMBEDDED` - Restart the embedded NATS server (embedded mode only)
+- `RECONNECT` - Force reconnection to NATS servers
+- `FAILOVER` - Switch to backup NATS servers (pass `target_urls` in parameters)
+- `DRAIN` - Gracefully drain all NATS connections
+- `PAUSE` - Pause operations during recovery
+- `RESUME` - Resume normal operations
+
+**StateUpdateType Types**:
+- `AGENT_REGISTER` - Agent registration propagation
+- `AGENT_HEARTBEAT` - Agent heartbeat propagation
+- `AGENT_DISCONNECT` - Agent disconnect propagation
+- `COMMAND_RESULT` - Command result propagation
+- `MEMBERSHIP_CHANGE` - Cluster membership change propagation
 
 ## Rate Limiting
 

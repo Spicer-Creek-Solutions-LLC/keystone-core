@@ -320,7 +320,7 @@ exports = {
 **Plugin Manifest**:
 ```yaml
 # plugins/health-check-manifest.yaml
-apiVersion: plugin.kscore.io/v1
+apiVersion: plugin.keystonecore.io/v1
 kind: PluginManifest
 metadata:
   name: custom-health-check
@@ -418,7 +418,7 @@ pub fn plugin_metadata() -> PluginMetadata {
 
 **WASM Plugin Manifest**:
 ```yaml
-apiVersion: plugin.kscore.io/v1
+apiVersion: plugin.keystonecore.io/v1
 kind: PluginManifest
 metadata:
   name: nginx-log-parser
@@ -622,7 +622,7 @@ kscorectl module sign --key vendor.key dist/vendor_pkg_apt_v1.2.3.zip
 # 2. Publish to registry (pushes to OCI + updates SumDB)
 kscorectl module publish vendor/pkg_apt@v1.2.3
 → Uploading to OCI registry...
-→ ✓ Pushed to registry.kscore.io/vendor/pkg_apt:v1.2.3
+→ ✓ Pushed to registry.keystonecore.io/vendor/pkg_apt:v1.2.3
 → Recording in transparency log...
 → ✓ SumDB entry: index 45678
 → Published successfully!
@@ -662,7 +662,7 @@ GET /std/exec/@v/v1.5.1.zip
 
 ```bash
 # Export modules for air-gapped environment
-kscorectl module mirror --source https://registry.kscore.io \
+kscorectl module mirror --source https://registry.keystonecore.io \
                         --dest ./module-mirror \
                         vendor/pkg_apt@v1.2.3
 

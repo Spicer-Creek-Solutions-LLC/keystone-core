@@ -36,6 +36,12 @@ Explore Keystone Core's cloud-native capabilities:
 - **[Policy Enforcement](policy/)** - OPA/CEL policies for compliance
 - **[Observability](observability/)** - Metrics, logging, and monitoring
 
+### Extensibility & Security
+
+Learn about Keystone Core's extensible module system:
+
+- **[Module System & Security](modules/)** - Capability-based security, sandboxed execution, operator controls
+
 ### Multi-Environment Support
 
 Learn how Keystone Core manages diverse infrastructure:

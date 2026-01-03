@@ -82,7 +82,7 @@ deny[msg] {
 **Example CEL Policy**:
 ```yaml
 # policies/resource-limits.yaml
-apiVersion: policy.kscore.io/v1
+apiVersion: policy.keystonecore.io/v1
 kind: Policy
 metadata:
   name: enforce-resource-limits
@@ -166,7 +166,7 @@ kscorectl policy schedule --policy security-baseline --interval 5m
 **Remediation Strategies**:
 ```yaml
 # policies/file-permissions.yaml
-apiVersion: policy.kscore.io/v1
+apiVersion: policy.keystonecore.io/v1
 kind: Policy
 metadata:
   name: secure-file-permissions
@@ -189,7 +189,7 @@ spec:
 
 ---
 # policies/pod-security.yaml
-apiVersion: policy.kscore.io/v1
+apiVersion: policy.keystonecore.io/v1
 kind: Policy
 metadata:
   name: pod-security-standards
@@ -230,7 +230,7 @@ spec:
 **Example**:
 ```yaml
 # policies/cis-benchmark.yaml
-apiVersion: policy.kscore.io/v1
+apiVersion: policy.keystonecore.io/v1
 kind: PolicyBundle
 metadata:
   name: cis-kubernetes-benchmark-v1.8

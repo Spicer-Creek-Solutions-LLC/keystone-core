@@ -1,0 +1,29 @@
+{{- if (include "kscore-server.isHAMode" .) }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kscore-server.fullname" . }}-headless
+  labels:
+    {{- include "kscore-server.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  clusterIP: None
+  publishNotReadyAddresses: true
+  ports:
+    - port: {{ .Values.service.grpc.port }}
+      targetPort: grpc
+      protocol: TCP
+      name: grpc
+    - port: {{ .Values.service.http.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+    {{- if .Values.cluster.enabled }}
+    - port: {{ .Values.cluster.port | default 7946 }}
+      targetPort: cluster
+      protocol: TCP
+      name: cluster
+    {{- end }}
+  selector:
+    {{- include "kscore-server.selectorLabels" . | nindent 4 }}
+{{- end }}

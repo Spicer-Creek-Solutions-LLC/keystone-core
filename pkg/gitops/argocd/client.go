@@ -233,6 +233,52 @@ func (c *Client) Close() error {
 	return nil
 }
 
+// GetApplicationHistory retrieves the deployment history for an application
+func (c *Client) GetApplicationHistory(ctx context.Context, name, namespace string) (RevisionHistory, error) {
+	if namespace == "" {
+		namespace = "argocd"
+	}
+
+	// Create request
+	query := &application.ApplicationQuery{
+		Name:         &name,
+		AppNamespace: &namespace,
+	}
+
+	// Get application
+	app, err := c.appClient.Get(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get application: %w", err)
+	}
+
+	// Extract history
+	if app.Status.History == nil || len(app.Status.History) == 0 {
+		return nil, nil
+	}
+
+	history := make(RevisionHistory, len(app.Status.History))
+	for i, entry := range app.Status.History {
+		historyEntry := &RevisionHistoryEntry{
+			Revision:        entry.Revision,
+			ID:              entry.ID,
+			DeployedAt:      entry.DeployedAt.Time,
+			DeployStartedAt: entry.DeployStartedAt.Time,
+		}
+
+		// Extract source information
+		historyEntry.Source = &ApplicationSource{
+			RepoURL:        entry.Source.RepoURL,
+			Path:           entry.Source.Path,
+			TargetRevision: entry.Source.TargetRevision,
+			Chart:          entry.Source.Chart,
+		}
+
+		history[i] = historyEntry
+	}
+
+	return history, nil
+}
+
 // NewClientWithOptions creates a client with custom gRPC options
 func NewClientWithOptions(config *Config, opts ...grpc.DialOption) (*Client, error) {
 	// For now, just use the standard client

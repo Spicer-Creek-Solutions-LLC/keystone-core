@@ -1,0 +1,254 @@
+# =============================================================================
+# KEYSTONE CORE AGENT - HELM VALUES
+# =============================================================================
+# Deploys agents as a DaemonSet on Kubernetes nodes
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Global Settings
+# -----------------------------------------------------------------------------
+global:
+  imagePullSecrets: []
+
+# -----------------------------------------------------------------------------
+# Image Configuration
+# -----------------------------------------------------------------------------
+image:
+  repository: ghcr.io/keystone-core/kscore-agent
+  pullPolicy: IfNotPresent
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# -----------------------------------------------------------------------------
+# Server Connection
+# -----------------------------------------------------------------------------
+server:
+  # Control plane gRPC address
+  address: "kscore-server:9090"
+  # TLS configuration
+  tls:
+    enabled: false
+    insecureSkipVerify: false
+    certSecretName: ""
+    certSecretKey: "tls.crt"
+    keySecretName: ""
+    keySecretKey: "tls.key"
+    caSecretName: ""
+    caSecretKey: "ca.crt"
+
+# -----------------------------------------------------------------------------
+# Agent Configuration
+# -----------------------------------------------------------------------------
+agent:
+  # Unique agent ID (auto-generated if empty)
+  id: ""
+  # Labels for targeting
+  labels: {}
+  # Additional metadata
+  metadata: {}
+  # Heartbeat interval
+  heartbeatInterval: "30s"
+  # Reconnect settings
+  reconnectWait: "5s"
+  maxReconnects: -1  # -1 = unlimited
+
+# -----------------------------------------------------------------------------
+# NATS Configuration
+# -----------------------------------------------------------------------------
+nats:
+  # Connection mode: direct, embedded-leaf
+  mode: direct
+  # Direct connection URL (when mode=direct)
+  url: ""
+  # Authentication
+  auth:
+    enabled: false
+    token: ""
+    tokenSecretName: ""
+    tokenSecretKey: "nats-token"
+    credentialsSecretName: ""
+    credentialsSecretKey: "nats.creds"
+  # Embedded NATS leaf settings
+  embedded:
+    enabled: false
+    port: 4222
+    remoteUrl: ""
+
+# -----------------------------------------------------------------------------
+# Execution Settings
+# -----------------------------------------------------------------------------
+execution:
+  # Working directory for commands
+  workDir: "/tmp/kscore"
+  # Shell to use (auto-detected if empty)
+  shell: ""
+  # Command timeout
+  timeout: "5m"
+  # Allow commands that require elevated privileges
+  allowPrivileged: false
+
+# -----------------------------------------------------------------------------
+# State Management
+# -----------------------------------------------------------------------------
+state:
+  enabled: true
+  # Directory for state files
+  stateDir: "/var/lib/kscore/states"
+  # Cache directory
+  cacheDir: "/var/cache/kscore"
+
+# -----------------------------------------------------------------------------
+# Logging Configuration
+# -----------------------------------------------------------------------------
+logging:
+  level: info
+  format: json
+  output: stdout
+
+# -----------------------------------------------------------------------------
+# Telemetry
+# -----------------------------------------------------------------------------
+telemetry:
+  enabled: true
+  prometheus:
+    enabled: true
+    port: 9100
+    path: "/metrics"
+
+# -----------------------------------------------------------------------------
+# Service Account
+# -----------------------------------------------------------------------------
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# -----------------------------------------------------------------------------
+# RBAC (for Kubernetes operations)
+# -----------------------------------------------------------------------------
+rbac:
+  create: true
+  # Additional rules for the ClusterRole
+  rules: []
+
+# -----------------------------------------------------------------------------
+# Pod Configuration
+# -----------------------------------------------------------------------------
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: false  # May need root for some operations
+
+securityContext:
+  privileged: false
+  capabilities:
+    add: []
+    drop: []
+
+# Run as root if needed for system operations
+runAsRoot: false
+
+# -----------------------------------------------------------------------------
+# Resources
+# -----------------------------------------------------------------------------
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 64Mi
+
+# -----------------------------------------------------------------------------
+# DaemonSet Configuration
+# -----------------------------------------------------------------------------
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 1
+
+minReadySeconds: 0
+
+# -----------------------------------------------------------------------------
+# Node Selection
+# -----------------------------------------------------------------------------
+nodeSelector: {}
+
+tolerations:
+  # Tolerate all taints to run on all nodes
+  - operator: Exists
+
+affinity: {}
+
+# Limit to specific nodes
+nodeSelectorTerms: []
+
+# -----------------------------------------------------------------------------
+# Host Configuration
+# -----------------------------------------------------------------------------
+# Mount host filesystem (for file operations)
+hostPaths:
+  enabled: true
+  root:
+    enabled: true
+    path: /
+    mountPath: /host
+    readOnly: false
+  # Additional host paths
+  extra: []
+
+# Use host network
+hostNetwork: false
+hostPID: false
+
+# DNS policy (ClusterFirstWithHostNet when hostNetwork: true)
+dnsPolicy: ""
+
+# -----------------------------------------------------------------------------
+# Probes
+# -----------------------------------------------------------------------------
+livenessProbe:
+  httpGet:
+    path: /health/live
+    port: metrics
+  initialDelaySeconds: 10
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health/ready
+    port: metrics
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# -----------------------------------------------------------------------------
+# ServiceMonitor (Prometheus Operator)
+# -----------------------------------------------------------------------------
+serviceMonitor:
+  enabled: false
+  namespace: ""
+  interval: 30s
+  scrapeTimeout: 10s
+  labels: {}
+
+# -----------------------------------------------------------------------------
+# Extra Configuration
+# -----------------------------------------------------------------------------
+extraEnv: []
+extraEnvFrom: []
+extraVolumes: []
+extraVolumeMounts: []
+extraInitContainers: []
+
+# -----------------------------------------------------------------------------
+# Priority Class
+# -----------------------------------------------------------------------------
+priorityClassName: ""

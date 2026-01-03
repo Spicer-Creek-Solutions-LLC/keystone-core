@@ -86,7 +86,7 @@ func installExecute(cmd *cobra.Command, args []string) error {
 		registryURL = os.Getenv("KSCORE_REGISTRY")
 	}
 	if registryURL == "" {
-		registryURL = "https://registry.keystone-core.io"
+		registryURL = "https://registry.keystonecore.io"
 	}
 	registryURL = strings.TrimSuffix(registryURL, "/")
 

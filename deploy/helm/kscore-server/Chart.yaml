@@ -1,0 +1,35 @@
+apiVersion: v2
+name: kscore-server
+description: Keystone Core Control Plane - Cloud-native runtime infrastructure management
+type: application
+version: 0.1.0
+appVersion: "0.10.0"
+keywords:
+  - infrastructure
+  - automation
+  - gitops
+  - configuration-management
+  - nats
+  - salt-alternative
+home: https://github.com/keystone-core/keystone-core
+sources:
+  - https://github.com/keystone-core/keystone-core
+maintainers:
+  - name: Keystone Core Team
+icon: https://raw.githubusercontent.com/keystone-core/keystone-core/main/docs/static/images/logo.png
+dependencies:
+  - name: nats
+    version: "8.x.x"
+    repository: "oci://registry-1.docker.io/bitnamicharts"
+    condition: nats.enabled
+    alias: nats
+  - name: postgresql
+    version: "16.x.x"
+    repository: "oci://registry-1.docker.io/bitnamicharts"
+    condition: postgresql.enabled
+    alias: postgresql
+  - name: etcd
+    version: "10.x.x"
+    repository: "oci://registry-1.docker.io/bitnamicharts"
+    condition: etcd.enabled
+    alias: etcd

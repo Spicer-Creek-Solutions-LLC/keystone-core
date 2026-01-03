@@ -124,9 +124,11 @@ Agents automatically collect system metadata:
 - Kernel version
 
 **Hardware**:
-- CPU count and model
-- Total memory
-- Total disk space
+- CPU count, model, vendor, frequency, cache size
+- Total memory, available memory, swap
+- Disk devices, partitions, usage
+- Network interfaces, MAC addresses, IP addresses
+- BMC/IPMI (if present on bare metal servers)
 
 **Network**:
 - Hostname
@@ -147,6 +149,150 @@ Agents automatically collect system metadata:
 - Istio (sidecar detection)
 - Linkerd (proxy detection)
 - Consul (agent detection)
+
+## Hardware Detection
+
+Agents collect detailed hardware information useful for inventory management, capacity planning, and hardware-aware workload placement.
+
+### CPU Information
+
+```go
+type CPUInfo struct {
+    Model       string    // e.g., "Intel(R) Core(TM) i9-9980HK CPU @ 2.40GHz"
+    Vendor      string    // e.g., "GenuineIntel" or "AuthenticAMD"
+    Cores       int       // Physical cores per socket
+    Threads     int       // Total logical threads
+    Sockets     int       // Number of physical CPUs
+    MHz         float64   // Current frequency
+    CacheSize   int64     // L2/L3 cache size in bytes
+    Flags       []string  // CPU feature flags (avx, aes, etc.)
+    PhysicalIDs []int     // Physical CPU IDs
+}
+```
+
+### Memory Information
+
+```go
+type MemoryInfo struct {
+    Total       uint64   // Total physical memory
+    Available   uint64   // Available memory
+    Used        uint64   // Used memory
+    UsedPercent float64  // Usage percentage
+    SwapTotal   uint64   // Total swap space
+    SwapFree    uint64   // Free swap space
+    SwapUsed    uint64   // Used swap space
+}
+```
+
+### Disk Information
+
+For each mounted filesystem:
+
+```go
+type DiskInfo struct {
+    Device      string   // e.g., "/dev/sda1"
+    Mountpoint  string   // e.g., "/" or "C:\"
+    Filesystem  string   // e.g., "ext4", "xfs", "ntfs"
+    Total       uint64   // Total space
+    UsedBytes   uint64   // Used space
+    FreeBytes   uint64   // Free space
+    UsedPercent float64  // Usage percentage
+    Serial      string   // Disk serial number (if available)
+}
+```
+
+### Network Information
+
+For each network interface:
+
+```go
+type NetworkInfo struct {
+    Name         string   // e.g., "eth0", "en0"
+    HardwareAddr string   // MAC address
+    Addresses    []string // IP addresses (IPv4 and IPv6)
+    MTU          int      // Maximum transmission unit
+    Flags        []string // Interface flags (up, broadcast, etc.)
+}
+```
+
+### BMC/IPMI Detection
+
+For bare metal servers with Baseboard Management Controllers, agents detect:
+
+```go
+type BMCInfo struct {
+    Present         bool   // Whether a BMC is detected
+    IPAddress       string // BMC management IP
+    MACAddress      string // BMC MAC address
+    FirmwareVersion string // BMC firmware version
+    Manufacturer    string // e.g., "Supermicro", "Dell", "HPE"
+    ProductID       string // BMC product identifier
+}
+```
+
+**Detection Methods** (in order):
+
+1. **IPMI Device Files** (Linux): Check for `/dev/ipmi0`, `/dev/ipmi/0`, `/dev/ipmidev/0`
+2. **ipmitool**: If available, query BMC info and LAN configuration
+3. **DMI/SMBIOS**: Check sysfs for IPMI kernel modules (`ipmi_si`, `ipmi_devintf`)
+
+**Requirements for BMC Detection**:
+- Linux: `ipmitool` package installed (optional, for detailed info)
+- Linux: IPMI kernel modules loaded (`ipmi_si`, `ipmi_devintf`, `ipmi_msghandler`)
+- Windows/macOS: Limited detection (no IPMI device files)
+
+**Example BMC Metadata**:
+```json
+{
+  "bmc": {
+    "present": true,
+    "ip_address": "192.168.1.100",
+    "mac_address": "3c:ec:ef:12:34:56",
+    "firmware_version": "2.65",
+    "manufacturer": "Supermicro",
+    "product_id": "2083 (0x0823) (AOC-SLG3-4E2P)"
+  }
+}
+```
+
+**Use Cases**:
+- **Inventory Management**: Track all BMC endpoints in your infrastructure
+- **Out-of-Band Management**: Power on/off servers when OS is unresponsive
+- **Hardware Monitoring**: Query BMC sensors for temperature, fan speed, etc.
+- **Firmware Updates**: Identify BMC firmware versions for patching
+
+### Caching
+
+Hardware detection results are cached (default 5 minutes) to avoid repeated system calls:
+
+```go
+type DefaultDetector struct {
+    cache    *Info
+    cacheAge time.Duration  // Default: 5 minutes
+}
+```
+
+The cache is automatically invalidated when:
+- Cache age exceeds `cacheAge`
+- Explicit refresh requested
+
+### Using Hardware Information
+
+Hardware metadata is available via agent registration and the control plane API:
+
+```bash
+# Query agent hardware info
+kscorectl agents get agent-123 --format json | jq '.metadata.hardware'
+
+# Target agents by hardware characteristics
+kscorectl exec "memory.total > 64GB and cpu.vendor == 'AuthenticAMD'" -- uptime
+
+# Find all servers with BMC
+kscorectl agents list --filter "bmc.present == true"
+
+# Find servers with low disk space
+kscorectl agents list --filter "disk.used_percent > 90"
+```
 
 ## Configuration
 

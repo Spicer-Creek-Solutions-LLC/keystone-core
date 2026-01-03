@@ -46,7 +46,23 @@ func NewInterceptorConfigFromConfig(cfg config.AuthConfig) (*InterceptorConfig, 
 		}
 		ic.Authenticators = []Authenticator{auth}
 
+	case "jwt":
+		// JWT-only authentication
+		auth, err := NewJWTAuthenticator(cfg.JWT)
+		if err != nil {
+			return nil, err
+		}
+		ic.Authenticators = []Authenticator{auth}
+
 	case "multi":
+		// Add mTLS authenticator first (highest priority for certificate-based auth)
+		if cfg.MTLS.RequireClientCert || len(cfg.MTLS.CertRoles) > 0 {
+			auth, err := NewMTLSAuthenticator(cfg.MTLS)
+			if err != nil {
+				return nil, err
+			}
+			ic.Authenticators = append(ic.Authenticators, auth)
+		}
 		// Add API key authenticator if keys are configured
 		if len(cfg.APIKey.Keys) > 0 {
 			auth, err := NewAPIKeyAuthenticator(cfg.APIKey)
@@ -55,11 +71,22 @@ func NewInterceptorConfigFromConfig(cfg config.AuthConfig) (*InterceptorConfig, 
 			}
 			ic.Authenticators = append(ic.Authenticators, auth)
 		}
-		// JWT and mTLS would be added here when implemented
+		// Add JWT authenticator if configured
+		if cfg.JWT.Secret != "" || cfg.JWT.PublicKeyFile != "" {
+			auth, err := NewJWTAuthenticator(cfg.JWT)
+			if err != nil {
+				return nil, err
+			}
+			ic.Authenticators = append(ic.Authenticators, auth)
+		}
 
-	case "jwt", "mtls":
-		// TODO: Implement JWT and mTLS authenticators
-		return nil, status.Errorf(codes.Unimplemented, "auth type %q not yet implemented", cfg.Type)
+	case "mtls":
+		// mTLS-only authentication
+		auth, err := NewMTLSAuthenticator(cfg.MTLS)
+		if err != nil {
+			return nil, err
+		}
+		ic.Authenticators = []Authenticator{auth}
 	}
 
 	// Create authorizer

@@ -468,3 +468,29 @@ func (a *stateStoreAdapter) GetAgent(ctx context.Context, agentID string) (*cont
 		LastSeen:     r.LastHeartbeat,
 	}, nil
 }
+
+func (a *stateStoreAdapter) SaveAgent(ctx context.Context, agent *controlplane.StoredAgent) error {
+	// Convert status string to pb.AgentStatus
+	status := pb.AgentStatus_AGENT_STATUS_ONLINE
+	switch agent.Status {
+	case "offline":
+		status = pb.AgentStatus_AGENT_STATUS_OFFLINE
+	case "degraded":
+		status = pb.AgentStatus_AGENT_STATUS_DEGRADED
+	}
+
+	record := &state.AgentRecord{
+		ID:            agent.ID,
+		Hostname:      agent.Hostname,
+		OS:            agent.OS,
+		Architecture:  agent.Arch,
+		Status:        status,
+		Labels:        agent.Labels,
+		IPAddresses:   agent.IPAddresses,
+		RegisteredAt:  agent.RegisteredAt,
+		LastHeartbeat: agent.LastSeen,
+		UpdatedAt:     time.Now(),
+	}
+
+	return a.store.SaveAgent(ctx, record)
+}

@@ -3,6 +3,7 @@ package statemgmt
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/shawnbutts/keystone-core/pkg/k8s"
@@ -36,11 +37,20 @@ func (m *K8sDeploymentModule) Check(ctx context.Context, decl *StateDeclaration)
 	// Get deployment from cluster
 	deployment, err := m.client.GetDeployment(namespace, name)
 	if err != nil {
-		// Assume not found
-		result.Present = false
-		result.CurrentState = "absent"
-		result.Matches = (decl.State == "absent")
-		return result, nil
+		// Check if deployment doesn't exist (not found error)
+		if strings.Contains(err.Error(), "not found") {
+			result.Present = false
+			result.CurrentState = "absent"
+			result.Matches = (decl.State == "absent")
+			if !result.Matches {
+				result.Diff["state"] = map[string]string{
+					"current": "absent",
+					"desired": decl.State,
+				}
+			}
+			return result, nil
+		}
+		return nil, fmt.Errorf("failed to check deployment: %w", err)
 	}
 
 	result.Present = true
@@ -141,20 +151,53 @@ func (m *K8sDeploymentModule) Apply(ctx context.Context, decl *StateDeclaration)
 	// Apply changes based on desired state
 	switch decl.State {
 	case "present":
+		spec := k8s.DeploymentSpec{
+			Name:          name,
+			Replicas:      getInt32Parameter(decl, "replicas", 1),
+			Labels:        getLabels(decl),
+			Annotations:   getAnnotations(decl),
+			Image:         getStringParameter(decl, "image", ""),
+			ContainerPort: getInt32Parameter(decl, "container_port", 0),
+			Selector:      getSelectorLabels(decl),
+		}
+
 		if !checkResult.Present {
+			// Validate required fields for creation
+			if spec.Image == "" {
+				result.Success = false
+				result.Comment = "Image is required to create a deployment"
+				result.Duration = time.Since(startTime)
+				return result, fmt.Errorf("image is required to create a deployment")
+			}
+
 			// Create deployment
-			// In a real implementation, you'd build a deployment manifest and use client.CreateResource()
+			if err := m.client.CreateDeployment(namespace, spec); err != nil {
+				result.Success = false
+				result.Comment = fmt.Sprintf("Failed to create deployment: %v", err)
+				result.Duration = time.Since(startTime)
+				return result, err
+			}
 			result.Changes["created"] = true
-			result.Changes["replicas"] = getInt32Parameter(decl, "replicas", 1)
+			result.Changes["replicas"] = spec.Replicas
+			result.Changes["image"] = spec.Image
 			result.Comment = fmt.Sprintf("Created deployment %s/%s", namespace, name)
 		} else {
 			// Update deployment
-			// In a real implementation, you'd use client.UpdateResource()
+			if err := m.client.UpdateDeployment(namespace, spec); err != nil {
+				result.Success = false
+				result.Comment = fmt.Sprintf("Failed to update deployment: %v", err)
+				result.Duration = time.Since(startTime)
+				return result, err
+			}
+			result.Changes["updated"] = true
 			if replicasDiff, ok := checkResult.Diff["replicas"]; ok {
-				result.Changes["replicas"] = replicasDiff
+				result.Changes["replicas_updated"] = replicasDiff
 			}
 			if labelsDiff, ok := checkResult.Diff["labels"]; ok {
-				result.Changes["labels"] = labelsDiff
+				result.Changes["labels_updated"] = labelsDiff
+			}
+			if annotationsDiff, ok := checkResult.Diff["annotations"]; ok {
+				result.Changes["annotations_updated"] = annotationsDiff
 			}
 			result.Comment = fmt.Sprintf("Updated deployment %s/%s", namespace, name)
 		}
@@ -163,7 +206,12 @@ func (m *K8sDeploymentModule) Apply(ctx context.Context, decl *StateDeclaration)
 	case "absent":
 		if checkResult.Present {
 			// Delete deployment
-			// In a real implementation, you'd use client.DeleteResource()
+			if err := m.client.DeleteDeployment(namespace, name); err != nil {
+				result.Success = false
+				result.Comment = fmt.Sprintf("Failed to delete deployment: %v", err)
+				result.Duration = time.Since(startTime)
+				return result, err
+			}
 			result.Changes["deleted"] = true
 			result.Comment = fmt.Sprintf("Deleted deployment %s/%s", namespace, name)
 			result.Success = true
@@ -206,4 +254,18 @@ func getInt32Parameter(decl *StateDeclaration, key string, defaultValue int32) i
 		}
 	}
 	return defaultValue
+}
+
+// getSelectorLabels extracts selector labels from state declaration
+func getSelectorLabels(decl *StateDeclaration) map[string]string {
+	if selector, ok := decl.Parameters["selector"].(map[string]interface{}); ok {
+		result := make(map[string]string)
+		for k, v := range selector {
+			if str, ok := v.(string); ok {
+				result[k] = str
+			}
+		}
+		return result
+	}
+	return nil
 }

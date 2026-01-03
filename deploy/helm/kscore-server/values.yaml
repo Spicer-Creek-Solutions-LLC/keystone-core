@@ -1,0 +1,511 @@
+# =============================================================================
+# KEYSTONE CORE SERVER - HELM VALUES
+# =============================================================================
+# Two deployment modes:
+#   1. Single-node (default): Deployment + embedded NATS + SQLite
+#   2. HA Cluster: StatefulSet + external NATS/PostgreSQL/etcd
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Global Settings
+# -----------------------------------------------------------------------------
+global:
+  # Image pull secrets for private registries
+  imagePullSecrets: []
+  # Storage class override (used by subcharts too)
+  storageClass: ""
+
+# -----------------------------------------------------------------------------
+# Image Configuration
+# -----------------------------------------------------------------------------
+image:
+  repository: ghcr.io/keystone-core/kscore-server
+  pullPolicy: IfNotPresent
+  # Overrides the image tag (default is Chart appVersion)
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# -----------------------------------------------------------------------------
+# Deployment Mode
+# -----------------------------------------------------------------------------
+# Single-node uses Deployment; HA uses StatefulSet
+deploymentMode: single  # "single" or "ha"
+
+# Number of replicas (only used in HA mode)
+replicaCount: 3
+
+# -----------------------------------------------------------------------------
+# Server Configuration
+# -----------------------------------------------------------------------------
+server:
+  # Listen address (usually 0.0.0.0 in containers)
+  listenAddr: "0.0.0.0"
+  # gRPC API port
+  grpcPort: 9090
+  # HTTP/REST API port (also serves health endpoints)
+  httpPort: 8080
+
+# -----------------------------------------------------------------------------
+# NATS Configuration
+# -----------------------------------------------------------------------------
+nats:
+  # Deploy Bitnami NATS as a subchart
+  enabled: false
+
+  # Mode: embedded, external, or leaf
+  mode: embedded
+
+  # External NATS URLs (when mode=external or using subchart)
+  url: ""
+
+  # Connection settings
+  maxReconnects: -1  # -1 = unlimited
+  reconnectWait: "2s"
+
+  # Authentication for external NATS
+  auth:
+    enabled: false
+    token: ""
+    tokenSecretName: ""
+    tokenSecretKey: "nats-token"
+    credentialsSecretName: ""
+    credentialsSecretKey: "nats.creds"
+
+  # Embedded NATS settings (when mode=embedded)
+  embedded:
+    host: "0.0.0.0"
+    port: 4222
+    enableJetStream: true
+    storeDir: "/var/lib/kscore/nats"
+    maxMemory: "1Gi"
+    maxConnections: 1000
+
+  # JetStream settings
+  jetStream:
+    enabled: true
+    storeDir: "/var/lib/kscore/jetstream"
+    maxStorage: "10Gi"
+
+# -----------------------------------------------------------------------------
+# Storage Configuration
+# -----------------------------------------------------------------------------
+storage:
+  # Backend: sqlite or postgresql
+  backend: sqlite
+
+  # SQLite configuration (for single-node/dev)
+  sqlite:
+    path: "/var/lib/kscore/kscore.db"
+    wal: true
+    busyTimeout: 5000
+    persistence:
+      enabled: true
+      size: 10Gi
+      storageClass: ""
+      accessModes:
+        - ReadWriteOnce
+
+  # PostgreSQL configuration (for HA/production)
+  postgresql:
+    dsn: ""
+    host: ""
+    port: 5432
+    database: "kscore"
+    username: "kscore"
+    password: ""
+    passwordSecretName: ""
+    passwordSecretKey: "postgres-password"
+    sslMode: "prefer"
+    maxOpenConns: 25
+    maxIdleConns: 5
+    connMaxLifetime: "5m"
+
+# Bitnami PostgreSQL subchart configuration
+postgresql:
+  enabled: false
+  auth:
+    username: kscore
+    password: ""
+    database: kscore
+    existingSecret: ""
+  primary:
+    persistence:
+      size: 50Gi
+
+# -----------------------------------------------------------------------------
+# Cluster Configuration (HA Mode)
+# -----------------------------------------------------------------------------
+cluster:
+  enabled: false
+  clusterName: "keystone-core"
+  memberName: ""
+  heartbeatInterval: "5s"
+  heartbeatTimeout: "30s"
+  electionTimeout: "15s"
+
+  etcd:
+    mode: external
+    endpoints: []
+    dialTimeout: "5s"
+    requestTimeout: "10s"
+    leasesTTL: 15
+    keyPrefix: "/keystone-core"
+    auth:
+      enabled: false
+      username: ""
+      password: ""
+      passwordSecretName: ""
+      passwordSecretKey: "etcd-password"
+    tls:
+      enabled: false
+      certSecretName: ""
+
+# Bitnami etcd subchart configuration
+etcd:
+  enabled: false
+  replicaCount: 3
+  auth:
+    rbac:
+      enabled: false
+
+# -----------------------------------------------------------------------------
+# TLS Configuration
+# -----------------------------------------------------------------------------
+tls:
+  enabled: false
+  certManager:
+    enabled: false
+    issuerName: ""
+    issuerKind: "ClusterIssuer"
+  secretName: ""
+
+# -----------------------------------------------------------------------------
+# Authentication Configuration
+# -----------------------------------------------------------------------------
+auth:
+  enabled: true
+  type: apikey  # apikey, jwt, mtls, multi
+
+  apiKey:
+    headerName: "X-API-Key"
+    metadataKey: "x-api-key"
+    keys: {}
+    existingSecret: ""
+
+  jwt:
+    secret: ""
+    secretSecretName: ""
+    secretSecretKey: "jwt-secret"
+    publicKeySecretName: ""
+    publicKeySecretKey: "jwt-public-key"
+    issuer: ""
+    audience: ""
+    roleClaim: "role"
+
+  mtls:
+    requireClientCert: true
+    certRoles: {}
+
+  bypassMethods:
+    - "/grpc.health.v1.Health/Check"
+    - "/kscore.v1.HealthService/Liveness"
+    - "/kscore.v1.HealthService/Readiness"
+
+# -----------------------------------------------------------------------------
+# Webhook Configuration (GitOps Integration)
+# -----------------------------------------------------------------------------
+webhook:
+  enabled: false
+  port: 8082
+  path: "/webhooks"
+  authType: none  # none, hmac, bearer
+  hmacSecret: ""
+  hmacSecretName: ""
+  hmacSecretKey: "webhook-secret"
+  bearerToken: ""
+  bearerTokenSecretName: ""
+  bearerTokenSecretKey: "webhook-token"
+  handlers:
+    - argocd
+    - flux
+    - github
+    - gitlab
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: webhooks.kscore.local
+        paths:
+          - path: /webhooks
+            pathType: Prefix
+    tls: []
+
+# -----------------------------------------------------------------------------
+# Policy Engine Configuration
+# -----------------------------------------------------------------------------
+policy:
+  enabled: false
+  engine: both  # opa, cel, both
+  enforcementMode: enforce  # enforce, audit, warn
+  policies: []
+  policiesConfigMap: ""
+
+# -----------------------------------------------------------------------------
+# Logging Configuration
+# -----------------------------------------------------------------------------
+logging:
+  level: info  # debug, info, warn, error
+  format: json  # json, logfmt, text
+  output: stdout
+
+# -----------------------------------------------------------------------------
+# Telemetry / Observability
+# -----------------------------------------------------------------------------
+telemetry:
+  enabled: true
+  prometheus:
+    enabled: true
+    path: "/metrics"
+  otlp:
+    enabled: false
+    endpoint: ""
+    insecure: true
+
+# -----------------------------------------------------------------------------
+# Prometheus ServiceMonitor
+# -----------------------------------------------------------------------------
+serviceMonitor:
+  enabled: false
+  namespace: ""
+  interval: 30s
+  scrapeTimeout: 10s
+  labels: {}
+
+# -----------------------------------------------------------------------------
+# PrometheusRule (Alerts)
+# -----------------------------------------------------------------------------
+prometheusRule:
+  enabled: false
+  namespace: ""
+  labels: {}
+  groups:
+    controlPlane: true
+    agents: true
+    stateManagement: true
+    policy: true
+    gitops: true
+    nats: true
+    cluster: true
+
+# -----------------------------------------------------------------------------
+# Grafana Dashboards
+# -----------------------------------------------------------------------------
+grafanaDashboards:
+  enabled: false
+  labels:
+    grafana_dashboard: "1"
+  dashboards:
+    overview: true
+    controlPlaneHealth: true
+    agentFleet: true
+    stateManagement: true
+    policyCompliance: true
+    gitopsOperations: true
+    clusterHealth: true
+
+# -----------------------------------------------------------------------------
+# Service Configuration
+# -----------------------------------------------------------------------------
+service:
+  type: ClusterIP
+  grpc:
+    port: 9090
+    nodePort: ""
+  http:
+    port: 8080
+    nodePort: ""
+  nats:
+    enabled: true
+    port: 4222
+    nodePort: ""
+  webhook:
+    port: 8082
+    nodePort: ""
+  annotations: {}
+  labels: {}
+
+headlessService:
+  annotations: {}
+
+# -----------------------------------------------------------------------------
+# Ingress Configuration
+# -----------------------------------------------------------------------------
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: kscore.local
+      paths:
+        - path: /
+          pathType: Prefix
+          backend: http
+  tls: []
+
+grpcIngress:
+  enabled: false
+  className: ""
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: "GRPC"
+  hosts:
+    - host: grpc.kscore.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# -----------------------------------------------------------------------------
+# Pod Configuration
+# -----------------------------------------------------------------------------
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+rbac:
+  create: true
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+resources:
+  limits:
+    cpu: 2000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 256Mi
+
+haResources:
+  limits:
+    cpu: 4000m
+    memory: 2Gi
+  requests:
+    cpu: 1000m
+    memory: 512Mi
+
+# -----------------------------------------------------------------------------
+# Pod Disruption Budget (HA mode)
+# -----------------------------------------------------------------------------
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+  # maxUnavailable: 1
+
+# -----------------------------------------------------------------------------
+# Persistence (HA mode StatefulSet volumes)
+# -----------------------------------------------------------------------------
+persistence:
+  enabled: true
+  size: 20Gi
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+  existingClaim: ""
+
+# -----------------------------------------------------------------------------
+# StatefulSet Update Strategy (HA mode)
+# -----------------------------------------------------------------------------
+updateStrategy:
+  type: RollingUpdate
+  partition: 0
+
+# Pod Management Policy (Parallel or OrderedReady)
+podManagementPolicy: Parallel
+
+# Topology Spread Constraints
+topologySpreadConstraints: []
+
+# -----------------------------------------------------------------------------
+# Horizontal Pod Autoscaler
+# -----------------------------------------------------------------------------
+autoscaling:
+  enabled: false
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# -----------------------------------------------------------------------------
+# Probes
+# -----------------------------------------------------------------------------
+livenessProbe:
+  httpGet:
+    path: /health/live
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health/ready
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+startupProbe:
+  httpGet:
+    path: /health/live
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 30
+
+# -----------------------------------------------------------------------------
+# Scheduling
+# -----------------------------------------------------------------------------
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+haAffinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: kscore-server
+          topologyKey: kubernetes.io/hostname
+
+# -----------------------------------------------------------------------------
+# Extra Configuration
+# -----------------------------------------------------------------------------
+extraEnv: []
+extraEnvFrom: []
+extraVolumes: []
+extraVolumeMounts: []
+extraInitContainers: []
+extraContainers: []

@@ -1,0 +1,119 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kscore-server.fullname" . }}-config
+  labels:
+    {{- include "kscore-server.labels" . | nindent 4 }}
+data:
+  server.yaml: |
+    server:
+      listenaddr: {{ .Values.server.listenAddr | quote }}
+      grpcport: {{ .Values.server.grpcPort }}
+      httpport: {{ .Values.server.httpPort }}
+
+    nats:
+      mode: {{ .Values.nats.mode }}
+      {{- if or (eq .Values.nats.mode "external") .Values.nats.enabled }}
+      url: {{ include "kscore-server.natsUrl" . | quote }}
+      {{- end }}
+      maxreconnects: {{ .Values.nats.maxReconnects }}
+      reconnectwait: {{ .Values.nats.reconnectWait | quote }}
+      {{- if eq .Values.nats.mode "embedded" }}
+      embedded:
+        host: {{ .Values.nats.embedded.host | quote }}
+        port: {{ .Values.nats.embedded.port }}
+        enablejetstream: {{ .Values.nats.embedded.enableJetStream }}
+        storedir: {{ .Values.nats.embedded.storeDir | quote }}
+        maxmemory: {{ include "kscore-server.parseMemory" .Values.nats.embedded.maxMemory }}
+        maxconnections: {{ .Values.nats.embedded.maxConnections }}
+      {{- end }}
+      jetstream:
+        enabled: {{ .Values.nats.jetStream.enabled }}
+        storedir: {{ .Values.nats.jetStream.storeDir | quote }}
+        maxstorage: {{ include "kscore-server.parseMemory" .Values.nats.jetStream.maxStorage }}
+
+    storage:
+      backend: {{ .Values.storage.backend }}
+      {{- if eq .Values.storage.backend "sqlite" }}
+      sqlite:
+        path: {{ .Values.storage.sqlite.path | quote }}
+        wal: {{ .Values.storage.sqlite.wal }}
+        busytimeout: {{ .Values.storage.sqlite.busyTimeout }}
+      {{- else if eq .Values.storage.backend "postgresql" }}
+      postgresql:
+        dsn: {{ include "kscore-server.postgresqlDsn" . | quote }}
+        maxopenconns: {{ .Values.storage.postgresql.maxOpenConns }}
+        maxidleconns: {{ .Values.storage.postgresql.maxIdleConns }}
+        connmaxlifetime: {{ .Values.storage.postgresql.connMaxLifetime | quote }}
+      {{- end }}
+
+    {{- if .Values.cluster.enabled }}
+    cluster:
+      enabled: true
+      clustername: {{ .Values.cluster.clusterName | quote }}
+      heartbeatinterval: {{ .Values.cluster.heartbeatInterval | quote }}
+      heartbeattimeout: {{ .Values.cluster.heartbeatTimeout | quote }}
+      electiontimeout: {{ .Values.cluster.electionTimeout | quote }}
+      etcd:
+        mode: {{ .Values.cluster.etcd.mode }}
+        endpoints:
+{{ include "kscore-server.etcdEndpointsList" . | indent 10 }}
+        dialtimeout: {{ .Values.cluster.etcd.dialTimeout | quote }}
+        requesttimeout: {{ .Values.cluster.etcd.requestTimeout | quote }}
+        leasesttl: {{ .Values.cluster.etcd.leasesTTL }}
+        keyprefix: {{ .Values.cluster.etcd.keyPrefix | quote }}
+    {{- end }}
+
+    tls:
+      enabled: {{ .Values.tls.enabled }}
+      {{- if .Values.tls.enabled }}
+      certfile: /etc/kscore/tls/tls.crt
+      keyfile: /etc/kscore/tls/tls.key
+      cafile: /etc/kscore/tls/ca.crt
+      {{- end }}
+
+    auth:
+      enabled: {{ .Values.auth.enabled }}
+      type: {{ .Values.auth.type | quote }}
+      {{- if or (eq .Values.auth.type "apikey") (eq .Values.auth.type "multi") }}
+      apikey:
+        headername: {{ .Values.auth.apiKey.headerName | quote }}
+        metadatakey: {{ .Values.auth.apiKey.metadataKey | quote }}
+      {{- end }}
+      {{- if .Values.auth.bypassMethods }}
+      bypassmethods:
+        {{- toYaml .Values.auth.bypassMethods | nindent 8 }}
+      {{- end }}
+
+    {{- if .Values.webhook.enabled }}
+    webhook:
+      enabled: true
+      port: {{ .Values.webhook.port }}
+      path: {{ .Values.webhook.path | quote }}
+      authtype: {{ .Values.webhook.authType | quote }}
+      handlers:
+        {{- toYaml .Values.webhook.handlers | nindent 8 }}
+    {{- end }}
+
+    {{- if .Values.policy.enabled }}
+    policy:
+      enabled: true
+      engine: {{ .Values.policy.engine | quote }}
+      enforcementmode: {{ .Values.policy.enforcementMode | quote }}
+    {{- end }}
+
+    logging:
+      level: {{ .Values.logging.level | quote }}
+      format: {{ .Values.logging.format | quote }}
+      output: {{ .Values.logging.output | quote }}
+
+    telemetry:
+      enabled: {{ .Values.telemetry.enabled }}
+      prometheus:
+        enabled: {{ .Values.telemetry.prometheus.enabled }}
+        path: {{ .Values.telemetry.prometheus.path | quote }}
+      {{- if .Values.telemetry.otlp.enabled }}
+      otlp:
+        endpoint: {{ .Values.telemetry.otlp.endpoint | quote }}
+        insecure: {{ .Values.telemetry.otlp.insecure }}
+      {{- end }}

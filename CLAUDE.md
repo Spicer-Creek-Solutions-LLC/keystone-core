@@ -105,22 +105,100 @@ This repository contains working implementations of **Epics 1-11**. The project 
 
 The following features are documented as complete but have incomplete or stub implementations:
 
+#### Security & Authentication
+
+| Feature | Epic | Status | Location | Notes |
+|---------|------|--------|----------|-------|
+| **Cosign verification** | 9 | ✅ IMPLEMENTED | `pkg/module/verify/signature.go` | ECDSA P-256, Ed25519, base64 signatures, bundle parsing |
+| **JWT authenticator** | 11 | ✅ IMPLEMENTED | `pkg/api/auth/jwt.go` | HS256/RS256/ES256, issuer/audience validation |
+| **mTLS authenticator** | 11 | ✅ IMPLEMENTED | `pkg/api/auth/mtls.go` | CN/SAN pattern matching, glob wildcards, SPIFFE URIs |
+| **Built-in policy type** | 6 | ✅ IMPLEMENTED | `pkg/policy/builtin.go` | 14 built-in policies: require-labels, require-owner, allowed-environments, allowed-actions, deny-privileged, allowed-users, denied-users, time-window, no-root-execution, require-approval, max-concurrent, resource-quota, pattern-deny, pattern-allow |
+
+#### State Modules
+
+| Feature | Epic | Status | Location | Notes |
+|---------|------|--------|----------|-------|
+| **macOS user management** | 3 | ✅ IMPLEMENTED | `pkg/statemgmt/module_user.go` | Uses dscl for create/modify/delete |
+| **macOS group management** | 3 | ✅ IMPLEMENTED | `pkg/statemgmt/module_group.go` | Uses dscl for create/modify/delete |
+| **K8s namespace module** | 8 | ✅ IMPLEMENTED | `pkg/statemgmt/module_k8s_namespace.go` | Full namespace CRUD with labels/annotations |
+| **Windows file ownership** | 3 | ✅ IMPLEMENTED | `pkg/statemgmt/module_file_windows.go` | Uses Windows ACLs via GetSecurityInfo/LookupAccountSid |
+| **Executor user switching** | 2 | ✅ IMPLEMENTED | `pkg/agent/executor_unix.go` | Unix: setuid/setgid, Windows: error (requires password) |
+
+#### Observability Backend Integrations
+
+| Feature | Epic | Status | Location | Notes |
+|---------|------|--------|----------|-------|
+| **Loki log querying** | 7 | ✅ IMPLEMENTED | `pkg/query/logs.go` | Full Loki HTTP API: query_range, labels, label values |
+| **Jaeger trace querying** | 7 | ✅ IMPLEMENTED | `pkg/query/traces.go` | Full Jaeger API: traces, get trace, services, operations |
+
+#### Cluster/HA
+
+| Feature | Epic | Status | Location | Notes |
+|---------|------|--------|----------|-------|
+| **Add cluster member via API** | 11 | ✅ IMPLEMENTED | `pkg/cluster/membership.go` | AddMember method with validation, API handler |
+| **Cluster restore from backup** | 11 | ✅ IMPLEMENTED | `pkg/api/cluster/handlers.go:398` | Full restore with shards, config, validation |
+| **NATS restart coordination** | 11 | ✅ IMPLEMENTED | `pkg/cluster/coordination_server.go:304-475` | restart embedded, reconnect, failover, drain actions |
+| **State propagation handlers** | 11 | ✅ IMPLEMENTED | `pkg/cluster/coordination_server.go:507-651` | All 5 state types with version tracking |
+
+#### NATS Discovery (Epic 14)
+
+| Feature | Epic | Status | Location | Notes |
+|---------|------|--------|----------|-------|
+| **Kubernetes NATS discovery** | 14 | ✅ IMPLEMENTED | `pkg/nats/discovery.go` | EndpointSlices API + Endpoints fallback + DNS fallback |
+| **Consul NATS discovery** | 14 | ✅ IMPLEMENTED | `pkg/nats/discovery.go` | Consul HTTP API with health filtering |
+| **etcd NATS discovery** | 14 | ✅ IMPLEMENTED | `pkg/nats/discovery.go` | etcd v3 client with prefix queries |
+| **NTLM proxy authentication** | 14 | ✅ IMPLEMENTED | `pkg/nats/ntlm.go`, `pkg/nats/websocket.go` | NTLMv2 with MD4, multi-step challenge-response |
+
+#### Module System
+
+| Feature | Epic | Status | Location | Notes |
+|---------|------|--------|----------|-------|
+| **Capability implementations** | 9 | ✅ IMPLEMENTED | `pkg/module/capabilities/capabilities.go` | Factory functions wire to real FSRead, FSWrite, HTTPGet, HTTPPost, Exec, SecretsRead, SecretsWrite, Log, Time, KV |
+| **Memory limit parsing** | 9 | ✅ IMPLEMENTED | `pkg/module/loader/loader.go` | Supports KB/MB/GB/TB, Ki/Mi/Gi/Ti, and K8s formats |
+
+#### GitOps
+
+| Feature | Epic | Status | Location | Notes |
+|---------|------|--------|----------|-------|
+| **ArgoCD previous revision lookup** | 5 | ✅ IMPLEMENTED | `pkg/gitops/rollback/argocd.go` | Uses ArgoCD History API |
+| **Git previous revision lookup** | 5 | ✅ IMPLEMENTED | `pkg/gitops/rollback/git.go` | Uses go-git parent commit lookup |
+
+#### Hardware/Platform
+
+| Feature | Epic | Status | Location | Notes |
+|---------|------|--------|----------|-------|
+| **BMC/IPMI detection** | 8 | ✅ IMPLEMENTED | `pkg/hardware/detector.go` | Multi-method detection: IPMI device files, ipmitool, DMI/SMBIOS |
+| **Agent CPU/memory metrics** | 1 | ✅ IMPLEMENTED | `pkg/agent/metadata.go` | Uses gopsutil for CPU, memory, disk, load |
+| **Edge CPU tracking** | 8 | ✅ IMPLEMENTED | `pkg/edge/manager.go` | Uses gopsutil with caching |
+
+#### Deployment Artifacts
+
 | Feature | Epic | Status | Notes |
 |---------|------|--------|-------|
-| **Embedded etcd mode** | 11 | ✅ IMPLEMENTED | Uses `go.etcd.io/etcd/server/v3/embed` for true embedded mode. |
-| **OCI Registry client** | 9 | ✅ IMPLEMENTED | `pkg/module/registry/` HTTP registry client with publish/download support. |
-| **kscore-registry server** | 9 | ✅ IMPLEMENTED | HTTP server with Go-mod style API for module distribution. |
-| **kscore-module CLI** | 9 | ✅ IMPLEMENTED | init, validate, build, resolve, tree, verify, sign, publish, install, test commands. |
-| **kscore-policy CLI** | 6 | ✅ IMPLEMENTED | list, validate, check, show, audit, report commands. |
-| **kscore-gitops CLI** | 5 | ✅ IMPLEMENTED | verify, rollback, promote, webhook, status commands. |
-| **Cosign verification** | 9 | ⚠️ STUB | Returns "not yet implemented" error. |
-| **Loki integration** | 7 | ⚠️ PLACEHOLDER | InMemoryLogsQuerier only. |
-| **Jaeger integration** | 7 | ⚠️ PLACEHOLDER | InMemoryTracesQuerier only. |
-| **Kubernetes manifests** | 8/10 | ❌ NOT IMPLEMENTED | `deploy/kubernetes/` doesn't exist. |
-| **Helm charts** | 8/10 | ❌ NOT IMPLEMENTED | No Helm charts exist. |
-| **CI/CD for E2E tests** | 12 | ✅ IMPLEMENTED | `.github/workflows/e2e.yml` GitHub Actions workflow. |
-| **Network partition tests** | 12 | ⚠️ SKIPPED | Require Docker network manipulation. |
-| **Multi-platform E2E** | 12 | ❌ NOT IMPLEMENTED | ARM64, different Linux distros not tested. |
+| **Kubernetes manifests** | 8/10 | ✅ IMPLEMENTED | `deploy/kubernetes/` with Kustomize support |
+| **Helm charts** | 8/10 | ✅ IMPLEMENTED | `deploy/helm/kscore-server/` and `deploy/helm/kscore-agent/` |
+
+#### Testing
+
+| Feature | Epic | Status | Notes |
+|---------|------|--------|-------|
+| **Network partition E2E tests** | 12 | ⚠️ SKIPPED | Require Docker network manipulation |
+| **Multi-platform E2E** | 12 | ❌ NOT IMPLEMENTED | ARM64, different Linux distros not tested |
+
+#### Confirmed Working ✅
+
+| Feature | Epic | Notes |
+|---------|------|-------|
+| **Embedded etcd mode** | 11 | Uses `go.etcd.io/etcd/server/v3/embed` |
+| **OCI Registry client** | 9 | `pkg/module/registry/oci_client.go` - Full OCI Distribution Spec client |
+| **HTTP Registry client** | 9 | `pkg/module/registry/client.go` - Go-mod style HTTP client |
+| **kscore-registry server** | 9 | `cmd/kscore-registry/` - HTTP server with tests (18 tests) |
+| **kscore-module CLI** | 9 | All commands implemented |
+| **kscore-policy CLI** | 6 | All commands implemented |
+| **kscore-gitops CLI** | 5 | All commands implemented |
+| **CI/CD for E2E tests** | 12 | `.github/workflows/e2e.yml` |
+
+**Legend**: ✅ Working | ⚠️ STUB/PLACEHOLDER (partial) | ❌ NOT IMPLEMENTED
 
 These gaps should be addressed before production use.
 
@@ -703,6 +781,10 @@ Keystone Core fills the gap between declarative GitOps tools and runtime operati
   - CreateBranch() - create new branches
   - GetPathFiles() - list files in repository paths
   - GetCurrentCommit() - get current commit hash
+  - GetPreviousCommit() - get parent of HEAD for rollbacks
+  - GetCommitHistory(limit) - get last n commits from HEAD
+  - GetCommit(hash) - get info about specific commit
+  - CommitInfo struct with hash, message, author, email, timestamp, parent
   - Support for HTTPS (token) and SSH key authentication
 - Repository manager (pkg/gitops/gitsync/client.go)
   - Manager for handling multiple repositories
@@ -1307,9 +1389,9 @@ Keystone Core fills the gap between declarative GitOps tools and runtime operati
   - StateConfig controller with state synchronization
   - Automatic CRD installation
 - Kubernetes state modules (pkg/statemgmt/)
-  - k8s_namespace module (present, absent states)
-  - k8s_deployment module (deployed, scaled states)
-- Test coverage: 100% (16 tests passing)
+  - k8s_namespace module (present, absent states) with full CRUD
+  - k8s_deployment module (present, absent states) with full CRUD (create, update, delete, scale)
+- Test coverage: 100% (26 tests passing - 8 namespace + 10 deployment + 8 helper)
 
 **Phase 2: VM Support ✅ COMPLETE**
 - Platform detection system (pkg/platform/)
@@ -1336,18 +1418,19 @@ Keystone Core fills the gap between declarative GitOps tools and runtime operati
 
 **Phase 3: Bare Metal Support ✅ COMPLETE**
 - Hardware detection using gopsutil
-  - CPU information (cores, model, frequency)
-  - Memory information (total, available, used)
-  - Disk information (devices, partitions, usage)
-  - Network interface information
+  - CPU information (cores, model, frequency, vendor, cache, flags)
+  - Memory information (total, available, used, swap)
+  - Disk information (devices, partitions, usage, serial)
+  - Network interface information (MAC, IPs, MTU, flags)
   - System information (hostname, OS, platform, kernel)
-- BMC/IPMI interface for out-of-band management
-  - Power management operations
-  - Sensor monitoring
-  - Server information retrieval
+- BMC/IPMI detection (pkg/hardware/detector.go)
+  - Multi-method detection: IPMI device files, ipmitool, DMI/SMBIOS
+  - Detects BMC presence, IP, MAC, firmware version, manufacturer
+  - Linux-focused with ipmitool integration
+  - Parsing of `ipmitool bmc info` and `ipmitool lan print` output
 - Agent metadata extended with hardware info
 - Cross-platform support (Linux, Windows, macOS, ARM)
-- Test coverage: 100% (11 tests passing)
+- Test coverage: 100% (15 tests passing)
 
 **Phase 4: Edge Support ✅ COMPLETE**
 - Edge package with multiple modes (pkg/edge/)
@@ -1948,16 +2031,74 @@ Keystone Core fills the gap between declarative GitOps tools and runtime operati
     - Timeout handling
     - Starlark and WASM module loading
 
+- **T7.6: Capability Wiring to Runtimes** ✅ (pkg/module/runtime/)
+  - Starlark capability builtins (builtins.go)
+    - All 10 capability types wired to Starlark functions
+    - fs_read, fs_exists, fs_write, fs_delete, fs_mkdir
+    - exec, http_get, http_post, log
+    - kv_get, kv_set, kv_delete
+    - secret_get, secret_set, time_now
+    - Safe type assertions for stub capability handling
+  - WASM host function bindings (wasm_builtins.go)
+    - All 10 capability types wired as WASM host functions
+    - wazero host module builder with proper function signatures
+    - Memory read/write helpers for string marshaling
+    - JSON result serialization for complex return values
+  - Fine-grained capability restrictions from manifest
+    - CapabilityConfig struct with allowed/denied paths, domains, commands
+    - Path pattern matching for filesystem capabilities
+    - Domain matching for HTTP capabilities
+    - Command allowlist for exec capability
+    - Backwards-compatible defaults when restrictions not specified
+  - ~800 lines of capability wiring code
+
+- **T7.7: Capability Policy & Lock System** ✅ (pkg/module/capabilities/)
+  - Capability policy evaluation (policy.go)
+    - CapabilityMode: allow, deny, restrict
+    - TrustLevel: none, limited, full
+    - CapabilityPolicyConfig for fine-grained restrictions
+    - ModulePolicy for per-module settings with lock flag
+    - CapabilityPolicy with defaults and per-module overrides
+    - PolicyEvaluator with EvaluateCapability(), EvaluateAllCapabilities()
+    - CheckModuleUpdate() for update lock validation
+    - FilePolicyStore for YAML-based policy storage
+    - DefaultCapabilityPolicy() with secure defaults (deny exec, restrict fs.write)
+    - Wildcard matching for capability denial (e.g., "fs.*")
+    - Config merging with intersection (more restrictive wins)
+  - Capability lock storage (lock.go)
+    - CapabilityLock struct with module, version, capabilities, config
+    - HasCapability(), GetCapabilityConfig(), AddCapability()
+    - LockStore interface for pluggable storage
+    - InMemoryLockStore for testing
+    - FileLockStore for JSON file persistence
+    - LockManager for high-level lock operations
+    - LockModule(), UnlockModule(), CheckUpdate()
+    - CreateLockFromManifest() helper
+  - Module loader integration (loader.go)
+    - SetCapabilityPolicyEvaluator(), SetLockManager()
+    - Capability policy check phase in Load()
+    - Module update lock violation detection
+    - Denied capabilities tracked in LoadResult
+    - CapabilityPolicyDecisions in LoadResult
+  - 28 comprehensive tests (policy_test.go, lock_test.go)
+    - Policy evaluation tests (allowed, denied, wildcard, trust levels)
+    - Lock storage tests (in-memory, file, persistence)
+    - Lock manager tests (lock, unlock, check update)
+    - Config merging and restriction tests
+  - ~700 lines of policy/lock code
+
 **Phase 7 Achievements**:
-- Complete 6-phase module loading workflow
+- Complete 7-phase module loading workflow (now includes capability policy check)
 - Unified runtime interface for Starlark and WASM
+- Complete capability wiring to both Starlark and WASM runtimes
+- Capability policy and lock system for operator control
 - Type-safe orchestration with comprehensive error handling
 - LRU caching for performance optimization
 - Event-driven progress tracking
 - All dependency packages properly typed and integrated
-- 14 comprehensive tests passing
+- 42 comprehensive tests passing (14 loader + 28 policy/lock)
 - Successfully compiles and executes complete load workflow
-- ~600 lines of loader code + 200 lines of type updates
+- ~600 lines of loader code + 200 lines of type updates + 800 lines of capability wiring + 700 lines of policy/lock
 
 **Phase 7 Deferred**:
 - Performance optimization and benchmarking
@@ -1976,20 +2117,27 @@ Keystone Core fills the gap between declarative GitOps tools and runtime operati
 **Total Epic 9 Achievements**:
 - Complete plugin system architecture
 - 10 capability types with path/domain/command scoping
+- Capability wiring to Starlark (builtins.go) and WASM (wasm_builtins.go) runtimes
+- Fine-grained capability restrictions via manifest CapabilityConfig
+- Capability policy system for operator override/restriction of module capabilities
+- Capability lock system to prevent malicious module updates from escalating permissions
 - Full cryptographic verification pipeline (Cosign stub only - RSA/ECDSA/Ed25519 work)
 - Dependency resolution with MVS algorithm
-- HTTP registry client and kscore-registry server for module distribution
+- OCI registry client (OCI Distribution Spec) + HTTP registry client (Go-mod style)
+- kscore-registry server with comprehensive test coverage (18 tests)
 - SDK suite for 4 languages (Starlark, Rust, Go, C++)
 - 6 stdlib modules + 4 hello world examples
 - Module loader with caching and orchestration
-- 150+ comprehensive tests passing
-- ~15,000+ lines of production code
+- 180+ comprehensive tests passing
+- ~17,000+ lines of production code
 
 **Epic 9 Implementation Gaps**:
-- `pkg/module/registry/` - ✅ HTTP registry client implemented (publish, download, list, auth)
-- `cmd/kscore-registry/` - ✅ HTTP server with Go-mod style API for module distribution
+- `pkg/module/registry/` - ✅ Both OCI and HTTP registry clients implemented
+  - OCI client: Push/Pull with OCI Distribution Spec, manifest/blob handling
+  - HTTP client: Go-mod style endpoints for module distribution
+- `cmd/kscore-registry/` - ✅ HTTP server with tests (18 tests passing)
 - `cmd/kscore-module/` - ✅ CLI fully implemented (init, validate, build, sign, publish, install, resolve, tree, verify, test)
-- Cosign verification returns "not yet implemented" error
+- Cosign verification ✅ IMPLEMENTED (ECDSA P-256, Ed25519, base64 signatures, bundle parsing, identity extraction)
 
 ### Epic 10: Documentation ✅ COMPLETE
 
@@ -2223,43 +2371,12 @@ Keystone Core fills the gap between declarative GitOps tools and runtime operati
 - Project roadmap with completed/planned work
 - Hugo builds cleanly with no warnings (38 total pages)
 
-**Phase 7: Blog & Release Notes ✅ COMPLETE**
-- Blog section infrastructure (5 pages, ~680 lines):
-  - **Blog Index** (~35 lines): Blog landing page with categories
-    - Release Notes, Announcements, Tutorials, Engineering categories
-    - Links to community resources
-  - **Releases Index** (~35 lines): Release notes landing page
-    - Version numbering explanation
-    - Support policy table
-  - **v0.9.0 Release Notes** (~220 lines): Major release documentation
-    - Plugin system (Starlark, WASM, capabilities)
-    - Multi-environment support (K8s, VMs, edge, cloud)
-    - Observability stack (metrics, logging, tracing, TUI)
-    - Upgrade instructions
-  - **v0.10.0 Release Notes** (~160 lines): Documentation release
-    - Complete documentation coverage
-    - Hugo + Docsy infrastructure
-    - Documentation statistics
-  - **Announcement Post** (~230 lines): Keystone Core introduction
-    - Problem statement and solution
-    - Feature overview with examples
-    - Architecture summary
-    - Getting started guide
-    - Current status and roadmap
-
-**Phase 7 Achievements**:
-- Complete blog infrastructure with release notes
-- ~680 lines of blog content
-- All 5 blog pages built and verified
-- Release notes for v0.9.0 and v0.10.0
-- Project announcement post
-- Hugo builds cleanly with no warnings (45 total pages)
-
 **Epic 10 Final Statistics**:
-- Total documentation pages: 45
-- Total lines of documentation: ~21,500
-- Sections completed: Getting Started, Core Concepts, Reference, Operations, Community, Blog
+- Total documentation pages: 40
+- Total lines of documentation: ~20,800
+- Sections completed: Getting Started, Core Concepts, Reference, Operations, Community
 - All phases complete with no build warnings
+- Release notes tracked in CHANGELOG.md
 
 ### Epic 11: High Availability Clustering ✅ COMPLETE
 

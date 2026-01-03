@@ -393,6 +393,146 @@ func (r *Repository) GetCurrentCommit() (string, error) {
 	return head.Hash().String(), nil
 }
 
+// GetPreviousCommit returns the parent commit of HEAD
+func (r *Repository) GetPreviousCommit() (string, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	if r.repo == nil {
+		return "", fmt.Errorf("repository not initialized")
+	}
+
+	head, err := r.repo.Head()
+	if err != nil {
+		return "", fmt.Errorf("failed to get HEAD: %w", err)
+	}
+
+	commit, err := r.repo.CommitObject(head.Hash())
+	if err != nil {
+		return "", fmt.Errorf("failed to get commit: %w", err)
+	}
+
+	// Get parent commit
+	if commit.NumParents() == 0 {
+		return "", fmt.Errorf("no parent commit (HEAD is root commit)")
+	}
+
+	parent, err := commit.Parent(0)
+	if err != nil {
+		return "", fmt.Errorf("failed to get parent commit: %w", err)
+	}
+
+	return parent.Hash.String(), nil
+}
+
+// CommitInfo represents information about a commit
+type CommitInfo struct {
+	Hash       string
+	Message    string
+	Author     string
+	AuthorEmail string
+	Timestamp  time.Time
+	ParentHash string
+}
+
+// GetCommitHistory returns the last n commits from HEAD
+func (r *Repository) GetCommitHistory(limit int) ([]*CommitInfo, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	if r.repo == nil {
+		return nil, fmt.Errorf("repository not initialized")
+	}
+
+	if limit <= 0 {
+		limit = 10 // default
+	}
+
+	head, err := r.repo.Head()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get HEAD: %w", err)
+	}
+
+	// Get commit log iterator
+	logIter, err := r.repo.Log(&git.LogOptions{
+		From:  head.Hash(),
+		Order: git.LogOrderCommitterTime,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get log: %w", err)
+	}
+	defer logIter.Close()
+
+	var commits []*CommitInfo
+	count := 0
+
+	err = logIter.ForEach(func(c *object.Commit) error {
+		if count >= limit {
+			return fmt.Errorf("limit reached") // Stop iteration
+		}
+
+		info := &CommitInfo{
+			Hash:        c.Hash.String(),
+			Message:     c.Message,
+			Author:      c.Author.Name,
+			AuthorEmail: c.Author.Email,
+			Timestamp:   c.Author.When,
+		}
+
+		// Get parent hash if exists
+		if c.NumParents() > 0 {
+			parent, err := c.Parent(0)
+			if err == nil {
+				info.ParentHash = parent.Hash.String()
+			}
+		}
+
+		commits = append(commits, info)
+		count++
+		return nil
+	})
+
+	// Ignore "limit reached" error
+	if err != nil && err.Error() != "limit reached" {
+		return nil, fmt.Errorf("failed to iterate commits: %w", err)
+	}
+
+	return commits, nil
+}
+
+// GetCommit returns information about a specific commit
+func (r *Repository) GetCommit(hash string) (*CommitInfo, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	if r.repo == nil {
+		return nil, fmt.Errorf("repository not initialized")
+	}
+
+	commitHash := plumbing.NewHash(hash)
+	commit, err := r.repo.CommitObject(commitHash)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get commit: %w", err)
+	}
+
+	info := &CommitInfo{
+		Hash:        commit.Hash.String(),
+		Message:     commit.Message,
+		Author:      commit.Author.Name,
+		AuthorEmail: commit.Author.Email,
+		Timestamp:   commit.Author.When,
+	}
+
+	if commit.NumParents() > 0 {
+		parent, err := commit.Parent(0)
+		if err == nil {
+			info.ParentHash = parent.Hash.String()
+		}
+	}
+
+	return info, nil
+}
+
 // Manager manages multiple repositories
 type Manager struct {
 	repos map[string]*Repository

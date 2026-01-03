@@ -64,9 +64,9 @@ const RemoteExecutionCRD = `
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: remoteexecutions.kscore.io
+  name: remoteexecutions.keystonecore.io
 spec:
-  group: kscore.io
+  group: keystonecore.io
   names:
     kind: RemoteExecution
     listKind: RemoteExecutionList
@@ -181,9 +181,9 @@ const StateConfigCRD = `
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: stateconfigs.kscore.io
+  name: stateconfigs.keystonecore.io
 spec:
-  group: kscore.io
+  group: keystonecore.io
   names:
     kind: StateConfig
     listKind: StateConfigList

@@ -1,0 +1,140 @@
+================================================================================
+ _  __          _                      ____
+| |/ /___ _   _| |_ ___  _ __   ___   / ___|___  _ __ ___
+| ' // _ \ | | | __/ _ \| '_ \ / _ \ | |   / _ \| '__/ _ \
+| . \  __/ |_| | || (_) | | | |  __/ | |__| (_) | | |  __/
+|_|\_\___|\__, |\__\___/|_| |_|\___|  \____\___/|_|  \___|
+          |___/
+================================================================================
+
+Thank you for installing {{ .Chart.Name }}!
+
+Release: {{ .Release.Name }}
+Chart:   {{ .Chart.Name }}-{{ .Chart.Version }}
+Mode:    {{ if (include "kscore-server.isHAMode" .) }}High Availability{{ else }}Single-node{{ end }}
+
+{{- if (include "kscore-server.isHAMode" .) }}
+DEPLOYMENT: StatefulSet with {{ .Values.replicaCount }} replicas
+{{- else }}
+DEPLOYMENT: Single Deployment
+{{- end }}
+
+================================================================================
+                               GETTING STARTED
+================================================================================
+
+1. Get the application URL:
+{{- if .Values.ingress.enabled }}
+{{- range $host := .Values.ingress.hosts }}
+   HTTP:  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}
+{{- end }}
+{{- end }}
+{{- if .Values.grpcIngress.enabled }}
+{{- range $host := .Values.grpcIngress.hosts }}
+   gRPC:  {{ $host.host }}:443
+{{- end }}
+{{- end }}
+{{- if not (or .Values.ingress.enabled .Values.grpcIngress.enabled) }}
+
+   # Port-forward to access locally:
+   kubectl port-forward svc/{{ include "kscore-server.fullname" . }} 8080:{{ .Values.service.http.port }} 9090:{{ .Values.service.grpc.port }}
+
+   # Access points:
+   HTTP API:  http://localhost:8080
+   gRPC API:  localhost:9090
+{{- end }}
+
+2. Check health status:
+   curl http://localhost:8080/health/ready
+
+3. Connect agents:
+   # Install the agent with:
+   helm install kscore-agent ./kscore-agent \
+     --set server.address={{ include "kscore-server.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.grpc.port }}
+
+{{- if .Values.auth.enabled }}
+
+================================================================================
+                              AUTHENTICATION
+================================================================================
+
+Authentication is enabled (type: {{ .Values.auth.type }}).
+
+{{- if eq .Values.auth.type "apikey" }}
+API keys are configured. Use the X-API-Key header to authenticate:
+   curl -H "X-API-Key: <your-api-key>" http://localhost:8080/api/v1/agents
+{{- end }}
+
+{{- if eq .Values.auth.type "mtls" }}
+mTLS is enabled. Configure your client with a valid certificate.
+{{- end }}
+
+{{- end }}
+
+{{- if (include "kscore-server.isHAMode" .) }}
+
+================================================================================
+                              HIGH AVAILABILITY
+================================================================================
+
+Cluster Configuration:
+  - Replicas: {{ .Values.replicaCount }}
+  - Pod Management: {{ .Values.podManagementPolicy | default "Parallel" }}
+  - Update Strategy: {{ .Values.updateStrategy.type | default "RollingUpdate" }}
+
+Dependencies:
+{{- if .Values.nats.enabled }}
+  - NATS: {{ .Release.Name }}-nats
+{{- end }}
+{{- if .Values.postgresql.enabled }}
+  - PostgreSQL: {{ .Release.Name }}-postgresql
+{{- end }}
+{{- if .Values.etcd.enabled }}
+  - etcd: {{ .Release.Name }}-etcd
+{{- end }}
+
+Cluster members:
+{{- range $i := until (.Values.replicaCount | int) }}
+  - {{ include "kscore-server.fullname" $ }}-{{ $i }}.{{ include "kscore-server.fullname" $ }}-headless
+{{- end }}
+
+{{- end }}
+
+{{- if .Values.serviceMonitor.enabled }}
+
+================================================================================
+                              MONITORING
+================================================================================
+
+Prometheus ServiceMonitor is enabled. Metrics will be scraped automatically.
+Metrics endpoint: /metrics
+
+{{- if .Values.prometheusRule.enabled }}
+PrometheusRule alerts are configured for:
+{{- if .Values.prometheusRule.groups.controlPlane }}  - Control Plane{{ end }}
+{{- if .Values.prometheusRule.groups.agents }}  - Agents{{ end }}
+{{- if .Values.prometheusRule.groups.stateManagement }}  - State Management{{ end }}
+{{- if .Values.prometheusRule.groups.policy }}  - Policy{{ end }}
+{{- if .Values.prometheusRule.groups.gitops }}  - GitOps{{ end }}
+{{- if .Values.prometheusRule.groups.nats }}  - NATS{{ end }}
+{{- if .Values.prometheusRule.groups.cluster }}  - Cluster{{ end }}
+{{- end }}
+
+{{- if .Values.grafanaDashboards.enabled }}
+Grafana dashboards are installed as ConfigMaps with label: grafana_dashboard=1
+{{- end }}
+
+{{- end }}
+
+================================================================================
+                                RESOURCES
+================================================================================
+
+Documentation:   https://keystonecore.io/docs
+GitHub:          https://github.com/keystone-core/keystone-core
+Issues:          https://github.com/keystone-core/keystone-core/issues
+
+To uninstall:
+   helm uninstall {{ .Release.Name }}
+
+================================================================================

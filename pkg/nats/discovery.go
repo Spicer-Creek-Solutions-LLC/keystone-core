@@ -2,14 +2,25 @@ package nats
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
+	"net/http"
+	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	clientv3 "go.etcd.io/etcd/client/v3"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 // ============================================================================
@@ -588,6 +599,9 @@ func (c *KubernetesDiscoveryConfig) Validate() error {
 type KubernetesDiscoverer struct {
 	config *KubernetesDiscoveryConfig
 
+	// Kubernetes client
+	clientset *kubernetes.Clientset
+
 	// State
 	mu        sync.RWMutex
 	endpoints []*DiscoveredEndpoint
@@ -607,12 +621,45 @@ func NewKubernetesDiscoverer(config *KubernetesDiscoveryConfig) (*KubernetesDisc
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
+	// Build Kubernetes client config
+	var k8sConfig *rest.Config
+	var err error
+
+	if config.InCluster {
+		k8sConfig, err = rest.InClusterConfig()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get in-cluster config: %w", err)
+		}
+	} else {
+		kubeconfig := config.Kubeconfig
+		if kubeconfig == "" {
+			kubeconfig = os.Getenv("KUBECONFIG")
+			if kubeconfig == "" {
+				home, _ := os.UserHomeDir()
+				if home != "" {
+					kubeconfig = home + "/.kube/config"
+				}
+			}
+		}
+		k8sConfig, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build kubeconfig: %w", err)
+		}
+	}
+
+	// Create clientset
+	clientset, err := kubernetes.NewForConfig(k8sConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create kubernetes client: %w", err)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &KubernetesDiscoverer{
-		config: config,
-		ctx:    ctx,
-		cancel: cancel,
+		config:    config,
+		clientset: clientset,
+		ctx:       ctx,
+		cancel:    cancel,
 	}, nil
 }
 
@@ -621,21 +668,191 @@ func (d *KubernetesDiscoverer) Method() DiscoveryMethod {
 }
 
 func (d *KubernetesDiscoverer) Discover(ctx context.Context) ([]*DiscoveredEndpoint, error) {
-	// Note: Full Kubernetes implementation requires k8s.io/client-go
-	// This is a placeholder that demonstrates the interface
-
-	// For Kubernetes headless service, we would:
-	// 1. Get the Endpoints or EndpointSlice for the service
-	// 2. Extract IP addresses and ports
-	// 3. Build endpoint list
-
-	// Placeholder: try DNS-based service discovery within Kubernetes
-	// Format: <service>.<namespace>.svc.cluster.local
 	namespace := d.config.Namespace
 	if namespace == "" {
-		namespace = "default"
+		// Try to get namespace from service account
+		nsBytes, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+		if err == nil {
+			namespace = strings.TrimSpace(string(nsBytes))
+		} else {
+			namespace = "default"
+		}
 	}
 
+	// Try EndpointSlices first (newer API, more efficient)
+	endpoints, err := d.discoverFromEndpointSlices(ctx, namespace)
+	if err == nil && len(endpoints) > 0 {
+		d.mu.Lock()
+		d.endpoints = endpoints
+		d.mu.Unlock()
+		return endpoints, nil
+	}
+
+	// Fall back to Endpoints (older API)
+	endpoints, err = d.discoverFromEndpoints(ctx, namespace)
+	if err == nil && len(endpoints) > 0 {
+		d.mu.Lock()
+		d.endpoints = endpoints
+		d.mu.Unlock()
+		return endpoints, nil
+	}
+
+	// Last resort: DNS-based discovery
+	return d.discoverFromDNS(ctx, namespace)
+}
+
+func (d *KubernetesDiscoverer) discoverFromEndpointSlices(ctx context.Context, namespace string) ([]*DiscoveredEndpoint, error) {
+	// List EndpointSlices for the service
+	labelSelector := fmt.Sprintf("kubernetes.io/service-name=%s", d.config.ServiceName)
+	if d.config.LabelSelector != "" {
+		labelSelector = labelSelector + "," + d.config.LabelSelector
+	}
+
+	slices, err := d.clientset.DiscoveryV1().EndpointSlices(namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: labelSelector,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list endpoint slices: %w", err)
+	}
+
+	var endpoints []*DiscoveredEndpoint
+	priority := 0
+
+	for _, slice := range slices.Items {
+		// Find the target port
+		var targetPort int32 = 4222 // Default NATS port
+		for _, port := range slice.Ports {
+			if d.config.PortName != "" && port.Name != nil && *port.Name == d.config.PortName {
+				if port.Port != nil {
+					targetPort = *port.Port
+				}
+				break
+			}
+			// Use first port if no port name specified
+			if d.config.PortName == "" && port.Port != nil {
+				targetPort = *port.Port
+				break
+			}
+		}
+
+		for _, ep := range slice.Endpoints {
+			// Skip endpoints that aren't ready
+			if ep.Conditions.Ready != nil && !*ep.Conditions.Ready {
+				continue
+			}
+
+			for _, addr := range ep.Addresses {
+				host := addr
+				port := int(targetPort)
+
+				scheme := d.config.DefaultScheme
+				if d.config.UseTLS {
+					scheme = SchemeTLS
+				}
+
+				url := fmt.Sprintf("%s://%s:%d", scheme, host, port)
+
+				metadata := map[string]string{
+					"service":   d.config.ServiceName,
+					"namespace": namespace,
+					"source":    "endpointslice",
+				}
+				if ep.NodeName != nil {
+					metadata["node"] = *ep.NodeName
+				}
+				if ep.Zone != nil {
+					metadata["zone"] = *ep.Zone
+				}
+
+				endpoints = append(endpoints, &DiscoveredEndpoint{
+					URL:          url,
+					Host:         host,
+					Port:         port,
+					Priority:     priority,
+					Weight:       1,
+					TLS:          d.config.UseTLS,
+					Scheme:       scheme,
+					Method:       DiscoveryMethodKubernetes,
+					TTL:          d.config.RefreshInterval,
+					DiscoveredAt: time.Now(),
+					Metadata:     metadata,
+				})
+				priority++
+			}
+		}
+	}
+
+	return endpoints, nil
+}
+
+func (d *KubernetesDiscoverer) discoverFromEndpoints(ctx context.Context, namespace string) ([]*DiscoveredEndpoint, error) {
+	// Get Endpoints for the service
+	eps, err := d.clientset.CoreV1().Endpoints(namespace).Get(ctx, d.config.ServiceName, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get endpoints: %w", err)
+	}
+
+	var endpoints []*DiscoveredEndpoint
+	priority := 0
+
+	for _, subset := range eps.Subsets {
+		// Find the target port
+		var targetPort int32 = 4222 // Default NATS port
+		for _, port := range subset.Ports {
+			if d.config.PortName != "" && port.Name == d.config.PortName {
+				targetPort = port.Port
+				break
+			}
+			// Use first port if no port name specified
+			if d.config.PortName == "" {
+				targetPort = port.Port
+				break
+			}
+		}
+
+		for _, addr := range subset.Addresses {
+			host := addr.IP
+			port := int(targetPort)
+
+			scheme := d.config.DefaultScheme
+			if d.config.UseTLS {
+				scheme = SchemeTLS
+			}
+
+			url := fmt.Sprintf("%s://%s:%d", scheme, host, port)
+
+			metadata := map[string]string{
+				"service":   d.config.ServiceName,
+				"namespace": namespace,
+				"source":    "endpoints",
+			}
+			if addr.NodeName != nil {
+				metadata["node"] = *addr.NodeName
+			}
+
+			endpoints = append(endpoints, &DiscoveredEndpoint{
+				URL:          url,
+				Host:         host,
+				Port:         port,
+				Priority:     priority,
+				Weight:       1,
+				TLS:          d.config.UseTLS,
+				Scheme:       scheme,
+				Method:       DiscoveryMethodKubernetes,
+				TTL:          d.config.RefreshInterval,
+				DiscoveredAt: time.Now(),
+				Metadata:     metadata,
+			})
+			priority++
+		}
+	}
+
+	return endpoints, nil
+}
+
+func (d *KubernetesDiscoverer) discoverFromDNS(ctx context.Context, namespace string) ([]*DiscoveredEndpoint, error) {
+	// DNS-based service discovery within Kubernetes
+	// Format: <service>.<namespace>.svc.cluster.local
 	dnsName := fmt.Sprintf("%s.%s.svc.cluster.local", d.config.ServiceName, namespace)
 
 	// Lookup the DNS name
@@ -670,6 +887,7 @@ func (d *KubernetesDiscoverer) Discover(ctx context.Context) ([]*DiscoveredEndpo
 			Metadata: map[string]string{
 				"service":   d.config.ServiceName,
 				"namespace": namespace,
+				"source":    "dns",
 				"dns_name":  dnsName,
 			},
 		})
@@ -845,16 +1063,251 @@ func (d *ServiceRegistryDiscoverer) Discover(ctx context.Context) ([]*Discovered
 	}
 }
 
+// consulServiceResponse represents a Consul service health response
+type consulServiceResponse struct {
+	Node struct {
+		Node    string `json:"Node"`
+		Address string `json:"Address"`
+	} `json:"Node"`
+	Service struct {
+		ID      string   `json:"ID"`
+		Service string   `json:"Service"`
+		Tags    []string `json:"Tags"`
+		Address string   `json:"Address"`
+		Port    int      `json:"Port"`
+		Weights struct {
+			Passing int `json:"Passing"`
+			Warning int `json:"Warning"`
+		} `json:"Weights"`
+	} `json:"Service"`
+	Checks []struct {
+		Status string `json:"Status"`
+	} `json:"Checks"`
+}
+
 func (d *ServiceRegistryDiscoverer) discoverConsul(ctx context.Context) ([]*DiscoveredEndpoint, error) {
-	// Placeholder for Consul discovery
-	// Full implementation would use github.com/hashicorp/consul/api
-	return []*DiscoveredEndpoint{}, nil
+	// Build Consul HTTP API URL
+	// GET /v1/health/service/:service?passing=true
+	baseURL := d.config.Address
+	if !strings.HasPrefix(baseURL, "http://") && !strings.HasPrefix(baseURL, "https://") {
+		// Use HTTPS if TLS config is provided (having a TLS config means TLS is wanted)
+		if d.config.TLS != nil {
+			baseURL = "https://" + baseURL
+		} else {
+			baseURL = "http://" + baseURL
+		}
+	}
+
+	queryURL := fmt.Sprintf("%s/v1/health/service/%s?passing=true", baseURL, d.config.ServiceName)
+
+	// Add tags filter if specified
+	for _, tag := range d.config.Tags {
+		queryURL += "&tag=" + tag
+	}
+
+	// Create HTTP request
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, queryURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create consul request: %w", err)
+	}
+
+	// Add token if specified
+	if d.config.Token != "" {
+		req.Header.Set("X-Consul-Token", d.config.Token)
+	}
+
+	// Execute request
+	client := &http.Client{
+		Timeout: d.config.Timeout,
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("consul request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("consul returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Parse response
+	var services []consulServiceResponse
+	if err := json.NewDecoder(resp.Body).Decode(&services); err != nil {
+		return nil, fmt.Errorf("failed to parse consul response: %w", err)
+	}
+
+	endpoints := make([]*DiscoveredEndpoint, 0, len(services))
+	for i, svc := range services {
+		// Determine host - prefer service address, fall back to node address
+		host := svc.Service.Address
+		if host == "" {
+			host = svc.Node.Address
+		}
+		port := svc.Service.Port
+
+		scheme := d.config.DefaultScheme
+		if d.config.UseTLS {
+			scheme = SchemeTLS
+		}
+
+		url := fmt.Sprintf("%s://%s:%d", scheme, host, port)
+
+		// Calculate weight from Consul weights
+		weight := svc.Service.Weights.Passing
+		if weight == 0 {
+			weight = 1
+		}
+
+		metadata := map[string]string{
+			"service_id":   svc.Service.ID,
+			"service_name": svc.Service.Service,
+			"node":         svc.Node.Node,
+			"source":       "consul",
+		}
+		if len(svc.Service.Tags) > 0 {
+			metadata["tags"] = strings.Join(svc.Service.Tags, ",")
+		}
+
+		endpoints = append(endpoints, &DiscoveredEndpoint{
+			URL:          url,
+			Host:         host,
+			Port:         port,
+			Priority:     i,
+			Weight:       weight,
+			TLS:          d.config.UseTLS,
+			Scheme:       scheme,
+			Method:       DiscoveryMethodConsul,
+			TTL:          d.config.RefreshInterval,
+			DiscoveredAt: time.Now(),
+			Metadata:     metadata,
+		})
+	}
+
+	d.mu.Lock()
+	d.endpoints = endpoints
+	d.mu.Unlock()
+
+	return endpoints, nil
+}
+
+// etcdServiceEntry represents a NATS service entry stored in etcd
+type etcdServiceEntry struct {
+	Host     string            `json:"host"`
+	Port     int               `json:"port"`
+	TLS      bool              `json:"tls,omitempty"`
+	Weight   int               `json:"weight,omitempty"`
+	Priority int               `json:"priority,omitempty"`
+	Metadata map[string]string `json:"metadata,omitempty"`
 }
 
 func (d *ServiceRegistryDiscoverer) discoverEtcd(ctx context.Context) ([]*DiscoveredEndpoint, error) {
-	// Placeholder for etcd discovery
-	// Full implementation would use go.etcd.io/etcd/client/v3
-	return []*DiscoveredEndpoint{}, nil
+	// Build etcd client config
+	etcdConfig := clientv3.Config{
+		Endpoints:   []string{d.config.Address},
+		DialTimeout: d.config.Timeout,
+	}
+
+	// Add authentication if specified
+	if d.config.Token != "" {
+		// Token could be username:password format
+		parts := strings.SplitN(d.config.Token, ":", 2)
+		if len(parts) == 2 {
+			etcdConfig.Username = parts[0]
+			etcdConfig.Password = parts[1]
+		}
+	}
+
+	// Create etcd client
+	client, err := clientv3.New(etcdConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create etcd client: %w", err)
+	}
+	defer client.Close()
+
+	// Determine the key prefix
+	prefix := d.config.Prefix
+	if prefix == "" {
+		prefix = "/services/nats/"
+	}
+	if !strings.HasSuffix(prefix, "/") {
+		prefix += "/"
+	}
+
+	// Get all keys with the prefix
+	resp, err := client.Get(ctx, prefix, clientv3.WithPrefix())
+	if err != nil {
+		return nil, fmt.Errorf("etcd get failed: %w", err)
+	}
+
+	endpoints := make([]*DiscoveredEndpoint, 0, len(resp.Kvs))
+	for i, kv := range resp.Kvs {
+		// Try to parse as JSON service entry
+		var entry etcdServiceEntry
+		if err := json.Unmarshal(kv.Value, &entry); err != nil {
+			// If not JSON, try parsing as simple host:port
+			hostPort := string(kv.Value)
+			parts := strings.Split(hostPort, ":")
+			if len(parts) == 2 {
+				port, _ := strconv.Atoi(parts[1])
+				entry = etcdServiceEntry{
+					Host: parts[0],
+					Port: port,
+				}
+			} else {
+				// Skip invalid entries
+				continue
+			}
+		}
+
+		if entry.Host == "" || entry.Port == 0 {
+			continue
+		}
+
+		scheme := d.config.DefaultScheme
+		if d.config.UseTLS || entry.TLS {
+			scheme = SchemeTLS
+		}
+
+		url := fmt.Sprintf("%s://%s:%d", scheme, entry.Host, entry.Port)
+
+		weight := entry.Weight
+		if weight == 0 {
+			weight = 1
+		}
+
+		priority := entry.Priority
+		if priority == 0 {
+			priority = i
+		}
+
+		metadata := entry.Metadata
+		if metadata == nil {
+			metadata = make(map[string]string)
+		}
+		metadata["etcd_key"] = string(kv.Key)
+		metadata["source"] = "etcd"
+
+		endpoints = append(endpoints, &DiscoveredEndpoint{
+			URL:          url,
+			Host:         entry.Host,
+			Port:         entry.Port,
+			Priority:     priority,
+			Weight:       weight,
+			TLS:          d.config.UseTLS || entry.TLS,
+			Scheme:       scheme,
+			Method:       DiscoveryMethodEtcd,
+			TTL:          d.config.RefreshInterval,
+			DiscoveredAt: time.Now(),
+			Metadata:     metadata,
+		})
+	}
+
+	d.mu.Lock()
+	d.endpoints = endpoints
+	d.mu.Unlock()
+
+	return endpoints, nil
 }
 
 func (d *ServiceRegistryDiscoverer) Watch(ctx context.Context, callback func([]*DiscoveredEndpoint)) error {

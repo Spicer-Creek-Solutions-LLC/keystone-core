@@ -164,11 +164,12 @@ To customize the Docsy theme:
 
 ## PDF Generation
 
-Generate PDF versions of the documentation for offline use. We offer three approaches:
+Generate PDF versions of the documentation for offline use. We offer four approaches:
 
 | Method | Quality | Dependencies | Best For |
 |--------|---------|--------------|----------|
-| **Paged.js + Playwright** (default) | Good | Node.js only | Quick generation, CI/CD |
+| **Containerized** (recommended) | Good/Professional | Docker or Podman only | No local deps, reproducible |
+| **Paged.js + Playwright** | Good | Node.js only | Quick generation, CI/CD |
 | **Simple Mode** | Basic | Node.js only | Fast generation, minimal features |
 | **Pandoc + LaTeX** | Professional | Python, Pandoc, LaTeX | Book-quality output |
 
@@ -189,6 +190,41 @@ This automatically:
   - Running headers/footers
   - Proper page breaks
   - Print-optimized typography
+
+### Containerized PDF Generation (Recommended)
+
+Generate PDFs without installing any dependencies locally using Docker or Podman:
+
+```bash
+# Generate standard PDFs (Paged.js + Playwright)
+make docs-pdf-container
+
+# Generate book-quality PDFs (Pandoc + LaTeX)
+make docs-pdf-book-container
+
+# Generate all PDFs (both methods)
+make docs-all-container
+```
+
+**Benefits:**
+- No local dependencies required (no Hugo, Node.js, Pandoc, or LaTeX)
+- Consistent builds across machines
+- Works with both Docker and Podman (auto-detected)
+- Isolated, reproducible environment
+
+**First run will take longer** as it builds the container image (~2-3GB) with all dependencies:
+- Hugo Extended
+- Node.js 20 + npm
+- Playwright + Chromium
+- Pandoc + full LaTeX (texlive)
+- Python Pygments
+
+Subsequent runs are fast as they reuse the cached container image.
+
+**Build the container image only:**
+```bash
+make docs-container-build
+```
 
 ### PDF Generation Methods
 

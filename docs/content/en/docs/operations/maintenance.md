@@ -165,6 +165,56 @@ for stream in $(nats stream list -n); do
 done
 ```
 
+### Cluster State Backup (HA Only)
+
+For high-availability deployments, you can backup the cluster state via the API. This includes membership, shard assignments (which agents are managed by which control plane), and cluster configuration.
+
+**Create Cluster Backup:**
+```bash
+# Backup cluster state to file
+curl -H "Authorization: Bearer $API_KEY" \
+  http://control-plane:8080/api/v1/cluster/backup > cluster-backup-$(date +%Y%m%d).json
+```
+
+**Backup Contents:**
+- Cluster membership and health status
+- Shard assignments (agent-to-member mappings)
+- Cluster configuration settings
+
+**Automated Cluster Backup Script:**
+```bash
+#!/bin/bash
+# /usr/local/bin/backup-cluster.sh
+
+BACKUP_DIR="/var/backups/kscore/cluster"
+API_URL="http://localhost:8080/api/v1"
+API_KEY="${KSCORE_API_KEY}"
+TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+
+mkdir -p "$BACKUP_DIR"
+
+# Create cluster backup
+curl -s -H "Authorization: Bearer $API_KEY" \
+  "$API_URL/cluster/backup" > "$BACKUP_DIR/cluster-$TIMESTAMP.json"
+
+# Verify backup is valid JSON
+if jq empty "$BACKUP_DIR/cluster-$TIMESTAMP.json" 2>/dev/null; then
+    echo "Cluster backup completed: cluster-$TIMESTAMP.json"
+    # Cleanup old backups (keep 30 days)
+    find "$BACKUP_DIR" -name "cluster-*.json" -mtime +30 -delete
+else
+    echo "ERROR: Cluster backup failed - invalid JSON"
+    rm -f "$BACKUP_DIR/cluster-$TIMESTAMP.json"
+    exit 1
+fi
+```
+
+**Schedule with Cron:**
+```bash
+# /etc/cron.d/kscore-cluster-backup
+0 * * * * keystonecore /usr/local/bin/backup-cluster.sh >> /var/log/kscore/cluster-backup.log 2>&1
+```
+
 ### Configuration Backup
 
 **Git Repository (Recommended):**
@@ -320,6 +370,94 @@ sudo systemctl restart kscore-server
 ```bash
 tar -xzf /var/backups/kscore/config-20240115.tar.gz -C /
 sudo systemctl restart kscore-server
+```
+
+### Cluster State Restore (HA Only)
+
+Restore cluster state from a backup file. This is useful when:
+- Recovering from cluster failure
+- Migrating to new hardware
+- Restoring after accidental configuration changes
+
+**Basic Restore:**
+```bash
+# Restore cluster state from backup
+curl -X POST \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d @cluster-backup-20240115.json \
+  http://control-plane:8080/api/v1/cluster/restore
+```
+
+**Restore Options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `force` | false | Override safety checks (cluster health, name match) |
+| `restore_shards` | true | Restore agent-to-member assignments |
+| `restore_config` | true | Restore cluster configuration settings |
+
+**Force Restore (Healthy Cluster):**
+
+By default, restore is blocked on healthy clusters to prevent accidental overwrites. Use `force=true` to override:
+```bash
+curl -X POST \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d @cluster-backup.json \
+  "http://control-plane:8080/api/v1/cluster/restore?force=true"
+```
+
+**Selective Restore:**
+```bash
+# Restore only configuration (not shard assignments)
+curl -X POST \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d @cluster-backup.json \
+  "http://control-plane:8080/api/v1/cluster/restore?restore_shards=false"
+
+# Restore only shard assignments (not configuration)
+curl -X POST \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d @cluster-backup.json \
+  "http://control-plane:8080/api/v1/cluster/restore?restore_config=false"
+```
+
+**Restore Response:**
+```json
+{
+  "success": true,
+  "message": "Cluster restored successfully",
+  "shards_restored": 150,
+  "config_restored": 5,
+  "warnings": [
+    "Agent web-05 assigned to unavailable member server-3, reassigned to server-1"
+  ]
+}
+```
+
+**Safety Checks:**
+- Backup version must be compatible (version "1.0" supported)
+- Backup must have valid timestamp
+- Cluster name must match (prevents restoring wrong cluster's backup)
+- Cluster should not be healthy (use `force=true` to override)
+
+**Intelligent Shard Reassignment:**
+
+If agents were assigned to members that no longer exist, the restore process automatically reassigns them to healthy members.
+
+**Post-Restore Verification:**
+```bash
+# Check cluster status
+kscorectl cluster status
+
+# Verify agent assignments
+kscorectl cluster members
+
+# Check agent health
+kscorectl agent list --filter "status:online"
 ```
 
 ### Disaster Recovery Drill
@@ -507,7 +645,7 @@ agent_binary:
   module: file
   state: present
   path: /usr/local/bin/kscore-agent
-  source: https://releases.kscore.io/v1.1.0/kscore-agent-linux-amd64
+  source: https://releases.keystonecore.io/v1.1.0/kscore-agent-linux-amd64
   mode: "0755"
 
 agent_restart:
@@ -551,6 +689,77 @@ sudo systemctl start kscore-server
 kscorectl version
 kscorectl agent list
 ```
+
+## NATS Recovery (HA Only)
+
+When NATS connectivity issues occur in an HA cluster, the coordination service provides recovery actions that can be triggered via the gRPC CoordinationService.
+
+### Recovery Actions
+
+**Restart Embedded NATS (Embedded Mode Only):**
+```bash
+# Using grpcurl (requires mTLS)
+grpcurl -cacert ca.crt -cert client.crt -key client.key \
+  -d '{"request_id": "recovery-1", "initiator_id": "admin", "action": "RECOVERY_ACTION_RESTART_EMBEDDED"}' \
+  server1:9443 keystone.core.v1.CoordinationService/RecoveryCoordinate
+```
+
+**Force Reconnection:**
+```bash
+grpcurl -cacert ca.crt -cert client.crt -key client.key \
+  -d '{"request_id": "recovery-2", "initiator_id": "admin", "action": "RECOVERY_ACTION_RECONNECT"}' \
+  server1:9443 keystone.core.v1.CoordinationService/RecoveryCoordinate
+```
+
+**Failover to Backup NATS Servers:**
+```bash
+grpcurl -cacert ca.crt -cert client.crt -key client.key \
+  -d '{"request_id": "recovery-3", "initiator_id": "admin", "action": "RECOVERY_ACTION_FAILOVER", "parameters": {"target_urls": "nats://backup1:4222,nats://backup2:4222"}}' \
+  server1:9443 keystone.core.v1.CoordinationService/RecoveryCoordinate
+```
+
+**Drain Connections (Before Maintenance):**
+```bash
+grpcurl -cacert ca.crt -cert client.crt -key client.key \
+  -d '{"request_id": "recovery-4", "initiator_id": "admin", "action": "RECOVERY_ACTION_DRAIN"}' \
+  server1:9443 keystone.core.v1.CoordinationService/RecoveryCoordinate
+```
+
+### State Propagation During NATS Outage
+
+When NATS is unavailable, critical state changes are propagated via the CoordinationService:
+
+**State Update Types:**
+- `AGENT_REGISTER` - New agent registrations
+- `AGENT_HEARTBEAT` - Agent heartbeat updates
+- `AGENT_DISCONNECT` - Agent disconnect notifications
+- `COMMAND_RESULT` - Command execution results
+- `MEMBERSHIP_CHANGE` - Cluster membership changes
+
+State propagation includes version tracking to prevent stale updates from being applied.
+
+### Checking NATS Status
+
+**Query NATS status on a specific server:**
+```bash
+grpcurl -cacert ca.crt -cert client.crt -key client.key \
+  -d '{"request_id": "status-1", "requester_id": "admin"}' \
+  server1:9443 keystone.core.v1.CoordinationService/NATSStatus
+```
+
+**Response includes:**
+- Connection status (connected, connecting, reconnecting, disconnected)
+- Connected NATS URLs
+- JetStream availability
+- Last successful publish/subscribe timestamps
+
+### Recovery Workflow
+
+1. **Detect**: Monitor cluster health for NATS connectivity issues
+2. **Assess**: Check NATS status on all servers via CoordinationService
+3. **Coordinate**: Use RecoveryCoordinate to trigger recovery action
+4. **Verify**: Confirm NATS connectivity restored
+5. **Resume**: Use RESUME action if PAUSE was used
 
 ## Database Maintenance
 

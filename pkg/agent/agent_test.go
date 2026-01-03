@@ -522,15 +522,15 @@ func TestAgent_HeartbeatLoop(t *testing.T) {
 		t.Fatalf("Failed to subscribe: %v", err)
 	}
 
-	// Wait for subscription
+	// Wait for subscription to be ready
 	time.Sleep(100 * time.Millisecond)
 
 	// Start the heartbeat loop
 	agent.wg.Add(1)
 	go agent.heartbeatLoop()
 
-	// Collect heartbeats for a short time
-	timeout := time.After(300 * time.Millisecond)
+	// Collect heartbeats for enough time to get at least 2 (50ms interval + buffer)
+	timeout := time.After(500 * time.Millisecond)
 	for {
 		select {
 		case <-heartbeatChan:
