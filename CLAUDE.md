@@ -99,7 +99,7 @@ This repository contains working implementations of **Epics 1-11**. The project 
 - High availability clustering with etcd-based coordination, leader election, and automatic failover (Epic 11 complete)
 - Comprehensive test suite (>79% coverage across all core packages)
 
-**Current Status**: Epic 1-15 COMPLETE ✅ (Observability Enhancements with NATS Telemetry)
+**Current Status**: Epic 1-16 COMPLETE, Epic 17 Phase 1 COMPLETE ✅ (SPIFFE Identity Foundation)
 
 ### ⚠️ Known Implementation Gaps
 
@@ -197,6 +197,7 @@ The following features are documented as complete but have incomplete or stub im
 | **kscore-policy CLI** | 6 | All commands implemented |
 | **kscore-gitops CLI** | 5 | All commands implemented |
 | **CI/CD for E2E tests** | 12 | `.github/workflows/e2e.yml` |
+| **Embedded identity provider** | 17 | `pkg/identity/` - CA, attestation, SVID issuance, NATS mTLS (54 tests) |
 
 **Legend**: ✅ Working | ⚠️ STUB/PLACEHOLDER (partial) | ❌ NOT IMPLEMENTED
 
@@ -4494,7 +4495,7 @@ Implementation order:
 14. **Epic 14** (NATS Mesh Communication) - ✅ COMPLETE - Depends on Epic 1, 7, 11 (NATS-only communication, superclusters, NAT traversal)
 15. **Epic 15** (Observability Enhancements) - ✅ COMPLETE - Depends on Epic 7, 14 (NATS telemetry transport, stdout/syslog logging, CLI audit)
 16. **Epic 16** (Stdlib System Modules) - ✅ COMPLETE - Depends on Epic 3, 8 (84 cross-platform system management modules)
-17. **Epic 17** (SPIFFE Identity) - 🔲 PLANNED - Depends on Epic 1, 11, 14 (embedded SPIFFE identity provider, external SPIRE/cloud/mesh integration)
+17. **Epic 17** (SPIFFE Identity) - 🔶 IN PROGRESS (Phase 1/6 Complete) - Depends on Epic 1, 11, 14 (embedded identity provider foundation with CA, attestation, SVID issuance)
 18. **Epic 18** (IPv6 Support) - 🔲 PLANNED - Depends on Epic 1, 11, 14 (full IPv6 and dual-stack support for all components)
 19. **Epic 19** (Observability Gateway) - 🔲 PLANNED - Depends on Epic 7, 14, 15 (telemetry gateway for isolated agents, Prometheus/Loki/Tempo bridge)
 20. **Epic 20** (Windows Support) - 🔲 PLANNED - Depends on Epic 1, 2, 3, 13 (production Windows agent, Windows service, state modules, MSI installer)

@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 All development to date. No releases have been made yet.
 
+### Epic 17: SPIFFE Identity Framework
+
+Zero-configuration SPIFFE identity for secure agent-to-server communication.
+
+- **Phase 1: Embedded Identity Provider Foundation**
+  - Core types: SPIFFEID, X509SVID, JWTSVID, TrustBundle, JWTAuthority
+  - Identity Provider interfaces and lifecycle management
+  - Certificate Authority Manager with two-tier CA hierarchy (root + signing)
+  - Support for ECDSA P-256/P-384 and RSA 2048/4096 key types
+  - CA persistence to disk with automatic reload
+  - Attestation Engine with pluggable attestors
+  - Built-in attestors: join_token, aws_iid, gcp_iit, azure_imds, k8s_sat, none
+  - Join token store with TTL-based expiration
+  - SVID Issuer Service for X.509 and JWT SVIDs
+  - Automatic SVID rotation with configurable threshold
+  - Agent Identity Client for attestation and SVID management
+  - NATS mTLS integration with SVID-based authentication
+  - SPIFFE ID-based NATS subject authorization
+  - Default agent/server authorization rules
+  - Comprehensive user documentation with agent auto-registration guide
+  - 54 unit tests covering all components
+
 ### Epic 16: Standard Library System Modules (84 modules)
 
 Cross-platform system management modules inspired by Salt Project.
