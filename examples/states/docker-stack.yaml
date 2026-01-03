@@ -1,0 +1,91 @@
+# Example: Docker Container Stack
+# This state file demonstrates deploying a Docker-based application stack
+#
+# Apply with: kscorectl state apply docker-stack.yaml
+
+metadata:
+  name: docker-stack
+  description: Deploy a Redis-backed web application using Docker
+  version: "1.0"
+
+vars:
+  app_name: webapp
+  app_port: "8080"
+  redis_port: "6379"
+  network_name: app-network
+  data_volume: app-data
+
+states:
+  # Create Docker network
+  create_network:
+    module: docker_network
+    state: present
+    name: "{{ network_name }}"
+    driver: bridge
+
+  # Create persistent volume for Redis
+  create_volume:
+    module: docker_volume
+    state: present
+    name: "{{ data_volume }}"
+
+  # Pull Redis image
+  pull_redis:
+    module: docker_image
+    state: present
+    name: redis
+    tag: "7-alpine"
+
+  # Run Redis container
+  run_redis:
+    module: docker_container
+    state: running
+    name: redis
+    image: redis:7-alpine
+    network: "{{ network_name }}"
+    volumes:
+      - "{{ data_volume }}:/data"
+    command: redis-server --appendonly yes
+    restart_policy: unless-stopped
+    require:
+      - create_network
+      - create_volume
+      - pull_redis
+
+  # Pull application image
+  pull_app:
+    module: docker_image
+    state: present
+    name: nginx
+    tag: "alpine"
+
+  # Run web application container
+  run_app:
+    module: docker_container
+    state: running
+    name: "{{ app_name }}"
+    image: nginx:alpine
+    network: "{{ network_name }}"
+    ports:
+      - "{{ app_port }}:80"
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "{{ redis_port }}"
+    restart_policy: unless-stopped
+    require:
+      - run_redis
+      - pull_app
+
+  # Create backup container (stopped, run manually)
+  backup_container:
+    module: docker_container
+    state: stopped
+    name: redis-backup
+    image: redis:7-alpine
+    network: "{{ network_name }}"
+    volumes:
+      - "{{ data_volume }}:/data:ro"
+      - /var/backups/redis:/backup
+    command: sh -c "redis-cli -h redis BGSAVE && cp /data/dump.rdb /backup/dump-$(date +%Y%m%d).rdb"
+    require:
+      - run_redis

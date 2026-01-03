@@ -1,0 +1,149 @@
+# Example: Python Application Deployment
+# This state file demonstrates deploying a Python web application
+#
+# Apply with: kscorectl state apply python-app.yaml
+
+metadata:
+  name: python-app-deployment
+  description: Deploy a Python Flask application with dependencies
+  version: "1.0"
+
+vars:
+  app_name: myapp
+  app_user: appuser
+  app_dir: /opt/{{ app_name }}
+  venv_dir: "{{ app_dir }}/venv"
+  python_version: "3.11"
+
+states:
+  # Create application user
+  create_app_user:
+    module: user
+    state: present
+    name: "{{ app_user }}"
+    home: "{{ app_dir }}"
+    shell: /bin/bash
+    system: true
+
+  # Create application directory
+  create_app_dir:
+    module: file
+    state: directory
+    name: "{{ app_dir }}"
+    user: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0755"
+    require:
+      - create_app_user
+
+  # Install Python development packages
+  install_python_dev:
+    module: package
+    state: installed
+    name: python{{ python_version }}-venv
+
+  # Create virtual environment
+  create_venv:
+    module: cmd
+    state: run
+    id: "python{{ python_version }} -m venv {{ venv_dir }}"
+    creates: "{{ venv_dir }}/bin/activate"
+    require:
+      - install_python_dev
+      - create_app_dir
+
+  # Install Flask in virtualenv
+  install_flask:
+    module: pip
+    state: installed
+    name: flask
+    virtualenv: "{{ venv_dir }}"
+    require:
+      - create_venv
+
+  # Install Gunicorn
+  install_gunicorn:
+    module: pip
+    state: installed
+    name: gunicorn
+    virtualenv: "{{ venv_dir }}"
+    require:
+      - create_venv
+
+  # Install additional dependencies
+  install_requests:
+    module: pip
+    state: installed
+    name: requests
+    virtualenv: "{{ venv_dir }}"
+    require:
+      - create_venv
+
+  # Deploy application code
+  deploy_app:
+    module: file
+    state: present
+    name: "{{ app_dir }}/app.py"
+    contents: |
+      from flask import Flask, jsonify
+      import os
+
+      app = Flask(__name__)
+
+      @app.route('/')
+      def index():
+          return jsonify({
+              'app': '{{ app_name }}',
+              'status': 'running',
+              'version': '1.0.0'
+          })
+
+      @app.route('/health')
+      def health():
+          return jsonify({'status': 'healthy'})
+
+      if __name__ == '__main__':
+          app.run(host='0.0.0.0', port=5000)
+    user: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0644"
+    require:
+      - create_app_dir
+
+  # Create systemd service file
+  create_service:
+    module: file
+    state: present
+    name: /etc/systemd/system/{{ app_name }}.service
+    contents: |
+      [Unit]
+      Description={{ app_name }} Flask Application
+      After=network.target
+
+      [Service]
+      User={{ app_user }}
+      Group={{ app_user }}
+      WorkingDirectory={{ app_dir }}
+      Environment="PATH={{ venv_dir }}/bin"
+      ExecStart={{ venv_dir }}/bin/gunicorn --workers 4 --bind 0.0.0.0:5000 app:app
+      Restart=always
+      RestartSec=10
+
+      [Install]
+      WantedBy=multi-user.target
+    user: root
+    group: root
+    mode: "0644"
+    require:
+      - install_gunicorn
+      - deploy_app
+
+  # Enable and start the service
+  start_service:
+    module: service
+    state: running
+    name: "{{ app_name }}"
+    enable: true
+    watch:
+      - create_service
+      - deploy_app

@@ -1,0 +1,89 @@
+# Example: Firewall Configuration
+# This state file demonstrates UFW firewall setup
+#
+# Apply with: kscorectl state apply firewall.yaml
+
+metadata:
+  name: firewall-setup
+  description: Configure UFW firewall for a web server
+  version: "1.0"
+
+vars:
+  admin_network: 10.0.0.0/8
+  ssh_port: "22"
+
+states:
+  # Install UFW if not present
+  install_ufw:
+    module: package
+    state: installed
+    name: ufw
+
+  # Reset UFW to defaults first
+  reset_ufw:
+    module: cmd
+    state: run
+    id: ufw --force reset
+    require:
+      - install_ufw
+
+  # Set default incoming policy to deny
+  default_deny_incoming:
+    module: cmd
+    state: run
+    id: ufw default deny incoming
+    require:
+      - reset_ufw
+
+  # Set default outgoing policy to allow
+  default_allow_outgoing:
+    module: cmd
+    state: run
+    id: ufw default allow outgoing
+    require:
+      - reset_ufw
+
+  # Allow SSH from admin network only
+  allow_ssh:
+    module: ufw
+    state: allow
+    port: "{{ ssh_port }}"
+    proto: tcp
+    from: "{{ admin_network }}"
+    require:
+      - default_deny_incoming
+
+  # Allow HTTP
+  allow_http:
+    module: ufw
+    state: allow
+    port: "80"
+    proto: tcp
+    require:
+      - default_deny_incoming
+
+  # Allow HTTPS
+  allow_https:
+    module: ufw
+    state: allow
+    port: "443"
+    proto: tcp
+    require:
+      - default_deny_incoming
+
+  # Allow established connections
+  allow_established:
+    module: cmd
+    state: run
+    id: ufw allow in on lo
+    require:
+      - default_deny_incoming
+
+  # Enable UFW
+  enable_ufw:
+    module: ufw
+    state: enabled
+    require:
+      - allow_ssh
+      - allow_http
+      - allow_https

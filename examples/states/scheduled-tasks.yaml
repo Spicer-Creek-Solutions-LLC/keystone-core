@@ -1,0 +1,127 @@
+# Example: Scheduled Tasks Configuration
+# This state file demonstrates cron jobs and systemd timers
+#
+# Apply with: kscorectl state apply scheduled-tasks.yaml
+
+metadata:
+  name: scheduled-tasks
+  description: Configure scheduled maintenance tasks
+  version: "1.0"
+
+vars:
+  backup_dir: /var/backups
+  log_retention_days: 30
+  backup_user: root
+
+states:
+  # Create backup directory
+  create_backup_dir:
+    module: file
+    state: directory
+    name: "{{ backup_dir }}"
+    user: "{{ backup_user }}"
+    group: "{{ backup_user }}"
+    mode: "0700"
+
+  # Daily database backup cron job
+  database_backup_cron:
+    module: cron
+    state: present
+    name: daily-db-backup
+    command: /usr/local/bin/backup-database.sh > /var/log/db-backup.log 2>&1
+    user: "{{ backup_user }}"
+    minute: "0"
+    hour: "3"
+    require:
+      - create_backup_dir
+
+  # Weekly full system backup
+  full_backup_cron:
+    module: cron
+    state: present
+    name: weekly-full-backup
+    command: /usr/local/bin/full-backup.sh > /var/log/full-backup.log 2>&1
+    user: "{{ backup_user }}"
+    minute: "0"
+    hour: "2"
+    weekday: "0"
+    require:
+      - create_backup_dir
+
+  # Daily log rotation
+  log_cleanup_cron:
+    module: cron
+    state: present
+    name: log-cleanup
+    command: find /var/log -name "*.log.*" -mtime +{{ log_retention_days }} -delete
+    user: root
+    minute: "30"
+    hour: "4"
+
+  # Hourly disk space check
+  disk_check_cron:
+    module: cron
+    state: present
+    name: disk-space-check
+    command: /usr/local/bin/check-disk-space.sh
+    user: root
+    minute: "0"
+    hour: "*"
+
+  # Create backup script
+  backup_script:
+    module: file
+    state: present
+    name: /usr/local/bin/backup-database.sh
+    contents: |
+      #!/bin/bash
+      set -e
+
+      BACKUP_DIR="{{ backup_dir }}"
+      DATE=$(date +%Y%m%d_%H%M%S)
+      BACKUP_FILE="$BACKUP_DIR/db_backup_$DATE.sql.gz"
+
+      # Perform backup (adjust for your database)
+      pg_dump mydb | gzip > "$BACKUP_FILE"
+
+      # Keep only last 7 days of backups
+      find "$BACKUP_DIR" -name "db_backup_*.sql.gz" -mtime +7 -delete
+
+      echo "Backup completed: $BACKUP_FILE"
+    user: root
+    group: root
+    mode: "0755"
+    require:
+      - create_backup_dir
+
+  # Create disk check script
+  disk_check_script:
+    module: file
+    state: present
+    name: /usr/local/bin/check-disk-space.sh
+    contents: |
+      #!/bin/bash
+      THRESHOLD=90
+
+      df -h | grep -v tmpfs | tail -n +2 | while read line; do
+        USAGE=$(echo "$line" | awk '{print $5}' | sed 's/%//')
+        MOUNT=$(echo "$line" | awk '{print $6}')
+
+        if [ "$USAGE" -gt "$THRESHOLD" ]; then
+          logger -p user.warning "Disk space warning: $MOUNT is ${USAGE}% full"
+        fi
+      done
+    user: root
+    group: root
+    mode: "0755"
+
+  # Disable a job during maintenance (example)
+  maintenance_job_disabled:
+    module: cron
+    state: present
+    name: maintenance-task
+    command: /usr/local/bin/maintenance.sh
+    user: root
+    minute: "*/15"
+    hour: "*"
+    disabled: true

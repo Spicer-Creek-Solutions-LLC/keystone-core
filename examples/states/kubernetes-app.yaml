@@ -1,0 +1,139 @@
+# Example: Kubernetes Application Deployment
+# This state file demonstrates deploying an application to Kubernetes
+#
+# Apply with: kscorectl state apply kubernetes-app.yaml
+
+metadata:
+  name: kubernetes-app
+  description: Deploy a web application to Kubernetes
+  version: "1.0"
+
+vars:
+  namespace: production
+  app_name: myapp
+  app_image: nginx:1.25
+  replicas: 3
+  port: 80
+  domain: myapp.example.com
+
+states:
+  # Create namespace
+  create_namespace:
+    module: k8s_namespace
+    state: present
+    name: "{{ namespace }}"
+    labels:
+      environment: production
+      managed-by: keystone-core
+
+  # Create ConfigMap for application configuration
+  create_configmap:
+    module: k8s_configmap
+    state: present
+    name: "{{ app_name }}-config"
+    namespace: "{{ namespace }}"
+    data:
+      APP_ENV: production
+      LOG_LEVEL: info
+      MAX_CONNECTIONS: "100"
+    labels:
+      app: "{{ app_name }}"
+    require:
+      - create_namespace
+
+  # Create Secret for sensitive data
+  create_secret:
+    module: k8s_secret
+    state: present
+    name: "{{ app_name }}-secrets"
+    namespace: "{{ namespace }}"
+    type: Opaque
+    data:
+      DATABASE_URL: base64encodedvalue
+      API_KEY: base64encodedvalue
+    labels:
+      app: "{{ app_name }}"
+    require:
+      - create_namespace
+
+  # Create Deployment
+  create_deployment:
+    module: k8s_deployment
+    state: present
+    name: "{{ app_name }}"
+    namespace: "{{ namespace }}"
+    replicas: "{{ replicas }}"
+    image: "{{ app_image }}"
+    container_port: "{{ port }}"
+    labels:
+      app: "{{ app_name }}"
+      version: v1
+    require:
+      - create_configmap
+      - create_secret
+
+  # Create Service
+  create_service:
+    module: k8s_service
+    state: present
+    name: "{{ app_name }}"
+    namespace: "{{ namespace }}"
+    type: ClusterIP
+    port: "{{ port }}"
+    target_port: "{{ port }}"
+    selector:
+      app: "{{ app_name }}"
+    labels:
+      app: "{{ app_name }}"
+    require:
+      - create_deployment
+
+  # Create Ingress
+  create_ingress:
+    module: k8s_ingress
+    state: present
+    name: "{{ app_name }}"
+    namespace: "{{ namespace }}"
+    host: "{{ domain }}"
+    service_name: "{{ app_name }}"
+    service_port: "{{ port }}"
+    annotations:
+      kubernetes.io/ingress.class: nginx
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+    tls:
+      - hosts:
+          - "{{ domain }}"
+        secret_name: "{{ app_name }}-tls"
+    labels:
+      app: "{{ app_name }}"
+    require:
+      - create_service
+
+  # Create HorizontalPodAutoscaler
+  create_hpa:
+    module: k8s_hpa
+    state: present
+    name: "{{ app_name }}"
+    namespace: "{{ namespace }}"
+    target_deployment: "{{ app_name }}"
+    min_replicas: "{{ replicas }}"
+    max_replicas: 10
+    cpu_percent: 70
+    labels:
+      app: "{{ app_name }}"
+    require:
+      - create_deployment
+
+  # Create PersistentVolumeClaim for data
+  create_pvc:
+    module: k8s_pvc
+    state: present
+    name: "{{ app_name }}-data"
+    namespace: "{{ namespace }}"
+    storage_class: standard
+    access_mode: ReadWriteOnce
+    storage: 10Gi
+    labels:
+      app: "{{ app_name }}"
+    require:
+      - create_namespace

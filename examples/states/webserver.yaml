@@ -1,0 +1,101 @@
+# Example: Web Server Setup
+# This state file demonstrates deploying and configuring Nginx
+#
+# Apply with: kscorectl state apply webserver.yaml
+
+metadata:
+  name: webserver-setup
+  description: Configure a production-ready Nginx web server
+  version: "1.0"
+
+# Variables for customization
+vars:
+  domain: example.com
+  webroot: /var/www/html
+  ssl_cert: /etc/ssl/certs/{{ domain }}.crt
+  ssl_key: /etc/ssl/private/{{ domain }}.key
+
+# State declarations
+states:
+  # Install Nginx package
+  install_nginx:
+    module: package
+    state: installed
+    name: nginx
+
+  # Create webroot directory
+  create_webroot:
+    module: file
+    state: directory
+    name: "{{ webroot }}"
+    user: www-data
+    group: www-data
+    mode: "0755"
+    require:
+      - install_nginx
+
+  # Deploy index page
+  deploy_index:
+    module: file
+    state: present
+    name: "{{ webroot }}/index.html"
+    contents: |
+      <!DOCTYPE html>
+      <html>
+      <head><title>Welcome to {{ domain }}</title></head>
+      <body>
+        <h1>Welcome to {{ domain }}</h1>
+        <p>Deployed by Keystone Core</p>
+      </body>
+      </html>
+    user: www-data
+    group: www-data
+    mode: "0644"
+    require:
+      - create_webroot
+
+  # Configure Nginx virtual host
+  configure_vhost:
+    module: file
+    state: present
+    name: /etc/nginx/sites-available/{{ domain }}
+    contents: |
+      server {
+          listen 80;
+          listen [::]:80;
+          server_name {{ domain }} www.{{ domain }};
+
+          root {{ webroot }};
+          index index.html;
+
+          location / {
+              try_files $uri $uri/ =404;
+          }
+
+          access_log /var/log/nginx/{{ domain }}.access.log;
+          error_log /var/log/nginx/{{ domain }}.error.log;
+      }
+    user: root
+    group: root
+    mode: "0644"
+    require:
+      - install_nginx
+
+  # Enable virtual host
+  enable_vhost:
+    module: file
+    state: symlink
+    name: /etc/nginx/sites-enabled/{{ domain }}
+    source: /etc/nginx/sites-available/{{ domain }}
+    require:
+      - configure_vhost
+
+  # Ensure Nginx is running and enabled
+  nginx_service:
+    module: service
+    state: running
+    name: nginx
+    enable: true
+    watch:
+      - configure_vhost
+      - enable_vhost

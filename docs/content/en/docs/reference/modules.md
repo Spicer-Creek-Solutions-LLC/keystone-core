@@ -410,6 +410,269 @@ changes:
   version: "1.24.0"
 ```
 
+## Pip Module
+
+Manage Python packages using pip.
+
+### States
+
+- `installed` - Ensure package is installed
+- `removed` - Ensure package is not installed
+- `latest` - Ensure package is at the latest version
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `name` | string | Yes | - | Package name (ID used if not specified) |
+| `version` | string | No | - | Specific version to install |
+| `pip3` | bool | No | false | Use pip3 instead of pip |
+| `requirements` | string | No | - | Path to requirements.txt file |
+| `virtualenv` | string | No | - | Path to virtualenv to use |
+| `user` | bool | No | false | Install to user site-packages |
+| `upgrade` | bool | No | false | Upgrade package if already installed |
+| `extra_args` | string | No | - | Additional pip arguments |
+
+### Platform Support
+
+| Platform | Supported | Notes |
+|----------|-----------|-------|
+| Linux | ✅ | All distributions with pip |
+| macOS | ✅ | Requires pip/pip3 |
+| Windows | ✅ | Requires pip |
+
+### Examples
+
+#### Install a Package
+
+```yaml
+install_requests:
+  module: pip
+  state: installed
+  name: requests
+```
+
+#### Install Specific Version
+
+```yaml
+install_django:
+  module: pip
+  state: installed
+  name: django
+  version: "4.2.0"
+```
+
+#### Install with pip3
+
+```yaml
+install_flask:
+  module: pip
+  state: installed
+  name: flask
+  pip3: true
+```
+
+#### Install in Virtualenv
+
+```yaml
+install_in_venv:
+  module: pip
+  state: installed
+  name: celery
+  virtualenv: /opt/myapp/venv
+```
+
+#### Install from Requirements File
+
+```yaml
+install_requirements:
+  module: pip
+  state: installed
+  requirements: /opt/myapp/requirements.txt
+  virtualenv: /opt/myapp/venv
+```
+
+#### User Installation
+
+```yaml
+install_for_user:
+  module: pip
+  state: installed
+  name: httpie
+  user: true
+```
+
+### Return Values
+
+```yaml
+result: changed | unchanged
+comment: "Package requests installed"
+changes:
+  installed: true
+  version: "2.31.0"
+```
+
+## Npm Module
+
+Manage Node.js packages using npm.
+
+### States
+
+- `installed` - Ensure package is installed
+- `removed` - Ensure package is not installed
+- `latest` - Ensure package is at the latest version
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `name` | string | Yes | - | Package name (ID used if not specified) |
+| `version` | string | No | - | Specific version to install |
+| `global` | bool | No | false | Install globally |
+| `path` | string | No | - | Path to project directory |
+| `production` | bool | No | false | Only install production dependencies |
+| `registry` | string | No | - | Custom npm registry URL |
+
+### Platform Support
+
+| Platform | Supported | Notes |
+|----------|-----------|-------|
+| Linux | ✅ | Requires Node.js and npm |
+| macOS | ✅ | Requires Node.js and npm |
+| Windows | ✅ | Requires Node.js and npm |
+
+### Examples
+
+#### Install a Package Globally
+
+```yaml
+install_typescript:
+  module: npm
+  state: installed
+  name: typescript
+  global: true
+```
+
+#### Install Specific Version
+
+```yaml
+install_express:
+  module: npm
+  state: installed
+  name: express
+  version: "4.18.2"
+  path: /opt/myapp
+```
+
+#### Install Project Dependencies
+
+```yaml
+install_deps:
+  module: npm
+  state: installed
+  path: /opt/myapp
+  production: true
+```
+
+#### Remove Package
+
+```yaml
+remove_lodash:
+  module: npm
+  state: removed
+  name: lodash
+  global: true
+```
+
+### Return Values
+
+```yaml
+result: changed | unchanged
+comment: "Package typescript installed globally"
+changes:
+  installed: true
+  version: "5.3.0"
+```
+
+## Gem Module
+
+Manage Ruby gems.
+
+### States
+
+- `installed` - Ensure gem is installed
+- `removed` - Ensure gem is not installed
+- `latest` - Ensure gem is at the latest version
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `name` | string | Yes | - | Gem name (ID used if not specified) |
+| `version` | string | No | - | Specific version to install |
+| `user_install` | bool | No | false | Install to user's gem directory |
+| `source` | string | No | - | Custom gem source URL |
+| `document` | bool | No | true | Generate documentation |
+
+### Platform Support
+
+| Platform | Supported | Notes |
+|----------|-----------|-------|
+| Linux | ✅ | Requires Ruby and gem |
+| macOS | ✅ | Requires Ruby and gem |
+| Windows | ✅ | Requires Ruby and gem |
+
+### Examples
+
+#### Install a Gem
+
+```yaml
+install_bundler:
+  module: gem
+  state: installed
+  name: bundler
+```
+
+#### Install Specific Version
+
+```yaml
+install_rails:
+  module: gem
+  state: installed
+  name: rails
+  version: "7.1.0"
+```
+
+#### Install Without Documentation
+
+```yaml
+install_fast:
+  module: gem
+  state: installed
+  name: puma
+  document: false
+```
+
+#### User Installation
+
+```yaml
+install_for_user:
+  module: gem
+  state: installed
+  name: rubocop
+  user_install: true
+```
+
+### Return Values
+
+```yaml
+result: changed | unchanged
+comment: "Gem bundler installed"
+changes:
+  installed: true
+  version: "2.4.22"
+```
+
 ## Service Module
 
 Manage system services.
@@ -1957,6 +2220,113 @@ Common errors:
 - **Zone not found**: Check available zones with `firewall-cmd --get-zones`
 - **Service not found**: Check available services with `firewall-cmd --get-services`
 - **Permission denied**: Requires root privileges
+
+## UFW Module
+
+Manage Ubuntu Uncomplicated Firewall (UFW) rules.
+
+### Platform
+
+Linux only (Ubuntu, Debian with UFW installed)
+
+### States
+
+- `enabled` - Enable UFW
+- `disabled` - Disable UFW
+- `allow` - Allow traffic matching rule
+- `deny` - Deny traffic matching rule
+- `reject` - Reject traffic with ICMP response
+- `absent` - Remove rule
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `port` | string | No | - | Port number or range (e.g., "22", "6000:6007") |
+| `proto` | string | No | - | Protocol: tcp, udp, or both |
+| `from` | string | No | "any" | Source IP or network |
+| `to` | string | No | "any" | Destination IP or network |
+| `interface` | string | No | - | Network interface to apply rule |
+| `direction` | string | No | "in" | Direction: in, out |
+| `comment` | string | No | - | Rule comment |
+| `route` | bool | No | false | Create routing rule |
+
+### Examples
+
+#### Enable UFW
+
+```yaml
+enable_firewall:
+  module: ufw
+  state: enabled
+```
+
+#### Allow SSH
+
+```yaml
+allow_ssh:
+  module: ufw
+  state: allow
+  port: "22"
+  proto: tcp
+```
+
+#### Allow from Specific Network
+
+```yaml
+allow_internal:
+  module: ufw
+  state: allow
+  port: "443"
+  from: "192.168.1.0/24"
+  proto: tcp
+```
+
+#### Deny Port Range
+
+```yaml
+deny_ports:
+  module: ufw
+  state: deny
+  port: "6000:6007"
+  proto: tcp
+```
+
+#### Allow on Specific Interface
+
+```yaml
+allow_on_eth0:
+  module: ufw
+  state: allow
+  port: "80"
+  interface: eth0
+  direction: in
+```
+
+#### Remove Rule
+
+```yaml
+remove_rule:
+  module: ufw
+  state: absent
+  port: "8080"
+  proto: tcp
+```
+
+### Idempotency
+
+- Checks if rule exists before adding
+- Checks UFW status before enabling/disabling
+- Only makes changes when necessary
+
+### Error Handling
+
+Common errors:
+
+- **UFW not installed**: Install with `apt-get install ufw`
+- **Permission denied**: Requires root privileges
+- **Invalid port**: Verify port number is valid
+- **Invalid IP**: Verify IP address format
 
 ## K8s_Namespace Module
 
@@ -6123,6 +6493,86 @@ unload_unused:
   state: unloaded
   name: floppy
 ```
+
+## Alternatives Module
+
+Manage system alternatives (update-alternatives on Debian/Ubuntu, alternatives on RHEL/CentOS).
+
+### Platform
+
+Linux only (Debian, Ubuntu, RHEL, CentOS, Fedora)
+
+### States
+
+- `set` - Set alternative to specific path
+- `auto` - Set alternative to automatic mode
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `name` | string | Yes | - | Alternative name (e.g., "java", "python") |
+| `path` | string | For `set` | - | Path to alternative (required for `set` state) |
+| `priority` | int | No | 50 | Priority when registering new alternative |
+| `link` | string | No | - | Symlink location (for registration) |
+
+### Examples
+
+#### Set Java Alternative
+
+```yaml
+set_java:
+  module: alternatives
+  state: set
+  name: java
+  path: /usr/lib/jvm/java-17-openjdk/bin/java
+```
+
+#### Set Python Alternative
+
+```yaml
+set_python:
+  module: alternatives
+  state: set
+  name: python
+  path: /usr/bin/python3.11
+```
+
+#### Auto Mode
+
+```yaml
+auto_editor:
+  module: alternatives
+  state: auto
+  name: editor
+```
+
+#### Register New Alternative with Priority
+
+```yaml
+register_node:
+  module: alternatives
+  state: set
+  name: node
+  path: /usr/local/node-20/bin/node
+  priority: 100
+  link: /usr/bin/node
+```
+
+### Idempotency
+
+- Checks current alternative before making changes
+- Only switches if current differs from desired
+- Auto mode checks if already in auto mode
+
+### Error Handling
+
+Common errors:
+
+- **Alternative not installed**: Verify `update-alternatives` or `alternatives` command exists
+- **Path not found**: Verify the alternative path exists on the system
+- **Permission denied**: Requires root privileges
+- **Alternative not registered**: May need to register the alternative first
 
 ## Docker Container Module
 
