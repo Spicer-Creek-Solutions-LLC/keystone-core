@@ -495,6 +495,277 @@ tar -czvf kscore-ca-backup.tar.gz /var/lib/kscore/identity/
 tar -xzvf kscore-ca-backup.tar.gz -C /
 ```
 
+## Production Hardening
+
+Keystone Core provides enterprise-grade security and reliability features for production deployments.
+
+### Encrypted Key Storage
+
+Private keys are encrypted at rest using AES-256-GCM:
+
+```yaml
+identity:
+  ca:
+    key_protection:
+      method: "encrypted"  # plaintext, encrypted, hsm
+      encryption_key_env_var: "KSCORE_CA_KEK"
+      # Or load from file:
+      # encryption_key_file: "/etc/kscore/kek.key"
+```
+
+Generate a Key Encryption Key (KEK):
+
+```bash
+# Generate 256-bit KEK
+openssl rand -base64 32 > /etc/kscore/kek.key
+chmod 600 /etc/kscore/kek.key
+
+# Or set as environment variable
+export KSCORE_CA_KEK=$(openssl rand -base64 32)
+```
+
+### HSM Integration
+
+For maximum security, store CA keys in a Hardware Security Module:
+
+```yaml
+identity:
+  ca:
+    key_protection:
+      method: "hsm"
+      hsm:
+        module_path: "/usr/lib/softhsm/libsofthsm2.so"
+        slot_id: 0
+        pin: "${KSCORE_HSM_PIN}"
+        token_label: "kscore-ca"
+        key_label: "signing-key"
+```
+
+### CA Rotation
+
+The signing CA rotates automatically with configurable thresholds:
+
+```yaml
+identity:
+  ca:
+    rotation:
+      rotation_threshold: 0.7      # Rotate at 70% of lifetime
+      overlap_duration: 24h        # Old and new CA overlap
+      dual_signing_enabled: true   # Sign with both during rotation
+      auto_rotate: true            # Enable automatic rotation
+```
+
+During CA rotation:
+1. New CA is generated before the old CA expires
+2. Both CAs are valid during the overlap period
+3. SVIDs can be verified by either CA
+4. Old CA is retired after overlap period
+
+### Disaster Recovery
+
+Create and restore encrypted CA backups:
+
+```bash
+# Create a backup
+kscorectl identity ca backup \
+  --output /backup/ca-backup.json \
+  --encrypt
+
+# List backups
+kscorectl identity ca backups list
+
+# Restore from backup
+kscorectl identity ca restore \
+  --backup /backup/ca-backup.json
+```
+
+Backups include:
+- Root CA certificate and encrypted private key
+- Signing CA certificate and encrypted private key
+- Trust bundle
+- Rotation state (if in progress)
+- SHA-256 checksum for integrity verification
+
+### SVID Rotation Resilience
+
+SVID rotation includes robust retry and failover mechanisms:
+
+```yaml
+identity:
+  svid:
+    rotation:
+      check_interval: 30s          # How often to check for rotation
+      rotation_threshold: 0.5       # Rotate at 50% of lifetime
+      retry_strategy: exponential   # exponential, linear, constant
+      max_retries: 10
+      initial_retry_delay: 1s
+      max_retry_delay: 5m
+      retry_multiplier: 2.0
+      jitter_fraction: 0.1          # Add 10% jitter
+      grace_period: 5m              # Continue using old SVID during rotation
+      connection_drain_timeout: 30s
+```
+
+Retry strategies:
+- **Exponential**: Delay doubles after each attempt (recommended)
+- **Linear**: Delay increases by a fixed amount
+- **Constant**: Fixed delay between attempts
+
+### Connection Continuity
+
+During SVID rotation, existing connections are gracefully drained:
+
+```mermaid
+sequenceDiagram
+    participant Agent
+    participant RotationManager as Rotation Manager
+    participant IdentityProvider as Identity Provider
+
+    Agent->>RotationManager: Start Rotation
+    RotationManager->>RotationManager: Enter DRAINING state
+    RotationManager->>Agent: Wait for active connections
+
+    loop Drain Connections
+        RotationManager->>Agent: Track connection completion
+    end
+
+    RotationManager->>IdentityProvider: Request new SVID
+    IdentityProvider->>RotationManager: Issue new SVID
+    RotationManager->>Agent: Update with new SVID
+    RotationManager->>RotationManager: Enter IDLE state
+```
+
+Monitor rotation metrics:
+
+```bash
+# View rotation metrics
+kscorectl identity metrics
+
+# Output:
+# Current State: idle
+# Total Rotations: 42
+# Successful Rotations: 41
+# Failed Rotations: 1
+# Retry Count: 3
+# Last Rotation: 2024-01-15T10:30:00Z
+# Last Success: 2024-01-15T10:30:00Z
+```
+
+### High Availability
+
+For production deployments, run multiple control plane servers with coordinated identity management:
+
+```yaml
+identity:
+  ha:
+    enabled: true
+    node_id: "server-1"
+    peers:
+      - "server-2.example.com:4222"
+      - "server-3.example.com:4222"
+    leader_election:
+      election_timeout: 10s
+      heartbeat_interval: 1s
+      lease_duration: 15s
+    replication:
+      mode: semi-sync  # sync, async, semi-sync
+      min_replicas: 1
+```
+
+HA architecture:
+
+```mermaid
+flowchart TB
+    subgraph Cluster["HA Cluster"]
+        L["Leader<br/>Identity Provider"]
+        F1["Follower 1<br/>(Hot Standby)"]
+        F2["Follower 2<br/>(Hot Standby)"]
+        L <-->|"State Replication"| F1
+        L <-->|"State Replication"| F2
+    end
+
+    subgraph Agents
+        A1["Agent 1"]
+        A2["Agent 2"]
+        A3["Agent 3"]
+    end
+
+    A1 -->|"SVID Request"| L
+    A2 -->|"SVID Request"| L
+    A3 -->|"SVID Request"| L
+```
+
+Replication modes:
+- **Sync**: Wait for all replicas (strongest consistency, highest latency)
+- **Async**: Don't wait for replicas (lowest latency, eventual consistency)
+- **Semi-sync**: Wait for at least N replicas (balance of consistency and performance)
+
+### Trust Bundle Synchronization
+
+Trust bundles are automatically synchronized across HA cluster members:
+
+```yaml
+identity:
+  ha:
+    trust_bundle_sync:
+      sync_interval: 30s
+      consistency_check_interval: 5m
+```
+
+### Performance Optimization
+
+#### SVID Caching
+
+SVIDs are cached with LRU eviction for performance:
+
+```yaml
+identity:
+  cache:
+    max_size: 10000           # Maximum cached SVIDs
+    ttl: 1h                   # Cache entry TTL
+    cleanup_interval: 1m      # How often to clean expired entries
+    pre_rotation_buffer: 1m   # Evict entries close to expiry
+```
+
+Cache metrics:
+
+```bash
+kscorectl identity cache stats
+
+# Output:
+# Cache Size: 1234
+# Hits: 98765
+# Misses: 1234
+# Hit Rate: 98.76%
+# Evictions: 100
+```
+
+#### Batch SVID Issuance
+
+Issue SVIDs in batches for efficiency:
+
+```yaml
+identity:
+  batch:
+    max_batch_size: 100
+    batch_timeout: 50ms
+    max_pending_requests: 1000
+```
+
+#### Connection Pooling
+
+Optimize connections to identity provider:
+
+```yaml
+identity:
+  pool:
+    max_connections: 100
+    min_connections: 10
+    max_idle_time: 5m
+    connection_timeout: 30s
+    health_check_interval: 30s
+```
+
 ## Troubleshooting
 
 ### Agent Cannot Attest
@@ -584,6 +855,235 @@ View identity events:
 kscorectl identity events --follow
 ```
 
+## External Identity Providers
+
+While the embedded identity provider works for most deployments, Keystone Core also integrates with external identity infrastructure.
+
+### SPIRE Workload API
+
+Integrate with an existing SPIRE deployment:
+
+```yaml
+identity:
+  provider: spire
+  spire:
+    socket_path: "/run/spire/sockets/agent.sock"
+    # Or connect via TCP
+    # address: "spire-agent.spire.svc.cluster.local:8081"
+    timeout: 30s
+    retry:
+      max_attempts: 5
+      initial_delay: 1s
+      max_delay: 30s
+```
+
+The SPIRE integration:
+- Connects to the SPIRE Workload API
+- Fetches X.509 SVIDs and JWT SVIDs
+- Watches for SVID rotation
+- Retrieves trust bundles automatically
+
+### Service Mesh Integration
+
+#### Istio
+
+When running with Istio, agents can use the Istio sidecar's identity:
+
+```yaml
+identity:
+  provider: istio
+  istio:
+    cert_path: "/etc/certs/cert-chain.pem"
+    key_path: "/etc/certs/key.pem"
+    root_cert_path: "/etc/certs/root-cert.pem"
+```
+
+#### Consul Connect
+
+For Consul Connect service mesh:
+
+```yaml
+identity:
+  provider: consul
+  consul:
+    # Use Consul HTTP API
+    address: "http://localhost:8500"
+    token: "${CONSUL_HTTP_TOKEN}"
+    # Or use file-based certificates
+    cert_path: "/etc/consul/certs/cert.pem"
+    key_path: "/etc/consul/certs/key.pem"
+    ca_path: "/etc/consul/certs/ca.pem"
+```
+
+#### Linkerd
+
+For Linkerd service mesh:
+
+```yaml
+identity:
+  provider: linkerd
+  linkerd:
+    cert_path: "/var/run/linkerd/identity/certificate"
+    key_path: "/var/run/linkerd/identity/key"
+    trust_anchors_path: "/var/run/linkerd/identity/trust-anchors"
+```
+
+## Trust Federation
+
+Trust federation enables secure communication between different trust domains (e.g., between clusters or organizations).
+
+### Architecture
+
+```mermaid
+flowchart TB
+    subgraph TD1["Trust Domain: cluster-a.example.org"]
+        CA1["CA"]
+        A1["Agent 1"]
+        A2["Agent 2"]
+    end
+
+    subgraph TD2["Trust Domain: cluster-b.example.org"]
+        CA2["CA"]
+        A3["Agent 3"]
+        A4["Agent 4"]
+    end
+
+    TD1 <-->|"Trust Bundle Exchange"| TD2
+    A1 <-->|"mTLS with Federated Trust"| A3
+```
+
+### Federation Configuration
+
+Configure trust federation on the control plane:
+
+```yaml
+identity:
+  trust_domain: "cluster-a.example.org"
+
+  federation:
+    enabled: true
+    # Federated trust domains
+    domains:
+      - name: "cluster-b.example.org"
+        type: bidirectional  # bidirectional, unidirectional
+        bundle_endpoint: "https://cluster-b.example.org/.well-known/spiffe-bundle"
+        bundle_endpoint_profile: https_web  # https_web, https_spiffe
+        refresh_interval: 5m
+        policy:
+          allowed_paths:
+            - "/service/**"
+            - "/agent/**"
+          denied_paths:
+            - "/admin/**"
+          allowed_services:
+            - api
+            - web
+```
+
+### Federation Types
+
+| Type | Description | Use Case |
+|------|-------------|----------|
+| **Bidirectional** | Both domains trust each other | Same organization, different clusters |
+| **Unidirectional** | Only one domain trusts the other | Third-party service access |
+| **Transitive** | Trust can be inherited through chains | Complex multi-cluster topologies |
+
+### Federation Policies
+
+Control which identities from federated domains are trusted:
+
+```yaml
+federation:
+  domains:
+    - name: "partner.example.org"
+      policy:
+        # Allow specific paths
+        allowed_paths:
+          - "/service/api"
+          - "/service/web"
+
+        # Deny sensitive paths
+        denied_paths:
+          - "/admin/**"
+          - "/internal/**"
+
+        # Allow specific services
+        allowed_services:
+          - api
+          - web
+
+        # Require specific attributes
+        require_attributes:
+          environment: production
+
+        # Maximum SVID TTL accepted
+        max_ttl: 1h
+
+        # Require mTLS
+        require_mtls: true
+```
+
+### Federation State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> Pending: Add Domain
+    Pending --> Active: Approve
+    Pending --> Revoked: Reject
+    Active --> Suspended: Suspend
+    Active --> Expired: TTL Expires
+    Suspended --> Active: Reactivate
+    Suspended --> Revoked: Revoke
+    Expired --> [*]
+    Revoked --> [*]
+```
+
+### Managing Federation
+
+```bash
+# List federated domains
+kscorectl identity federation list
+
+# Add a federated domain
+kscorectl identity federation add cluster-b.example.org \
+  --bundle-endpoint https://cluster-b.example.org/.well-known/spiffe-bundle \
+  --type bidirectional
+
+# Suspend federation (stops accepting SVIDs)
+kscorectl identity federation suspend cluster-b.example.org
+
+# Reactivate federation
+kscorectl identity federation activate cluster-b.example.org
+
+# Remove federation
+kscorectl identity federation remove cluster-b.example.org
+
+# Refresh trust bundle manually
+kscorectl identity federation refresh cluster-b.example.org
+```
+
+### SPIFFE Bundle Endpoint
+
+Keystone Core exposes a SPIFFE Bundle Endpoint for federation:
+
+```bash
+# Your trust bundle is available at:
+https://your-domain.example.org/.well-known/spiffe-bundle
+
+# Example response (SPIFFE Bundle format):
+{
+  "keys": [
+    {
+      "kty": "EC",
+      "use": "x509-svid",
+      "x5c": ["MIIB..."]
+    }
+  ],
+  "spiffe_refresh_hint": 300,
+  "spiffe_sequence_number": 42
+}
+```
+
 ## Security Best Practices
 
 1. **Use Short-Lived SVIDs**: Default 1-hour TTL limits exposure
@@ -593,6 +1093,8 @@ kscorectl identity events --follow
 5. **Rotate Join Tokens**: Never reuse join tokens
 6. **Trust Domain Planning**: Use meaningful, unique trust domains
 7. **Backup CAs**: Regular, encrypted CA backups
+8. **Federation Policies**: Use restrictive policies for federated domains
+9. **Monitor Federation**: Alert on federation state changes
 
 ## Next Steps
 

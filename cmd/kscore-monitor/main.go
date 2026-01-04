@@ -13,22 +13,32 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
-var (
-	cfgFile string
-	cfg     *config.Config
-)
+// Options holds CLI options
+type Options struct {
+	ConfigFile   string
+	ControlPlane string
+	NATSURL      string
+	Theme        string
+	Refresh      int
+	NoColor      bool
+	cfg          *config.Config
+}
 
 func main() {
-	if err := rootCmd.Execute(); err != nil {
+	if err := newRootCmd().Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-var rootCmd = &cobra.Command{
-	Use:   "kscore-monitor",
-	Short: "Keystone Core TUI monitoring interface",
-	Long: `kscore-monitor provides a terminal-based user interface for monitoring
+// newRootCmd creates the root command
+func newRootCmd() *cobra.Command {
+	opts := &Options{}
+
+	rootCmd := &cobra.Command{
+		Use:   "kscore-monitor",
+		Short: "Keystone Core TUI monitoring interface",
+		Long: `kscore-monitor provides a terminal-based user interface for monitoring
 Keystone Core infrastructure in real-time.
 
 Features:
@@ -42,60 +52,67 @@ Features:
 
 Navigate between views using number keys (1-8) or arrow keys.
 Press 'q' to quit, '?' for help.`,
-	RunE: runMonitor,
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			return initConfig(cmd, opts)
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runMonitor(cmd, args, opts)
+		},
+	}
+
+	rootCmd.PersistentFlags().StringVar(&opts.ConfigFile, "config", "", "config file (default: $HOME/.kscore/monitor.yaml)")
+	rootCmd.Flags().StringVar(&opts.ControlPlane, "control-plane", "localhost:50051", "Control plane gRPC address")
+	rootCmd.Flags().StringVar(&opts.NATSURL, "nats-url", "nats://localhost:4222", "NATS server URL")
+	rootCmd.Flags().StringVar(&opts.Theme, "theme", "dark", "UI theme (dark, light, solarized-dark, solarized-light, monokai)")
+	rootCmd.Flags().IntVar(&opts.Refresh, "refresh", 2, "Refresh interval in seconds")
+	rootCmd.Flags().BoolVar(&opts.NoColor, "no-color", false, "Disable colors")
+
+	rootCmd.AddCommand(newVersionCmd())
+
+	return rootCmd
 }
 
-func init() {
-	cobra.OnInitialize(initConfig)
-
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default: $HOME/.kscore/monitor.yaml)")
-	rootCmd.Flags().String("control-plane", "localhost:50051", "Control plane gRPC address")
-	rootCmd.Flags().String("nats-url", "nats://localhost:4222", "NATS server URL")
-	rootCmd.Flags().String("theme", "dark", "UI theme (dark, light, solarized-dark, solarized-light, monokai)")
-	rootCmd.Flags().Int("refresh", 2, "Refresh interval in seconds")
-	rootCmd.Flags().Bool("no-color", false, "Disable colors")
-
-	// Version command
-	versionCmd := &cobra.Command{
+// newVersionCmd creates the version command
+func newVersionCmd() *cobra.Command {
+	return &cobra.Command{
 		Use:   "version",
 		Short: "Print version information",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("kscore-monitor version %s\n", version.Version)
-			fmt.Printf("  Build date: %s\n", version.BuildDate)
-			fmt.Printf("  Git commit: %s\n", version.GitCommit)
+			fmt.Fprintf(cmd.OutOrStdout(), "kscore-monitor version %s\n", version.Version)
+			fmt.Fprintf(cmd.OutOrStdout(), "  Build date: %s\n", version.BuildDate)
+			fmt.Fprintf(cmd.OutOrStdout(), "  Git commit: %s\n", version.GitCommit)
 		},
 	}
-	rootCmd.AddCommand(versionCmd)
 }
 
-func initConfig() {
+func initConfig(cmd *cobra.Command, opts *Options) error {
 	var err error
-	cfg, err = config.Load(cfgFile)
+	opts.cfg, err = config.Load(opts.ConfigFile)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
-		cfg = config.Default()
+		opts.cfg = config.Default()
 	}
 
 	// Override with command-line flags
-	if rootCmd.Flags().Changed("control-plane") {
-		cfg.ControlPlane, _ = rootCmd.Flags().GetString("control-plane")
+	if cmd.Flags().Changed("control-plane") {
+		opts.cfg.ControlPlane = opts.ControlPlane
 	}
-	if rootCmd.Flags().Changed("nats-url") {
-		cfg.NATSURL, _ = rootCmd.Flags().GetString("nats-url")
+	if cmd.Flags().Changed("nats-url") {
+		opts.cfg.NATSURL = opts.NATSURL
 	}
-	if rootCmd.Flags().Changed("theme") {
-		cfg.Theme, _ = rootCmd.Flags().GetString("theme")
+	if cmd.Flags().Changed("theme") {
+		opts.cfg.Theme = opts.Theme
 	}
-	if rootCmd.Flags().Changed("refresh") {
-		cfg.RefreshInterval, _ = rootCmd.Flags().GetInt("refresh")
+	if cmd.Flags().Changed("refresh") {
+		opts.cfg.RefreshInterval = opts.Refresh
 	}
-	if rootCmd.Flags().Changed("no-color") {
-		noColor, _ := rootCmd.Flags().GetBool("no-color")
-		cfg.NoColor = noColor
+	if cmd.Flags().Changed("no-color") {
+		opts.cfg.NoColor = opts.NoColor
 	}
+	return nil
 }
 
-func runMonitor(cmd *cobra.Command, args []string) error {
+func runMonitor(cmd *cobra.Command, args []string, opts *Options) error {
 	// Create context with cancellation
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -109,7 +126,7 @@ func runMonitor(cmd *cobra.Command, args []string) error {
 	}()
 
 	// Create and run the TUI
-	program, err := ui.NewProgram(ctx, cfg)
+	program, err := ui.NewProgram(ctx, opts.cfg)
 	if err != nil {
 		return fmt.Errorf("failed to create UI program: %w", err)
 	}

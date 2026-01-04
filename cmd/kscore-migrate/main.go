@@ -7,15 +7,11 @@ import (
 	"time"
 
 	"github.com/shawnbutts/keystone-core/pkg/state"
+	"github.com/shawnbutts/keystone-core/pkg/version"
 	"github.com/spf13/cobra"
 )
 
 var (
-	// Version information (set at build time)
-	version   = "dev"
-	commit    = "unknown"
-	buildDate = "unknown"
-
 	// Global flags
 	verbose bool
 
@@ -28,7 +24,8 @@ var (
 	skipExisting  bool
 )
 
-func main() {
+// newRootCmd creates the root command for kscore-migrate
+func newRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "kscore-migrate",
 		Short: "Keystone Core database migration tool",
@@ -53,10 +50,26 @@ Usage via kscorectl:
 	rootCmd.AddCommand(
 		newRunCommand(),
 		newValidateCommand(),
-		newVersionCommand(),
+		newVersionCmd(),
 	)
 
-	if err := rootCmd.Execute(); err != nil {
+	return rootCmd
+}
+
+// newVersionCmd creates the version command
+func newVersionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print version information",
+		Run: func(cmd *cobra.Command, args []string) {
+			info := version.Get()
+			fmt.Fprintln(cmd.OutOrStdout(), info.String())
+		},
+	}
+}
+
+func main() {
+	if err := newRootCmd().Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
@@ -114,18 +127,6 @@ Any discrepancies are reported.`,
 	cmd.MarkFlagRequired("postgres")
 
 	return cmd
-}
-
-func newVersionCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:   "version",
-		Short: "Print version information",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("kscore-migrate version %s\n", version)
-			fmt.Printf("  Commit: %s\n", commit)
-			fmt.Printf("  Built:  %s\n", buildDate)
-		},
-	}
 }
 
 func runMigration(cmd *cobra.Command, args []string) error {

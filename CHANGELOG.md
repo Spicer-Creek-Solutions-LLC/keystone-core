@@ -31,6 +31,36 @@ Zero-configuration SPIFFE identity for secure agent-to-server communication.
   - Comprehensive user documentation with agent auto-registration guide
   - 54 unit tests covering all components
 
+- **Phase 2: Production Hardening**
+  - CA Security Hardening
+    - AES-256-GCM encrypted key storage at rest
+    - Key Encryption Key (KEK) from env var, file, or direct config
+    - HSM support via PKCS#11 interface (stub for integration)
+    - Automatic CA rotation with configurable threshold and overlap duration
+    - Dual-signing support during CA rotation transitions
+    - Encrypted CA backup and restore with SHA-256 integrity verification
+  - SVID Rotation Robustness
+    - Retry strategies: exponential backoff, linear, constant
+    - Configurable jitter to prevent thundering herd
+    - Grace period for continuing with old SVID during rotation
+    - Connection draining before SVID switchover
+    - Comprehensive rotation metrics (total, success, failure, retries)
+    - State machine: idle, rotating, draining, retrying, failed, grace_period
+  - High Availability Identity Provider
+    - Multi-server identity coordination
+    - Leader election for SVID issuance
+    - State replication modes: sync, async, semi-sync
+    - Trust bundle synchronization across cluster
+    - Peer health monitoring
+  - Performance Optimization
+    - LRU SVID cache with configurable size and TTL
+    - Pre-rotation buffer eviction
+    - Cache metrics (hits, misses, evictions, hit rate)
+    - Batch SVID issuance for efficiency
+    - Connection pooling with health checks
+  - Documentation updated with Production Hardening section
+  - 36 unit tests covering all Phase 2 components
+
 ### Epic 16: Standard Library System Modules (84 modules)
 
 Cross-platform system management modules inspired by Salt Project.

@@ -5,21 +5,19 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
 var (
-	// Version information (set at build time)
-	version   = "dev"
-	commit    = "unknown"
-	buildDate = "unknown"
-
 	// Global flags
-	serverAddr string
+	serverAddr   string
 	outputFormat string
-	verbose    bool
+	verbose      bool
 )
 
-func main() {
+// newRootCmd creates the root command for kscore-cluster
+func newRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "kscore-cluster",
 		Short: "Keystone Core cluster management plugin",
@@ -55,10 +53,26 @@ Usage via kscorectl:
 		newRebalanceCommand(),
 		newBackupCommand(),
 		newRestoreCommand(),
-		newVersionCommand(),
+		newVersionCmd(),
 	)
 
-	if err := rootCmd.Execute(); err != nil {
+	return rootCmd
+}
+
+// newVersionCmd creates the version command
+func newVersionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print version information",
+		Run: func(cmd *cobra.Command, args []string) {
+			info := version.Get()
+			fmt.Fprintln(cmd.OutOrStdout(), info.String())
+		},
+	}
+}
+
+func main() {
+	if err := newRootCmd().Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}

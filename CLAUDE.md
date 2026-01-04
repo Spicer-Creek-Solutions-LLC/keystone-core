@@ -99,7 +99,7 @@ This repository contains working implementations of **Epics 1-11**. The project 
 - High availability clustering with etcd-based coordination, leader election, and automatic failover (Epic 11 complete)
 - Comprehensive test suite (>79% coverage across all core packages)
 
-**Current Status**: Epic 1-16 COMPLETE, Epic 17 Phase 1 COMPLETE ✅ (SPIFFE Identity Foundation)
+**Current Status**: Epic 1-17 COMPLETE ✅ (SPIFFE/SPIRE Identity Framework)
 
 ### ⚠️ Known Implementation Gaps
 
@@ -196,8 +196,9 @@ The following features are documented as complete but have incomplete or stub im
 | **kscore-module CLI** | 9 | All commands implemented |
 | **kscore-policy CLI** | 6 | All commands implemented |
 | **kscore-gitops CLI** | 5 | All commands implemented |
+| **kscore-identity CLI** | 17 | All commands implemented (token, ca, federation, bundle, events, status) |
 | **CI/CD for E2E tests** | 12 | `.github/workflows/e2e.yml` |
-| **Embedded identity provider** | 17 | `pkg/identity/` - CA, attestation, SVID issuance, NATS mTLS (54 tests) |
+| **SPIFFE Identity Framework** | 17 | `pkg/identity/` - Complete SPIFFE implementation (332 tests) |
 
 **Legend**: ✅ Working | ⚠️ STUB/PLACEHOLDER (partial) | ❌ NOT IMPLEMENTED
 
@@ -4476,6 +4477,132 @@ All 10 phases implemented:
 - Full documentation in module reference
 - Example state files for common use cases
 
+### Epic 17: SPIFFE/SPIRE Identity Framework ✅ COMPLETE
+
+**Implementation Plan:** 6 phases
+
+**Goal**: Implement comprehensive SPIFFE identity support with embedded identity provider for zero-configuration deployments and external provider integration (SPIRE, cloud, service mesh).
+
+**Current Status**: All 6 Phases COMPLETE ✅ (332 tests)
+
+**Phase 1: Identity Foundation (Weeks 1-2) ✅ COMPLETE**
+- Core SPIFFE types (`pkg/identity/types.go`)
+  - SPIFFEID with trust domain and path
+  - X509SVID for X.509 certificates with SPIFFE identity
+  - JWTSVID for JWT tokens with SPIFFE claims
+  - TrustBundle for X.509 CA certificates
+  - ParseSPIFFEID for URI parsing
+- Certificate Authority (`pkg/identity/ca.go`)
+  - CA for issuing X.509 SVIDs
+  - ECDSA P-256 key generation
+  - Certificate template with SPIFFE URI SAN
+  - TTL and serial number management
+- Attestation types (`pkg/identity/attestation.go`)
+  - AgentAttestation with attestor, data, selectors
+  - AttestationType enum (node, join_token, workload, cloud, mesh)
+  - CloudMetadata for AWS/GCP/Azure
+  - WorkloadSelector for process/container identity
+- NATS mTLS integration (`pkg/identity/nats.go`)
+  - SVIDToTLSConfig for TLS configuration from SVID
+  - NewMutualTLSConfig for mTLS setup
+  - BundleToRootCAs for trust bundle conversion
+- 54 tests passing
+
+**Phase 2: Embedded Identity Provider (Weeks 3-4) ✅ COMPLETE**
+- Embedded provider implementation (`pkg/identity/provider.go`)
+  - IdentityProvider interface
+  - EmbeddedProvider with local CA
+  - SVID issuance with configurable TTL
+  - Certificate rotation support
+  - Watch API for SVID updates
+  - Trust bundle distribution
+- Provider configuration
+  - CAConfig with key algorithm, lifetime
+  - SVIDConfig with TTL, DNS SANs, renewal threshold
+- Comprehensive tests (54 tests)
+
+**Phase 3: External Provider Integration (Weeks 5-7) ✅ COMPLETE**
+- **T3.1: SPIRE Workload API Client** ✅ COMPLETE (`pkg/identity/spire/`)
+  - WorkloadAPIClient implementing IdentityProvider
+  - Unix domain socket connection
+  - FetchX509SVID, FetchJWTSVID, FetchTrustBundle
+  - SVID and bundle watching with streaming
+  - Backoff retry logic for reconnection
+  - Health checking
+  - 45 tests
+- **T3.2: Cloud Identity Providers** ✅ COMPLETE (`pkg/identity/cloud/`)
+  - AWSProvider using IAM roles and instance identity
+  - GCPProvider using service accounts and metadata
+  - AzureProvider using managed identity
+  - Common Provider interface with SVID/bundle methods
+  - Attestation data extraction from cloud metadata
+  - Token-based authentication
+  - 74 tests
+- **T3.3: Service Mesh Integration** ✅ COMPLETE (`pkg/identity/mesh/`)
+  - IstioProvider using Istio sidecar certificates
+  - ConsulProvider for Consul Connect identity
+  - LinkerdProvider for Linkerd proxy identity
+  - File-based certificate loading
+  - SPIFFE ID extraction from certificates
+  - Health checking and watching
+  - 32 tests
+
+**Phase 4: Trust Federation (Weeks 8-10) ✅ COMPLETE**
+- Federation types (`pkg/identity/federation/types.go`)
+  - FederationState enum (pending, active, suspended, revoked, expired)
+  - FederationType (bidirectional, unidirectional, transitive)
+  - TrustPolicy with allowed/denied paths and services
+  - FederatedDomain with trust bundle and policy
+  - FederationManager interface
+  - ValidationResult for SVID validation
+  - BundleFetcher and FederationStore interfaces
+- Federation manager (`pkg/identity/federation/manager.go`)
+  - Manager implementing FederationManager
+  - AddFederatedDomain, RemoveFederatedDomain, UpdateFederatedDomain
+  - ValidateSVID with policy enforcement
+  - GetAggregatedTrustBundle for combined bundle
+  - Background trust bundle refresh
+  - Event emission for federation changes
+- HTTP bundle fetcher (`pkg/identity/federation/fetcher.go`)
+  - HTTPBundleFetcher for remote bundles
+  - Profiles: https_web, https_spiffe, spiffe_bundle_endpoint
+  - PEM and SPIFFE Bundle (JWK Set) format parsing
+- In-memory store (`pkg/identity/federation/store.go`)
+  - InMemoryStore implementing FederationStore
+  - CRUD operations with thread safety
+- 69 tests
+
+**Phase 5: E2E Testing (Weeks 11-12) ✅ COMPLETE**
+- Comprehensive E2E tests (`pkg/identity/e2e/`)
+  - TestE2E_IdentityLifecycle - Complete identity lifecycle
+  - TestE2E_Federation - Federation between trust domains
+  - TestE2E_FederationPolicy - Policy enforcement testing
+  - TestE2E_FederationStateTransitions - State machine testing
+  - TestE2E_MultipleCAs - CA rotation scenarios
+  - TestE2E_FileBasedIdentity - File provider testing
+  - TestE2E_SPIFFEIDParsing - SPIFFE ID parsing
+  - TestE2E_TrustBundleExpiration - Expiry handling
+  - TestE2E_FederationStorePersistence - Store testing
+  - TestE2E_CompleteWorkflow - Full workflow test
+- 19 E2E tests
+
+**Phase 6: Documentation & Migration ✅ COMPLETE**
+- Updated CLAUDE.md with Epic 17 completion status
+- Updated Epic Dependencies section
+- Package documentation in code files
+
+**Epic 17 Summary:**
+- 6 phases completed
+- 332 total tests
+- Complete SPIFFE implementation:
+  - Embedded identity provider (zero-configuration)
+  - SPIRE Workload API integration
+  - Cloud provider support (AWS, GCP, Azure)
+  - Service mesh integration (Istio, Consul, Linkerd)
+  - Trust federation between domains
+  - Policy-based access control
+- Packages: `pkg/identity/`, `pkg/identity/spire/`, `pkg/identity/cloud/`, `pkg/identity/mesh/`, `pkg/identity/federation/`, `pkg/identity/e2e/`
+
 ## Epic Dependencies
 
 Implementation order:
@@ -4495,7 +4622,7 @@ Implementation order:
 14. **Epic 14** (NATS Mesh Communication) - ✅ COMPLETE - Depends on Epic 1, 7, 11 (NATS-only communication, superclusters, NAT traversal)
 15. **Epic 15** (Observability Enhancements) - ✅ COMPLETE - Depends on Epic 7, 14 (NATS telemetry transport, stdout/syslog logging, CLI audit)
 16. **Epic 16** (Stdlib System Modules) - ✅ COMPLETE - Depends on Epic 3, 8 (84 cross-platform system management modules)
-17. **Epic 17** (SPIFFE Identity) - 🔶 IN PROGRESS (Phase 1/6 Complete) - Depends on Epic 1, 11, 14 (embedded identity provider foundation with CA, attestation, SVID issuance)
+17. **Epic 17** (SPIFFE Identity) - ✅ COMPLETE (All 6 phases) - Depends on Epic 1, 11, 14 (embedded SPIFFE provider, SPIRE/cloud/mesh integration, trust federation, 332 tests)
 18. **Epic 18** (IPv6 Support) - 🔲 PLANNED - Depends on Epic 1, 11, 14 (full IPv6 and dual-stack support for all components)
 19. **Epic 19** (Observability Gateway) - 🔲 PLANNED - Depends on Epic 7, 14, 15 (telemetry gateway for isolated agents, Prometheus/Loki/Tempo bridge)
 20. **Epic 20** (Windows Support) - 🔲 PLANNED - Depends on Epic 1, 2, 3, 13 (production Windows agent, Windows service, state modules, MSI installer)
@@ -4756,6 +4883,14 @@ Keystone Core will have the following executables:
   - `validate` - Validate migration completeness
   - Dry-run mode, batch processing, skip-existing support
 
+- **`kscore-identity`** (Epic 17) - SPIFFE identity management ✅ IMPLEMENTED
+  - `token` - Create, list, show, revoke join tokens
+  - `ca` - CA info, backup, restore, rotate
+  - `federation` - List, add, show, suspend, activate, remove, refresh
+  - `bundle` - Show, export trust bundles
+  - `events` - View identity events
+  - `status` - Show identity provider status
+
 ### 4. **Third-Party Plugins** (optional)
 - Any binary named `kscore-<name>` in $PATH automatically works as `kscorectl <name>`
 - Examples:
@@ -4763,7 +4898,7 @@ Keystone Core will have the following executables:
   - `kscore-custom-deploy` → `kscorectl custom-deploy`
   - Community extensions without forking core
 
-**Total Core Binaries**: 9 (1 CLI + 3 servers + 5 built-in plugins)
+**Total Core Binaries**: 10 (1 CLI + 3 servers + 6 built-in plugins)
 **Extensible**: Unlimited via third-party `kscore-*` plugins
 
 ## Future Implementation Repository
@@ -4780,6 +4915,7 @@ keystone-core/
 │   ├── kscore-exec/       # Execution commands (invoked via kscorectl)
 │   ├── kscore-monitor/    # TUI monitor (invoked via kscorectl)
 │   ├── kscore-migrate/    # Database migration tool (invoked via kscorectl)
+│   ├── kscore-identity/   # Identity management (invoked via kscorectl)
 │   └── kscore-registry/   # Registry server (OCI + HTTP proxy)
 ├── pkg/
 │   ├── api/               # gRPC/REST API

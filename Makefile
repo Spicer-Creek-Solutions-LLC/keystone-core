@@ -2,7 +2,8 @@
        docs-container-build docs-pdf-container docs-pdf-book-container docs-all-container \
        release release-snapshot release-dry-run lint \
        e2e-build e2e-test e2e-up e2e-down e2e-logs e2e-clean e2e-full e2e-perf e2e-scenarios \
-       e2e-ha e2e-ha-up e2e-ha-down e2e-ha-logs
+       e2e-ha e2e-ha-up e2e-ha-down e2e-ha-logs \
+       server agent cli exec state monitor policy gitops cluster migrate module registry identity
 
 # Version information
 VERSION ?= dev
@@ -19,12 +20,24 @@ help:
 	@echo "  proto              - Generate protobuf code from .proto files"
 	@echo "  build              - Build all binaries for current platform"
 	@echo "  build-all-platforms - Build all binaries for all platforms"
-	@echo "  server             - Build kscore-server binary"
-	@echo "  agent              - Build kscore-agent binary"
-	@echo "  cli                - Build kscorectl binary"
-	@echo "  exec               - Build kscore-exec plugin"
-	@echo "  state              - Build kscore-state plugin"
-	@echo "  monitor            - Build kscore-monitor TUI"
+	@echo ""
+	@echo "  Server binaries:"
+	@echo "    server           - Build kscore-server (control plane)"
+	@echo "    agent            - Build kscore-agent (managed node agent)"
+	@echo "    registry         - Build kscore-registry (module registry server)"
+	@echo ""
+	@echo "  CLI and plugins:"
+	@echo "    cli              - Build kscorectl (main CLI dispatcher)"
+	@echo "    exec             - Build kscore-exec plugin"
+	@echo "    state            - Build kscore-state plugin"
+	@echo "    monitor          - Build kscore-monitor TUI"
+	@echo "    policy           - Build kscore-policy plugin"
+	@echo "    gitops           - Build kscore-gitops plugin"
+	@echo "    cluster          - Build kscore-cluster plugin"
+	@echo "    migrate          - Build kscore-migrate plugin"
+	@echo "    module           - Build kscore-module plugin"
+	@echo "    identity         - Build kscore-identity plugin"
+	@echo ""
 	@echo "  test               - Run tests"
 	@echo "  lint               - Run linters"
 	@echo "  clean              - Remove all build artifacts (build/)"
@@ -81,7 +94,7 @@ proto:
 	       api/proto/*.proto
 	@echo "Protobuf code generated successfully"
 
-build: server agent cli exec state monitor
+build: server agent registry cli exec state monitor policy gitops cluster migrate module identity
 
 server:
 	@echo "Building kscore-server..."
@@ -119,6 +132,48 @@ state:
 	go build -ldflags "$(LDFLAGS)" -o build/bin/kscore-state ./cmd/kscore-state
 	@echo "Built: build/bin/kscore-state"
 
+policy:
+	@echo "Building kscore-policy..."
+	@mkdir -p build/bin
+	go build -ldflags "$(LDFLAGS)" -o build/bin/kscore-policy ./cmd/kscore-policy
+	@echo "Built: build/bin/kscore-policy"
+
+gitops:
+	@echo "Building kscore-gitops..."
+	@mkdir -p build/bin
+	go build -ldflags "$(LDFLAGS)" -o build/bin/kscore-gitops ./cmd/kscore-gitops
+	@echo "Built: build/bin/kscore-gitops"
+
+cluster:
+	@echo "Building kscore-cluster..."
+	@mkdir -p build/bin
+	go build -ldflags "$(LDFLAGS)" -o build/bin/kscore-cluster ./cmd/kscore-cluster
+	@echo "Built: build/bin/kscore-cluster"
+
+migrate:
+	@echo "Building kscore-migrate..."
+	@mkdir -p build/bin
+	go build -ldflags "$(LDFLAGS)" -o build/bin/kscore-migrate ./cmd/kscore-migrate
+	@echo "Built: build/bin/kscore-migrate"
+
+module:
+	@echo "Building kscore-module..."
+	@mkdir -p build/bin
+	go build -ldflags "$(LDFLAGS)" -o build/bin/kscore-module ./cmd/kscore-module
+	@echo "Built: build/bin/kscore-module"
+
+registry:
+	@echo "Building kscore-registry..."
+	@mkdir -p build/bin
+	go build -ldflags "$(LDFLAGS)" -o build/bin/kscore-registry ./cmd/kscore-registry
+	@echo "Built: build/bin/kscore-registry"
+
+identity:
+	@echo "Building kscore-identity..."
+	@mkdir -p build/bin
+	go build -ldflags "$(LDFLAGS)" -o build/bin/kscore-identity ./cmd/kscore-identity
+	@echo "Built: build/bin/kscore-identity"
+
 test:
 	go test -v -race -coverprofile=coverage.out ./...
 
@@ -153,16 +208,30 @@ build-linux:
 	@mkdir -p build/bin/linux/amd64 build/bin/linux/arm64
 	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-server ./cmd/kscore-server
 	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-agent ./cmd/kscore-agent
+	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-registry ./cmd/kscore-registry
+	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscorectl ./cmd/kscorectl
 	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-exec ./cmd/kscore-exec
 	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-state ./cmd/kscore-state
 	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-monitor ./cmd/kscore-monitor
-	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscorectl ./cmd/kscorectl
+	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-policy ./cmd/kscore-policy
+	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-gitops ./cmd/kscore-gitops
+	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-cluster ./cmd/kscore-cluster
+	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-migrate ./cmd/kscore-migrate
+	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-module ./cmd/kscore-module
+	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-identity ./cmd/kscore-identity
 	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-server ./cmd/kscore-server
 	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-agent ./cmd/kscore-agent
+	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-registry ./cmd/kscore-registry
+	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscorectl ./cmd/kscorectl
 	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-exec ./cmd/kscore-exec
 	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-state ./cmd/kscore-state
 	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-monitor ./cmd/kscore-monitor
-	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscorectl ./cmd/kscorectl
+	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-policy ./cmd/kscore-policy
+	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-gitops ./cmd/kscore-gitops
+	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-cluster ./cmd/kscore-cluster
+	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-migrate ./cmd/kscore-migrate
+	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-module ./cmd/kscore-module
+	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-identity ./cmd/kscore-identity
 	@echo "Linux builds complete"
 
 build-darwin:
@@ -170,16 +239,30 @@ build-darwin:
 	@mkdir -p build/bin/darwin/amd64 build/bin/darwin/arm64
 	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-server ./cmd/kscore-server
 	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-agent ./cmd/kscore-agent
+	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-registry ./cmd/kscore-registry
+	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscorectl ./cmd/kscorectl
 	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-exec ./cmd/kscore-exec
 	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-state ./cmd/kscore-state
 	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-monitor ./cmd/kscore-monitor
-	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscorectl ./cmd/kscorectl
+	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-policy ./cmd/kscore-policy
+	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-gitops ./cmd/kscore-gitops
+	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-cluster ./cmd/kscore-cluster
+	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-migrate ./cmd/kscore-migrate
+	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-module ./cmd/kscore-module
+	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-identity ./cmd/kscore-identity
 	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-server ./cmd/kscore-server
 	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-agent ./cmd/kscore-agent
+	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-registry ./cmd/kscore-registry
+	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscorectl ./cmd/kscorectl
 	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-exec ./cmd/kscore-exec
 	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-state ./cmd/kscore-state
 	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-monitor ./cmd/kscore-monitor
-	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscorectl ./cmd/kscorectl
+	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-policy ./cmd/kscore-policy
+	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-gitops ./cmd/kscore-gitops
+	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-cluster ./cmd/kscore-cluster
+	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-migrate ./cmd/kscore-migrate
+	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-module ./cmd/kscore-module
+	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-identity ./cmd/kscore-identity
 	@echo "macOS builds complete"
 
 build-windows:
@@ -187,10 +270,17 @@ build-windows:
 	@mkdir -p build/bin/windows/amd64
 	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-server.exe ./cmd/kscore-server
 	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-agent.exe ./cmd/kscore-agent
+	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-registry.exe ./cmd/kscore-registry
+	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscorectl.exe ./cmd/kscorectl
 	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-exec.exe ./cmd/kscore-exec
 	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-state.exe ./cmd/kscore-state
 	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-monitor.exe ./cmd/kscore-monitor
-	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscorectl.exe ./cmd/kscorectl
+	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-policy.exe ./cmd/kscore-policy
+	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-gitops.exe ./cmd/kscore-gitops
+	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-cluster.exe ./cmd/kscore-cluster
+	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-migrate.exe ./cmd/kscore-migrate
+	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-module.exe ./cmd/kscore-module
+	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-identity.exe ./cmd/kscore-identity
 	@echo "Windows builds complete"
 
 # Documentation targets

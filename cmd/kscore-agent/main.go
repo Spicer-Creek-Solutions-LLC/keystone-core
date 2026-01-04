@@ -19,29 +19,36 @@ import (
 // logger is the structured logger for kscore-agent (Epic 15)
 var logger logging.Logger
 
-var (
-	cfgFile string
-	rootCmd = &cobra.Command{
+var cfgFile string
+
+// newRootCmd creates the root command for kscore-agent
+func newRootCmd() *cobra.Command {
+	rootCmd := &cobra.Command{
 		Use:   "kscore-agent",
 		Short: "Keystone Core agent",
 		Long: `Keystone Core agent runs on managed nodes and executes commands
 from the control plane. It supports embedded NATS mode for edge deployments.`,
-		Run: runAgent,
+		Run:           runAgent,
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
-)
 
-func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is ./keystone-core-agent.yaml)")
-	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(newVersionCmd())
+
+	return rootCmd
 }
 
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print version information",
-	Run: func(cmd *cobra.Command, args []string) {
-		info := version.Get()
-		fmt.Println(info.String())
-	},
+// newVersionCmd creates the version command
+func newVersionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print version information",
+		Run: func(cmd *cobra.Command, args []string) {
+			info := version.Get()
+			fmt.Fprintln(cmd.OutOrStdout(), info.String())
+		},
+	}
 }
 
 func runAgent(cmd *cobra.Command, args []string) {
@@ -169,7 +176,7 @@ func runAgent(cmd *cobra.Command, args []string) {
 }
 
 func main() {
-	if err := rootCmd.Execute(); err != nil {
+	if err := newRootCmd().Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}

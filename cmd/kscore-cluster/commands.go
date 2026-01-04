@@ -448,19 +448,6 @@ func runRestore(inputPath string, force bool) error {
 	return nil
 }
 
-// newVersionCommand creates the 'version' command
-func newVersionCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:   "version",
-		Short: "Show version information",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("kscore-cluster %s\n", version)
-			fmt.Printf("  Commit: %s\n", commit)
-			fmt.Printf("  Built:  %s\n", buildDate)
-		},
-	}
-}
-
 // Helper functions
 
 func outputResult(v interface{}, format string) error {

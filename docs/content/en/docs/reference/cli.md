@@ -2080,6 +2080,530 @@ kscorectl cluster remove server-3
 kscorectl cluster remove server-3 --force
 ```
 
+## kscore-identity (Identity Management)
+
+Manage SPIFFE identities, join tokens, CA certificates, and trust federation.
+
+### identity status
+
+Display identity provider status.
+
+```bash
+kscorectl identity status [flags]
+```
+
+**Flags**:
+- `-o, --output string`: Output format (table, json, yaml) (default: table)
+
+**Output**:
+```
+Identity Provider Status
+========================
+Provider:          embedded
+Trust Domain:      kscore.local
+CA Status:         healthy
+CA Expires:        2027-01-15T10:30:45Z
+Active SVIDs:      42
+Federated Domains: 1
+Last Rotation:     2024-01-15T10:00:45Z
+```
+
+### identity token
+
+Manage join tokens for agent attestation.
+
+#### token create
+
+Create a new join token.
+
+```bash
+kscorectl identity token create [flags]
+```
+
+**Flags**:
+- `--path string`: SPIFFE path for agents using this token (default: /agent/default)
+- `--ttl string`: Token time-to-live (default: 5m)
+- `--uses int`: Maximum number of uses, 0 = unlimited (default: 1)
+
+**Examples**:
+```bash
+# Create a token for web servers
+kscorectl identity token create --path /agent/web --ttl 10m
+
+# Create a reusable token
+kscorectl identity token create --path /agent/batch --uses 0 --ttl 1h
+```
+
+**Output**:
+```
+Token created successfully!
+Token:    Rj2k9xLm3n4o5p6q7r8s9t0u1v2w3x4y5z
+Path:     /agent/web
+TTL:      10m
+Max Uses: 1
+
+Configure agent with:
+  identity:
+    attestation:
+      type: join_token
+      token: "Rj2k9xLm3n4o5p6q7r8s9t0u1v2w3x4y5z"
+```
+
+#### token list
+
+List join tokens.
+
+```bash
+kscorectl identity token list [flags]
+```
+
+**Flags**:
+- `-o, --output string`: Output format (table, json)
+
+**Output**:
+```
+TOKEN                  AGENT PATH     EXPIRES                  USES  STATUS
+abc123...              /agent/web     2024-01-15T12:00:00Z     0/1   valid
+def456...              /agent/db      2024-01-15T11:00:00Z     1/1   used
+```
+
+#### token show
+
+Show details of a join token.
+
+```bash
+kscorectl identity token show <token-id>
+```
+
+**Output**:
+```
+Token Details
+=============
+Token ID:    abc123def456
+Agent Path:  /agent/web
+Created:     2024-01-15T10:00:00Z
+Expires:     2024-01-15T12:00:00Z
+Uses:        0/1
+Status:      valid
+Labels:
+  environment: production
+  role: web
+```
+
+#### token revoke
+
+Revoke a join token.
+
+```bash
+kscorectl identity token revoke <token-id>
+```
+
+**Output**:
+```
+Token revoked successfully: abc123def456
+```
+
+### identity ca
+
+Manage Certificate Authority.
+
+#### ca info
+
+Show CA information.
+
+```bash
+kscorectl identity ca info [flags]
+```
+
+**Flags**:
+- `-o, --output string`: Output format (table, json, yaml)
+
+**Output**:
+```
+Certificate Authority Information
+==================================
+
+Trust Domain:  kscore.local
+
+Root CA:
+  Subject:    CN=Keystone Core Root CA
+  Not After:  2034-01-15T00:00:00Z
+  Key Type:   ecdsa-p256
+
+Signing CA:
+  Subject:    CN=Keystone Core Signing CA
+  Not After:  2025-01-15T00:00:00Z
+  Key Type:   ecdsa-p256
+
+SVIDs Issued:     1234
+Last Rotation:    2024-01-01T00:00:00Z
+Next Rotation:    2024-11-01T00:00:00Z
+Auto-Rotation:    enabled
+```
+
+#### ca backup
+
+Backup CA certificates and keys.
+
+```bash
+kscorectl identity ca backup [flags]
+```
+
+**Flags**:
+- `-o, --output string`: Output file path (required)
+- `--encrypt`: Encrypt the backup (default: true)
+
+**Examples**:
+```bash
+# Create encrypted backup
+kscorectl identity ca backup --output /var/backups/ca-backup.json
+
+# Create unencrypted backup
+kscorectl identity ca backup --output ca-backup.json --encrypt=false
+```
+
+**Output**:
+```
+CA backup created: /var/backups/ca-backup.json
+Encrypted: true
+Checksum: sha256:abc123...
+```
+
+#### ca restore
+
+Restore CA from backup.
+
+```bash
+kscorectl identity ca restore [flags]
+```
+
+**Flags**:
+- `--input string`: Backup file to restore (required)
+
+**Example**:
+```bash
+kscorectl identity ca restore --input /var/backups/ca-backup.json
+```
+
+**Output**:
+```
+Restoring CA from backup (created 2024-01-15T10:00:00Z)
+Trust Domain: kscore.local
+CA restored successfully
+```
+
+#### ca rotate
+
+Trigger CA rotation.
+
+```bash
+kscorectl identity ca rotate
+```
+
+**Output**:
+```
+CA rotation initiated...
+New signing CA created
+Old signing CA valid for overlap period
+Rotation complete at 2024-01-15T10:30:45Z
+```
+
+### identity federation
+
+Manage trust federation with other trust domains. Alias: `fed`
+
+#### federation list
+
+List federated trust domains.
+
+```bash
+kscorectl identity federation list [flags]
+```
+
+**Flags**:
+- `-o, --output string`: Output format (table, json)
+
+**Output**:
+```
+TRUST DOMAIN             TYPE             STATE     LAST REFRESH
+partner.example.org      bidirectional    active    2024-01-15T10:00:00Z
+vendor.example.com       unidirectional   suspended 2024-01-14T12:00:00Z
+```
+
+#### federation add
+
+Add a federated trust domain.
+
+```bash
+kscorectl identity federation add <trust-domain> [flags]
+```
+
+**Flags**:
+- `--endpoint string`: Bundle endpoint URL
+- `--profile string`: Bundle endpoint profile (https_web, https_spiffe, spiffe_bundle_endpoint) (default: https_web)
+- `--refresh-interval string`: Bundle refresh interval (default: 5m)
+
+**Examples**:
+```bash
+# Add bidirectional federation
+kscorectl identity federation add partner.example.org \
+  --endpoint https://partner.example.org/.well-known/spiffe-bundle
+
+# Add with custom refresh interval
+kscorectl identity federation add vendor.example.com \
+  --endpoint https://vendor.example.com/.well-known/spiffe-bundle \
+  --refresh-interval 1h
+```
+
+**Output**:
+```
+Federation relationship added: partner.example.org
+Endpoint: https://partner.example.org/.well-known/spiffe-bundle
+Profile: https_web
+Refresh Interval: 5m
+
+To activate, run:
+  kscorectl identity federation activate partner.example.org
+```
+
+#### federation show
+
+Show details of a federated domain.
+
+```bash
+kscorectl identity federation show <trust-domain>
+```
+
+**Output**:
+```
+Trust Domain:     partner.example.org
+Type:             bidirectional
+State:            active
+Bundle Endpoint:  https://partner.example.org/.well-known/spiffe-bundle
+Refresh Interval: 5m
+Last Refresh:     2024-01-15T10:00:00Z
+Created:          2024-01-08T00:00:00Z
+
+Policy:
+  Allowed Paths: [/service/**, /agent/**]
+  Denied Paths:  [/admin/**]
+  Require mTLS:  true
+
+Certificates:
+  - CN=Partner CA (expires 2025-01-15T00:00:00Z)
+```
+
+#### federation suspend
+
+Suspend a federated trust domain.
+
+```bash
+kscorectl identity federation suspend <trust-domain>
+```
+
+**Output**:
+```
+Federation relationship suspended: partner.example.org
+SVIDs from this domain will no longer be accepted
+```
+
+#### federation activate
+
+Activate a federated trust domain.
+
+```bash
+kscorectl identity federation activate <trust-domain>
+```
+
+**Output**:
+```
+Federation relationship activated: partner.example.org
+SVIDs from this domain will now be accepted
+```
+
+#### federation remove
+
+Remove a federated trust domain.
+
+```bash
+kscorectl identity federation remove <trust-domain> [flags]
+```
+
+**Flags**:
+- `--force`: Force removal without confirmation
+
+**Example**:
+```bash
+kscorectl identity federation remove vendor.example.com --force
+```
+
+**Output**:
+```
+Federation relationship removed: vendor.example.com
+```
+
+#### federation refresh
+
+Manually refresh trust bundle from federated domain.
+
+```bash
+kscorectl identity federation refresh <trust-domain>
+```
+
+**Output**:
+```
+Trust bundle refreshed: partner.example.org
+Retrieved 2 certificates
+```
+
+### identity bundle
+
+Manage trust bundles.
+
+#### bundle show
+
+Show the local trust bundle.
+
+```bash
+kscorectl identity bundle show [flags]
+```
+
+**Flags**:
+- `-o, --output string`: Output format (table, json)
+
+**Output**:
+```
+Local Trust Bundle
+==================
+Trust Domain:    kscore.local
+Sequence Number: 42
+Refresh Hint:    300 seconds
+Updated:         2024-01-15T10:00:00Z
+
+Certificates:
+  - CN=Keystone Core Root CA
+    Expires: 2034-01-15T00:00:00Z
+  - CN=Keystone Core Signing CA
+    Expires: 2025-01-15T00:00:00Z
+```
+
+#### bundle export
+
+Export the trust bundle.
+
+```bash
+kscorectl identity bundle export [flags]
+```
+
+**Flags**:
+- `--format string`: Export format (pem, jwks) (default: pem)
+- `-o, --output string`: Output file (default: stdout)
+
+**Examples**:
+```bash
+# Export as PEM
+kscorectl identity bundle export --format pem
+
+# Export as JWKS (SPIFFE Bundle format)
+kscorectl identity bundle export --format jwks
+
+# Export to file
+kscorectl identity bundle export --format jwks -o bundle.json
+```
+
+**Output (PEM)**:
+```
+-----BEGIN CERTIFICATE-----
+MIIBxDCCAWqgAwIBAgIQExample...
+-----END CERTIFICATE-----
+-----BEGIN CERTIFICATE-----
+MIIBxDCCAWqgAwIBAgIQExample...
+-----END CERTIFICATE-----
+```
+
+**Output (JWKS)**:
+```json
+{
+  "keys": [
+    {
+      "kty": "EC",
+      "use": "x509-svid",
+      "x5c": ["MIIBxDCCAWqgAwIBAgIQExample..."]
+    }
+  ],
+  "spiffe_refresh_hint": 300,
+  "spiffe_sequence_number": 42
+}
+```
+
+### identity events
+
+View identity events.
+
+```bash
+kscorectl identity events [flags]
+```
+
+**Flags**:
+- `--limit int`: Number of events to show (default: 10)
+- `-f, --follow`: Follow events in real-time
+- `-o, --output string`: Output format (table, json)
+
+**Output**:
+```
+TIME       TYPE                    DESCRIPTION
+10:00:05   svid.issued             X.509 SVID issued
+           SPIFFE ID: spiffe://kscore.local/agent/web-server-1
+10:02:15   svid.rotated            X.509 SVID rotated
+           SPIFFE ID: spiffe://kscore.local/agent/db-server-1
+10:05:00   federation.refreshed    Trust bundle refreshed for partner.example.org
+```
+
+### Examples
+
+**Bootstrap a new agent**:
+```bash
+# Create a join token
+kscorectl identity token create --path /agent/web --ttl 10m
+
+# Copy token to agent configuration
+# Start agent - it will use the token to register
+```
+
+**Set up trust federation**:
+```bash
+# Add federation relationship
+kscorectl identity federation add partner.example.org \
+  --endpoint https://partner.example.org/.well-known/spiffe-bundle
+
+# Verify bundle was fetched
+kscorectl identity federation show partner.example.org
+
+# Activate the federation
+kscorectl identity federation activate partner.example.org
+```
+
+**Backup and restore CA**:
+```bash
+# Create encrypted backup
+kscorectl identity ca backup --output /var/backups/ca-$(date +%Y%m%d).json
+
+# Restore (after disaster)
+kscorectl identity ca restore --input /var/backups/ca-20240115.json
+```
+
+**Rotate CA**:
+```bash
+# Check current CA status
+kscorectl identity ca info
+
+# Trigger rotation
+kscorectl identity ca rotate
+
+# Verify new CA
+kscorectl identity ca info
+```
+
 ## kscore-migrate (Database Migration)
 
 Migrate data between storage backends (SQLite to PostgreSQL).

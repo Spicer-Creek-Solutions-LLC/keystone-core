@@ -16,15 +16,20 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
-var (
-	// Global flags
-	serverAddr  string
-	timeout     time.Duration
-	auditLevel  string
-	auditOutput string
+// Config holds CLI configuration
+type Config struct {
+	ServerAddr  string
+	Timeout     time.Duration
+	AuditLevel  string
+	AuditOutput string
+}
 
-	rootCmd = &cobra.Command{
-		Use:   "exec",
+// newRootCmd creates the root command
+func newRootCmd() *cobra.Command {
+	cfg := &Config{}
+
+	rootCmd := &cobra.Command{
+		Use:   "kscore-exec",
 		Short: "Remote execution across multiple agents",
 		Long: `Execute commands across your infrastructure using target expressions.
 
@@ -42,35 +47,38 @@ Examples:
   kscorectl exec list --status completed`,
 	}
 
-	versionCmd = &cobra.Command{
+	// Global flags
+	rootCmd.PersistentFlags().StringVar(&cfg.ServerAddr, "server", "localhost:50051", "Keystone Core server address")
+	rootCmd.PersistentFlags().DurationVar(&cfg.Timeout, "timeout", 5*time.Minute, "Request timeout")
+	rootCmd.PersistentFlags().StringVar(&cfg.AuditLevel, "audit-level", "all", "Audit logging level (all, errors, none)")
+	rootCmd.PersistentFlags().StringVar(&cfg.AuditOutput, "audit-output", "auto", "Audit output backend (auto, syslog, journald, stderr, none)")
+
+	// Add subcommands
+	rootCmd.AddCommand(newVersionCmd())
+	rootCmd.AddCommand(newRunCmd(cfg))
+	rootCmd.AddCommand(newStatusCmd(cfg))
+	rootCmd.AddCommand(newListCmd(cfg))
+
+	return rootCmd
+}
+
+// newVersionCmd creates the version command
+func newVersionCmd() *cobra.Command {
+	return &cobra.Command{
 		Use:   "version",
 		Short: "Print version information",
 		Run: func(cmd *cobra.Command, args []string) {
 			info := version.Get()
-			fmt.Println(info.String())
+			fmt.Fprintln(cmd.OutOrStdout(), info.String())
 		},
 	}
-)
-
-func init() {
-	// Global flags
-	rootCmd.PersistentFlags().StringVar(&serverAddr, "server", "localhost:50051", "Keystone Core server address")
-	rootCmd.PersistentFlags().DurationVar(&timeout, "timeout", 5*time.Minute, "Request timeout")
-	rootCmd.PersistentFlags().StringVar(&auditLevel, "audit-level", "all", "Audit logging level (all, errors, none)")
-	rootCmd.PersistentFlags().StringVar(&auditOutput, "audit-output", "auto", "Audit output backend (auto, syslog, journald, stderr, none)")
-
-	// Add subcommands
-	rootCmd.AddCommand(versionCmd)
-	rootCmd.AddCommand(runCmd)
-	rootCmd.AddCommand(statusCmd)
-	rootCmd.AddCommand(listCmd)
 }
 
 func main() {
 	// Initialize audit logging (Epic 15)
 	auditConfig := &audit.AuditConfig{
-		Level:   audit.AuditLevel(auditLevel),
-		Backend: auditOutput,
+		Level:   audit.AuditLevel("all"),
+		Backend: "auto",
 	}
 	if err := audit.Init("kscore-exec", auditConfig); err != nil {
 		// Don't fail if audit logging can't be initialized, just warn
@@ -78,14 +86,14 @@ func main() {
 	}
 	defer audit.Close()
 
-	if err := rootCmd.Execute(); err != nil {
+	if err := newRootCmd().Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 }
 
 // createClient creates a gRPC client connection to the control plane
-func createClient() (pb.ControlPlaneServiceClient, *grpc.ClientConn, error) {
+func createClient(serverAddr string) (pb.ControlPlaneServiceClient, *grpc.ClientConn, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -102,24 +110,27 @@ func createClient() (pb.ControlPlaneServiceClient, *grpc.ClientConn, error) {
 	return client, conn, nil
 }
 
-// Run command
+// RunOptions holds run command options
+type RunOptions struct {
+	Concurrency      int32
+	ContinueOnError  bool
+	WorkingDir       string
+	User             string
+	CommandTimeout   int32
+	Env              []string
+	JobID            string
+	ShowProgress     bool
+	ShowAgentResults bool
+}
 
-var (
-	runConcurrency      int32
-	runContinueOnError  bool
-	runWorkingDir       string
-	runUser             string
-	runCommandTimeout   int32
-	runEnv              []string
-	runJobID            string
-	runShowProgress     bool
-	runShowAgentResults bool
-)
+// newRunCmd creates the run command
+func newRunCmd(cfg *Config) *cobra.Command {
+	opts := &RunOptions{}
 
-var runCmd = &cobra.Command{
-	Use:   "run <target-expression> -- <command> [args...]",
-	Short: "Execute a command across multiple agents",
-	Long: `Execute a command across agents matching the target expression.
+	cmd := &cobra.Command{
+		Use:   "run <target-expression> -- <command> [args...]",
+		Short: "Execute a command across multiple agents",
+		Long: `Execute a command across agents matching the target expression.
 
 Target expressions support:
   - Label matching: role:web, env:prod
@@ -141,23 +152,26 @@ Examples:
 
   # Execute with custom concurrency
   kscorectl exec run "env:prod" --concurrency 10 -- uptime`,
-	Args: cobra.MinimumNArgs(1),
-	RunE: runExecute,
+		Args: cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runExecute(cmd, args, cfg, opts)
+		},
+	}
+
+	cmd.Flags().Int32Var(&opts.Concurrency, "concurrency", 10, "Number of concurrent executions")
+	cmd.Flags().BoolVar(&opts.ContinueOnError, "continue-on-failure", true, "Continue executing on other agents if some fail")
+	cmd.Flags().StringVar(&opts.WorkingDir, "working-dir", "", "Working directory for command execution")
+	cmd.Flags().StringVar(&opts.User, "user", "", "User to execute command as")
+	cmd.Flags().Int32Var(&opts.CommandTimeout, "command-timeout", 300, "Command timeout in seconds")
+	cmd.Flags().StringArrayVar(&opts.Env, "env", nil, "Environment variables (KEY=VALUE)")
+	cmd.Flags().StringVar(&opts.JobID, "job-id", "", "Custom batch job ID (auto-generated if not specified)")
+	cmd.Flags().BoolVar(&opts.ShowProgress, "show-progress", true, "Show progress updates during execution")
+	cmd.Flags().BoolVar(&opts.ShowAgentResults, "show-results", true, "Show per-agent results at the end")
+
+	return cmd
 }
 
-func init() {
-	runCmd.Flags().Int32Var(&runConcurrency, "concurrency", 10, "Number of concurrent executions")
-	runCmd.Flags().BoolVar(&runContinueOnError, "continue-on-failure", true, "Continue executing on other agents if some fail")
-	runCmd.Flags().StringVar(&runWorkingDir, "working-dir", "", "Working directory for command execution")
-	runCmd.Flags().StringVar(&runUser, "user", "", "User to execute command as")
-	runCmd.Flags().Int32Var(&runCommandTimeout, "command-timeout", 300, "Command timeout in seconds")
-	runCmd.Flags().StringArrayVar(&runEnv, "env", nil, "Environment variables (KEY=VALUE)")
-	runCmd.Flags().StringVar(&runJobID, "job-id", "", "Custom batch job ID (auto-generated if not specified)")
-	runCmd.Flags().BoolVar(&runShowProgress, "show-progress", true, "Show progress updates during execution")
-	runCmd.Flags().BoolVar(&runShowAgentResults, "show-results", true, "Show per-agent results at the end")
-}
-
-func runExecute(cmd *cobra.Command, args []string) error {
+func runExecute(cmd *cobra.Command, args []string, cfg *Config, opts *RunOptions) error {
 	startTime := time.Now()
 	ctx := context.Background()
 
@@ -219,7 +233,7 @@ func runExecute(cmd *cobra.Command, args []string) error {
 
 	// Parse environment variables
 	envMap := make(map[string]string)
-	for _, e := range runEnv {
+	for _, e := range opts.Env {
 		parts := strings.SplitN(e, "=", 2)
 		if len(parts) != 2 {
 			err := fmt.Errorf("invalid environment variable format: %s (expected KEY=VALUE)", e)
@@ -230,7 +244,7 @@ func runExecute(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create client
-	client, conn, err := createClient()
+	client, conn, err := createClient(cfg.ServerAddr)
 	if err != nil {
 		logAudit(audit.ResultFailure, 1, err)
 		return err
@@ -239,19 +253,19 @@ func runExecute(cmd *cobra.Command, args []string) error {
 
 	// Create request
 	req := &pb.BatchExecuteCommandRequest{
-		BatchJobId:        runJobID,
+		BatchJobId:        opts.JobID,
 		Target:            target,
 		Command:           command,
 		Args:              cmdArgs,
 		Env:               envMap,
-		WorkingDir:        runWorkingDir,
-		User:              runUser,
-		Timeout:           runCommandTimeout,
-		Concurrency:       runConcurrency,
-		ContinueOnFailure: runContinueOnError,
+		WorkingDir:        opts.WorkingDir,
+		User:              opts.User,
+		Timeout:           opts.CommandTimeout,
+		Concurrency:       opts.Concurrency,
+		ContinueOnFailure: opts.ContinueOnError,
 	}
 
-	execCtx, cancel := context.WithTimeout(ctx, timeout)
+	execCtx, cancel := context.WithTimeout(ctx, cfg.Timeout)
 	defer cancel()
 
 	// Execute batch command
@@ -288,14 +302,14 @@ func runExecute(cmd *cobra.Command, args []string) error {
 			fmt.Printf("Batch job started: %s\n", batchJobID)
 
 		case pb.BatchResponseType_BATCH_RESPONSE_TYPE_PROGRESS:
-			if runShowProgress && resp.Progress != nil {
+			if opts.ShowProgress && resp.Progress != nil {
 				p := resp.Progress
 				fmt.Printf("\rProgress: %d/%d agents | Success: %d | Failed: %d | Success Rate: %.1f%%",
 					p.Completed, p.Total, p.Successful, p.Failed, p.SuccessRate)
 			}
 
 		case pb.BatchResponseType_BATCH_RESPONSE_TYPE_BATCH_COMPLETE:
-			if runShowProgress {
+			if opts.ShowProgress {
 				fmt.Println() // New line after progress updates
 			}
 			fmt.Println("\nBatch execution completed")
@@ -318,7 +332,7 @@ func runExecute(cmd *cobra.Command, args []string) error {
 		fmt.Printf("Success Rate:      %.1f%%\n", summary.SuccessRate)
 		fmt.Printf("Duration:          %dms\n", summary.DurationMs)
 
-		if runShowAgentResults && len(summary.AgentResults) > 0 {
+		if opts.ShowAgentResults && len(summary.AgentResults) > 0 {
 			fmt.Println("\n=== Agent Results ===")
 			for _, result := range summary.AgentResults {
 				status := "✓"
@@ -358,30 +372,33 @@ func runExecute(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// Status command
-
-var statusCmd = &cobra.Command{
-	Use:   "status <job-id>",
-	Short: "Get the status of a batch job",
-	Long: `Retrieve detailed status information about a batch job.
+// newStatusCmd creates the status command
+func newStatusCmd(cfg *Config) *cobra.Command {
+	return &cobra.Command{
+		Use:   "status <job-id>",
+		Short: "Get the status of a batch job",
+		Long: `Retrieve detailed status information about a batch job.
 
 Examples:
   kscorectl exec status abc123
   kscorectl exec status --server prod-server:50051 abc123`,
-	Args: cobra.ExactArgs(1),
-	RunE: statusExecute,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return statusExecute(cmd, args, cfg)
+		},
+	}
 }
 
-func statusExecute(cmd *cobra.Command, args []string) error {
+func statusExecute(cmd *cobra.Command, args []string, cfg *Config) error {
 	jobID := args[0]
 
-	client, conn, err := createClient()
+	client, conn, err := createClient(cfg.ServerAddr)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
 	defer cancel()
 
 	req := &pb.GetBatchJobStatusRequest{
@@ -441,17 +458,20 @@ func statusExecute(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// List command
+// ListOptions holds list command options
+type ListOptions struct {
+	Status   string
+	PageSize int32
+}
 
-var (
-	listStatus   string
-	listPageSize int32
-)
+// newListCmd creates the list command
+func newListCmd(cfg *Config) *cobra.Command {
+	opts := &ListOptions{}
 
-var listCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List batch jobs",
-	Long: `List batch jobs with optional filtering.
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List batch jobs",
+		Long: `List batch jobs with optional filtering.
 
 Examples:
   # List all jobs
@@ -465,28 +485,31 @@ Examples:
 
   # List with custom page size
   kscorectl exec list --page-size 50`,
-	RunE: listExecute,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return listExecute(cmd, args, cfg, opts)
+		},
+	}
+
+	cmd.Flags().StringVar(&opts.Status, "status", "", "Filter by status (pending, running, completed, failed)")
+	cmd.Flags().Int32Var(&opts.PageSize, "page-size", 20, "Number of jobs to return")
+
+	return cmd
 }
 
-func init() {
-	listCmd.Flags().StringVar(&listStatus, "status", "", "Filter by status (pending, running, completed, failed)")
-	listCmd.Flags().Int32Var(&listPageSize, "page-size", 20, "Number of jobs to return")
-}
-
-func listExecute(cmd *cobra.Command, args []string) error {
-	client, conn, err := createClient()
+func listExecute(cmd *cobra.Command, args []string, cfg *Config, opts *ListOptions) error {
+	client, conn, err := createClient(cfg.ServerAddr)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
 	defer cancel()
 
 	// Parse status filter
 	var statusFilter pb.BatchJobStatus
-	if listStatus != "" {
-		switch strings.ToLower(listStatus) {
+	if opts.Status != "" {
+		switch strings.ToLower(opts.Status) {
 		case "pending":
 			statusFilter = pb.BatchJobStatus_BATCH_JOB_STATUS_PENDING
 		case "running":
@@ -496,13 +519,13 @@ func listExecute(cmd *cobra.Command, args []string) error {
 		case "failed":
 			statusFilter = pb.BatchJobStatus_BATCH_JOB_STATUS_FAILED
 		default:
-			return fmt.Errorf("invalid status: %s (expected pending, running, completed, or failed)", listStatus)
+			return fmt.Errorf("invalid status: %s (expected pending, running, completed, or failed)", opts.Status)
 		}
 	}
 
 	req := &pb.ListBatchJobsRequest{
 		Status:   statusFilter,
-		PageSize: listPageSize,
+		PageSize: opts.PageSize,
 	}
 
 	resp, err := client.ListBatchJobs(ctx, req)

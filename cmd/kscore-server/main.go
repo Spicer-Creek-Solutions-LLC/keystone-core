@@ -29,29 +29,36 @@ import (
 // logger is the structured logger for kscore-server (Epic 15)
 var logger logging.Logger
 
-var (
-	cfgFile string
-	rootCmd = &cobra.Command{
+var cfgFile string
+
+// newRootCmd creates the root command for kscore-server
+func newRootCmd() *cobra.Command {
+	rootCmd := &cobra.Command{
 		Use:   "kscore-server",
 		Short: "Keystone Core control plane server",
 		Long: `Keystone Core control plane server manages agents and provides
 the API for remote execution, state management, and policy enforcement.`,
-		Run: runServer,
+		Run:           runServer,
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
-)
 
-func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is ./keystone-core.yaml)")
-	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(newVersionCmd())
+
+	return rootCmd
 }
 
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print version information",
-	Run: func(cmd *cobra.Command, args []string) {
-		info := version.Get()
-		fmt.Println(info.String())
-	},
+// newVersionCmd creates the version command
+func newVersionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print version information",
+		Run: func(cmd *cobra.Command, args []string) {
+			info := version.Get()
+			fmt.Fprintln(cmd.OutOrStdout(), info.String())
+		},
+	}
 }
 
 func runServer(cmd *cobra.Command, args []string) {
@@ -439,7 +446,7 @@ shutdown:
 }
 
 func main() {
-	if err := rootCmd.Execute(); err != nil {
+	if err := newRootCmd().Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}

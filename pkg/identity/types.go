@@ -391,6 +391,8 @@ const (
 	AttestationTypeAzureIMDS = "azure_imds"
 	// AttestationTypeK8sSAT uses Kubernetes Service Account Token.
 	AttestationTypeK8sSAT = "k8s_sat"
+	// AttestationTypeConsulConnect uses Consul Connect certificate.
+	AttestationTypeConsulConnect = "consul_connect"
 	// AttestationTypeNone allows unauthenticated attestation (dev only).
 	AttestationTypeNone = "none"
 )

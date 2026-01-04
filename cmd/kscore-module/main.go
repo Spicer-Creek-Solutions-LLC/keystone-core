@@ -9,9 +9,10 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
-var (
-	rootCmd = &cobra.Command{
-		Use:   "module",
+// newRootCmd creates the root command for kscore-module
+func newRootCmd() *cobra.Command {
+	rootCmd := &cobra.Command{
+		Use:   "kscore-module",
 		Short: "Module management for Keystone Core",
 		Long: `Manage Keystone Core modules with dependency resolution, verification, and distribution.
 
@@ -46,18 +47,8 @@ Examples:
   kscorectl module verify my-module-1.0.0.zip`,
 	}
 
-	versionCmd = &cobra.Command{
-		Use:   "version",
-		Short: "Print version information",
-		Run: func(cmd *cobra.Command, args []string) {
-			info := version.Get()
-			fmt.Println(info.String())
-		},
-	}
-)
-
-func init() {
-	rootCmd.AddCommand(versionCmd)
+	// Add subcommands
+	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(validateCmd)
 	rootCmd.AddCommand(buildCmd)
@@ -68,10 +59,24 @@ func init() {
 	rootCmd.AddCommand(testCmd)
 	rootCmd.AddCommand(publishCmd)
 	rootCmd.AddCommand(installCmd)
+
+	return rootCmd
+}
+
+// newVersionCmd creates the version command
+func newVersionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print version information",
+		Run: func(cmd *cobra.Command, args []string) {
+			info := version.Get()
+			fmt.Fprintln(cmd.OutOrStdout(), info.String())
+		},
+	}
 }
 
 func main() {
-	if err := rootCmd.Execute(); err != nil {
+	if err := newRootCmd().Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}

@@ -17,9 +17,10 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
-var (
-	rootCmd = &cobra.Command{
-		Use:   "gitops",
+// newRootCmd creates the root command for kscore-gitops
+func newRootCmd() *cobra.Command {
+	rootCmd := &cobra.Command{
+		Use:   "kscore-gitops",
 		Short: "GitOps integration and deployment management",
 		Long: `Manage GitOps deployments, verifications, rollbacks, and promotions.
 
@@ -43,27 +44,30 @@ Examples:
   kscorectl gitops webhook list`,
 	}
 
-	versionCmd = &cobra.Command{
-		Use:   "version",
-		Short: "Print version information",
-		Run: func(cmd *cobra.Command, args []string) {
-			info := version.Get()
-			fmt.Println(info.String())
-		},
-	}
-)
-
-func init() {
-	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(verifyCmd)
 	rootCmd.AddCommand(rollbackCmd)
 	rootCmd.AddCommand(promoteCmd)
 	rootCmd.AddCommand(webhookCmd)
 	rootCmd.AddCommand(statusCmd)
+
+	return rootCmd
+}
+
+// newVersionCmd creates the version command
+func newVersionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print version information",
+		Run: func(cmd *cobra.Command, args []string) {
+			info := version.Get()
+			fmt.Fprintln(cmd.OutOrStdout(), info.String())
+		},
+	}
 }
 
 func main() {
-	if err := rootCmd.Execute(); err != nil {
+	if err := newRootCmd().Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}

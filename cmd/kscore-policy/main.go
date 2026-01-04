@@ -16,9 +16,10 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
-var (
-	rootCmd = &cobra.Command{
-		Use:   "policy",
+// newRootCmd creates the root command for kscore-policy
+func newRootCmd() *cobra.Command {
+	rootCmd := &cobra.Command{
+		Use:   "kscore-policy",
 		Short: "Policy enforcement and compliance management",
 		Long: `Manage and evaluate policies using OPA (Rego) and CEL.
 
@@ -42,28 +43,31 @@ Examples:
   kscorectl policy report --days 7`,
 	}
 
-	versionCmd = &cobra.Command{
-		Use:   "version",
-		Short: "Print version information",
-		Run: func(cmd *cobra.Command, args []string) {
-			info := version.Get()
-			fmt.Println(info.String())
-		},
-	}
-)
-
-func init() {
-	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(validateCmd)
 	rootCmd.AddCommand(checkCmd)
 	rootCmd.AddCommand(showCmd)
 	rootCmd.AddCommand(auditCmd)
 	rootCmd.AddCommand(reportCmd)
+
+	return rootCmd
+}
+
+// newVersionCmd creates the version command
+func newVersionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print version information",
+		Run: func(cmd *cobra.Command, args []string) {
+			info := version.Get()
+			fmt.Fprintln(cmd.OutOrStdout(), info.String())
+		},
+	}
 }
 
 func main() {
-	if err := rootCmd.Execute(); err != nil {
+	if err := newRootCmd().Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
