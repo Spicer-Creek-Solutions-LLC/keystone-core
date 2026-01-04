@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Keystone Core Agent - Registry Components
+  Registry entries for configuration and application metadata
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+
+  <Fragment>
+    <ComponentGroup Id="RegistryComponents" Directory="INSTALLFOLDER">
+
+      <!-- Application registry entries -->
+      <Component Id="AppRegistry" Guid="F1A2B3C4-D5E6-7890-5678-123456789012">
+        <RegistryKey Root="HKLM" Key="SOFTWARE\KeystoneCore\Agent">
+
+          <!-- Installation path -->
+          <RegistryValue Name="InstallPath"
+                         Type="string"
+                         Value="[INSTALLFOLDER]"
+                         KeyPath="yes" />
+
+          <!-- Version -->
+          <RegistryValue Name="Version"
+                         Type="string"
+                         Value="!(bind.FileVersion.kscore_agent_exe)" />
+
+          <!-- Config path -->
+          <RegistryValue Name="ConfigPath"
+                         Type="string"
+                         Value="[CONFIGFOLDER]agent.yaml" />
+
+          <!-- Log path -->
+          <RegistryValue Name="LogPath"
+                         Type="string"
+                         Value="[LogsFolder]" />
+
+        </RegistryKey>
+      </Component>
+
+      <!-- Server connection settings (if provided during install) -->
+      <Component Id="ConnectionRegistry" Guid="A2B3C4D5-E6F7-8901-6789-234567890123">
+        <RegistryKey Root="HKLM" Key="SOFTWARE\KeystoneCore\Agent\Connection">
+
+          <RegistryValue Name="ServerURL"
+                         Type="string"
+                         Value="[SERVERURL]" />
+
+          <RegistryValue Name="AgentID"
+                         Type="string"
+                         Value="[AGENTID]" />
+
+          <RegistryValue Name="TLSEnabled"
+                         Type="integer"
+                         Value="[TLSENABLED]" />
+
+        </RegistryKey>
+      </Component>
+
+      <!-- Path environment variable -->
+      <Component Id="PathEnvironment" Guid="B3C4D5E6-F7A8-9012-7890-345678901234">
+        <Environment Id="PathEnv"
+                     Name="Path"
+                     Value="[BinFolder]"
+                     Permanent="no"
+                     Part="last"
+                     Action="set"
+                     System="yes" />
+        <RegistryValue Root="HKLM"
+                       Key="SOFTWARE\KeystoneCore\Agent"
+                       Name="PathConfigured"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+      </Component>
+
+      <!-- Uninstall information -->
+      <Component Id="UninstallRegistry" Guid="C4D5E6F7-A8B9-0123-8901-456789012345">
+        <RegistryKey Root="HKLM"
+                     Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\[ProductCode]">
+          <RegistryValue Name="InstallSource" Type="string" Value="[SourceDir]" />
+          <RegistryValue Name="URLInfoAbout" Type="string" Value="https://github.com/shawnbutts/keystone-core" />
+        </RegistryKey>
+      </Component>
+
+    </ComponentGroup>
+  </Fragment>
+
+</Wix>

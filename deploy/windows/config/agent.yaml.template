@@ -1,0 +1,68 @@
+# Keystone Core Agent Configuration
+# This file is installed to C:\ProgramData\kscore\agent.yaml
+
+agent:
+  # Agent ID - unique identifier for this agent
+  # If empty, defaults to computer hostname
+  id: ""
+
+  # NATS connection settings
+  nats:
+    # Server URLs (comma-separated for multiple)
+    urls:
+      - nats://localhost:4222
+
+    # TLS settings
+    tls:
+      enabled: false
+      # CA certificate path
+      # ca: C:\ProgramData\kscore\ca.crt
+      # Skip certificate verification (not recommended for production)
+      # insecure: false
+
+    # Credentials
+    # credentials: C:\ProgramData\kscore\credentials.creds
+
+    # Reconnection settings
+    reconnect:
+      max_attempts: -1  # -1 for infinite
+      wait: 2s
+      max_wait: 60s
+
+  # Heartbeat settings
+  heartbeat:
+    interval: 10s
+
+  # Windows-specific settings
+  windows:
+    # Prefer PowerShell Core (pwsh) if available
+    prefer_pwsh: true
+
+    # PowerShell execution policy for scripts
+    execution_policy: RemoteSigned
+
+    # Event log settings
+    event_log:
+      source: KeystoneCore
+      log: Application
+
+  # Logging configuration
+  logging:
+    # Log level: debug, info, warn, error
+    level: info
+
+    # Output destination: eventlog, file, stdout
+    output: eventlog
+
+    # File output settings (when output: file)
+    # file:
+    #   path: C:\ProgramData\kscore\logs\agent.log
+    #   max_size: 100  # MB
+    #   max_backups: 3
+    #   max_age: 30    # days
+
+  # Labels for targeting
+  labels:
+    # os: windows
+    # role: webserver
+    # environment: production

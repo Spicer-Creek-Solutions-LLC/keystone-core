@@ -1,0 +1,59 @@
+<!--
+  Keystone Core Agent - WiX Project File
+
+  Build Requirements:
+  - .NET SDK 6.0 or later
+  - WiX Toolset v4 (installed via dotnet tool)
+
+  Build Commands:
+  - dotnet tool install --global wix
+  - dotnet build -c Release
+  - Output: bin\Release\kscore-agent.msi
+-->
+<Project Sdk="WixToolset.Sdk/4.0.4">
+  <PropertyGroup>
+    <!-- MSI output name -->
+    <OutputName>kscore-agent</OutputName>
+    <OutputType>Package</OutputType>
+
+    <!-- Platform configuration -->
+    <Platform>x64</Platform>
+    <InstallerPlatform>x64</InstallerPlatform>
+
+    <!-- Build output path for binaries -->
+    <BuildOutputDir>..\..\build\bin\windows-amd64</BuildOutputDir>
+    <DefineConstants>BuildOutputDir=$(BuildOutputDir)</DefineConstants>
+
+    <!-- ICE validation (disable for CI) -->
+    <SuppressIces>ICE61;ICE91</SuppressIces>
+  </PropertyGroup>
+
+  <!-- Reference the WiX UI extension for dialogs -->
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="4.0.4" />
+    <PackageReference Include="WixToolset.Util.wixext" Version="4.0.4" />
+  </ItemGroup>
+
+  <!-- Source files -->
+  <ItemGroup>
+    <Compile Include="Product.wxs" />
+    <Compile Include="Files.wxs" />
+    <Compile Include="Service.wxs" />
+    <Compile Include="Registry.wxs" />
+    <Compile Include="UI.wxs" />
+  </ItemGroup>
+
+  <!-- Content files (embedded in MSI) -->
+  <ItemGroup>
+    <Content Include="assets\**\*" />
+    <Content Include="config\**\*" />
+  </ItemGroup>
+
+  <!-- Copy built binaries before building MSI -->
+  <Target Name="CopyBinaries" BeforeTargets="Build">
+    <Message Text="Using binaries from: $(BuildOutputDir)" Importance="high" />
+    <Error Condition="!Exists('$(BuildOutputDir)\kscore-agent.exe')"
+           Text="kscore-agent.exe not found. Build with 'make build-windows' first." />
+  </Target>
+
+</Project>

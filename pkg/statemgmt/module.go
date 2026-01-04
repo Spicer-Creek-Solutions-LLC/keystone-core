@@ -126,6 +126,15 @@ func NewBaseModule(name string, validStates []string) *BaseModule {
 	}
 }
 
+// hasParameter checks if a parameter exists in the declaration
+func hasParameter(decl *StateDeclaration, key string) bool {
+	if decl.Parameters == nil {
+		return false
+	}
+	_, ok := decl.Parameters[key]
+	return ok
+}
+
 // getParameter gets a parameter from the declaration with type assertion
 func getParameter(decl *StateDeclaration, key string, defaultValue interface{}) interface{} {
 	if val, ok := decl.Parameters[key]; ok {
@@ -182,16 +191,29 @@ func getSliceParameter(decl *StateDeclaration, key string) []interface{} {
 
 // getStringSliceParameter gets a string slice parameter
 func getStringSliceParameter(decl *StateDeclaration, key string) []string {
-	slice := getSliceParameter(decl, key)
-	if slice == nil {
+	if decl.Parameters == nil {
+		return nil
+	}
+	val, ok := decl.Parameters[key]
+	if !ok {
 		return nil
 	}
 
-	result := make([]string, 0, len(slice))
-	for _, item := range slice {
-		if str, ok := item.(string); ok {
-			result = append(result, str)
-		}
+	// Handle direct []string type
+	if strSlice, ok := val.([]string); ok {
+		return strSlice
 	}
-	return result
+
+	// Handle []interface{} type (from JSON/YAML parsing)
+	if slice, ok := val.([]interface{}); ok {
+		result := make([]string, 0, len(slice))
+		for _, item := range slice {
+			if str, ok := item.(string); ok {
+				result = append(result, str)
+			}
+		}
+		return result
+	}
+
+	return nil
 }

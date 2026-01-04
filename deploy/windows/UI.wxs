@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Keystone Core Agent - User Interface
+  Optional configuration dialog for interactive installation
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Fragment>
+    <!-- Reference the WiX UI extension -->
+    <ui:WixUI Id="WixUI_Mondo" />
+
+    <!-- Custom dialog for configuration -->
+    <UI>
+      <!-- License agreement -->
+      <Property Id="WixUILicenseRtf" Value="assets\license.rtf" />
+
+      <!-- Custom configuration dialog -->
+      <Dialog Id="ConfigurationDlg" Width="370" Height="270" Title="[ProductName] Configuration">
+
+        <!-- Banner image -->
+        <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="WixUI_Bmp_Banner" />
+        <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+
+        <!-- Title -->
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}Agent Configuration" />
+        <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15" Transparent="yes" NoPrefix="yes" Text="Configure the Keystone Core agent connection settings." />
+
+        <!-- Server URL -->
+        <Control Id="ServerUrlLabel" Type="Text" X="20" Y="60" Width="100" Height="13" NoPrefix="yes" Text="&amp;Server URL:" />
+        <Control Id="ServerUrlEdit" Type="Edit" X="20" Y="75" Width="290" Height="18" Property="SERVERURL" Text="{80}" />
+        <Control Id="ServerUrlHint" Type="Text" X="20" Y="95" Width="290" Height="13" NoPrefix="yes" Text="Example: nats://control-plane.example.com:4222" />
+
+        <!-- Agent ID -->
+        <Control Id="AgentIdLabel" Type="Text" X="20" Y="115" Width="100" Height="13" NoPrefix="yes" Text="Agent &amp;ID:" />
+        <Control Id="AgentIdEdit" Type="Edit" X="20" Y="130" Width="290" Height="18" Property="AGENTID" Text="{80}" />
+        <Control Id="AgentIdHint" Type="Text" X="20" Y="150" Width="290" Height="13" NoPrefix="yes" Text="Leave empty to use computer name" />
+
+        <!-- Log Level -->
+        <Control Id="LogLevelLabel" Type="Text" X="20" Y="170" Width="100" Height="13" NoPrefix="yes" Text="&amp;Log Level:" />
+        <Control Id="LogLevelCombo" Type="ComboBox" X="20" Y="185" Width="100" Height="17" Property="LOGLEVEL" Sorted="no">
+          <ComboBox Property="LOGLEVEL">
+            <ListItem Text="debug" Value="debug" />
+            <ListItem Text="info" Value="info" />
+            <ListItem Text="warn" Value="warn" />
+            <ListItem Text="error" Value="error" />
+          </ComboBox>
+        </Control>
+
+        <!-- TLS checkbox -->
+        <Control Id="TlsCheckbox" Type="CheckBox" X="20" Y="210" Width="200" Height="17" Property="TLSENABLED" CheckBoxValue="1" Text="Enable TLS encryption" />
+
+        <!-- Navigation buttons -->
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="&amp;Back">
+          <Publish Event="NewDialog" Value="LicenseAgreementDlg">1</Publish>
+        </Control>
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="&amp;Next">
+          <Publish Event="NewDialog" Value="VerifyReadyDlg">1</Publish>
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Cancel">
+          <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+        </Control>
+
+      </Dialog>
+
+      <!-- Insert custom dialog into the installation sequence -->
+      <Publish Dialog="LicenseAgreementDlg" Control="Next" Event="NewDialog" Value="ConfigurationDlg" Order="4">LicenseAccepted = "1"</Publish>
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="ConfigurationDlg" Order="1">NOT Installed</Publish>
+
+    </UI>
+  </Fragment>
+
+  <!-- Customization bitmaps -->
+  <Fragment>
+    <WixVariable Id="WixUIBannerBmp" Value="assets\banner.bmp" />
+    <WixVariable Id="WixUIDialogBmp" Value="assets\dialog.bmp" />
+  </Fragment>
+
+</Wix>

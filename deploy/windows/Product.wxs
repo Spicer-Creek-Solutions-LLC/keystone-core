@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Keystone Core Agent MSI Installer
+
+  Build requirements:
+  - WiX Toolset v4 (https://wixtoolset.org/)
+  - .NET SDK 6.0+
+
+  Build command:
+  - dotnet build -c Release
+
+  Silent install examples:
+  - msiexec /i kscore-agent.msi /qn SERVERURL=nats://server:4222
+  - msiexec /i kscore-agent.msi /qn SERVERURL=nats://server:4222 AGENTID=web-01
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <!-- Product definition -->
+  <Package Name="Keystone Core Agent"
+           Manufacturer="Keystone Core Contributors"
+           Version="!(bind.FileVersion.kscore_agent_exe)"
+           UpgradeCode="A1B2C3D4-E5F6-7890-ABCD-EF1234567890"
+           Scope="perMachine"
+           Compressed="yes">
+
+    <!-- Summary information -->
+    <SummaryInformation Description="Keystone Core Agent for Windows"
+                        Keywords="keystone,agent,infrastructure,automation"
+                        Manufacturer="Keystone Core Contributors" />
+
+    <!-- Media definition -->
+    <Media Id="1" Cabinet="kscore.cab" EmbedCab="yes" CompressionLevel="high" />
+
+    <!-- Major upgrade configuration -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed."
+                  AllowSameVersionUpgrades="yes"
+                  Schedule="afterInstallInitialize" />
+
+    <!-- Launch conditions -->
+    <Launch Condition="Privileged" Message="Administrator privileges are required to install [ProductName]." />
+    <Launch Condition="VersionNT >= 603" Message="[ProductName] requires Windows Server 2012 R2 or Windows 8.1 or later." />
+
+    <!-- Include other fragments -->
+    <ComponentGroupRef Id="ProductComponents" />
+    <ComponentGroupRef Id="ServiceComponents" />
+    <ComponentGroupRef Id="RegistryComponents" />
+    <ComponentGroupRef Id="ConfigComponents" />
+
+    <!-- Features -->
+    <Feature Id="ProductFeature" Title="Keystone Core Agent" Level="1"
+             Description="The main Keystone Core agent components."
+             ConfigurableDirectory="INSTALLFOLDER">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentGroupRef Id="ServiceComponents" />
+      <ComponentGroupRef Id="RegistryComponents" />
+      <ComponentGroupRef Id="ConfigComponents" />
+    </Feature>
+
+    <!-- Custom properties for configuration -->
+    <Property Id="SERVERURL" Secure="yes" />
+    <Property Id="AGENTID" Secure="yes" />
+    <Property Id="LOGLEVEL" Value="info" Secure="yes" />
+    <Property Id="TLSENABLED" Value="0" Secure="yes" />
+    <Property Id="TLSCAPATH" Secure="yes" />
+
+    <!-- Control Panel information -->
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/shawnbutts/keystone-core" />
+    <Property Id="ARPURLUPDATEINFO" Value="https://github.com/shawnbutts/keystone-core/releases" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/shawnbutts/keystone-core/issues" />
+    <Property Id="ARPPRODUCTICON" Value="icon.ico" />
+
+    <!-- Icon for Add/Remove Programs -->
+    <Icon Id="icon.ico" SourceFile="assets\icon.ico" />
+
+    <!-- Standard directories -->
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="KeystoneCore">
+        <Directory Id="BinFolder" Name="bin" />
+        <Directory Id="LogsFolder" Name="logs" />
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="CommonAppDataFolder">
+      <Directory Id="CONFIGFOLDER" Name="kscore" />
+    </StandardDirectory>
+
+  </Package>
+</Wix>

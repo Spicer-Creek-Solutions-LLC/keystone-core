@@ -1,0 +1,14 @@
+# Placeholder for asset files
+
+The following image files should be added for the installer UI:
+
+- icon.ico      - Application icon (256x256, multiple sizes)
+- banner.bmp    - Installer banner (493x58 pixels)
+- dialog.bmp    - Installer dialog background (493x312 pixels)
+
+These files are optional. If not present, the installer will use default WiX UI images.
+
+To create these files:
+1. Use any image editor that supports ICO and BMP formats
+2. Follow the size requirements above
+3. Use the Keystone Core branding if available

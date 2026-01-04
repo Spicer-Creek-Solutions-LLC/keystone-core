@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Keystone Core Agent - Windows Service Components
+  Configures the agent as a Windows service with SCM integration
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+
+  <Fragment>
+    <ComponentGroup Id="ServiceComponents" Directory="BinFolder">
+
+      <!-- Windows Service Installation -->
+      <Component Id="ServiceComponent" Guid="D9E0F1A2-B3C4-5678-3456-901234567890">
+
+        <!-- Service installation -->
+        <ServiceInstall Id="ServiceInstaller"
+                        Type="ownProcess"
+                        Name="KeystoneCoreAgent"
+                        DisplayName="Keystone Core Agent"
+                        Description="Keystone Core infrastructure management agent. Connects to control plane for remote execution and state management."
+                        Start="auto"
+                        Account="LocalSystem"
+                        ErrorControl="normal"
+                        Interactive="no"
+                        Vital="yes">
+
+          <!-- Service recovery options -->
+          <ServiceConfig DelayedAutoStart="no"
+                         OnInstall="yes"
+                         OnReinstall="yes"
+                         OnUninstall="no"
+                         FailureActionsWhen="failedToStop" />
+
+          <!-- Failure actions: restart on first two failures, then do nothing -->
+          <Failure ResetPeriod="86400"
+                   Command=""
+                   RebootMessage="">
+            <Action Type="restart" Delay="5000" />
+            <Action Type="restart" Delay="10000" />
+            <Action Type="none" Delay="0" />
+          </Failure>
+
+          <!-- Service dependencies -->
+          <ServiceDependency Id="Tcpip" />
+
+          <!-- Description for event log registration -->
+          <util:EventSource xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util"
+                            Name="KeystoneCore"
+                            Log="Application"
+                            EventMessageFile="[BinFolder]kscore-agent.exe"
+                            CategoryMessageFile="[BinFolder]kscore-agent.exe"
+                            ParameterMessageFile="[BinFolder]kscore-agent.exe"
+                            SupportsErrors="yes"
+                            SupportsFailureAudits="yes"
+                            SupportsInformationals="yes"
+                            SupportsSuccessAudits="yes"
+                            SupportsWarnings="yes" />
+
+        </ServiceInstall>
+
+        <!-- Service control during install/uninstall -->
+        <ServiceControl Id="ServiceControl"
+                        Name="KeystoneCoreAgent"
+                        Start="install"
+                        Stop="both"
+                        Remove="uninstall"
+                        Wait="yes" />
+
+        <!-- File association for service -->
+        <File Id="ServiceExecutable"
+              Name="kscore-agent.exe"
+              Source="$(var.BuildOutputDir)\kscore-agent.exe"
+              KeyPath="yes" />
+
+      </Component>
+
+      <!-- Environment variables for service -->
+      <Component Id="ServiceEnvironment" Guid="E0F1A2B3-C4D5-6789-4567-012345678901">
+        <Environment Id="KSCORE_CONFIG_PATH"
+                     Name="KSCORE_CONFIG_PATH"
+                     Value="[CONFIGFOLDER]agent.yaml"
+                     Permanent="no"
+                     Part="all"
+                     Action="set"
+                     System="yes" />
+      </Component>
+
+    </ComponentGroup>
+  </Fragment>
+
+  <!-- Custom actions for service configuration -->
+  <Fragment>
+    <CustomAction Id="GenerateConfig"
+                  Directory="CONFIGFOLDER"
+                  ExeCommand="[BinFolder]kscore-agent.exe --generate-config --output [CONFIGFOLDER]agent.yaml --server-url [SERVERURL] --agent-id [AGENTID] --log-level [LOGLEVEL]"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="check" />
+
+    <CustomAction Id="GenerateConfigRollback"
+                  Directory="CONFIGFOLDER"
+                  ExeCommand="cmd /c del /q [CONFIGFOLDER]agent.yaml"
+                  Execute="rollback"
+                  Impersonate="no"
+                  Return="ignore" />
+
+    <!-- Validate server URL format -->
+    <CustomAction Id="ValidateServerUrl"
+                  Property="SERVERURL"
+                  Error="Invalid SERVERURL format. Expected: nats://hostname:port or tls://hostname:port" />
+
+    <!-- Set condition for config generation -->
+    <Property Id="GENERATECONFIG" Value="1" />
+
+    <!-- Install sequence -->
+    <InstallExecuteSequence>
+      <!-- Generate config after files are installed, before service starts -->
+      <Custom Action="GenerateConfigRollback" After="InstallFiles" Condition="SERVERURL AND GENERATECONFIG=1" />
+      <Custom Action="GenerateConfig" After="GenerateConfigRollback" Condition="SERVERURL AND GENERATECONFIG=1" />
+    </InstallExecuteSequence>
+  </Fragment>
+
+</Wix>
