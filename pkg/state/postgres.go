@@ -21,8 +21,17 @@ type PostgreSQLStore struct {
 // NewPostgreSQLStore creates a new PostgreSQL store
 func NewPostgreSQLStore(config *Config) (*PostgreSQLStore, error) {
 	dsn := config.PostgreSQLDSN
+
+	// If no DSN provided, try to build from structured config
+	if dsn == "" && config.PostgreSQLConfig != nil {
+		if err := config.PostgreSQLConfig.Validate(); err != nil {
+			return nil, fmt.Errorf("invalid PostgreSQL config: %w", err)
+		}
+		dsn = config.PostgreSQLConfig.BuildDSN()
+	}
+
 	if dsn == "" {
-		return nil, fmt.Errorf("PostgreSQL DSN is required")
+		return nil, fmt.Errorf("PostgreSQL DSN is required (provide PostgreSQLDSN or PostgreSQLConfig)")
 	}
 
 	// Open database

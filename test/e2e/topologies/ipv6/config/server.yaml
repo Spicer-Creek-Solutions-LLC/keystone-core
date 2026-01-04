@@ -1,0 +1,87 @@
+# Keystone Core Server Configuration for IPv6 E2E Tests
+# This configuration runs the server in IPv6-only mode
+
+server:
+  # Listen on all IPv6 interfaces
+  listenaddr: "::"
+  grpcport: 8080
+  httpport: 8081
+  # IPv6-only mode
+  address_family: ipv6_only
+
+# NATS configuration - embedded mode with IPv6
+nats:
+  mode: embedded
+  embedded:
+    # Listen on all IPv6 interfaces
+    host: "::"
+    port: 4222
+    enablejetstream: true
+    storedir: "/var/lib/kscore/nats"
+    maxmemory: 268435456  # 256MB for testing
+    maxconnections: 100
+  jetstream:
+    enabled: true
+    storedir: "/var/lib/kscore/jetstream"
+    maxstorage: 1073741824  # 1GB for testing
+  maxreconnects: 10
+  reconnectwait: 1s
+
+# Storage configuration - SQLite for testing
+storage:
+  backend: sqlite
+  sqlite:
+    path: "/var/lib/kscore/kscore.db"
+    wal: true
+    busytimeout: 5000
+
+# Cluster configuration - IPv6
+cluster:
+  enabled: false
+  address_family: ipv6_only
+
+# TLS disabled for testing
+tls:
+  enabled: false
+
+# Auth disabled for E2E testing
+auth:
+  enabled: false
+
+# Webhook receiver for GitOps integration testing
+webhook:
+  enabled: true
+  port: 8082
+  path: /webhooks
+  authtype: none
+  handlers:
+    - argocd
+    - flux
+    - github
+    - gitlab
+
+# Policy engine for policy enforcement testing
+policy:
+  enabled: true
+  engine: both
+  enforcementmode: enforce
+  policies:
+    # Security policy - OPA (Rego)
+    - id: security-no-root-commands
+      name: No Root Commands
+      description: Blocks commands that require root privileges
+      type: opa
+      category: security
+      severity: high
+      enabled: true
+      code: |
+        package keystone.security
+
+        default allow = true
+
+        deny[msg] {
+          input.command == "rm"
+          contains(input.args[_], "-rf")
+          contains(input.args[_], "/")
+          msg := "Recursive deletion of root paths is not allowed"
+        }

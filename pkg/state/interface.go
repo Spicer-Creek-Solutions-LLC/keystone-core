@@ -2,6 +2,9 @@ package state
 
 import (
 	"context"
+	"fmt"
+	"net"
+	"strings"
 	"time"
 
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
@@ -183,8 +186,8 @@ type Config struct {
 	Backend string
 
 	// SQLite specific
-	SQLitePath       string
-	SQLiteWAL        bool
+	SQLitePath        string
+	SQLiteWAL         bool
 	SQLiteBusyTimeout int
 
 	// PostgreSQL specific
@@ -192,4 +195,155 @@ type Config struct {
 	PostgreSQLMaxOpen     int
 	PostgreSQLMaxIdle     int
 	PostgreSQLConnMaxLife time.Duration
+
+	// PostgreSQL structured config (alternative to DSN)
+	// If PostgreSQLConfig is set and PostgreSQLDSN is empty, DSN will be built from config
+	PostgreSQLConfig *PostgreSQLConfig
+}
+
+// PostgreSQLConfig holds structured PostgreSQL connection configuration.
+// This provides an alternative to specifying a raw DSN, with proper IPv6 support.
+type PostgreSQLConfig struct {
+	// Host is the PostgreSQL server address.
+	// IPv6 addresses should be specified without brackets (e.g., "2001:db8::1")
+	// Brackets will be added automatically when building the DSN.
+	Host string `yaml:"host" mapstructure:"host"`
+
+	// Port is the PostgreSQL server port (default: 5432)
+	Port int `yaml:"port" mapstructure:"port"`
+
+	// Database is the database name
+	Database string `yaml:"database" mapstructure:"database"`
+
+	// User is the database user
+	User string `yaml:"user" mapstructure:"user"`
+
+	// Password is the database password
+	Password string `yaml:"password" mapstructure:"password"`
+
+	// SSLMode specifies the SSL connection mode.
+	// Valid values: disable, allow, prefer, require, verify-ca, verify-full
+	SSLMode string `yaml:"sslmode" mapstructure:"sslmode"`
+
+	// SSLRootCert is the path to the root CA certificate
+	SSLRootCert string `yaml:"sslrootcert" mapstructure:"sslrootcert"`
+
+	// SSLCert is the path to the client certificate
+	SSLCert string `yaml:"sslcert" mapstructure:"sslcert"`
+
+	// SSLKey is the path to the client key
+	SSLKey string `yaml:"sslkey" mapstructure:"sslkey"`
+
+	// ConnectTimeout is the connection timeout in seconds
+	ConnectTimeout int `yaml:"connect_timeout" mapstructure:"connect_timeout"`
+
+	// ApplicationName identifies the connecting application
+	ApplicationName string `yaml:"application_name" mapstructure:"application_name"`
+}
+
+// BuildDSN constructs a PostgreSQL connection string (DSN) from the structured config.
+// IPv6 addresses are automatically wrapped in brackets as required by PostgreSQL.
+func (c *PostgreSQLConfig) BuildDSN() string {
+	if c == nil {
+		return ""
+	}
+
+	// Format host for IPv6 - PostgreSQL requires brackets around IPv6 addresses
+	host := c.Host
+	if host != "" && isIPv6Address(host) {
+		// Strip any existing brackets and re-add them
+		host = strings.Trim(host, "[]")
+		host = "[" + host + "]"
+	}
+
+	// Build DSN with required fields
+	var parts []string
+
+	if host != "" {
+		parts = append(parts, "host="+host)
+	}
+	if c.Port > 0 {
+		parts = append(parts, fmt.Sprintf("port=%d", c.Port))
+	}
+	if c.Database != "" {
+		parts = append(parts, "dbname="+c.Database)
+	}
+	if c.User != "" {
+		parts = append(parts, "user="+c.User)
+	}
+	if c.Password != "" {
+		parts = append(parts, "password="+c.Password)
+	}
+	if c.SSLMode != "" {
+		parts = append(parts, "sslmode="+c.SSLMode)
+	}
+	if c.SSLRootCert != "" {
+		parts = append(parts, "sslrootcert="+c.SSLRootCert)
+	}
+	if c.SSLCert != "" {
+		parts = append(parts, "sslcert="+c.SSLCert)
+	}
+	if c.SSLKey != "" {
+		parts = append(parts, "sslkey="+c.SSLKey)
+	}
+	if c.ConnectTimeout > 0 {
+		parts = append(parts, fmt.Sprintf("connect_timeout=%d", c.ConnectTimeout))
+	}
+	if c.ApplicationName != "" {
+		parts = append(parts, "application_name="+c.ApplicationName)
+	}
+
+	return strings.Join(parts, " ")
+}
+
+// Validate checks the PostgreSQLConfig for common errors.
+func (c *PostgreSQLConfig) Validate() error {
+	if c == nil {
+		return fmt.Errorf("postgresql config is nil")
+	}
+	if c.Host == "" {
+		return fmt.Errorf("postgresql host is required")
+	}
+	if c.Database == "" {
+		return fmt.Errorf("postgresql database is required")
+	}
+
+	// Validate SSL mode if specified
+	validSSLModes := map[string]bool{
+		"":            true, // empty is allowed
+		"disable":     true,
+		"allow":       true,
+		"prefer":      true,
+		"require":     true,
+		"verify-ca":   true,
+		"verify-full": true,
+	}
+	if !validSSLModes[c.SSLMode] {
+		return fmt.Errorf("invalid sslmode: %s", c.SSLMode)
+	}
+
+	return nil
+}
+
+// isIPv6Address checks if the given string is an IPv6 address.
+// It handles addresses with and without brackets and zone IDs.
+func isIPv6Address(addr string) bool {
+	// Remove brackets if present
+	addr = strings.Trim(addr, "[]")
+
+	// Remove zone ID if present (e.g., "fe80::1%eth0")
+	if idx := strings.Index(addr, "%"); idx != -1 {
+		addr = addr[:idx]
+	}
+
+	// Check for IPv6 address format (contains colons but not a port number pattern)
+	// IPv6 addresses always contain at least 2 colons
+	colonCount := strings.Count(addr, ":")
+	if colonCount < 2 {
+		return false
+	}
+
+	// Parse to verify it's a valid IP
+	ip := net.ParseIP(addr)
+	return ip != nil && ip.To4() == nil
 }

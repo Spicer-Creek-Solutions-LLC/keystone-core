@@ -1,0 +1,24 @@
+# Agent configuration for agent-web-1 (IPv6)
+nats:
+  mode: external
+  # Connect to server via IPv6 address
+  url: "nats://[fd00:kscore::10]:4222"
+  maxreconnects: 30
+  reconnectwait: 2s
+
+agent:
+  id: "agent-ipv6-web-1"
+  heartbeatinterval: 5s
+  commandtimeout: 60s
+  metadatainterval: 30s
+  address_family: ipv6_only
+  labels:
+    role: webserver
+    environment: test
+    network: ipv6
+
+tls:
+  enabled: false
+
+auth:
+  enabled: false

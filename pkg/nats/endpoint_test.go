@@ -717,3 +717,252 @@ func TestEndpoint_HasCredentials(t *testing.T) {
 		})
 	}
 }
+
+// Dual-stack filtering tests (Epic 18: IPv6 Support - T2.2)
+
+func TestEndpointList_FilterByAddressFamily(t *testing.T) {
+	list := EndpointList{
+		{Host: "nats1.example.com", Port: 4222},   // hostname (treated as IPv4)
+		{Host: "192.168.1.1", Port: 4222},         // IPv4
+		{Host: "::1", Port: 4222},                 // IPv6
+		{Host: "2001:db8::1", Port: 4222},         // IPv6
+		{Host: "10.0.0.1", Port: 4222},            // IPv4
+	}
+
+	t.Run("filter IPv4", func(t *testing.T) {
+		ipv4 := list.FilterIPv4()
+		if len(ipv4) != 3 {
+			t.Errorf("expected 3 IPv4 endpoints, got %d", len(ipv4))
+		}
+	})
+
+	t.Run("filter IPv6", func(t *testing.T) {
+		ipv6 := list.FilterIPv6()
+		if len(ipv6) != 2 {
+			t.Errorf("expected 2 IPv6 endpoints, got %d", len(ipv6))
+		}
+	})
+
+	t.Run("filter by address family false", func(t *testing.T) {
+		ipv4 := list.FilterByAddressFamily(false)
+		if len(ipv4) != 3 {
+			t.Errorf("expected 3 IPv4 endpoints, got %d", len(ipv4))
+		}
+	})
+
+	t.Run("filter by address family true", func(t *testing.T) {
+		ipv6 := list.FilterByAddressFamily(true)
+		if len(ipv6) != 2 {
+			t.Errorf("expected 2 IPv6 endpoints, got %d", len(ipv6))
+		}
+	})
+}
+
+func TestEndpointList_HasIPv4(t *testing.T) {
+	tests := []struct {
+		name string
+		list EndpointList
+		want bool
+	}{
+		{
+			name: "empty list",
+			list: EndpointList{},
+			want: false,
+		},
+		{
+			name: "only IPv4",
+			list: EndpointList{
+				{Host: "192.168.1.1", Port: 4222},
+			},
+			want: true,
+		},
+		{
+			name: "only IPv6",
+			list: EndpointList{
+				{Host: "::1", Port: 4222},
+			},
+			want: false,
+		},
+		{
+			name: "mixed",
+			list: EndpointList{
+				{Host: "192.168.1.1", Port: 4222},
+				{Host: "::1", Port: 4222},
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.list.HasIPv4(); got != tt.want {
+				t.Errorf("HasIPv4() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestEndpointList_HasIPv6(t *testing.T) {
+	tests := []struct {
+		name string
+		list EndpointList
+		want bool
+	}{
+		{
+			name: "empty list",
+			list: EndpointList{},
+			want: false,
+		},
+		{
+			name: "only IPv4",
+			list: EndpointList{
+				{Host: "192.168.1.1", Port: 4222},
+			},
+			want: false,
+		},
+		{
+			name: "only IPv6",
+			list: EndpointList{
+				{Host: "::1", Port: 4222},
+			},
+			want: true,
+		},
+		{
+			name: "mixed",
+			list: EndpointList{
+				{Host: "192.168.1.1", Port: 4222},
+				{Host: "::1", Port: 4222},
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.list.HasIPv6(); got != tt.want {
+				t.Errorf("HasIPv6() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestEndpointList_IsDualStack(t *testing.T) {
+	tests := []struct {
+		name string
+		list EndpointList
+		want bool
+	}{
+		{
+			name: "empty list",
+			list: EndpointList{},
+			want: false,
+		},
+		{
+			name: "only IPv4",
+			list: EndpointList{
+				{Host: "192.168.1.1", Port: 4222},
+				{Host: "10.0.0.1", Port: 4222},
+			},
+			want: false,
+		},
+		{
+			name: "only IPv6",
+			list: EndpointList{
+				{Host: "::1", Port: 4222},
+				{Host: "2001:db8::1", Port: 4222},
+			},
+			want: false,
+		},
+		{
+			name: "dual stack",
+			list: EndpointList{
+				{Host: "192.168.1.1", Port: 4222},
+				{Host: "::1", Port: 4222},
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.list.IsDualStack(); got != tt.want {
+				t.Errorf("IsDualStack() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestEndpointList_OrderByAddressFamilyPreference(t *testing.T) {
+	list := EndpointList{
+		{Host: "192.168.1.1", Port: 4222, Priority: 0}, // IPv4, priority 0
+		{Host: "::1", Port: 4222, Priority: 1},          // IPv6, priority 1
+		{Host: "10.0.0.1", Port: 4222, Priority: 2},     // IPv4, priority 2
+		{Host: "2001:db8::1", Port: 4222, Priority: 3},  // IPv6, priority 3
+	}
+
+	t.Run("prefer IPv4", func(t *testing.T) {
+		ordered := list.OrderByAddressFamilyPreference(false, false)
+		if len(ordered) != 4 {
+			t.Fatalf("expected 4 endpoints, got %d", len(ordered))
+		}
+		// First two should be IPv4
+		if ordered[0].Host != "192.168.1.1" {
+			t.Errorf("first endpoint should be 192.168.1.1, got %s", ordered[0].Host)
+		}
+		if ordered[1].Host != "10.0.0.1" {
+			t.Errorf("second endpoint should be 10.0.0.1, got %s", ordered[1].Host)
+		}
+		// Last two should be IPv6
+		if ordered[2].Host != "::1" {
+			t.Errorf("third endpoint should be ::1, got %s", ordered[2].Host)
+		}
+		if ordered[3].Host != "2001:db8::1" {
+			t.Errorf("fourth endpoint should be 2001:db8::1, got %s", ordered[3].Host)
+		}
+	})
+
+	t.Run("prefer IPv6", func(t *testing.T) {
+		ordered := list.OrderByAddressFamilyPreference(true, false)
+		if len(ordered) != 4 {
+			t.Fatalf("expected 4 endpoints, got %d", len(ordered))
+		}
+		// First two should be IPv6
+		if ordered[0].Host != "::1" {
+			t.Errorf("first endpoint should be ::1, got %s", ordered[0].Host)
+		}
+		if ordered[1].Host != "2001:db8::1" {
+			t.Errorf("second endpoint should be 2001:db8::1, got %s", ordered[1].Host)
+		}
+		// Last two should be IPv4
+		if ordered[2].Host != "192.168.1.1" {
+			t.Errorf("third endpoint should be 192.168.1.1, got %s", ordered[2].Host)
+		}
+		if ordered[3].Host != "10.0.0.1" {
+			t.Errorf("fourth endpoint should be 10.0.0.1, got %s", ordered[3].Host)
+		}
+	})
+
+	t.Run("IPv4 only", func(t *testing.T) {
+		ordered := list.OrderByAddressFamilyPreference(false, true)
+		if len(ordered) != 2 {
+			t.Fatalf("expected 2 endpoints, got %d", len(ordered))
+		}
+		for _, ep := range ordered {
+			if ep.IsIPv6() {
+				t.Errorf("should only have IPv4, got %s", ep.Host)
+			}
+		}
+	})
+
+	t.Run("IPv6 only", func(t *testing.T) {
+		ordered := list.OrderByAddressFamilyPreference(true, true)
+		if len(ordered) != 2 {
+			t.Fatalf("expected 2 endpoints, got %d", len(ordered))
+		}
+		for _, ep := range ordered {
+			if !ep.IsIPv6() {
+				t.Errorf("should only have IPv6, got %s", ep.Host)
+			}
+		}
+	})
+}

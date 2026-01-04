@@ -5,8 +5,9 @@
 # Or run from test/e2e directory with: make <target>
 
 .PHONY: all build test test-quick test-full test-topology test-scenario \
-        test-exec test-agent test-gitops test-ha test-performance test-scale \
-        test-throughput clean logs shell help images up down
+        test-exec test-agent test-gitops test-ha test-ipv6 test-performance test-scale \
+        test-throughput clean logs shell help images up down \
+        ipv6-up ipv6-down ipv6-logs ipv6-status
 
 # Default target
 all: test-quick
@@ -148,6 +149,50 @@ test-ha: images
 		go test $(GO_TEST_FLAGS) -timeout 900s ./topology/... -run "HACluster"
 
 #------------------------------------------------------------------------------
+# IPv6 Tests
+#------------------------------------------------------------------------------
+
+# IPv6 topology configuration
+IPV6_COMPOSE_FILE := topologies/ipv6/docker-compose.yml
+IPV6_PROJECT_NAME := kscore-e2e-ipv6
+
+## Build IPv6 container images
+ipv6-images:
+	@echo "$(GREEN)Building IPv6 E2E test images...$(NC)"
+	$(COMPOSE_CMD) -f $(IPV6_COMPOSE_FILE) -p $(IPV6_PROJECT_NAME) build
+
+## Start IPv6 test environment
+ipv6-up: ipv6-images
+	@echo "$(GREEN)Starting IPv6 E2E test environment...$(NC)"
+	$(COMPOSE_CMD) -f $(IPV6_COMPOSE_FILE) -p $(IPV6_PROJECT_NAME) up -d --wait
+	@echo "$(GREEN)IPv6 environment is ready$(NC)"
+
+## Stop IPv6 test environment
+ipv6-down:
+	@echo "$(YELLOW)Stopping IPv6 E2E test environment...$(NC)"
+	$(COMPOSE_CMD) -f $(IPV6_COMPOSE_FILE) -p $(IPV6_PROJECT_NAME) down -v --remove-orphans
+
+## Show IPv6 container status
+ipv6-status:
+	$(COMPOSE_CMD) -f $(IPV6_COMPOSE_FILE) -p $(IPV6_PROJECT_NAME) ps
+
+## Show IPv6 container logs
+ipv6-logs:
+	$(COMPOSE_CMD) -f $(IPV6_COMPOSE_FILE) -p $(IPV6_PROJECT_NAME) logs -f
+
+## Run IPv6 E2E tests
+test-ipv6: ipv6-images
+	@echo "$(GREEN)Running IPv6 E2E tests...$(NC)"
+	KSCORE_E2E_TESTS=1 KSCORE_TOPOLOGY=ipv6 KSCORE_ROOT=$(shell cd ../.. && pwd) \
+		go test $(GO_TEST_FLAGS) -timeout $(TIMEOUT)s ./topology/... -run "IPv6"
+
+## Run quick IPv6 tests (skip image build)
+test-ipv6-quick:
+	@echo "$(GREEN)Running IPv6 E2E tests (skip build)...$(NC)"
+	KSCORE_E2E_TESTS=1 KSCORE_TOPOLOGY=ipv6 KSCORE_SKIP_BUILD=1 KSCORE_ROOT=$(shell cd ../.. && pwd) \
+		go test $(GO_TEST_FLAGS) -timeout $(TIMEOUT)s ./topology/... -run "IPv6"
+
+#------------------------------------------------------------------------------
 # Performance Tests
 #------------------------------------------------------------------------------
 
@@ -254,6 +299,8 @@ help:
 	@echo "  test-agent        Run agent lifecycle tests"
 	@echo "  test-gitops       Run GitOps webhook tests"
 	@echo "  test-ha           Run HA cluster tests"
+	@echo "  test-ipv6         Run IPv6 E2E tests"
+	@echo "  test-ipv6-quick   Run IPv6 tests (skip build)"
 	@echo "  test-performance  Run all performance tests"
 	@echo "  test-scale        Run agent scale tests"
 	@echo "  test-throughput   Run throughput tests"
@@ -265,6 +312,13 @@ help:
 	@echo "  down              Stop test environment"
 	@echo "  restart           Restart test environment"
 	@echo "  status            Show container status"
+	@echo ""
+	@echo "IPv6 Environment Targets:"
+	@echo "  ipv6-images       Build IPv6 container images"
+	@echo "  ipv6-up           Start IPv6 test environment"
+	@echo "  ipv6-down         Stop IPv6 test environment"
+	@echo "  ipv6-status       Show IPv6 container status"
+	@echo "  ipv6-logs         Show IPv6 container logs"
 	@echo ""
 	@echo "Debugging Targets:"
 	@echo "  logs              Show all container logs"

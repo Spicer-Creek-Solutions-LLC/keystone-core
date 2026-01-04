@@ -4623,7 +4623,7 @@ Implementation order:
 15. **Epic 15** (Observability Enhancements) - ✅ COMPLETE - Depends on Epic 7, 14 (NATS telemetry transport, stdout/syslog logging, CLI audit)
 16. **Epic 16** (Stdlib System Modules) - ✅ COMPLETE - Depends on Epic 3, 8 (84 cross-platform system management modules)
 17. **Epic 17** (SPIFFE Identity) - ✅ COMPLETE (All 6 phases) - Depends on Epic 1, 11, 14 (embedded SPIFFE provider, SPIRE/cloud/mesh integration, trust federation, 332 tests)
-18. **Epic 18** (IPv6 Support) - 🔲 PLANNED - Depends on Epic 1, 11, 14 (full IPv6 and dual-stack support for all components)
+18. **Epic 18** (IPv6 Support) - ✅ COMPLETE - Depends on Epic 1, 11, 14 (full IPv6 and dual-stack support for all components, E2E test topology)
 19. **Epic 19** (Observability Gateway) - 🔲 PLANNED - Depends on Epic 7, 14, 15 (telemetry gateway for isolated agents, Prometheus/Loki/Tempo bridge)
 20. **Epic 20** (Windows Support) - ✅ COMPLETE (All 7 phases) - Depends on Epic 1, 2, 3, 13 (Windows service, PowerShell/Cmd execution, state modules, file operations, MSI installer)
 

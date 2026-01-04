@@ -17,12 +17,23 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
+// NetworkInfo contains detailed network addressing information
+type NetworkInfo struct {
+	IPv4Addresses []string // All IPv4 addresses (excluding link-local)
+	IPv6Addresses []string // All IPv6 addresses (excluding link-local)
+	AllAddresses  []string // Combined list for backward compatibility
+	IsDualStack   bool     // True if both IPv4 and IPv6 addresses are available
+}
+
 // Metadata represents agent system metadata
 type Metadata struct {
 	Hostname        string
 	OS              string
 	Architecture    string
-	IPAddresses     []string
+	IPAddresses     []string // Deprecated: use NetworkInfo.AllAddresses
+	IPv4Addresses   []string // All IPv4 addresses (excluding link-local)
+	IPv6Addresses   []string // All IPv6 addresses (excluding link-local)
+	IsDualStack     bool     // True if both address families available
 	PlatformVersion string
 	AgentVersion    string
 	Labels          map[string]string
@@ -37,16 +48,16 @@ type Metadata struct {
 	IsContainer        bool
 	ContainerType      string
 	// Hardware information
-	CPUModel       string
-	CPUCores       int
-	CPUThreads     int
-	MemoryTotal    uint64 // bytes
+	CPUModel        string
+	CPUCores        int
+	CPUThreads      int
+	MemoryTotal     uint64 // bytes
 	MemoryAvailable uint64 // bytes
-	DiskCount      int
-	NetworkCount   int
-	SystemVendor   string
-	SystemProduct  string
-	SystemUUID     string
+	DiskCount       int
+	NetworkCount    int
+	SystemVendor    string
+	SystemProduct   string
+	SystemUUID      string
 }
 
 // CollectMetadata gathers system information about the agent
@@ -68,14 +79,17 @@ func CollectMetadata() (*Metadata, error) {
 	// Get platform version (simplified - could be more detailed per OS)
 	metadata.PlatformVersion = runtime.Version()
 
-	// Get IP addresses
-	ipAddresses, err := getIPAddresses()
+	// Get IP addresses with IPv4/IPv6 separation
+	networkInfo, err := CollectNetworkInfo()
 	if err != nil {
 		// Don't fail, just log warning
 		fmt.Printf("Warning: failed to get IP addresses: %v\n", err)
-		ipAddresses = []string{}
+		networkInfo = &NetworkInfo{}
 	}
-	metadata.IPAddresses = ipAddresses
+	metadata.IPAddresses = networkInfo.AllAddresses // Backward compatibility
+	metadata.IPv4Addresses = networkInfo.IPv4Addresses
+	metadata.IPv6Addresses = networkInfo.IPv6Addresses
+	metadata.IsDualStack = networkInfo.IsDualStack
 
 	// Collect platform information using platform detection
 	platformInfo, err := platform.Detect()
@@ -121,9 +135,13 @@ func CollectMetadata() (*Metadata, error) {
 	return metadata, nil
 }
 
-// getIPAddresses retrieves all non-loopback IP addresses
-func getIPAddresses() ([]string, error) {
-	var ips []string
+// CollectNetworkInfo gathers network information with separate IPv4/IPv6 addresses
+func CollectNetworkInfo() (*NetworkInfo, error) {
+	info := &NetworkInfo{
+		IPv4Addresses: []string{},
+		IPv6Addresses: []string{},
+		AllAddresses:  []string{},
+	}
 
 	interfaces, err := net.Interfaces()
 	if err != nil {
@@ -154,12 +172,57 @@ func getIPAddresses() ([]string, error) {
 				continue
 			}
 
-			// Prefer IPv4, but include IPv6
-			ips = append(ips, ip.String())
+			// Check for IPv4
+			if ip4 := ip.To4(); ip4 != nil {
+				// Skip IPv4 link-local (169.254.x.x)
+				if isIPv4LinkLocal(ip4) {
+					continue
+				}
+				info.IPv4Addresses = append(info.IPv4Addresses, ip4.String())
+				info.AllAddresses = append(info.AllAddresses, ip4.String())
+			} else if ip6 := ip.To16(); ip6 != nil {
+				// Skip IPv6 link-local (fe80::/10)
+				if isIPv6LinkLocal(ip6) {
+					continue
+				}
+				info.IPv6Addresses = append(info.IPv6Addresses, ip6.String())
+				info.AllAddresses = append(info.AllAddresses, ip6.String())
+			}
 		}
 	}
 
-	return ips, nil
+	// Determine dual-stack status
+	info.IsDualStack = len(info.IPv4Addresses) > 0 && len(info.IPv6Addresses) > 0
+
+	return info, nil
+}
+
+// isIPv4LinkLocal returns true if the IP is a link-local address (169.254.0.0/16)
+func isIPv4LinkLocal(ip net.IP) bool {
+	if ip4 := ip.To4(); ip4 != nil {
+		return ip4[0] == 169 && ip4[1] == 254
+	}
+	return false
+}
+
+// isIPv6LinkLocal returns true if the IP is a link-local address (fe80::/10)
+func isIPv6LinkLocal(ip net.IP) bool {
+	// Link-local IPv6 addresses start with fe80::/10
+	// This means first 10 bits are 1111111010, so first byte is 0xfe
+	// and second byte has upper 2 bits as 10 (0x80-0xbf range)
+	if len(ip) != net.IPv6len {
+		return false
+	}
+	return ip[0] == 0xfe && (ip[1]&0xc0) == 0x80
+}
+
+// getIPAddresses is deprecated, use CollectNetworkInfo instead
+func getIPAddresses() ([]string, error) {
+	info, err := CollectNetworkInfo()
+	if err != nil {
+		return nil, err
+	}
+	return info.AllAddresses, nil
 }
 
 // SystemMetrics represents current system resource usage

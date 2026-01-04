@@ -570,3 +570,220 @@ func TestConfigGetGRPCAddress(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "192.168.1.100:9090", addr)
 }
+
+func TestConfigGetGRPCAddress_IPv6(t *testing.T) {
+	cfg := &Config{
+		AdvertiseAddress: "2001:db8::1",
+		GRPCPort:         9090,
+	}
+
+	addr, err := cfg.GetGRPCAddress()
+	require.NoError(t, err)
+	assert.Equal(t, "[2001:db8::1]:9090", addr)
+}
+
+func TestAddressFamilyPreference_String(t *testing.T) {
+	tests := []struct {
+		pref AddressFamilyPreference
+		want string
+	}{
+		{PreferIPv4, "prefer_ipv4"},
+		{PreferIPv6, "prefer_ipv6"},
+		{IPv4Only, "ipv4_only"},
+		{IPv6Only, "ipv6_only"},
+		{AddressFamilyPreference(99), "unknown"},
+	}
+
+	for _, tt := range tests {
+		assert.Equal(t, tt.want, tt.pref.String())
+	}
+}
+
+func TestParseAddressFamilyPreference(t *testing.T) {
+	tests := []struct {
+		input   string
+		want    AddressFamilyPreference
+		wantErr bool
+	}{
+		{"prefer_ipv4", PreferIPv4, false},
+		{"preferipv4", PreferIPv4, false},
+		{"prefer-ipv4", PreferIPv4, false},
+		{"prefer_ipv6", PreferIPv6, false},
+		{"preferipv6", PreferIPv6, false},
+		{"prefer-ipv6", PreferIPv6, false},
+		{"ipv4_only", IPv4Only, false},
+		{"ipv4only", IPv4Only, false},
+		{"ipv4-only", IPv4Only, false},
+		{"ipv4", IPv4Only, false},
+		{"ipv6_only", IPv6Only, false},
+		{"ipv6only", IPv6Only, false},
+		{"ipv6-only", IPv6Only, false},
+		{"ipv6", IPv6Only, false},
+		{"invalid", PreferIPv4, true},
+	}
+
+	for _, tt := range tests {
+		got, err := ParseAddressFamilyPreference(tt.input)
+		if tt.wantErr {
+			assert.Error(t, err, "input=%s", tt.input)
+		} else {
+			assert.NoError(t, err, "input=%s", tt.input)
+			assert.Equal(t, tt.want, got, "input=%s", tt.input)
+		}
+	}
+}
+
+func TestIsIPv6Address(t *testing.T) {
+	tests := []struct {
+		addr string
+		want bool
+	}{
+		// IPv6 addresses
+		{"::1", true},
+		{"2001:db8::1", true},
+		{"fe80::1", true},
+		{"[2001:db8::1]", true}, // With brackets
+		{"[::1]", true},
+		// IPv4 addresses
+		{"192.168.1.1", false},
+		{"10.0.0.1", false},
+		{"127.0.0.1", false},
+		// Invalid
+		{"invalid", false},
+		{"", false},
+	}
+
+	for _, tt := range tests {
+		got := IsIPv6Address(tt.addr)
+		assert.Equal(t, tt.want, got, "addr=%s", tt.addr)
+	}
+}
+
+func TestFormatHostPort(t *testing.T) {
+	tests := []struct {
+		host string
+		port int
+		want string
+	}{
+		// IPv4
+		{"192.168.1.1", 2379, "192.168.1.1:2379"},
+		{"10.0.0.1", 9090, "10.0.0.1:9090"},
+		{"localhost", 8080, "localhost:8080"},
+		// IPv6
+		{"::1", 2379, "[::1]:2379"},
+		{"2001:db8::1", 2379, "[2001:db8::1]:2379"},
+		{"fe80::1", 9090, "[fe80::1]:9090"},
+	}
+
+	for _, tt := range tests {
+		got := FormatHostPort(tt.host, tt.port)
+		assert.Equal(t, tt.want, got, "host=%s port=%d", tt.host, tt.port)
+	}
+}
+
+func TestFormatEtcdURL(t *testing.T) {
+	tests := []struct {
+		host   string
+		port   int
+		useTLS bool
+		want   string
+	}{
+		// HTTP
+		{"localhost", 2379, false, "http://localhost:2379"},
+		{"192.168.1.1", 2379, false, "http://192.168.1.1:2379"},
+		{"::1", 2379, false, "http://[::1]:2379"},
+		{"2001:db8::1", 2380, false, "http://[2001:db8::1]:2380"},
+		// HTTPS
+		{"localhost", 2379, true, "https://localhost:2379"},
+		{"192.168.1.1", 2379, true, "https://192.168.1.1:2379"},
+		{"::1", 2379, true, "https://[::1]:2379"},
+		{"2001:db8::1", 2380, true, "https://[2001:db8::1]:2380"},
+	}
+
+	for _, tt := range tests {
+		got := FormatEtcdURL(tt.host, tt.port, tt.useTLS)
+		assert.Equal(t, tt.want, got, "host=%s port=%d useTLS=%v", tt.host, tt.port, tt.useTLS)
+	}
+}
+
+func TestEtcdEmbeddedConfig_GetAddresses(t *testing.T) {
+	t.Run("defaults", func(t *testing.T) {
+		cfg := DefaultEtcdEmbeddedConfig()
+		assert.Equal(t, "localhost", cfg.GetListenAddress())
+		assert.Equal(t, "localhost", cfg.GetAdvertiseAddress())
+	})
+
+	t.Run("with listen address", func(t *testing.T) {
+		cfg := DefaultEtcdEmbeddedConfig()
+		cfg.ListenAddress = "0.0.0.0"
+		assert.Equal(t, "0.0.0.0", cfg.GetListenAddress())
+		assert.Equal(t, "0.0.0.0", cfg.GetAdvertiseAddress()) // Falls back to listen
+	})
+
+	t.Run("with both addresses", func(t *testing.T) {
+		cfg := DefaultEtcdEmbeddedConfig()
+		cfg.ListenAddress = "0.0.0.0"
+		cfg.AdvertiseAddress = "192.168.1.100"
+		assert.Equal(t, "0.0.0.0", cfg.GetListenAddress())
+		assert.Equal(t, "192.168.1.100", cfg.GetAdvertiseAddress())
+	})
+
+	t.Run("IPv6 listen address", func(t *testing.T) {
+		cfg := DefaultEtcdEmbeddedConfig()
+		cfg.ListenAddress = "::"
+		assert.Equal(t, "::", cfg.GetListenAddress())
+		assert.Equal(t, "::", cfg.GetAdvertiseAddress())
+	})
+
+	t.Run("IPv6 advertise address", func(t *testing.T) {
+		cfg := DefaultEtcdEmbeddedConfig()
+		cfg.ListenAddress = "::"
+		cfg.AdvertiseAddress = "2001:db8::1"
+		assert.Equal(t, "::", cfg.GetListenAddress())
+		assert.Equal(t, "2001:db8::1", cfg.GetAdvertiseAddress())
+	})
+}
+
+func TestEtcdEmbeddedConfig_GetURLs(t *testing.T) {
+	t.Run("default IPv4", func(t *testing.T) {
+		cfg := DefaultEtcdEmbeddedConfig()
+		assert.Equal(t, "http://localhost:2379", cfg.GetClientListenURL(false))
+		assert.Equal(t, "http://localhost:2379", cfg.GetClientAdvertiseURL(false))
+		assert.Equal(t, "http://localhost:2380", cfg.GetPeerListenURL(false))
+		assert.Equal(t, "http://localhost:2380", cfg.GetPeerAdvertiseURL(false))
+		assert.Equal(t, "localhost:2379", cfg.GetClientEndpoint())
+	})
+
+	t.Run("IPv6 loopback", func(t *testing.T) {
+		cfg := DefaultEtcdEmbeddedConfig()
+		cfg.ListenAddress = "::1"
+		assert.Equal(t, "http://[::1]:2379", cfg.GetClientListenURL(false))
+		assert.Equal(t, "http://[::1]:2379", cfg.GetClientAdvertiseURL(false))
+		assert.Equal(t, "http://[::1]:2380", cfg.GetPeerListenURL(false))
+		assert.Equal(t, "http://[::1]:2380", cfg.GetPeerAdvertiseURL(false))
+		assert.Equal(t, "[::1]:2379", cfg.GetClientEndpoint())
+	})
+
+	t.Run("IPv6 global", func(t *testing.T) {
+		cfg := DefaultEtcdEmbeddedConfig()
+		cfg.ListenAddress = "::"
+		cfg.AdvertiseAddress = "2001:db8::1"
+		assert.Equal(t, "http://[::]:2379", cfg.GetClientListenURL(false))
+		assert.Equal(t, "http://[2001:db8::1]:2379", cfg.GetClientAdvertiseURL(false))
+		assert.Equal(t, "http://[::]:2380", cfg.GetPeerListenURL(false))
+		assert.Equal(t, "http://[2001:db8::1]:2380", cfg.GetPeerAdvertiseURL(false))
+		assert.Equal(t, "[2001:db8::1]:2379", cfg.GetClientEndpoint())
+	})
+
+	t.Run("with TLS", func(t *testing.T) {
+		cfg := DefaultEtcdEmbeddedConfig()
+		cfg.ListenAddress = "2001:db8::1"
+		assert.Equal(t, "https://[2001:db8::1]:2379", cfg.GetClientListenURL(true))
+		assert.Equal(t, "https://[2001:db8::1]:2380", cfg.GetPeerListenURL(true))
+	})
+}
+
+func TestDefaultConfig_AddressFamilyPreference(t *testing.T) {
+	cfg := DefaultConfig()
+	assert.Equal(t, PreferIPv4, cfg.AddressFamilyPreference)
+}

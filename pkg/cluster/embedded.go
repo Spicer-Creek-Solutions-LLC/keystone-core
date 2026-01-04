@@ -86,26 +86,37 @@ func (s *EmbeddedEtcdServer) Start(ctx context.Context) error {
 	// Data directory
 	embedCfg.Dir = dataDir
 
-	// Client URLs
-	clientURL, err := url.Parse(fmt.Sprintf("http://localhost:%d", cfg.ClientPort))
-	if err != nil {
-		return fmt.Errorf("failed to parse client URL: %w", err)
-	}
-	embedCfg.ListenClientUrls = []url.URL{*clientURL}
-	embedCfg.AdvertiseClientUrls = []url.URL{*clientURL}
+	// Determine if TLS is enabled (for URL scheme)
+	useTLS := false // TODO: Add TLS support for embedded etcd
 
-	// Peer URLs
-	peerURL, err := url.Parse(fmt.Sprintf("http://localhost:%d", cfg.PeerPort))
+	// Client URLs - use configurable listen/advertise addresses with IPv6 support
+	clientListenURL, err := url.Parse(cfg.GetClientListenURL(useTLS))
 	if err != nil {
-		return fmt.Errorf("failed to parse peer URL: %w", err)
+		return fmt.Errorf("failed to parse client listen URL: %w", err)
 	}
-	embedCfg.ListenPeerUrls = []url.URL{*peerURL}
-	embedCfg.AdvertisePeerUrls = []url.URL{*peerURL}
+	clientAdvertiseURL, err := url.Parse(cfg.GetClientAdvertiseURL(useTLS))
+	if err != nil {
+		return fmt.Errorf("failed to parse client advertise URL: %w", err)
+	}
+	embedCfg.ListenClientUrls = []url.URL{*clientListenURL}
+	embedCfg.AdvertiseClientUrls = []url.URL{*clientAdvertiseURL}
+
+	// Peer URLs - use configurable listen/advertise addresses with IPv6 support
+	peerListenURL, err := url.Parse(cfg.GetPeerListenURL(useTLS))
+	if err != nil {
+		return fmt.Errorf("failed to parse peer listen URL: %w", err)
+	}
+	peerAdvertiseURL, err := url.Parse(cfg.GetPeerAdvertiseURL(useTLS))
+	if err != nil {
+		return fmt.Errorf("failed to parse peer advertise URL: %w", err)
+	}
+	embedCfg.ListenPeerUrls = []url.URL{*peerListenURL}
+	embedCfg.AdvertisePeerUrls = []url.URL{*peerAdvertiseURL}
 
 	// Cluster configuration
 	if cfg.InitialCluster == "" {
-		// Single-node cluster
-		embedCfg.InitialCluster = fmt.Sprintf("%s=http://localhost:%d", memberName, cfg.PeerPort)
+		// Single-node cluster - use advertise URL
+		embedCfg.InitialCluster = fmt.Sprintf("%s=%s", memberName, cfg.GetPeerAdvertiseURL(useTLS))
 	} else {
 		embedCfg.InitialCluster = cfg.InitialCluster
 	}
@@ -187,8 +198,9 @@ func (s *EmbeddedEtcdServer) IsRunning() bool {
 }
 
 // ClientEndpoint returns the client endpoint for connecting to this server.
+// Returns a properly formatted endpoint with IPv6 bracket support.
 func (s *EmbeddedEtcdServer) ClientEndpoint() string {
-	return fmt.Sprintf("localhost:%d", s.config.Embedded.ClientPort)
+	return s.config.Embedded.GetClientEndpoint()
 }
 
 // DataDir returns the data directory path.

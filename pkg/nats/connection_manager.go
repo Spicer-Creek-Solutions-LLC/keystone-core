@@ -107,6 +107,36 @@ func DefaultCircuitBreakerConfig() *CircuitBreakerConfig {
 	}
 }
 
+// AddressFamilyPreference specifies the address family preference for connections
+type AddressFamilyPreference int
+
+const (
+	// PreferIPv4 prefers IPv4 but falls back to IPv6 if unavailable
+	PreferIPv4 AddressFamilyPreference = iota
+	// PreferIPv6 prefers IPv6 but falls back to IPv4 if unavailable
+	PreferIPv6
+	// IPv4Only only connects to IPv4 endpoints
+	IPv4Only
+	// IPv6Only only connects to IPv6 endpoints
+	IPv6Only
+)
+
+// String returns the string representation of the preference
+func (p AddressFamilyPreference) String() string {
+	switch p {
+	case PreferIPv4:
+		return "prefer_ipv4"
+	case PreferIPv6:
+		return "prefer_ipv6"
+	case IPv4Only:
+		return "ipv4_only"
+	case IPv6Only:
+		return "ipv6_only"
+	default:
+		return "unknown"
+	}
+}
+
 // ConnectionManagerConfig configures the connection manager
 type ConnectionManagerConfig struct {
 	// EndpointConfig is the multi-endpoint configuration
@@ -132,6 +162,9 @@ type ConnectionManagerConfig struct {
 
 	// RetryBackoffMultiplier is the backoff multiplier
 	RetryBackoffMultiplier float64
+
+	// AddressFamilyPreference controls which address family to prefer
+	AddressFamilyPreference AddressFamilyPreference
 
 	// ConnectionCallbacks are called on connection state changes
 	ConnectionCallbacks ConnectionCallbacks
@@ -256,13 +289,44 @@ func (m *PooledConnectionManager) connectToNextEndpoint() error {
 	return errors.New("no available endpoints")
 }
 
-// getOrderedEndpoints returns endpoints ordered by priority and health
+// getOrderedEndpoints returns endpoints ordered by priority, address family preference, and health
 func (m *PooledConnectionManager) getOrderedEndpoints() []*EndpointState {
 	ordered := make([]*EndpointState, len(m.endpoints))
 	copy(ordered, m.endpoints)
 
+	// Filter by address family if configured for strict mode
+	switch m.config.AddressFamilyPreference {
+	case IPv4Only:
+		filtered := make([]*EndpointState, 0, len(ordered))
+		for _, s := range ordered {
+			if !s.Endpoint.IsIPv6() {
+				filtered = append(filtered, s)
+			}
+		}
+		ordered = filtered
+	case IPv6Only:
+		filtered := make([]*EndpointState, 0, len(ordered))
+		for _, s := range ordered {
+			if s.Endpoint.IsIPv6() {
+				filtered = append(filtered, s)
+			}
+		}
+		ordered = filtered
+	}
+
+	// Determine if IPv6 is preferred
+	preferIPv6 := m.config.AddressFamilyPreference == PreferIPv6 || m.config.AddressFamilyPreference == IPv6Only
+
 	sort.Slice(ordered, func(i, j int) bool {
-		// First by priority (lower is better)
+		// First by address family preference (if prefer mode, not only mode)
+		if m.config.AddressFamilyPreference == PreferIPv4 || m.config.AddressFamilyPreference == PreferIPv6 {
+			iIsPreferred := ordered[i].Endpoint.IsIPv6() == preferIPv6
+			jIsPreferred := ordered[j].Endpoint.IsIPv6() == preferIPv6
+			if iIsPreferred != jIsPreferred {
+				return iIsPreferred // Preferred family comes first
+			}
+		}
+		// Then by priority (lower is better)
 		if ordered[i].Endpoint.Priority != ordered[j].Endpoint.Priority {
 			return ordered[i].Endpoint.Priority < ordered[j].Endpoint.Priority
 		}

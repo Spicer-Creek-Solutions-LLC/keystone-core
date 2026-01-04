@@ -271,14 +271,20 @@ type AgentMetadata struct {
 	Os string `protobuf:"bytes,2,opt,name=os,proto3" json:"os,omitempty"`
 	// Architecture (amd64, arm64)
 	Arch string `protobuf:"bytes,3,opt,name=arch,proto3" json:"arch,omitempty"`
-	// IP addresses
+	// IP addresses (deprecated: use ipv4_addresses and ipv6_addresses)
 	IpAddresses []string `protobuf:"bytes,4,rep,name=ip_addresses,json=ipAddresses,proto3" json:"ip_addresses,omitempty"`
 	// Platform version (kernel version, OS version)
 	PlatformVersion string `protobuf:"bytes,5,opt,name=platform_version,json=platformVersion,proto3" json:"platform_version,omitempty"`
 	// Keystone Core agent version
 	AgentVersion string `protobuf:"bytes,6,opt,name=agent_version,json=agentVersion,proto3" json:"agent_version,omitempty"`
 	// Custom labels/tags
-	Labels        map[string]string `protobuf:"bytes,7,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Labels map[string]string `protobuf:"bytes,7,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// IPv4 addresses (excluding link-local)
+	Ipv4Addresses []string `protobuf:"bytes,8,rep,name=ipv4_addresses,json=ipv4Addresses,proto3" json:"ipv4_addresses,omitempty"`
+	// IPv6 addresses (excluding link-local)
+	Ipv6Addresses []string `protobuf:"bytes,9,rep,name=ipv6_addresses,json=ipv6Addresses,proto3" json:"ipv6_addresses,omitempty"`
+	// True if both IPv4 and IPv6 addresses are available
+	IsDualStack   bool `protobuf:"varint,10,opt,name=is_dual_stack,json=isDualStack,proto3" json:"is_dual_stack,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -360,6 +366,27 @@ func (x *AgentMetadata) GetLabels() map[string]string {
 		return x.Labels
 	}
 	return nil
+}
+
+func (x *AgentMetadata) GetIpv4Addresses() []string {
+	if x != nil {
+		return x.Ipv4Addresses
+	}
+	return nil
+}
+
+func (x *AgentMetadata) GetIpv6Addresses() []string {
+	if x != nil {
+		return x.Ipv6Addresses
+	}
+	return nil
+}
+
+func (x *AgentMetadata) GetIsDualStack() bool {
+	if x != nil {
+		return x.IsDualStack
+	}
+	return false
 }
 
 // AgentCredentials contains authentication information
@@ -1049,7 +1076,7 @@ const file_agent_proto_rawDesc = "" +
 	"\x10RegisterResponse\x12\x19\n" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12?\n" +
 	"\rregistered_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\fregisteredAt\x125\n" +
-	"\x06config\x18\x03 \x01(\v2\x1d.keystone.core.v1.AgentConfigR\x06config\"\xc2\x02\n" +
+	"\x06config\x18\x03 \x01(\v2\x1d.keystone.core.v1.AgentConfigR\x06config\"\xb4\x03\n" +
 	"\rAgentMetadata\x12\x1a\n" +
 	"\bhostname\x18\x01 \x01(\tR\bhostname\x12\x0e\n" +
 	"\x02os\x18\x02 \x01(\tR\x02os\x12\x12\n" +
@@ -1057,7 +1084,11 @@ const file_agent_proto_rawDesc = "" +
 	"\fip_addresses\x18\x04 \x03(\tR\vipAddresses\x12)\n" +
 	"\x10platform_version\x18\x05 \x01(\tR\x0fplatformVersion\x12#\n" +
 	"\ragent_version\x18\x06 \x01(\tR\fagentVersion\x12C\n" +
-	"\x06labels\x18\a \x03(\v2+.keystone.core.v1.AgentMetadata.LabelsEntryR\x06labels\x1a9\n" +
+	"\x06labels\x18\a \x03(\v2+.keystone.core.v1.AgentMetadata.LabelsEntryR\x06labels\x12%\n" +
+	"\x0eipv4_addresses\x18\b \x03(\tR\ripv4Addresses\x12%\n" +
+	"\x0eipv6_addresses\x18\t \x03(\tR\ripv6Addresses\x12\"\n" +
+	"\ris_dual_stack\x18\n" +
+	" \x01(\bR\visDualStack\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\\\n" +

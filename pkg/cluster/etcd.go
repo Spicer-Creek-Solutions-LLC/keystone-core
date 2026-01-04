@@ -586,7 +586,8 @@ func (c *EtcdClient) Health(ctx context.Context) error {
 	}
 
 	if c.config.Mode == EtcdModeEmbedded {
-		endpoints = []string{fmt.Sprintf("localhost:%d", c.config.Embedded.ClientPort)}
+		// Use the configured client endpoint with IPv6 support
+		endpoints = []string{c.config.Embedded.GetClientEndpoint()}
 	}
 
 	for _, ep := range endpoints {
@@ -600,9 +601,10 @@ func (c *EtcdClient) Health(ctx context.Context) error {
 }
 
 // Endpoints returns the configured etcd endpoints.
+// For embedded mode, returns the client endpoint with proper IPv6 formatting.
 func (c *EtcdClient) Endpoints() []string {
 	if c.config.Mode == EtcdModeEmbedded {
-		return []string{fmt.Sprintf("localhost:%d", c.config.Embedded.ClientPort)}
+		return []string{c.config.Embedded.GetClientEndpoint()}
 	}
 	return c.config.Endpoints
 }

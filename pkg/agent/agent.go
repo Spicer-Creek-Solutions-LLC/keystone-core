@@ -160,7 +160,10 @@ func (a *Agent) register() error {
 			Hostname:        a.metadata.Hostname,
 			Os:              a.metadata.OS,
 			Arch:            a.metadata.Architecture,
-			IpAddresses:     a.metadata.IPAddresses,
+			IpAddresses:     a.metadata.IPAddresses, // Deprecated, kept for backward compatibility
+			Ipv4Addresses:   a.metadata.IPv4Addresses,
+			Ipv6Addresses:   a.metadata.IPv6Addresses,
+			IsDualStack:     a.metadata.IsDualStack,
 			PlatformVersion: a.metadata.PlatformVersion,
 			AgentVersion:    a.metadata.AgentVersion,
 			Labels:          a.metadata.Labels,

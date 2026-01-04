@@ -733,3 +733,238 @@ func TestMembershipManager_AddMember(t *testing.T) {
 		assert.NotNil(t, manager)
 	})
 }
+
+// IPv6 Support Tests
+
+func TestMembershipManager_IPv6Support(t *testing.T) {
+	t.Run("create local member with IPv6 advertise address", func(t *testing.T) {
+		config := DefaultConfig()
+		config.Enabled = true
+		config.ClusterName = "test-cluster"
+		config.MemberID = "ipv6-member"
+		config.MemberName = "IPv6 Member"
+		config.AdvertiseAddress = "2001:db8::1"
+		config.AddressFamilyPreference = PreferIPv6
+
+		etcdConfig := DefaultEtcdConfig()
+		etcdClient, err := NewEtcdClient(etcdConfig, "")
+		require.NoError(t, err)
+
+		manager, err := NewMembershipManager(config, etcdClient)
+		require.NoError(t, err)
+
+		member, err := manager.createLocalMember()
+		require.NoError(t, err)
+		assert.Equal(t, "ipv6-member", member.ID)
+		assert.Equal(t, "IPv6 Member", member.Name)
+		assert.Equal(t, "2001:db8::1", member.Address)
+		// gRPC address should have brackets for IPv6 (default port is 9090)
+		assert.Equal(t, "[2001:db8::1]:9090", member.GRPCAddress)
+		assert.Equal(t, MemberStatusHealthy, member.Status)
+	})
+
+	t.Run("create local member with IPv6 loopback", func(t *testing.T) {
+		config := DefaultConfig()
+		config.Enabled = true
+		config.ClusterName = "test-cluster"
+		config.AdvertiseAddress = "::1"
+		config.AddressFamilyPreference = IPv6Only
+
+		etcdConfig := DefaultEtcdConfig()
+		etcdClient, err := NewEtcdClient(etcdConfig, "")
+		require.NoError(t, err)
+
+		manager, err := NewMembershipManager(config, etcdClient)
+		require.NoError(t, err)
+
+		member, err := manager.createLocalMember()
+		require.NoError(t, err)
+		assert.Equal(t, "::1", member.Address)
+		assert.Equal(t, "[::1]:9090", member.GRPCAddress)
+	})
+}
+
+func TestAddMemberRequest_IPv6Validation(t *testing.T) {
+	tests := []struct {
+		name        string
+		request     *AddMemberRequest
+		expectError bool
+	}{
+		{
+			name: "IPv6 address without brackets",
+			request: &AddMemberRequest{
+				Address: "[2001:db8::1]:8080",
+			},
+			expectError: false,
+		},
+		{
+			name: "IPv6 loopback with port",
+			request: &AddMemberRequest{
+				Address: "[::1]:8080",
+			},
+			expectError: false,
+		},
+		{
+			name: "IPv6 full address",
+			request: &AddMemberRequest{
+				ID:          "ipv6-node",
+				Name:        "IPv6 Node",
+				Address:     "[2001:db8:85a3::8a2e:370:7334]:8080",
+				GRPCAddress: "[2001:db8:85a3::8a2e:370:7334]:50051",
+				NATSAddress: "[2001:db8:85a3::8a2e:370:7334]:4222",
+			},
+			expectError: false,
+		},
+		{
+			name: "dual stack - IPv6 main, IPv4 NATS",
+			request: &AddMemberRequest{
+				Address:     "[2001:db8::1]:8080",
+				GRPCAddress: "[2001:db8::1]:50051",
+				NATSAddress: "192.168.1.100:4222",
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.request.Validate()
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestMembershipManager_AddMember_IPv6(t *testing.T) {
+	t.Run("add member with IPv6 address", func(t *testing.T) {
+		config := DefaultConfig()
+		config.Enabled = true
+		config.ClusterName = "test-cluster"
+		config.AdvertiseAddress = "127.0.0.1"
+
+		etcdConfig := DefaultEtcdConfig()
+		etcdClient, err := NewEtcdClient(etcdConfig, "")
+		require.NoError(t, err)
+
+		manager, err := NewMembershipManager(config, etcdClient)
+		require.NoError(t, err)
+
+		// Pre-add an IPv4 member
+		manager.mu.Lock()
+		manager.members["ipv4-member"] = &Member{
+			ID:      "ipv4-member",
+			Address: "192.168.1.100:8080",
+		}
+		manager.mu.Unlock()
+
+		// Try to add IPv6 member - should be allowed (different address)
+		ctx := testContextWithTimeout(t)
+		_, err = manager.AddMember(ctx, &AddMemberRequest{
+			ID:      "ipv6-member",
+			Address: "[2001:db8::1]:8080",
+		})
+		// Expect etcd error, not validation error (validates IPv6 is accepted)
+		if err != nil {
+			assert.Contains(t, err.Error(), "etcd")
+		}
+	})
+
+	t.Run("IPv6 address collision detection", func(t *testing.T) {
+		config := DefaultConfig()
+		config.Enabled = true
+		config.ClusterName = "test-cluster"
+		config.AdvertiseAddress = "127.0.0.1"
+
+		etcdConfig := DefaultEtcdConfig()
+		etcdClient, err := NewEtcdClient(etcdConfig, "")
+		require.NoError(t, err)
+
+		manager, err := NewMembershipManager(config, etcdClient)
+		require.NoError(t, err)
+
+		// Pre-add an IPv6 member
+		manager.mu.Lock()
+		manager.members["ipv6-member-1"] = &Member{
+			ID:      "ipv6-member-1",
+			Address: "[2001:db8::1]:8080",
+		}
+		manager.mu.Unlock()
+
+		// Try to add another member with same IPv6 address - should fail
+		ctx := testContextWithTimeout(t)
+		_, err = manager.AddMember(ctx, &AddMemberRequest{
+			ID:      "ipv6-member-2",
+			Address: "[2001:db8::1]:8080", // Same address
+		})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "already in use")
+	})
+}
+
+func TestMember_IPv6Addresses(t *testing.T) {
+	t.Run("member with IPv6 addresses", func(t *testing.T) {
+		member := &Member{
+			ID:          "ipv6-member",
+			Name:        "IPv6 Test Member",
+			Address:     "[2001:db8::1]:8080",
+			GRPCAddress: "[2001:db8::1]:50051",
+			NATSAddress: "[2001:db8::1]:4222",
+			Status:      MemberStatusHealthy,
+		}
+
+		// Clone should preserve IPv6 addresses
+		clone := member.Clone()
+		assert.Equal(t, "[2001:db8::1]:8080", clone.Address)
+		assert.Equal(t, "[2001:db8::1]:50051", clone.GRPCAddress)
+		assert.Equal(t, "[2001:db8::1]:4222", clone.NATSAddress)
+	})
+
+	t.Run("cluster info with IPv6 members", func(t *testing.T) {
+		config := DefaultConfig()
+		config.Enabled = true
+		config.ClusterName = "ipv6-cluster"
+		config.AdvertiseAddress = "127.0.0.1"
+
+		etcdConfig := DefaultEtcdConfig()
+		etcdClient, err := NewEtcdClient(etcdConfig, "")
+		require.NoError(t, err)
+
+		manager, err := NewMembershipManager(config, etcdClient)
+		require.NoError(t, err)
+
+		// Add IPv6 members
+		manager.mu.Lock()
+		manager.members["member-1"] = &Member{
+			ID:      "member-1",
+			Address: "[2001:db8::1]:8080",
+			Status:  MemberStatusHealthy,
+		}
+		manager.members["member-2"] = &Member{
+			ID:      "member-2",
+			Address: "[2001:db8::2]:8080",
+			Status:  MemberStatusHealthy,
+		}
+		manager.members["member-3"] = &Member{
+			ID:       "member-3",
+			Address:  "[2001:db8::3]:8080",
+			Status:   MemberStatusHealthy,
+			IsLeader: true,
+		}
+		manager.mu.Unlock()
+
+		info := manager.GetClusterInfo()
+		assert.Equal(t, 3, info.MemberCount)
+		assert.Equal(t, 3, info.HealthyCount)
+		assert.Equal(t, "member-3", info.LeaderID)
+		assert.True(t, info.HasQuorum)
+		assert.Equal(t, ClusterStatusHealthy, info.Status)
+
+		// Verify members have correct IPv6 addresses
+		for _, m := range info.Members {
+			assert.Contains(t, m.Address, "2001:db8::")
+		}
+	})
+}

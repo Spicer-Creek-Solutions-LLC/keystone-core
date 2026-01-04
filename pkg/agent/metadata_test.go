@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"net"
 	"runtime"
 	"testing"
 )
@@ -126,4 +127,136 @@ func TestGetIPAddresses(t *testing.T) {
 	if ips == nil {
 		t.Error("IP addresses should return a slice, even if empty")
 	}
+}
+
+func TestCollectNetworkInfo(t *testing.T) {
+	info, err := CollectNetworkInfo()
+	if err != nil {
+		t.Logf("Warning: Failed to collect network info: %v", err)
+	}
+
+	if info == nil {
+		t.Fatal("NetworkInfo should not be nil")
+	}
+
+	// All slices should be initialized (even if empty)
+	if info.IPv4Addresses == nil {
+		t.Error("IPv4Addresses should be initialized")
+	}
+	if info.IPv6Addresses == nil {
+		t.Error("IPv6Addresses should be initialized")
+	}
+	if info.AllAddresses == nil {
+		t.Error("AllAddresses should be initialized")
+	}
+
+	// AllAddresses should equal IPv4 + IPv6
+	expectedLen := len(info.IPv4Addresses) + len(info.IPv6Addresses)
+	if len(info.AllAddresses) != expectedLen {
+		t.Errorf("AllAddresses length mismatch: got %d, want %d (IPv4=%d, IPv6=%d)",
+			len(info.AllAddresses), expectedLen,
+			len(info.IPv4Addresses), len(info.IPv6Addresses))
+	}
+
+	// IsDualStack should be true if both families have addresses
+	expectedDualStack := len(info.IPv4Addresses) > 0 && len(info.IPv6Addresses) > 0
+	if info.IsDualStack != expectedDualStack {
+		t.Errorf("IsDualStack = %v, want %v", info.IsDualStack, expectedDualStack)
+	}
+
+	t.Logf("Network info: IPv4=%v, IPv6=%v, IsDualStack=%v",
+		info.IPv4Addresses, info.IPv6Addresses, info.IsDualStack)
+}
+
+func TestCollectMetadata_IPv6Fields(t *testing.T) {
+	metadata, err := CollectMetadata()
+	if err != nil {
+		t.Fatalf("Failed to collect metadata: %v", err)
+	}
+
+	// Verify new IPv6 fields are initialized
+	if metadata.IPv4Addresses == nil {
+		t.Error("IPv4Addresses should be initialized")
+	}
+	if metadata.IPv6Addresses == nil {
+		t.Error("IPv6Addresses should be initialized")
+	}
+
+	// IPAddresses (backward compat) should be populated
+	if metadata.IPAddresses == nil {
+		t.Error("IPAddresses should be initialized")
+	}
+
+	// IsDualStack should be consistent with addresses
+	expectedDualStack := len(metadata.IPv4Addresses) > 0 && len(metadata.IPv6Addresses) > 0
+	if metadata.IsDualStack != expectedDualStack {
+		t.Errorf("IsDualStack = %v, want %v", metadata.IsDualStack, expectedDualStack)
+	}
+
+	t.Logf("Metadata: IPv4=%v, IPv6=%v, IsDualStack=%v",
+		metadata.IPv4Addresses, metadata.IPv6Addresses, metadata.IsDualStack)
+}
+
+func TestIsIPv4LinkLocal(t *testing.T) {
+	tests := []struct {
+		name string
+		ip   string
+		want bool
+	}{
+		{"link-local low", "169.254.0.1", true},
+		{"link-local high", "169.254.255.255", true},
+		{"link-local mid", "169.254.100.50", true},
+		{"not link-local 10.x", "10.0.0.1", false},
+		{"not link-local 192.168", "192.168.1.1", false},
+		{"not link-local 172.x", "172.16.0.1", false},
+		{"public address", "8.8.8.8", false},
+		{"loopback", "127.0.0.1", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ip := parseIPForTest(t, tt.ip)
+			got := isIPv4LinkLocal(ip)
+			if got != tt.want {
+				t.Errorf("isIPv4LinkLocal(%s) = %v, want %v", tt.ip, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsIPv6LinkLocal(t *testing.T) {
+	tests := []struct {
+		name string
+		ip   string
+		want bool
+	}{
+		{"link-local fe80::", "fe80::1", true},
+		{"link-local fe80::abcd", "fe80::abcd:1234", true},
+		{"link-local febf::", "febf::1", true},
+		{"not link-local 2001:db8", "2001:db8::1", false},
+		{"not link-local ::1", "::1", false},
+		{"not link-local ff00 multicast", "ff00::1", false},
+		{"not link-local fc00 ULA", "fc00::1", false},
+		{"not link-local fd00 ULA", "fd00::1", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ip := parseIPForTest(t, tt.ip)
+			got := isIPv6LinkLocal(ip)
+			if got != tt.want {
+				t.Errorf("isIPv6LinkLocal(%s) = %v, want %v", tt.ip, got, tt.want)
+			}
+		})
+	}
+}
+
+// parseIPForTest is a test helper to parse IP addresses
+func parseIPForTest(t *testing.T, s string) net.IP {
+	t.Helper()
+	ip := net.ParseIP(s)
+	if ip == nil {
+		t.Fatalf("Failed to parse IP: %s", s)
+	}
+	return ip
 }

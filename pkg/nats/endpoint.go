@@ -464,3 +464,77 @@ func (l EndpointList) FilterByTag(tag string) EndpointList {
 	}
 	return result
 }
+
+// FilterByAddressFamily returns endpoints matching the address family.
+// IPv4 endpoints have hosts without colons, IPv6 endpoints have hosts with colons.
+func (l EndpointList) FilterByAddressFamily(ipv6 bool) EndpointList {
+	result := make(EndpointList, 0)
+	for _, ep := range l {
+		if ep.IsIPv6() == ipv6 {
+			result = append(result, ep)
+		}
+	}
+	return result
+}
+
+// FilterIPv4 returns only IPv4 endpoints.
+func (l EndpointList) FilterIPv4() EndpointList {
+	return l.FilterByAddressFamily(false)
+}
+
+// FilterIPv6 returns only IPv6 endpoints.
+func (l EndpointList) FilterIPv6() EndpointList {
+	return l.FilterByAddressFamily(true)
+}
+
+// OrderByAddressFamilyPreference returns endpoints ordered by address family preference.
+// For PreferIPv4: IPv4 endpoints first, then IPv6.
+// For PreferIPv6: IPv6 endpoints first, then IPv4.
+// For IPv4Only: only IPv4 endpoints.
+// For IPv6Only: only IPv6 endpoints.
+func (l EndpointList) OrderByAddressFamilyPreference(preferIPv6 bool, onlyPreferred bool) EndpointList {
+	if onlyPreferred {
+		return l.FilterByAddressFamily(preferIPv6)
+	}
+
+	// Create separate lists for each address family
+	var preferred, fallback EndpointList
+	for _, ep := range l {
+		if ep.IsIPv6() == preferIPv6 {
+			preferred = append(preferred, ep)
+		} else {
+			fallback = append(fallback, ep)
+		}
+	}
+
+	// Combine: preferred first, then fallback
+	result := make(EndpointList, 0, len(l))
+	result = append(result, preferred...)
+	result = append(result, fallback...)
+	return result
+}
+
+// HasIPv4 returns true if the list contains any IPv4 endpoints.
+func (l EndpointList) HasIPv4() bool {
+	for _, ep := range l {
+		if !ep.IsIPv6() {
+			return true
+		}
+	}
+	return false
+}
+
+// HasIPv6 returns true if the list contains any IPv6 endpoints.
+func (l EndpointList) HasIPv6() bool {
+	for _, ep := range l {
+		if ep.IsIPv6() {
+			return true
+		}
+	}
+	return false
+}
+
+// IsDualStack returns true if the list contains both IPv4 and IPv6 endpoints.
+func (l EndpointList) IsDualStack() bool {
+	return l.HasIPv4() && l.HasIPv6()
+}

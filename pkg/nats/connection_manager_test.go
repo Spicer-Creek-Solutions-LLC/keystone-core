@@ -662,3 +662,207 @@ func TestPooledConnectionManager_WithDifferentSchemes(t *testing.T) {
 		})
 	}
 }
+
+func TestAddressFamilyPreference_String(t *testing.T) {
+	tests := []struct {
+		pref AddressFamilyPreference
+		want string
+	}{
+		{PreferIPv4, "prefer_ipv4"},
+		{PreferIPv6, "prefer_ipv6"},
+		{IPv4Only, "ipv4_only"},
+		{IPv6Only, "ipv6_only"},
+		{AddressFamilyPreference(99), "unknown"},
+	}
+
+	for _, tt := range tests {
+		if got := tt.pref.String(); got != tt.want {
+			t.Errorf("AddressFamilyPreference(%d).String() = %s, want %s", tt.pref, got, tt.want)
+		}
+	}
+}
+
+func TestPooledConnectionManager_AddressFamilyPreference_IPv4Only(t *testing.T) {
+	config := &ConnectionManagerConfig{
+		EndpointConfig: &EndpointConfig{
+			URLs: []string{
+				"nats://192.168.1.1:4222",
+				"nats://[::1]:4222",
+				"nats://10.0.0.1:4222",
+				"nats://[2001:db8::1]:4222",
+			},
+		},
+		AddressFamilyPreference: IPv4Only,
+	}
+
+	mgr, err := NewPooledConnectionManager(config)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer mgr.Close()
+
+	// Get ordered endpoints
+	ordered := mgr.getOrderedEndpoints()
+
+	// IPv4Only should filter out all IPv6 endpoints
+	if len(ordered) != 2 {
+		t.Fatalf("got %d endpoints, want 2 (IPv4 only)", len(ordered))
+	}
+
+	for i, state := range ordered {
+		if state.Endpoint.IsIPv6() {
+			t.Errorf("endpoint[%d] is IPv6, but IPv4Only should filter them out", i)
+		}
+	}
+}
+
+func TestPooledConnectionManager_AddressFamilyPreference_IPv6Only(t *testing.T) {
+	config := &ConnectionManagerConfig{
+		EndpointConfig: &EndpointConfig{
+			URLs: []string{
+				"nats://192.168.1.1:4222",
+				"nats://[::1]:4222",
+				"nats://10.0.0.1:4222",
+				"nats://[2001:db8::1]:4222",
+			},
+		},
+		AddressFamilyPreference: IPv6Only,
+	}
+
+	mgr, err := NewPooledConnectionManager(config)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer mgr.Close()
+
+	// Get ordered endpoints
+	ordered := mgr.getOrderedEndpoints()
+
+	// IPv6Only should filter out all IPv4 endpoints
+	if len(ordered) != 2 {
+		t.Fatalf("got %d endpoints, want 2 (IPv6 only)", len(ordered))
+	}
+
+	for i, state := range ordered {
+		if !state.Endpoint.IsIPv6() {
+			t.Errorf("endpoint[%d] is IPv4, but IPv6Only should filter them out", i)
+		}
+	}
+}
+
+func TestPooledConnectionManager_AddressFamilyPreference_PreferIPv4(t *testing.T) {
+	config := &ConnectionManagerConfig{
+		EndpointConfig: &EndpointConfig{
+			URLs: []string{
+				"nats://[::1]:4222",
+				"nats://192.168.1.1:4222",
+				"nats://[2001:db8::1]:4222",
+				"nats://10.0.0.1:4222",
+			},
+		},
+		AddressFamilyPreference: PreferIPv4,
+	}
+
+	mgr, err := NewPooledConnectionManager(config)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer mgr.Close()
+
+	// Get ordered endpoints
+	ordered := mgr.getOrderedEndpoints()
+
+	// PreferIPv4 should keep all endpoints but order IPv4 first
+	if len(ordered) != 4 {
+		t.Fatalf("got %d endpoints, want 4 (all endpoints kept)", len(ordered))
+	}
+
+	// First two should be IPv4
+	for i := 0; i < 2; i++ {
+		if ordered[i].Endpoint.IsIPv6() {
+			t.Errorf("endpoint[%d] should be IPv4 (preferred), got IPv6", i)
+		}
+	}
+
+	// Last two should be IPv6
+	for i := 2; i < 4; i++ {
+		if !ordered[i].Endpoint.IsIPv6() {
+			t.Errorf("endpoint[%d] should be IPv6 (fallback), got IPv4", i)
+		}
+	}
+}
+
+func TestPooledConnectionManager_AddressFamilyPreference_PreferIPv6(t *testing.T) {
+	config := &ConnectionManagerConfig{
+		EndpointConfig: &EndpointConfig{
+			URLs: []string{
+				"nats://192.168.1.1:4222",
+				"nats://[::1]:4222",
+				"nats://10.0.0.1:4222",
+				"nats://[2001:db8::1]:4222",
+			},
+		},
+		AddressFamilyPreference: PreferIPv6,
+	}
+
+	mgr, err := NewPooledConnectionManager(config)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer mgr.Close()
+
+	// Get ordered endpoints
+	ordered := mgr.getOrderedEndpoints()
+
+	// PreferIPv6 should keep all endpoints but order IPv6 first
+	if len(ordered) != 4 {
+		t.Fatalf("got %d endpoints, want 4 (all endpoints kept)", len(ordered))
+	}
+
+	// First two should be IPv6
+	for i := 0; i < 2; i++ {
+		if !ordered[i].Endpoint.IsIPv6() {
+			t.Errorf("endpoint[%d] should be IPv6 (preferred), got IPv4", i)
+		}
+	}
+
+	// Last two should be IPv4
+	for i := 2; i < 4; i++ {
+		if ordered[i].Endpoint.IsIPv6() {
+			t.Errorf("endpoint[%d] should be IPv4 (fallback), got IPv6", i)
+		}
+	}
+}
+
+func TestPooledConnectionManager_AddressFamilyPreference_Default(t *testing.T) {
+	// Test that default (PreferIPv4) is applied when not specified
+	config := &ConnectionManagerConfig{
+		EndpointConfig: &EndpointConfig{
+			URLs: []string{
+				"nats://[::1]:4222",
+				"nats://192.168.1.1:4222",
+			},
+		},
+		// AddressFamilyPreference not set, defaults to PreferIPv4 (0)
+	}
+
+	mgr, err := NewPooledConnectionManager(config)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer mgr.Close()
+
+	if mgr.config.AddressFamilyPreference != PreferIPv4 {
+		t.Errorf("default AddressFamilyPreference = %v, want PreferIPv4", mgr.config.AddressFamilyPreference)
+	}
+
+	// Get ordered endpoints - with default PreferIPv4, IPv4 should be first
+	ordered := mgr.getOrderedEndpoints()
+	if len(ordered) != 2 {
+		t.Fatalf("got %d endpoints, want 2", len(ordered))
+	}
+
+	if ordered[0].Endpoint.IsIPv6() {
+		t.Error("first endpoint should be IPv4 (default preference)")
+	}
+}
