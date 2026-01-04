@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/shawnbutts/keystone-core/pkg/netutil"
 	"github.com/spf13/viper"
 )
 
@@ -152,12 +153,19 @@ type MTLSAuthConfig struct {
 
 // ServerConfig contains control plane server settings
 type ServerConfig struct {
-	// Listen address for API server
+	// Listen address for API server (single address, backward compatible)
+	// For IPv6, use "[::]:port" or "[::1]:port" format
 	ListenAddr string
+	// ListenAddrs for multi-address binding (dual-stack support)
+	// Example: ["[::]:8080", "0.0.0.0:8080"] for dual-stack
+	ListenAddrs []string
 	// gRPC port
 	GRPCPort int
 	// HTTP/REST port
 	HTTPPort int
+	// AddressFamily preference for outbound connections
+	// Options: prefer_ipv4, prefer_ipv6, ipv4_only, ipv6_only
+	AddressFamily string
 }
 
 // NATSConfig contains NATS connection settings
@@ -181,6 +189,7 @@ type NATSConfig struct {
 // NATSEmbeddedConfig contains settings for embedded NATS mode
 type NATSEmbeddedConfig struct {
 	// Host address for embedded NATS server (default: 127.0.0.1)
+	// For IPv6, use "::1" (loopback) or "::" (all interfaces)
 	Host string
 	// Port for embedded NATS server
 	Port int
@@ -194,6 +203,8 @@ type NATSEmbeddedConfig struct {
 	MaxConnections int
 	// Leaf node parent URLs (for leaf mode)
 	LeafNodeURLs []string
+	// AddressFamily preference: prefer_ipv4, prefer_ipv6, ipv4_only, ipv6_only
+	AddressFamily string
 }
 
 // JetStreamConfig contains JetStream settings
@@ -248,6 +259,12 @@ type AgentConfig struct {
 	CommandTimeout time.Duration
 	// System metadata collection interval
 	MetadataInterval time.Duration
+	// AddressFamily preference for outbound connections
+	// Options: prefer_ipv4, prefer_ipv6, ipv4_only, ipv6_only
+	AddressFamily string
+	// AdvertiseAddrs specifies addresses to advertise to control plane
+	// If empty, addresses are auto-detected from network interfaces
+	AdvertiseAddrs []string
 }
 
 // TLSConfig contains TLS/mTLS settings
@@ -316,11 +333,15 @@ type PolicyDefinition struct {
 
 // Default configuration values
 const (
-	DefaultServerListenAddr = "0.0.0.0"
-	DefaultGRPCPort         = 9090
-	DefaultHTTPPort         = 8080
+	DefaultServerListenAddr  = "0.0.0.0"
+	DefaultServerListenAddr6 = "::"
+	DefaultGRPCPort          = 9090
+	DefaultHTTPPort          = 8080
+	DefaultAddressFamily     = "prefer_ipv4" // prefer_ipv4, prefer_ipv6, ipv4_only, ipv6_only
 
 	DefaultNATSMode          = NATSModeEmbedded
+	DefaultNATSEmbeddedHost  = "127.0.0.1"
+	DefaultNATSEmbeddedHost6 = "::1"
 	DefaultNATSEmbeddedPort  = 4222
 	DefaultNATSMaxReconnects = -1 // unlimited
 	DefaultNATSReconnectWait = 2 * time.Second
@@ -411,10 +432,13 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("server.listenaddr", DefaultServerListenAddr)
 	v.SetDefault("server.grpcport", DefaultGRPCPort)
 	v.SetDefault("server.httpport", DefaultHTTPPort)
+	v.SetDefault("server.addressfamily", DefaultAddressFamily)
 
 	// NATS defaults
 	v.SetDefault("nats.mode", DefaultNATSMode)
+	v.SetDefault("nats.embedded.host", DefaultNATSEmbeddedHost)
 	v.SetDefault("nats.embedded.port", DefaultNATSEmbeddedPort)
+	v.SetDefault("nats.embedded.addressfamily", DefaultAddressFamily)
 	v.SetDefault("nats.embedded.enablejetstream", true)
 	v.SetDefault("nats.embedded.storedir", "./data/nats")
 	v.SetDefault("nats.embedded.maxmemory", 1024*1024*1024) // 1GB
@@ -438,6 +462,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("agent.heartbeatinterval", DefaultHeartbeatInterval)
 	v.SetDefault("agent.commandtimeout", DefaultCommandTimeout)
 	v.SetDefault("agent.metadatainterval", DefaultMetadataInterval)
+	v.SetDefault("agent.addressfamily", DefaultAddressFamily)
 
 	// TLS defaults
 	v.SetDefault("tls.enabled", false)
@@ -512,6 +537,34 @@ func (c *Config) Validate() error {
 	}
 	if c.Server.HTTPPort <= 0 || c.Server.HTTPPort > 65535 {
 		return fmt.Errorf("invalid HTTP port: %d", c.Server.HTTPPort)
+	}
+
+	// Validate address family settings
+	if err := validateAddressFamily(c.Server.AddressFamily, "server"); err != nil {
+		return err
+	}
+	if err := validateAddressFamily(c.NATS.Embedded.AddressFamily, "nats.embedded"); err != nil {
+		return err
+	}
+	if err := validateAddressFamily(c.Agent.AddressFamily, "agent"); err != nil {
+		return err
+	}
+
+	// Validate listen addresses if specified (can be host:port format)
+	for i, addr := range c.Server.ListenAddrs {
+		if _, err := netutil.ParseAddress(addr); err != nil {
+			return fmt.Errorf("invalid server.listenaddrs[%d] %q: %w", i, addr, err)
+		}
+	}
+
+	// Validate agent advertise addresses if specified (can be just IP or host:port)
+	for i, addr := range c.Agent.AdvertiseAddrs {
+		if err := netutil.ValidateAddress(addr); err != nil {
+			// Also try parsing as host:port
+			if _, err2 := netutil.ParseAddress(addr); err2 != nil {
+				return fmt.Errorf("invalid agent.advertiseaddrs[%d] %q: %w", i, addr, err)
+			}
+		}
 	}
 
 	// Validate webhook config
@@ -636,4 +689,81 @@ func (c *Config) Validate() error {
 	}
 
 	return nil
+}
+
+// validateAddressFamily validates an address family string.
+func validateAddressFamily(af, field string) error {
+	if af == "" {
+		return nil // empty uses default
+	}
+	switch af {
+	case "prefer_ipv4", "prefer_ipv6", "ipv4_only", "ipv6_only":
+		return nil
+	default:
+		return fmt.Errorf("invalid %s.addressfamily: %s (must be prefer_ipv4, prefer_ipv6, ipv4_only, or ipv6_only)", field, af)
+	}
+}
+
+// GetAddressFamilyPreference returns the AddressFamilyPreference for the server config.
+func (c *ServerConfig) GetAddressFamilyPreference() netutil.AddressFamilyPreference {
+	return parseAddressFamilyPreference(c.AddressFamily)
+}
+
+// GetEffectiveListenAddrs returns the effective listen addresses.
+// If ListenAddrs is specified, returns those. Otherwise, returns ListenAddr.
+// For dual-stack mode, returns both IPv4 and IPv6 addresses.
+func (c *ServerConfig) GetEffectiveListenAddrs() []string {
+	if len(c.ListenAddrs) > 0 {
+		return c.ListenAddrs
+	}
+	if c.ListenAddr != "" {
+		return []string{c.ListenAddr}
+	}
+	// Return default based on address family preference
+	switch c.AddressFamily {
+	case "ipv6_only":
+		return []string{DefaultServerListenAddr6}
+	case "prefer_ipv6":
+		return []string{DefaultServerListenAddr6, DefaultServerListenAddr}
+	default:
+		return []string{DefaultServerListenAddr}
+	}
+}
+
+// GetAddressFamilyPreference returns the AddressFamilyPreference for the agent config.
+func (c *AgentConfig) GetAddressFamilyPreference() netutil.AddressFamilyPreference {
+	return parseAddressFamilyPreference(c.AddressFamily)
+}
+
+// GetAddressFamilyPreference returns the AddressFamilyPreference for the embedded NATS config.
+func (c *NATSEmbeddedConfig) GetAddressFamilyPreference() netutil.AddressFamilyPreference {
+	return parseAddressFamilyPreference(c.AddressFamily)
+}
+
+// GetEffectiveHost returns the effective host for embedded NATS.
+// For IPv6-only or prefer-IPv6 modes, returns IPv6 loopback.
+func (c *NATSEmbeddedConfig) GetEffectiveHost() string {
+	if c.Host != "" {
+		return c.Host
+	}
+	switch c.AddressFamily {
+	case "ipv6_only", "prefer_ipv6":
+		return DefaultNATSEmbeddedHost6
+	default:
+		return DefaultNATSEmbeddedHost
+	}
+}
+
+// parseAddressFamilyPreference converts a string to AddressFamilyPreference.
+func parseAddressFamilyPreference(af string) netutil.AddressFamilyPreference {
+	switch af {
+	case "prefer_ipv6":
+		return netutil.PreferIPv6
+	case "ipv4_only":
+		return netutil.IPv4Only
+	case "ipv6_only":
+		return netutil.IPv6Only
+	default:
+		return netutil.PreferIPv4
+	}
 }

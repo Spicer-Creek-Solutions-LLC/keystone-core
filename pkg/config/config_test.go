@@ -316,3 +316,245 @@ func TestStorageBackend_String(t *testing.T) {
 		t.Errorf("Expected 'postgresql', got %s", StorageBackendPostgreSQL)
 	}
 }
+
+// IPv6 support tests (Epic 18)
+
+func TestValidateAddressFamily(t *testing.T) {
+	tests := []struct {
+		name    string
+		af      string
+		field   string
+		wantErr bool
+	}{
+		{"empty (uses default)", "", "server", false},
+		{"prefer_ipv4", "prefer_ipv4", "server", false},
+		{"prefer_ipv6", "prefer_ipv6", "nats.embedded", false},
+		{"ipv4_only", "ipv4_only", "agent", false},
+		{"ipv6_only", "ipv6_only", "server", false},
+		{"invalid", "invalid", "server", true},
+		{"typo", "prefer-ipv6", "server", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateAddressFamily(tt.af, tt.field)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateAddressFamily(%q, %q) error = %v, wantErr %v", tt.af, tt.field, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestServerConfig_GetAddressFamilyPreference(t *testing.T) {
+	tests := []struct {
+		name     string
+		af       string
+		expected string
+	}{
+		{"default (empty)", "", "prefer_ipv4"},
+		{"prefer_ipv4", "prefer_ipv4", "prefer_ipv4"},
+		{"prefer_ipv6", "prefer_ipv6", "prefer_ipv6"},
+		{"ipv4_only", "ipv4_only", "ipv4_only"},
+		{"ipv6_only", "ipv6_only", "ipv6_only"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := ServerConfig{AddressFamily: tt.af}
+			pref := cfg.GetAddressFamilyPreference()
+			// Just check it returns a valid preference (actual value tested in netutil)
+			if pref < 0 || pref > 3 {
+				t.Errorf("GetAddressFamilyPreference() returned invalid value: %v", pref)
+			}
+		})
+	}
+}
+
+func TestServerConfig_GetEffectiveListenAddrs(t *testing.T) {
+	tests := []struct {
+		name          string
+		listenAddr    string
+		listenAddrs   []string
+		addressFamily string
+		expected      []string
+	}{
+		{
+			name:        "single address",
+			listenAddr:  "0.0.0.0",
+			expected:    []string{"0.0.0.0"},
+		},
+		{
+			name:        "multiple addresses",
+			listenAddrs: []string{"[::]:8080", "0.0.0.0:8080"},
+			expected:    []string{"[::]:8080", "0.0.0.0:8080"},
+		},
+		{
+			name:        "listenAddrs takes precedence",
+			listenAddr:  "127.0.0.1",
+			listenAddrs: []string{"[::]:8080"},
+			expected:    []string{"[::]:8080"},
+		},
+		{
+			name:          "default prefer_ipv4",
+			addressFamily: "prefer_ipv4",
+			expected:      []string{DefaultServerListenAddr},
+		},
+		{
+			name:          "default ipv6_only",
+			addressFamily: "ipv6_only",
+			expected:      []string{DefaultServerListenAddr6},
+		},
+		{
+			name:          "default prefer_ipv6",
+			addressFamily: "prefer_ipv6",
+			expected:      []string{DefaultServerListenAddr6, DefaultServerListenAddr},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := ServerConfig{
+				ListenAddr:    tt.listenAddr,
+				ListenAddrs:   tt.listenAddrs,
+				AddressFamily: tt.addressFamily,
+			}
+			result := cfg.GetEffectiveListenAddrs()
+			if len(result) != len(tt.expected) {
+				t.Errorf("GetEffectiveListenAddrs() = %v, want %v", result, tt.expected)
+				return
+			}
+			for i, addr := range result {
+				if addr != tt.expected[i] {
+					t.Errorf("GetEffectiveListenAddrs()[%d] = %q, want %q", i, addr, tt.expected[i])
+				}
+			}
+		})
+	}
+}
+
+func TestNATSEmbeddedConfig_GetEffectiveHost(t *testing.T) {
+	tests := []struct {
+		name          string
+		host          string
+		addressFamily string
+		expected      string
+	}{
+		{"explicit host", "192.168.1.1", "", "192.168.1.1"},
+		{"explicit IPv6 host", "::1", "", "::1"},
+		{"default prefer_ipv4", "", "prefer_ipv4", DefaultNATSEmbeddedHost},
+		{"default prefer_ipv6", "", "prefer_ipv6", DefaultNATSEmbeddedHost6},
+		{"default ipv6_only", "", "ipv6_only", DefaultNATSEmbeddedHost6},
+		{"default ipv4_only", "", "ipv4_only", DefaultNATSEmbeddedHost},
+		{"default empty", "", "", DefaultNATSEmbeddedHost},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := NATSEmbeddedConfig{
+				Host:          tt.host,
+				AddressFamily: tt.addressFamily,
+			}
+			result := cfg.GetEffectiveHost()
+			if result != tt.expected {
+				t.Errorf("GetEffectiveHost() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestConfig_Validate_InvalidAddressFamily(t *testing.T) {
+	tests := []struct {
+		name   string
+		server string
+		nats   string
+		agent  string
+	}{
+		{"invalid server", "invalid", "", ""},
+		{"invalid nats", "", "bad-value", ""},
+		{"invalid agent", "", "", "wrong"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &Config{
+				Server: ServerConfig{
+					GRPCPort:      9090,
+					HTTPPort:      8080,
+					AddressFamily: tt.server,
+				},
+				NATS: NATSConfig{
+					Mode: NATSModeEmbedded,
+					Embedded: NATSEmbeddedConfig{
+						AddressFamily: tt.nats,
+					},
+				},
+				Storage: StorageConfig{
+					Backend: StorageBackendSQLite,
+				},
+				Agent: AgentConfig{
+					AddressFamily: tt.agent,
+				},
+			}
+
+			if err := cfg.Validate(); err == nil {
+				t.Error("Expected validation error for invalid address family")
+			}
+		})
+	}
+}
+
+func TestConfig_Validate_ListenAddrs(t *testing.T) {
+	// Valid addresses
+	cfg := &Config{
+		Server: ServerConfig{
+			GRPCPort:    9090,
+			HTTPPort:    8080,
+			ListenAddrs: []string{"[::]:8080", "0.0.0.0:8080"},
+		},
+		NATS: NATSConfig{
+			Mode: NATSModeEmbedded,
+		},
+		Storage: StorageConfig{
+			Backend: StorageBackendSQLite,
+		},
+	}
+
+	if err := cfg.Validate(); err != nil {
+		t.Errorf("Unexpected validation error for valid listen addresses: %v", err)
+	}
+
+	// Invalid address - malformed IPv6 brackets
+	cfg.Server.ListenAddrs = []string{"[::]:8080", "[::1:8080"}
+	if err := cfg.Validate(); err == nil {
+		t.Error("Expected validation error for malformed listen address")
+	}
+}
+
+func TestConfig_Validate_AdvertiseAddrs(t *testing.T) {
+	// Valid addresses
+	cfg := &Config{
+		Server: ServerConfig{
+			GRPCPort: 9090,
+			HTTPPort: 8080,
+		},
+		NATS: NATSConfig{
+			Mode: NATSModeEmbedded,
+		},
+		Storage: StorageConfig{
+			Backend: StorageBackendSQLite,
+		},
+		Agent: AgentConfig{
+			AdvertiseAddrs: []string{"192.168.1.100", "2001:db8::1"},
+		},
+	}
+
+	if err := cfg.Validate(); err != nil {
+		t.Errorf("Unexpected validation error for valid advertise addresses: %v", err)
+	}
+
+	// Invalid address - malformed IPv6
+	cfg.Agent.AdvertiseAddrs = []string{"192.168.1.100", "[2001:db8::1"}
+	if err := cfg.Validate(); err == nil {
+		t.Error("Expected validation error for malformed advertise address")
+	}
+}

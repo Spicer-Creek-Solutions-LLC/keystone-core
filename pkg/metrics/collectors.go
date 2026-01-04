@@ -40,6 +40,12 @@ const (
 	MetricPolicyRemediationsTotal    = "kscore_policy_remediations_total"
 	MetricComplianceScore            = "kscore_compliance_score"
 
+	// Network/IPv6 Metrics
+	MetricListenersActive            = "kscore_listeners_active"
+	MetricConnectionsTotal           = "kscore_connections_total"
+	MetricConnectionsActive          = "kscore_connections_active"
+	MetricAgentsByIPVersion          = "kscore_agents_by_ip_version"
+
 	// Cluster Metrics
 	MetricClusterMembersTotal        = "kscore_cluster_members_total"
 	MetricClusterMembersHealthy      = "kscore_cluster_members_healthy"
@@ -226,6 +232,32 @@ func InitializeStandardMetrics(collector *PrometheusCollector) error {
 			Type:   MetricTypeGauge,
 			Help:   "Compliance score by framework",
 			Labels: []string{"framework"},
+		},
+
+		// Network/IPv6 Metrics
+		{
+			Name:   MetricListenersActive,
+			Type:   MetricTypeGauge,
+			Help:   "Number of active network listeners",
+			Labels: []string{"protocol", "ip_version", "port"},
+		},
+		{
+			Name:   MetricConnectionsTotal,
+			Type:   MetricTypeCounter,
+			Help:   "Total number of connections established",
+			Labels: []string{"protocol", "ip_version"},
+		},
+		{
+			Name:   MetricConnectionsActive,
+			Type:   MetricTypeGauge,
+			Help:   "Number of currently active connections",
+			Labels: []string{"protocol", "ip_version"},
+		},
+		{
+			Name:   MetricAgentsByIPVersion,
+			Type:   MetricTypeGauge,
+			Help:   "Number of agents by IP version",
+			Labels: []string{"ip_version"},
 		},
 
 		// Cluster Metrics
@@ -545,6 +577,48 @@ func (p *PolicyCollector) RecordRemediation(policy, status string) {
 func (p *PolicyCollector) SetComplianceScore(framework string, score float64) {
 	p.collector.SetGauge(MetricComplianceScore, score, map[string]string{
 		"framework": framework,
+	})
+}
+
+// NetworkCollector provides metrics collection for network/IPv6 operations
+type NetworkCollector struct {
+	collector Collector
+}
+
+// NewNetworkCollector creates a new network metrics collector
+func NewNetworkCollector(collector Collector) *NetworkCollector {
+	return &NetworkCollector{collector: collector}
+}
+
+// SetActiveListeners sets the number of active listeners for a protocol/ip_version/port
+func (n *NetworkCollector) SetActiveListeners(protocol, ipVersion, port string, count float64) {
+	n.collector.SetGauge(MetricListenersActive, count, map[string]string{
+		"protocol":   protocol,
+		"ip_version": ipVersion,
+		"port":       port,
+	})
+}
+
+// RecordConnection records a new connection
+func (n *NetworkCollector) RecordConnection(protocol, ipVersion string) {
+	n.collector.IncCounter(MetricConnectionsTotal, map[string]string{
+		"protocol":   protocol,
+		"ip_version": ipVersion,
+	})
+}
+
+// SetActiveConnections sets the number of active connections
+func (n *NetworkCollector) SetActiveConnections(protocol, ipVersion string, count float64) {
+	n.collector.SetGauge(MetricConnectionsActive, count, map[string]string{
+		"protocol":   protocol,
+		"ip_version": ipVersion,
+	})
+}
+
+// SetAgentsByIPVersion sets the number of agents by IP version
+func (n *NetworkCollector) SetAgentsByIPVersion(ipVersion string, count float64) {
+	n.collector.SetGauge(MetricAgentsByIPVersion, count, map[string]string{
+		"ip_version": ipVersion,
 	})
 }
 

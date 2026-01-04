@@ -421,3 +421,40 @@ func TestClusterCollector(t *testing.T) {
 		clusterCollector.SetIsLeader(false)
 	})
 }
+
+func TestNetworkCollector(t *testing.T) {
+	collector := NewPrometheusCollector()
+	err := InitializeStandardMetrics(collector)
+	if err != nil {
+		t.Fatalf("Failed to initialize metrics: %v", err)
+	}
+
+	networkCollector := NewNetworkCollector(collector)
+
+	t.Run("SetActiveListeners", func(t *testing.T) {
+		networkCollector.SetActiveListeners("grpc", "ipv4", "8080", 1.0)
+		networkCollector.SetActiveListeners("grpc", "ipv6", "8080", 1.0)
+		networkCollector.SetActiveListeners("http", "ipv4", "8081", 1.0)
+		networkCollector.SetActiveListeners("http", "ipv6", "8081", 1.0)
+	})
+
+	t.Run("RecordConnection", func(t *testing.T) {
+		networkCollector.RecordConnection("grpc", "ipv4")
+		networkCollector.RecordConnection("grpc", "ipv6")
+		networkCollector.RecordConnection("http", "ipv4")
+		networkCollector.RecordConnection("http", "ipv6")
+	})
+
+	t.Run("SetActiveConnections", func(t *testing.T) {
+		networkCollector.SetActiveConnections("grpc", "ipv4", 10.0)
+		networkCollector.SetActiveConnections("grpc", "ipv6", 5.0)
+		networkCollector.SetActiveConnections("http", "ipv4", 20.0)
+		networkCollector.SetActiveConnections("http", "ipv6", 15.0)
+	})
+
+	t.Run("SetAgentsByIPVersion", func(t *testing.T) {
+		networkCollector.SetAgentsByIPVersion("ipv4", 50.0)
+		networkCollector.SetAgentsByIPVersion("ipv6", 25.0)
+		networkCollector.SetAgentsByIPVersion("dual_stack", 10.0)
+	})
+}

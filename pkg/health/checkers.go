@@ -259,6 +259,125 @@ func (c *FunctionChecker) Check(ctx context.Context) CheckResult {
 	return c.checkFn(ctx)
 }
 
+// ListenerInfo represents information about a network listener
+type ListenerInfo struct {
+	Address   string `json:"address"`
+	Protocol  string `json:"protocol"` // grpc, http
+	IPVersion string `json:"ip_version"` // ipv4, ipv6
+	Active    bool   `json:"active"`
+}
+
+// NetworkChecker checks the health of network listeners
+type NetworkChecker struct {
+	name      string
+	listeners []ListenerInfo
+}
+
+// NewNetworkChecker creates a new network health checker
+func NewNetworkChecker() *NetworkChecker {
+	return &NetworkChecker{
+		name:      "network",
+		listeners: make([]ListenerInfo, 0),
+	}
+}
+
+// Name returns the name of the checker
+func (c *NetworkChecker) Name() string {
+	return c.name
+}
+
+// AddListener adds a listener to be monitored
+func (c *NetworkChecker) AddListener(info ListenerInfo) {
+	c.listeners = append(c.listeners, info)
+}
+
+// ClearListeners clears all monitored listeners
+func (c *NetworkChecker) ClearListeners() {
+	c.listeners = make([]ListenerInfo, 0)
+}
+
+// Check performs the health check
+func (c *NetworkChecker) Check(ctx context.Context) CheckResult {
+	start := time.Now()
+	result := CheckResult{
+		Timestamp: start,
+		Details:   make(map[string]interface{}),
+	}
+
+	if len(c.listeners) == 0 {
+		result.Status = StatusUnknown
+		result.Message = "No listeners configured"
+		result.Duration = time.Since(start)
+		return result
+	}
+
+	// Count listeners by type and IP version
+	var activeCount, inactiveCount int
+	var ipv4Count, ipv6Count int
+	var grpcCount, httpCount int
+	listenerDetails := make([]map[string]interface{}, 0, len(c.listeners))
+
+	for _, listener := range c.listeners {
+		if listener.Active {
+			activeCount++
+		} else {
+			inactiveCount++
+		}
+
+		switch listener.IPVersion {
+		case "ipv4":
+			ipv4Count++
+		case "ipv6":
+			ipv6Count++
+		}
+
+		switch listener.Protocol {
+		case "grpc":
+			grpcCount++
+		case "http":
+			httpCount++
+		}
+
+		listenerDetails = append(listenerDetails, map[string]interface{}{
+			"address":    listener.Address,
+			"protocol":   listener.Protocol,
+			"ip_version": listener.IPVersion,
+			"active":     listener.Active,
+		})
+	}
+
+	result.Details["listeners"] = listenerDetails
+	result.Details["total"] = len(c.listeners)
+	result.Details["active"] = activeCount
+	result.Details["inactive"] = inactiveCount
+	result.Details["ipv4_listeners"] = ipv4Count
+	result.Details["ipv6_listeners"] = ipv6Count
+	result.Details["grpc_listeners"] = grpcCount
+	result.Details["http_listeners"] = httpCount
+	result.Details["dual_stack"] = ipv4Count > 0 && ipv6Count > 0
+
+	// Determine overall status
+	if activeCount == 0 {
+		result.Status = StatusUnhealthy
+		result.Message = "No active listeners"
+	} else if inactiveCount > 0 {
+		result.Status = StatusDegraded
+		result.Message = fmt.Sprintf("%d of %d listeners active", activeCount, len(c.listeners))
+	} else {
+		result.Status = StatusHealthy
+		if ipv4Count > 0 && ipv6Count > 0 {
+			result.Message = fmt.Sprintf("All %d listeners active (dual-stack)", activeCount)
+		} else if ipv6Count > 0 {
+			result.Message = fmt.Sprintf("All %d listeners active (IPv6)", activeCount)
+		} else {
+			result.Message = fmt.Sprintf("All %d listeners active (IPv4)", activeCount)
+		}
+	}
+
+	result.Duration = time.Since(start)
+	return result
+}
+
 // AlwaysHealthyChecker always returns healthy (for testing)
 type AlwaysHealthyChecker struct {
 	name string

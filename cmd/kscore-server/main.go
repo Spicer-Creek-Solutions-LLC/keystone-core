@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -240,24 +239,38 @@ func runServer(cmd *cobra.Command, args []string) {
 	apiServer := server.NewControlPlaneServer(connMgr, dispatcher, batchDispatcher, stateStore)
 	pb.RegisterControlPlaneServiceServer(grpcServer, apiServer)
 
-	// Start gRPC server
-	listenAddr := fmt.Sprintf("%s:%d", cfg.Server.ListenAddr, cfg.Server.GRPCPort)
-	listener, err := net.Listen("tcp", listenAddr)
+	// Start gRPC server with IPv6 support
+	grpcListenAddrs := cfg.Server.GetEffectiveListenAddrs()
+	grpcListenerCfg := &server.ListenerConfig{
+		Addresses:     grpcListenAddrs,
+		DefaultPort:   cfg.Server.GRPCPort,
+		AddressFamily: cfg.Server.GetAddressFamilyPreference(),
+	}
+	grpcListeners, err := server.CreateListeners(grpcListenerCfg)
 	if err != nil {
-		logger.Error("Failed to listen", logging.String("address", listenAddr), logging.Error(err))
+		logger.Error("Failed to create gRPC listeners", logging.Error(err))
 		os.Exit(1)
 	}
 
-	go func() {
-		logger.Info("gRPC API server listening", logging.String("address", listenAddr))
-		if err := grpcServer.Serve(listener); err != nil {
-			logger.Error("gRPC server error", logging.Error(err))
-		}
-	}()
+	// Start gRPC server on all configured listeners
+	for _, lr := range grpcListeners {
+		go func(listener *server.ListenerResult) {
+			ipVersion := "IPv4"
+			if listener.IsIPv6 {
+				ipVersion = "IPv6"
+			}
+			logger.Info("gRPC API server listening",
+				logging.String("address", listener.Address),
+				logging.String("ip_version", ipVersion),
+			)
+			if err := grpcServer.Serve(listener.Listener); err != nil {
+				logger.Error("gRPC server error", logging.Error(err))
+			}
+		}(lr)
+	}
 	defer grpcServer.GracefulStop()
 
-	// Start HTTP health server
-	httpAddr := fmt.Sprintf("%s:%d", cfg.Server.ListenAddr, cfg.Server.HTTPPort)
+	// Start HTTP health server with IPv6 support
 	httpMux := http.NewServeMux()
 
 	// Health endpoints
@@ -282,18 +295,45 @@ func runServer(cmd *cobra.Command, args []string) {
 		w.Write([]byte(fmt.Sprintf(`{"status":"ok","agents":{"total":%d,"online":%d}}`, total, online)))
 	})
 
-	httpServer := &http.Server{
-		Addr:    httpAddr,
-		Handler: httpMux,
+	// Create HTTP listeners for each address
+	httpListenerCfg := &server.ListenerConfig{
+		Addresses:     grpcListenAddrs, // Use same addresses as gRPC
+		DefaultPort:   cfg.Server.HTTPPort,
+		AddressFamily: cfg.Server.GetAddressFamilyPreference(),
+	}
+	httpListeners, err := server.CreateListeners(httpListenerCfg)
+	if err != nil {
+		logger.Error("Failed to create HTTP listeners", logging.Error(err))
+		os.Exit(1)
 	}
 
-	go func() {
-		logger.Info("HTTP health server listening", logging.String("address", httpAddr))
-		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Error("HTTP server error", logging.Error(err))
+	// Track HTTP servers for graceful shutdown
+	var httpServers []*http.Server
+	for _, lr := range httpListeners {
+		httpServer := &http.Server{
+			Handler: httpMux,
+		}
+		httpServers = append(httpServers, httpServer)
+
+		go func(srv *http.Server, listener *server.ListenerResult) {
+			ipVersion := "IPv4"
+			if listener.IsIPv6 {
+				ipVersion = "IPv6"
+			}
+			logger.Info("HTTP health server listening",
+				logging.String("address", listener.Address),
+				logging.String("ip_version", ipVersion),
+			)
+			if err := srv.Serve(listener.Listener); err != nil && err != http.ErrServerClosed {
+				logger.Error("HTTP server error", logging.Error(err))
+			}
+		}(httpServer, lr)
+	}
+	defer func() {
+		for _, srv := range httpServers {
+			srv.Shutdown(context.Background())
 		}
 	}()
-	defer httpServer.Shutdown(context.Background())
 
 	// Initialize policy engine if enabled
 	var policyEngine *policy.PolicyEngine
@@ -388,9 +428,18 @@ func runServer(cmd *cobra.Command, args []string) {
 		defer webhookReceiver.Stop(context.Background())
 	}
 
+	// Build address list for logging
+	var grpcAddrs, httpAddrs []string
+	for _, lr := range grpcListeners {
+		grpcAddrs = append(grpcAddrs, lr.Address)
+	}
+	for _, lr := range httpListeners {
+		httpAddrs = append(httpAddrs, lr.Address)
+	}
+
 	logger.Info("Keystone Core server started successfully",
-		logging.String("grpc_api", listenAddr),
-		logging.String("http_api", httpAddr),
+		logging.Any("grpc_api", grpcAddrs),
+		logging.Any("http_api", httpAddrs),
 		logging.String("storage", string(cfg.Storage.Backend)),
 		logging.Bool("auth_enabled", cfg.Auth.Enabled),
 	)

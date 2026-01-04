@@ -69,10 +69,8 @@ func (m *Manager) Start() error {
 
 // startEmbeddedServer starts an embedded NATS server
 func (m *Manager) startEmbeddedServer() error {
-	host := m.config.Embedded.Host
-	if host == "" {
-		host = "127.0.0.1"
-	}
+	// Get effective host based on address family preference
+	host := m.config.Embedded.GetEffectiveHost()
 	opts := &server.Options{
 		Host:           host,
 		Port:           m.config.Embedded.Port,
@@ -181,7 +179,13 @@ func (m *Manager) connect() error {
 	// Determine connection URL
 	url := m.config.URL
 	if m.embeddedMode && url == "" {
-		url = fmt.Sprintf("nats://127.0.0.1:%d", m.config.Embedded.Port)
+		host := m.config.Embedded.GetEffectiveHost()
+		// Format IPv6 addresses with brackets for URL
+		if isIPv6Host(host) {
+			url = fmt.Sprintf("nats://[%s]:%d", host, m.config.Embedded.Port)
+		} else {
+			url = fmt.Sprintf("nats://%s:%d", host, m.config.Embedded.Port)
+		}
 	}
 	if url == "" {
 		return fmt.Errorf("NATS URL is required for external mode")
@@ -334,4 +338,19 @@ func (m *Manager) QueueSubscribe(subject, queue string, handler nats.MsgHandler)
 	}
 
 	return conn.QueueSubscribe(subject, queue, handler)
+}
+
+// isIPv6Host returns true if the host is an IPv6 address.
+func isIPv6Host(host string) bool {
+	// Contains multiple colons (IPv6 characteristic)
+	colonCount := 0
+	for _, c := range host {
+		if c == ':' {
+			colonCount++
+			if colonCount > 1 {
+				return true
+			}
+		}
+	}
+	return false
 }

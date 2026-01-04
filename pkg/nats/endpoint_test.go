@@ -138,6 +138,75 @@ func TestParseEndpoint(t *testing.T) {
 			url:     "nats://localhost:99999",
 			wantErr: true,
 		},
+		// IPv6 test cases
+		{
+			name: "IPv6 loopback with brackets",
+			url:  "nats://[::1]:4222",
+			expected: &Endpoint{
+				URL:    "nats://[::1]:4222",
+				Scheme: SchemeNATS,
+				Host:   "::1",
+				Port:   4222,
+				Weight: 1,
+			},
+		},
+		{
+			name: "IPv6 all interfaces with brackets",
+			url:  "nats://[::]:4222",
+			expected: &Endpoint{
+				URL:    "nats://[::]:4222",
+				Scheme: SchemeNATS,
+				Host:   "::",
+				Port:   4222,
+				Weight: 1,
+			},
+		},
+		{
+			name: "IPv6 full address with brackets",
+			url:  "nats://[2001:db8::1]:4222",
+			expected: &Endpoint{
+				URL:    "nats://[2001:db8::1]:4222",
+				Scheme: SchemeNATS,
+				Host:   "2001:db8::1",
+				Port:   4222,
+				Weight: 1,
+			},
+		},
+		{
+			name: "IPv6 with credentials",
+			url:  "nats://user:pass@[::1]:4222",
+			expected: &Endpoint{
+				URL:      "nats://user:pass@[::1]:4222",
+				Scheme:   SchemeNATS,
+				Host:     "::1",
+				Port:     4222,
+				Username: "user",
+				Password: "pass",
+				Weight:   1,
+			},
+		},
+		{
+			name: "IPv6 TLS",
+			url:  "tls://[::1]:4222",
+			expected: &Endpoint{
+				URL:    "tls://[::1]:4222",
+				Scheme: SchemeTLS,
+				Host:   "::1",
+				Port:   4222,
+				Weight: 1,
+			},
+		},
+		{
+			name: "IPv6 WebSocket",
+			url:  "wss://[2001:db8::1]:443",
+			expected: &Endpoint{
+				URL:    "wss://[2001:db8::1]:443",
+				Scheme: SchemeWSS,
+				Host:   "2001:db8::1",
+				Port:   443,
+				Weight: 1,
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -219,6 +288,32 @@ func TestEndpoint_IsWebSocket(t *testing.T) {
 	}
 }
 
+func TestEndpoint_IsIPv6(t *testing.T) {
+	tests := []struct {
+		name string
+		host string
+		want bool
+	}{
+		{"hostname", "nats.example.com", false},
+		{"IPv4 address", "192.168.1.1", false},
+		{"IPv4 localhost", "127.0.0.1", false},
+		{"IPv6 loopback", "::1", true},
+		{"IPv6 all interfaces", "::", true},
+		{"IPv6 full address", "2001:db8::1", true},
+		{"IPv6 expanded", "2001:0db8:0000:0000:0000:0000:0000:0001", true},
+		{"IPv6 link-local", "fe80::1", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ep := &Endpoint{Host: tt.host}
+			if got := ep.IsIPv6(); got != tt.want {
+				t.Errorf("IsIPv6() for %s = %v, want %v", tt.host, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestEndpoint_ToNATSURL(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -253,6 +348,45 @@ func TestEndpoint_ToNATSURL(t *testing.T) {
 				Port:   4222,
 			},
 			want: "tls://nats.example.com:4222",
+		},
+		// IPv6 test cases
+		{
+			name: "IPv6 loopback",
+			endpoint: &Endpoint{
+				Scheme: SchemeNATS,
+				Host:   "::1",
+				Port:   4222,
+			},
+			want: "nats://[::1]:4222",
+		},
+		{
+			name: "IPv6 with credentials",
+			endpoint: &Endpoint{
+				Scheme:   SchemeNATS,
+				Host:     "2001:db8::1",
+				Port:     4222,
+				Username: "user",
+				Password: "pass",
+			},
+			want: "nats://user:pass@[2001:db8::1]:4222",
+		},
+		{
+			name: "IPv6 TLS",
+			endpoint: &Endpoint{
+				Scheme: SchemeTLS,
+				Host:   "::1",
+				Port:   4222,
+			},
+			want: "tls://[::1]:4222",
+		},
+		{
+			name: "IPv6 all interfaces",
+			endpoint: &Endpoint{
+				Scheme: SchemeNATS,
+				Host:   "::",
+				Port:   4222,
+			},
+			want: "nats://[::]:4222",
 		},
 	}
 
@@ -511,9 +645,44 @@ func TestDefaultEndpointConfig(t *testing.T) {
 }
 
 func TestEndpoint_Address(t *testing.T) {
-	ep := &Endpoint{Host: "nats.example.com", Port: 4222}
-	if got := ep.Address(); got != "nats.example.com:4222" {
-		t.Errorf("Address() = %s, want nats.example.com:4222", got)
+	tests := []struct {
+		name     string
+		endpoint *Endpoint
+		want     string
+	}{
+		{
+			name:     "IPv4 hostname",
+			endpoint: &Endpoint{Host: "nats.example.com", Port: 4222},
+			want:     "nats.example.com:4222",
+		},
+		{
+			name:     "IPv4 address",
+			endpoint: &Endpoint{Host: "192.168.1.1", Port: 4222},
+			want:     "192.168.1.1:4222",
+		},
+		{
+			name:     "IPv6 loopback",
+			endpoint: &Endpoint{Host: "::1", Port: 4222},
+			want:     "[::1]:4222",
+		},
+		{
+			name:     "IPv6 full address",
+			endpoint: &Endpoint{Host: "2001:db8::1", Port: 4222},
+			want:     "[2001:db8::1]:4222",
+		},
+		{
+			name:     "IPv6 all interfaces",
+			endpoint: &Endpoint{Host: "::", Port: 4222},
+			want:     "[::]:4222",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.endpoint.Address(); got != tt.want {
+				t.Errorf("Address() = %s, want %s", got, tt.want)
+			}
+		})
 	}
 }
 

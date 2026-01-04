@@ -291,12 +291,23 @@ func (e *Endpoint) String() string {
 	if e.URL != "" {
 		return e.URL
 	}
+	if e.IsIPv6() {
+		return fmt.Sprintf("%s://[%s]:%d", e.Scheme, e.Host, e.Port)
+	}
 	return fmt.Sprintf("%s://%s:%d", e.Scheme, e.Host, e.Port)
 }
 
 // Address returns the host:port string
 func (e *Endpoint) Address() string {
+	if e.IsIPv6() {
+		return fmt.Sprintf("[%s]:%d", e.Host, e.Port)
+	}
 	return fmt.Sprintf("%s:%d", e.Host, e.Port)
+}
+
+// IsIPv6 returns true if the endpoint uses an IPv6 address
+func (e *Endpoint) IsIPv6() bool {
+	return strings.Contains(e.Host, ":")
 }
 
 // IsTLS returns true if the endpoint uses TLS
@@ -329,7 +340,14 @@ func (e *Endpoint) ToNATSURL() string {
 		sb.WriteString("@")
 	}
 
-	sb.WriteString(e.Host)
+	// Wrap IPv6 addresses in brackets
+	if e.IsIPv6() {
+		sb.WriteString("[")
+		sb.WriteString(e.Host)
+		sb.WriteString("]")
+	} else {
+		sb.WriteString(e.Host)
+	}
 	sb.WriteString(":")
 	sb.WriteString(strconv.Itoa(e.Port))
 
