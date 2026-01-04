@@ -265,6 +265,8 @@ type AgentConfig struct {
 	// AdvertiseAddrs specifies addresses to advertise to control plane
 	// If empty, addresses are auto-detected from network interfaces
 	AdvertiseAddrs []string
+	// Labels are key-value pairs for agent categorization and targeting
+	Labels map[string]string
 }
 
 // TLSConfig contains TLS/mTLS settings

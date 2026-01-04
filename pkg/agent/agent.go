@@ -51,6 +51,8 @@ type AgentConfig struct {
 	MetadataInterval time.Duration
 	// CommandTimeout is the default timeout for commands
 	CommandTimeout time.Duration
+	// Labels are key-value pairs for agent categorization and targeting
+	Labels map[string]string
 }
 
 // NewAgent creates a new agent instance (legacy constructor)
@@ -85,6 +87,13 @@ func NewAgentWithConfig(natsManager *natsmgr.Manager, cfg *AgentConfig) (*Agent,
 	metadata, err := CollectMetadata()
 	if err != nil {
 		return nil, fmt.Errorf("failed to collect metadata: %w", err)
+	}
+
+	// Merge labels from config into metadata
+	if cfg.Labels != nil {
+		for k, v := range cfg.Labels {
+			metadata.Labels[k] = v
+		}
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

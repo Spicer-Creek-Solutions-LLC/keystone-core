@@ -45,10 +45,12 @@ services:
     container_name: kscore-server-ipv6
     hostname: server
     ports:
-      - "[::1]:18080:8080"   # gRPC API (IPv6 localhost)
-      - "[::1]:18081:8081"   # HTTP API / Health
-      - "[::1]:18082:8082"   # Webhook receiver
-      - "[::1]:14222:4222"   # NATS
+      # Host-facing ports use IPv4 for test harness compatibility
+      # Internal container network uses IPv6-only
+      - "127.0.0.1:8080:8080"   # gRPC API
+      - "127.0.0.1:8081:8081"   # HTTP API / Health
+      - "127.0.0.1:8082:8082"   # Webhook receiver
+      - "127.0.0.1:4222:4222"   # NATS
     volumes:
       - server-data:/var/lib/kscore
       - ./config/server.yaml:/etc/kscore/server.yaml:ro
@@ -71,7 +73,7 @@ services:
           memory: 256M
     networks:
       kscore-ipv6:
-        ipv6_address: fd00:kscore::10
+        ipv6_address: fd00:1::10
 
   # Agent 1 - Web server role (IPv6)
   agent-web-1:
@@ -92,7 +94,7 @@ services:
     <<: *default-resources
     networks:
       kscore-ipv6:
-        ipv6_address: fd00:kscore::20
+        ipv6_address: fd00:1::20
 
   # Agent 2 - Web server role (IPv6)
   agent-web-2:
@@ -113,7 +115,7 @@ services:
     <<: *default-resources
     networks:
       kscore-ipv6:
-        ipv6_address: fd00:kscore::21
+        ipv6_address: fd00:1::21
 
   # Agent 3 - Database server role (IPv6)
   agent-db-1:
@@ -134,7 +136,7 @@ services:
     <<: *default-resources
     networks:
       kscore-ipv6:
-        ipv6_address: fd00:kscore::30
+        ipv6_address: fd00:1::30
 
 networks:
   kscore-ipv6:
@@ -144,9 +146,9 @@ networks:
       driver: default
       config:
         # IPv6 ULA (Unique Local Address) range for testing
-        # fd00:kscore::/64 - private IPv6 range
-        - subnet: fd00:kscore::/64
-          gateway: fd00:kscore::1
+        # fd00:1::/64 - private IPv6 range
+        - subnet: fd00:1::/64
+          gateway: fd00:1::1
 
 volumes:
   server-data:

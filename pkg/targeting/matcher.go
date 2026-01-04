@@ -95,9 +95,14 @@ func agentToMetadata(agent *AgentInfo) map[string]string {
 			metadata["ip"] = strings.Join(agent.Metadata.IpAddresses, ",")
 		}
 
-		// Add custom labels directly to the metadata
+		// Add custom labels both with and without "labels." prefix
+		// This allows targeting like:
+		//   - "role:webserver" (direct label access)
+		//   - "labels.role:webserver" (explicit label namespace)
+		// Both forms work for backward compatibility and flexibility
 		for k, v := range agent.Metadata.Labels {
-			metadata[k] = v
+			metadata[k] = v              // Direct access (e.g., role:web)
+			metadata["labels."+k] = v    // Explicit namespace (e.g., labels.role:web)
 		}
 	}
 

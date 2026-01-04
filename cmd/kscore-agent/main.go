@@ -134,13 +134,13 @@ func runAgent(cmd *cobra.Command, args []string) {
 
 	// Create agent
 	logger.Info("Creating agent instance")
-	agnt, err := agent.NewAgent(
-		cfg.Agent.ID,
-		natsManager,
-		cfg.Agent.HeartbeatInterval,
-		cfg.Agent.MetadataInterval,
-		cfg.Agent.CommandTimeout,
-	)
+	agnt, err := agent.NewAgentWithConfig(natsManager, &agent.AgentConfig{
+		ID:                cfg.Agent.ID,
+		HeartbeatInterval: cfg.Agent.HeartbeatInterval,
+		MetadataInterval:  cfg.Agent.MetadataInterval,
+		CommandTimeout:    cfg.Agent.CommandTimeout,
+		Labels:            cfg.Agent.Labels,
+	})
 	if err != nil {
 		logger.Error("Failed to create agent", logging.Error(err))
 		os.Exit(1)
@@ -243,13 +243,13 @@ func runAsWindowsService() {
 	defer natsManager.Shutdown()
 
 	// Create agent
-	agnt, err := agent.NewAgent(
-		cfg.Agent.ID,
-		natsManager,
-		cfg.Agent.HeartbeatInterval,
-		cfg.Agent.MetadataInterval,
-		cfg.Agent.CommandTimeout,
-	)
+	agnt, err := agent.NewAgentWithConfig(natsManager, &agent.AgentConfig{
+		ID:                cfg.Agent.ID,
+		HeartbeatInterval: cfg.Agent.HeartbeatInterval,
+		MetadataInterval:  cfg.Agent.MetadataInterval,
+		CommandTimeout:    cfg.Agent.CommandTimeout,
+		Labels:            cfg.Agent.Labels,
+	})
 	if err != nil {
 		logger.Error("Failed to create agent", logging.Error(err))
 		os.Exit(1)

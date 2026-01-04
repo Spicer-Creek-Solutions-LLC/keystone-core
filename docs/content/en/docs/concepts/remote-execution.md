@@ -65,12 +65,16 @@ kscorectl exec run "df -h" --target "web-*,api-*,cache-*"
 
 ### Expression-Based Targeting
 
-Use CEL expressions for complex targeting:
+Use expressions for complex targeting:
 
 ```bash
-# All web servers in us-east-1
+# All web servers in us-east-1 (direct label access)
 kscorectl exec run "hostname" \
   --target "role:web and datacenter:us-east-1"
+
+# Same as above using explicit labels. prefix
+kscorectl exec run "hostname" \
+  --target "labels.role:web and labels.datacenter:us-east-1"
 
 # Production web or API servers
 kscorectl exec run "free -h" \
@@ -83,21 +87,38 @@ kscorectl exec run "cat /proc/meminfo" \
 # All agents except production
 kscorectl exec run "apt-get update" \
   --target "environment != 'prod'"
+
+# IPv6 network agents
+kscorectl exec run "ip -6 addr" \
+  --target "labels.network:ipv6"
 ```
 
 ### Available Fields
 
-**Agent Metadata**:
-- `agent_id` - Unique agent identifier
-- `datacenter` - Physical location (us-east-1, eu-west-1, etc.)
-- `environment` - Environment (dev, staging, prod)
-- `role` - Server role (web, api, db, cache, etc.)
+**Built-in Agent Fields**:
+- `id` - Unique agent identifier
+- `hostname` - Agent hostname
 - `os` - Operating system (linux, windows, darwin)
 - `arch` - Architecture (amd64, arm64)
+- `platform_version` - OS/kernel version
+- `agent_version` - Keystone Core agent version
+- `status` - Agent status (agent_status_online, agent_status_offline)
+- `ip` - IP addresses (comma-separated, supports glob matching)
 
-**Tags**:
-- `tags` - Custom tags (nginx, docker, kubernetes, etc.)
-- Example: `tags contains 'docker'`
+**Custom Labels** (from agent configuration):
+
+Labels can be accessed using **two equivalent syntaxes**:
+- **Direct**: `role:web`, `datacenter:us-east-1`
+- **Prefixed**: `labels.role:web`, `labels.datacenter:us-east-1`
+
+Both syntaxes work identically. The prefixed form (`labels.`) is useful when you want to be explicit that you're matching a custom label rather than a built-in field.
+
+Common custom labels:
+- `role` / `labels.role` - Server role (web, api, db, cache)
+- `datacenter` / `labels.datacenter` - Physical location
+- `environment` / `labels.environment` - Environment (dev, staging, prod)
+- `team` / `labels.team` - Owning team
+- `network` / `labels.network` - Network type (ipv4, ipv6, dual-stack)
 
 **Facts** (runtime metadata):
 - `facts.cpu_count` - CPU cores

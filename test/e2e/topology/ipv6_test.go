@@ -183,7 +183,7 @@ func TestIPv6_AgentMetadataNetworkLabel(t *testing.T) {
 
 	for _, agent := range resp.Agents {
 		// Check for network=ipv6 label
-		networkLabel, hasLabel := agent.Labels["network"]
+		networkLabel, hasLabel := agent.Metadata.Labels["network"]
 		if !hasLabel {
 			t.Errorf("IPv6 agent %s missing 'network' label", agent.AgentId)
 			continue
@@ -231,11 +231,11 @@ func TestIPv6_NetworkConnectivity(t *testing.T) {
 	defer cancel()
 
 	// Test IPv6 connectivity: ping the server from an agent
-	// Note: The server is at fd00:kscore::10 in the IPv6 topology
-	result, err := ipv6TestEnv.ExecuteCommandAndWait(ctx, "agent-ipv6-web-1", "ping6", "-c", "1", "-W", "5", "fd00:kscore::10")
+	// Note: The server is at fd00:1::10 in the IPv6 topology
+	result, err := ipv6TestEnv.ExecuteCommandAndWait(ctx, "agent-ipv6-web-1", "ping6", "-c", "1", "-W", "5", "fd00:1::10")
 	if err != nil {
 		// ping6 might not be available, try ping with -6 flag
-		result, err = ipv6TestEnv.ExecuteCommandAndWait(ctx, "agent-ipv6-web-1", "ping", "-6", "-c", "1", "-W", "5", "fd00:kscore::10")
+		result, err = ipv6TestEnv.ExecuteCommandAndWait(ctx, "agent-ipv6-web-1", "ping", "-6", "-c", "1", "-W", "5", "fd00:1::10")
 		if err != nil {
 			t.Logf("IPv6 ping not available or failed: %v", err)
 			t.Skip("Skipping IPv6 connectivity test: ping6 not available")

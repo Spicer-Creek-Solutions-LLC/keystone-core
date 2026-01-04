@@ -2,7 +2,7 @@
 nats:
   mode: external
   # Connect to server via IPv6 address
-  url: "nats://[fd00:kscore::10]:4222"
+  url: "nats://[fd00:1::10]:4222"
   maxreconnects: 30
   reconnectwait: 2s
 

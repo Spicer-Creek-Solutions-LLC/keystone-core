@@ -209,6 +209,16 @@ func TestMatcher_Match(t *testing.T) {
 			expression: "status:agent_status_online and os:linux and role:web",
 			wantIDs:    []string{"agent-1"},
 		},
+		{
+			name:       "match role with labels prefix",
+			expression: "labels.role:web",
+			wantIDs:    []string{"agent-1", "agent-4"},
+		},
+		{
+			name:       "match datacenter with labels prefix",
+			expression: "labels.datacenter:us-west and labels.env:prod",
+			wantIDs:    []string{"agent-1", "agent-2", "agent-4"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -319,6 +329,7 @@ func TestAgentToMetadata(t *testing.T) {
 	metadata := agentToMetadata(agent)
 
 	// Check all expected fields
+	// Labels are available both directly and with "labels." prefix
 	expected := map[string]string{
 		"id":               "test-agent",
 		"status":           "agent_status_online",
@@ -328,8 +339,10 @@ func TestAgentToMetadata(t *testing.T) {
 		"platform_version": "5.15.0",
 		"agent_version":    "1.0.0",
 		"ip":               "192.168.1.10,10.0.0.10",
-		"role":             "test",
-		"env":              "dev",
+		"role":             "test",        // Direct label access
+		"env":              "dev",         // Direct label access
+		"labels.role":      "test",        // Explicit namespace
+		"labels.env":       "dev",         // Explicit namespace
 	}
 
 	for key, want := range expected {
