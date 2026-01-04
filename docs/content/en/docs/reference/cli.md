@@ -3033,6 +3033,80 @@ tas web-server.yaml --target "role:web"
 tam
 ```
 
+## kscore-agent (Agent Daemon)
+
+The agent daemon runs on managed nodes. It's not invoked via kscorectl.
+
+### Running the Agent
+
+```bash
+# Run in foreground (console mode)
+kscore-agent --config /etc/kscore/agent.yaml
+
+# Show version
+kscore-agent version
+```
+
+### Windows Service Commands
+
+On Windows, the agent can run as a Windows service:
+
+```powershell
+# Install as Windows service
+kscore-agent service-install
+
+# Uninstall Windows service
+kscore-agent service-uninstall
+
+# Start the service
+kscore-agent service-start
+
+# Stop the service
+kscore-agent service-stop
+
+# Check service status
+kscore-agent service-status
+```
+
+**Service Configuration**:
+- **Name**: kscore-agent
+- **Display Name**: Keystone Core Agent
+- **Startup Type**: Automatic (Delayed Start)
+- **Account**: Local System
+- **Recovery**: Restart on failure (5s, 30s, 60s delays)
+
+**Note**: Service commands require Administrator privileges and are only available on Windows.
+
+### Agent Flags
+
+```
+--config string   Config file path
+                  Linux/macOS: /etc/kscore/agent.yaml
+                  Windows: C:\ProgramData\kscore\agent.yaml
+-h, --help        Show help
+```
+
+## kscore-server (Control Plane)
+
+The control plane server daemon. It's not invoked via kscorectl.
+
+### Running the Server
+
+```bash
+# Run in foreground
+kscore-server --config /etc/kscore/server.yaml
+
+# Show version
+kscore-server version
+```
+
+### Server Flags
+
+```
+--config string   Config file path (default: /etc/kscore/server.yaml)
+-h, --help        Show help
+```
+
 ## Shell Completion
 
 Enable command completion:

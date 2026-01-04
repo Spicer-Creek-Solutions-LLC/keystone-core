@@ -4625,7 +4625,8 @@ Implementation order:
 17. **Epic 17** (SPIFFE Identity) - ✅ COMPLETE (All 6 phases) - Depends on Epic 1, 11, 14 (embedded SPIFFE provider, SPIRE/cloud/mesh integration, trust federation, 332 tests)
 18. **Epic 18** (IPv6 Support) - 🔲 PLANNED - Depends on Epic 1, 11, 14 (full IPv6 and dual-stack support for all components)
 19. **Epic 19** (Observability Gateway) - 🔲 PLANNED - Depends on Epic 7, 14, 15 (telemetry gateway for isolated agents, Prometheus/Loki/Tempo bridge)
-20. **Epic 20** (Windows Support) - 🔲 PLANNED - Depends on Epic 1, 2, 3, 13 (production Windows agent, Windows service, state modules, MSI installer)
+20. **Epic 20** (Windows Support) - 🚧 IN PROGRESS - Depends on Epic 1, 2, 3, 13 (production Windows agent, Windows service, state modules, MSI installer)
+    - Phase 1: Windows Service Foundation ✅ COMPLETE
 
 ## Key Architectural Patterns
 

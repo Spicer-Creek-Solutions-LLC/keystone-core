@@ -1,0 +1,21 @@
+// Copyright 2024 Keystone Core Contributors
+// SPDX-License-Identifier: Apache-2.0
+
+//go:build !windows
+
+package agent
+
+import "errors"
+
+// ErrNotWindows is returned when Windows service functions are called on non-Windows
+var ErrNotWindows = errors.New("Windows service functions are only available on Windows")
+
+// RunAsService is not available on non-Windows platforms
+func RunAsService(agent *Agent) error {
+	return ErrNotWindows
+}
+
+// IsWindowsService returns false on non-Windows platforms
+func IsWindowsService() bool {
+	return false
+}

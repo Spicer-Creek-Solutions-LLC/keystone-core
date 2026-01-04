@@ -36,6 +36,13 @@ from the control plane. It supports embedded NATS mode for edge deployments.`,
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is ./keystone-core-agent.yaml)")
 	rootCmd.AddCommand(newVersionCmd())
 
+	// Add Windows service management commands
+	rootCmd.AddCommand(newServiceInstallCmd())
+	rootCmd.AddCommand(newServiceUninstallCmd())
+	rootCmd.AddCommand(newServiceStartCmd())
+	rootCmd.AddCommand(newServiceStopCmd())
+	rootCmd.AddCommand(newServiceStatusCmd())
+
 	return rootCmd
 }
 
@@ -176,8 +183,82 @@ func runAgent(cmd *cobra.Command, args []string) {
 }
 
 func main() {
+	// Check if running as a Windows service
+	if agent.IsWindowsService() {
+		// Running as a Windows service - create and run agent in service mode
+		runAsWindowsService()
+		return
+	}
+
+	// Running interactively - use Cobra CLI
 	if err := newRootCmd().Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+// runAsWindowsService runs the agent as a Windows service
+func runAsWindowsService() {
+	// Initialize logger for service mode
+	logger = logging.InitDefaultLogger("kscore-agent")
+
+	// Use Windows-specific config path if not set via environment
+	configPath := os.Getenv("KSCORE_CONFIG")
+	if configPath == "" {
+		configPath = agent.DefaultConfigPath()
+	}
+
+	// Load configuration
+	cfg, err := config.LoadConfig(configPath)
+	if err != nil {
+		logger.Error("Failed to load configuration", logging.Error(err))
+		os.Exit(1)
+	}
+
+	// For agents, default to embedded NATS if not configured
+	if cfg.NATS.Mode == "" {
+		cfg.NATS.Mode = config.NATSModeEmbedded
+	}
+
+	// Validate configuration
+	if err := cfg.Validate(); err != nil {
+		logger.Error("Invalid configuration", logging.Error(err))
+		os.Exit(1)
+	}
+
+	// Re-initialize logger with config settings
+	logger = logging.InitDefaultLoggerFromConfig(&cfg.Logging, "kscore-agent")
+
+	// Initialize NATS manager
+	natsManager, err := natsmgr.NewManager(&cfg.NATS)
+	if err != nil {
+		logger.Error("Failed to create NATS manager", logging.Error(err))
+		os.Exit(1)
+	}
+
+	if err := natsManager.Start(); err != nil {
+		logger.Error("Failed to start NATS manager", logging.Error(err))
+		os.Exit(1)
+	}
+	defer natsManager.Shutdown()
+
+	// Create agent
+	agnt, err := agent.NewAgent(
+		cfg.Agent.ID,
+		natsManager,
+		cfg.Agent.HeartbeatInterval,
+		cfg.Agent.MetadataInterval,
+		cfg.Agent.CommandTimeout,
+	)
+	if err != nil {
+		logger.Error("Failed to create agent", logging.Error(err))
+		os.Exit(1)
+	}
+
+	// Run as Windows service
+	logger.Info("Starting agent as Windows service")
+	if err := agent.RunAsService(agnt); err != nil {
+		logger.Error("Service failed", logging.Error(err))
 		os.Exit(1)
 	}
 }
