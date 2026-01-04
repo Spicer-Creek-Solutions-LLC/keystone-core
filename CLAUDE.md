@@ -230,7 +230,8 @@ These gaps should be addressed before production use.
     ├── 17-spiffe-identity.md             # SPIFFE/SPIRE identity framework
     ├── 18-ipv6-support.md                # Full IPv6 and dual-stack support
     ├── 19-observability-gateway.md       # Telemetry gateway for isolated agents
-    └── 20-windows-support.md             # Production Windows agent, dev environment
+    ├── 20-windows-support.md             # Production Windows agent, dev environment
+    └── 21-proxy-agents.md                # Proxy agents for unmanaged devices
 ```
 
 ## Architecture Overview
@@ -4692,6 +4693,36 @@ All 10 phases implemented:
 - Binary: `cmd/kscore-telemetry-gateway/`
 - Deployment: `deploy/gateway/`
 
+### Epic 21: Proxy Agents (NOT STARTED)
+
+**Implementation Plan:** 10 phases (20 weeks total)
+
+**Goal**: Enable Keystone Core to manage devices that cannot run the native agent software (legacy systems, network hardware, IoT devices, appliances) through proxy agents that translate commands via SSH, SNMP, REST, WinRM, and vendor-specific protocols.
+
+**Planned Phases:**
+- Phase 1: Core Proxy Infrastructure (Weeks 1-3)
+- Phase 2: SSH Protocol Adapter (Weeks 4-5)
+- Phase 3: SNMP Protocol Adapter (Weeks 6-7)
+- Phase 4: REST/HTTP Protocol Adapter (Weeks 8-9)
+- Phase 5: WinRM Protocol Adapter (Weeks 10-11)
+- Phase 6: Vendor Network Adapters (Weeks 12-14) - Cisco IOS, Juniper JUNOS, Arista EOS
+- Phase 7: State Module Integration (Weeks 15-16)
+- Phase 8: Discovery and Auto-Configuration (Week 17)
+- Phase 9: Observability (Week 18)
+- Phase 10: Testing and Documentation (Weeks 19-20)
+
+**Key Features:**
+- Proxy agents manage multiple proxied devices
+- Proxied devices appear as virtual agents with transparent targeting
+- Protocol adapters: SSH, SNMP v2c/v3, REST/HTTP, WinRM, vendor CLIs
+- Device profiles define interaction patterns
+- Secure credential storage (Vault, K8s secrets, encrypted files)
+- Health monitoring for all proxied devices
+- State modules work through proxy
+- Network device support (Cisco, Juniper, Arista, Palo Alto, Fortinet)
+
+**See**: `epics/21-proxy-agents.md` for full implementation details
+
 ## Epic Dependencies
 
 Implementation order:
@@ -4715,6 +4746,19 @@ Implementation order:
 18. **Epic 18** (IPv6 Support) - ✅ COMPLETE - Depends on Epic 1, 11, 14 (full IPv6 and dual-stack support for all components, E2E test topology)
 19. **Epic 19** (Observability Gateway) - ✅ COMPLETE - Depends on Epic 7, 14, 15 (telemetry gateway for isolated agents, Prometheus/Loki/Tempo bridge)
 20. **Epic 20** (Windows Support) - ✅ COMPLETE (All 7 phases) - Depends on Epic 1, 2, 3, 13 (Windows service, PowerShell/Cmd execution, state modules, file operations, MSI installer)
+21. **Epic 21** (Proxy Agents) - NOT STARTED - Depends on Epic 1, 2, 3, 4, 8, 14 (SSH/SNMP/REST/WinRM adapters, network device support, transparent targeting)
+
+### Future Epics (Not Yet Planned)
+
+- **Multi-Tenancy** - Namespace isolation, per-tenant RBAC/quotas, SSO integration (OIDC/SAML)
+- **Scheduled Operations** - Centralized job scheduler, maintenance windows, batch scheduling
+- **Web UI / Management Console** - Web-based dashboard, topology visualization, state editor
+- **Automatic Drift Remediation** - Opt-in auto-fix, approval workflows, change management integration
+- **Agent Self-Update** - Secure binary distribution, staged rollouts, automatic rollback
+- **Compliance Framework Presets** - CIS Benchmarks, SOC 2, HIPAA, PCI-DSS policy packs
+- **Network Discovery & Topology** - Automatic scanning, L2/L3 mapping, dependency visualization
+- **Runbook Automation** - Multi-step orchestration, conditional branching, approval gates
+- **Disaster Recovery** - Full backup/restore, state export/import, cross-region failover
 
 ## Key Architectural Patterns
 
