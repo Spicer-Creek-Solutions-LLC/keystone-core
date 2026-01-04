@@ -48,9 +48,12 @@ func TestOCIClient_Ping(t *testing.T) {
 				Registry:  strings.TrimPrefix(server.URL, "http://"),
 				PlainHTTP: true,
 			}
-			client := NewOCIClient(config)
+			client, err := NewOCIClient(config)
+			if err != nil {
+				t.Fatalf("NewOCIClient failed: %v", err)
+			}
 
-			err := client.Ping()
+			err = client.Ping()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Ping() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -104,7 +107,10 @@ func TestOCIClient_ListTags(t *testing.T) {
 				Registry:  strings.TrimPrefix(server.URL, "http://"),
 				PlainHTTP: true,
 			}
-			client := NewOCIClient(config)
+			client, err := NewOCIClient(config)
+			if err != nil {
+				t.Fatalf("NewOCIClient failed: %v", err)
+			}
 
 			tags, err := client.ListTags(tt.moduleName)
 			if (err != nil) != tt.wantErr {
@@ -166,7 +172,10 @@ func TestOCIClient_GetManifest(t *testing.T) {
 		Registry:  strings.TrimPrefix(server.URL, "http://"),
 		PlainHTTP: true,
 	}
-	client := NewOCIClient(config)
+	client, err := NewOCIClient(config)
+	if err != nil {
+		t.Fatalf("NewOCIClient failed: %v", err)
+	}
 
 	got, err := client.GetManifest("test/module", "1.0.0")
 	if err != nil {
@@ -251,7 +260,10 @@ func TestOCIClient_Push(t *testing.T) {
 		Namespace: "test",
 		PlainHTTP: true,
 	}
-	client := NewOCIClient(config)
+	client, err := NewOCIClient(config)
+	if err != nil {
+		t.Fatalf("NewOCIClient failed: %v", err)
+	}
 
 	result, err := client.Push(&OCIPushRequest{
 		ModulePath:   modulePath,
@@ -352,7 +364,10 @@ func TestOCIClient_Pull(t *testing.T) {
 		Namespace: "test",
 		PlainHTTP: true,
 	}
-	client := NewOCIClient(config)
+	client, err := NewOCIClient(config)
+	if err != nil {
+		t.Fatalf("NewOCIClient failed: %v", err)
+	}
 
 	result, err := client.Pull("mymodule", "1.0.0", tmpDir)
 	if err != nil {
@@ -424,9 +439,12 @@ func TestOCIClient_Delete(t *testing.T) {
 		Namespace: "test",
 		PlainHTTP: true,
 	}
-	client := NewOCIClient(config)
+	client, err := NewOCIClient(config)
+	if err != nil {
+		t.Fatalf("NewOCIClient failed: %v", err)
+	}
 
-	err := client.Delete("mymodule", "1.0.0")
+	err = client.Delete("mymodule", "1.0.0")
 	if err != nil {
 		t.Fatalf("Delete() error = %v", err)
 	}
@@ -483,7 +501,10 @@ func TestOCIClient_Auth(t *testing.T) {
 				PlainHTTP: true,
 				Auth:      tt.auth,
 			}
-			client := NewOCIClient(config)
+			client, err := NewOCIClient(config)
+			if err != nil {
+				t.Fatalf("NewOCIClient failed: %v", err)
+			}
 
 			client.Ping()
 

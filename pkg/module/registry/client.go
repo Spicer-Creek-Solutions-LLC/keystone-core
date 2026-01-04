@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -26,9 +27,16 @@ type HTTPClient struct {
 }
 
 // NewHTTPClient creates a new HTTP registry client
-func NewHTTPClient(config *RegistryConfig) *HTTPClient {
+func NewHTTPClient(config *RegistryConfig) (*HTTPClient, error) {
 	transport := &http.Transport{}
+
+	// InsecureSkipVerify - blocked by default unless KSCORE_ALLOW_INSECURE_TLS=1 is set
 	if config.InsecureSkipVerify {
+		if os.Getenv("KSCORE_ALLOW_INSECURE_TLS") != "1" {
+			return nil, fmt.Errorf("registry: insecure_skip_verify is not allowed in production (allows MITM attacks). " +
+				"Set KSCORE_ALLOW_INSECURE_TLS=1 to override for development/testing only")
+		}
+		log.Printf("WARNING: Registry HTTP client InsecureSkipVerify is enabled - this allows man-in-the-middle attacks")
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 
@@ -41,7 +49,7 @@ func NewHTTPClient(config *RegistryConfig) *HTTPClient {
 		config:     config,
 		httpClient: client,
 		hasher:     verify.NewDefaultHashVerifier(),
-	}
+	}, nil
 }
 
 // SetAuth sets authentication credentials

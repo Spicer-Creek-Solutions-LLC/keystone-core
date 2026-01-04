@@ -1,0 +1,57 @@
+# Grafana Datasource Provisioning for Keystone Core
+apiVersion: 1
+
+datasources:
+  # Prometheus - metrics from agents via gateway
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: "15s"
+      exemplarTraceIdDestinations:
+        - name: traceID
+          datasourceUid: tempo
+
+  # Loki - logs from agents via gateway
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    editable: false
+    jsonData:
+      derivedFields:
+        - datasourceUid: tempo
+          matcherRegex: "(?:trace_id|traceID|traceid)=([a-fA-F0-9]+)"
+          name: TraceID
+          url: "$${__value.raw}"
+
+  # Tempo - traces from agents via gateway
+  - name: Tempo
+    type: tempo
+    access: proxy
+    url: http://tempo:3200
+    uid: tempo
+    editable: false
+    jsonData:
+      httpMethod: GET
+      tracesToLogs:
+        datasourceUid: 'loki'
+        tags: ['service.name', 'agent_id']
+        mapTagNamesEnabled: true
+        mappedTags: [{ key: 'service.name', value: 'service' }]
+        spanStartTimeShift: '-1h'
+        spanEndTimeShift: '1h'
+        filterByTraceID: true
+        filterBySpanID: false
+      tracesToMetrics:
+        datasourceUid: 'prometheus'
+        tags: [{ key: 'service.name', value: 'service' }]
+      serviceMap:
+        datasourceUid: 'prometheus'
+      nodeGraph:
+        enabled: true
+      lokiSearch:
+        datasourceUid: 'loki'

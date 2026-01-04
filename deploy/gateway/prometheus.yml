@@ -1,0 +1,42 @@
+# Prometheus Configuration for Keystone Core Telemetry Gateway
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# Alerting configuration
+alerting:
+  alertmanagers: []
+
+# Rule files
+rule_files: []
+
+# Scrape configuration
+scrape_configs:
+  # Scrape the gateway's /metrics endpoint
+  - job_name: 'kscore-gateway'
+    static_configs:
+      - targets: ['gateway:8080']
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # Federated scrape for agent metrics
+  - job_name: 'kscore-agents'
+    honor_labels: true
+    metrics_path: /federate
+    params:
+      'match[]':
+        - '{__name__=~".+"}'
+    static_configs:
+      - targets: ['gateway:8080']
+    scrape_interval: 15s
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+# Remote write to enable receiving metrics from gateway
+# The gateway can push metrics via remote write protocol
+remote_write: []
+
+remote_read: []

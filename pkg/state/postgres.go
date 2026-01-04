@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -270,22 +269,9 @@ func (s *PostgreSQLStore) ListAgents(ctx context.Context, filter *AgentFilter) (
 			args = append(args, *filter.Status)
 		}
 
-		// Add sorting
-		sortBy := "registered_at"
-		if filter.SortBy != "" {
-			// Validate sort column to prevent SQL injection
-			validColumns := map[string]bool{
-				"id": true, "hostname": true, "os": true, "status": true,
-				"last_heartbeat": true, "registered_at": true, "updated_at": true,
-			}
-			if validColumns[filter.SortBy] {
-				sortBy = filter.SortBy
-			}
-		}
-		sortOrder := "DESC"
-		if filter.SortOrder != "" && strings.ToUpper(filter.SortOrder) == "ASC" {
-			sortOrder = "ASC"
-		}
+		// Add sorting (validated to prevent SQL injection)
+		sortBy := validateSortColumn(filter.SortBy, allowedAgentSortColumns, "registered_at")
+		sortOrder := validateSortOrder(filter.SortOrder)
 		query += fmt.Sprintf(" ORDER BY %s %s", sortBy, sortOrder)
 
 		// Add pagination
@@ -449,21 +435,9 @@ func (s *PostgreSQLStore) ListCommands(ctx context.Context, filter *CommandFilte
 			args = append(args, *filter.EndTime)
 		}
 
-		// Add sorting
-		sortBy := "created_at"
-		if filter.SortBy != "" {
-			validColumns := map[string]bool{
-				"id": true, "agent_id": true, "command": true, "status": true,
-				"created_at": true, "started_at": true, "completed_at": true,
-			}
-			if validColumns[filter.SortBy] {
-				sortBy = filter.SortBy
-			}
-		}
-		sortOrder := "DESC"
-		if filter.SortOrder != "" && strings.ToUpper(filter.SortOrder) == "ASC" {
-			sortOrder = "ASC"
-		}
+		// Add sorting (validated to prevent SQL injection)
+		sortBy := validateSortColumn(filter.SortBy, allowedCommandSortColumns, "created_at")
+		sortOrder := validateSortOrder(filter.SortOrder)
 		query += fmt.Sprintf(" ORDER BY %s %s", sortBy, sortOrder)
 
 		// Add pagination
@@ -684,21 +658,9 @@ func (s *PostgreSQLStore) ListBatchJobs(ctx context.Context, filter *BatchJobFil
 			args = append(args, *filter.EndTime)
 		}
 
-		// Sorting
-		sortBy := "created_at"
-		if filter.SortBy != "" {
-			validColumns := map[string]bool{
-				"id": true, "target": true, "command": true, "status": true,
-				"created_at": true, "started_at": true, "completed_at": true,
-			}
-			if validColumns[filter.SortBy] {
-				sortBy = filter.SortBy
-			}
-		}
-		sortOrder := "DESC"
-		if filter.SortOrder == "asc" {
-			sortOrder = "ASC"
-		}
+		// Sorting (validated to prevent SQL injection)
+		sortBy := validateSortColumn(filter.SortBy, allowedBatchJobSortColumns, "created_at")
+		sortOrder := validateSortOrder(filter.SortOrder)
 		query += fmt.Sprintf(" ORDER BY %s %s", sortBy, sortOrder)
 
 		// Pagination

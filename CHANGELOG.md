@@ -324,6 +324,13 @@ Cross-platform system management modules inspired by Salt Project.
 - SQLite storage backend
 - >80% test coverage across core packages
 
+### Security Fixes
+
+- **SQL Injection Prevention (P0)**: Added allowlist validation for ORDER BY columns in SQLite and PostgreSQL storage backends to prevent SQL injection via sort parameters
+- **TLS InsecureSkipVerify Protection (P0)**: All TLS configurations now block `InsecureSkipVerify: true` unless `KSCORE_ALLOW_INSECURE_TLS=1` environment variable is explicitly set (development/testing only). Affected components: NATS (connection strategies, WebSocket, gateway), module registry clients, syslog transport
+- **Rate Limiting for Authentication (P2)**: Added rate limiting for failed authentication attempts to prevent brute-force attacks. Default: 5 failures triggers 15-minute lockout. Configurable via `RateLimitConfig`. Returns gRPC `ResourceExhausted` status when rate limited
+- **ExecutionModePermissive Deprecation (P1)**: Added deprecation warning (logged once via sync.Once) when using `ExecutionModePermissive` in command policy. Permissive mode provides minimal security and will be removed in a future release
+
 ### Recent Fixes
 
 - Agent state propagation in HA cluster mode

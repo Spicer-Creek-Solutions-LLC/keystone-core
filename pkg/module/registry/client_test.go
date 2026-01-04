@@ -26,7 +26,10 @@ func TestHTTPClient_ListVersions(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewHTTPClient(DefaultRegistryConfig(server.URL))
+	client, err := NewHTTPClient(DefaultRegistryConfig(server.URL))
+	if err != nil {
+		t.Fatalf("NewHTTPClient failed: %v", err)
+	}
 	versions, err := client.ListVersions("myorg/mymodule")
 	if err != nil {
 		t.Fatalf("ListVersions failed: %v", err)
@@ -46,8 +49,11 @@ func TestHTTPClient_ListVersions_NotFound(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewHTTPClient(DefaultRegistryConfig(server.URL))
-	_, err := client.ListVersions("nonexistent/module")
+	client, err := NewHTTPClient(DefaultRegistryConfig(server.URL))
+	if err != nil {
+		t.Fatalf("NewHTTPClient failed: %v", err)
+	}
+	_, err = client.ListVersions("nonexistent/module")
 	if err == nil {
 		t.Fatal("expected error for nonexistent module")
 	}
@@ -75,7 +81,10 @@ func TestHTTPClient_GetModuleInfo(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewHTTPClient(DefaultRegistryConfig(server.URL))
+	client, err := NewHTTPClient(DefaultRegistryConfig(server.URL))
+	if err != nil {
+		t.Fatalf("NewHTTPClient failed: %v", err)
+	}
 	result, err := client.GetModuleInfo("myorg/mymodule", "1.0.0")
 	if err != nil {
 		t.Fatalf("GetModuleInfo failed: %v", err)
@@ -105,7 +114,10 @@ entrypoint: main.star`
 	}))
 	defer server.Close()
 
-	client := NewHTTPClient(DefaultRegistryConfig(server.URL))
+	client, err := NewHTTPClient(DefaultRegistryConfig(server.URL))
+	if err != nil {
+		t.Fatalf("NewHTTPClient failed: %v", err)
+	}
 	m, err := client.GetModuleManifest("myorg/mymodule", "1.0.0")
 	if err != nil {
 		t.Fatalf("GetModuleManifest failed: %v", err)
@@ -139,7 +151,10 @@ func TestHTTPClient_DownloadModule(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	destPath := filepath.Join(tmpDir, "module.zip")
-	client := NewHTTPClient(DefaultRegistryConfig(server.URL))
+	client, err := NewHTTPClient(DefaultRegistryConfig(server.URL))
+	if err != nil {
+		t.Fatalf("NewHTTPClient failed: %v", err)
+	}
 	err = client.DownloadModule("myorg/mymodule", "1.0.0", destPath)
 	if err != nil {
 		t.Fatalf("DownloadModule failed: %v", err)
@@ -190,7 +205,10 @@ func TestHTTPClient_PublishModule(t *testing.T) {
 		t.Fatalf("failed to write test module: %v", err)
 	}
 
-	client := NewHTTPClient(DefaultRegistryConfig(server.URL))
+	client, err := NewHTTPClient(DefaultRegistryConfig(server.URL))
+	if err != nil {
+		t.Fatalf("NewHTTPClient failed: %v", err)
+	}
 	result, err := client.PublishModule(&PublishRequest{
 		ModulePath: modulePath,
 		Manifest: &manifest.Manifest{
@@ -241,7 +259,10 @@ func TestHTTPClient_PublishModule_AlreadyExists(t *testing.T) {
 		t.Fatalf("failed to write test module: %v", err)
 	}
 
-	client := NewHTTPClient(DefaultRegistryConfig(server.URL))
+	client, err := NewHTTPClient(DefaultRegistryConfig(server.URL))
+	if err != nil {
+		t.Fatalf("NewHTTPClient failed: %v", err)
+	}
 	_, err = client.PublishModule(&PublishRequest{
 		ModulePath: modulePath,
 		Manifest: &manifest.Manifest{
@@ -270,8 +291,11 @@ func TestHTTPClient_DeleteModule(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewHTTPClient(DefaultRegistryConfig(server.URL))
-	err := client.DeleteModule("myorg/mymodule", "1.0.0")
+	client, err := NewHTTPClient(DefaultRegistryConfig(server.URL))
+	if err != nil {
+		t.Fatalf("NewHTTPClient failed: %v", err)
+	}
+	err = client.DeleteModule("myorg/mymodule", "1.0.0")
 	if err != nil {
 		t.Fatalf("DeleteModule failed: %v", err)
 	}
@@ -291,8 +315,11 @@ func TestHTTPClient_Authentication_Bearer(t *testing.T) {
 		Type:  AuthTypeBearer,
 		Token: "test-token-123",
 	}
-	client := NewHTTPClient(config)
-	_, err := client.ListVersions("myorg/mymodule")
+	client, err := NewHTTPClient(config)
+	if err != nil {
+		t.Fatalf("NewHTTPClient failed: %v", err)
+	}
+	_, err = client.ListVersions("myorg/mymodule")
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
@@ -317,8 +344,11 @@ func TestHTTPClient_Authentication_Basic(t *testing.T) {
 		Username: "user",
 		Password: "pass",
 	}
-	client := NewHTTPClient(config)
-	_, err := client.ListVersions("myorg/mymodule")
+	client, err := NewHTTPClient(config)
+	if err != nil {
+		t.Fatalf("NewHTTPClient failed: %v", err)
+	}
+	_, err = client.ListVersions("myorg/mymodule")
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
@@ -360,7 +390,10 @@ func TestHTTPClient_RetryOnServerError(t *testing.T) {
 	config := DefaultRegistryConfig(server.URL)
 	config.RetryAttempts = 3
 	config.RetryDelay = 10 * time.Millisecond
-	client := NewHTTPClient(config)
+	client, err := NewHTTPClient(config)
+	if err != nil {
+		t.Fatalf("NewHTTPClient failed: %v", err)
+	}
 
 	// PublishModule uses retry logic
 	_, err = client.PublishModule(&PublishRequest{

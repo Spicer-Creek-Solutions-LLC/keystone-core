@@ -401,6 +401,7 @@ func TestGatewayTLSConfig_ToTLSConfig(t *testing.T) {
 		wantErr    bool
 		wantNil    bool
 		wantMinVer uint16
+		setupEnv   bool // Set KSCORE_ALLOW_INSECURE_TLS=1 for this test
 	}{
 		{
 			name:    "nil config",
@@ -433,12 +434,21 @@ func TestGatewayTLSConfig_ToTLSConfig(t *testing.T) {
 			wantMinVer: 0x0304, // tls.VersionTLS13
 		},
 		{
-			name: "insecure skip verify",
+			name: "insecure skip verify allowed with env var",
 			config: &GatewayTLSConfig{
 				InsecureSkipVerify: true,
 			},
-			wantErr: false,
-			wantNil: false,
+			wantErr:  false,
+			wantNil:  false,
+			setupEnv: true, // Requires env var to allow InsecureSkipVerify
+		},
+		{
+			name: "insecure skip verify blocked without env var",
+			config: &GatewayTLSConfig{
+				InsecureSkipVerify: true,
+			},
+			wantErr: true,
+			wantNil: true,
 		},
 		{
 			name: "non-existent cert file",
@@ -453,6 +463,9 @@ func TestGatewayTLSConfig_ToTLSConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.setupEnv {
+				t.Setenv("KSCORE_ALLOW_INSECURE_TLS", "1")
+			}
 			tlsConfig, err := tt.config.ToTLSConfig()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GatewayTLSConfig.ToTLSConfig() error = %v, wantErr %v", err, tt.wantErr)

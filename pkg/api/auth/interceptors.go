@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"strings"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -24,6 +25,8 @@ type InterceptorConfig struct {
 	BypassMethods []string
 	// AuditLogger is called for authentication events (optional)
 	AuditLogger func(ctx context.Context, method string, principal *Principal, err error)
+	// RateLimiter for limiting failed authentication attempts (optional but recommended)
+	RateLimiter *AuthRateLimiter
 }
 
 // NewInterceptorConfigFromConfig creates interceptor config from app config
@@ -91,6 +94,9 @@ func NewInterceptorConfigFromConfig(cfg config.AuthConfig) (*InterceptorConfig, 
 
 	// Create authorizer
 	ic.Authorizer = NewRBACAuthorizer(cfg.BypassMethods)
+
+	// Create rate limiter with defaults (can be customized via SetRateLimiter)
+	ic.RateLimiter = NewAuthRateLimiter(DefaultRateLimitConfig())
 
 	return ic, nil
 }
@@ -199,6 +205,13 @@ func (s *authenticatedServerStream) Context() context.Context {
 
 // authenticate extracts credentials from metadata and authenticates
 func authenticate(ctx context.Context, cfg *InterceptorConfig) (*Principal, error) {
+	// Check rate limit before attempting authentication
+	if cfg.RateLimiter != nil {
+		if err := cfg.RateLimiter.CheckRateLimit(ctx); err != nil {
+			return nil, err
+		}
+	}
+
 	// Extract metadata
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
@@ -231,12 +244,49 @@ func authenticate(ctx context.Context, cfg *InterceptorConfig) (*Principal, erro
 	for _, auth := range cfg.Authenticators {
 		principal, err := auth.Authenticate(ctx, credentials)
 		if err == nil {
+			// Record successful authentication (clears failure count)
+			if cfg.RateLimiter != nil {
+				cfg.RateLimiter.RecordSuccess(ClientIDFromContext(ctx))
+			}
 			return principal, nil
 		}
 		lastErr = err
 	}
 
-	// Map auth errors to gRPC status codes
+	// Record failed authentication attempt
+	if cfg.RateLimiter != nil {
+		clientID := ClientIDFromContext(ctx)
+		cfg.RateLimiter.RecordFailure(clientID)
+
+		// Check if this failure triggered a lockout
+		if !cfg.RateLimiter.IsAllowed(clientID) {
+			remaining := cfg.RateLimiter.GetLockoutRemaining(clientID)
+			return nil, status.Errorf(codes.ResourceExhausted,
+				"authentication failed; account locked for %s due to too many failed attempts",
+				remaining.Round(time.Second))
+		}
+
+		// Add remaining attempts info to error
+		failCount := cfg.RateLimiter.GetFailureCount(clientID)
+		attemptsRemaining := cfg.RateLimiter.config.MaxFailures - failCount
+		if attemptsRemaining > 0 && lastErr != nil {
+			// Map auth errors to gRPC status codes with attempts remaining
+			switch lastErr {
+			case ErrNoCredentials:
+				return nil, status.Errorf(codes.Unauthenticated, "no credentials provided (%d attempts remaining)", attemptsRemaining)
+			case ErrInvalidCredentials:
+				return nil, status.Errorf(codes.Unauthenticated, "invalid credentials (%d attempts remaining)", attemptsRemaining)
+			case ErrExpiredCredentials:
+				return nil, status.Errorf(codes.Unauthenticated, "credentials expired (%d attempts remaining)", attemptsRemaining)
+			case ErrDisabledKey:
+				return nil, status.Errorf(codes.Unauthenticated, "API key is disabled (%d attempts remaining)", attemptsRemaining)
+			default:
+				return nil, status.Errorf(codes.Unauthenticated, "authentication failed: %v (%d attempts remaining)", lastErr, attemptsRemaining)
+			}
+		}
+	}
+
+	// Map auth errors to gRPC status codes (when rate limiter is disabled or nil)
 	if lastErr != nil {
 		switch lastErr {
 		case ErrNoCredentials:

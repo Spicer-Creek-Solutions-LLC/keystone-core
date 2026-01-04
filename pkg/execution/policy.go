@@ -4,6 +4,7 @@ package execution
 import (
 	"errors"
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 	"sync"
@@ -17,6 +18,9 @@ var (
 	ErrEmptyCommand          = errors.New("empty command")
 	ErrInvalidCommand        = errors.New("invalid command format")
 )
+
+// permissiveWarnOnce ensures the permissive mode deprecation warning is only logged once
+var permissiveWarnOnce sync.Once
 
 // ExecutionMode defines the security mode for command execution
 type ExecutionMode string
@@ -256,6 +260,11 @@ func (p *CommandPolicy) Validate(command string) error {
 		return p.validateNormal(command, baseCommand)
 	case ExecutionModePermissive:
 		// Already passed blocked checks, allow it
+		// DEPRECATED: Permissive mode provides minimal security and should not be used
+		permissiveWarnOnce.Do(func() {
+			log.Printf("DEPRECATED: ExecutionModePermissive provides minimal security protection and is deprecated. " +
+				"Use ExecutionModeNormal instead. Permissive mode will be removed in a future release.")
+		})
 		return nil
 	default:
 		// Unknown mode, fail safe

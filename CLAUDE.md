@@ -97,9 +97,10 @@ This repository contains working implementations of **Epics 1-11**. The project 
 - GitOps integration with webhooks, API clients, verification, rollback automation, and promotion pipelines (Epic 5 complete)
 - Policy enforcement with OPA/CEL engines, auditing, and compliance reporting (Epic 6 complete)
 - High availability clustering with etcd-based coordination, leader election, and automatic failover (Epic 11 complete)
+- Telemetry gateway for aggregating metrics, logs, and traces from isolated agents (Epic 19 complete)
 - Comprehensive test suite (>79% coverage across all core packages)
 
-**Current Status**: Epic 1-17 COMPLETE ✅ (SPIFFE/SPIRE Identity Framework)
+**Current Status**: Epic 1-19 COMPLETE ✅ (Observability Gateway)
 
 ### ⚠️ Known Implementation Gaps
 
@@ -4603,6 +4604,94 @@ All 10 phases implemented:
   - Policy-based access control
 - Packages: `pkg/identity/`, `pkg/identity/spire/`, `pkg/identity/cloud/`, `pkg/identity/mesh/`, `pkg/identity/federation/`, `pkg/identity/e2e/`
 
+### Epic 19: Observability Gateway ✅ COMPLETE
+
+**Implementation Plan:** 8 phases
+
+**Goal**: Build a telemetry gateway that aggregates metrics, logs, and traces from agents over NATS and exposes them to standard observability backends.
+
+**Phase 1: Metrics Gateway Core ✅ COMPLETE**
+- Core types and configuration (`pkg/gateway/types.go`)
+  - Config with NATS, server, metrics, logs, traces, HA configuration
+  - DefaultConfig with sensible defaults
+- Metrics store (`pkg/gateway/metrics/store.go`)
+  - MetricsStore for aggregating agent metrics
+  - Agent tracking with labels and metadata
+  - Cardinality control (MaxSeries, MaxLabelsPerSeries, DropHighCardinality)
+  - Stale agent removal
+
+**Phase 2: Prometheus Integration ✅ COMPLETE**
+- HTTP handlers (`pkg/gateway/metrics/handler.go`)
+  - /metrics endpoint for Prometheus scraping
+  - /federate endpoint for federation
+  - /health and /ready endpoints
+  - Label transformations (add, drop, rewrite)
+- Remote write client (`pkg/gateway/metrics/remote_write.go`)
+  - Custom protobuf marshaling (avoiding prometheus/prometheus dependency)
+  - Snappy compression
+  - Retry with exponential backoff
+  - Basic auth and bearer token support
+- NATS subscriber (`pkg/gateway/metrics/subscriber.go`)
+  - JetStream and core NATS support
+  - Prometheus text, protobuf, and JSON format parsing
+
+**Phase 3: Logs Gateway ✅ COMPLETE**
+- Logs store (`pkg/gateway/logs/store.go`)
+  - LogsStore with level filtering
+  - Source filtering (include/exclude)
+  - Query API with time range, search, labels
+- Loki pusher (`pkg/gateway/logs/loki.go`)
+  - LokiPusher for pushing logs to Loki
+  - Batch processing and retry logic
+  - Multi-tenant support via X-Scope-OrgID
+
+**Phase 4: Traces Gateway ✅ COMPLETE**
+- Traces store (`pkg/gateway/traces/store.go`)
+  - TracesStore grouping spans into traces
+  - Sampling with error and slow threshold priority
+  - Query API by service, operation, duration
+- OTLP exporter (`pkg/gateway/traces/otlp.go`)
+  - OTLPExporter for exporting to Tempo/Jaeger
+  - OTLP JSON format
+  - Gzip compression support
+
+**Phase 5: Control Plane Integration ✅ COMPLETE**
+- Integration helper (`pkg/gateway/integration.go`)
+  - PublishMetrics, PublishLogs, PublishTraces methods
+  - GatewayStatus for status reporting
+  - LogWriter for io.Writer compatibility
+
+**Phase 6: Scaling and HA ✅ COMPLETE**
+- HA configuration in types
+- Shard-based agent distribution
+- Instance ID for coordination
+
+**Phase 7: Deployment ✅ COMPLETE**
+- Docker Compose stack (`deploy/gateway/docker-compose.yml`)
+  - NATS, Gateway, Prometheus, Loki, Tempo, Grafana
+  - Pre-configured datasources and dashboard
+- Dockerfile (`deploy/gateway/Dockerfile`)
+- Configuration examples (`deploy/gateway/config.yaml.example`)
+
+**Phase 8: Documentation and Testing ✅ COMPLETE**
+- Gateway documentation (`docs/content/en/docs/operations/gateway.md`)
+- Test coverage for stores (23 tests)
+  - Metrics store tests
+  - Logs store tests
+  - Traces store tests
+
+**Epic 19 Summary:**
+- 8 phases completed
+- 23 tests for gateway stores
+- Complete telemetry aggregation:
+  - Metrics: Prometheus scraping, federation, remote write
+  - Logs: Loki push with batching
+  - Traces: OTLP export with sampling
+  - Docker Compose deployment with full observability stack
+- Packages: `pkg/gateway/`, `pkg/gateway/metrics/`, `pkg/gateway/logs/`, `pkg/gateway/traces/`
+- Binary: `cmd/kscore-telemetry-gateway/`
+- Deployment: `deploy/gateway/`
+
 ## Epic Dependencies
 
 Implementation order:
@@ -4624,7 +4713,7 @@ Implementation order:
 16. **Epic 16** (Stdlib System Modules) - ✅ COMPLETE - Depends on Epic 3, 8 (84 cross-platform system management modules)
 17. **Epic 17** (SPIFFE Identity) - ✅ COMPLETE (All 6 phases) - Depends on Epic 1, 11, 14 (embedded SPIFFE provider, SPIRE/cloud/mesh integration, trust federation, 332 tests)
 18. **Epic 18** (IPv6 Support) - ✅ COMPLETE - Depends on Epic 1, 11, 14 (full IPv6 and dual-stack support for all components, E2E test topology)
-19. **Epic 19** (Observability Gateway) - 🔲 PLANNED - Depends on Epic 7, 14, 15 (telemetry gateway for isolated agents, Prometheus/Loki/Tempo bridge)
+19. **Epic 19** (Observability Gateway) - ✅ COMPLETE - Depends on Epic 7, 14, 15 (telemetry gateway for isolated agents, Prometheus/Loki/Tempo bridge)
 20. **Epic 20** (Windows Support) - ✅ COMPLETE (All 7 phases) - Depends on Epic 1, 2, 3, 13 (Windows service, PowerShell/Cmd execution, state modules, file operations, MSI installer)
 
 ## Key Architectural Patterns
@@ -4850,6 +4939,13 @@ Keystone Core will have the following executables:
   - SumDB transparency log
   - Signature verification service
 
+- **`kscore-telemetry-gateway`** - Telemetry aggregation gateway
+  - Aggregates metrics, logs, and traces from agents over NATS
+  - Exposes /metrics and /federate endpoints for Prometheus
+  - Pushes logs to Loki
+  - Exports traces to OTLP (Tempo/Jaeger)
+  - Supports HA mode with sharding
+
 ### 3. **CLI Plugins** (invoked via kscorectl)
 - **`kscore-module`** - Module management
   - Development: `init`, `build`, `sign`, `publish`, `validate`, `test`
@@ -4898,7 +4994,7 @@ Keystone Core will have the following executables:
   - `kscore-custom-deploy` → `kscorectl custom-deploy`
   - Community extensions without forking core
 
-**Total Core Binaries**: 10 (1 CLI + 3 servers + 6 built-in plugins)
+**Total Core Binaries**: 11 (1 CLI + 4 servers + 6 built-in plugins)
 **Extensible**: Unlimited via third-party `kscore-*` plugins
 
 ## Future Implementation Repository

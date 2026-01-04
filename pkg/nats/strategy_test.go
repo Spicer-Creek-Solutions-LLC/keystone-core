@@ -165,6 +165,9 @@ func TestTLSStrategy_SupportsEndpoint(t *testing.T) {
 }
 
 func TestTLSStrategy_ConfigureOptions_InsecureSkipVerify(t *testing.T) {
+	// Allow InsecureSkipVerify for this test
+	t.Setenv("KSCORE_ALLOW_INSECURE_TLS", "1")
+
 	s := NewTLSStrategy(nil)
 
 	endpoint := &Endpoint{
@@ -190,6 +193,9 @@ func TestTLSStrategy_ConfigureOptions_InsecureSkipVerify(t *testing.T) {
 }
 
 func TestTLSStrategy_ConfigureOptions_WithStrategyTLS(t *testing.T) {
+	// Allow InsecureSkipVerify for this test
+	t.Setenv("KSCORE_ALLOW_INSECURE_TLS", "1")
+
 	config := &StrategyConfig{
 		TLS: &TLSStrategyConfig{
 			InsecureSkipVerify: true,
@@ -279,6 +285,9 @@ func TestWebSocketStrategy_ConfigureOptions_WS(t *testing.T) {
 }
 
 func TestWebSocketStrategy_ConfigureOptions_WSS(t *testing.T) {
+	// Allow InsecureSkipVerify for this test
+	t.Setenv("KSCORE_ALLOW_INSECURE_TLS", "1")
+
 	config := &StrategyConfig{
 		TLS: &TLSStrategyConfig{
 			InsecureSkipVerify: true,
@@ -384,6 +393,9 @@ func TestLeafNodeStrategy_ConfigureOptions_NoConfig(t *testing.T) {
 }
 
 func TestLeafNodeStrategy_ConfigureOptions_TLS(t *testing.T) {
+	// Allow InsecureSkipVerify for this test
+	t.Setenv("KSCORE_ALLOW_INSECURE_TLS", "1")
+
 	config := &StrategyConfig{
 		LeafNode: &LeafNodeStrategyConfig{
 			RemoteURL: "tls://remote:7422",

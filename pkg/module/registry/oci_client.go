@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -22,9 +23,16 @@ type OCIClient struct {
 }
 
 // NewOCIClient creates a new OCI registry client
-func NewOCIClient(config *OCIRegistryConfig) *OCIClient {
+func NewOCIClient(config *OCIRegistryConfig) (*OCIClient, error) {
 	transport := &http.Transport{}
+
+	// InsecureSkipVerify - blocked by default unless KSCORE_ALLOW_INSECURE_TLS=1 is set
 	if config.InsecureSkipVerify {
+		if os.Getenv("KSCORE_ALLOW_INSECURE_TLS") != "1" {
+			return nil, fmt.Errorf("oci registry: insecure_skip_verify is not allowed in production (allows MITM attacks). " +
+				"Set KSCORE_ALLOW_INSECURE_TLS=1 to override for development/testing only")
+		}
+		log.Printf("WARNING: OCI registry client InsecureSkipVerify is enabled - this allows man-in-the-middle attacks")
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 
@@ -36,7 +44,7 @@ func NewOCIClient(config *OCIRegistryConfig) *OCIClient {
 	return &OCIClient{
 		config:     config,
 		httpClient: client,
-	}
+	}, nil
 }
 
 // baseURL returns the base URL for the registry

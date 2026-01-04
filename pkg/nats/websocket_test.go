@@ -205,9 +205,10 @@ func TestWebSocketConfig_GetListenAddress(t *testing.T) {
 
 func TestWebSocketTLSConfig_ToTLSConfig(t *testing.T) {
 	tests := []struct {
-		name    string
-		config  WebSocketTLSConfig
-		wantErr bool
+		name      string
+		config    WebSocketTLSConfig
+		wantErr   bool
+		setupEnv  bool // Set KSCORE_ALLOW_INSECURE_TLS=1 for this test
 	}{
 		{
 			name:    "empty config is valid",
@@ -219,7 +220,15 @@ func TestWebSocketTLSConfig_ToTLSConfig(t *testing.T) {
 			config: WebSocketTLSConfig{
 				InsecureSkipVerify: true,
 			},
-			wantErr: false,
+			wantErr:  false,
+			setupEnv: true, // Requires env var to allow InsecureSkipVerify
+		},
+		{
+			name: "insecure skip verify blocked without env var",
+			config: WebSocketTLSConfig{
+				InsecureSkipVerify: true,
+			},
+			wantErr: true, // Should fail without KSCORE_ALLOW_INSECURE_TLS
 		},
 		{
 			name: "non-existent cert file",
@@ -240,6 +249,9 @@ func TestWebSocketTLSConfig_ToTLSConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.setupEnv {
+				t.Setenv("KSCORE_ALLOW_INSECURE_TLS", "1")
+			}
 			tlsConfig, err := tt.config.ToTLSConfig()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ToTLSConfig() error = %v, wantErr %v", err, tt.wantErr)

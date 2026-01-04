@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -268,8 +269,14 @@ func (s *TLSStrategy) buildTLSConfig(config *EndpointConfig) (*tls.Config, error
 		tlsConfig.Certificates = []tls.Certificate{cert}
 	}
 
-	// InsecureSkipVerify
+	// InsecureSkipVerify - blocked by default unless KSCORE_ALLOW_INSECURE_TLS=1 is set
+	// This prevents MITM attacks in production environments
 	if config.TLS.InsecureSkipVerify || tlsStrategyConfig.InsecureSkipVerify {
+		if os.Getenv("KSCORE_ALLOW_INSECURE_TLS") != "1" {
+			return nil, fmt.Errorf("nats: insecure_skip_verify is not allowed in production (allows MITM attacks). " +
+				"Set KSCORE_ALLOW_INSECURE_TLS=1 to override for development/testing only")
+		}
+		log.Printf("WARNING: NATS TLS InsecureSkipVerify is enabled - this allows man-in-the-middle attacks")
 		tlsConfig.InsecureSkipVerify = true
 	}
 

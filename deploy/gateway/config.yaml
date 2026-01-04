@@ -1,0 +1,51 @@
+# Keystone Core Telemetry Gateway Configuration
+# Docker Compose setup with Prometheus, Loki, and Tempo
+
+nats:
+  url: "nats://nats:4222"
+
+server:
+  listen: ":8080"
+  read_timeout: 30s
+  write_timeout: 30s
+
+metrics:
+  enabled: true
+  max_age: 60s
+  max_series: 100000
+  max_labels_per_series: 20
+  drop_high_cardinality: false
+  high_cardinality_threshold: 1000
+
+logs:
+  enabled: true
+  max_entries: 100000
+  max_age: 1h
+  min_level: "debug"
+  loki:
+    url: "http://loki:3100/loki/api/v1/push"
+    batch_size: 100
+    flush_interval: 5s
+    timeout: 10s
+    max_retries: 3
+
+traces:
+  enabled: true
+  max_traces: 10000
+  max_age: 1h
+  sampling_rate: 1.0
+  sample_errors: true
+  slow_threshold: 1s
+  otlp:
+    url: "http://tempo:4318/v1/traces"
+    batch_size: 100
+    flush_interval: 5s
+    timeout: 10s
+    max_retries: 3
+    use_gzip: true
+
+ha:
+  enabled: false
+  instance_id: "gateway-1"
+  shard_count: 1
+  cleanup_interval: 1m

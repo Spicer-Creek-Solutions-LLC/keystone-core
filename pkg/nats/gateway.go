@@ -6,7 +6,9 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"log"
 	"net/url"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -303,8 +305,16 @@ func (c *GatewayTLSConfig) ToTLSConfig() (*tls.Config, error) {
 		return nil, nil
 	}
 
-	tlsConfig := &tls.Config{
-		InsecureSkipVerify: c.InsecureSkipVerify,
+	tlsConfig := &tls.Config{}
+
+	// InsecureSkipVerify - blocked by default unless KSCORE_ALLOW_INSECURE_TLS=1 is set
+	if c.InsecureSkipVerify {
+		if os.Getenv("KSCORE_ALLOW_INSECURE_TLS") != "1" {
+			return nil, fmt.Errorf("nats gateway: insecure_skip_verify is not allowed in production (allows MITM attacks). " +
+				"Set KSCORE_ALLOW_INSECURE_TLS=1 to override for development/testing only")
+		}
+		log.Printf("WARNING: NATS Gateway TLS InsecureSkipVerify is enabled - this allows man-in-the-middle attacks")
+		tlsConfig.InsecureSkipVerify = true
 	}
 
 	// Set minimum version

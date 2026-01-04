@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"strings"
@@ -282,8 +283,17 @@ func (s *SyslogOutput) buildTLSConfig() (*tls.Config, error) {
 	}
 
 	tlsConfig := &tls.Config{
-		InsecureSkipVerify: s.config.TLS.InsecureSkipVerify,
-		ServerName:         s.config.TLS.ServerName,
+		ServerName: s.config.TLS.ServerName,
+	}
+
+	// InsecureSkipVerify - blocked by default unless KSCORE_ALLOW_INSECURE_TLS=1 is set
+	if s.config.TLS.InsecureSkipVerify {
+		if os.Getenv("KSCORE_ALLOW_INSECURE_TLS") != "1" {
+			return nil, fmt.Errorf("syslog: insecure_skip_verify is not allowed in production (allows MITM attacks). " +
+				"Set KSCORE_ALLOW_INSECURE_TLS=1 to override for development/testing only")
+		}
+		log.Printf("WARNING: Syslog TLS InsecureSkipVerify is enabled - this allows man-in-the-middle attacks")
+		tlsConfig.InsecureSkipVerify = true
 	}
 
 	// Load CA certificate

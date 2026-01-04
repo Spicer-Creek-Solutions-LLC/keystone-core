@@ -122,7 +122,10 @@ func installExecute(cmd *cobra.Command, args []string) error {
 	// Create registry client
 	config := registry.DefaultRegistryConfig(registryURL)
 	config.Auth = auth
-	client := registry.NewHTTPClient(config)
+	client, err := registry.NewHTTPClient(config)
+	if err != nil {
+		return fmt.Errorf("failed to create registry client: %w", err)
+	}
 
 	// Create module cache
 	cache, err := resolver.NewModuleCache(resolver.CacheConfig{

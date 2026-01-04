@@ -14,6 +14,40 @@ import (
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 )
 
+// Allowed sort columns for each table (SQL injection prevention)
+var allowedAgentSortColumns = map[string]bool{
+	"id": true, "hostname": true, "status": true,
+	"last_heartbeat": true, "registered_at": true, "updated_at": true,
+	"created_at": true,
+}
+
+var allowedCommandSortColumns = map[string]bool{
+	"id": true, "agent_id": true, "command": true, "status": true,
+	"exit_code": true, "started_at": true, "completed_at": true,
+	"created_at": true, "updated_at": true,
+}
+
+var allowedBatchJobSortColumns = map[string]bool{
+	"id": true, "command": true, "status": true, "total_agents": true,
+	"started_at": true, "completed_at": true, "created_at": true, "updated_at": true,
+}
+
+// validateSortOrder ensures only ASC or DESC is used (SQL injection prevention)
+func validateSortOrder(order string) string {
+	if strings.ToUpper(order) == "ASC" {
+		return "ASC"
+	}
+	return "DESC"
+}
+
+// validateSortColumn checks if column is in allowlist (SQL injection prevention)
+func validateSortColumn(column string, allowed map[string]bool, defaultCol string) string {
+	if allowed[column] {
+		return column
+	}
+	return defaultCol
+}
+
 // SQLiteStore implements Store using SQLite
 type SQLiteStore struct {
 	db   *sql.DB
@@ -261,15 +295,9 @@ func (s *SQLiteStore) ListAgents(ctx context.Context, filter *AgentFilter) ([]*A
 			args = append(args, *filter.Status)
 		}
 
-		// Add sorting
-		sortBy := "registered_at"
-		if filter.SortBy != "" {
-			sortBy = filter.SortBy
-		}
-		sortOrder := "DESC"
-		if filter.SortOrder != "" {
-			sortOrder = strings.ToUpper(filter.SortOrder)
-		}
+		// Add sorting (validated to prevent SQL injection)
+		sortBy := validateSortColumn(filter.SortBy, allowedAgentSortColumns, "registered_at")
+		sortOrder := validateSortOrder(filter.SortOrder)
 		query += fmt.Sprintf(" ORDER BY %s %s", sortBy, sortOrder)
 
 		// Add pagination
@@ -426,15 +454,9 @@ func (s *SQLiteStore) ListCommands(ctx context.Context, filter *CommandFilter) (
 			args = append(args, *filter.EndTime)
 		}
 
-		// Add sorting
-		sortBy := "created_at"
-		if filter.SortBy != "" {
-			sortBy = filter.SortBy
-		}
-		sortOrder := "DESC"
-		if filter.SortOrder != "" {
-			sortOrder = strings.ToUpper(filter.SortOrder)
-		}
+		// Add sorting (validated to prevent SQL injection)
+		sortBy := validateSortColumn(filter.SortBy, allowedCommandSortColumns, "created_at")
+		sortOrder := validateSortOrder(filter.SortOrder)
 		query += fmt.Sprintf(" ORDER BY %s %s", sortBy, sortOrder)
 
 		// Add pagination
@@ -651,15 +673,9 @@ func (s *SQLiteStore) ListBatchJobs(ctx context.Context, filter *BatchJobFilter)
 			args = append(args, *filter.EndTime)
 		}
 
-		// Sorting
-		sortBy := "created_at"
-		if filter.SortBy != "" {
-			sortBy = filter.SortBy
-		}
-		sortOrder := "DESC"
-		if filter.SortOrder == "asc" {
-			sortOrder = "ASC"
-		}
+		// Sorting (validated to prevent SQL injection)
+		sortBy := validateSortColumn(filter.SortBy, allowedBatchJobSortColumns, "created_at")
+		sortOrder := validateSortOrder(filter.SortOrder)
 		query += fmt.Sprintf(" ORDER BY %s %s", sortBy, sortOrder)
 
 		// Pagination

@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -213,7 +214,15 @@ func (c *WebSocketTLSConfig) ToTLSConfig() (*tls.Config, error) {
 		tlsConfig.ClientCAs = caCertPool
 	}
 
-	tlsConfig.InsecureSkipVerify = c.InsecureSkipVerify
+	// InsecureSkipVerify - blocked by default unless KSCORE_ALLOW_INSECURE_TLS=1 is set
+	if c.InsecureSkipVerify {
+		if os.Getenv("KSCORE_ALLOW_INSECURE_TLS") != "1" {
+			return nil, fmt.Errorf("nats websocket: insecure_skip_verify is not allowed in production (allows MITM attacks). " +
+				"Set KSCORE_ALLOW_INSECURE_TLS=1 to override for development/testing only")
+		}
+		log.Printf("WARNING: NATS WebSocket TLS InsecureSkipVerify is enabled - this allows man-in-the-middle attacks")
+		tlsConfig.InsecureSkipVerify = true
+	}
 	tlsConfig.ClientAuth = c.ClientAuth
 
 	if len(c.CipherSuites) > 0 {

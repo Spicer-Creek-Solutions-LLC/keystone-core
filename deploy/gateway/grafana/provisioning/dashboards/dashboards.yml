@@ -1,0 +1,14 @@
+# Grafana Dashboard Provisioning for Keystone Core
+apiVersion: 1
+
+providers:
+  - name: 'Keystone Core'
+    orgId: 1
+    folder: 'Keystone Core'
+    folderUid: 'kscore'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards

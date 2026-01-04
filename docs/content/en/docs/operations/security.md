@@ -304,6 +304,37 @@ nats:
 
 Encrypt all communications in production.
 
+### TLS Security Enforcement
+
+Keystone Core enforces TLS certificate verification by default. The `InsecureSkipVerify` option is blocked to prevent man-in-the-middle attacks.
+
+**Development/Testing Override:**
+
+For development or testing environments where self-signed certificates are used, you can temporarily disable verification:
+
+```bash
+# WARNING: Only use in development/testing environments
+# This allows InsecureSkipVerify in TLS configurations
+export KSCORE_ALLOW_INSECURE_TLS=1
+
+# Start server/agent with insecure TLS allowed
+kscore-server --config server.yaml
+```
+
+**Affected Components:**
+- NATS connections (Direct, TLS, WebSocket, LeafNode strategies)
+- NATS gateway connections
+- Module registry clients (OCI and HTTP)
+- Syslog transport (TLS mode)
+
+**Security Warning:**
+When `KSCORE_ALLOW_INSECURE_TLS=1` is set, a warning is logged:
+```
+WARNING: InsecureSkipVerify is enabled - this should only be used for development/testing
+```
+
+**Best Practice:** Never use `KSCORE_ALLOW_INSECURE_TLS=1` in production. Instead, configure proper CA certificates for all TLS connections.
+
 ### Control Plane TLS
 
 **Server Configuration:**
@@ -577,7 +608,7 @@ ProtectHome=true
 ReadWritePaths=/var/lib/kscore
 ```
 
-**Rate Limiting:**
+**API Rate Limiting:**
 ```yaml
 # server.yaml
 api:
@@ -587,11 +618,71 @@ api:
     burst: 20
 ```
 
+**Authentication Rate Limiting:**
+
+Keystone Core automatically rate-limits failed authentication attempts to prevent brute-force attacks:
+
+```yaml
+# server.yaml
+auth:
+  rate_limiting:
+    enabled: true           # Enable auth rate limiting (default: true)
+    max_failures: 5         # Lock out after 5 failed attempts (default: 5)
+    lockout_duration: 15m   # Lockout duration (default: 15 minutes)
+    cleanup_interval: 5m    # Cleanup expired entries (default: 5 minutes)
+```
+
+When a client exceeds the failure threshold:
+- Further authentication attempts return gRPC `ResourceExhausted` status
+- The lockout includes time remaining in the error message
+- Successful authentication resets the failure counter
+- Client identification uses peer IP or X-Forwarded-For/X-Real-IP headers
+
+**Monitor rate limiting:**
+```bash
+# Check rate limiter stats via metrics
+curl -s http://control-plane:8080/metrics | grep auth_rate
+```
+
 **Input Validation:**
 - All API inputs validated
 - YAML parsing with size limits
 - Command injection prevention
-- SQL injection prevention (parameterized queries)
+- SQL injection prevention (parameterized queries with allowlisted ORDER BY columns)
+
+**Command Execution Policy:**
+
+Keystone Core enforces command execution policies to prevent shell injection and dangerous commands:
+
+```yaml
+# server.yaml
+execution:
+  policy:
+    mode: normal  # strict, normal, or permissive (deprecated)
+```
+
+| Mode | Description |
+|------|-------------|
+| `strict` | Only explicitly allowlisted commands permitted |
+| `normal` | Blocks dangerous patterns but allows most commands (recommended) |
+| `permissive` | **DEPRECATED** - Minimal restrictions, will be removed |
+
+**Deprecation Warning:**
+`ExecutionModePermissive` is deprecated and will be removed in a future release. If you're using permissive mode, migrate to `normal` mode:
+
+```yaml
+# Before (deprecated)
+execution:
+  policy:
+    mode: permissive
+
+# After (recommended)
+execution:
+  policy:
+    mode: normal
+```
+
+The deprecation warning is logged once at startup when permissive mode is detected.
 
 **Secrets Management:**
 ```yaml
