@@ -231,7 +231,8 @@ These gaps should be addressed before production use.
     ├── 18-ipv6-support.md                # Full IPv6 and dual-stack support
     ├── 19-observability-gateway.md       # Telemetry gateway for isolated agents
     ├── 20-windows-support.md             # Production Windows agent, dev environment
-    └── 21-proxy-agents.md                # Proxy agents for unmanaged devices
+    ├── 21-proxy-agents.md                # Proxy agents for unmanaged devices
+    └── 22-file-distribution.md           # File distribution over NATS
 ```
 
 ## Architecture Overview
@@ -4747,6 +4748,7 @@ Implementation order:
 19. **Epic 19** (Observability Gateway) - ✅ COMPLETE - Depends on Epic 7, 14, 15 (telemetry gateway for isolated agents, Prometheus/Loki/Tempo bridge)
 20. **Epic 20** (Windows Support) - ✅ COMPLETE (All 7 phases) - Depends on Epic 1, 2, 3, 13 (Windows service, PowerShell/Cmd execution, state modules, file operations, MSI installer)
 21. **Epic 21** (Proxy Agents) - NOT STARTED - Depends on Epic 1, 2, 3, 4, 8, 14 (SSH/SNMP/REST/WinRM adapters, network device support, transparent targeting)
+22. **Epic 22** (File Distribution) - NOT STARTED - Depends on Epic 1, 4, 6, 14, 17, 21 (NATS-based file server, multiple backends, proxy caching)
 
 ### Future Epics (Not Yet Planned)
 
