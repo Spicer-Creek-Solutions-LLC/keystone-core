@@ -154,7 +154,7 @@ server:
 identity:
   attestation:
     type: join_token
-    token: "abc123def456ghi789jkl012mno345pqr678"
+    token: "<your-join-token>"
 ```
 
 #### Step 3: Start the Agent
@@ -392,7 +392,8 @@ sequenceDiagram
     Note over Server: Verify:<br/>- Certificate chain<br/>- SPIFFE ID in SAN<br/>- Trust domain match
 
     Server->>Agent: TLS Finished
-    Agent<-->Server: Encrypted NATS Messages
+
+    Note over Agent,Server: Encrypted NATS Messages (bidirectional)
 ```
 
 ### Subject Authorization

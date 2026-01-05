@@ -42,7 +42,7 @@ curl --cert client.crt --key client.key --cacert ca.crt \
 kscorectl auth create-key --name my-app --ttl 30d
 
 # Output
-API Key: ta_live_abc123xyz789
+API Key: <your-api-key>
 Expires: 2024-02-14T10:30:00Z
 ```
 
@@ -1222,7 +1222,7 @@ const agents = await client.agents.list({
 
 ```bash
 #!/bin/bash
-API_KEY="ta_live_abc123"
+API_KEY="<your-api-key>"
 BASE_URL="http://control-plane:8080/api/v1"
 
 # Execute command

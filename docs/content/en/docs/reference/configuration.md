@@ -235,7 +235,7 @@ security:
     type: "api_key"                 # api_key, mtls, oauth2
     api_keys:
       - name: "admin"
-        key: "ta_live_abc123"
+        key: "<your-api-key>"
         permissions: ["*"]
     mtls:
       ca_file: "/etc/kscore/ca.crt"
@@ -386,7 +386,7 @@ Client configuration for `kscorectl`.
 
 # Control plane connection
 server: "http://control-plane.example.com:8080"
-api_key: "ta_live_abc123xyz789"
+api_key: "<your-api-key>"
 
 # TLS configuration
 tls:
@@ -676,7 +676,7 @@ KSCORE_LOG_LEVEL="info"
 
 ```bash
 KSCORE_SERVER="http://control-plane:8080"
-KSCORE_API_KEY="ta_live_abc123"
+KSCORE_API_KEY="<your-api-key>"
 KSCORE_OUTPUT_FORMAT="json"
 KSCORE_NO_COLOR="true"
 ```

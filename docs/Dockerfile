@@ -22,7 +22,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     lmodern \
     # Pygments for syntax highlighting
     python3-pygments \
-    # Playwright/Chromium dependencies
+    # Chromium and its dependencies (used by Playwright and Puppeteer/mermaid-cli)
+    chromium \
     libnss3 \
     libnspr4 \
     libatk1.0-0 \
@@ -41,6 +42,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Cleanup
     && rm -rf /var/lib/apt/lists/*
 
+# Configure Puppeteer to use system Chromium (for mermaid-cli)
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+
 # Install Hugo Extended (must be >= 0.146.0 for Docsy theme compatibility)
 ARG HUGO_VERSION=0.153.0
 RUN curl -L "https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-amd64.deb" -o /tmp/hugo.deb \
@@ -50,12 +55,31 @@ RUN curl -L "https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}
 # Set working directory
 WORKDIR /workspace/docs
 
-# Create entrypoint script that ensures Playwright browser is installed
-RUN echo '#!/bin/bash\n\
-set -e\n\
-npm ci\n\
-npx playwright install chromium --with-deps 2>/dev/null || true\n\
-exec "$@"' > /entrypoint.sh && chmod +x /entrypoint.sh
+# Create mermaid-cli puppeteer config for container environment
+RUN cat > /puppeteer-config.json << 'EOF'
+{
+  "executablePath": "/usr/bin/chromium",
+  "args": ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
+}
+EOF
+
+# Configure Playwright to use system Chromium
+ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
+
+# Create entrypoint script that ensures dependencies are installed
+RUN cat > /entrypoint.sh << 'ENTRY'
+#!/bin/bash
+set -e
+npm ci
+# Copy puppeteer config for mermaid-cli if not exists
+if [ ! -f /workspace/docs/puppeteer-config.json ]; then
+  cp /puppeteer-config.json /workspace/docs/puppeteer-config.json 2>/dev/null || true
+fi
+# Install Playwright browser
+npx playwright install chromium --with-deps 2>/dev/null || true
+exec "$@"
+ENTRY
+RUN chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]
 

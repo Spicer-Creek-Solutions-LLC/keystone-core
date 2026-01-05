@@ -6343,9 +6343,9 @@ Manages /etc/hosts entries.
 
 | Platform | Support | File |
 |----------|---------|------|
-| Linux | Full | /etc/hosts |
-| macOS | Full | /etc/hosts |
-| Windows | Full | C:\Windows\System32\drivers\etc\hosts |
+| Linux | Full | `/etc/hosts` |
+| macOS | Full | `/etc/hosts` |
+| Windows | Full | `C:\Windows\System32\drivers\etc\hosts` |
 
 ### Examples
 

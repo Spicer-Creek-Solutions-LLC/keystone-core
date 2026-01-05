@@ -16,22 +16,28 @@ Keystone Core aims to be the operational layer between GitOps/IaC deployments an
 ## Roadmap Overview
 
 ```
-COMPLETED (Epics 1-14)                 PLANNED (Epics 15-20)
+COMPLETED (Epics 1-20)                 PLANNED (Epics 21-22)
 ───────────────────────────────────────────────────────────────────────
-Epic 1: Core Infrastructure            Epic 15: Observability Enhancements
-Epic 2: Remote Execution               Epic 16: Stdlib System Modules
-Epic 3: State Management               Epic 17: SPIFFE Identity Framework
-Epic 4: Event System                   Epic 18: IPv6 Support
-Epic 5: GitOps Integration             Epic 19: Observability Gateway
-Epic 6: Policy Enforcement             Epic 20: Windows Support
-Epic 7: Observability
-Epic 8: Multi-Environment            Future Considerations:
-Epic 9: Plugin System                  - Multi-Tenancy
-Epic 10: Documentation                 - Web UI Dashboard
-Epic 11: HA Clustering                 - ServiceNow Integration
-Epic 12: E2E Testing
-Epic 13: CGO Removal
+Epic 1: Core Infrastructure            Epic 21: Proxy Agents
+Epic 2: Remote Execution               Epic 22: File Distribution
+Epic 3: State Management
+Epic 4: Event System                   Future Considerations:
+Epic 5: GitOps Integration               - Multi-Tenancy & Namespace Isolation
+Epic 6: Policy Enforcement               - Scheduled Operations & Maintenance Windows
+Epic 7: Observability                    - Web UI Dashboard
+Epic 8: Multi-Environment                - ServiceNow/ITSM Integration
+Epic 9: Plugin System                    - Secrets Management (Vault, AWS SM)
+Epic 10: Documentation                   - Terraform Provider
+Epic 11: HA Clustering                   - Chef/Puppet Migration Tools
+Epic 12: E2E Testing                     - Mobile Monitoring App
+Epic 13: CGO Removal                     - Natural Language Interface
 Epic 14: NATS Mesh Communication
+Epic 15: Observability Enhancements
+Epic 16: Stdlib System Modules
+Epic 17: SPIFFE Identity Framework
+Epic 18: IPv6 Support
+Epic 19: Observability Gateway
+Epic 20: Windows Support
 ```
 
 ## Completed Milestones
@@ -347,106 +353,164 @@ NATS-only communication with advanced networking:
 - Multi-region supercluster support
 - Comprehensive observability and debugging tools
 
----
+### Epic 15: Observability Enhancements ✅
 
-## Planned Epics
-
-### Epic 15: Observability Enhancements
-
-**Status**: Planned | **Depends on**: Epic 7, 14
+**Status**: Complete | **Depends on**: Epic 7, 14
 
 Enhanced telemetry transport and logging:
 
 - **NATS Telemetry Transport**: Route metrics, logs, traces over NATS mesh
 - **Stdout/Stderr Logging**: Structured logging to stdout for container environments
-- **Syslog Integration**: RFC 5424 syslog output for enterprise environments
-- **CLI Audit Logging**: Comprehensive audit trail for all CLI operations
-- **Telemetry Aggregation**: Aggregate telemetry from leaf nodes at hub
+- **Syslog Integration**: RFC 5424 syslog output (Unix socket, UDP, TCP, TLS)
+- **CLI Audit Logging**: Comprehensive audit trail with OS-native backends (journald, syslog, Windows Event Log)
+- **TUI Monitor Integration**: Real-time NATS-based log/metrics streaming
+
+**Key Achievements**:
+- NATS-native telemetry for air-gapped environments
+- Multi-backend audit logging
+- Real-time TUI updates via NATS subscriptions
 
 ---
 
-### Epic 16: Stdlib System Modules
+### Epic 16: Stdlib System Modules ✅
 
-**Status**: Planned | **Depends on**: Epic 3, 8
+**Status**: Complete (84 modules) | **Depends on**: Epic 3, 8
 
-40+ cross-platform system management modules inspired by Salt Project:
+Cross-platform system management modules inspired by Salt Project:
 
-- **Core**: Cross-platform user/group management (Linux, macOS, Windows)
-- **Network**: Interface config, routes, firewall (iptables, nftables, pf, netsh)
-- **Schedule**: cron, systemd timers, launchd, Windows Task Scheduler
-- **Storage**: mount, swap, LVM, disk management
+- **Core**: user, group (Linux, macOS, Windows)
+- **Network**: network, route, firewall, iptables, nftables, firewalld
+- **Kubernetes**: 12 modules (namespace, deployment, service, configmap, etc.)
+- **Schedule**: cron, systemd_timer, launchd, scheduled_task, at
+- **Storage**: mount, swap, lvm_pv, lvm_vg, lvm_lv, disk, filesystem
 - **SSH**: authorized_keys, known_hosts, sshd_config
-- **Security**: SELinux, AppArmor policy management
+- **Security**: selinux, selinux_boolean, apparmor, apparmor_profile
 - **System**: timezone, locale, hostname, hosts, sysctl, kernel_module
-- **Container**: Docker/Podman containers, images, networks, volumes
-- **Database**: PostgreSQL, MySQL, Redis primitives
-- **Web**: Nginx and Apache site/module management
-- **VCS**: Git repository and config management
-- **PKI**: X509 certificates, CA management, ACME/Let's Encrypt
+- **Container**: docker/podman containers, images, networks, volumes
+- **Database**: postgresql_*, mysql_*, redis
+- **Web**: nginx_*, apache_*, git, git_config
+- **PKI**: x509, ca, acme
+- **Config**: pip, npm, gem, ufw, alternatives, logrotate, sudoers, limits, modprobe, syslog, lineinfile, ini_file, archive
+
+**Key Achievements**:
+- 84 cross-platform modules
+- Comprehensive test coverage
+- Example state files for common scenarios
 
 ---
 
-### Epic 17: SPIFFE Identity Framework
+### Epic 17: SPIFFE Identity Framework ✅
 
-**Status**: Planned | **Depends on**: Epic 1, 11, 14
+**Status**: Complete (332 tests) | **Depends on**: Epic 1, 11, 14
 
 Zero-configuration identity and mTLS:
 
-- **Embedded Identity Provider**: Built-in SPIFFE identity for zero-configuration mTLS
-- **Automatic CA Management**: Generation, rotation, and persistence of root CA
-- **SVID Issuance**: Automatic SVID issuance and rotation for agents
-- **NATS mTLS**: Use SVIDs for NATS authentication
-- **External Provider Integration**: SPIRE Server, AWS IRSA, GCP Workload Identity, Azure MI
-- **Service Mesh Integration**: Istio, Consul Connect, Linkerd trust federation
-- **Trust Domain Federation**: Multi-cluster identity federation
+- **Embedded Identity Provider**: Built-in SPIFFE identity with automatic CA management
+- **SVID Issuance**: Automatic X.509 and JWT SVID issuance and rotation
+- **Attestation**: Pluggable attestors (join_token, aws_iid, gcp_iit, azure_imds, k8s_sat)
+- **NATS mTLS**: SVID-based NATS authentication
+- **External Providers**: SPIRE Server, AWS IRSA, GCP Workload Identity, Azure MI
+- **Service Mesh**: Istio, Consul Connect, Linkerd integration
+- **Trust Federation**: Multi-cluster identity federation with policy control
+- **Production Hardening**: AES-256-GCM encryption, CA rotation, LRU cache
+
+**Key Achievements**:
+- Zero-configuration mTLS out of the box
+- Cloud provider attestation
+- Trust domain federation
+- 332 comprehensive tests
 
 ---
 
-### Epic 18: IPv6 Support
+### Epic 18: IPv6 Support ✅
 
-**Status**: Planned | **Depends on**: Epic 1, 11, 14
+**Status**: Complete | **Depends on**: Epic 1, 11, 14
 
 Full IPv6 and dual-stack support:
 
-- **Control Plane**: IPv6 listening and client connections
+- **Control Plane**: IPv6 listening on gRPC and REST endpoints
 - **NATS Mesh**: IPv6 endpoints, dual-stack discovery
 - **Agent Communication**: IPv6 heartbeat and command channels
 - **Targeting**: IPv6-aware agent targeting expressions
-- **Health Checks**: IPv6 health check endpoints
-- **Documentation**: IPv6 deployment guides
+- **E2E Testing**: IPv6-only test topology
+
+**Key Achievements**:
+- Full dual-stack support
+- IPv6-only deployment option
+- E2E test coverage for IPv6
 
 ---
 
-### Epic 19: Observability Gateway
+### Epic 19: Observability Gateway ✅
 
-**Status**: Planned | **Depends on**: Epic 7, 14, 15
+**Status**: Complete | **Depends on**: Epic 7, 14, 15
 
 Telemetry gateway for isolated agents:
 
-- **Gateway Architecture**: Centralized telemetry collection point
-- **Prometheus Bridge**: Expose agent metrics as Prometheus remote write
-- **Loki Bridge**: Forward logs to Loki via the gateway
-- **Tempo Bridge**: Forward traces to Tempo via the gateway
-- **Buffering**: Local telemetry buffering during gateway outages
-- **Aggregation**: Pre-aggregate metrics at the gateway
-- **Security**: mTLS authentication for telemetry streams
+- **Metrics Gateway**: Aggregate agent metrics with cardinality control
+- **Prometheus Integration**: /metrics and /federate endpoints, remote write client
+- **Logs Gateway**: Level/source filtering, Loki pusher with batching
+- **Traces Gateway**: Span-to-trace grouping, sampling, OTLP export
+- **Deployment**: Docker Compose stack with Prometheus, Loki, Tempo, Grafana
+
+**Key Achievements**:
+- Bridge agents to standard observability backends
+- Cardinality control for high-scale deployments
+- Complete Docker Compose deployment
 
 ---
 
-### Epic 20: Windows Support
+### Epic 20: Windows Support ✅
 
-**Status**: Planned | **Depends on**: Epic 1, 2, 3, 13
+**Status**: Complete | **Depends on**: Epic 1, 2, 3, 13
 
 Production-grade Windows agent:
 
-- **Windows Service**: Run kscore-agent as Windows service
-- **State Modules**: Windows-specific modules (registry, IIS, Windows features)
-- **Package Management**: Chocolatey, winget, MSI integration
-- **Service Management**: Windows service state module
-- **User/Group Management**: Windows user and group modules via net commands
-- **Firewall**: Windows Firewall state module
-- **MSI Installer**: Windows installer package
-- **Development Environment**: Windows dev setup documentation
+- **Windows Service**: Run kscore-agent as Windows service with recovery
+- **Execution**: PowerShell and Cmd.exe with proper encoding
+- **State Modules**: Registry, Windows Features (DISM), IIS, Windows Firewall
+- **Package Management**: Chocolatey, winget, MSI/MSIX
+- **File Operations**: NTFS ACLs, Windows paths, junctions, UNC paths
+- **Installer**: WiX-based MSI installer with silent install support
+
+**Key Achievements**:
+- Full Windows service lifecycle management
+- Windows-native state modules
+- Enterprise deployment via MSI
+
+---
+
+## Planned Epics
+
+### Epic 21: Proxy Agents
+
+**Status**: Planned | **Depends on**: Epic 1, 2, 14, 17
+
+Manage devices that cannot run native agents:
+
+- **Protocol Adapters**: SSH, SNMP, REST API, WinRM, IPMI/Redfish
+- **Credential Management**: NATS-proxied credentials from Vault/secrets backends
+- **Virtual Agent State**: Track non-agent devices as virtual agents
+- **Execution Proxy**: Execute commands via protocol adapters
+- **State Application**: Apply state through appropriate protocols
+- **Event Generation**: Emit events from monitored devices
+- **Policy Enforcement**: Apply policies to proxy-managed devices
+
+---
+
+### Epic 22: File Distribution
+
+**Status**: Planned | **Depends on**: Epic 1, 4, 6, 14, 17, 21
+
+NATS-based file distribution for agents:
+
+- **File Server**: Dedicated `kscore-files` service with REST and NATS APIs
+- **Storage Backends**: NATS JetStream Object Store, S3/GCS/Azure, local filesystem, Git, HTTP
+- **Transfer Protocol**: Chunked transfers up to 10GB with resume support
+- **Security**: Policy-based access control, integrity verification (SHA-256)
+- **Caching**: Proxy agent file caching for bandwidth reduction
+- **Observability**: Transfer metrics, Grafana dashboard
+- **CLI Tools**: `kscore-files` CLI for file management
 
 ---
 
@@ -454,41 +518,69 @@ Production-grade Windows agent:
 
 These items are under consideration for future development:
 
-#### Multi-Tenancy
+#### Multi-Tenancy & Namespace Isolation
 
-- Namespace isolation
-- Tenant-specific policies
-- Resource quotas per tenant
+- Namespace isolation for multi-team environments
+- Tenant-specific policies and resource quotas
 - Cross-tenant visibility controls
+- Per-tenant audit logging
 
-#### Advanced Scheduling
+#### Scheduled Operations & Maintenance Windows
 
 - Time-based execution scheduling
-- Maintenance windows
+- Maintenance windows with automatic blackout periods
 - Batch job orchestration
 - Priority-based execution queues
 
-#### Enhanced Security
+#### Web UI Dashboard
 
-- Hardware security module (HSM) integration
-- Secrets management integration (Vault, AWS Secrets Manager)
-- Zero-trust networking
-- Advanced RBAC with attribute-based access control (ABAC)
+- React-based web dashboard
+- Real-time agent monitoring
+- State and drift visualization
+- Policy compliance dashboards
+- Job history and execution logs
 
-#### User Experience
+#### ServiceNow/ITSM Integration
 
-- Web UI dashboard
-- Mobile monitoring app
-- Natural language command interface
-- Visual workflow builder
+- Change request integration
+- Incident creation from policy violations
+- CMDB synchronization
+- Approval workflow integration
 
-#### Integrations
+#### Secrets Management Integration
 
-- ServiceNow integration
-- PagerDuty/Opsgenie direct integration
-- Terraform provider
-- Ansible collection
-- Chef/Puppet migration tools
+- HashiCorp Vault integration (KV, dynamic secrets)
+- AWS Secrets Manager support
+- Azure Key Vault support
+- GCP Secret Manager support
+
+#### Terraform Provider
+
+- Terraform provider for Keystone Core resources
+- State file management
+- Agent provisioning
+- Policy-as-code from Terraform
+
+#### Chef/Puppet Migration Tools
+
+- Chef cookbook to Keystone Core state converter
+- Puppet manifest to Keystone Core state converter
+- Migration assessment tools
+- Dual-run mode for validation
+
+#### Mobile Monitoring App
+
+- iOS and Android apps
+- Push notifications for alerts
+- Agent status overview
+- Quick actions (restart, rerun)
+
+#### Natural Language Interface
+
+- ChatGPT/Claude-powered natural language commands
+- "Show me all agents with drift"
+- "Apply the webserver state to production"
+- Context-aware command suggestions
 
 ---
 
@@ -506,10 +598,10 @@ Keystone Core follows [Semantic Versioning](https://semver.org/):
 
 | Version | Target | Scope |
 |---------|--------|-------|
-| v0.14.0 | Current | NATS Mesh Communication complete |
-| v0.15.0 | Next | Observability enhancements |
-| v0.16.0 | Planned | Stdlib system modules |
-| v1.0.0 | Future | Production-ready release (all core features complete) |
+| v0.20.0 | Current | Windows Support complete (Epics 1-20) |
+| v0.21.0 | Next | Proxy Agents |
+| v0.22.0 | Planned | File Distribution |
+| v1.0.0 | Future | Production-ready release with all planned features |
 
 ### Release Cadence
 

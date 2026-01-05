@@ -9,6 +9,109 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 All development to date. No releases have been made yet.
 
+### Epic 20: Windows Support
+
+Production-grade Windows agent support.
+
+- **Phase 1: Windows Service**
+  - Windows service implementation using golang.org/x/sys/windows/svc
+  - Service install, uninstall, start, stop, restart commands
+  - Automatic recovery on failure
+  - Event log integration
+
+- **Phase 2: PowerShell & Cmd Execution**
+  - PowerShell script execution with proper encoding
+  - Cmd.exe support for legacy scripts
+  - Environment variable handling
+  - Working directory management
+
+- **Phase 3: Windows State Modules**
+  - Registry module for key/value management
+  - Windows Features module (DISM integration)
+  - IIS module for web server management
+  - Windows Firewall module
+
+- **Phase 4: Package Management**
+  - Chocolatey package provider
+  - winget package provider
+  - MSI/MSIX installation support
+
+- **Phase 5: File Operations**
+  - NTFS permission handling (ACLs)
+  - Windows path normalization
+  - Junction and symlink support
+  - UNC path support
+
+- **Phase 6: MSI Installer**
+  - WiX-based MSI installer
+  - Silent installation support
+  - Upgrade and uninstall support
+  - Custom actions for configuration
+
+- **Phase 7: Documentation & Testing**
+  - Windows development environment guide
+  - Windows-specific troubleshooting
+  - E2E tests on Windows
+  - CI/CD integration for Windows builds
+
+### Epic 19: Observability Gateway
+
+Telemetry gateway for aggregating metrics, logs, and traces from isolated agents.
+
+- **Metrics Gateway**
+  - MetricsStore for aggregating agent metrics
+  - Agent tracking with labels and metadata
+  - Cardinality control (MaxSeries, MaxLabelsPerSeries)
+  - Stale agent removal
+
+- **Prometheus Integration**
+  - /metrics endpoint for Prometheus scraping
+  - /federate endpoint for federation
+  - /health and /ready endpoints
+  - Remote write client with retry logic
+
+- **Logs Gateway**
+  - LogsStore with level and source filtering
+  - Query API with time range, search, labels
+  - Loki pusher with batch processing
+  - Multi-tenant support
+
+- **Traces Gateway**
+  - TracesStore grouping spans into traces
+  - Sampling with error and slow threshold priority
+  - OTLP exporter for Tempo/Jaeger
+  - Gzip compression support
+
+- **Deployment**
+  - Docker Compose stack with full observability suite
+  - Grafana dashboard for gateway monitoring
+  - kscore-telemetry-gateway binary
+
+### Epic 18: IPv6 Support
+
+Full IPv6 and dual-stack networking support.
+
+- **Control Plane IPv6**
+  - IPv6 listening on gRPC and REST endpoints
+  - Dual-stack support (IPv4 + IPv6)
+  - IPv6 client connections
+
+- **NATS Mesh IPv6**
+  - IPv6 NATS endpoints
+  - Dual-stack discovery
+  - IPv6 leaf node connections
+  - IPv6 gateway connections
+
+- **Agent IPv6**
+  - IPv6 heartbeat and command channels
+  - IPv6 address in agent metadata
+  - IPv6-aware targeting expressions
+
+- **E2E Testing**
+  - IPv6-only test topology
+  - Dual-stack test topology
+  - CI/CD IPv6 testing
+
 ### Epic 17: SPIFFE Identity Framework
 
 Zero-configuration SPIFFE identity for secure agent-to-server communication.

@@ -11,10 +11,24 @@
 #   Ubuntu:  sudo apt install pandoc texlive-full
 #   Python:  pip install Pygments
 #
+# Options:
+#   --skip-mermaid    Skip Mermaid diagram rendering (faster, diagrams as code)
+#
 # For detailed setup: https://github.com/rootsongjc/pdf-book-exporter
 # =============================================================================
 
 set -e
+
+# Parse command line options
+SKIP_MERMAID=false
+for arg in "$@"; do
+    case $arg in
+        --skip-mermaid)
+            SKIP_MERMAID=true
+            shift
+            ;;
+    esac
+done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
@@ -68,6 +82,26 @@ check_dependencies() {
         log_success "  Found mermaid-cli: $MMDC_PATH"
     fi
 
+    # Check for puppeteer config (needed for container environment)
+    PUPPETEER_CONFIG=""
+    if [ -f "$SCRIPT_DIR/puppeteer-config.json" ]; then
+        PUPPETEER_CONFIG="$SCRIPT_DIR/puppeteer-config.json"
+        log_success "  Found puppeteer config: $PUPPETEER_CONFIG"
+    elif [ -f "/puppeteer-config.json" ]; then
+        PUPPETEER_CONFIG="/puppeteer-config.json"
+        log_success "  Found puppeteer config: $PUPPETEER_CONFIG"
+    elif [ -x "/usr/bin/chromium" ]; then
+        # Running in container - create puppeteer config dynamically
+        PUPPETEER_CONFIG="$OUTPUT_DIR/puppeteer-config.json"
+        cat > "$PUPPETEER_CONFIG" << 'PCONF'
+{
+  "executablePath": "/usr/bin/chromium",
+  "args": ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
+}
+PCONF
+        log_success "  Created puppeteer config for container: $PUPPETEER_CONFIG"
+    fi
+
     if [ ${#missing[@]} -gt 0 ]; then
         log_error "Missing dependencies:"
         for dep in "${missing[@]}"; do
@@ -86,8 +120,138 @@ check_dependencies() {
     log_success "All dependencies found"
 }
 
-# Global diagram counter for unique naming
+# Global variables
 DIAGRAM_COUNTER=0
+MMDC_PATH=""
+PUPPETEER_CONFIG=""
+
+# Sanitize Unicode characters that LaTeX cannot handle
+# Replaces common Unicode symbols with LaTeX-safe equivalents
+sanitize_unicode() {
+    local input_file=$1
+    local output_file=$2
+    local perl_script=$(mktemp)
+
+    # Write Perl script to temp file to avoid shell quoting issues
+    cat > "$perl_script" << 'PERL_SCRIPT'
+#!/usr/bin/perl
+use utf8;
+use open qw(:std :utf8);
+
+while (<>) {
+    # Checkmarks and status symbols
+    s/✅/[OK]/g;
+    s/❌/[X]/g;
+    s/✓/[v]/g;
+    s/✗/[x]/g;
+    s/⚠️?/[WARN]/g;
+    s/⛔/[STOP]/g;
+
+    # Arrows
+    s/→/->/g;
+    s/←/<-/g;
+    s/↔/<->/g;
+    s/↑/^/g;
+    s/↓/v/g;
+    s/⬆/^/g;
+    s/⬇/v/g;
+
+    # Box drawing characters (for directory trees)
+    s/├/|--/g;
+    s/└/`--/g;
+    s/│/|/g;
+    s/─/-/g;
+    s/┌/,--/g;
+    s/┐/--./g;
+    s/┘/--`/g;
+    s/┬/-+-/g;
+    s/┴/-+-/g;
+    s/┤/--|/g;
+    s/┼/-+-/g;
+
+    # Bullets and shapes
+    s/•/-/g;
+    s/·/-/g;
+    s/●/*/g;
+    s/○/o/g;
+    s/■/[#]/g;
+    s/□/[ ]/g;
+    s/▪/*/g;
+    s/▫/o/g;
+    s/▶/>/g;
+    s/◀/</g;
+    s/★/*/g;
+    s/☆/*/g;
+    s/✦/*/g;
+    s/✧/*/g;
+
+    # Punctuation and typography
+    s/…/.../g;
+    s/—/--/g;
+    s/–/-/g;
+    s/'/'/g;
+    s/'/'/g;
+    s/"/"/g;
+    s/"/"/g;
+
+    # Math symbols
+    s/×/x/g;
+    s/∩/n/g;
+
+    # Emojis (replace with text equivalents)
+    s/🎉/(party)/g;
+    s/👍/(thumbsup)/g;
+    s/💬/(comment)/g;
+    s/📝/(note)/g;
+    s/🚀/(rocket)/g;
+    s/🤖/(bot)/g;
+
+    # Remove variation selectors (invisible Unicode modifiers)
+    s/\x{FE0F}//g;
+
+    print;
+}
+PERL_SCRIPT
+
+    perl "$perl_script" "$input_file" > "$output_file"
+    rm -f "$perl_script"
+}
+
+# Convert internal documentation links for PDF
+# Removes link syntax for internal docs (keeps text), preserves external links
+convert_internal_links() {
+    local input_file=$1
+    local output_file=$2
+    local perl_script=$(mktemp)
+
+    cat > "$perl_script" << 'PERL_SCRIPT'
+#!/usr/bin/perl
+use utf8;
+use open qw(:std :utf8);
+
+while (<>) {
+    # Keep external links (http://, https://, mailto:) as-is
+    # Only process internal documentation links
+
+    # Remove /docs/ links - convert [text](/docs/...) to just "text"
+    s/\[([^\]]+)\]\(\/docs\/[^)]+\)/$1/g;
+
+    # Remove relative links like ../page/ or ./page/
+    s/\[([^\]]+)\]\(\.\.\/[^)]+\)/$1/g;
+    s/\[([^\]]+)\]\(\.\/[^)]+\)/$1/g;
+
+    # Remove pure anchor links that reference sections we can't resolve
+    # But keep #anchor links that look like they might be local (single word)
+    # e.g., [text](#some-long-path/thing) -> text
+    s/\[([^\]]+)\]\(#[^)]*\/[^)]*\)/$1/g;
+
+    print;
+}
+PERL_SCRIPT
+
+    perl "$perl_script" "$input_file" > "$output_file"
+    rm -f "$perl_script"
+}
 
 # Convert Mermaid code blocks to images
 process_mermaid_diagrams() {
@@ -95,8 +259,16 @@ process_mermaid_diagrams() {
     local output_file=$2
     local diagram_dir="$OUTPUT_DIR/mermaid-diagrams"
 
+    # Skip Mermaid processing if requested or mmdc not available
+    if [ "$SKIP_MERMAID" = true ]; then
+        log_info "    Skipping Mermaid rendering (--skip-mermaid)"
+        cp "$input_file" "$output_file"
+        return
+    fi
+
     if [ -z "$MMDC_PATH" ]; then
         # No mmdc available, just copy the file
+        log_warn "    mmdc not available, keeping Mermaid as code blocks"
         cp "$input_file" "$output_file"
         return
     fi
@@ -124,16 +296,26 @@ process_mermaid_diagrams() {
 
             echo "$mermaid_content" > "$mmd_file"
 
-            # Convert to PNG using mmdc
-            if "$MMDC_PATH" -i "$mmd_file" -o "$png_file" -b white -s 2 2>/dev/null; then
+            # Convert to PNG using mmdc (with puppeteer config if available)
+            local mmdc_args="-i $mmd_file -o $png_file -b white -s 2"
+            if [ -n "$PUPPETEER_CONFIG" ]; then
+                mmdc_args="-p $PUPPETEER_CONFIG $mmdc_args"
+            fi
+            local mmdc_output
+            if mmdc_output=$($MMDC_PATH $mmdc_args 2>&1) && [ -f "$png_file" ]; then
                 # Insert image reference instead of code block
                 echo "" >> "$temp_file"
                 echo "![Diagram ${DIAGRAM_COUNTER}](${png_file})" >> "$temp_file"
                 echo "" >> "$temp_file"
             else
-                # If conversion fails, keep as code block
+                # If conversion fails, keep as code block and show why
                 log_warn "    Failed to render Mermaid diagram ${DIAGRAM_COUNTER}"
+                if [ -n "$mmdc_output" ]; then
+                    log_warn "    Error: ${mmdc_output:0:200}"
+                fi
+                # Keep diagram as a plain code block for readability
                 echo '```' >> "$temp_file"
+                echo "# Mermaid Diagram (render failed)" >> "$temp_file"
                 echo "$mermaid_content" >> "$temp_file"
                 echo '```' >> "$temp_file"
             fi
@@ -293,15 +475,19 @@ main() {
     for section in "${!sections[@]}"; do
         title="${sections[$section]}"
         md_file="$OUTPUT_DIR/${section}.md"
+        md_sanitized="$OUTPUT_DIR/${section}-sanitized.md"
+        md_links="$OUTPUT_DIR/${section}-links.md"
         md_processed="$OUTPUT_DIR/${section}-processed.md"
         pdf_file="$OUTPUT_DIR/keystone-core-${section}-book.pdf"
 
         generate_combined_markdown "$section" "$title"
-        process_mermaid_diagrams "$md_file" "$md_processed"
+        sanitize_unicode "$md_file" "$md_sanitized"
+        convert_internal_links "$md_sanitized" "$md_links"
+        process_mermaid_diagrams "$md_links" "$md_processed"
         generate_pdf_pandoc "$md_processed" "$pdf_file" "$title"
 
         # Cleanup intermediate markdown
-        rm -f "$md_file" "$md_processed"
+        rm -f "$md_file" "$md_sanitized" "$md_links" "$md_processed"
     done
 
     echo ""
@@ -359,14 +545,18 @@ EOF
         fi
     done
 
-    # Process Mermaid diagrams
+    # Sanitize Unicode, convert links, and process Mermaid diagrams
+    complete_md_sanitized="$OUTPUT_DIR/complete-sanitized.md"
+    complete_md_links="$OUTPUT_DIR/complete-links.md"
     complete_md_processed="$OUTPUT_DIR/complete-processed.md"
-    process_mermaid_diagrams "$complete_md" "$complete_md_processed"
+    sanitize_unicode "$complete_md" "$complete_md_sanitized"
+    convert_internal_links "$complete_md_sanitized" "$complete_md_links"
+    process_mermaid_diagrams "$complete_md_links" "$complete_md_processed"
 
     generate_pdf_pandoc "$complete_md_processed" "$complete_pdf" "Complete Documentation"
 
     # Cleanup
-    rm -f "$complete_md" "$complete_md_processed"
+    rm -f "$complete_md" "$complete_md_sanitized" "$complete_md_links" "$complete_md_processed"
     rm -rf "$OUTPUT_DIR/mermaid-diagrams"
 
     echo ""

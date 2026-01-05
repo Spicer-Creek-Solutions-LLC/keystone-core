@@ -2146,7 +2146,7 @@ Configure agent with:
   identity:
     attestation:
       type: join_token
-      token: "Rj2k9xLm3n4o5p6q7r8s9t0u1v2w3x4y5z"
+      token: "<your-join-token>"
 ```
 
 #### token list
@@ -2963,7 +2963,7 @@ Default location: `~/.kscore/config.yaml`
 ```yaml
 # Control plane connection
 server: "http://control-plane.example.com:8080"
-api_key: "ta_live_abc123xyz789"
+api_key: "<your-api-key>"
 
 # TLS configuration
 tls:
@@ -2990,7 +2990,7 @@ Override configuration with environment variables:
 
 ```bash
 KSCORE_SERVER="http://control-plane:8080"
-KSCORE_API_KEY="ta_live_abc123"
+KSCORE_API_KEY="<your-api-key>"
 KSCORE_CONFIG="/custom/config.yaml"
 KSCORE_OUTPUT_FORMAT="json"
 KSCORE_NO_COLOR="true"

@@ -1,5 +1,5 @@
 .PHONY: help proto build test clean deps build-all-platforms docs docs-serve docs-pdf docs-all \
-       docs-container-build docs-pdf-container docs-pdf-book-container docs-all-container \
+       docs-container-build docs-pdf-container docs-pdf-book-container docs-all-container docs-all-container-fast \
        release release-snapshot release-dry-run lint \
        e2e-build e2e-test e2e-up e2e-down e2e-logs e2e-clean e2e-full e2e-perf e2e-scenarios \
        e2e-ha e2e-ha-up e2e-ha-down e2e-ha-logs \
@@ -62,6 +62,7 @@ help:
 	@echo "  docs-pdf-container       - Generate PDFs using container (Docker/Podman)"
 	@echo "  docs-pdf-book-container  - Generate book-quality PDFs using container"
 	@echo "  docs-all-container       - Build site and generate all PDFs in container"
+	@echo "  docs-all-container-fast  - Same as above but skip Mermaid diagram rendering"
 	@echo ""
 	@echo "E2E testing targets (requires Docker/Podman):"
 	@echo "  e2e-build          - Build container images for E2E testing"
@@ -373,6 +374,16 @@ docs-all-container: docs-container-build
 		$(DOCS_IMAGE) \
 		bash -c "hugo --quiet && npm run generate-pdfs && ./generate-pdfs-book.sh"
 	@echo "Documentation site and PDFs complete"
+
+docs-all-container-fast: docs-container-build
+	@echo "Building documentation site and PDFs (skipping Mermaid diagrams)..."
+	@mkdir -p build/pdfs
+	$(CONTAINER_ENGINE) run --rm \
+		-v "$(shell pwd)":/workspace \
+		-w /workspace/docs \
+		$(DOCS_IMAGE) \
+		bash -c "hugo --quiet && npm run generate-pdfs && ./generate-pdfs-book.sh --skip-mermaid"
+	@echo "Documentation site and PDFs complete (Mermaid diagrams as code blocks)"
 
 # Linting
 lint:
