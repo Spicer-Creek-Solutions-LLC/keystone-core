@@ -16,6 +16,8 @@ Implement proxy agent support to enable Keystone Core to manage devices that can
 - [ ] REST/HTTP protocol adapter supports modern appliances
 - [ ] WinRM protocol adapter supports legacy Windows systems
 - [ ] Vendor-specific adapters for Cisco IOS, Juniper JUNOS, Arista EOS
+- [ ] Open-source firewall adapters for pfSense and OPNsense (REST API)
+- [ ] Ubiquiti/VyOS adapter for EdgeRouter and VyOS devices
 - [ ] State modules work on proxied devices (file, service, package where applicable)
 - [ ] Health monitoring and status tracking for all proxied devices
 - [ ] Secure credential storage with rotation support
@@ -47,7 +49,9 @@ flowchart TD
             SNMP["SNMP Adapter"]
             REST["REST Adapter"]
             WinRM["WinRM Adapter"]
-            Vendor["Vendor Adapters"]
+            Vendor["Vendor Adapters<br/>(Cisco, Juniper, Arista)"]
+            OpenFW["Open Firewall Adapters<br/>(pfSense, OPNsense)"]
+            VyOS["VyOS/EdgeOS Adapter"]
         end
 
         PE --> DR
@@ -61,6 +65,8 @@ flowchart TD
         Appliance["Appliance<br/>(REST API)"]
         OldWin["Legacy Windows<br/>(WinRM)"]
         IoT["IoT Device<br/>(MQTT/HTTP)"]
+        Firewall["pfSense/OPNsense<br/>(REST API)"]
+        EdgeRouter["EdgeRouter/VyOS<br/>(HTTP API)"]
     end
 
     NATS["NATS (mTLS)"]
@@ -75,6 +81,8 @@ flowchart TD
     REST --> Appliance
     WinRM --> OldWin
     REST --> IoT
+    OpenFW --> Firewall
+    VyOS --> EdgeRouter
 ```
 
 ### Credential Flow (NATS-Proxied)
@@ -501,6 +509,9 @@ profiles:
 - Arista EOS adapter
 - Palo Alto PAN-OS adapter
 - Fortinet FortiOS adapter
+- **pfSense adapter** (REST API)
+- **OPNsense adapter** (REST API)
+- **VyOS/Ubiquiti EdgeOS adapter** (HTTP API + SSH)
 - Support for enable/configure modes
 - Support for commit/rollback where applicable
 - Configuration diff/backup support
@@ -581,6 +592,251 @@ profiles:
       backup: "show running-config"
       diff: "show archive config differences"
       save: "copy running-config startup-config"
+```
+
+**OPNsense Profile Example**:
+```yaml
+profiles:
+  opnsense:
+    protocol: http
+    settings:
+      base_url: "https://{address}/api"
+      timeout: 30s
+      tls_verify: true
+
+      # API Key authentication
+      auth:
+        type: basic
+        username_ref: api_key
+        password_ref: api_secret
+
+      headers:
+        Accept: application/json
+        Content-Type: application/json
+
+    # Fact collection via API
+    facts:
+      version:
+        request: GET /core/firmware/status
+        extract: $.product_version
+      hostname:
+        request: GET /core/system/status
+        extract: $.name
+      kernel:
+        request: GET /core/system/status
+        extract: $.kernel
+
+    # State module mappings
+    modules:
+      alias:
+        check:
+          request: GET /firewall/alias/getItem/{uuid}
+        apply:
+          request: POST /firewall/alias/addItem
+          body: '{"alias": {"name": "{name}", "type": "{type}", "content": "{content}"}}'
+        delete:
+          request: POST /firewall/alias/delItem/{uuid}
+        reconfigure:
+          request: POST /firewall/alias/reconfigure
+
+      rule:
+        check:
+          request: GET /firewall/filter/getRule/{uuid}
+        apply:
+          request: POST /firewall/filter/addRule
+        delete:
+          request: POST /firewall/filter/delRule/{uuid}
+
+      service:
+        check:
+          request: GET /core/service/{name}/status
+        restart:
+          request: POST /core/service/{name}/restart
+        start:
+          request: POST /core/service/{name}/start
+        stop:
+          request: POST /core/service/{name}/stop
+
+    # Health check
+    health:
+      request: GET /core/system/status
+      expect_status: 200
+      interval: 30s
+```
+
+**pfSense Profile Example**:
+```yaml
+profiles:
+  pfsense:
+    protocol: http
+    settings:
+      base_url: "https://{address}/api/v1"
+      timeout: 30s
+      tls_verify: true
+
+      # Bearer token authentication (pfSense Plus / REST API package)
+      auth:
+        type: bearer
+        token_ref: api_token
+        # Or client credentials:
+        # type: jwt
+        # client_id_ref: client_id
+        # client_token_ref: client_token
+
+      headers:
+        Accept: application/json
+        Content-Type: application/json
+
+    # Fact collection via API
+    facts:
+      version:
+        request: GET /status/system
+        extract: $.data.system_version
+      hostname:
+        request: GET /status/system
+        extract: $.data.hostname
+      platform:
+        request: GET /status/system
+        extract: $.data.system_platform
+
+    # State module mappings
+    modules:
+      alias:
+        check:
+          request: GET /firewall/alias
+          filter: '$.data[?(@.name == "{name}")]'
+        apply:
+          request: POST /firewall/alias
+          body: '{"name": "{name}", "type": "{type}", "address": {addresses}}'
+        update:
+          request: PUT /firewall/alias
+          body: '{"id": {id}, "name": "{name}", "type": "{type}", "address": {addresses}}'
+        delete:
+          request: DELETE /firewall/alias/{id}
+
+      rule:
+        check:
+          request: GET /firewall/rule
+        apply:
+          request: POST /firewall/rule
+        delete:
+          request: DELETE /firewall/rule/{tracker}
+
+      interface:
+        check:
+          request: GET /status/interface
+        apply:
+          request: PUT /interface
+
+      apply:
+        # Apply pending changes
+        request: POST /firewall/apply
+
+    # Health check
+    health:
+      request: GET /status/system
+      expect_status: 200
+      expect_body: '$.code == 200'
+      interval: 30s
+```
+
+**VyOS/EdgeOS Profile Example**:
+```yaml
+profiles:
+  vyos:
+    protocol: http
+    settings:
+      base_url: "https://{address}"
+      timeout: 30s
+      tls_verify: true
+
+      # VyOS HTTP API uses API key
+      auth:
+        type: api_key
+        key_name: key
+        key_ref: api_key
+        location: body  # VyOS expects key in POST body
+
+      headers:
+        Accept: application/json
+        Content-Type: application/json
+
+    # Alternative: SSH-based for EdgeOS (Vyatta-derived)
+    # protocol: ssh
+    # settings:
+    #   port: 22
+    #   shell: /bin/vbash
+
+    # Fact collection via API
+    facts:
+      version:
+        request: POST /retrieve
+        body: '{"op": "showConfig", "path": ["system", "host-name"]}'
+        extract: $.data
+      hostname:
+        request: POST /show
+        body: '{"op": "show", "path": ["host", "name"]}'
+        extract: $.data
+      interfaces:
+        request: POST /show
+        body: '{"op": "show", "path": ["interfaces"]}'
+
+    # State module mappings
+    modules:
+      interface:
+        check:
+          request: POST /retrieve
+          body: '{"op": "showConfig", "path": ["interfaces", "{type}", "{name}"]}'
+        apply:
+          request: POST /configure
+          body: |
+            {"op": "set", "path": ["interfaces", "{type}", "{name}", "address", "{address}"]}
+        delete:
+          request: POST /configure
+          body: '{"op": "delete", "path": ["interfaces", "{type}", "{name}"]}'
+
+      static_route:
+        check:
+          request: POST /retrieve
+          body: '{"op": "showConfig", "path": ["protocols", "static", "route", "{destination}"]}'
+        apply:
+          request: POST /configure
+          body: '{"op": "set", "path": ["protocols", "static", "route", "{destination}", "next-hop", "{gateway}"]}'
+        delete:
+          request: POST /configure
+          body: '{"op": "delete", "path": ["protocols", "static", "route", "{destination}"]}'
+
+      firewall_rule:
+        check:
+          request: POST /retrieve
+          body: '{"op": "showConfig", "path": ["firewall", "name", "{ruleset}", "rule", "{number}"]}'
+        apply:
+          request: POST /configure
+          body: '{"op": "set", "path": ["firewall", "name", "{ruleset}", "rule", "{number}", "action", "{action}"]}'
+
+      zone:
+        check:
+          request: POST /retrieve
+          body: '{"op": "showConfig", "path": ["zone-policy", "zone", "{name}"]}'
+        apply:
+          request: POST /configure
+          body: '{"op": "set", "path": ["zone-policy", "zone", "{name}", "interface", "{interface}"]}'
+
+    # Configuration management
+    config:
+      save:
+        request: POST /config-file
+        body: '{"op": "save"}'
+      load:
+        request: POST /config-file
+        body: '{"op": "load", "file": "{path}"}'
+
+    # Health check
+    health:
+      request: POST /show
+      body: '{"op": "show", "path": ["version"]}'
+      expect_status: 200
+      interval: 60s
 ```
 
 ### US21.8: Credential Management
@@ -1178,6 +1434,36 @@ proxy:
 - Configurable mode transitions
 - Template-based command generation
 
+**T6.7: OPNsense Adapter**
+- Implement OPNsense REST API client
+- Support API key authentication (key + secret)
+- Implement firewall alias management
+- Implement firewall rule management
+- Implement service control (start, stop, restart)
+- Implement configuration apply/reconfigure
+- Parse JSON responses with error handling
+- Support firmware status and system info
+
+**T6.8: pfSense Adapter**
+- Implement pfSense REST API client (pfSense Plus / REST API package)
+- Support Bearer token and JWT authentication
+- Implement firewall alias management
+- Implement firewall rule management
+- Implement interface configuration
+- Implement firewall apply for pending changes
+- Parse JSON responses with proper error codes
+- Support system status and version info
+
+**T6.9: VyOS/Ubiquiti EdgeOS Adapter**
+- Implement VyOS HTTP API client
+- Support API key authentication (key in POST body)
+- Implement interface configuration (set/delete path operations)
+- Implement static route management
+- Implement firewall rule and zone management
+- Support configuration save/load
+- Parse JSON responses from /retrieve, /configure, /show endpoints
+- Alternative SSH mode for EdgeOS devices (Vyatta shell)
+
 ### Phase 7: State Module Integration (Weeks 15-16)
 
 **T7.1: Proxy State Executor**
@@ -1245,23 +1531,198 @@ proxy:
 - Device registry tests
 - Configuration parsing tests
 
-**T10.2: Integration Tests**
+**T10.2: Mock Device Servers**
+Since pfSense/OPNsense run as VMs and VyOS is open-source, we can create lightweight mock servers for CI/CD:
+
+- **OPNsense Mock Server** (`test/e2e/mocks/opnsense/`)
+  - Simulates OPNsense REST API endpoints
+  - `/api/core/firmware/status`, `/api/core/system/status`
+  - `/api/firewall/alias/*`, `/api/firewall/filter/*`
+  - `/api/core/service/*` for service control
+  - In-memory state for aliases, rules, services
+  - Basic auth validation
+
+- **pfSense Mock Server** (`test/e2e/mocks/pfsense/`)
+  - Simulates pfSense REST API (v1) endpoints
+  - `/api/v1/status/system`, `/api/v1/status/interface`
+  - `/api/v1/firewall/alias`, `/api/v1/firewall/rule`
+  - `/api/v1/firewall/apply` for pending changes
+  - Bearer token validation
+  - Proper pfSense response format with `code`, `status`, `data` fields
+
+- **VyOS Mock Server** (`test/e2e/mocks/vyos/`)
+  - Simulates VyOS HTTP API endpoints
+  - `/retrieve`, `/configure`, `/config-file`, `/show`
+  - Path-based configuration tree in memory
+  - API key validation in POST body
+  - JSON response format matching VyOS API
+
+**T10.3: Integration Tests**
 - SSH adapter with containerized SSH server
 - SNMP adapter with net-snmp container
 - REST adapter with mock HTTP server
 - WinRM adapter with Windows container
+- OPNsense adapter with mock server
+- pfSense adapter with mock server
+- VyOS adapter with mock server
 
-**T10.3: E2E Tests**
-- Full proxy agent scenario tests
-- Multi-device orchestration tests
-- Failover and recovery tests
+**T10.4: E2E Test Harness**
 
-**T10.4: Documentation**
+Test infrastructure for network device adapters:
+
+```
+test/e2e/
+├── topologies/
+│   └── proxy-agents/
+│       ├── docker-compose.yml      # Test orchestration
+│       ├── opnsense/
+│       │   └── Vagrantfile         # Real OPNsense VM (optional)
+│       ├── pfsense/
+│       │   └── Vagrantfile         # Real pfSense VM (optional)
+│       └── vyos/
+│           └── Vagrantfile         # Real VyOS VM (optional)
+├── mocks/
+│   ├── opnsense/                   # OPNsense mock server
+│   ├── pfsense/                    # pfSense mock server
+│   └── vyos/                       # VyOS mock server
+├── scenarios/
+│   ├── proxy_opnsense_test.go      # OPNsense E2E tests
+│   ├── proxy_pfsense_test.go       # pfSense E2E tests
+│   ├── proxy_vyos_test.go          # VyOS E2E tests
+│   └── proxy_network_devices_test.go  # Cross-adapter tests
+└── harness/
+    └── network_device_harness.go   # Test utilities
+```
+
+**T10.5: E2E Test Scenarios**
+
+For each adapter (OPNsense, pfSense, VyOS):
+
+1. **Device Registration**
+   - Device appears as virtual agent
+   - Correct labels and metadata reported
+   - Health check passes
+
+2. **Firewall Alias Management**
+   - Create alias with IP addresses
+   - Verify alias exists
+   - Idempotency (re-apply = no changes)
+   - Delete alias
+
+3. **Firewall Rule Management**
+   - Create rule referencing alias
+   - Verify rule ordering
+   - Update rule
+   - Delete rule
+
+4. **Service Control**
+   - Check service status
+   - Restart service
+   - Stop/start service
+
+5. **Configuration Operations**
+   - Backup configuration
+   - Apply configuration changes
+   - Save configuration (VyOS)
+
+6. **State Management Integration**
+   - Apply state file targeting proxied device
+   - Drift detection on proxied device
+   - Mixed targeting (native + proxied agents)
+
+**T10.6: VM-Based Testing (Optional)**
+
+For deeper validation with real device behavior, use Vagrant:
+
+```ruby
+# test/e2e/topologies/proxy-agents/opnsense/Vagrantfile
+Vagrant.configure("2") do |config|
+  config.vm.box = "opnsense/opnsense"
+  config.vm.network "private_network", ip: "192.168.56.10"
+  config.vm.provider "virtualbox" do |vb|
+    vb.memory = "2048"
+    vb.cpus = 2
+  end
+end
+```
+
+```ruby
+# test/e2e/topologies/proxy-agents/vyos/Vagrantfile
+Vagrant.configure("2") do |config|
+  config.vm.box = "vyos/current"
+  config.vm.network "private_network", ip: "192.168.56.11"
+  config.vm.provision "shell", inline: <<-SHELL
+    source /opt/vyatta/etc/functions/script-template
+    configure
+    set service https api keys id testkey key 'test-api-key'
+    commit && save
+  SHELL
+end
+```
+
+**T10.7: CI/CD Integration**
+
+```yaml
+# .github/workflows/e2e-proxy-agents.yml
+name: E2E Proxy Agent Tests
+
+on:
+  push:
+    paths:
+      - 'pkg/proxy/**'
+      - 'test/e2e/scenarios/proxy_*.go'
+      - 'test/e2e/mocks/**'
+
+jobs:
+  mock-tests:
+    name: Mock Device Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: Run mock-based E2E tests
+        run: |
+          KSCORE_E2E_TESTS=1 go test -v ./test/e2e/scenarios/proxy_*.go -timeout 10m
+
+  vm-tests:
+    name: VM Device Tests
+    runs-on: macos-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Vagrant
+        run: brew install vagrant
+      - name: Start OPNsense VM
+        working-directory: test/e2e/topologies/proxy-agents/opnsense
+        run: vagrant up
+      - name: Run VM-based tests
+        run: |
+          KSCORE_E2E_TESTS=1 KSCORE_REAL_DEVICES=1 \
+          OPNSENSE_URL=https://192.168.56.10 \
+          go test -v ./test/e2e/scenarios/proxy_opnsense_real_test.go -timeout 20m
+      - name: Cleanup
+        if: always()
+        run: vagrant destroy -f
+```
+
+**T10.8: Test Coverage Targets**
+
+| Component | Target | Strategy |
+|-----------|--------|----------|
+| Protocol Adapters | 80% | Unit tests with mocks |
+| Device Profiles | 90% | Configuration parsing tests |
+| Mock Servers | 70% | Integration tests |
+| E2E Scenarios | 100% pass | Mock + optional VM tests |
+
+**T10.9: Documentation**
 - Proxy agent configuration reference
 - Device profile creation guide
 - Protocol adapter reference
 - Troubleshooting guide
 - Migration guide from legacy tools
+- E2E testing guide for contributors
 
 ## Dependencies
 
@@ -1364,7 +1825,14 @@ proxy:
 - [ ] SNMP adapter supports v2c/v3 get/set
 - [ ] REST adapter supports common auth methods
 - [ ] WinRM adapter supports PowerShell execution
-- [ ] At least 2 vendor network adapters complete
+- [ ] Vendor network adapters complete:
+  - [ ] Cisco IOS/IOS-XE
+  - [ ] Juniper JUNOS
+  - [ ] Arista EOS
+- [ ] Open-source firewall adapters complete:
+  - [ ] OPNsense (REST API)
+  - [ ] pfSense (REST API)
+- [ ] VyOS/Ubiquiti EdgeOS adapter complete (HTTP API + SSH fallback)
 - [ ] State modules work through proxy
 - [ ] Credential store integrates with Vault
 - [ ] Health monitoring works for all devices
@@ -1372,6 +1840,10 @@ proxy:
 - [ ] Metrics exported to Prometheus
 - [ ] Unit test coverage > 70%
 - [ ] Integration tests pass
-- [ ] E2E tests pass
+- [ ] E2E tests pass (mock-based)
+- [ ] E2E mock servers implemented:
+  - [ ] OPNsense mock server
+  - [ ] pfSense mock server
+  - [ ] VyOS mock server
 - [ ] Documentation complete
 - [ ] Performance benchmarks meet criteria
