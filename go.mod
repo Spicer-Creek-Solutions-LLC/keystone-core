@@ -17,11 +17,13 @@ require (
 	github.com/google/go-github/v57 v57.0.0
 	github.com/google/uuid v1.6.1-0.20241114170450-2d3c2a9cc518
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
+	github.com/gosnmp/gosnmp v1.43.1
 	github.com/lib/pq v1.10.9
 	github.com/nats-io/nats-server/v2 v2.12.3
 	github.com/nats-io/nats.go v1.48.0
 	github.com/nats-io/nkeys v0.4.12
 	github.com/open-policy-agent/opa v0.60.0
+	github.com/pkg/sftp v1.13.10
 	github.com/prometheus/client_golang v1.23.2
 	github.com/prometheus/client_model v0.6.2
 	github.com/prometheus/common v0.66.1
@@ -43,6 +45,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.39.0
 	go.starlark.net v0.0.0-20251222184526-15019ee33dea
 	go.uber.org/zap v1.27.0
+	golang.org/x/crypto v0.46.0
 	golang.org/x/oauth2 v0.33.0
 	golang.org/x/sys v0.39.0
 	golang.org/x/text v0.32.0
@@ -63,7 +66,9 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.11.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.2 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
+	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.4.2 // indirect
+	github.com/ChrisTrenkamp/goxpath v0.0.0-20210404020558-97928f7e12b6 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
@@ -80,6 +85,8 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.9.1 // indirect
+	github.com/bodgit/ntlmssp v0.0.0-20240506230425-31973bb52d9b // indirect
+	github.com/bodgit/windows v1.0.1 // indirect
 	github.com/bombsimon/logrusr/v4 v4.1.0 // indirect
 	github.com/bradleyfalzon/ghinstallation/v2 v2.16.0 // indirect
 	github.com/casbin/casbin/v2 v2.123.0 // indirect
@@ -126,6 +133,7 @@ require (
 	github.com/go-openapi/swag v0.23.1 // indirect
 	github.com/go-redis/cache/v9 v9.0.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
+	github.com/gofrs/uuid v4.4.0+incompatible // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
@@ -151,6 +159,7 @@ require (
 	github.com/jcmturner/aescts/v2 v2.0.0 // indirect
 	github.com/jcmturner/dnsutils/v2 v2.0.0 // indirect
 	github.com/jcmturner/gofork v1.7.6 // indirect
+	github.com/jcmturner/goidentity/v6 v6.0.1 // indirect
 	github.com/jcmturner/gokrb5/v8 v8.4.4 // indirect
 	github.com/jcmturner/rpc/v2 v2.0.3 // indirect
 	github.com/jonboulle/clockwork v0.5.0 // indirect
@@ -159,11 +168,14 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/klauspost/compress v1.18.2 // indirect
+	github.com/kr/fs v0.1.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/mailru/easyjson v0.9.0 // indirect
+	github.com/masterzen/simplexml v0.0.0-20190410153822-31eea3082786 // indirect
+	github.com/masterzen/winrm v0.0.0-20250927112105-5f8e6c707321 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
@@ -215,6 +227,7 @@ require (
 	github.com/stoewer/go-strcase v1.3.1 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/tchap/go-patricia/v2 v2.3.1 // indirect
+	github.com/tidwall/transform v0.0.0-20201103190739-32f242e2dbde // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20220101234140-673ab2c3ae75 // indirect
@@ -242,7 +255,6 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/crypto v0.46.0 // indirect
 	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b // indirect
 	golang.org/x/net v0.47.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect

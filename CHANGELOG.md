@@ -9,6 +9,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 All development to date. No releases have been made yet.
 
+### Epic 21: Proxy Agents
+
+Enable Keystone Core to manage devices that cannot run the native agent software through proxy agents.
+
+- **Phase 1: Core Proxy Infrastructure**
+  - ProxiedDevice type for representing managed devices
+  - DeviceProfile for device interaction patterns
+  - VendorAdapter interface for vendor-specific implementations
+  - Proxy agent with multi-device management
+
+- **Phase 2: Credential Management**
+  - Credential types: SSH, SNMP v2c/v3, REST, WinRM
+  - Secure credential storage backends (Vault, K8s secrets, encrypted files)
+  - Per-device credential assignment
+  - Credential rotation support
+
+- **Phase 3: SSH Protocol Adapter**
+  - SSH connection management with pooling
+  - Interactive shell support with prompt detection
+  - Command execution with timeout handling
+  - Key-based and password authentication
+
+- **Phase 4: SNMP Protocol Adapter**
+  - SNMP v2c and v3 support
+  - GET, SET, WALK operations
+  - Trap receiver (placeholder)
+  - MIB integration
+
+- **Phase 5: REST/HTTP Protocol Adapter**
+  - RESTful API client with retry logic
+  - JSON/XML response parsing
+  - Bearer token and basic auth support
+  - Rate limiting
+
+- **Phase 6: Vendor Network Adapters** (Partial)
+  - Cisco IOS/IOS-XE adapter with SSH CLI
+  - Cisco NX-OS adapter with JSON output support
+  - Juniper JUNOS adapter with XML API
+  - Arista EOS adapter with SSH CLI and eAPI (JSON-RPC)
+  - VyOS adapter with SSH CLI
+  - pfSense adapter with REST API
+  - OPNsense adapter with REST API
+  - Fixed API compatibility: SSH NetworkDeviceShell, ProtocolREST, credential type assertions
+
 ### Epic 20: Windows Support
 
 Production-grade Windows agent support.
