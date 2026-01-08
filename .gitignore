@@ -88,7 +88,10 @@ docs/resources
 test/e2e/performance/reports/
 /.python-version
 
-# Claude Code session artifacts
+# Claude Code / AI session artifacts
 CHECKPOINT.md
 .claude-session-notes.md
 .claude/
+SESSION-SUMMARY*.md
+*_TEST_RESULTS.md
+*_SESSION*.md

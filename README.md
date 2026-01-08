@@ -1,5 +1,10 @@
 # Keystone Core
 
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go&logoColor=white)](https://go.dev/)
+[![AI Contributions Welcome](https://img.shields.io/badge/AI_Contributions-Welcome-brightgreen)](AI-CONTRIBUTIONS.md)
+[![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen.svg)](CONTRIBUTING.md)
+
 **GitOps deploys it. We keep it running.**
 
 Keystone Core is a cloud-native runtime infrastructure control plane that provides real-time execution, continuous compliance, and operational automation across hybrid environments. Inspired by Salt Project but modernized for cloud-native workflows.
@@ -8,22 +13,27 @@ Keystone Core is a cloud-native runtime infrastructure control plane that provid
 
 | Status | Description |
 |--------|-------------|
-| **Epics 1-10** | COMPLETE |
-| **Epic 11** | IN PROGRESS (Clustering - Phase 1 complete) |
-| **Epic 12** | PLANNED (E2E & Performance Testing) |
+| **Epics 1-20** | COMPLETE |
+| **Epic 21** | PLANNED (Proxy Agents) |
 
 ### Completed Capabilities
 
-- **Core Infrastructure** - NATS messaging (embedded/external/leaf modes), SQLite/PostgreSQL storage
+- **Core Infrastructure** - NATS messaging (embedded/external/leaf/supercluster), SQLite/PostgreSQL storage
 - **Remote Execution** - Cross-platform command execution with flexible targeting and batch operations
-- **State Management** - Declarative configuration with 6 modules, drift detection, and remediation
-- **Event-Driven Automation** - Event bus, filtering, routing, reactors, and external integration (Kafka, CloudEvents)
+- **State Management** - Declarative configuration with 84 modules, drift detection, and remediation
+- **Event-Driven Automation** - Event bus, filtering, routing, reactors, external integration (Kafka, CloudEvents)
 - **GitOps Integration** - ArgoCD/Flux webhooks, deployment verification, rollback automation, promotion pipelines
 - **Policy Enforcement** - OPA (Rego) and CEL policy engines, auditing, and compliance reporting
 - **Observability** - Prometheus metrics, structured logging, OpenTelemetry tracing, TUI monitor, Grafana dashboards
 - **Multi-Environment** - Kubernetes, VMs, bare metal, edge devices, cloud (AWS/GCP/Azure), service mesh
 - **Plugin System** - Starlark and WASM runtimes, capability-based security, cryptographic verification, SDKs
-- **Documentation** - Hugo + Docsy site with 45 pages of comprehensive documentation
+- **HA Clustering** - etcd-based coordination, leader election, automatic failover, work distribution
+- **NATS Mesh** - Superclusters, leaf nodes, WebSocket transport, NAT traversal, discovery
+- **SPIFFE Identity** - Embedded provider, SPIRE/cloud/mesh integration, trust federation
+- **Telemetry Gateway** - Aggregates metrics/logs/traces from isolated agents for Prometheus/Loki/Tempo
+- **Windows Support** - Native Windows agent, PowerShell execution, Windows state modules
+- **IPv6 Support** - Full dual-stack networking across all components
+- **Documentation** - Hugo + Docsy site with comprehensive documentation
 
 ## Quick Start
 
@@ -93,6 +103,14 @@ make build
 | `kscore-exec` | Remote execution plugin |
 | `kscore-state` | State management plugin |
 | `kscore-monitor` | Real-time TUI monitoring (8 views) |
+| `kscore-module` | Module management (init, build, sign, publish) |
+| `kscore-policy` | Policy management and evaluation |
+| `kscore-gitops` | GitOps operations and webhooks |
+| `kscore-cluster` | Cluster management and status |
+| `kscore-identity` | SPIFFE identity and certificate management |
+| `kscore-migrate` | Database migration (SQLite → PostgreSQL) |
+| `kscore-registry` | Module registry server |
+| `kscore-telemetry-gateway` | Telemetry aggregation for isolated agents |
 
 ## Architecture
 
@@ -124,10 +142,11 @@ flowchart TB
 - Streaming output with job tracking
 
 ### State Management
-- Six built-in modules: `file`, `package`, `service`, `user`, `group`, `cmd`
+- 84 built-in modules across 14 categories (file, package, service, user, network, firewall, storage, containers, databases, web servers, certificates, and more)
 - Dependency resolution with requisites (`require`, `watch`, `prereq`, `onchanges`)
 - Template rendering with vars and facts
 - Drift detection with severity levels
+- Cross-platform support (Linux, macOS, Windows)
 
 ### Event System
 - 15 event types across 5 categories (agent, job, state, system, user)
@@ -169,6 +188,18 @@ flowchart TB
 - **Cryptographic Verification**: Cosign signatures, SumDB transparency
 - **SDKs**: Starlark, Rust, Go (TinyGo), C++ SDKs included
 
+### High Availability
+- **etcd-based Clustering**: Distributed coordination and leader election
+- **Automatic Failover**: Agent reassignment on control plane failure
+- **Work Distribution**: Consistent hashing for agent-to-server assignment
+- **NATS Superclusters**: Multi-region deployment with gateway routing
+
+### Identity & Security
+- **SPIFFE Identity**: Zero-config embedded provider or external SPIRE
+- **Trust Federation**: Cross-domain identity validation
+- **Cloud Integration**: AWS IAM, GCP Workload Identity, Azure MI
+- **Service Mesh**: Istio, Linkerd, Consul Connect identity extraction
+
 ## Configuration
 
 ### NATS Modes
@@ -192,46 +223,50 @@ See `keystone-core.yaml.example` for all configuration options.
 
 ```
 keystone-core/
-├── cmd/
+├── cmd/                      # CLI tools and daemons
 │   ├── kscore-server/        # Control plane daemon
 │   ├── kscore-agent/         # Agent daemon
 │   ├── kscorectl/            # Main CLI (plugin dispatcher)
-│   ├── kscore-exec/          # Remote execution plugin
-│   ├── kscore-state/         # State management plugin
-│   └── kscore-monitor/       # TUI monitoring tool
+│   ├── kscore-*/             # CLI plugins (exec, state, monitor, module, policy, gitops, cluster, identity, migrate)
+│   ├── kscore-registry/      # Module registry server
+│   └── kscore-telemetry-gateway/  # Telemetry aggregation
 ├── pkg/
 │   ├── agent/                # Agent implementation
 │   ├── controlplane/         # Control plane services
 │   ├── state/                # SQLite/PostgreSQL storage
-│   ├── statemgmt/            # State declarations, modules, drift
+│   ├── statemgmt/            # 84 state modules, drift detection
 │   ├── events/               # Event bus, reactors, storage
 │   ├── policy/               # OPA/CEL engines, enforcement
 │   ├── gitops/               # Webhooks, verification, rollback
+│   ├── nats/                 # NATS mesh, discovery, WebSocket
+│   ├── cluster/              # HA clustering, etcd, leader election
+│   ├── identity/             # SPIFFE identity, federation
+│   ├── gateway/              # Telemetry gateway (metrics/logs/traces)
 │   ├── metrics/              # Prometheus metrics
-│   ├── logging/              # Structured logging
+│   ├── logging/              # Structured logging, syslog
 │   ├── tracing/              # OpenTelemetry tracing
+│   ├── audit/                # CLI audit logging
 │   ├── health/               # Health checks, circuit breaker
 │   ├── k8s/                  # Kubernetes integration
 │   ├── platform/             # OS/distro detection
-│   ├── baremetal/            # Hardware detection, IPMI
+│   ├── hardware/             # Hardware detection, IPMI
 │   ├── edge/                 # Edge mode, offline support
 │   ├── cloud/                # AWS, GCP, Azure integration
 │   ├── container/            # Docker, containerd detection
 │   ├── servicemesh/          # Istio, Linkerd, Consul
-│   ├── module/               # Plugin system
-│   │   ├── runtime/          # Starlark and WASM runtimes
-│   │   ├── capabilities/     # Capability implementations
-│   │   ├── resolver/         # Dependency resolution
-│   │   └── verify/           # Signature verification
-│   └── cluster/              # HA clustering (Epic 11)
+│   └── module/               # Plugin system (runtime, capabilities, resolver, verify)
 ├── modules/
 │   ├── sdk/                  # SDKs (Starlark, Rust, Go, C++)
 │   ├── stdlib/               # Standard library modules
 │   └── examples/             # Example modules
-├── deploy/
-│   └── grafana/              # Grafana dashboards and alerts
+├── deploy/                   # Deployment configurations
+│   ├── grafana/              # Grafana dashboards and alerts
+│   ├── kubernetes/           # K8s manifests
+│   ├── helm/                 # Helm charts
+│   └── gateway/              # Telemetry gateway deployment
 ├── docs/                     # Hugo + Docsy documentation
 ├── epics/                    # Epic design documents
+├── test/e2e/                 # End-to-end tests
 └── api/proto/                # Protobuf definitions
 ```
 
@@ -265,13 +300,13 @@ go test -cover ./...
 
 ### Test Coverage
 
-Core packages maintain >75% test coverage:
-- `pkg/agent`: 77.9%
-- `pkg/state`: 90.1%
-- `pkg/config`: 96.6%
-- `pkg/controlplane`: 85.9%
-- `pkg/events`: 80%+
-- `pkg/policy`: 79%+
+Core packages maintain >75% test coverage. Key packages:
+- `pkg/state`: >90%
+- `pkg/config`: >95%
+- `pkg/controlplane`: >85%
+- `pkg/events`: >80%
+- `pkg/policy`: >79%
+- `pkg/identity`: >80% (332 tests)
 
 ### Building Documentation
 
@@ -285,11 +320,26 @@ hugo         # Build to docs/public/
 
 | Epic | Status | Description |
 |------|--------|-------------|
-| 1-10 | Complete | Core functionality |
-| 11 | In Progress | HA clustering with etcd |
-| 12 | Planned | E2E and performance testing |
+| 1-11 | Complete | Core infrastructure, execution, state, events, GitOps, policy, observability, multi-env, plugins, docs, clustering |
+| 12-13 | Complete | E2E testing infrastructure, CGO removal (pure Go) |
+| 14-15 | Complete | NATS mesh communication, observability enhancements |
+| 16-17 | Complete | 84 stdlib system modules, SPIFFE identity framework |
+| 18-20 | Complete | IPv6 support, telemetry gateway, Windows support |
+| 21 | Planned | Proxy agents for unmanaged devices |
+| 22 | Planned | File distribution over NATS |
 
 See `epics/` directory for detailed implementation plans.
+
+## AI-Friendly Contributions
+
+This project welcomes AI-assisted contributions. We've established clear policies to enable transparent collaboration between human developers and AI tools while addressing the evolving legal landscape around AI-generated code.
+
+- **Disclosure**: AI involvement must be marked in commits
+- **Accountability**: Human contributors review and take responsibility for AI-generated code
+- **Transparency**: No copyright claimed on purely AI-generated portions
+- **Licensing**: All contributions covered under Apache 2.0
+
+See [AI-CONTRIBUTIONS.md](AI-CONTRIBUTIONS.md) for details and [CONTRIBUTING.md](CONTRIBUTING.md) for the full contribution guide.
 
 ## License
 
@@ -297,4 +347,4 @@ Apache 2.0
 
 ## Contributing
 
-See the [Contributing Guide](docs/content/en/docs/community/contributing.md) for development setup and contribution workflow.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and contribution workflow.

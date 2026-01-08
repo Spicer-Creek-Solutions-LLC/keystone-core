@@ -98,9 +98,6 @@ services:
 
   # Agent 2 - Web server role (IPv6)
   agent-web-2:
-    build:
-      context: ../../../..
-      dockerfile: test/e2e/containers/Dockerfile.agent
     image: kscore-agent:e2e-ipv6
     container_name: kscore-agent-ipv6-web-2
     hostname: agent-web-2
@@ -119,9 +116,6 @@ services:
 
   # Agent 3 - Database server role (IPv6)
   agent-db-1:
-    build:
-      context: ../../../..
-      dockerfile: test/e2e/containers/Dockerfile.agent
     image: kscore-agent:e2e-ipv6
     container_name: kscore-agent-ipv6-db-1
     hostname: agent-db-1

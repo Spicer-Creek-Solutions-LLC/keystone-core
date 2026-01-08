@@ -26,9 +26,10 @@ func TestMain(m *testing.M) {
 	// Check which topology we're testing
 	topology := os.Getenv("KSCORE_TOPOLOGY")
 
-	// If HA cluster topology, don't set up all-in-one environment
-	// HA cluster tests manage their own environment via setupHACluster()
-	if topology == "ha-cluster" {
+	// If running a specialized topology, don't set up all-in-one environment
+	// These topologies manage their own environment
+	switch topology {
+	case "ha-cluster", "ipv6", "ha-cluster-ipv6":
 		code := m.Run()
 		os.Exit(code)
 	}

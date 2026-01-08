@@ -3,7 +3,10 @@
        release release-snapshot release-dry-run lint \
        e2e-build e2e-test e2e-up e2e-down e2e-logs e2e-clean e2e-full e2e-perf e2e-scenarios \
        e2e-ha e2e-ha-up e2e-ha-down e2e-ha-logs \
-       server agent cli exec state monitor policy gitops cluster migrate module registry identity
+       e2e-ipv6 e2e-ipv6-up e2e-ipv6-down e2e-ipv6-logs \
+       e2e-ha-ipv6 e2e-ha-ipv6-up e2e-ha-ipv6-down e2e-ha-ipv6-logs \
+       e2e-allinone e2e-all-topologies \
+       server agent cli exec state monitor policy gitops cluster migrate module registry identity gateway
 
 # Version information
 VERSION ?= dev
@@ -13,18 +16,48 @@ LDFLAGS := -X github.com/shawnbutts/keystone-core/pkg/version.Version=$(VERSION)
            -X github.com/shawnbutts/keystone-core/pkg/version.GitCommit=$(GIT_COMMIT) \
            -X github.com/shawnbutts/keystone-core/pkg/version.BuildDate=$(BUILD_DATE)
 
+# Platform detection for native builds
+NATIVE_OS := $(shell go env GOOS)
+NATIVE_ARCH := $(shell go env GOARCH)
+NATIVE_BIN_DIR := build/bin/$(NATIVE_OS)/$(NATIVE_ARCH)
+
+# All binaries to build - add new binaries here and they'll automatically be included
+# Format: binary-name:cmd-directory
+BINARIES := \
+	kscore-server:kscore-server \
+	kscore-agent:kscore-agent \
+	kscore-registry:kscore-registry \
+	kscorectl:kscorectl \
+	kscore-exec:kscore-exec \
+	kscore-state:kscore-state \
+	kscore-monitor:kscore-monitor \
+	kscore-policy:kscore-policy \
+	kscore-gitops:kscore-gitops \
+	kscore-cluster:kscore-cluster \
+	kscore-migrate:kscore-migrate \
+	kscore-module:kscore-module \
+	kscore-identity:kscore-identity \
+	kscore-telemetry-gateway:kscore-telemetry-gateway
+
+# Extract just the binary names for .PHONY
+BINARY_NAMES := $(foreach b,$(BINARIES),$(firstword $(subst :, ,$(b))))
+
+# Cross-platform build configurations
+PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64
+
 help:
 	@echo "Keystone Core Build System"
 	@echo ""
-	@echo "Build targets (output: build/bin/):"
+	@echo "Build targets (output: build/bin/$(NATIVE_OS)/$(NATIVE_ARCH)/):"
 	@echo "  proto              - Generate protobuf code from .proto files"
-	@echo "  build              - Build all binaries for current platform"
+	@echo "  build              - Build all binaries for current platform ($(NATIVE_OS)/$(NATIVE_ARCH))"
 	@echo "  build-all-platforms - Build all binaries for all platforms"
 	@echo ""
 	@echo "  Server binaries:"
 	@echo "    server           - Build kscore-server (control plane)"
 	@echo "    agent            - Build kscore-agent (managed node agent)"
 	@echo "    registry         - Build kscore-registry (module registry server)"
+	@echo "    gateway          - Build kscore-telemetry-gateway (telemetry aggregation)"
 	@echo ""
 	@echo "  CLI and plugins:"
 	@echo "    cli              - Build kscorectl (main CLI dispatcher)"
@@ -81,6 +114,18 @@ help:
 	@echo "  e2e-ha-down        - Stop HA cluster test environment"
 	@echo "  e2e-ha-logs        - Show logs from HA cluster containers"
 	@echo ""
+	@echo "IPv6 E2E testing targets:"
+	@echo "  e2e-ipv6           - Run IPv6 E2E tests (IPv6-only network)"
+	@echo "  e2e-ipv6-up        - Start IPv6 test environment"
+	@echo "  e2e-ipv6-down      - Stop IPv6 test environment"
+	@echo "  e2e-ipv6-logs      - Show logs from IPv6 containers"
+	@echo ""
+	@echo "HA Cluster IPv6 E2E testing targets:"
+	@echo "  e2e-ha-ipv6        - Run HA cluster tests over IPv6-only network"
+	@echo "  e2e-ha-ipv6-up     - Start HA IPv6 test environment"
+	@echo "  e2e-ha-ipv6-down   - Stop HA IPv6 test environment"
+	@echo "  e2e-ha-ipv6-logs   - Show logs from HA IPv6 containers"
+	@echo ""
 
 deps:
 	go mod download
@@ -95,88 +140,115 @@ proto:
 	       api/proto/*.proto
 	@echo "Protobuf code generated successfully"
 
-build: server agent registry cli exec state monitor policy gitops cluster migrate module identity
+# =============================================================================
+# Native Platform Build (current OS/ARCH)
+# =============================================================================
 
+# Helper function to build a single binary
+# Usage: $(call build-binary,binary-name,cmd-dir)
+define build-binary
+	@echo "Building $(1)..."
+	@mkdir -p $(NATIVE_BIN_DIR)
+	go build -ldflags "$(LDFLAGS)" -o $(NATIVE_BIN_DIR)/$(1) ./cmd/$(2)
+	@echo "Built: $(NATIVE_BIN_DIR)/$(1)"
+endef
+
+# Build all binaries for current platform
+build:
+	@echo "Building all binaries for $(NATIVE_OS)/$(NATIVE_ARCH)..."
+	@mkdir -p $(NATIVE_BIN_DIR)
+	@$(foreach b,$(BINARIES), \
+		$(eval name := $(word 1,$(subst :, ,$(b)))) \
+		$(eval cmd := $(word 2,$(subst :, ,$(b)))) \
+		echo "Building $(name)..." && \
+		go build -ldflags "$(LDFLAGS)" -o $(NATIVE_BIN_DIR)/$(name) ./cmd/$(cmd) && \
+	) true
+	@echo "All binaries built: $(NATIVE_BIN_DIR)/"
+
+# Individual binary targets for convenience
 server:
-	@echo "Building kscore-server..."
-	@mkdir -p build/bin
-	go build -ldflags "$(LDFLAGS)" -o build/bin/kscore-server ./cmd/kscore-server
-	@echo "Built: build/bin/kscore-server"
+	$(call build-binary,kscore-server,kscore-server)
 
 agent:
-	@echo "Building kscore-agent..."
-	@mkdir -p build/bin
-	go build -ldflags "$(LDFLAGS)" -o build/bin/kscore-agent ./cmd/kscore-agent
-	@echo "Built: build/bin/kscore-agent"
+	$(call build-binary,kscore-agent,kscore-agent)
 
 cli:
-	@echo "Building kscorectl..."
-	@mkdir -p build/bin
-	go build -ldflags "$(LDFLAGS)" -o build/bin/kscorectl ./cmd/kscorectl
-	@echo "Built: build/bin/kscorectl"
+	$(call build-binary,kscorectl,kscorectl)
 
 exec:
-	@echo "Building kscore-exec..."
-	@mkdir -p build/bin
-	go build -ldflags "$(LDFLAGS)" -o build/bin/kscore-exec ./cmd/kscore-exec
-	@echo "Built: build/bin/kscore-exec"
+	$(call build-binary,kscore-exec,kscore-exec)
 
 monitor:
-	@echo "Building kscore-monitor..."
-	@mkdir -p build/bin
-	go build -ldflags "$(LDFLAGS)" -o build/bin/kscore-monitor ./cmd/kscore-monitor
-	@echo "Built: build/bin/kscore-monitor"
+	$(call build-binary,kscore-monitor,kscore-monitor)
 
 state:
-	@echo "Building kscore-state..."
-	@mkdir -p build/bin
-	go build -ldflags "$(LDFLAGS)" -o build/bin/kscore-state ./cmd/kscore-state
-	@echo "Built: build/bin/kscore-state"
+	$(call build-binary,kscore-state,kscore-state)
 
 policy:
-	@echo "Building kscore-policy..."
-	@mkdir -p build/bin
-	go build -ldflags "$(LDFLAGS)" -o build/bin/kscore-policy ./cmd/kscore-policy
-	@echo "Built: build/bin/kscore-policy"
+	$(call build-binary,kscore-policy,kscore-policy)
 
 gitops:
-	@echo "Building kscore-gitops..."
-	@mkdir -p build/bin
-	go build -ldflags "$(LDFLAGS)" -o build/bin/kscore-gitops ./cmd/kscore-gitops
-	@echo "Built: build/bin/kscore-gitops"
+	$(call build-binary,kscore-gitops,kscore-gitops)
 
 cluster:
-	@echo "Building kscore-cluster..."
-	@mkdir -p build/bin
-	go build -ldflags "$(LDFLAGS)" -o build/bin/kscore-cluster ./cmd/kscore-cluster
-	@echo "Built: build/bin/kscore-cluster"
+	$(call build-binary,kscore-cluster,kscore-cluster)
 
 migrate:
-	@echo "Building kscore-migrate..."
-	@mkdir -p build/bin
-	go build -ldflags "$(LDFLAGS)" -o build/bin/kscore-migrate ./cmd/kscore-migrate
-	@echo "Built: build/bin/kscore-migrate"
+	$(call build-binary,kscore-migrate,kscore-migrate)
 
 module:
-	@echo "Building kscore-module..."
-	@mkdir -p build/bin
-	go build -ldflags "$(LDFLAGS)" -o build/bin/kscore-module ./cmd/kscore-module
-	@echo "Built: build/bin/kscore-module"
+	$(call build-binary,kscore-module,kscore-module)
 
 registry:
-	@echo "Building kscore-registry..."
-	@mkdir -p build/bin
-	go build -ldflags "$(LDFLAGS)" -o build/bin/kscore-registry ./cmd/kscore-registry
-	@echo "Built: build/bin/kscore-registry"
+	$(call build-binary,kscore-registry,kscore-registry)
 
 identity:
-	@echo "Building kscore-identity..."
-	@mkdir -p build/bin
-	go build -ldflags "$(LDFLAGS)" -o build/bin/kscore-identity ./cmd/kscore-identity
-	@echo "Built: build/bin/kscore-identity"
+	$(call build-binary,kscore-identity,kscore-identity)
+
+gateway:
+	$(call build-binary,kscore-telemetry-gateway,kscore-telemetry-gateway)
+
+# =============================================================================
+# Cross-Platform Builds
+# =============================================================================
+
+# Helper function to build all binaries for a specific platform
+# Usage: $(call build-platform,os,arch,ext)
+define build-platform
+	@echo "Building for $(1)/$(2)..."
+	@mkdir -p build/bin/$(1)/$(2)
+	@$(foreach b,$(BINARIES), \
+		$(eval name := $(word 1,$(subst :, ,$(b)))) \
+		$(eval cmd := $(word 2,$(subst :, ,$(b)))) \
+		GOOS=$(1) GOARCH=$(2) go build -ldflags "$(LDFLAGS)" -o build/bin/$(1)/$(2)/$(name)$(3) ./cmd/$(cmd) && \
+	) true
+	@echo "$(1)/$(2) builds complete"
+endef
+
+build-all-platforms: build-linux build-darwin build-windows
+	@echo "All platform builds complete"
+
+build-linux:
+	$(call build-platform,linux,amd64,)
+	$(call build-platform,linux,arm64,)
+
+build-darwin:
+	$(call build-platform,darwin,amd64,)
+	$(call build-platform,darwin,arm64,)
+
+build-windows:
+	$(call build-platform,windows,amd64,.exe)
+
+# =============================================================================
+# Testing
+# =============================================================================
 
 test:
 	go test -v -race -coverprofile=coverage.out ./...
+
+# =============================================================================
+# Cleanup
+# =============================================================================
 
 clean:
 	rm -rf build/
@@ -200,91 +272,10 @@ install-tools:
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 	@echo "Tools installed successfully"
 
-# Cross-platform builds
-build-all-platforms: build-linux build-darwin build-windows
-	@echo "All platform builds complete"
-
-build-linux:
-	@echo "Building for Linux..."
-	@mkdir -p build/bin/linux/amd64 build/bin/linux/arm64
-	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-server ./cmd/kscore-server
-	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-agent ./cmd/kscore-agent
-	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-registry ./cmd/kscore-registry
-	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscorectl ./cmd/kscorectl
-	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-exec ./cmd/kscore-exec
-	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-state ./cmd/kscore-state
-	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-monitor ./cmd/kscore-monitor
-	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-policy ./cmd/kscore-policy
-	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-gitops ./cmd/kscore-gitops
-	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-cluster ./cmd/kscore-cluster
-	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-migrate ./cmd/kscore-migrate
-	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-module ./cmd/kscore-module
-	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/amd64/kscore-identity ./cmd/kscore-identity
-	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-server ./cmd/kscore-server
-	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-agent ./cmd/kscore-agent
-	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-registry ./cmd/kscore-registry
-	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscorectl ./cmd/kscorectl
-	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-exec ./cmd/kscore-exec
-	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-state ./cmd/kscore-state
-	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-monitor ./cmd/kscore-monitor
-	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-policy ./cmd/kscore-policy
-	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-gitops ./cmd/kscore-gitops
-	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-cluster ./cmd/kscore-cluster
-	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-migrate ./cmd/kscore-migrate
-	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-module ./cmd/kscore-module
-	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/linux/arm64/kscore-identity ./cmd/kscore-identity
-	@echo "Linux builds complete"
-
-build-darwin:
-	@echo "Building for macOS..."
-	@mkdir -p build/bin/darwin/amd64 build/bin/darwin/arm64
-	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-server ./cmd/kscore-server
-	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-agent ./cmd/kscore-agent
-	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-registry ./cmd/kscore-registry
-	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscorectl ./cmd/kscorectl
-	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-exec ./cmd/kscore-exec
-	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-state ./cmd/kscore-state
-	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-monitor ./cmd/kscore-monitor
-	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-policy ./cmd/kscore-policy
-	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-gitops ./cmd/kscore-gitops
-	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-cluster ./cmd/kscore-cluster
-	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-migrate ./cmd/kscore-migrate
-	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-module ./cmd/kscore-module
-	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/amd64/kscore-identity ./cmd/kscore-identity
-	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-server ./cmd/kscore-server
-	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-agent ./cmd/kscore-agent
-	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-registry ./cmd/kscore-registry
-	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscorectl ./cmd/kscorectl
-	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-exec ./cmd/kscore-exec
-	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-state ./cmd/kscore-state
-	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-monitor ./cmd/kscore-monitor
-	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-policy ./cmd/kscore-policy
-	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-gitops ./cmd/kscore-gitops
-	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-cluster ./cmd/kscore-cluster
-	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-migrate ./cmd/kscore-migrate
-	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-module ./cmd/kscore-module
-	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o build/bin/darwin/arm64/kscore-identity ./cmd/kscore-identity
-	@echo "macOS builds complete"
-
-build-windows:
-	@echo "Building for Windows..."
-	@mkdir -p build/bin/windows/amd64
-	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-server.exe ./cmd/kscore-server
-	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-agent.exe ./cmd/kscore-agent
-	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-registry.exe ./cmd/kscore-registry
-	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscorectl.exe ./cmd/kscorectl
-	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-exec.exe ./cmd/kscore-exec
-	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-state.exe ./cmd/kscore-state
-	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-monitor.exe ./cmd/kscore-monitor
-	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-policy.exe ./cmd/kscore-policy
-	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-gitops.exe ./cmd/kscore-gitops
-	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-cluster.exe ./cmd/kscore-cluster
-	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-migrate.exe ./cmd/kscore-migrate
-	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-module.exe ./cmd/kscore-module
-	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/bin/windows/amd64/kscore-identity.exe ./cmd/kscore-identity
-	@echo "Windows builds complete"
-
+# =============================================================================
 # Documentation targets
+# =============================================================================
+
 docs:
 	@echo "Building Hugo documentation site..."
 	@cd docs && hugo --quiet
@@ -385,7 +376,10 @@ docs-all-container-fast: docs-container-build
 		bash -c "hugo --quiet && npm run generate-pdfs && ./generate-pdfs-book.sh --skip-mermaid"
 	@echo "Documentation site and PDFs complete (Mermaid diagrams as code blocks)"
 
+# =============================================================================
 # Linting
+# =============================================================================
+
 lint:
 	@echo "Running linters..."
 	@if command -v golangci-lint >/dev/null 2>&1; then \
@@ -395,7 +389,10 @@ lint:
 		exit 1; \
 	fi
 
+# =============================================================================
 # Release targets (requires goreleaser)
+# =============================================================================
+
 release:
 	@echo "Creating release..."
 	@if [ -z "$$GITHUB_TOKEN" ]; then \
@@ -419,7 +416,10 @@ install-goreleaser:
 	go install github.com/goreleaser/goreleaser/v2@latest
 	@echo "goreleaser installed successfully"
 
+# =============================================================================
 # E2E Testing targets
+# =============================================================================
+
 E2E_COMPOSE := docker compose -f test/e2e/containers/docker-compose.yml -p kscore-e2e
 
 e2e-build:
@@ -455,11 +455,46 @@ e2e-clean:
 	$(E2E_COMPOSE) down -v --remove-orphans --rmi local
 	@echo "E2E cleanup complete"
 
-e2e-full: e2e-build
-	@echo "Running full E2E test suite..."
-	KSCORE_E2E_TESTS=1 KSCORE_ROOT=$(shell pwd) go test -v -timeout 30m ./test/e2e/...
-	@echo "Full E2E tests complete"
+e2e-allinone: e2e-build
+	@echo "Running all-in-one topology E2E tests..."
+	KSCORE_E2E_TESTS=1 KSCORE_ROOT=$(shell pwd) go test -v -timeout 20m ./test/e2e/topology/... -run "TestAllInOne"
+	KSCORE_E2E_TESTS=1 KSCORE_SKIP_BUILD=1 KSCORE_ROOT=$(shell pwd) go test -v -timeout 20m ./test/e2e/scenarios/...
+	@echo "All-in-one E2E tests complete"
 	$(E2E_COMPOSE) down -v --remove-orphans
+
+e2e-full: e2e-build
+	@echo "=============================================="
+	@echo "Running FULL E2E test suite (all topologies)"
+	@echo "=============================================="
+	@echo ""
+	@echo "=== Phase 1: All-in-one topology tests ==="
+	KSCORE_E2E_TESTS=1 KSCORE_ROOT=$(shell pwd) go test -v -timeout 20m ./test/e2e/topology/... -run "TestAllInOne"
+	KSCORE_E2E_TESTS=1 KSCORE_SKIP_BUILD=1 KSCORE_ROOT=$(shell pwd) go test -v -timeout 20m ./test/e2e/scenarios/...
+	$(E2E_COMPOSE) down -v --remove-orphans
+	@echo ""
+	@echo "=== Phase 2: HA cluster topology tests ==="
+	$(HA_COMPOSE) build
+	KSCORE_E2E_TESTS=1 KSCORE_TOPOLOGY=ha-cluster KSCORE_SKIP_BUILD=1 KSCORE_ROOT=$(shell pwd) go test -v -timeout 30m ./test/e2e/topology/... -run "HACluster"
+	$(HA_COMPOSE) down -v --remove-orphans
+	@echo ""
+	@echo "=== Phase 3: IPv6 topology tests ==="
+	$(IPV6_COMPOSE) build
+	KSCORE_E2E_TESTS=1 KSCORE_TOPOLOGY=ipv6 KSCORE_SKIP_BUILD=1 KSCORE_ROOT=$(shell pwd) go test -v -timeout 15m ./test/e2e/topology/... -run "IPv6"
+	$(IPV6_COMPOSE) down -v --remove-orphans
+	@echo ""
+	@echo "=== Phase 4: HA cluster IPv6 topology tests ==="
+	$(HA_IPV6_COMPOSE) build
+	KSCORE_E2E_TESTS=1 KSCORE_TOPOLOGY=ha-cluster-ipv6 KSCORE_SKIP_BUILD=1 KSCORE_ROOT=$(shell pwd) go test -v -timeout 30m ./test/e2e/topology/... -run "HAClusterIPv6"
+	$(HA_IPV6_COMPOSE) down -v --remove-orphans
+	@echo ""
+	@echo "=== Phase 5: Performance tests ==="
+	$(E2E_COMPOSE) up -d --wait
+	KSCORE_E2E_TESTS=1 KSCORE_PERF_TESTS=1 KSCORE_SKIP_BUILD=1 KSCORE_ROOT=$(shell pwd) go test -v -timeout 30m ./test/e2e/performance/...
+	$(E2E_COMPOSE) down -v --remove-orphans
+	@echo ""
+	@echo "=============================================="
+	@echo "Full E2E test suite COMPLETE"
+	@echo "=============================================="
 
 e2e-perf: e2e-build
 	@echo "Running E2E performance tests..."
@@ -473,7 +508,10 @@ e2e-scenarios: e2e-build
 	@echo "Scenario tests complete"
 	$(E2E_COMPOSE) down -v --remove-orphans
 
+# =============================================================================
 # HA Cluster E2E Testing targets
+# =============================================================================
+
 HA_COMPOSE := docker compose -f test/e2e/topologies/ha-cluster/docker-compose.yml -p kscore-e2e-ha
 
 e2e-ha-up:
@@ -502,6 +540,78 @@ e2e-ha: e2e-build
 	@echo "Running HA cluster E2E tests..."
 	@echo "Building HA cluster images..."
 	$(HA_COMPOSE) build
-	KSCORE_E2E_TESTS=1 KSCORE_TOPOLOGY=ha-cluster KSCORE_SKIP_BUILD=1 KSCORE_ROOT=$(shell pwd) go test -v -timeout 30m ./test/e2e/topology/...
+	KSCORE_E2E_TESTS=1 KSCORE_TOPOLOGY=ha-cluster KSCORE_SKIP_BUILD=1 KSCORE_ROOT=$(shell pwd) go test -v -timeout 30m ./test/e2e/topology/... -run "HACluster"
 	@echo "HA cluster E2E tests complete"
 	$(HA_COMPOSE) down -v --remove-orphans
+
+# =============================================================================
+# IPv6 E2E Testing targets
+# =============================================================================
+
+IPV6_COMPOSE := docker compose -f test/e2e/topologies/ipv6/docker-compose.yml -p kscore-e2e-ipv6
+
+e2e-ipv6-up: e2e-build
+	@echo "Starting IPv6 E2E test environment..."
+	@echo "Building IPv6 container images..."
+	$(IPV6_COMPOSE) build
+	@echo "Starting IPv6 network environment..."
+	$(IPV6_COMPOSE) up -d --wait
+	@echo ""
+	@echo "IPv6 environment is running:"
+	@echo "  Server gRPC: [::1]:8080   HTTP: [::1]:8081"
+	@echo "  Network: fd00:1::/64 (IPv6 only)"
+	@echo ""
+	@echo "Run 'make e2e-ipv6-logs' to see container logs"
+
+e2e-ipv6-down:
+	@echo "Stopping IPv6 E2E test environment..."
+	$(IPV6_COMPOSE) down -v --remove-orphans
+	@echo "IPv6 environment stopped"
+
+e2e-ipv6-logs:
+	$(IPV6_COMPOSE) logs -f
+
+e2e-ipv6: e2e-build
+	@echo "Running IPv6 E2E tests..."
+	@echo "Building IPv6 images..."
+	$(IPV6_COMPOSE) build
+	KSCORE_E2E_TESTS=1 KSCORE_TOPOLOGY=ipv6 KSCORE_SKIP_BUILD=1 KSCORE_ROOT=$(shell pwd) go test -v -timeout 15m ./test/e2e/topology/... -run "IPv6"
+	@echo "IPv6 E2E tests complete"
+	$(IPV6_COMPOSE) down -v --remove-orphans
+
+# =============================================================================
+# HA Cluster IPv6 E2E Testing targets
+# =============================================================================
+
+HA_IPV6_COMPOSE := docker compose -f test/e2e/topologies/ha-cluster-ipv6/docker-compose.yml -p kscore-e2e-ha-ipv6
+
+e2e-ha-ipv6-up:
+	@echo "Starting HA cluster IPv6 E2E test environment..."
+	@echo "Building container images..."
+	$(HA_IPV6_COMPOSE) build
+	@echo "Starting HA cluster over IPv6 (3 servers + NATS cluster + etcd + PostgreSQL + 5 agents)..."
+	$(HA_IPV6_COMPOSE) up -d --wait
+	@echo ""
+	@echo "HA Cluster IPv6 environment is running:"
+	@echo "  Server 1 gRPC: localhost:8080   HTTP: localhost:8081"
+	@echo "  Server 2 gRPC: localhost:8082   HTTP: localhost:8083"
+	@echo "  Server 3 gRPC: localhost:8084   HTTP: localhost:8085"
+	@echo "  Network: fd00:2::/64 (IPv6 only)"
+	@echo ""
+	@echo "Run 'make e2e-ha-ipv6-logs' to see container logs"
+
+e2e-ha-ipv6-down:
+	@echo "Stopping HA cluster IPv6 E2E test environment..."
+	$(HA_IPV6_COMPOSE) down -v --remove-orphans
+	@echo "HA cluster IPv6 environment stopped"
+
+e2e-ha-ipv6-logs:
+	$(HA_IPV6_COMPOSE) logs -f
+
+e2e-ha-ipv6: e2e-build
+	@echo "Running HA cluster IPv6 E2E tests..."
+	@echo "Building HA cluster IPv6 images..."
+	$(HA_IPV6_COMPOSE) build
+	KSCORE_E2E_TESTS=1 KSCORE_TOPOLOGY=ha-cluster-ipv6 KSCORE_SKIP_BUILD=1 KSCORE_ROOT=$(shell pwd) go test -v -timeout 30m ./test/e2e/topology/... -run "HAClusterIPv6"
+	@echo "HA cluster IPv6 E2E tests complete"
+	$(HA_IPV6_COMPOSE) down -v --remove-orphans

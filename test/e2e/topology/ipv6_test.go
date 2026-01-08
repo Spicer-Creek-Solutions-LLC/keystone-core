@@ -425,14 +425,39 @@ func TestIPv6_GetBatchJobStatus(t *testing.T) {
 	skipUnlessIPv6Topology(t)
 	setupIPv6Environment(t)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
 	client := ipv6TestEnv.Client()
 
-	// Get status of previously executed IPv6 batch job
+	// First, create a batch job so we have something to query
+	batchReq := &pb.BatchExecuteCommandRequest{
+		BatchJobId:  "e2e-ipv6-status-test",
+		Target:      "*",
+		Command:     "echo",
+		Args:        []string{"status test"},
+		Concurrency: 3,
+	}
+
+	stream, err := client.BatchExecuteCommand(ctx, batchReq)
+	if err != nil {
+		t.Fatalf("Failed to execute batch command: %v", err)
+	}
+
+	// Consume the stream to completion
+	for {
+		_, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatalf("Stream error: %v", err)
+		}
+	}
+
+	// Now get the status of the job we just created
 	req := &pb.GetBatchJobStatusRequest{
-		BatchJobId: "e2e-ipv6-batch-test-1",
+		BatchJobId: "e2e-ipv6-status-test",
 	}
 
 	resp, err := client.GetBatchJobStatus(ctx, req)
@@ -463,11 +488,45 @@ func TestIPv6_ListBatchJobs(t *testing.T) {
 	skipUnlessIPv6Topology(t)
 	setupIPv6Environment(t)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 
 	client := ipv6TestEnv.Client()
 
+	// Create multiple batch jobs so we have something to list
+	jobIDs := []string{
+		"e2e-ipv6-list-test-1",
+		"e2e-ipv6-list-test-2",
+		"e2e-ipv6-list-test-3",
+	}
+
+	for _, jobID := range jobIDs {
+		batchReq := &pb.BatchExecuteCommandRequest{
+			BatchJobId:  jobID,
+			Target:      "*",
+			Command:     "echo",
+			Args:        []string{"list test", jobID},
+			Concurrency: 3,
+		}
+
+		stream, err := client.BatchExecuteCommand(ctx, batchReq)
+		if err != nil {
+			t.Fatalf("Failed to execute batch command %s: %v", jobID, err)
+		}
+
+		// Consume the stream to completion
+		for {
+			_, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				t.Fatalf("Stream error for %s: %v", jobID, err)
+			}
+		}
+	}
+
+	// Now list the batch jobs
 	req := &pb.ListBatchJobsRequest{
 		PageSize: 10,
 	}
@@ -486,7 +545,7 @@ func TestIPv6_ListBatchJobs(t *testing.T) {
 		}
 	}
 
-	// Should have at least the IPv6 jobs we created
+	// Should have at least the 3 IPv6 jobs we created in this test
 	if ipv6Jobs < 3 {
 		t.Errorf("Expected at least 3 IPv6 batch jobs, got %d", ipv6Jobs)
 	}

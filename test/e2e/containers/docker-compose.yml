@@ -81,9 +81,6 @@ services:
 
   # Agent 2 - Web server role
   agent-web-2:
-    build:
-      context: ../../..
-      dockerfile: test/e2e/containers/Dockerfile.agent
     image: kscore-agent:e2e-test
     container_name: kscore-agent-web-2
     hostname: agent-web-2
@@ -99,9 +96,6 @@ services:
 
   # Agent 3 - Database server role
   agent-db-1:
-    build:
-      context: ../../..
-      dockerfile: test/e2e/containers/Dockerfile.agent
     image: kscore-agent:e2e-test
     container_name: kscore-agent-db-1
     hostname: agent-db-1

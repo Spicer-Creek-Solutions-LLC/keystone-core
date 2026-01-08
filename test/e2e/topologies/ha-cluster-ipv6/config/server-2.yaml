@@ -1,0 +1,48 @@
+# Keystone Core Server Configuration - HA Cluster IPv6 Node 2
+# This configuration uses external NATS cluster and PostgreSQL over IPv6
+
+server:
+  listenaddr: "[::]"
+  grpcport: 8080
+  httpport: 8081
+
+# NATS configuration - external cluster mode with IPv6 addresses
+nats:
+  mode: external
+  url: "nats://[fd00:2::11]:4222,nats://[fd00:2::12]:4222,nats://[fd00:2::13]:4222"
+  maxreconnects: 30
+  reconnectwait: 2s
+  jetstream:
+    enabled: true
+
+# Storage configuration - PostgreSQL with IPv6 address
+storage:
+  backend: postgresql
+  postgresql:
+    dsn: "postgres://kscore:kscore_e2e_password@[fd00:2::30]:5432/kscore?sslmode=disable"
+    maxopenconns: 20
+    maxidleconns: 10
+    connmaxlifetime: 1h
+
+# Cluster configuration with IPv6 etcd addresses
+cluster:
+  enabled: true
+  nodeid: server-2
+  etcd:
+    endpoints:
+      - "http://[fd00:2::21]:2379"
+      - "http://[fd00:2::22]:2379"
+      - "http://[fd00:2::23]:2379"
+    dialtimeout: 5s
+    requesttimeout: 10s
+  heartbeatinterval: 5s
+  electiontimeout: 15s
+  leasettl: 30
+
+# Authentication disabled for testing
+auth:
+  enabled: false
+
+# TLS disabled for testing
+tls:
+  enabled: false

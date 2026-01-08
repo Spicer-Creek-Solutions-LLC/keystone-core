@@ -1,0 +1,25 @@
+# Agent configuration for HA cluster IPv6 testing
+# Agent ID is set via environment variable KSCORE_AGENT_ID
+
+nats:
+  mode: external
+  # Connect to any NATS node - they're clustered (IPv6 addresses)
+  url: "nats://[fd00:2::11]:4222,nats://[fd00:2::12]:4222,nats://[fd00:2::13]:4222"
+  maxreconnects: 60
+  reconnectwait: 2s
+
+agent:
+  # ID is overridden by KSCORE_AGENT_ID environment variable
+  id: "agent-default"
+  heartbeatinterval: 5s
+  commandtimeout: 60s
+  metadatainterval: 30s
+  labels:
+    network: ipv6
+    topology: ha-cluster
+
+auth:
+  enabled: false
+
+tls:
+  enabled: false

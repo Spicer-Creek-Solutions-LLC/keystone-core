@@ -20,6 +20,7 @@ const STATIC_DIR = path.join(__dirname, 'static');
 const SERVER_PORT = 8765;
 
 const SECTIONS = [
+  { name: 'executive-summary', title: 'Executive Summary', weight: 0 },
   { name: 'getting-started', title: 'Getting Started', weight: 1 },
   { name: 'concepts', title: 'Core Concepts', weight: 2 },
   { name: 'reference', title: 'Reference', weight: 3 },
@@ -182,13 +183,98 @@ function getDefaultPrintCSS() {
 
     /* Links */
     a { color: #2563eb; text-decoration: none; }
+    /* External links show URL */
     a[href^="http"]:after {
       content: " (" attr(href) ")";
       font-size: 8pt;
       color: #666;
     }
-    a[href^="#"]:after, a[href^="/"]:after { content: none; }
+    /* Internal anchor links - no URL suffix, underline to show clickable */
+    a[href^="#"] {
+      text-decoration: underline;
+      text-decoration-style: dotted;
+    }
+    a[href^="#"]:after { content: none; }
   `;
+}
+
+/**
+ * Generate a valid HTML ID from a URL path
+ */
+function pathToId(urlPath) {
+  // Convert /docs/concepts/agents/ to docs-concepts-agents
+  return urlPath
+    .replace(/^\/+|\/+$/g, '')  // Remove leading/trailing slashes
+    .replace(/\//g, '-')         // Replace slashes with hyphens
+    .replace(/[^a-zA-Z0-9-]/g, '') // Remove invalid characters
+    .toLowerCase();
+}
+
+/**
+ * Transform internal links to PDF anchors
+ * Called after all content is combined
+ */
+async function transformLinksForPDF(page) {
+  await page.evaluate(() => {
+    const links = document.querySelectorAll('a[href]');
+    links.forEach(link => {
+      const href = link.getAttribute('href');
+
+      // Skip external links and mailto/tel links
+      if (href.startsWith('http://') || href.startsWith('https://') ||
+          href.startsWith('mailto:') || href.startsWith('tel:')) {
+        return;
+      }
+
+      // Handle anchor links within the same page
+      if (href.startsWith('#')) {
+        // Keep as-is, these should work within the PDF
+        return;
+      }
+
+      // Handle internal documentation links like /docs/concepts/agents/
+      if (href.startsWith('/docs/') || href.startsWith('/docs#')) {
+        // Convert to anchor: /docs/concepts/agents/ -> #docs-concepts-agents
+        const anchorId = href
+          .replace(/^\/+|\/+$/g, '')
+          .replace(/\//g, '-')
+          .replace(/#/g, '-')
+          .replace(/[^a-zA-Z0-9-]/g, '')
+          .toLowerCase();
+        link.setAttribute('href', '#' + anchorId);
+        return;
+      }
+
+      // Handle relative links (../something, ./something)
+      if (href.startsWith('./') || href.startsWith('../')) {
+        // Try to resolve to an anchor
+        const anchorId = href
+          .replace(/^\.+\//g, '')
+          .replace(/\//g, '-')
+          .replace(/[^a-zA-Z0-9-]/g, '')
+          .toLowerCase();
+        if (anchorId) {
+          link.setAttribute('href', '#' + anchorId);
+        } else {
+          // Remove broken relative links
+          link.removeAttribute('href');
+        }
+        return;
+      }
+
+      // For any other internal links, try to convert or remove
+      if (!href.includes('://')) {
+        const anchorId = href
+          .replace(/^\/+|\/+$/g, '')
+          .replace(/\//g, '-')
+          .replace(/[^a-zA-Z0-9-]/g, '')
+          .toLowerCase();
+        if (anchorId) {
+          link.setAttribute('href', '#' + anchorId);
+        }
+      }
+    });
+  });
 }
 
 /**
@@ -360,6 +446,7 @@ async function generateSectionPDF(browser, section, baseUrl) {
     for (let i = 0; i < pages.length; i++) {
       const pageInfo = pages[i];
       const pageUrl = `${baseUrl}/docs/${section.name}/${pageInfo.path}`;
+      const sectionId = pathToId(`/docs/${section.name}/${pageInfo.path}`);
 
       log(`    Loading: ${pageInfo.path || 'index'}`, 'dim');
 
@@ -386,7 +473,8 @@ async function generateSectionPDF(browser, section, baseUrl) {
 
       if (content) {
         const pageBreak = i > 0 ? ' page-break' : '';
-        combinedHTML += `<div class="section-content${pageBreak}">${content}</div>\n`;
+        // Add section ID for internal linking
+        combinedHTML += `<div id="${sectionId}" class="section-content${pageBreak}">${content}</div>\n`;
       }
     }
 
@@ -397,6 +485,9 @@ async function generateSectionPDF(browser, section, baseUrl) {
 
     // Wait for any Mermaid diagrams to render in combined content
     await waitForMermaid(page);
+
+    // Transform internal links to PDF anchors
+    await transformLinksForPDF(page);
 
     // Inject print CSS
     const printCSS = getPrintCSS();
@@ -471,6 +562,7 @@ async function generateCompletePDF(browser, baseUrl) {
 
       for (const pageInfo of pages) {
         const pageUrl = `${baseUrl}/docs/${section.name}/${pageInfo.path}`;
+        const sectionId = pathToId(`/docs/${section.name}/${pageInfo.path}`);
 
         await page.goto(pageUrl, { waitUntil: 'networkidle', timeout: 30000 });
         await waitForMermaid(page);
@@ -490,7 +582,8 @@ async function generateCompletePDF(browser, baseUrl) {
 
         if (content) {
           const pageBreak = !isFirstPage ? ' page-break' : '';
-          combinedHTML += `<div class="section-content${pageBreak}">${content}</div>\n`;
+          // Add section ID for internal linking
+          combinedHTML += `<div id="${sectionId}" class="section-content${pageBreak}">${content}</div>\n`;
           isFirstPage = false;
         }
       }
@@ -500,6 +593,9 @@ async function generateCompletePDF(browser, baseUrl) {
 
     await page.setContent(combinedHTML, { waitUntil: 'networkidle' });
     await waitForMermaid(page);
+
+    // Transform internal links to PDF anchors
+    await transformLinksForPDF(page);
 
     const printCSS = getPrintCSS();
     await page.addStyleTag({ content: printCSS });

@@ -25,18 +25,18 @@ Epic 4: Event System                   Future Considerations:
 Epic 5: GitOps Integration               - Multi-Tenancy & Namespace Isolation
 Epic 6: Policy Enforcement               - Scheduled Operations & Maintenance Windows
 Epic 7: Observability                    - Web UI Dashboard
-Epic 8: Multi-Environment                - ServiceNow/ITSM Integration
-Epic 9: Plugin System                    - Secrets Management (Vault, AWS SM)
-Epic 10: Documentation                   - Terraform Provider
-Epic 11: HA Clustering                   - Chef/Puppet Migration Tools
-Epic 12: E2E Testing                     - Mobile Monitoring App
-Epic 13: CGO Removal                     - Natural Language Interface
-Epic 14: NATS Mesh Communication
-Epic 15: Observability Enhancements
-Epic 16: Stdlib System Modules
-Epic 17: SPIFFE Identity Framework
-Epic 18: IPv6 Support
-Epic 19: Observability Gateway
+Epic 8: Multi-Environment                - Automatic Drift Remediation
+Epic 9: Plugin System                    - Agent Self-Update
+Epic 10: Documentation                   - Compliance Framework Presets
+Epic 11: HA Clustering                   - Network Discovery & Topology
+Epic 12: E2E Testing                     - Runbook Automation
+Epic 13: CGO Removal                     - Disaster Recovery
+Epic 14: NATS Mesh Communication         - Secrets Management (Vault, AWS SM)
+Epic 15: Observability Enhancements      - Terraform Provider
+Epic 16: Stdlib System Modules           - ServiceNow/ITSM Integration
+Epic 17: SPIFFE Identity Framework       - Chef/Puppet Migration Tools
+Epic 18: IPv6 Support                    - Mobile Monitoring App
+Epic 19: Observability Gateway           - Natural Language Interface
 Epic 20: Windows Support
 ```
 
@@ -539,6 +539,54 @@ These items are under consideration for future development:
 - State and drift visualization
 - Policy compliance dashboards
 - Job history and execution logs
+
+#### Automatic Drift Remediation
+
+- Opt-in automatic fix for detected drift
+- Approval workflows for critical changes
+- Change management integration (ServiceNow, Jira)
+- Rollback on remediation failure
+- Remediation scheduling (maintenance windows)
+
+#### Agent Self-Update
+
+- Secure binary distribution via NATS
+- Staged rollouts (canary, percentage-based)
+- Automatic rollback on health check failure
+- Version pinning per environment
+- Offline update packages for air-gapped environments
+
+#### Compliance Framework Presets
+
+- CIS Benchmarks policy packs (Linux, Windows, Kubernetes)
+- SOC 2 compliance policies
+- HIPAA compliance policies
+- PCI-DSS compliance policies
+- Custom framework builder
+
+#### Network Discovery & Topology
+
+- Automatic network scanning
+- L2/L3 topology mapping
+- Dependency visualization
+- Change detection and alerting
+- Integration with CMDB
+
+#### Runbook Automation
+
+- Multi-step orchestration workflows
+- Conditional branching (if/else, switch)
+- Approval gates with escalation
+- Parallel and sequential step execution
+- Human-in-the-loop confirmation
+
+#### Disaster Recovery
+
+- Full backup/restore of cluster state
+- State export/import for migration
+- Cross-region failover automation
+- Point-in-time recovery
+- Backup verification and testing
 
 #### ServiceNow/ITSM Integration
 

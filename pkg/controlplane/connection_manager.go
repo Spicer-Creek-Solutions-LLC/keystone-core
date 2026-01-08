@@ -555,11 +555,26 @@ func (cm *ConnectionManager) checkAgentHealth() {
 // GetAgent returns information about a specific agent
 func (cm *ConnectionManager) GetAgent(agentID string) (*AgentInfo, error) {
 	cm.mu.RLock()
-	defer cm.mu.RUnlock()
-
 	info, exists := cm.agents[agentID]
+	cm.mu.RUnlock()
+
 	if !exists {
-		return nil, fmt.Errorf("agent %s not found", agentID)
+		// Try to find agent in database (for HA clusters where agent registered with another server)
+		if cm.stateStore != nil {
+			if err := cm.tryLoadAgentFromStore(agentID); err == nil {
+				// Agent loaded from database, try again
+				cm.mu.RLock()
+				info, exists = cm.agents[agentID]
+				cm.mu.RUnlock()
+				if !exists {
+					return nil, fmt.Errorf("agent %s not found", agentID)
+				}
+			} else {
+				return nil, fmt.Errorf("agent %s not found", agentID)
+			}
+		} else {
+			return nil, fmt.Errorf("agent %s not found", agentID)
+		}
 	}
 
 	// Return a copy
