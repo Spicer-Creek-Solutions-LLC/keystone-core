@@ -23,8 +23,8 @@ Keystone Core is a cloud-native runtime infrastructure control plane that provid
 
 | Status | Description |
 |--------|-------------|
-| **Epics 1-20** | COMPLETE |
-| **Epic 21** | PLANNED (Proxy Agents) |
+| **Epics 1-21** | COMPLETE |
+| **Epic 22-23** | PLANNED (File Distribution, Self-Management) |
 
 ### Completed Capabilities
 
@@ -43,6 +43,7 @@ Keystone Core is a cloud-native runtime infrastructure control plane that provid
 - **Telemetry Gateway** - Aggregates metrics/logs/traces from isolated agents for Prometheus/Loki/Tempo
 - **Windows Support** - Native Windows agent, PowerShell execution, Windows state modules
 - **IPv6 Support** - Full dual-stack networking across all components
+- **Proxy Agents** - Manage unmanaged devices via SSH, SNMP, REST, WinRM; network device support (Cisco, Juniper, Arista)
 - **Documentation** - Hugo + Docsy site with comprehensive documentation
 
 ## Quick Start
@@ -210,6 +211,13 @@ flowchart TB
 - **Cloud Integration**: AWS IAM, GCP Workload Identity, Azure MI
 - **Service Mesh**: Istio, Linkerd, Consul Connect identity extraction
 
+### Proxy Agents
+- **Protocol Adapters**: SSH, SNMP v2c/v3, REST/HTTP, WinRM
+- **Network Device Support**: Cisco IOS/NX-OS, Juniper JUNOS, Arista EOS, VyOS, pfSense, OPNsense
+- **Credential Management**: Vault, Kubernetes secrets, encrypted file storage
+- **Discovery**: Automatic device discovery with approval workflows
+- **State Modules**: Execute state configurations through proxy protocols
+
 ## Configuration
 
 ### NATS Modes
@@ -264,6 +272,10 @@ keystone-core/
 │   ├── cloud/                # AWS, GCP, Azure integration
 │   ├── container/            # Docker, containerd detection
 │   ├── servicemesh/          # Istio, Linkerd, Consul
+│   ├── proxy/                # Proxy agents, device management, discovery
+│   ├── protocols/            # SSH, SNMP, REST, WinRM adapters
+│   ├── vendors/              # Cisco, Juniper, Arista, VyOS, pfSense adapters
+│   ├── credentials/          # Credential storage (Vault, K8s, encrypted file)
 │   └── module/               # Plugin system (runtime, capabilities, resolver, verify)
 ├── modules/
 │   ├── sdk/                  # SDKs (Starlark, Rust, Go, C++)
@@ -335,8 +347,9 @@ hugo         # Build to docs/public/
 | 14-15 | Complete | NATS mesh communication, observability enhancements |
 | 16-17 | Complete | 84 stdlib system modules, SPIFFE identity framework |
 | 18-20 | Complete | IPv6 support, telemetry gateway, Windows support |
-| 21 | Planned | Proxy agents for unmanaged devices |
+| 21 | Complete | Proxy agents for unmanaged devices (SSH, SNMP, REST, WinRM, vendor adapters) |
 | 22 | Planned | File distribution over NATS |
+| 23 | Planned | Self-management, backup/restore, rolling upgrades |
 
 See `epics/` directory for detailed implementation plans.
 
