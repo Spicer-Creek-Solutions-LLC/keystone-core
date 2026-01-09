@@ -98,9 +98,11 @@ This repository contains working implementations of **Epics 1-11**. The project 
 - Policy enforcement with OPA/CEL engines, auditing, and compliance reporting (Epic 6 complete)
 - High availability clustering with etcd-based coordination, leader election, and automatic failover (Epic 11 complete)
 - Telemetry gateway for aggregating metrics, logs, and traces from isolated agents (Epic 19 complete)
+- Proxy agents for managing unmanaged devices via SSH, SNMP, REST, WinRM (Epic 21 complete)
+- File distribution over NATS with multiple backends, mirror groups, and geographic routing (Epic 22 complete)
 - Comprehensive test suite (>79% coverage across all core packages)
 
-**Current Status**: Epic 1-19 COMPLETE ✅ (Observability Gateway)
+**Current Status**: Epic 1-22 COMPLETE ✅ (File Distribution)
 
 ### ⚠️ Known Implementation Gaps
 
@@ -4863,6 +4865,231 @@ All 10 phases implemented:
 
 **See**: `epics/21-proxy-agents.md` for full implementation details
 
+### Epic 22: File Distribution ✅ COMPLETE
+
+**Implementation Plan:** 13 phases (30 weeks total)
+
+**Goal**: Implement a dedicated file distribution system that enables agents to retrieve packages, configurations, binaries, and other files over NATS without requiring additional network connections.
+
+**Current Status**: All 13 Phases COMPLETE ✅ (241 tests)
+
+**Phase 1: Core Protocol & Local Backend ✅ COMPLETE**
+- File protocol types (`pkg/files/types.go`)
+  - FileRequest, FileMetadata, FileChunk, FileAck messages
+  - ByteRange for resume support
+  - Error types and status codes
+- File server core (`pkg/files/server.go`)
+  - NATS connection and subscription handling
+  - Request routing and worker pool
+  - Chunked streaming implementation
+- Local filesystem backend (`pkg/files/backend/filesystem.go`)
+  - File reading with streaming
+  - Directory listing
+  - SHA-256 checksum calculation
+- Agent file client (`pkg/files/client.go`)
+  - File request API
+  - Chunk reassembly and verification
+  - Local file caching
+  - Resume support for interrupted transfers
+
+**Phase 2: Cloud Storage Backends ✅ COMPLETE**
+- S3-compatible backend (`pkg/files/backend/s3.go`)
+  - AWS S3 client integration
+  - Support for MinIO, GCS (S3-compatible mode)
+  - Streaming download (no full buffering)
+  - Multipart upload support
+- Azure Blob backend (`pkg/files/backend/azure.go`)
+  - Azure Blob Storage client
+  - Block blob streaming
+  - SAS token support
+- Google Cloud Storage backend (`pkg/files/backend/gcs.go`)
+  - GCS native client
+  - Streaming operations
+  - Service account authentication
+- Backend selection logic (`pkg/files/backend/backend.go`)
+  - Path-based backend routing
+  - Priority-based fallback
+  - Health checking for backends
+
+**Phase 3: NATS Object Store Backend ✅ COMPLETE**
+- NATS Object Store integration (`pkg/files/backend/nats.go`)
+  - JetStream Object Store client
+  - Put/Get/Delete operations
+  - Chunking handled by NATS
+  - Watch for changes
+  - Connection pooling
+  - Batch metadata queries
+
+**Phase 4: Git Repository Backend ✅ COMPLETE**
+- Git clone and fetch (`pkg/files/backend/git.go`)
+  - go-git integration
+  - SSH and HTTPS authentication
+  - Sparse checkout support
+  - Branch and tag support
+  - Webhook integration for immediate refresh
+
+**Phase 5: Proxy Agent Caching ✅ COMPLETE**
+- Cache storage (`pkg/files/cache/cache.go`)
+  - File-based cache with index
+  - LRU eviction implementation
+  - TTL expiration handling
+- Cache protocol
+  - Request interception at proxy
+  - Cache hit/miss handling
+  - Passthrough for uncacheable
+- Cache management
+  - Invalidation messages
+  - Cache warm-up API
+  - Cache statistics
+
+**Phase 6: Access Control & Security ✅ COMPLETE**
+- Authentication (`pkg/files/access/access.go`)
+  - Agent identity verification (SPIFFE)
+  - Request signing
+  - Credential validation
+- Authorization
+  - Namespace permissions
+  - Policy engine integration (OPA/CEL)
+  - ACL evaluation
+- Audit logging (`pkg/files/access/audit.go`)
+  - File access logging
+  - Download/upload tracking
+  - Integration with audit system
+
+**Phase 7: High Availability & Scaling ✅ COMPLETE**
+- Multi-instance support (`pkg/files/ha/ha.go`)
+  - Stateless file server design
+  - Load distribution via NATS queue groups
+  - Health check endpoints
+- Bandwidth management (`pkg/files/ha/bandwidth.go`)
+  - Per-agent rate limiting
+  - Global rate limiting
+  - Priority queues
+- Metrics & monitoring (`pkg/files/ha/metrics.go`)
+  - Transfer metrics (count, size, duration)
+  - Cache metrics (hit rate, size)
+  - Backend metrics (latency, errors)
+  - Prometheus exporter
+
+**Phase 8: State Module Integration ✅ COMPLETE**
+- File module enhancement (`pkg/files/state/file_source.go`)
+  - Support `source: kscore://` URLs
+  - Automatic checksum verification
+  - Version pinning
+- Package module enhancement (`pkg/files/state/package.go`)
+  - Package files from file server
+  - Repository mirroring support
+- Template integration (`pkg/files/state/template.go`)
+  - Template files from file server
+  - Variable substitution
+
+**Phase 9: CLI & Administration ✅ COMPLETE**
+- File server CLI (`cmd/kscore-files/`)
+  - `commands_backend.go` - Backend management commands
+  - `commands_cache.go` - Cache management commands
+  - `commands_files.go` - File operations (list, get, put, delete)
+  - `commands_namespace.go` - Namespace management
+  - `commands_mirrors.go` - Mirror group management
+
+**Phase 10: Mirror Groups & Geographic Routing ✅ COMPLETE**
+- Mirror group core (`pkg/files/mirror/types.go`, `registry.go`)
+  - Mirror group configuration parsing and validation
+  - MirrorGroup struct with mirrors, policies, health state
+  - MirrorRegistry for managing multiple mirror groups
+  - Path-to-mirror-group routing
+- Read routing strategies (`pkg/files/mirror/strategy.go`)
+  - `nearest` strategy with latency probing
+  - `round-robin` strategy with weighted distribution
+  - `failover` strategy with ordered fallback
+  - `fastest` strategy with recent response time tracking
+  - Strategy interface for extensibility
+- Geographic routing (`pkg/files/mirror/geo.go`)
+  - Agent location parsing and normalization
+  - Region/zone matching logic
+  - Coordinate-based distance calculation (Haversine)
+  - Location inheritance from proxy agent
+- Mirror health monitoring (`pkg/files/mirror/health.go`)
+  - Health check goroutine per mirror
+  - Configurable thresholds
+  - Circuit breaker per mirror
+  - Health change events
+
+**Phase 11: Mirror Synchronization ✅ COMPLETE**
+- Sync engine core (`pkg/files/mirror/sync.go`)
+  - SyncEngine struct managing sync operations
+  - Sync state: idle, syncing, error
+  - Per-mirror-group sync status
+  - Sync queue with priority ordering
+- Change detection
+  - Checksum-based change detection
+  - File listing comparison between mirrors
+  - Modification time tracking
+  - Incremental sync (only changed files)
+- Conflict resolution
+  - Conflict detection (different checksums on mirrors)
+  - Resolution strategies: newest-wins, largest-wins, primary-wins, manual
+  - Conflict logging and alerting
+
+**Phase 12: Mirror Administration ✅ COMPLETE**
+- Mirror CLI commands (`cmd/kscore-files/commands_mirrors.go`)
+  - `mirrors list` - List mirror groups and status
+  - `mirrors show` - Show mirror group details
+  - `mirrors sync-status` - Check sync status
+  - `mirrors sync` - Trigger manual sync
+  - `mirrors health` - Show mirror health
+  - `mirrors failover` - Force failover to specific mirror
+  - `mirrors latency` - Show latency matrix
+  - `mirrors conflicts` - List conflicts
+  - `mirrors resolve-conflict` - Resolve conflict
+- Mirror management API (`pkg/files/mirror/api.go`)
+  - REST endpoints for mirror operations
+  - Health status, sync status, conflict management
+- Mirror metrics (`pkg/files/mirror/metrics.go`)
+  - `kscore_files_mirror_health` - Mirror health status gauge
+  - `kscore_files_mirror_latency_seconds` - Latency histogram per mirror
+  - `kscore_files_mirror_reads_total` - Read counter per mirror
+  - `kscore_files_mirror_writes_total` - Write counter per mirror
+  - `kscore_files_mirror_sync_*` - Sync metrics
+  - `kscore_files_mirror_conflicts_*` - Conflict metrics
+- Grafana dashboard (`deploy/grafana/dashboards/file-mirrors.json`)
+  - Mirror health overview panel
+  - Latency heatmap across regions
+  - Read distribution pie chart
+  - Sync status and progress
+  - Conflict alerts
+- Alert rules (`deploy/grafana/alerts/file-mirrors-alerts.yml`)
+  - Mirror unhealthy alerts
+  - Sync lag alerts
+  - Conflict alerts
+
+**Phase 13: Documentation & Testing ✅ COMPLETE**
+- Documentation
+  - `docs/content/en/docs/concepts/file-distribution.md` - Architecture and concepts
+  - `docs/content/en/docs/reference/file-backends.md` - Backend configuration reference
+- Test coverage
+  - `pkg/files/` - 23.3% coverage
+  - `pkg/files/access/` - 81.4% coverage
+  - `pkg/files/backend/` - 64.7% coverage
+  - `pkg/files/cache/` - 80.9% coverage
+  - `pkg/files/ha/` - 92.7% coverage
+  - `pkg/files/mirror/` - 59.9% coverage
+  - `pkg/files/state/` - 64.6% coverage
+  - **241 tests total**, all passing
+
+**Key Features:**
+- Agents retrieve files over NATS (no HTTP/S3 access required)
+- Support files up to 10GB with chunked transfer
+- Multiple storage backends: Local, S3, GCS, Azure Blob, NATS Object Store, Git
+- SHA-256 integrity verification for all transfers
+- Proxy agent caching reduces bandwidth
+- Access control integrated with agent identity (SPIFFE)
+- Transfer resume on connection interruption
+- Mirror groups with geographic routing
+- Automatic failover when a mirror becomes unhealthy
+- Conflict detection and resolution for split-brain scenarios
+
+**See**: `epics/22-file-distribution.md` for full implementation details
+
 ## Epic Dependencies
 
 Implementation order:
@@ -4887,7 +5114,7 @@ Implementation order:
 19. **Epic 19** (Observability Gateway) - ✅ COMPLETE - Depends on Epic 7, 14, 15 (telemetry gateway for isolated agents, Prometheus/Loki/Tempo bridge)
 20. **Epic 20** (Windows Support) - ✅ COMPLETE (All 7 phases) - Depends on Epic 1, 2, 3, 13 (Windows service, PowerShell/Cmd execution, state modules, file operations, MSI installer)
 21. **Epic 21** (Proxy Agents) - ✅ COMPLETE (All 10 phases) - Depends on Epic 1, 2, 3, 4, 8, 14 (SSH/SNMP/REST/WinRM adapters, network device support, transparent targeting)
-22. **Epic 22** (File Distribution) - NOT STARTED - Depends on Epic 1, 4, 6, 14, 17, 21 (NATS-based file server, multiple backends, mirror groups, proxy caching)
+22. **Epic 22** (File Distribution) - ✅ COMPLETE (All 13 phases) - Depends on Epic 1, 4, 6, 14, 17, 21 (NATS-based file server, multiple backends, mirror groups, proxy caching, 241 tests)
 23. **Epic 23** (Self-Management) - NOT STARTED - Depends on Epic 1, 3, 4, 5, 7, 11, 17, 22 (bootstrap, backup/restore, rolling upgrades, self-healing, disaster recovery)
 
 ### Future Epics (Not Yet Planned)
