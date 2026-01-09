@@ -5,7 +5,7 @@
 
 metadata:
   name: webserver-setup
-  description: Configure a production-ready Nginx web server
+  description: Configure an Nginx web server with common settings
   version: "1.0"
 
 # Variables for customization

@@ -4,7 +4,7 @@
 
 Implement comprehensive user and administrator documentation for Keystone Core using Hugo + Docsy theme. Documentation will cover all completed epics (1-6, partial 7), provide getting started guides, tutorials, reference material, and operational guidance. The documentation source will live in the repository with tooling to generate both a documentation website and offline PDF.
 
-**Goal**: Create production-ready documentation that enables users to understand, deploy, configure, and operate Keystone Core effectively, with both web and offline PDF formats.
+**Goal**: Create comprehensive documentation that enables users to understand, deploy, configure, and operate Keystone Core effectively, with both web and offline PDF formats.
 
 ## Success Criteria
 

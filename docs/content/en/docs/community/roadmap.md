@@ -15,11 +15,13 @@ Keystone Core aims to be the operational layer between GitOps/IaC deployments an
 
 ## Roadmap Overview
 
+⚠️ **Note**: Keystone Core is under active development and is NOT ready for production use.
+
 ```
-COMPLETED (Epics 1-20)                 PLANNED (Epics 21-22)
+COMPLETED (Epics 1-21)                 PLANNED (Epics 22-23)
 ───────────────────────────────────────────────────────────────────────
-Epic 1: Core Infrastructure            Epic 21: Proxy Agents
-Epic 2: Remote Execution               Epic 22: File Distribution
+Epic 1: Core Infrastructure            Epic 22: File Distribution
+Epic 2: Remote Execution               Epic 23: Self-Management
 Epic 3: State Management
 Epic 4: Event System                   Future Considerations:
 Epic 5: GitOps Integration               - Multi-Tenancy & Namespace Isolation
@@ -30,14 +32,15 @@ Epic 9: Plugin System                    - Agent Self-Update
 Epic 10: Documentation                   - Compliance Framework Presets
 Epic 11: HA Clustering                   - Network Discovery & Topology
 Epic 12: E2E Testing                     - Runbook Automation
-Epic 13: CGO Removal                     - Disaster Recovery
-Epic 14: NATS Mesh Communication         - Secrets Management (Vault, AWS SM)
-Epic 15: Observability Enhancements      - Terraform Provider
-Epic 16: Stdlib System Modules           - ServiceNow/ITSM Integration
-Epic 17: SPIFFE Identity Framework       - Chef/Puppet Migration Tools
-Epic 18: IPv6 Support                    - Mobile Monitoring App
-Epic 19: Observability Gateway           - Natural Language Interface
+Epic 13: CGO Removal                     - Secrets Management (Vault, AWS SM)
+Epic 14: NATS Mesh Communication         - Terraform Provider
+Epic 15: Observability Enhancements      - ServiceNow/ITSM Integration
+Epic 16: Stdlib System Modules           - Chef/Puppet Migration Tools
+Epic 17: SPIFFE Identity Framework       - Mobile Monitoring App
+Epic 18: IPv6 Support                    - Natural Language Interface
+Epic 19: Observability Gateway
 Epic 20: Windows Support
+Epic 21: Proxy Agents
 ```
 
 ## Completed Milestones
@@ -58,7 +61,7 @@ Foundation for the entire system including:
 - Zero-dependency getting started (embedded NATS + SQLite)
 - Comprehensive agent lifecycle management
 - Robust command execution with streaming output
-- Production-ready state persistence
+- Comprehensive state persistence
 
 ---
 
@@ -180,9 +183,9 @@ Comprehensive monitoring and observability:
 - **Query API**: Unified API for metrics, logs, traces
 
 **Key Achievements**:
-- Production-ready observability stack
+- Comprehensive observability stack
 - Real-time monitoring without external dependencies
-- Comprehensive dashboard coverage
+- Complete dashboard coverage
 
 ---
 
@@ -259,7 +262,7 @@ Comprehensive Hugo + Docsy documentation:
 
 **Status**: Complete | **Coverage**: >48%
 
-Production-ready high availability:
+High availability clustering:
 
 - **etcd Integration**: Distributed consensus with embedded and external modes
 - **Embedded etcd Mode**: In-process etcd for simpler deployments (3-5 nodes)
@@ -464,7 +467,7 @@ Telemetry gateway for isolated agents:
 
 **Status**: Complete | **Depends on**: Epic 1, 2, 3, 13
 
-Production-grade Windows agent:
+Comprehensive Windows agent:
 
 - **Windows Service**: Run kscore-agent as Windows service with recovery
 - **Execution**: PowerShell and Cmd.exe with proper encoding
@@ -480,23 +483,28 @@ Production-grade Windows agent:
 
 ---
 
-## Planned Epics
+### Epic 21: Proxy Agents ✅
 
-### Epic 21: Proxy Agents
-
-**Status**: Planned | **Depends on**: Epic 1, 2, 14, 17
+**Status**: Complete | **Depends on**: Epic 1, 2, 14, 17
 
 Manage devices that cannot run native agents:
 
-- **Protocol Adapters**: SSH, SNMP, REST API, WinRM, IPMI/Redfish
-- **Credential Management**: NATS-proxied credentials from Vault/secrets backends
-- **Virtual Agent State**: Track non-agent devices as virtual agents
-- **Execution Proxy**: Execute commands via protocol adapters
-- **State Application**: Apply state through appropriate protocols
-- **Event Generation**: Emit events from monitored devices
-- **Policy Enforcement**: Apply policies to proxy-managed devices
+- **Protocol Adapters**: SSH, SNMP v2c/v3, REST/HTTP, WinRM
+- **Vendor Adapters**: Cisco IOS/NX-OS, Juniper JUNOS, Arista EOS, VyOS, pfSense, OPNsense
+- **Credential Management**: Encrypted file storage, Vault, Kubernetes secrets, environment variables
+- **State Modules**: Protocol-specific state modules (ssh_file, snmp_value, network device configs)
+- **Discovery**: Network scanning with profile matching, auto-approval workflows
+- **Observability**: 30+ metrics, Grafana dashboard, health monitoring
+
+**Key Achievements**:
+- Transparent targeting (proxied devices appear as virtual agents)
+- Secure credential storage with rotation
+- Network device configuration management
+- Comprehensive discovery and auto-configuration
 
 ---
+
+## Planned Epics
 
 ### Epic 22: File Distribution
 
@@ -506,11 +514,28 @@ NATS-based file distribution for agents:
 
 - **File Server**: Dedicated `kscore-files` service with REST and NATS APIs
 - **Storage Backends**: NATS JetStream Object Store, S3/GCS/Azure, local filesystem, Git, HTTP
+- **Mirror Groups**: Multi-region storage with geographic routing, sync, and failover
 - **Transfer Protocol**: Chunked transfers up to 10GB with resume support
 - **Security**: Policy-based access control, integrity verification (SHA-256)
 - **Caching**: Proxy agent file caching for bandwidth reduction
 - **Observability**: Transfer metrics, Grafana dashboard
 - **CLI Tools**: `kscore-files` CLI for file management
+
+---
+
+### Epic 23: Self-Management
+
+**Status**: Planned | **Depends on**: Epic 1, 3, 4, 5, 7, 11, 17, 22
+
+Use Keystone Core to manage itself:
+
+- **Bootstrap**: Deploy fresh clusters from seed configuration
+- **Backup/Restore**: Full system backup to portable artifact, disaster recovery
+- **Rolling Upgrades**: Zero-downtime upgrades with automatic rollback
+- **Self-Healing**: Automatic recovery from common failures
+- **Drift Detection**: Detect when Keystone Core config diverges from desired state
+- **State Modules**: kscore_server, kscore_agent, kscore_nats, kscore_database, kscore_backup
+- **DR Testing**: Automated disaster recovery testing
 
 ---
 
@@ -646,10 +671,10 @@ Keystone Core follows [Semantic Versioning](https://semver.org/):
 
 | Version | Target | Scope |
 |---------|--------|-------|
-| v0.20.0 | Current | Windows Support complete (Epics 1-20) |
-| v0.21.0 | Next | Proxy Agents |
-| v0.22.0 | Planned | File Distribution |
-| v1.0.0 | Future | Production-ready release with all planned features |
+| v0.21.0 | Current | Proxy Agents complete (Epics 1-21) |
+| v0.22.0 | Next | File Distribution |
+| v0.23.0 | Planned | Self-Management |
+| v1.0.0 | Future | Stable release after comprehensive testing and hardening |
 
 ### Release Cadence
 

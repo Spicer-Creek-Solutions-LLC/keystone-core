@@ -4,7 +4,7 @@
 
 Build the foundational infrastructure for Keystone Core including NATS message bus integration, agent architecture, control plane services, and core state management.
 
-**Goal**: Create a production-ready foundation that can execute commands on distributed agents via NATS with secure authentication and basic state persistence.
+**Goal**: Create a robust foundation that can execute commands on distributed agents via NATS with secure authentication and basic state persistence.
 
 ## Success Criteria
 

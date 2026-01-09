@@ -45,7 +45,7 @@ However, a critical gap exists in the operational layer:
 
 ### How Keystone Core Augments Existing Tools
 
-Keystone Core is **not a replacement** for GitOps or IaC - it's the **operational layer** that makes them production-ready.
+Keystone Core is **not a replacement** for GitOps or IaC - it's the **operational layer** that ensures they run reliably.
 
 ```mermaid
 flowchart TD

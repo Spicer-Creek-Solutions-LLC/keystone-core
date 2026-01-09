@@ -47,19 +47,23 @@ Production deployment guides, monitoring setup, troubleshooting, backup/restore,
 
 ## Project Status
 
-Keystone Core has **14 of 20 epics complete** with comprehensive test coverage (180+ tests passing). Currently production-ready for:
+⚠️ **Keystone Core is under active development and is NOT ready for production use.**
 
-✅ Core Infrastructure (NATS, agents, control plane)
-✅ Remote Execution (targeting, batch execution)
-✅ State Management (drift detection, declarative config)
-✅ Event System (pub/sub, reactors, storage)
-✅ GitOps Integration (ArgoCD, Flux, webhooks)
-✅ Policy Enforcement (OPA/CEL, compliance)
-✅ Observability (Prometheus, logging, TUI monitor)
-✅ Multi-Environment (K8s, VMs, cloud, edge)
-✅ Plugin System (Starlark, WASM modules)
-✅ Documentation (45 pages, comprehensive guides)
-✅ HA Clustering (etcd-based, automatic failover)
-✅ E2E Testing (Docker-based test harness)
-✅ CGO Removal (pure Go, cross-compilation)
-✅ NATS Mesh (superclusters, NAT traversal, WebSocket)
+The project has **21 of 23 epics complete** with comprehensive test coverage (180+ tests passing). The following subsystems are implemented:
+
+- Core Infrastructure (NATS, agents, control plane)
+- Remote Execution (targeting, batch execution)
+- State Management (drift detection, declarative config)
+- Event System (pub/sub, reactors, storage)
+- GitOps Integration (ArgoCD, Flux, webhooks)
+- Policy Enforcement (OPA/CEL, compliance)
+- Observability (Prometheus, logging, TUI monitor)
+- Multi-Environment (K8s, VMs, cloud, edge)
+- Plugin System (Starlark, WASM modules)
+- Documentation (45 pages, comprehensive guides)
+- HA Clustering (etcd-based, automatic failover)
+- E2E Testing (Docker-based test harness)
+- CGO Removal (pure Go, cross-compilation)
+- NATS Mesh (superclusters, NAT traversal, WebSocket)
+
+See the [Known Implementation Gaps](/docs/community/roadmap/#known-gaps) for details on what still needs work before production use.

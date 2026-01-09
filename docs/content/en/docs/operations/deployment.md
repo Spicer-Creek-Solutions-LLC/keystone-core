@@ -124,7 +124,7 @@ sudo systemctl status kscore-server
 
 ## High-Availability Deployment
 
-Production-ready deployment with automatic failover (99.9%+ uptime).
+High-availability deployment with automatic failover.
 
 ### Architecture
 

@@ -4,7 +4,7 @@
 
 Implement high availability clustering for `kscore-server` using etcd for distributed coordination. Transform Keystone Core from a single-server architecture to a distributed, fault-tolerant cluster that can handle server failures, automatically redistribute work, and provide zero-downtime operations.
 
-**Goal**: Enable production-grade high availability with automatic failover, intelligent work distribution across cluster members, and no single point of failure for critical Keystone Core operations.
+**Goal**: Enable high availability with automatic failover, intelligent work distribution across cluster members, and no single point of failure for critical Keystone Core operations.
 
 ## Success Criteria
 

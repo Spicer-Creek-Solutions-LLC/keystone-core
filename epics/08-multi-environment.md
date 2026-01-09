@@ -704,4 +704,4 @@ kscorectl exec "update" --target "cloud:aws/region:us-east-1/role:web"
 - [ ] Container runtime support complete
 - [ ] Documentation complete
 - [ ] Cross-platform testing passed
-- [ ] Production-ready
+- [ ] All tests passing

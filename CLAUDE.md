@@ -232,7 +232,8 @@ These gaps should be addressed before production use.
     ├── 19-observability-gateway.md       # Telemetry gateway for isolated agents
     ├── 20-windows-support.md             # Production Windows agent, dev environment
     ├── 21-proxy-agents.md                # Proxy agents for unmanaged devices
-    └── 22-file-distribution.md           # File distribution over NATS
+    ├── 22-file-distribution.md           # File distribution over NATS
+    └── 23-self-management.md             # Self-management, backup/restore, upgrades
 ```
 
 ## Architecture Overview
@@ -278,7 +279,7 @@ Keystone Core fills the gap between declarative GitOps tools and runtime operati
 - Zero-dependency getting started (embedded NATS + SQLite)
 - Comprehensive agent lifecycle management
 - Robust command execution with streaming output
-- Production-ready state persistence
+- Comprehensive state persistence
 - Extensive test coverage across all core packages
 
 ### Epic 2: Remote Execution ✅ COMPLETE
@@ -4886,7 +4887,8 @@ Implementation order:
 19. **Epic 19** (Observability Gateway) - ✅ COMPLETE - Depends on Epic 7, 14, 15 (telemetry gateway for isolated agents, Prometheus/Loki/Tempo bridge)
 20. **Epic 20** (Windows Support) - ✅ COMPLETE (All 7 phases) - Depends on Epic 1, 2, 3, 13 (Windows service, PowerShell/Cmd execution, state modules, file operations, MSI installer)
 21. **Epic 21** (Proxy Agents) - ✅ COMPLETE (All 10 phases) - Depends on Epic 1, 2, 3, 4, 8, 14 (SSH/SNMP/REST/WinRM adapters, network device support, transparent targeting)
-22. **Epic 22** (File Distribution) - NOT STARTED - Depends on Epic 1, 4, 6, 14, 17, 21 (NATS-based file server, multiple backends, proxy caching)
+22. **Epic 22** (File Distribution) - NOT STARTED - Depends on Epic 1, 4, 6, 14, 17, 21 (NATS-based file server, multiple backends, mirror groups, proxy caching)
+23. **Epic 23** (Self-Management) - NOT STARTED - Depends on Epic 1, 3, 4, 5, 7, 11, 17, 22 (bootstrap, backup/restore, rolling upgrades, self-healing, disaster recovery)
 
 ### Future Epics (Not Yet Planned)
 

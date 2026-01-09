@@ -2,7 +2,7 @@
 
 ## Overview
 
-Provide production-grade Windows support for the Keystone Core agent, enabling management of Windows servers alongside Linux/macOS infrastructure. Development tooling support for Windows is included to enable contributors on Windows, but production deployments of control plane and other services target Linux.
+Provide comprehensive Windows support for the Keystone Core agent, enabling management of Windows servers alongside Linux/macOS infrastructure. Development tooling support for Windows is included to enable contributors on Windows, but production deployments of control plane and other services target Linux.
 
 **Goal**: Windows servers can be managed by Keystone Core with the same capabilities as Linux servers. The Windows agent runs as a native Windows service, integrates with Windows Event Log, executes PowerShell commands, and manages Windows-specific resources (services, registry, IIS, etc.).
 

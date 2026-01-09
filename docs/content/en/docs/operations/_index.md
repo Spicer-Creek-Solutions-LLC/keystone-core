@@ -25,7 +25,7 @@ Comprehensive monitoring and observability setup:
 - **Prometheus integration** - Metrics collection and storage
 - **Grafana dashboards** - Pre-built dashboards for all components
 - **Log aggregation** - Centralized logging with Loki or Elasticsearch
-- **Alert rules** - Production-ready alerting configuration
+- **Alert rules** - Comprehensive alerting configuration
 - **Health checks** - Liveness and readiness probes
 - **Performance metrics** - Key performance indicators and SLOs
 

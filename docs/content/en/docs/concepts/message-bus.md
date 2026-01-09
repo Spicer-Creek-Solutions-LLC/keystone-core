@@ -139,7 +139,7 @@ flowchart TD
 - High availability (automatic failover)
 - Horizontal scalability
 - Dedicated resources
-- Production-ready
+- Suitable for larger deployments
 
 ### 3. Hybrid/Leaf Mode (Advanced)
 

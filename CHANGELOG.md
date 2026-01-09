@@ -55,7 +55,7 @@ Enable Keystone Core to manage devices that cannot run the native agent software
 
 ### Epic 20: Windows Support
 
-Production-grade Windows agent support.
+Comprehensive Windows agent support.
 
 - **Phase 1: Windows Service**
   - Windows service implementation using golang.org/x/sys/windows/svc
