@@ -34,7 +34,7 @@ Modern infrastructure uses tools like Terraform and ArgoCD to *deploy* systems, 
 
 | Component | Technology |
 |-----------|------------|
-| Language | Go 1.21+ |
+| Language | Go 1.25+ |
 | Messaging | NATS with JetStream |
 | Storage | SQLite (embedded) or PostgreSQL (production) |
 | Plugins | Starlark + WebAssembly (wazero) |

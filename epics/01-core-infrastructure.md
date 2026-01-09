@@ -294,7 +294,7 @@ flowchart TD
 - **External**:
   - NATS server 2.10+ (optional, can use embedded mode)
   - PostgreSQL 14+ (optional, can use SQLite)
-  - Go 1.21+
+  - Go 1.25+
   - Protocol Buffers compiler
 
 - **Go Libraries**:

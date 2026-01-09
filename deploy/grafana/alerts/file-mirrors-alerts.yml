@@ -1,0 +1,156 @@
+groups:
+  - name: kscore-mirror-health
+    rules:
+      - alert: MirrorUnhealthy
+        expr: kscore_mirror_health{state!="healthy"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Mirror {{ $labels.mirror }} in group {{ $labels.group }} is unhealthy"
+          description: "Mirror {{ $labels.mirror }} in group {{ $labels.group }} has been in {{ $labels.state }} state for more than 5 minutes."
+          runbook_url: "https://docs.keystone-core.io/runbooks/mirror-unhealthy"
+
+      - alert: MirrorGroupDegraded
+        expr: |
+          count by (group) (kscore_mirror_health{state="healthy"}) / count by (group) (kscore_mirror_health) < 0.75
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Mirror group {{ $labels.group }} is degraded"
+          description: "Less than 75% of mirrors in group {{ $labels.group }} are healthy."
+          runbook_url: "https://docs.keystone-core.io/runbooks/mirror-group-degraded"
+
+      - alert: MirrorGroupCritical
+        expr: |
+          count by (group) (kscore_mirror_health{state="healthy"}) / count by (group) (kscore_mirror_health) < 0.5
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Mirror group {{ $labels.group }} is in critical state"
+          description: "Less than 50% of mirrors in group {{ $labels.group }} are healthy. Service may be degraded."
+          runbook_url: "https://docs.keystone-core.io/runbooks/mirror-group-critical"
+
+      - alert: NoHealthyMirrors
+        expr: |
+          count by (group) (kscore_mirror_health{state="healthy"}) == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No healthy mirrors in group {{ $labels.group }}"
+          description: "All mirrors in group {{ $labels.group }} are unhealthy. Service is unavailable."
+          runbook_url: "https://docs.keystone-core.io/runbooks/no-healthy-mirrors"
+
+  - name: kscore-mirror-sync
+    rules:
+      - alert: SyncOperationStuck
+        expr: kscore_mirror_sync_operations_active > 0 and increase(kscore_mirror_sync_operations_total[30m]) == 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Sync operation stuck in group {{ $labels.group }}"
+          description: "Active sync operations in group {{ $labels.group }} have made no progress for 30 minutes."
+          runbook_url: "https://docs.keystone-core.io/runbooks/sync-stuck"
+
+      - alert: HighSyncFailureRate
+        expr: |
+          rate(kscore_mirror_sync_operations_failed_total[15m]) / rate(kscore_mirror_sync_operations_total[15m]) > 0.1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High sync failure rate in group {{ $labels.group }}"
+          description: "More than 10% of sync operations in group {{ $labels.group }} are failing."
+          runbook_url: "https://docs.keystone-core.io/runbooks/high-sync-failure"
+
+      - alert: SyncFailureRateCritical
+        expr: |
+          rate(kscore_mirror_sync_operations_failed_total[15m]) / rate(kscore_mirror_sync_operations_total[15m]) > 0.5
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical sync failure rate in group {{ $labels.group }}"
+          description: "More than 50% of sync operations in group {{ $labels.group }} are failing."
+          runbook_url: "https://docs.keystone-core.io/runbooks/sync-failure-critical"
+
+      - alert: ManyUnresolvedConflicts
+        expr: sum by (group) (increase(kscore_mirror_sync_conflicts_total[1h])) > 10
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Many unresolved sync conflicts in group {{ $labels.group }}"
+          description: "More than 10 sync conflicts detected in group {{ $labels.group }} in the last hour."
+          runbook_url: "https://docs.keystone-core.io/runbooks/many-conflicts"
+
+      - alert: SyncLatencyHigh
+        expr: |
+          histogram_quantile(0.95, rate(kscore_mirror_sync_latency_seconds_bucket[5m])) > 60
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High sync latency in group {{ $labels.group }}"
+          description: "95th percentile sync latency in group {{ $labels.group }} exceeds 60 seconds."
+          runbook_url: "https://docs.keystone-core.io/runbooks/high-sync-latency"
+
+  - name: kscore-mirror-operations
+    rules:
+      - alert: HighReadErrorRate
+        expr: |
+          rate(kscore_mirror_read_errors_total[5m]) / rate(kscore_mirror_read_operations_total[5m]) > 0.01
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High read error rate in group {{ $labels.group }}"
+          description: "More than 1% of read operations in group {{ $labels.group }} are failing."
+          runbook_url: "https://docs.keystone-core.io/runbooks/high-read-errors"
+
+      - alert: HighWriteErrorRate
+        expr: |
+          rate(kscore_mirror_write_errors_total[5m]) / rate(kscore_mirror_write_operations_total[5m]) > 0.01
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High write error rate in group {{ $labels.group }}"
+          description: "More than 1% of write operations in group {{ $labels.group }} are failing."
+          runbook_url: "https://docs.keystone-core.io/runbooks/high-write-errors"
+
+      - alert: ReadLatencyHigh
+        expr: |
+          histogram_quantile(0.95, rate(kscore_mirror_read_latency_seconds_bucket[5m])) > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High read latency in group {{ $labels.group }}"
+          description: "95th percentile read latency in group {{ $labels.group }} exceeds 1 second."
+          runbook_url: "https://docs.keystone-core.io/runbooks/high-read-latency"
+
+      - alert: WriteLatencyHigh
+        expr: |
+          histogram_quantile(0.95, rate(kscore_mirror_write_latency_seconds_bucket[5m])) > 5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High write latency in group {{ $labels.group }}"
+          description: "95th percentile write latency in group {{ $labels.group }} exceeds 5 seconds."
+          runbook_url: "https://docs.keystone-core.io/runbooks/high-write-latency"
+
+      - alert: NoMirrorGroups
+        expr: kscore_mirror_groups_total == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No mirror groups configured"
+          description: "No mirror groups are configured. File distribution may not be functioning."
+          runbook_url: "https://docs.keystone-core.io/runbooks/no-mirror-groups"

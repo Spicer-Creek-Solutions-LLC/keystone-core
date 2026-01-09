@@ -19,7 +19,7 @@ go get github.com/shawnbutts/keystone-core/modules/sdk/go
 ## Requirements
 
 - **TinyGo 0.30+**: Required for wasm32-wasi compilation
-- **Go 1.21+**: For development and testing
+- **Go 1.25+**: For development and testing
 
 Install TinyGo:
 ```bash

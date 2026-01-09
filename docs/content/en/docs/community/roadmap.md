@@ -15,7 +15,14 @@ Keystone Core aims to be the operational layer between GitOps/IaC deployments an
 
 ## Roadmap Overview
 
-⚠️ **Note**: Keystone Core is under active development and is NOT ready for production use.
+---
+>## 🚧 Early Preview / Not Production Ready
+>
+> Keystone Core is under active development and **not yet suitable for production**.
+>
+> **We welcome early testers!**  
+> Try it in your lab or homelab and please share feedback, open issues, or propose features
+---
 
 ```
 COMPLETED (Epics 1-21)                 PLANNED (Epics 22-23)

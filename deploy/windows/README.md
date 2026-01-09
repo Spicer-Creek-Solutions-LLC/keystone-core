@@ -6,7 +6,7 @@ This directory contains the WiX project for building the Windows MSI installer f
 
 ### Build Requirements
 
-1. **Go 1.21+** - For building the agent binaries
+1. **Go 1.25+** - For building the agent binaries
    - https://go.dev/dl/
 
 2. **.NET SDK 6.0+** - For running WiX

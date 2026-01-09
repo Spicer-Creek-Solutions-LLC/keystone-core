@@ -10,7 +10,7 @@ This guide covers setting up a Windows development environment for building and 
 
 ### Required Software
 
-1. **Go 1.21+**
+1. **Go 1.25+**
    - Download from https://go.dev/dl/
    - Or use winget: `winget install GoLang.Go`
    - Verify: `go version`

@@ -13,7 +13,7 @@ This guide covers setting up a development environment for Keystone Core, buildi
 
 | Tool | Version | Purpose |
 |------|---------|---------|
-| Go | 1.21+ | Primary development language |
+| Go | 1.25+ | Primary development language |
 | Git | 2.30+ | Version control |
 | Make | 3.81+ | Build automation |
 | Docker | 20.10+ | Container builds (optional) |
@@ -31,7 +31,7 @@ This guide covers setting up a development environment for Keystone Core, buildi
 
 **Linux/macOS:**
 ```bash
-# Download and install Go 1.21+
+# Download and install Go 1.25+
 wget https://go.dev/dl/go1.21.5.linux-amd64.tar.gz
 sudo tar -C /usr/local -xzf go1.21.5.linux-amd64.tar.gz
 
@@ -876,7 +876,7 @@ CGO_ENABLED=0 make build
 **Version mismatch:**
 ```bash
 # Ensure Go version matches
-go version  # Should be 1.21+
+go version  # Should be 1.25+
 
 # Update dependencies
 go mod tidy

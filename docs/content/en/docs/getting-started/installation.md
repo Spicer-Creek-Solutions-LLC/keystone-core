@@ -15,7 +15,7 @@ Before installing Keystone Core, ensure you have:
 - **Architecture**: amd64, arm64
 - **Memory**: 512MB minimum (2GB recommended for control plane)
 - **Disk**: 1GB for binaries and data
-- **Go**: 1.21+ (if building from source)
+- **Go**: 1.25+ (if building from source)
 
 ### Network Requirements
 - Control plane needs port 4222 for NATS (configurable)

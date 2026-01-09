@@ -47,7 +47,14 @@ Production deployment guides, monitoring setup, troubleshooting, backup/restore,
 
 ## Project Status
 
-⚠️ **Keystone Core is under active development and is NOT ready for production use.**
+---
+>## 🚧 Early Preview / Not Production Ready
+>
+> Keystone Core is under active development and **not yet suitable for production**.
+>
+> **We welcome early testers!**  
+> Try it in your lab or homelab and please share feedback, open issues, or propose features
+---
 
 The project has **21 of 23 epics complete** with comprehensive test coverage (180+ tests passing). The following subsystems are implemented:
 

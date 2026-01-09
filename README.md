@@ -1,7 +1,7 @@
 # Keystone Core
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go&logoColor=white)](https://go.dev/)
+[![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go&logoColor=white)](https://go.dev/)
 [![AI Contributions Welcome](https://img.shields.io/badge/AI_Contributions-Welcome-brightgreen)](AI-CONTRIBUTIONS.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen.svg)](CONTRIBUTING.md)
 
@@ -10,6 +10,16 @@
 Keystone Core is a cloud-native runtime infrastructure control plane that provides real-time execution, continuous compliance, and operational automation across hybrid environments. Inspired by Salt Project but modernized for cloud-native workflows.
 
 ## Project Status
+
+---
+>## 🚧 Early Preview / Not Production Ready
+>
+> Keystone Core is under active development and **not yet suitable for production**.
+>
+> **We welcome early testers!**  
+> Try it in your lab or homelab and please share feedback, open issues, or propose features
+---
+
 
 | Status | Description |
 |--------|-------------|

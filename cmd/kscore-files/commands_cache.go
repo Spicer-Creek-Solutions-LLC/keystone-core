@@ -1,0 +1,664 @@
+// Package main implements cache management commands for kscore-files.
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"strings"
+	"time"
+
+	"github.com/spf13/cobra"
+)
+
+// newCacheCmd creates the cache command group.
+func newCacheCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "cache",
+		Short: "Manage file caches",
+		Long:  `Commands for managing file caches (status, clear, warm).`,
+	}
+
+	cmd.AddCommand(newCacheStatusCmd())
+	cmd.AddCommand(newCacheClearCmd())
+	cmd.AddCommand(newCacheWarmCmd())
+	cmd.AddCommand(newCacheListCmd())
+	cmd.AddCommand(newCacheEvictCmd())
+	cmd.AddCommand(newCacheStatsCmd())
+
+	return cmd
+}
+
+// CacheStatus contains cache status information.
+type CacheStatus struct {
+	Name        string        `json:"name"`
+	Type        string        `json:"type"`
+	Enabled     bool          `json:"enabled"`
+	Size        int64         `json:"size"`
+	MaxSize     int64         `json:"max_size"`
+	Entries     int64         `json:"entries"`
+	MaxEntries  int64         `json:"max_entries"`
+	HitRate     float64       `json:"hit_rate"`
+	Hits        int64         `json:"hits"`
+	Misses      int64         `json:"misses"`
+	Evictions   int64         `json:"evictions"`
+	TTL         time.Duration `json:"ttl"`
+	LastCleared time.Time     `json:"last_cleared,omitempty"`
+}
+
+// CacheEntry contains information about a cached file.
+type CacheEntry struct {
+	Key        string    `json:"key"`
+	Path       string    `json:"path"`
+	Size       int64     `json:"size"`
+	Checksum   string    `json:"checksum"`
+	CachedAt   time.Time `json:"cached_at"`
+	ExpiresAt  time.Time `json:"expires_at,omitempty"`
+	LastAccess time.Time `json:"last_access"`
+	AccessCount int64    `json:"access_count"`
+}
+
+// CacheStats contains detailed cache statistics.
+type CacheStats struct {
+	TotalHits       int64         `json:"total_hits"`
+	TotalMisses     int64         `json:"total_misses"`
+	HitRate         float64       `json:"hit_rate"`
+	TotalEvictions  int64         `json:"total_evictions"`
+	BytesServed     int64         `json:"bytes_served"`
+	AverageLatency  time.Duration `json:"average_latency"`
+	CurrentSize     int64         `json:"current_size"`
+	CurrentEntries  int64         `json:"current_entries"`
+	OldestEntry     time.Time     `json:"oldest_entry,omitempty"`
+	NewestEntry     time.Time     `json:"newest_entry,omitempty"`
+	TopAccessedKeys []string      `json:"top_accessed_keys,omitempty"`
+}
+
+// newCacheStatusCmd creates the status command.
+func newCacheStatusCmd() *cobra.Command {
+	var outputJSON bool
+
+	cmd := &cobra.Command{
+		Use:   "status [name]",
+		Short: "Get cache status",
+		Long: `Get status information for a cache or all caches.
+
+Examples:
+  kscore-files cache status
+  kscore-files cache status agent-cache
+  kscore-files cache status --json`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, cleanup, err := createAdminClient()
+			if err != nil {
+				return err
+			}
+			defer cleanup()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			var caches []CacheStatus
+
+			if len(args) == 0 {
+				// Get all caches
+				var err error
+				caches, err = getCacheStatuses(ctx, client)
+				if err != nil {
+					return err
+				}
+			} else {
+				// Get specific cache
+				status, err := getCacheStatus(ctx, client, args[0])
+				if err != nil {
+					return err
+				}
+				caches = []CacheStatus{*status}
+			}
+
+			if outputJSON {
+				enc := json.NewEncoder(os.Stdout)
+				enc.SetIndent("", "  ")
+				return enc.Encode(caches)
+			}
+
+			for _, cache := range caches {
+				fmt.Printf("Cache: %s\n", cache.Name)
+				fmt.Printf("Type: %s\n", cache.Type)
+				fmt.Printf("Enabled: %v\n", cache.Enabled)
+				fmt.Printf("Size: %s / %s (%.1f%%)\n",
+					formatSize(cache.Size),
+					formatSize(cache.MaxSize),
+					float64(cache.Size)/float64(cache.MaxSize)*100)
+				fmt.Printf("Entries: %d / %d\n", cache.Entries, cache.MaxEntries)
+				fmt.Printf("Hit Rate: %.2f%%\n", cache.HitRate*100)
+				fmt.Printf("Hits/Misses: %d / %d\n", cache.Hits, cache.Misses)
+				fmt.Printf("Evictions: %d\n", cache.Evictions)
+				fmt.Printf("TTL: %s\n", cache.TTL)
+				if !cache.LastCleared.IsZero() {
+					fmt.Printf("Last Cleared: %s\n", cache.LastCleared.Format(time.RFC3339))
+				}
+				fmt.Println()
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVar(&outputJSON, "json", false, "Output in JSON format")
+
+	return cmd
+}
+
+// newCacheClearCmd creates the clear command.
+func newCacheClearCmd() *cobra.Command {
+	var (
+		pattern string
+		force   bool
+		older   string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "clear [name]",
+		Short: "Clear cache contents",
+		Long: `Clear all or part of a cache.
+
+Examples:
+  kscore-files cache clear agent-cache
+  kscore-files cache clear --pattern "/packages/*"
+  kscore-files cache clear --older 7d
+  kscore-files cache clear agent-cache --force`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cacheName := ""
+			if len(args) > 0 {
+				cacheName = args[0]
+			}
+
+			if !force {
+				msg := "Clear"
+				if cacheName != "" {
+					msg += " cache " + cacheName
+				} else {
+					msg += " all caches"
+				}
+				if pattern != "" {
+					msg += " (pattern: " + pattern + ")"
+				}
+				if older != "" {
+					msg += " (older than " + older + ")"
+				}
+				msg += "? [y/N]: "
+
+				fmt.Print(msg)
+				var confirm string
+				fmt.Scanln(&confirm)
+				if strings.ToLower(confirm) != "y" && strings.ToLower(confirm) != "yes" {
+					fmt.Println("Cancelled")
+					return nil
+				}
+			}
+
+			client, cleanup, err := createAdminClient()
+			if err != nil {
+				return err
+			}
+			defer cleanup()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			defer cancel()
+
+			// Parse older duration
+			var olderThan time.Duration
+			if older != "" {
+				var err error
+				olderThan, err = parseDuration(older)
+				if err != nil {
+					return fmt.Errorf("invalid duration: %w", err)
+				}
+			}
+
+			result, err := clearCache(ctx, client, cacheName, pattern, olderThan)
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("Cleared %d entries (%s)\n", result.EntriesCleared, formatSize(result.BytesCleared))
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&pattern, "pattern", "", "Clear only entries matching pattern")
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "Don't prompt for confirmation")
+	cmd.Flags().StringVar(&older, "older", "", "Clear entries older than duration (e.g., 7d, 24h)")
+
+	return cmd
+}
+
+// newCacheWarmCmd creates the warm command.
+func newCacheWarmCmd() *cobra.Command {
+	var (
+		namespace string
+		recursive bool
+		dryRun    bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "warm <path>",
+		Short: "Warm the cache with files",
+		Long: `Pre-populate the cache with files from a path.
+
+Examples:
+  kscore-files cache warm /packages/
+  kscore-files cache warm /configs/ --recursive
+  kscore-files cache warm /critical/ --dry-run`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			path := args[0]
+
+			client, cleanup, err := createAdminClient()
+			if err != nil {
+				return err
+			}
+			defer cleanup()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+			defer cancel()
+
+			result, err := warmCache(ctx, client, path, namespace, recursive, dryRun)
+			if err != nil {
+				return err
+			}
+
+			if dryRun {
+				fmt.Println("Dry run - would warm the following:")
+			}
+
+			fmt.Printf("Files: %d\n", result.FilesWarmed)
+			fmt.Printf("Size: %s\n", formatSize(result.BytesWarmed))
+			if result.Errors > 0 {
+				fmt.Printf("Errors: %d\n", result.Errors)
+			}
+			if !dryRun {
+				fmt.Printf("Duration: %s\n", result.Duration)
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Namespace")
+	cmd.Flags().BoolVarP(&recursive, "recursive", "r", false, "Warm recursively")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be warmed")
+
+	return cmd
+}
+
+// newCacheListCmd creates the list command.
+func newCacheListCmd() *cobra.Command {
+	var (
+		pattern    string
+		limit      int
+		sortBy     string
+		outputJSON bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "list [name]",
+		Short: "List cached entries",
+		Long: `List entries in a cache.
+
+Examples:
+  kscore-files cache list agent-cache
+  kscore-files cache list --pattern "/packages/*"
+  kscore-files cache list --sort-by size --limit 10`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cacheName := ""
+			if len(args) > 0 {
+				cacheName = args[0]
+			}
+
+			client, cleanup, err := createAdminClient()
+			if err != nil {
+				return err
+			}
+			defer cleanup()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			entries, err := listCacheEntries(ctx, client, cacheName, pattern, sortBy, limit)
+			if err != nil {
+				return err
+			}
+
+			if outputJSON {
+				enc := json.NewEncoder(os.Stdout)
+				enc.SetIndent("", "  ")
+				return enc.Encode(entries)
+			}
+
+			if len(entries) == 0 {
+				fmt.Println("No cached entries found")
+				return nil
+			}
+
+			fmt.Printf("%-12s %-10s %-20s %-20s %s\n", "SIZE", "ACCESSES", "CACHED", "LAST ACCESS", "PATH")
+			fmt.Println(strings.Repeat("-", 90))
+
+			for _, entry := range entries {
+				fmt.Printf("%-12s %-10d %-20s %-20s %s\n",
+					formatSize(entry.Size),
+					entry.AccessCount,
+					entry.CachedAt.Format("2006-01-02 15:04:05"),
+					entry.LastAccess.Format("2006-01-02 15:04:05"),
+					entry.Path)
+			}
+
+			fmt.Printf("\nTotal: %d entries\n", len(entries))
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&pattern, "pattern", "", "Filter by pattern")
+	cmd.Flags().IntVar(&limit, "limit", 100, "Maximum entries to show")
+	cmd.Flags().StringVar(&sortBy, "sort-by", "last_access", "Sort by (size, last_access, cached_at, access_count)")
+	cmd.Flags().BoolVar(&outputJSON, "json", false, "Output in JSON format")
+
+	return cmd
+}
+
+// newCacheEvictCmd creates the evict command.
+func newCacheEvictCmd() *cobra.Command {
+	var force bool
+
+	cmd := &cobra.Command{
+		Use:   "evict <path>",
+		Short: "Evict an entry from cache",
+		Long: `Evict a specific entry or pattern from the cache.
+
+Examples:
+  kscore-files cache evict /packages/nginx-1.20.rpm
+  kscore-files cache evict "/packages/old-*" --force`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			path := args[0]
+
+			if !force {
+				fmt.Printf("Evict %s from cache? [y/N]: ", path)
+				var confirm string
+				fmt.Scanln(&confirm)
+				if strings.ToLower(confirm) != "y" && strings.ToLower(confirm) != "yes" {
+					fmt.Println("Cancelled")
+					return nil
+				}
+			}
+
+			client, cleanup, err := createAdminClient()
+			if err != nil {
+				return err
+			}
+			defer cleanup()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			evicted, err := evictFromCache(ctx, client, path)
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("Evicted %d entries\n", evicted)
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "Don't prompt for confirmation")
+
+	return cmd
+}
+
+// newCacheStatsCmd creates the stats command.
+func newCacheStatsCmd() *cobra.Command {
+	var outputJSON bool
+
+	cmd := &cobra.Command{
+		Use:   "stats [name]",
+		Short: "Get detailed cache statistics",
+		Long: `Get detailed statistics for a cache.
+
+Examples:
+  kscore-files cache stats
+  kscore-files cache stats agent-cache --json`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cacheName := ""
+			if len(args) > 0 {
+				cacheName = args[0]
+			}
+
+			client, cleanup, err := createAdminClient()
+			if err != nil {
+				return err
+			}
+			defer cleanup()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			stats, err := getCacheStats(ctx, client, cacheName)
+			if err != nil {
+				return err
+			}
+
+			if outputJSON {
+				enc := json.NewEncoder(os.Stdout)
+				enc.SetIndent("", "  ")
+				return enc.Encode(stats)
+			}
+
+			fmt.Printf("Cache Statistics\n")
+			fmt.Println(strings.Repeat("-", 40))
+			fmt.Printf("Hit Rate:        %.2f%%\n", stats.HitRate*100)
+			fmt.Printf("Total Hits:      %d\n", stats.TotalHits)
+			fmt.Printf("Total Misses:    %d\n", stats.TotalMisses)
+			fmt.Printf("Total Evictions: %d\n", stats.TotalEvictions)
+			fmt.Printf("Bytes Served:    %s\n", formatSize(stats.BytesServed))
+			fmt.Printf("Avg Latency:     %s\n", stats.AverageLatency)
+			fmt.Printf("Current Size:    %s\n", formatSize(stats.CurrentSize))
+			fmt.Printf("Current Entries: %d\n", stats.CurrentEntries)
+			if !stats.OldestEntry.IsZero() {
+				fmt.Printf("Oldest Entry:    %s\n", stats.OldestEntry.Format(time.RFC3339))
+			}
+			if !stats.NewestEntry.IsZero() {
+				fmt.Printf("Newest Entry:    %s\n", stats.NewestEntry.Format(time.RFC3339))
+			}
+			if len(stats.TopAccessedKeys) > 0 {
+				fmt.Println("\nTop Accessed:")
+				for i, key := range stats.TopAccessedKeys {
+					fmt.Printf("  %d. %s\n", i+1, key)
+				}
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVar(&outputJSON, "json", false, "Output in JSON format")
+
+	return cmd
+}
+
+// Helper functions
+
+type CacheClearResult struct {
+	EntriesCleared int64 `json:"entries_cleared"`
+	BytesCleared   int64 `json:"bytes_cleared"`
+}
+
+type CacheWarmResult struct {
+	FilesWarmed int64         `json:"files_warmed"`
+	BytesWarmed int64         `json:"bytes_warmed"`
+	Errors      int64         `json:"errors"`
+	Duration    time.Duration `json:"duration"`
+}
+
+func getCacheStatuses(ctx context.Context, client *AdminClient) ([]CacheStatus, error) {
+	subject := fmt.Sprintf("kscore.%s.files.admin.cache.list", client.clusterID)
+
+	msg, err := client.nc.RequestWithContext(ctx, subject, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var caches []CacheStatus
+	if err := json.Unmarshal(msg.Data, &caches); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return caches, nil
+}
+
+func getCacheStatus(ctx context.Context, client *AdminClient, name string) (*CacheStatus, error) {
+	subject := fmt.Sprintf("kscore.%s.files.admin.cache.status", client.clusterID)
+
+	req := map[string]string{"name": name}
+	reqData, _ := json.Marshal(req)
+
+	msg, err := client.nc.RequestWithContext(ctx, subject, reqData)
+	if err != nil {
+		return nil, err
+	}
+
+	var status CacheStatus
+	if err := json.Unmarshal(msg.Data, &status); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return &status, nil
+}
+
+func clearCache(ctx context.Context, client *AdminClient, name, pattern string, olderThan time.Duration) (*CacheClearResult, error) {
+	subject := fmt.Sprintf("kscore.%s.files.admin.cache.clear", client.clusterID)
+
+	req := map[string]interface{}{
+		"name":       name,
+		"pattern":    pattern,
+		"older_than": olderThan.String(),
+	}
+	reqData, _ := json.Marshal(req)
+
+	msg, err := client.nc.RequestWithContext(ctx, subject, reqData)
+	if err != nil {
+		return nil, err
+	}
+
+	var result CacheClearResult
+	if err := json.Unmarshal(msg.Data, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+func warmCache(ctx context.Context, client *AdminClient, path, namespace string, recursive, dryRun bool) (*CacheWarmResult, error) {
+	subject := fmt.Sprintf("kscore.%s.files.admin.cache.warm", client.clusterID)
+
+	req := map[string]interface{}{
+		"path":      path,
+		"namespace": namespace,
+		"recursive": recursive,
+		"dry_run":   dryRun,
+	}
+	reqData, _ := json.Marshal(req)
+
+	msg, err := client.nc.RequestWithContext(ctx, subject, reqData)
+	if err != nil {
+		return nil, err
+	}
+
+	var result CacheWarmResult
+	if err := json.Unmarshal(msg.Data, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+func listCacheEntries(ctx context.Context, client *AdminClient, name, pattern, sortBy string, limit int) ([]CacheEntry, error) {
+	subject := fmt.Sprintf("kscore.%s.files.admin.cache.entries", client.clusterID)
+
+	req := map[string]interface{}{
+		"name":    name,
+		"pattern": pattern,
+		"sort_by": sortBy,
+		"limit":   limit,
+	}
+	reqData, _ := json.Marshal(req)
+
+	msg, err := client.nc.RequestWithContext(ctx, subject, reqData)
+	if err != nil {
+		return nil, err
+	}
+
+	var entries []CacheEntry
+	if err := json.Unmarshal(msg.Data, &entries); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return entries, nil
+}
+
+func evictFromCache(ctx context.Context, client *AdminClient, path string) (int64, error) {
+	subject := fmt.Sprintf("kscore.%s.files.admin.cache.evict", client.clusterID)
+
+	req := map[string]string{"path": path}
+	reqData, _ := json.Marshal(req)
+
+	msg, err := client.nc.RequestWithContext(ctx, subject, reqData)
+	if err != nil {
+		return 0, err
+	}
+
+	var result struct {
+		Evicted int64 `json:"evicted"`
+	}
+	if err := json.Unmarshal(msg.Data, &result); err != nil {
+		return 0, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return result.Evicted, nil
+}
+
+func getCacheStats(ctx context.Context, client *AdminClient, name string) (*CacheStats, error) {
+	subject := fmt.Sprintf("kscore.%s.files.admin.cache.stats", client.clusterID)
+
+	req := map[string]string{"name": name}
+	reqData, _ := json.Marshal(req)
+
+	msg, err := client.nc.RequestWithContext(ctx, subject, reqData)
+	if err != nil {
+		return nil, err
+	}
+
+	var stats CacheStats
+	if err := json.Unmarshal(msg.Data, &stats); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return &stats, nil
+}
+
+func parseDuration(s string) (time.Duration, error) {
+	// Handle day suffix
+	if strings.HasSuffix(s, "d") {
+		days := strings.TrimSuffix(s, "d")
+		var d int
+		if _, err := fmt.Sscanf(days, "%d", &d); err != nil {
+			return 0, err
+		}
+		return time.Duration(d) * 24 * time.Hour, nil
+	}
+	return time.ParseDuration(s)
+}

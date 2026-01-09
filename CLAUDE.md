@@ -4924,7 +4924,7 @@ Implementation order:
 - Service mesh integration (Istio, Linkerd, Consul)
 
 ### Technology Stack
-- **Language**: Go 1.21+
+- **Language**: Go 1.25+
 - **Message Bus**: NATS 2.10+ with JetStream (embedded or external)
 - **State Storage**:
   - SQLite 3.x (embedded, for dev/small deployments)

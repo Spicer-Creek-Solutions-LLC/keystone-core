@@ -275,7 +275,7 @@ Single command → Execute across K8s pods, VMs, bare metal, edge devices
 ## Technology Stack
 
 ### Core Technologies
-- **Language**: Go 1.21+
+- **Language**: Go 1.25+
 - **Message Bus**: NATS 2.10+ with JetStream (embedded or external cluster)
 - **Storage**: SQLite (embedded) or PostgreSQL for state
 - **API**: gRPC + REST (gRPC-gateway)

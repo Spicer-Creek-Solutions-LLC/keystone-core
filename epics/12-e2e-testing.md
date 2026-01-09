@@ -672,7 +672,7 @@ ENTRYPOINT ["kscore-agent"]
 - **Compose**: Docker Compose v2 or Podman Compose
 - **Kubernetes**: k3d 5+ (for Kubernetes topology)
 - **Chaos Tools**: Pumba (optional, for chaos testing)
-- **Go**: 1.21+ (for test code)
+- **Go**: 1.25+ (for test code)
 - **testcontainers-go**: Programmatic container management
 - **Completed Epics**: Epics 1-11 (tests validate all features)
 
