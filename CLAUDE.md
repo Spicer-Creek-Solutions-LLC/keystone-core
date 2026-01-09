@@ -236,7 +236,8 @@ These gaps should be addressed before production use.
     ├── 21-proxy-agents.md                # Proxy agents for unmanaged devices
     ├── 22-file-distribution.md           # File distribution over NATS
     ├── 23-self-management.md             # Self-management, backup/restore, upgrades
-    └── 24-document-review.md             # Documentation and code review
+    ├── 24-document-review.md             # Documentation and code review
+    └── 25-release-distribution.md        # Release process, package repos, doc hosting
 ```
 
 ## Architecture Overview
@@ -5118,6 +5119,7 @@ Implementation order:
 22. **Epic 22** (File Distribution) - ✅ COMPLETE (All 13 phases) - Depends on Epic 1, 4, 6, 14, 17, 21 (NATS-based file server, multiple backends, mirror groups, proxy caching, 241 tests)
 23. **Epic 23** (Self-Management) - NOT STARTED - Depends on Epic 1, 3, 4, 5, 7, 11, 17, 22 (bootstrap, backup/restore, rolling upgrades, self-healing, disaster recovery)
 24. **Epic 24** (Document Review) - NOT STARTED - Depends on Epic 10, all completed epics (documentation validation, code documentation, gap analysis)
+25. **Epic 25** (Release & Distribution) - NOT STARTED - Depends on Epic 10, 12, 13, 20, 23 (release automation, package repos, doc hosting, update notifications, artifact signing)
 
 ### Future Epics (Not Yet Planned)
 
