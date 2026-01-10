@@ -1,3 +1,14 @@
+// Package hardware detects system hardware information for agent metadata.
+// It collects:
+//   - CPU information (cores, model, frequency, vendor)
+//   - Memory information (total, available, swap)
+//   - Disk information (devices, partitions, usage)
+//   - Network interfaces (MAC, IPs, MTU)
+//   - BMC/IPMI presence and configuration
+//   - System information (hostname, OS, kernel)
+//
+// Hardware detection uses gopsutil for cross-platform support and provides
+// consistent metadata across Linux, macOS, and Windows systems.
 package hardware
 
 import (

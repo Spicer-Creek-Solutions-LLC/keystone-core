@@ -43,6 +43,9 @@ api:
 # NATS Configuration
 nats:
   mode: "embedded"                  # embedded, external, leaf
+  # Listen format: "host:port" for embedded mode
+  # Examples: "0.0.0.0:4222" (all interfaces), "127.0.0.1:4222" (localhost only)
+  #           "[::]:4222" (IPv6 all interfaces), "[::1]:4222" (IPv6 localhost)
   listen: "0.0.0.0:4222"           # NATS listen address (embedded mode)
   urls: []                          # NATS server URLs (external mode)
   credentials: ""                   # NATS credentials file
@@ -62,6 +65,8 @@ storage:
   type: "sqlite"                    # sqlite, postgresql
   sqlite:
     path: "/var/lib/kscore/kscore.db"
+    # Note: SQLite doesn't use traditional connection pooling.
+    # max_connections controls the serialized access queue size
     max_connections: 10
     busy_timeout: "5s"
   postgresql:
@@ -76,15 +81,23 @@ storage:
     connection_lifetime: "1h"
 
 # Logging
+# Note: File output is not supported - use journald, container log drivers, or syslog
 logging:
   level: "info"                     # debug, info, warn, error
   format: "json"                    # json, logfmt, text
-  output: "stdout"                  # stdout, file
-  file: "/var/log/kscore/server.log"
-  max_size: "100MB"                 # Max log file size
-  max_backups: 3                    # Max backup files
-  max_age: 30                       # Max age in days
-  compress: true                    # Compress rotated logs
+  output: "stdout"                  # stdout, syslog
+  include_caller: false             # Include caller file:line
+  include_stacktrace: false         # Include stack traces for errors
+  syslog:                           # Syslog settings (when output: syslog)
+    network: "unix"                 # unix, udp, tcp, tcp+tls
+    address: "/dev/log"             # /dev/log (unix) or host:port
+    facility: "daemon"              # local0-local7, daemon, user
+    app_name: "kscore-server"       # Application name
+    tls:                            # TLS settings for tcp+tls
+      enabled: false
+      ca_cert: ""
+      cert: ""
+      key: ""
 
 # Metrics
 metrics:
@@ -249,6 +262,489 @@ security:
       policy_file: "/etc/kscore/rbac.yaml"
 ```
 
+### Cluster Configuration
+
+```yaml
+# High availability cluster settings
+cluster:
+  enabled: true
+  node_id: ""                         # Auto-generated if empty
+
+  # etcd configuration
+  etcd:
+    mode: "embedded"                  # embedded, external
+    endpoints:                        # External etcd endpoints
+      - "etcd1.example.com:2379"
+      - "etcd2.example.com:2379"
+      - "etcd3.example.com:2379"
+    dial_timeout: "5s"
+    request_timeout: "10s"
+    tls:
+      enabled: false
+      cert_file: ""
+      key_file: ""
+      ca_file: ""
+
+  # Membership settings
+  membership:
+    heartbeat_interval: "5s"          # Inter-member heartbeat
+    heartbeat_timeout: "15s"          # Timeout for member failure
+    min_quorum: 2                     # Minimum members for quorum
+
+  # Leader election
+  election:
+    enabled: true
+    lease_duration: "15s"
+    renew_deadline: "10s"
+    retry_period: "2s"
+
+  # Agent sharding (work distribution)
+  sharding:
+    enabled: true
+    virtual_nodes: 100                # Virtual nodes for consistent hashing
+    rebalance_delay: "10s"            # Delay before rebalancing
+```
+
+### Identity Configuration
+
+```yaml
+# SPIFFE identity settings
+identity:
+  enabled: true
+  mode: "embedded"                    # embedded, spire, cloud, mesh
+
+  # Embedded identity provider
+  embedded:
+    trust_domain: "kscore.local"
+    ca:
+      algorithm: "ecdsa-p256"         # ecdsa-p256, ecdsa-p384, rsa-2048
+      lifetime: "8760h"               # 1 year
+    svid:
+      default_ttl: "1h"
+      max_ttl: "24h"
+      renewal_threshold: 0.5          # Renew at 50% of TTL
+
+  # SPIRE Workload API
+  spire:
+    socket_path: "/run/spire/agent/socket/agent.sock"
+    timeout: "30s"
+
+  # Cloud identity (AWS, GCP, Azure)
+  cloud:
+    provider: "aws"                   # aws, gcp, azure
+    aws:
+      region: "us-east-1"
+    gcp:
+      project_id: "my-project"
+    azure:
+      tenant_id: ""
+      client_id: ""
+
+  # Service mesh identity (Istio, Linkerd, Consul)
+  mesh:
+    provider: "istio"                 # istio, linkerd, consul
+    istio:
+      cert_dir: "/etc/certs"
+    consul:
+      datacenter: "dc1"
+      service_name: "kscore"
+
+  # Trust federation
+  federation:
+    enabled: true
+    bundle_refresh_interval: "1h"
+    federated_domains: []
+```
+
+## Telemetry Gateway Configuration
+
+Configuration reference for `kscore-telemetry-gateway`.
+
+```yaml
+# /etc/kscore/gateway.yaml
+
+# NATS connection
+nats:
+  urls:
+    - "nats://localhost:4222"
+  cluster: "default"
+  tls:
+    enabled: false
+    cert_file: ""
+    key_file: ""
+    ca_file: ""
+  credentials_file: ""
+  max_reconnects: -1
+  reconnect_wait: "2s"
+  reconnect_jitter: "1s"
+
+# HTTP server
+server:
+  listen: "0.0.0.0:9091"
+  metrics_path: "/metrics"
+  health_path: "/health"
+  ready_path: "/ready"
+  federate_path: "/federate"
+  read_timeout: "30s"
+  write_timeout: "30s"
+
+# Metrics gateway
+metrics:
+  enabled: true
+  subject: "kscore.metrics.>"
+  stale_timeout: "5m"
+  labels:
+    add:
+      environment: "production"
+    drop:
+      - "__tmp_*"
+    rewrite:
+      - source: "old_label"
+        target: "new_label"
+  cardinality:
+    max_series: 100000
+    max_labels_per_series: 50
+    drop_high_cardinality: true
+  remote_write:
+    enabled: false
+    url: "http://prometheus:9090/api/v1/write"
+    batch_size: 1000
+    flush_interval: "10s"
+    auth:
+      type: "none"                    # none, basic, bearer
+      username: ""
+      password: ""
+      token: ""
+    retry:
+      enabled: true
+      max_retries: 3
+      initial_interval: "1s"
+      max_interval: "30s"
+  federation:
+    enabled: true
+    match: []
+
+# Logs gateway
+logs:
+  enabled: true
+  subject: "kscore.logs.>"
+  levels:
+    - debug
+    - info
+    - warn
+    - error
+  sources:
+    include: []
+    exclude: []
+  loki:
+    enabled: false
+    url: "http://loki:3100/loki/api/v1/push"
+    batch_size: 100
+    flush_interval: "5s"
+    tenant_id: ""
+    auth:
+      type: "none"
+      username: ""
+      password: ""
+
+# Traces gateway
+traces:
+  enabled: true
+  subject: "kscore.traces.>"
+  sampling:
+    enabled: true
+    rate: 0.1                         # 10% sampling
+    error_always: true                # Always sample errors
+    slow_always: true                 # Always sample slow traces
+    slow_threshold: "5s"
+  otlp:
+    enabled: false
+    endpoint: "http://tempo:4318/v1/traces"
+    compression: "gzip"
+    timeout: "10s"
+    auth:
+      type: "none"
+
+# High availability
+ha:
+  enabled: false
+  instance_id: ""                     # Auto-generated if empty
+  shards: 1                           # Number of shards
+```
+
+## File Server Configuration
+
+Configuration reference for `kscore-files`.
+
+```yaml
+# /etc/kscore/files.yaml
+
+# Server settings
+server:
+  cluster_id: "default"
+  instance_id: ""                     # Auto-generated if empty
+  workers: 10                         # Concurrent transfer handlers
+  max_chunk_size: 65536               # 64KB chunks
+  max_file_size: 1073741824           # 1GB max file size
+  request_timeout: "5m"
+
+  rate_limit:
+    per_agent: 10485760               # 10MB/s per agent
+    global: 104857600                 # 100MB/s total
+    concurrent_transfers: 100
+
+# Storage backend
+backend:
+  type: "local"                       # local, s3, gcs, azure, git, nats
+
+  local:
+    root: "/var/lib/kscore/files"
+    temp_dir: "/var/lib/kscore/tmp"
+    create_dirs: true
+    dir_mode: "0755"
+    file_mode: "0644"
+
+  s3:
+    bucket: ""
+    region: "us-east-1"
+    prefix: ""
+    endpoint: ""                      # For MinIO/compatible
+    access_key_id: ""
+    secret_access_key: ""
+    use_path_style: false
+    storage_class: "STANDARD"
+    server_side_encryption: ""        # AES256 or aws:kms
+    kms_key_id: ""
+
+  gcs:
+    bucket: ""
+    prefix: ""
+    credentials_file: ""
+    project_id: ""
+
+  azure:
+    container: ""
+    account: ""
+    access_key: ""
+    prefix: ""
+
+  git:
+    url: ""
+    branch: "main"
+    local_path: "/var/lib/kscore/git-files"
+    sync_interval: "5m"
+    auto_commit: true
+    commit_author: "Keystone Core <kscore@example.com>"
+    auth:
+      type: "none"                    # none, token, ssh-key, ssh-agent
+      token: ""
+      ssh_key_path: ""
+      ssh_key_password: ""
+
+  nats:
+    bucket: "kscore-files"
+    replicas: 1
+    ttl: "0"                          # 0 = no expiration
+    max_bytes: 0                      # 0 = unlimited
+    storage: "file"                   # file, memory
+
+# Access control
+access:
+  default_policy: "deny"              # allow, deny
+  namespaces:
+    - name: "public"
+      policy: "allow"
+      permissions:
+        - principal: "*"
+          actions: ["read", "list"]
+    - name: "internal"
+      policy: "deny"
+      permissions:
+        - principal: "role:admin"
+          actions: ["*"]
+        - principal: "role:ops"
+          actions: ["read", "write", "list"]
+
+# Mirror groups
+mirror_groups:
+  - id: "us-mirrors"
+    name: "US Region Mirrors"
+    read_strategy: "nearest"          # nearest, round-robin, failover, fastest
+    write_policy: "all"               # all, quorum, primary-only
+    mirrors:
+      - id: "us-west"
+        cluster_id: "cluster-west"
+        location: "37.7749,-122.4194"
+        is_primary: true
+      - id: "us-east"
+        cluster_id: "cluster-east"
+        location: "40.7128,-74.0060"
+
+# Caching
+cache:
+  enabled: true
+  path: "/var/cache/kscore/files"
+  max_size: "10GB"
+  ttl: "24h"
+  cleanup_interval: "1h"
+```
+
+## Proxy Agent Configuration
+
+Configuration reference for proxy agents that manage devices via SSH, SNMP, REST, or WinRM.
+
+```yaml
+# /etc/kscore/proxy-agent.yaml
+
+# Proxy agent identity
+agent:
+  id: "proxy-01"                      # Unique identifier
+  cluster_name: "default"
+  labels:
+    role: "network-proxy"
+    datacenter: "us-east-1"
+
+# NATS connection
+nats:
+  urls:
+    - "nats://control-plane:4222"
+  tls:
+    enabled: false
+    cert_file: ""
+    key_file: ""
+    ca_file: ""
+  credentials_file: ""
+
+# Health monitoring
+health:
+  interval: "30s"                     # Check interval
+  timeout: "10s"                      # Check timeout
+  max_concurrent: 10                  # Concurrent checks
+  stale_threshold: "5m"               # Stale device threshold
+
+# Managed devices
+devices:
+  - id: "router-01"
+    name: "Core Router"
+    type: "router"
+    vendor: "cisco"
+    model: "ISR4431"
+    protocol: "ssh"                   # ssh, snmp, rest, winrm
+    address: "10.0.1.1"
+    port: 22                          # 0 = default for protocol
+    profile_id: "cisco-ios"
+    credential_ref: "router-creds"
+    metadata:
+      site: "datacenter-1"
+    labels:
+      tier: "core"
+      critical: "true"
+
+  - id: "switch-01"
+    name: "Access Switch"
+    type: "switch"
+    vendor: "arista"
+    protocol: "rest"
+    address: "10.0.2.1"
+    port: 443
+    profile_id: "arista-eos"
+    credential_ref: "switch-creds"
+
+  - id: "windows-legacy"
+    name: "Legacy Windows Server"
+    type: "server"
+    vendor: "microsoft"
+    protocol: "winrm"
+    address: "10.0.3.1"
+    port: 5985
+    profile_id: "windows-server"
+    credential_ref: "windows-creds"
+
+# Credential providers
+credentials:
+  provider: "vault"                   # vault, kubernetes, file, env
+
+  vault:
+    address: "https://vault:8200"
+    token: "${VAULT_TOKEN}"
+    path: "secret/kscore/devices"
+    tls:
+      enabled: true
+      ca_file: "/etc/kscore/vault-ca.crt"
+
+  kubernetes:
+    namespace: "kscore"
+    label_selector: "app=kscore-creds"
+
+  file:
+    path: "/etc/kscore/credentials.enc"
+    encryption_key: "${CREDS_KEY}"
+```
+
+### Device Discovery
+
+```yaml
+# Discovery configuration (optional)
+discovery:
+  enabled: true
+  scan_interval: "1h"                 # Scan frequency
+  scan_timeout: "30s"                 # Per-scan timeout
+  max_concurrent: 50                  # Concurrent scans
+
+  # Networks to scan
+  networks:
+    - "10.0.0.0/16"
+    - "192.168.0.0/24"
+
+  exclude_networks:
+    - "10.0.255.0/24"
+
+  exclude_hosts:
+    - "10.0.0.1"                      # Gateway
+
+  # Protocol-specific settings
+  ssh_port: 22
+  snmp_port: 161
+  snmp_community: "public"
+
+  # Auto-approval
+  auto_approve: false
+  auto_approve_profiles:
+    - "cisco-ios"
+    - "arista-eos"
+```
+
+### Device Profiles
+
+```yaml
+# Device profiles define interaction patterns
+profiles:
+  - id: "cisco-ios"
+    name: "Cisco IOS Devices"
+    vendor: "cisco"
+    protocol: "ssh"
+    prompts:
+      login: "Username:"
+      password: "Password:"
+      enable: ">"
+      privileged: "#"
+    commands:
+      show_version: "show version"
+      show_running: "show running-config"
+      save_config: "write memory"
+
+  - id: "arista-eos"
+    name: "Arista EOS Devices"
+    vendor: "arista"
+    protocol: "rest"
+    api:
+      base_url: "/command-api"
+      format: "json"
+      version: 1
+    authentication:
+      type: "basic"
+```
+
 ## Agent Configuration
 
 Complete configuration reference for `kscore-agent`.
@@ -274,6 +770,10 @@ control_plane:
   reconnect_jitter: "1s"
   ping_interval: "2m"
   max_ping_out: 2
+
+  # Network settings
+  address_family: "any"             # any, ipv4, ipv6 (default: any)
+                                    # Controls address resolution preference
 
 # Agent Identity
 agent:

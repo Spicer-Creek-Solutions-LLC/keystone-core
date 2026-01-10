@@ -1,3 +1,13 @@
+// Package visualization provides topology visualization for Keystone Core.
+// It implements:
+//   - Agent topology views (datacenter, environment, role hierarchy)
+//   - Graph representation with nodes and edges
+//   - Real-time updates via WebSocket
+//   - Filtering by datacenter, environment, role, status, and tags
+//   - HTTP API for topology and graph data
+//
+// The visualization package enables dashboards and UIs to display
+// infrastructure topology and agent relationships.
 package visualization
 
 import (

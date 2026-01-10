@@ -15,6 +15,8 @@ This section provides detailed technical reference documentation for all Keyston
 - **[Module Reference](modules/)** - State module parameters and specifications
 - **[Event Reference](events/)** - Event types, schemas, and filtering
 - **[Metrics Reference](metrics/)** - Prometheus metrics catalog with examples
+- **[Query API Reference](query-api/)** - Unified telemetry querying for metrics, logs, and traces
+- **[Visualization API Reference](visualization/)** - Infrastructure topology and real-time updates
 
 ## Quick Navigation
 
@@ -23,6 +25,8 @@ This section provides detailed technical reference documentation for all Keyston
 - [gRPC Services](api/#grpc-services)
 - [Event Schemas](events/)
 - [Metrics Catalog](metrics/)
+- [Query API](query-api/) - Metrics, logs, and traces
+- [Visualization API](visualization/) - Topology and graphs
 
 ### For Operators
 - [kscorectl Commands](cli/)

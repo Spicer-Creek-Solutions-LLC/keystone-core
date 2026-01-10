@@ -1,3 +1,12 @@
+// Package profiling provides pprof-based performance profiling for Keystone Core.
+// It includes:
+//   - HTTP endpoints for pprof profiles (/debug/pprof/*)
+//   - Profile capture API for CPU, heap, goroutine, mutex, block, and trace
+//   - Runtime statistics collection
+//   - Configurable profiling rates
+//
+// The profiling server can be enabled on demand for debugging performance
+// issues without rebuilding binaries.
 package profiling
 
 import (

@@ -1,3 +1,13 @@
+// Package cluster provides etcd-based high-availability clustering for Keystone Core.
+// It implements:
+//   - Cluster membership management with heartbeat monitoring
+//   - Leader election using etcd concurrency primitives
+//   - Distributed state storage and coordination
+//   - Work distribution and agent sharding
+//   - Automatic failover and recovery
+//
+// The cluster package supports both embedded and external etcd deployments,
+// enabling single-node development and multi-node production configurations.
 package cluster
 
 import (

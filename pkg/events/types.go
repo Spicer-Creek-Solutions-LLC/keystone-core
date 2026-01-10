@@ -1,3 +1,16 @@
+// Package events provides the event-driven automation system for Keystone Core.
+// It implements:
+//   - Event types for agent, job, state, and system events
+//   - Event publishing and subscription via NATS JetStream
+//   - Event filtering with expression-based criteria
+//   - Event routing to multiple consumers
+//   - Event enrichment pipeline
+//   - Reactor system for automated responses
+//   - Event storage and querying
+//   - CloudEvents and external system integration
+//
+// Events enable reactive automation, audit logging, and integration with
+// external systems like webhooks, Kafka, and observability platforms.
 package events
 
 import (

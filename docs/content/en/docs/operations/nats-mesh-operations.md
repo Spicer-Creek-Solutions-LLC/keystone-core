@@ -419,7 +419,7 @@ Example:
 
 ### NATS Server Tuning
 
-```yaml
+```conf
 # nats.conf
 max_connections: 10000
 max_payload: 1MB

@@ -1,3 +1,13 @@
+// Package servicemesh detects and integrates with service mesh environments.
+// It supports:
+//   - Automatic mesh type detection (Istio, Linkerd, Consul, Kuma, OSM)
+//   - SPIFFE identity extraction from mesh certificates
+//   - Proxy configuration discovery
+//   - mTLS configuration access
+//   - Mesh metadata collection for targeting
+//
+// When running in a service mesh environment, agents can use mesh identity
+// for authentication and expose mesh-aware metadata for targeting expressions.
 package servicemesh
 
 import "time"

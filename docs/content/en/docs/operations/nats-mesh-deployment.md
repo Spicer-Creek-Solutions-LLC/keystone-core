@@ -90,7 +90,7 @@ Single server with external NATS for improved reliability:
 
 ### NATS Server
 
-```yaml
+```conf
 # nats.conf
 port: 4222
 http_port: 8222
@@ -179,7 +179,7 @@ flowchart TB
 
 ### NATS Cluster Configuration
 
-```yaml
+```conf
 # nats-1.conf
 server_name: nats-1
 port: 4222
@@ -343,7 +343,7 @@ flowchart TB
 
 ### Hub NATS Configuration
 
-```yaml
+```conf
 # hub-nats.conf
 port: 4222
 http_port: 8222
@@ -481,7 +481,7 @@ flowchart TB
 
 ### Gateway Configuration
 
-```yaml
+```conf
 # us-west-nats.conf
 server_name: us-west-1
 port: 4222
@@ -621,7 +621,7 @@ flowchart TB
 
 ### Cloud Hub Configuration
 
-```yaml
+```conf
 # cloud-nats.conf
 port: 4222
 
@@ -656,7 +656,7 @@ websocket {
 
 ### On-Premise Configuration
 
-```yaml
+```conf
 # onprem-nats.conf
 port: 4222
 

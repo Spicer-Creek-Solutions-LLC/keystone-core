@@ -786,6 +786,52 @@ GET /api/v1/cluster/leader
 }
 ```
 
+#### Transfer Leadership
+
+```http
+POST /api/v1/cluster/leader/transfer
+```
+
+Transfers cluster leadership to a specific member. Useful for planned maintenance or load balancing.
+
+**Request Body**:
+```json
+{
+  "target_id": "server-2"
+}
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `target_id` | **Yes** | ID of the member to transfer leadership to |
+
+**Response** (200 OK):
+```json
+{
+  "message": "Leadership transfer initiated",
+  "target_id": "server-2"
+}
+```
+
+**Error Responses**:
+- `400 Bad Request`: Missing or empty `target_id`
+- `500 Internal Server Error`: Transfer failed (target unreachable, not eligible, etc.)
+
+**Notes**:
+- The target member must be healthy and part of the cluster
+- Transfer is asynchronous - leader election may take a few seconds
+- Use `GET /api/v1/cluster/leader` to verify the transfer completed
+
+**Example**:
+```bash
+# Transfer leadership to server-2
+curl -X POST \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"target_id": "server-2"}' \
+  http://control-plane:8080/api/v1/cluster/leader/transfer
+```
+
 #### Create Cluster Backup
 
 ```http

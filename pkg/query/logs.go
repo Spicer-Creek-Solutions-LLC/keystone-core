@@ -1,3 +1,13 @@
+// Package query provides unified telemetry querying for Keystone Core.
+// It implements:
+//   - Logs querying with filtering, time ranges, and search
+//   - Metrics querying via Prometheus-compatible API
+//   - Traces querying via Jaeger-compatible API
+//   - In-memory implementations for testing
+//   - Backend integrations for Loki, Prometheus, and Jaeger
+//
+// The query package enables the control plane and CLI tools to retrieve
+// observability data from various backends through a consistent interface.
 package query
 
 import (

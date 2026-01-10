@@ -1,3 +1,13 @@
+// Package controlplane implements the Keystone Core control plane server.
+// It provides:
+//   - Agent connection management and lifecycle
+//   - Command dispatch and job tracking
+//   - Batch execution across multiple agents
+//   - State synchronization
+//   - Event emission for agent lifecycle events
+//
+// The control plane coordinates all managed agents, handles command routing,
+// and maintains the authoritative state of the infrastructure.
 package controlplane
 
 import (

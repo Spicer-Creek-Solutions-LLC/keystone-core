@@ -7,7 +7,7 @@ description: >
 
 ## Overview
 
-Keystone Core includes 76 built-in state modules for declarative configuration management. All modules are idempotent and cross-platform where applicable.
+Keystone Core includes 84 built-in state modules for declarative configuration management. All modules are idempotent and cross-platform where applicable.
 
 **Core Modules**:
 - [file](#file-module) - Manage files and directories
@@ -111,6 +111,21 @@ Keystone Core includes 76 built-in state modules for declarative configuration m
 - [k8s_cronjob](#k8s_cronjob-module) - Manage Kubernetes cronjobs
 - [k8s_pvc](#k8s_pvc-module) - Manage Kubernetes persistent volume claims
 - [k8s_hpa](#k8s_hpa-module) - Manage Kubernetes horizontal pod autoscalers
+
+**Config File Modules**:
+- [logrotate](#logrotate-module) - Manage logrotate configurations
+- [sudoers](#sudoers-module) - Manage sudoers configurations
+- [limits](#limits-module) - Manage PAM limits configurations
+- [modprobe](#modprobe-module) - Manage kernel module configurations
+- [syslog](#syslog-module) - Manage syslog/rsyslog configurations
+- [lineinfile](#lineinfile-module) - Manage lines in files
+- [ini_file](#ini_file-module) - Manage INI file settings
+- [archive](#archive-module) - Extract archive files
+
+**Windows Modules**:
+- [win_feature](#win_feature-module) - Manage Windows features
+- [win_registry](#win_registry-module) - Manage Windows registry
+- [win_service](#win_service-module) - Manage Windows services
 
 ## Module Structure
 
@@ -8434,6 +8449,780 @@ remove_cert:
 
 ---
 
+## logrotate Module {#logrotate-module}
+
+Manage logrotate configuration files.
+
+### States
+
+| State | Description |
+|-------|-------------|
+| `present` | Logrotate configuration exists with specified settings |
+| `absent` | Logrotate configuration is removed |
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `name` | string | yes | - | Configuration name (creates /etc/logrotate.d/{name}) |
+| `path` | string | yes* | - | Log file path pattern to rotate |
+| `frequency` | string | no | weekly | Rotation frequency: daily, weekly, monthly, yearly |
+| `rotate` | int | no | 4 | Number of rotated logs to keep |
+| `compress` | bool | no | true | Compress rotated logs |
+| `delaycompress` | bool | no | false | Delay compression until next rotation |
+| `missingok` | bool | no | true | Don't error if log file is missing |
+| `notifempty` | bool | no | true | Don't rotate empty log files |
+| `create` | string | no | - | Create new log file (mode owner group) |
+| `sharedscripts` | bool | no | false | Run scripts once for all files |
+| `prerotate` | string | no | - | Script to run before rotation |
+| `postrotate` | string | no | - | Script to run after rotation |
+
+*`path` is required for `present` state.
+
+### Platform Support
+
+| Platform | Support |
+|----------|---------|
+| Linux | ✅ Full |
+| macOS | ❌ Not supported |
+| Windows | ❌ Not supported |
+
+### Example
+
+```yaml
+nginx_logrotate:
+  module: logrotate
+  state: present
+  name: nginx
+  path: /var/log/nginx/*.log
+  frequency: daily
+  rotate: 14
+  compress: true
+  delaycompress: true
+  missingok: true
+  notifempty: true
+  create: "0640 nginx adm"
+  sharedscripts: true
+  postrotate: |
+    [ -f /var/run/nginx.pid ] && kill -USR1 $(cat /var/run/nginx.pid)
+
+app_logrotate:
+  module: logrotate
+  state: present
+  name: myapp
+  path: /var/log/myapp/*.log
+  frequency: weekly
+  rotate: 4
+  compress: true
+```
+
+---
+
+## sudoers Module {#sudoers-module}
+
+Manage sudoers configuration files in /etc/sudoers.d/.
+
+### States
+
+| State | Description |
+|-------|-------------|
+| `present` | Sudoers configuration exists with specified rules |
+| `absent` | Sudoers configuration is removed |
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `name` | string | yes | - | Configuration name (creates /etc/sudoers.d/{name}) |
+| `user` | string | no* | - | User to grant sudo access |
+| `group` | string | no* | - | Group to grant sudo access (prefix with %) |
+| `commands` | []string | no | ALL | Commands allowed (paths or ALL) |
+| `nopasswd` | bool | no | false | Don't require password |
+| `validate` | bool | no | true | Validate syntax before writing |
+
+*Either `user` or `group` is required for `present` state.
+
+### Platform Support
+
+| Platform | Support |
+|----------|---------|
+| Linux | ✅ Full |
+| macOS | ✅ Full |
+| Windows | ❌ Not supported |
+
+### Example
+
+```yaml
+admin_sudo:
+  module: sudoers
+  state: present
+  name: admins
+  group: "%admin"
+  commands:
+    - ALL
+  nopasswd: true
+
+deploy_sudo:
+  module: sudoers
+  state: present
+  name: deploy
+  user: deploy
+  commands:
+    - /usr/bin/systemctl restart myapp
+    - /usr/bin/systemctl reload nginx
+  nopasswd: true
+  validate: true
+
+remove_old_config:
+  module: sudoers
+  state: absent
+  name: old_admin
+```
+
+---
+
+## limits Module {#limits-module}
+
+Manage PAM limits configuration files in /etc/security/limits.d/.
+
+### States
+
+| State | Description |
+|-------|-------------|
+| `present` | Limits configuration exists with specified settings |
+| `absent` | Limits configuration is removed |
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `name` | string | yes | - | Configuration name (creates /etc/security/limits.d/{name}.conf) |
+| `domain` | string | yes* | - | User, group (@group), or wildcard (*) |
+| `type` | string | yes* | - | Limit type: soft, hard, or - (both) |
+| `item` | string | yes* | - | Resource item to limit |
+| `value` | string | yes* | - | Limit value |
+
+*All parameters required for `present` state.
+
+### Item Options
+
+| Item | Description |
+|------|-------------|
+| `nofile` | Maximum open files |
+| `nproc` | Maximum processes |
+| `memlock` | Maximum locked memory (KB) |
+| `core` | Core file size |
+| `stack` | Maximum stack size (KB) |
+| `fsize` | Maximum file size |
+| `as` | Address space limit |
+
+### Platform Support
+
+| Platform | Support |
+|----------|---------|
+| Linux | ✅ Full |
+| macOS | ❌ Not supported |
+| Windows | ❌ Not supported |
+
+### Example
+
+```yaml
+elasticsearch_limits:
+  module: limits
+  state: present
+  name: elasticsearch
+  domain: elasticsearch
+  type: "-"
+  item: nofile
+  value: "65536"
+
+app_nproc:
+  module: limits
+  state: present
+  name: myapp
+  domain: appuser
+  type: soft
+  item: nproc
+  value: "4096"
+
+memlock_unlimited:
+  module: limits
+  state: present
+  name: memlock
+  domain: "*"
+  type: hard
+  item: memlock
+  value: unlimited
+```
+
+---
+
+## modprobe Module {#modprobe-module}
+
+Manage kernel module configuration in /etc/modprobe.d/.
+
+### States
+
+| State | Description |
+|-------|-------------|
+| `present` | Module configuration exists |
+| `absent` | Module configuration is removed |
+| `blacklist` | Module is blacklisted |
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `name` | string | yes | - | Kernel module name |
+| `options` | string | no | - | Module options/parameters |
+| `persist` | bool | no | true | Make configuration persistent |
+
+### Platform Support
+
+| Platform | Support |
+|----------|---------|
+| Linux | ✅ Full |
+| macOS | ❌ Not supported |
+| Windows | ❌ Not supported |
+
+### Example
+
+```yaml
+bonding_options:
+  module: modprobe
+  state: present
+  name: bonding
+  options: "mode=4 miimon=100"
+
+blacklist_nouveau:
+  module: modprobe
+  state: blacklist
+  name: nouveau
+
+disable_ipv6:
+  module: modprobe
+  state: present
+  name: ipv6
+  options: "disable=1"
+```
+
+---
+
+## syslog Module {#syslog-module}
+
+Manage syslog/rsyslog configuration files.
+
+### States
+
+| State | Description |
+|-------|-------------|
+| `present` | Syslog configuration exists |
+| `absent` | Syslog configuration is removed |
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `name` | string | yes | - | Configuration name (creates /etc/rsyslog.d/{name}.conf) |
+| `facility` | string | yes* | - | Syslog facility (auth, daemon, local0-7, etc.) |
+| `priority` | string | no | * | Minimum priority (debug, info, notice, warning, err, crit, alert, emerg) |
+| `action` | string | yes* | - | Destination (file path, @remote, @@remote) |
+| `syslog_type` | string | no | rsyslog | Syslog daemon: rsyslog, syslog-ng |
+
+*`facility` and `action` are required for `present` state.
+
+### Platform Support
+
+| Platform | Support |
+|----------|---------|
+| Linux | ✅ Full |
+| macOS | ⚠️ Limited (different config format) |
+| Windows | ❌ Not supported |
+
+### Example
+
+```yaml
+auth_logging:
+  module: syslog
+  state: present
+  name: auth
+  facility: auth
+  priority: info
+  action: /var/log/auth.log
+
+remote_syslog:
+  module: syslog
+  state: present
+  name: remote
+  facility: "*"
+  priority: warning
+  action: "@@syslog.example.com:514"
+
+local_app:
+  module: syslog
+  state: present
+  name: myapp
+  facility: local0
+  priority: "*"
+  action: /var/log/myapp.log
+```
+
+---
+
+## lineinfile Module {#lineinfile-module}
+
+Manage lines in text files.
+
+### States
+
+| State | Description |
+|-------|-------------|
+| `present` | Line exists in the file |
+| `absent` | Line is removed from file |
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `path` | string | yes | - | Path to the file to modify |
+| `line` | string | yes* | - | Line to insert or match |
+| `regexp` | string | no | - | Regex pattern to match existing lines |
+| `insertafter` | string | no | EOF | Insert after this pattern (regex or EOF, BOF) |
+| `insertbefore` | string | no | - | Insert before this pattern (regex or BOF) |
+| `create` | bool | no | false | Create file if it doesn't exist |
+| `backup` | bool | no | false | Create backup before modifying |
+
+*`line` is required for `present` state.
+
+### Platform Support
+
+| Platform | Support |
+|----------|---------|
+| Linux | ✅ Full |
+| macOS | ✅ Full |
+| Windows | ✅ Full (uses native line endings) |
+
+### Example
+
+```yaml
+ensure_hosts_entry:
+  module: lineinfile
+  state: present
+  path: /etc/hosts
+  line: "192.168.1.100 myserver.local"
+  regexp: "^192\\.168\\.1\\.100"
+
+disable_ssh_root:
+  module: lineinfile
+  state: present
+  path: /etc/ssh/sshd_config
+  line: "PermitRootLogin no"
+  regexp: "^#?PermitRootLogin"
+  backup: true
+
+add_to_bashrc:
+  module: lineinfile
+  state: present
+  path: /home/user/.bashrc
+  line: 'export PATH="$HOME/bin:$PATH"'
+  insertafter: "^# User specific"
+  create: true
+
+remove_old_entry:
+  module: lineinfile
+  state: absent
+  path: /etc/hosts
+  regexp: "^192\\.168\\.1\\.50"
+```
+
+---
+
+## ini_file Module {#ini_file-module}
+
+Manage settings in INI-format configuration files.
+
+### States
+
+| State | Description |
+|-------|-------------|
+| `present` | Setting exists with specified value |
+| `absent` | Setting is removed |
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `path` | string | yes | - | Path to the INI file |
+| `section` | string | yes | - | Section name (without brackets) |
+| `option` | string | yes | - | Option/key name |
+| `value` | string | yes* | - | Value for the option |
+| `create` | bool | no | true | Create file if it doesn't exist |
+| `backup` | bool | no | false | Create backup before modifying |
+
+*`value` is required for `present` state.
+
+### Platform Support
+
+| Platform | Support |
+|----------|---------|
+| Linux | ✅ Full |
+| macOS | ✅ Full |
+| Windows | ✅ Full |
+
+### Example
+
+```yaml
+mysql_settings:
+  module: ini_file
+  state: present
+  path: /etc/mysql/mysql.conf.d/custom.cnf
+  section: mysqld
+  option: max_connections
+  value: "500"
+  backup: true
+
+php_memory:
+  module: ini_file
+  state: present
+  path: /etc/php/8.1/fpm/php.ini
+  section: PHP
+  option: memory_limit
+  value: "256M"
+
+git_config:
+  module: ini_file
+  state: present
+  path: /home/user/.gitconfig
+  section: user
+  option: email
+  value: "user@example.com"
+  create: true
+
+remove_setting:
+  module: ini_file
+  state: absent
+  path: /etc/myapp/config.ini
+  section: deprecated
+  option: old_feature
+```
+
+---
+
+## archive Module {#archive-module}
+
+Extract archive files (tar, tar.gz, tar.bz2, tar.xz, zip).
+
+### States
+
+| State | Description |
+|-------|-------------|
+| `present` | Archive is extracted to destination |
+| `absent` | Extracted files are removed |
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `src` | string | yes | - | Path to the archive file |
+| `dest` | string | yes | - | Destination directory for extraction |
+| `format` | string | no | auto | Archive format: tar, tar.gz, tar.bz2, tar.xz, zip, auto |
+| `creates` | string | no | - | Path to check for idempotency (skip if exists) |
+
+### Supported Formats
+
+| Format | Extensions |
+|--------|------------|
+| `tar` | .tar |
+| `tar.gz` | .tar.gz, .tgz |
+| `tar.bz2` | .tar.bz2, .tbz, .tbz2 |
+| `tar.xz` | .tar.xz, .txz |
+| `zip` | .zip |
+| `auto` | Detect from extension |
+
+### Platform Support
+
+| Platform | Support |
+|----------|---------|
+| Linux | ✅ Full |
+| macOS | ✅ Full |
+| Windows | ✅ Full (requires tar/unzip) |
+
+### Example
+
+```yaml
+extract_app:
+  module: archive
+  state: present
+  src: /tmp/app-v1.2.3.tar.gz
+  dest: /opt/app
+  creates: /opt/app/bin/app
+
+extract_assets:
+  module: archive
+  state: present
+  src: /tmp/assets.zip
+  dest: /var/www/html/assets
+  format: zip
+
+extract_data:
+  module: archive
+  state: present
+  src: /backups/data.tar.xz
+  dest: /var/lib/myapp
+  format: tar.xz
+```
+
+---
+
+## win_feature Module {#win_feature-module}
+
+Manage Windows Server features and optional features.
+
+### States
+
+| State | Description |
+|-------|-------------|
+| `installed` | Feature is installed |
+| `removed` | Feature is removed |
+| `enabled` | Optional feature is enabled |
+| `disabled` | Optional feature is disabled |
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `name` | string | yes | - | Feature name or display name |
+| `include_management_tools` | bool | no | false | Include associated management tools |
+| `include_sub_features` | bool | no | false | Include all sub-features |
+| `source` | string | no | - | Source path for feature files |
+| `restart` | bool | no | false | Restart if required |
+
+### Common Features
+
+| Feature Name | Description |
+|--------------|-------------|
+| `Web-Server` | IIS Web Server |
+| `NET-Framework-45-Core` | .NET Framework 4.5 |
+| `Hyper-V` | Hyper-V Virtualization |
+| `DNS` | DNS Server |
+| `DHCP` | DHCP Server |
+| `AD-Domain-Services` | Active Directory Domain Services |
+| `Containers` | Windows Containers |
+
+### Platform Support
+
+| Platform | Support |
+|----------|---------|
+| Linux | ❌ Not supported |
+| macOS | ❌ Not supported |
+| Windows | ✅ Full (Server 2016+) |
+
+### Example
+
+```yaml
+install_iis:
+  module: win_feature
+  state: installed
+  name: Web-Server
+  include_management_tools: true
+  include_sub_features: true
+
+install_dotnet:
+  module: win_feature
+  state: installed
+  name: NET-Framework-45-Core
+
+enable_containers:
+  module: win_feature
+  state: enabled
+  name: Containers
+  restart: true
+
+remove_telnet:
+  module: win_feature
+  state: removed
+  name: Telnet-Client
+```
+
+---
+
+## win_registry Module {#win_registry-module}
+
+Manage Windows registry keys and values.
+
+### States
+
+| State | Description |
+|-------|-------------|
+| `present` | Registry value exists with specified data |
+| `absent` | Registry value is removed |
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `path` | string | yes | - | Registry key path (e.g., HKLM:\SOFTWARE\MyApp) |
+| `name` | string | yes* | - | Value name (use "(default)" for default value) |
+| `data` | any | yes* | - | Value data |
+| `type` | string | no | String | Value type |
+
+*`name` and `data` are required for `present` state.
+
+### Value Types
+
+| Type | Description |
+|------|-------------|
+| `String` | REG_SZ - String value |
+| `ExpandString` | REG_EXPAND_SZ - Expandable string |
+| `Binary` | REG_BINARY - Binary data |
+| `DWord` | REG_DWORD - 32-bit integer |
+| `QWord` | REG_QWORD - 64-bit integer |
+| `MultiString` | REG_MULTI_SZ - Array of strings |
+
+### Registry Roots
+
+| Abbreviation | Full Path |
+|--------------|-----------|
+| `HKLM:` | HKEY_LOCAL_MACHINE |
+| `HKCU:` | HKEY_CURRENT_USER |
+| `HKCR:` | HKEY_CLASSES_ROOT |
+| `HKU:` | HKEY_USERS |
+| `HKCC:` | HKEY_CURRENT_CONFIG |
+
+### Platform Support
+
+| Platform | Support |
+|----------|---------|
+| Linux | ❌ Not supported |
+| macOS | ❌ Not supported |
+| Windows | ✅ Full |
+
+### Example
+
+```yaml
+app_setting:
+  module: win_registry
+  state: present
+  path: HKLM:\SOFTWARE\MyApp
+  name: InstallPath
+  data: C:\Program Files\MyApp
+  type: String
+
+disable_feature:
+  module: win_registry
+  state: present
+  path: HKLM:\SOFTWARE\Policies\Microsoft\Windows
+  name: DisableFeature
+  data: 1
+  type: DWord
+
+set_environment:
+  module: win_registry
+  state: present
+  path: HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment
+  name: MYAPP_HOME
+  data: C:\MyApp
+  type: ExpandString
+
+remove_old_value:
+  module: win_registry
+  state: absent
+  path: HKLM:\SOFTWARE\MyApp
+  name: OldSetting
+```
+
+---
+
+## win_service Module {#win_service-module}
+
+Manage Windows services.
+
+### States
+
+| State | Description |
+|-------|-------------|
+| `running` | Service is started |
+| `stopped` | Service is stopped |
+| `enabled` | Service starts automatically |
+| `disabled` | Service is disabled |
+| `present` | Service exists with specified configuration |
+| `absent` | Service is removed |
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `name` | string | yes | - | Service name (short name, not display name) |
+| `display_name` | string | no | - | Service display name |
+| `description` | string | no | - | Service description |
+| `path` | string | no* | - | Path to service executable |
+| `start_mode` | string | no | auto | Start mode: auto, manual, disabled, delayed |
+| `username` | string | no | LocalSystem | Account to run service as |
+| `password` | string | no | - | Password for service account |
+| `dependencies` | []string | no | - | Services this service depends on |
+
+*`path` is required for `present` state when creating a new service.
+
+### Start Modes
+
+| Mode | Description |
+|------|-------------|
+| `auto` | Automatic startup |
+| `delayed` | Automatic (Delayed Start) |
+| `manual` | Manual startup |
+| `disabled` | Service is disabled |
+
+### Platform Support
+
+| Platform | Support |
+|----------|---------|
+| Linux | ❌ Not supported |
+| macOS | ❌ Not supported |
+| Windows | ✅ Full |
+
+### Example
+
+```yaml
+start_service:
+  module: win_service
+  state: running
+  name: MyAppService
+
+stop_service:
+  module: win_service
+  state: stopped
+  name: MyAppService
+
+configure_service:
+  module: win_service
+  state: present
+  name: MyAppService
+  display_name: My Application Service
+  description: Runs the My Application background tasks
+  path: C:\MyApp\myapp-service.exe
+  start_mode: auto
+  username: .\MyAppUser
+  password: "{{ .vars.service_password }}"
+
+disable_telemetry:
+  module: win_service
+  state: disabled
+  name: DiagTrack
+
+set_delayed_start:
+  module: win_service
+  state: enabled
+  name: MyAppService
+  start_mode: delayed
+
+remove_service:
+  module: win_service
+  state: absent
+  name: OldService
+```
+
+---
+
 ## Requisites
 
 All modules support requisites for dependency management:
@@ -8581,6 +9370,24 @@ nginx_package: ✓ installed (unchanged)
 - ✅ Linux (Ubuntu/Debian, openSUSE)
 - ⚠️ Linux (RHEL/CentOS) - not default
 - ❌ macOS, Windows (not supported)
+
+### Config File Modules (logrotate, sudoers, limits, modprobe, syslog)
+- ✅ Linux
+- ❌ macOS (except sudoers)
+- ❌ Windows (not supported)
+
+### Text File Modules (lineinfile, ini_file)
+- ✅ Linux, Windows, macOS
+- Line endings handled per platform
+
+### Archive Module
+- ✅ Linux, macOS
+- ✅ Windows (requires tar/unzip)
+
+### Windows Modules (win_feature, win_registry, win_service)
+- ❌ Linux (not supported)
+- ❌ macOS (not supported)
+- ✅ Windows (Server 2016+ for features)
 
 ## Template Support
 

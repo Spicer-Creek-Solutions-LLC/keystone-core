@@ -1,3 +1,13 @@
+// Package agent implements the Keystone Core agent that runs on managed nodes.
+// It handles:
+//   - Registration and heartbeat with the control plane
+//   - Command execution (shell, scripts)
+//   - State module application
+//   - System metadata collection
+//   - Optional embedded NATS server for hybrid deployments
+//
+// The agent connects to the control plane over NATS and can operate in various
+// modes including standalone client, embedded NATS host, or leaf node.
 package agent
 
 import (

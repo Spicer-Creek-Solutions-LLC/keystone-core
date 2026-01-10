@@ -1,3 +1,13 @@
+// Package config handles configuration loading and validation for Keystone Core.
+// It provides:
+//   - Configuration structures for all components (server, agent, NATS, storage)
+//   - YAML configuration file parsing via Viper
+//   - Environment variable support for containerized deployments
+//   - Validation of configuration values
+//   - Default values for zero-configuration startup
+//
+// Configuration can be provided via files, environment variables, or command-line
+// flags, with proper precedence handling and validation.
 package config
 
 import (

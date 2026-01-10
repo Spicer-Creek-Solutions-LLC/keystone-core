@@ -65,6 +65,44 @@ Deploy and operate module registries:
 - **Shared storage options** - NFS, EFS, GCS, Azure Files
 - **Backup and recovery** - Registry data protection
 
+### [NATS Mesh](nats-mesh-deployment/)
+NATS mesh networking and topology:
+- **Deployment patterns** - Simple, HA, edge, multi-region
+- **Leaf nodes** - Edge and branch office connectivity
+- **Superclusters** - Multi-region gateway configuration
+- **WebSocket transport** - Firewall-friendly connections
+- **Operations** - Monitoring, troubleshooting, and maintenance
+
+### [Telemetry Gateway](gateway/)
+Centralized telemetry aggregation:
+- **Deployment** - Single-node and HA configurations
+- **Prometheus integration** - Metrics scraping and federation
+- **Loki integration** - Log aggregation and querying
+- **Tempo integration** - Distributed trace collection
+- **Backend configuration** - Remote write and export
+
+### [Self-Management](self-management/)
+Keystone Core managing itself:
+- **Bootstrap** - Initial cluster deployment from seed
+- **Backup & Restore** - Data protection and recovery
+- **Rolling upgrades** - Zero-downtime version updates
+- **Disaster recovery** - Recovery procedures and runbooks
+- **State modules** - Self-management state declarations
+
+### [Windows Operations](windows/)
+Windows platform operations:
+- **Installation** - MSI installer and manual setup
+- **Service management** - Windows service configuration
+- **Agent operations** - Windows-specific agent features
+- **Troubleshooting** - Windows-specific issues
+
+### [IPv6 Operations](ipv6/)
+IPv6 and dual-stack networking:
+- **Configuration** - IPv6-only and dual-stack setup
+- **NATS with IPv6** - Message bus configuration
+- **Agent connectivity** - IPv6 agent registration
+- **Troubleshooting** - IPv6-specific issues
+
 ## Quick Navigation by Role
 
 ### For DevOps Engineers

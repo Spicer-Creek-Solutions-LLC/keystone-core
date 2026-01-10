@@ -825,6 +825,161 @@ rate(kscore_api_requests_total[5m])
     description: "99.9% availability SLO violated"
 ```
 
+## Profiling
+
+Keystone Core includes built-in pprof profiling endpoints for debugging performance issues.
+
+### Enabling Profiling
+
+**Server Configuration:**
+```yaml
+# server.yaml
+profiling:
+  enabled: true
+  listen: "127.0.0.1:6060"  # Restrict to localhost for security
+  block_rate: 0             # Block profiling rate (0 = disabled)
+  mutex_rate: 0             # Mutex profiling rate (0 = disabled)
+```
+
+**Agent Configuration:**
+```yaml
+# agent.yaml
+profiling:
+  enabled: true
+  listen: "127.0.0.1:6061"
+```
+
+### Available Profiles
+
+| Profile | Description | URL |
+|---------|-------------|-----|
+| CPU | CPU usage over duration | `/debug/pprof/profile?seconds=30` |
+| Heap | Memory allocation snapshot | `/debug/pprof/heap` |
+| Goroutine | All goroutine stack traces | `/debug/pprof/goroutine` |
+| Mutex | Mutex contention | `/debug/pprof/mutex` |
+| Block | Blocking operations | `/debug/pprof/block` |
+| Allocs | Memory allocations | `/debug/pprof/allocs` |
+| Trace | Execution trace | `/debug/pprof/trace?seconds=5` |
+
+### Capturing Profiles
+
+**Using curl:**
+```bash
+# CPU profile (30 seconds)
+curl -o cpu.prof http://localhost:6060/debug/pprof/profile?seconds=30
+
+# Heap profile
+curl -o heap.prof http://localhost:6060/debug/pprof/heap
+
+# Goroutine dump
+curl -o goroutine.txt http://localhost:6060/debug/pprof/goroutine?debug=2
+
+# Execution trace (5 seconds)
+curl -o trace.out http://localhost:6060/debug/pprof/trace?seconds=5
+```
+
+**Using go tool pprof:**
+```bash
+# Interactive CPU analysis
+go tool pprof http://localhost:6060/debug/pprof/profile?seconds=30
+
+# Interactive heap analysis
+go tool pprof http://localhost:6060/debug/pprof/heap
+
+# Web UI (opens browser)
+go tool pprof -http=:8080 http://localhost:6060/debug/pprof/profile?seconds=30
+```
+
+**Using go tool trace:**
+```bash
+# Capture trace
+curl -o trace.out http://localhost:6060/debug/pprof/trace?seconds=5
+
+# Analyze trace (opens browser)
+go tool trace trace.out
+```
+
+### Common Profiling Scenarios
+
+**High CPU Usage:**
+```bash
+# 1. Capture CPU profile during high load
+go tool pprof -http=:8080 http://server:6060/debug/pprof/profile?seconds=60
+
+# 2. Look for hot functions in the flame graph
+# 3. Check the "top" view for functions consuming most CPU
+```
+
+**Memory Leaks:**
+```bash
+# 1. Capture heap profile at baseline
+curl -o heap1.prof http://server:6060/debug/pprof/heap
+
+# 2. Wait for suspected leak period
+
+# 3. Capture another heap profile
+curl -o heap2.prof http://server:6060/debug/pprof/heap
+
+# 4. Compare profiles
+go tool pprof -base=heap1.prof heap2.prof
+```
+
+**Goroutine Leaks:**
+```bash
+# Check goroutine count
+curl -s http://server:6060/debug/pprof/goroutine?debug=1 | head -1
+
+# Full stack traces
+curl -s http://server:6060/debug/pprof/goroutine?debug=2 > goroutines.txt
+```
+
+**Mutex Contention:**
+```yaml
+# Enable mutex profiling in config
+profiling:
+  enabled: true
+  mutex_rate: 1  # Profile all mutex operations
+```
+
+```bash
+# Capture mutex profile
+go tool pprof http://server:6060/debug/pprof/mutex
+```
+
+### Security Considerations
+
+**Warning**: Profiling endpoints expose internal application state. Follow these practices:
+
+1. **Bind to localhost**: Only expose profiling on `127.0.0.1`
+2. **Use SSH tunneling** for remote access:
+   ```bash
+   ssh -L 6060:127.0.0.1:6060 user@server
+   go tool pprof http://localhost:6060/debug/pprof/profile
+   ```
+3. **Disable in production** unless actively debugging
+4. **Use firewall rules** to restrict access
+5. **Enable authentication** if exposing externally
+
+### Runtime Statistics
+
+The profiling endpoint also provides runtime statistics:
+
+```bash
+# Get runtime stats
+curl http://localhost:6060/debug/pprof/cmdline  # Command line
+curl http://localhost:6060/debug/pprof/symbol   # Symbol table
+```
+
+**Programmatic Access:**
+```go
+// Get runtime stats via API
+stats := profiling.GetStats()
+fmt.Printf("Goroutines: %d\n", stats.NumGoroutine)
+fmt.Printf("Heap Alloc: %d bytes\n", stats.HeapAlloc)
+fmt.Printf("Heap Objects: %d\n", stats.HeapObjects)
+fmt.Printf("GC Cycles: %d\n", stats.NumGC)
+```
+
 ## Best Practices
 
 ### Metrics Collection

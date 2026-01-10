@@ -12,6 +12,27 @@ Keystone Core uses a Git-style plugin architecture for its CLI. The main command
 **Main CLI**: `kscorectl` (dispatcher)
 **Plugins**: `kscore-*` (discovered from $PATH)
 
+### CLI Tools Summary
+
+| Tool | Type | Description |
+|------|------|-------------|
+| `kscorectl` | Dispatcher | Main CLI that routes to plugins |
+| `kscore-exec` | Plugin | Remote command execution |
+| `kscore-state` | Plugin | Declarative state management |
+| `kscore-monitor` | Plugin | Real-time TUI monitoring |
+| `kscore-module` | Plugin | Module management and development |
+| `kscore-policy` | Plugin | Policy evaluation and compliance |
+| `kscore-gitops` | Plugin | GitOps integration and verification |
+| `kscore-cluster` | Plugin | Cluster management and HA |
+| `kscore-identity` | Plugin | SPIFFE identity management |
+| `kscore-migrate` | Plugin | Database migration tool |
+| `kscore-registry` | Server | Module registry HTTP server |
+| `kscore-files` | Server | File distribution server |
+| `kscore-bootstrap` | Tool | Cluster bootstrapping and recovery |
+| `kscore-telemetry-gateway` | Server | Telemetry aggregation gateway |
+| `kscore-agent` | Daemon | Agent daemon on managed nodes |
+| `kscore-server` | Daemon | Control plane server |
+
 ## kscorectl (Main CLI)
 
 The kscorectl command dispatches to plugins and provides core functionality.
@@ -90,166 +111,187 @@ Execute commands on remote agents.
 
 ### exec run
 
-Execute command synchronously.
+Execute command synchronously across multiple agents.
 
 ```bash
-kscorectl exec run <command> [flags]
+kscorectl exec run <target-expression> -- <command> [args...]
 ```
 
 **Arguments**:
-- `<command>`: Command to execute (required)
+- `<target-expression>`: Target expression to select agents (required)
+- `<command>`: Command to execute (required, after --)
+- `[args...]`: Command arguments (optional)
+
+**Global Flags**:
+- `--server string`: Keystone Core server address (default: localhost:50051)
+- `--timeout duration`: Request timeout (default: 5m)
+- `--audit-level string`: Audit logging level (all, errors, none)
+- `--audit-output string`: Audit output backend (auto, syslog, journald, stderr, none)
 
 **Flags**:
-- `--target string`: Target expression (required)
-- `--timeout duration`: Execution timeout (default: 5m)
-- `--batch-size int`: Batch size for parallel execution
-- `--batch-delay duration`: Delay between batches
-- `--shell string`: Shell to use (bash, sh, powershell, cmd)
-- `--async`: Run asynchronously
-- `--output-format string`: Output format (text, json, table)
+- `--concurrency int`: Number of concurrent executions (default: 10)
+- `--continue-on-failure`: Continue executing on other agents if some fail (default: true)
+- `--working-dir string`: Working directory for command execution
+- `--user string`: User to execute command as
+- `--command-timeout int`: Command timeout in seconds (default: 300)
+- `--env strings`: Environment variables (KEY=VALUE, can be repeated)
+- `--job-id string`: Custom batch job ID (auto-generated if not specified)
+- `--show-progress`: Show progress updates during execution (default: true)
+- `--show-results`: Show per-agent results at the end (default: true)
+
+**Target Expression Syntax**:
+- Label matching: `role:web`, `env:prod`
+- OS matching: `os:linux`, `arch:amd64`
+- Hostname glob: `hostname:web-*`
+- Status: `status:agent_status_online`
+- Logical operators: `and`, `or`, `not`
+- Grouping: `(os:linux and role:web) or (os:darwin and role:api)`
 
 **Examples**:
 ```bash
-# Execute on all web servers
-kscorectl exec run "uptime" --target "role:web"
+# Execute on all Linux web servers
+kscorectl exec run "os:linux and role:web" -- systemctl restart nginx
 
-# Execute with timeout
-kscorectl exec run "systemctl restart nginx" \
-  --target "datacenter:us-east-1 and role:web" \
-  --timeout 30s
+# Execute on specific hostname pattern
+kscorectl exec run "hostname:web-*" -- apt-get update
 
-# Execute in batches
-kscorectl exec run "apt-get update" \
-  --target "os:ubuntu" \
-  --batch-size 10 \
-  --batch-delay 5s
+# Execute with environment variables
+kscorectl exec run "role:db" --env DB_HOST=localhost -- ./backup.sh
 
-# Async execution
-kscorectl exec run "long-running-task.sh" \
-  --target "role:worker" \
-  --async
+# Execute with custom concurrency
+kscorectl exec run "env:prod" --concurrency 10 -- uptime
+
+# Execute without the -- separator (target then command)
+kscorectl exec run "role:web" echo "hello"
 ```
 
 **Output**:
 ```
-Executing on 50 agents matching: role:web
+Executing: systemctl restart nginx
+Target: os:linux and role:web
 
-web-01 (us-east-1): SUCCESS (exit code: 0)
-  stdout: 10:30:45 up 5 days, 2:15, 1 user, load average: 0.50, 0.45, 0.40
+Batch job started: job-abc123
+Progress: 50/50 agents | Success: 48 | Failed: 2 | Success Rate: 96.0%
 
-web-02 (us-east-1): SUCCESS (exit code: 0)
-  stdout: 10:30:45 up 3 days, 1:20, 1 user, load average: 0.30, 0.25, 0.20
+Batch execution completed
 
+=== Summary ===
+Total Agents:      50
+Successful:        48
+Failed:            2
+Success Rate:      96.0%
+Duration:          2500ms
+
+=== Agent Results ===
+✓ web-01 (exit code: 0, duration: 150ms)
+✓ web-02 (exit code: 0, duration: 145ms)
+✗ web-03 (exit code: 1, duration: 200ms)
+  Error: service not found
 ...
-
-Summary:
-  Total: 50
-  Success: 48
-  Failed: 2
-  Duration: 2.5s
-```
-
-### exec async
-
-Execute command asynchronously.
-
-```bash
-kscorectl exec async <command> [flags]
-```
-
-Same as `exec run --async`. Returns job ID immediately.
-
-**Output**:
-```
-Job ID: job-abc123
-Status: running
-Target count: 50
-
-Use 'kscorectl exec status job-abc123' to check status.
 ```
 
 ### exec status
 
-Check job status.
+Get the status of a batch job.
 
 ```bash
 kscorectl exec status <job-id>
 ```
 
+**Arguments**:
+- `<job-id>`: Batch job ID (required)
+
 **Examples**:
 ```bash
-kscorectl exec status job-abc123
+kscorectl exec status abc123
+kscorectl exec status --server prod-server:50051 abc123
 ```
 
 **Output**:
 ```
-Job ID: job-abc123
-Command: systemctl restart nginx
-Status: completed
-Started: 2024-01-15 10:30:45
-Completed: 2024-01-15 10:30:47
-Duration: 2.1s
+Batch Job: abc123
+Target:    os:linux and role:web
+Command:   systemctl restart nginx
+Status:    COMPLETED
+Created:   2024-01-15T10:30:45Z
+Started:   2024-01-15T10:30:45Z
+Completed: 2024-01-15T10:30:47Z
+Duration:  2100ms
 
-Results:
-  Total: 50
-  Success: 48
-  Failed: 2
-  Timeout: 0
-```
+=== Progress ===
+Total:         50
+Completed:     50
+Successful:    48
+Failed:        2
+Success Rate:  96.0%
 
-### exec output
-
-Get job output.
-
-```bash
-kscorectl exec output <job-id> [flags]
-```
-
-**Flags**:
-- `--agent string`: Filter by agent ID
-- `--status string`: Filter by status (success, failed, timeout)
-- `--format string`: Output format (text, json)
-
-**Examples**:
-```bash
-# All output
-kscorectl exec output job-abc123
-
-# Specific agent
-kscorectl exec output job-abc123 --agent web-01
-
-# Only failures
-kscorectl exec output job-abc123 --status failed
+=== Agent Results ===
+✓ web-01 (exit code: 0, duration: 150ms)
+✓ web-02 (exit code: 0, duration: 145ms)
+✗ web-03 (exit code: 1, duration: 200ms)
+  Error: service not found
 ```
 
 ### exec list
 
-List recent jobs.
+List batch jobs with optional filtering.
 
 ```bash
 kscorectl exec list [flags]
 ```
 
 **Flags**:
-- `--status string`: Filter by status
-- `--since duration`: Jobs since duration (e.g., 1h, 24h)
-- `--limit int`: Max results (default: 100)
+- `--status string`: Filter by status (pending, running, completed, failed)
+- `--page-size int`: Number of jobs to return (default: 20)
+
+**Examples**:
+```bash
+# List all jobs
+kscorectl exec list
+
+# List only completed jobs
+kscorectl exec list --status completed
+
+# List only running jobs
+kscorectl exec list --status running
+
+# List with custom page size
+kscorectl exec list --page-size 50
+```
 
 **Output**:
 ```
-JOB ID       COMMAND                    STATUS      STARTED              AGENTS
-job-abc123   systemctl restart nginx    completed   2024-01-15 10:30:45  50
-job-def456   uptime                     completed   2024-01-15 10:25:30  100
-job-ghi789   apt-get update             running     2024-01-15 10:20:15  200
+JOB ID                               TARGET               STATUS       TOTAL    SUCCESS  FAILED
+abc123-def4-5678-90ab-cdef12345678   os:linux and role:w  COMPLETED    50       48       2
+def456-ghi7-8901-23cd-ef4567890123   role:web             RUNNING      100      75       0
+ghi789-jkl0-1234-56mn-op7890123456   env:prod             PENDING      200      0        0
+
+Total: 3 job(s)
+```
+
+### exec version
+
+Display kscore-exec version information.
+
+```bash
+kscorectl exec version
+```
+
+**Output**:
+```
+kscore-exec version 1.0.0
+  Git commit: abc123def
+  Built: 2026-01-10T10:00:00Z
+  Go version: go1.25
 ```
 
 ## kscore-state (State Management)
 
-Manage declarative state configurations.
+Manage declarative state configurations locally. State commands execute on the local machine where kscore-state runs.
 
 ### state apply
 
-Apply state configuration.
+Apply state declarations from a YAML file.
 
 ```bash
 kscorectl state apply <state-file> [flags]
@@ -259,181 +301,171 @@ kscorectl state apply <state-file> [flags]
 - `<state-file>`: Path to state YAML file (required)
 
 **Flags**:
-- `--target string`: Target expression (required)
 - `--vars string`: Variables file (YAML)
-- `--check-only`: Dry-run mode (don't apply changes)
-- `--verbose`: Show detailed output
-- `--output string`: Output format (text, json, summary)
+- `--dry-run`: Check what would change without applying
+- `--audit-level string`: Audit logging level (all, errors, none)
+- `--audit-output string`: Audit output backend (auto, syslog, journald, stderr, none)
 
 **Examples**:
 ```bash
-# Apply state
-kscorectl state apply web-server.yaml --target "role:web"
+# Apply a state file
+kscorectl state apply states/webserver.yaml
 
-# Dry run
-kscorectl state apply web-server.yaml \
-  --target "role:web" \
-  --check-only
+# Apply with variables
+kscorectl state apply states/app.yaml --vars vars/production.yaml
 
-# With variables
-kscorectl state apply app.yaml \
-  --target "environment:production" \
-  --vars prod-vars.yaml
+# Dry-run (check what would change)
+kscorectl state apply states/app.yaml --dry-run
 ```
 
 **Output**:
 ```
-Applying state to 50 agents matching: role:web
+Loading state file: states/webserver.yaml
+Applying state: Web server configuration
 
-web-01:
-  ✓ nginx_package (package.installed): unchanged
-  ✓ nginx_config (file.present): changed
-  ✓ nginx_service (service.running): changed (restarted)
+=== Results ===
+✓ nginx_package.package: unchanged
+✓ nginx_config.file: changed
+  Changes:
+    contents: (updated)
+✓ nginx_service.service: changed
+  Restarted service
 
-web-02:
-  ✓ nginx_package (package.installed): unchanged
-  ✓ nginx_config (file.present): unchanged
-  ✓ nginx_service (service.running): unchanged
+=== Summary ===
+Total states:  3
+Succeeded:     3
+Failed:        0
+Changed:       2
+Unchanged:     1
+Duration:      1.5s
 
-...
-
-Summary:
-  Total agents: 50
-  Success: 50
-  Failed: 0
-  Total states: 150
-  Changed: 75
-  Unchanged: 75
-  Duration: 30s
+✓ Success!
 ```
 
 ### state check
 
-Check state without applying (dry-run).
+Check state without applying (dry-run). Equivalent to `state apply --dry-run`.
 
 ```bash
 kscorectl state check <state-file> [flags]
 ```
 
-Same as `state apply --check-only`.
+**Arguments**:
+- `<state-file>`: Path to state YAML file (required)
+
+**Flags**:
+- `--vars string`: Variables file (YAML)
+
+**Examples**:
+```bash
+# Check a state file
+kscorectl state check states/webserver.yaml
+
+# Check with variables
+kscorectl state check states/app.yaml --vars vars/staging.yaml
+```
 
 **Output**:
 ```
-Checking state on 50 agents matching: role:web
+Loading state file: states/webserver.yaml
+Checking state: Web server configuration
 
-web-01:
-  → nginx_package (package.installed): would be unchanged
-  → nginx_config (file.present): would be changed
-      - Contents differ
-  → nginx_service (service.running): would be changed
-      - Would restart due to config change
+=== Results ===
+✓ nginx_package.package: unchanged
+✓ nginx_config.file: would change
+  Changes:
+    contents: (would update)
+✓ nginx_service.service: would change
+  Would restart service
 
-Summary:
-  Total states: 150
-  Would change: 75
-  Would be unchanged: 75
+=== Summary ===
+Total states:  3
+Succeeded:     3
+Failed:        0
+Changed:       2
+Unchanged:     1
+Duration:      500ms
+
+✓ Success!
 ```
 
 ### state drift
 
-Detect configuration drift.
+Detect configuration drift by comparing desired state to actual state.
 
 ```bash
 kscorectl state drift <state-file> [flags]
 ```
 
+**Arguments**:
+- `<state-file>`: Path to state YAML file (required)
+
 **Flags**:
-- `--target string`: Target expression (required)
-- `--severity string`: Min severity to report (low, medium, high, critical)
+- `--vars string`: Variables file (YAML)
 
 **Examples**:
 ```bash
-# Detect all drift
-kscorectl state drift web-server.yaml --target "role:web"
+# Detect drift
+kscorectl state drift states/webserver.yaml
 
-# Only critical drift
-kscorectl state drift web-server.yaml \
-  --target "role:web" \
-  --severity critical
+# Detect drift with variables
+kscorectl state drift states/app.yaml --vars vars/production.yaml
+```
+
+**Output (no drift)**:
+```
+Loading state file: states/webserver.yaml
+Checking drift for: Web server configuration
+
+=== Drift Report ===
+Overall Severity: none
+
+Total:  3
+None:   3
+Low:    0
+Medium: 0
+High:   0
+
+✓ No drift detected
+```
+
+**Output (with drift)**:
+```
+Loading state file: states/webserver.yaml
+Checking drift for: Web server configuration
+
+=== Drift Report ===
+Overall Severity: high
+
+nginx_service (service): HIGH
+  Differences:
+    - state: expected=running, actual=stopped
+
+nginx_config (file): MEDIUM
+  Differences:
+    - mode: expected=0644, actual=0755
+
+Total:  3
+None:   1
+Low:    0
+Medium: 1
+High:   1
+```
+
+### state version
+
+Display kscore-state version information.
+
+```bash
+kscorectl state version
 ```
 
 **Output**:
 ```
-Drift detected on 5/50 agents
-
-web-01: HIGH severity drift
-  nginx_service:
-    Expected: running
-    Actual: stopped
-    Severity: high
-
-web-03: MEDIUM severity drift
-  nginx_config:
-    Expected mode: 0644
-    Actual mode: 0755
-    Severity: medium
-
-Summary:
-  Total agents: 50
-  With drift: 5
-  Severity breakdown:
-    Critical: 0
-    High: 2
-    Medium: 3
-    Low: 0
-```
-
-### state show
-
-Display rendered state file.
-
-```bash
-kscorectl state show <state-file> [flags]
-```
-
-**Flags**:
-- `--vars string`: Variables file
-- `--format string`: Output format (yaml, json)
-
-**Examples**:
-```bash
-# Show rendered state
-kscorectl state show app.yaml --vars prod-vars.yaml
-```
-
-**Output**:
-```yaml
-nginx_package:
-  module: package
-  state: installed
-  name: nginx
-
-nginx_config:
-  module: file
-  state: present
-  path: /etc/nginx/nginx.conf
-  contents: |
-    worker_processes 4;
-    ...
-```
-
-### state list
-
-List applied states.
-
-```bash
-kscorectl state list [flags]
-```
-
-**Flags**:
-- `--agent string`: Filter by agent ID
-- `--since duration`: States applied since duration
-
-**Output**:
-```
-RUN ID        STATE FILE       TARGET     STARTED              STATUS
-run-abc123    web-server.yaml  role:web   2024-01-15 10:30:45  completed
-run-def456    app.yaml         role:app   2024-01-15 09:15:20  completed
+Keystone Core v1.0.0
+  Build: abc123
+  Go version: go1.21.5
+  OS/Arch: linux/amd64
 ```
 
 ## kscore-monitor (Real-time Monitoring)
@@ -3167,8 +3199,452 @@ kscorectl state apply security-baseline.yaml \
   --target "environment:production"
 ```
 
+## kscore-files (File Distribution Server)
+
+The file distribution server for Keystone Core. Manages file storage, distribution, and synchronization across clusters.
+
+### Running the Server
+
+```bash
+# Run with configuration file
+kscore-files serve --config /etc/kscore/files.yaml
+
+# Run with NATS connection
+kscore-files serve --nats-url nats://localhost:4222
+
+# Show version
+kscore-files version
+```
+
+### Server Flags
+
+```
+--config string       Configuration file path
+--nats-url string     NATS server URL (default: nats://localhost:4222)
+--cluster-id string   Cluster identifier for routing
+--instance-id string  Instance identifier for HA deployments
+-h, --help            Show help
+```
+
+### File Management Commands
+
+```bash
+# List files in a namespace
+kscore-files files list <namespace>
+
+# Upload a file
+kscore-files files put <local-path> <namespace>/<remote-path>
+
+# Download a file
+kscore-files files get <namespace>/<remote-path> <local-path>
+
+# Delete a file
+kscore-files files delete <namespace>/<path>
+
+# Show file info
+kscore-files files info <namespace>/<path>
+```
+
+### Backend Commands
+
+```bash
+# Show backend status
+kscore-files backend status
+
+# Run garbage collection
+kscore-files backend gc
+
+# Verify backend integrity
+kscore-files backend verify
+```
+
+### Cache Commands
+
+```bash
+# Show cache status
+kscore-files cache status
+
+# Clear cache
+kscore-files cache clear
+
+# Warm cache for namespace
+kscore-files cache warm <namespace>
+```
+
+### Namespace Commands
+
+```bash
+# List namespaces
+kscore-files namespace list
+
+# Create namespace
+kscore-files namespace create <name> --description "Description"
+
+# Delete namespace
+kscore-files namespace delete <name>
+
+# Manage namespace ACLs
+kscore-files namespace acl add <name> --principal role:ops --permission read,write
+kscore-files namespace acl remove <name> --principal role:ops
+kscore-files namespace acl list <name>
+```
+
+### Mirror Commands
+
+```bash
+# List mirror groups
+kscore-files mirrors list
+
+# Show mirror group status
+kscore-files mirrors show <group-id>
+
+# Check mirror health
+kscore-files mirrors health --group <group-id>
+
+# Trigger sync
+kscore-files mirrors sync --group <group-id>
+
+# View sync status
+kscore-files mirrors sync-status --group <group-id>
+
+# Trigger failover
+kscore-files mirrors failover <group-id> --from <mirror-id>
+
+# List conflicts
+kscore-files mirrors conflicts --group <group-id>
+
+# Resolve conflict
+kscore-files mirrors resolve-conflict <conflict-id> --strategy source
+```
+
+## kscore-bootstrap (Cluster Bootstrap Tool)
+
+Bootstraps and initializes new Keystone Core clusters. Used for initial setup, disaster recovery, and cluster migration.
+
+### Basic Usage
+
+```bash
+# Bootstrap a new cluster with seed configuration
+kscore-bootstrap seed --config bootstrap.yaml --output-dir /etc/kscore
+
+# Show version
+kscore-bootstrap version
+```
+
+### Common Flags
+
+```
+--config string        Configuration file path
+--output-dir string    Output directory for generated files
+--verbose              Enable verbose output
+--dry-run              Show what would be done without making changes
+--skip-verification    Skip verification steps
+--timeout duration     Operation timeout (default: 5m)
+-h, --help             Show help
+```
+
+### Seed Command
+
+Initialize a new cluster from scratch:
+
+```bash
+# Create seed configuration
+kscore-bootstrap seed \
+  --config bootstrap.yaml \
+  --output-dir /etc/kscore \
+  --cluster-name production \
+  --trust-domain example.com
+
+# Seed with specific NATS configuration
+kscore-bootstrap seed \
+  --config bootstrap.yaml \
+  --nats-mode embedded \
+  --output-dir /etc/kscore
+
+# Dry run to preview
+kscore-bootstrap seed --config bootstrap.yaml --dry-run
+```
+
+**Seed Flags**:
+```
+--cluster-name string   Cluster name identifier
+--trust-domain string   SPIFFE trust domain
+--nats-mode string      NATS mode: embedded, external, leaf
+--ca-ttl duration       CA certificate TTL (default: 10y)
+--svid-ttl duration     SVID default TTL (default: 1h)
+```
+
+### Restore Command
+
+Restore a cluster from backup:
+
+```bash
+# Restore from backup
+kscore-bootstrap restore \
+  --backup-path /backups/cluster-backup.tar.gz \
+  --output-dir /etc/kscore
+
+# Restore with verification
+kscore-bootstrap restore \
+  --backup-path /backups/cluster-backup.tar.gz \
+  --verify-integrity
+
+# Restore specific components
+kscore-bootstrap restore \
+  --backup-path /backups/cluster-backup.tar.gz \
+  --components ca,config,state
+```
+
+**Restore Flags**:
+```
+--backup-path string    Path to backup archive
+--verify-integrity      Verify backup integrity before restore
+--components strings    Specific components to restore (ca,config,state,nats)
+--force                 Force restore even if cluster exists
+```
+
+### Import Command
+
+Import configuration from external sources:
+
+```bash
+# Import from another cluster
+kscore-bootstrap import \
+  --source https://old-cluster:8080 \
+  --output-dir /etc/kscore
+
+# Import from configuration export
+kscore-bootstrap import \
+  --source /exports/cluster-export.yaml \
+  --format yaml
+
+# Import with transformation
+kscore-bootstrap import \
+  --source /exports/config.yaml \
+  --transform trust-domain=new.example.com
+```
+
+**Import Flags**:
+```
+--source string      Source URL or file path
+--format string      Source format: yaml, json, tar
+--transform strings  Key=value transformations to apply
+--merge              Merge with existing configuration
+```
+
+### Validate Command
+
+Validate cluster configuration:
+
+```bash
+# Validate configuration
+kscore-bootstrap validate --config /etc/kscore/server.yaml
+
+# Validate with connectivity checks
+kscore-bootstrap validate \
+  --config /etc/kscore/server.yaml \
+  --check-connectivity
+
+# Validate entire cluster directory
+kscore-bootstrap validate --config-dir /etc/kscore
+```
+
+**Validate Flags**:
+```
+--config string        Single config file to validate
+--config-dir string    Directory containing configs
+--check-connectivity   Test network connectivity
+--strict               Fail on warnings
+```
+
+### Status Command
+
+Check cluster bootstrap status:
+
+```bash
+# Show bootstrap status
+kscore-bootstrap status
+
+# Show detailed status
+kscore-bootstrap status --verbose
+
+# Output as JSON
+kscore-bootstrap status --output json
+```
+
+**Status Output**:
+```
+Bootstrap Status:
+  Cluster Name: production
+  Trust Domain: example.com
+  State: initialized
+  CA Status: healthy (expires in 9y 364d)
+  NATS Mode: embedded
+  Components:
+    - Control Plane: configured
+    - Identity Provider: configured
+    - File Server: configured
+```
+
+### Cleanup Command
+
+Clean up bootstrap artifacts:
+
+```bash
+# Clean up temporary files
+kscore-bootstrap cleanup
+
+# Clean up with confirmation
+kscore-bootstrap cleanup --interactive
+
+# Force cleanup without prompts
+kscore-bootstrap cleanup --force
+```
+
+**Cleanup Flags**:
+```
+--force          Force cleanup without confirmation
+--interactive    Prompt before each deletion
+--keep-backups   Preserve backup files
+```
+
+## kscore-telemetry-gateway (Telemetry Aggregation Gateway)
+
+Aggregates metrics, logs, and traces from agents over NATS and exposes them to standard observability backends (Prometheus, Loki, Tempo/Jaeger).
+
+### Running the Gateway
+
+```bash
+# Run with configuration file
+kscore-telemetry-gateway --config /etc/kscore/gateway.yaml
+
+# Run with command-line options
+kscore-telemetry-gateway \
+  --listen 0.0.0.0:9091 \
+  --nats-url nats://localhost:4222 \
+  --metrics \
+  --logs \
+  --traces
+
+# Show version
+kscore-telemetry-gateway --version
+```
+
+### Gateway Flags
+
+```
+--config string     Path to configuration file
+--listen string     Listen address (default: 0.0.0.0:9091)
+--nats-url string   NATS server URL (default: nats://localhost:4222)
+--metrics           Enable metrics gateway (default: true)
+--logs              Enable logs gateway (default: true)
+--traces            Enable traces gateway (default: true)
+--version           Show version information
+-h, --help          Show help
+```
+
+### Endpoints
+
+When running, the gateway exposes the following endpoints:
+
+| Endpoint | Description |
+|----------|-------------|
+| `/metrics` | Prometheus metrics scrape endpoint |
+| `/federate` | Prometheus federation endpoint |
+| `/health` | Health check endpoint |
+| `/ready` | Readiness check endpoint |
+
+### Metrics Gateway
+
+The metrics gateway:
+- Subscribes to `kscore.metrics.>` on NATS
+- Aggregates metrics from all agents
+- Exposes `/metrics` for Prometheus scraping
+- Exposes `/federate` for Prometheus federation
+- Supports label transformations
+
+**Prometheus Configuration**:
+```yaml
+scrape_configs:
+  - job_name: 'kscore-gateway'
+    static_configs:
+      - targets: ['gateway:9091']
+```
+
+### Logs Gateway
+
+The logs gateway:
+- Subscribes to `kscore.logs.>` on NATS
+- Buffers and batches logs
+- Pushes to Loki via push API
+- Supports log level filtering
+- Multi-tenant support via X-Scope-OrgID
+
+### Traces Gateway
+
+The traces gateway:
+- Subscribes to `kscore.traces.>` on NATS
+- Groups spans into traces
+- Exports via OTLP to Tempo/Jaeger
+- Supports sampling configuration
+- Prioritizes error and slow traces
+
+### Configuration Example
+
+```yaml
+# /etc/kscore/gateway.yaml
+server:
+  listen: "0.0.0.0:9091"
+
+nats:
+  url: "nats://localhost:4222"
+  subject_prefix: "kscore"
+
+metrics:
+  enabled: true
+  path: "/metrics"
+  federation_path: "/federate"
+  retention: "15m"
+
+logs:
+  enabled: true
+  loki_url: "http://loki:3100"
+  batch_size: 1000
+  flush_interval: "5s"
+
+traces:
+  enabled: true
+  otlp_endpoint: "tempo:4317"
+  sampling_rate: 1.0
+
+ha:
+  enabled: false
+  instance_id: "gateway-1"
+  shard_count: 3
+```
+
+### High Availability
+
+For HA deployments, run multiple gateway instances:
+
+```bash
+# Instance 1
+kscore-telemetry-gateway \
+  --config /etc/kscore/gateway.yaml \
+  --instance-id gateway-1
+
+# Instance 2
+kscore-telemetry-gateway \
+  --config /etc/kscore/gateway.yaml \
+  --instance-id gateway-2
+```
+
+Agents are distributed across instances using consistent hashing.
+
 ## See Also
 
 - [API Reference](../api/) - REST/gRPC API
 - [Configuration Reference](../configuration/) - Configuration options
 - [Getting Started](../../getting-started/quick-start/) - Quick start guide
+- [File Distribution Concepts](../../concepts/file-distribution/) - File distribution overview
+- [Observability Gateway Operations](../../operations/gateway/) - Gateway deployment guide

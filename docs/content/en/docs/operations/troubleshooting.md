@@ -270,7 +270,7 @@ kscore-state apply nginx-package.yaml --target "web-01"
 ### Common Causes and Solutions
 
 **Invalid YAML Syntax:**
-```yaml
+```text
 # Bad (tabs instead of spaces)
 nginx_config:
 	module: file  # ERROR: tab character
