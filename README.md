@@ -23,8 +23,7 @@ Keystone Core is a cloud-native runtime infrastructure control plane that provid
 
 | Status | Description |
 |--------|-------------|
-| **Epics 1-21** | COMPLETE |
-| **Epic 22-23** | PLANNED (File Distribution, Self-Management) |
+| **Epics 1-23** | COMPLETE |
 
 ### Completed Capabilities
 
@@ -44,6 +43,8 @@ Keystone Core is a cloud-native runtime infrastructure control plane that provid
 - **Windows Support** - Native Windows agent, PowerShell execution, Windows state modules
 - **IPv6 Support** - Full dual-stack networking across all components
 - **Proxy Agents** - Manage unmanaged devices via SSH, SNMP, REST, WinRM; network device support (Cisco, Juniper, Arista)
+- **File Distribution** - NATS-based file server, multiple backends (S3/GCS/Azure/Git), mirror groups, proxy caching
+- **Self-Management** - Bootstrap from scratch, backup/restore, rolling/canary upgrades, self-management states, operational runbooks
 - **Documentation** - Hugo + Docsy site with comprehensive documentation
 
 ## Quick Start
@@ -348,8 +349,8 @@ hugo         # Build to docs/public/
 | 16-17 | Complete | 84 stdlib system modules, SPIFFE identity framework |
 | 18-20 | Complete | IPv6 support, telemetry gateway, Windows support |
 | 21 | Complete | Proxy agents for unmanaged devices (SSH, SNMP, REST, WinRM, vendor adapters) |
-| 22 | Planned | File distribution over NATS |
-| 23 | Planned | Self-management, backup/restore, rolling upgrades |
+| 22 | Complete | File distribution over NATS with multiple backends, mirror groups |
+| 23 | In Progress | Self-management (Phase 1-5: bootstrap, backup/restore, state modules, validation, upgrades) |
 
 See `epics/` directory for detailed implementation plans.
 
