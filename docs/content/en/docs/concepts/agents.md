@@ -781,4 +781,3 @@ offline:
 - Understand the [Message Bus](message-bus/) that agents connect to
 - Learn about [Remote Execution](remote-execution/) for command dispatch
 - Explore [State Management](state-management/) for configuration
-- See [Multi-Environment](../kubernetes/) support for K8s, VMs, edge

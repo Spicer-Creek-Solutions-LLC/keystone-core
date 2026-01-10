@@ -19,7 +19,7 @@ Keystone Core's event system enables event-driven automation by capturing, routi
 
 ## Event Types
 
-Keystone Core defines 15 standard event types across 5 categories:
+Keystone Core defines 22 standard event types across 6 categories:
 
 ### Agent Events
 
@@ -31,13 +31,13 @@ Keystone Core defines 15 standard event types across 5 categories:
 - Emitted when agent disconnects (graceful or timeout)
 - Data: disconnect reason, last heartbeat time
 
-**agent.heartbeat_failed**:
-- Emitted when agent misses heartbeats
-- Data: missed count, last successful heartbeat
+**agent.heartbeat**:
+- Emitted for agent heartbeat events
+- Data: heartbeat info, missed count if applicable
 
-**agent.metadata_changed**:
-- Emitted when agent metadata updates
-- Data: old metadata, new metadata, changed fields
+**agent.error**:
+- Emitted when agent encounters an error
+- Data: error details, affected operations
 
 ### Job Events
 
@@ -52,6 +52,10 @@ Keystone Core defines 15 standard event types across 5 categories:
 **job.fail**:
 - Emitted when command execution fails
 - Data: job ID, error, failed agents
+
+**job.output**:
+- Emitted when job produces output
+- Data: job ID, stdout, stderr, exit code
 
 ### State Events
 
@@ -85,11 +89,33 @@ Keystone Core defines 15 standard event types across 5 categories:
 - Emitted when control plane shuts down gracefully
 - Data: shutdown reason, uptime
 
+**system.error**:
+- Emitted when system encounters an error
+- Data: error details, component affected
+
 ### User Events
 
-**user.custom**:
-- Custom events emitted by users/scripts
-- Data: user-defined payload
+**user.login**:
+- Emitted when user logs in
+- Data: user identity, login method, source IP
+
+**user.command**:
+- Emitted when user executes a command
+- Data: command, arguments, target
+
+**user.error**:
+- Emitted when user operation encounters an error
+- Data: error details, operation attempted
+
+### Policy Events
+
+**policy.pass**:
+- Emitted when policy evaluation passes
+- Data: policy ID, resource, evaluation details
+
+**policy.violation**:
+- Emitted when policy violation is detected
+- Data: policy ID, severity, violation details, remediation
 
 ## Event Structure
 
@@ -97,14 +123,15 @@ Every event follows this schema:
 
 ```go
 type Event struct {
-    ID            string                 // Unique event ID (UUID)
+    ID            string                 // Unique event ID
     Type          EventType              // Event type (agent.connect, job.start, etc.)
     Source        string                 // Event source (agent ID or system component)
-    Timestamp     time.Time              // When event occurred
+    Time          time.Time              // When event occurred
     Severity      Severity               // debug, info, warning, error, critical
     CorrelationID string                 // For tracking related events
-    Tags          []string               // Custom tags
+    Tags          map[string]string      // Custom tags as key-value pairs
     Data          map[string]interface{} // Event-specific data
+    Subject       string                 // NATS subject for this event
 }
 ```
 

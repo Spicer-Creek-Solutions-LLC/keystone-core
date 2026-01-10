@@ -313,5 +313,3 @@ All backends use content-addressed storage internally:
 ## See Also
 
 - [File Distribution Concepts](/docs/concepts/file-distribution)
-- [Mirror Group Configuration](/docs/operations/mirror-groups)
-- [Namespace Management](/docs/operations/file-namespaces)

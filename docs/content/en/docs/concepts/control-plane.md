@@ -104,7 +104,7 @@ type AgentMetadata struct {
 2. Agent sends registration message to control plane
 3. Control plane stores metadata in database
 4. Agent sends heartbeat every 30 seconds
-5. If no heartbeat for 90 seconds, mark agent offline
+5. If no heartbeat for 60 seconds, mark agent degraded; after 3 missed heartbeats (180 seconds total), mark agent offline
 
 **HA Cluster Agent Handoff**:
 

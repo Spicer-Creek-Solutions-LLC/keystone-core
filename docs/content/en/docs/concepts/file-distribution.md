@@ -165,6 +165,7 @@ kscore-files ls prod-configs/
 - `read`: Read file contents and metadata
 - `write`: Create and update files
 - `delete`: Remove files
+- `list`: List files in namespace
 - `admin`: Manage namespace ACLs
 
 ## Mirror Groups
@@ -193,9 +194,9 @@ mirror_groups:
 | Strategy | Description |
 |----------|-------------|
 | `nearest` | Route to geographically nearest healthy mirror |
-| `round_robin` | Distribute across all healthy mirrors |
+| `round-robin` | Distribute across all healthy mirrors |
 | `failover` | Use primary, fail to secondary |
-| `random` | Random selection from healthy mirrors |
+| `fastest` | Route based on recent response times |
 
 ### Write Policies
 
@@ -203,8 +204,8 @@ mirror_groups:
 |--------|-------------|
 | `all` | Write to all mirrors (strongest consistency) |
 | `quorum` | Write to majority of mirrors |
-| `primary` | Write to primary only |
-| `primary_secondary` | Write to primary, async to others |
+| `primary-only` | Write to primary only |
+| `primary-secondary` | Write to primary, sync to one secondary |
 
 ## Synchronization
 
@@ -437,5 +438,3 @@ kscore-files mirrors resolve-conflict <id> --strategy source
 ## See Also
 
 - [Storage Backends Reference](/docs/reference/file-backends)
-- [Namespace Configuration](/docs/operations/file-namespaces)
-- [Mirror Group Setup](/docs/operations/mirror-groups)

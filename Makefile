@@ -1,5 +1,7 @@
 .PHONY: help proto build test clean deps build-all-platforms docs docs-serve docs-pdf docs-all \
        docs-container-build docs-pdf-container docs-pdf-book-container docs-all-container docs-all-container-fast \
+       docs-validate docs-validate-build docs-validate-links docs-validate-examples docs-validate-godoc \
+       docs-validate-drift docs-validate-sync docs-validate-all \
        release release-snapshot release-dry-run lint \
        e2e-build e2e-test e2e-up e2e-down e2e-logs e2e-clean e2e-full e2e-perf e2e-scenarios \
        e2e-ha e2e-ha-up e2e-ha-down e2e-ha-logs \
@@ -96,6 +98,16 @@ help:
 	@echo "  docs-pdf-book-container  - Generate book-quality PDFs using container"
 	@echo "  docs-all-container       - Build site and generate all PDFs in container"
 	@echo "  docs-all-container-fast  - Same as above but skip Mermaid diagram rendering"
+	@echo ""
+	@echo "Documentation validation targets:"
+	@echo "  docs-validate            - Run all documentation validation checks"
+	@echo "  docs-validate-build      - Build the docvalidation tool"
+	@echo "  docs-validate-links      - Check internal documentation links"
+	@echo "  docs-validate-examples   - Validate code examples in documentation"
+	@echo "  docs-validate-godoc      - Check godoc coverage for packages"
+	@echo "  docs-validate-drift      - Detect documentation drift from implementation"
+	@echo "  docs-validate-sync       - Check documentation sync across files"
+	@echo "  docs-validate-all        - Run all validation checks (verbose)"
 	@echo ""
 	@echo "E2E testing targets (requires Docker/Podman):"
 	@echo "  e2e-build          - Build container images for E2E testing"
@@ -375,6 +387,73 @@ docs-all-container-fast: docs-container-build
 		$(DOCS_IMAGE) \
 		bash -c "hugo --quiet && npm run generate-pdfs && ./generate-pdfs-book.sh --skip-mermaid"
 	@echo "Documentation site and PDFs complete (Mermaid diagrams as code blocks)"
+
+# =============================================================================
+# Documentation Validation targets
+# =============================================================================
+
+DOCVALIDATION_BIN := scripts/docvalidation/docvalidation
+
+docs-validate-build:
+	@echo "Building docvalidation tool..."
+	@cd scripts/docvalidation && go build -o docvalidation .
+	@echo "docvalidation tool built: $(DOCVALIDATION_BIN)"
+
+docs-validate-links: docs-validate-build
+	@echo "Checking internal documentation links..."
+	@$(DOCVALIDATION_BIN) links
+	@if [ -f scripts/docvalidation/link-check-report.md ]; then \
+		echo "Report: scripts/docvalidation/link-check-report.md"; \
+	fi
+
+docs-validate-examples: docs-validate-build
+	@echo "Validating code examples in documentation..."
+	@$(DOCVALIDATION_BIN) examples
+	@if [ -f scripts/docvalidation/example-validation-report.md ]; then \
+		echo "Report: scripts/docvalidation/example-validation-report.md"; \
+	fi
+
+docs-validate-godoc: docs-validate-build
+	@echo "Checking godoc coverage for packages..."
+	@$(DOCVALIDATION_BIN) godoc
+	@if [ -f scripts/docvalidation/godoc-coverage-report.md ]; then \
+		echo "Report: scripts/docvalidation/godoc-coverage-report.md"; \
+	fi
+
+docs-validate-drift: docs-validate-build
+	@echo "Detecting documentation drift from implementation..."
+	@$(DOCVALIDATION_BIN) drift
+	@if [ -f scripts/docvalidation/drift-report.md ]; then \
+		echo "Report: scripts/docvalidation/drift-report.md"; \
+	fi
+
+docs-validate-sync: docs-validate-build
+	@echo "Checking documentation sync across files..."
+	@$(DOCVALIDATION_BIN) sync
+	@if [ -f scripts/docvalidation/sync-report.md ]; then \
+		echo "Report: scripts/docvalidation/sync-report.md"; \
+	fi
+
+docs-validate-all: docs-validate-build
+	@echo "Running all documentation validation checks (verbose)..."
+	@$(DOCVALIDATION_BIN) all -verbose
+	@echo ""
+	@echo "Reports generated in scripts/docvalidation/"
+	@ls -la scripts/docvalidation/*-report.md 2>/dev/null || echo "No reports generated"
+
+docs-validate: docs-validate-build
+	@echo "Running documentation validation..."
+	@$(DOCVALIDATION_BIN) -format markdown -output docs-inventory.md
+	@$(DOCVALIDATION_BIN) links
+	@$(DOCVALIDATION_BIN) examples
+	@$(DOCVALIDATION_BIN) godoc
+	@$(DOCVALIDATION_BIN) drift
+	@$(DOCVALIDATION_BIN) sync
+	@echo ""
+	@echo "Documentation validation complete."
+	@echo "Reports generated:"
+	@ls -la scripts/docvalidation/*-report.md 2>/dev/null || echo "  (no reports)"
+	@ls -la docs-inventory.md 2>/dev/null || echo "  (no inventory)"
 
 # =============================================================================
 # Linting

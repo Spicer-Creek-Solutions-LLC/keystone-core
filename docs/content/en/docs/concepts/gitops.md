@@ -195,15 +195,14 @@ myapp_verification:
   # Verification steps
   steps:
     - name: "Wait for pods"
-      type: k8s_resource
-      resource: deployment
+      type: k8s_check
+      resource: deployment/myapp
       namespace: "{{ event.data.namespace }}"
-      name: myapp
       condition: available
       timeout: "5m"
 
     - name: "HTTP health check"
-      type: http
+      type: http_check
       url: "http://myapp.{{ event.data.namespace }}.svc.cluster.local/health"
       method: GET
       expected_status: 200
@@ -246,7 +245,7 @@ myapp_verification:
 **HTTP Health Check**:
 ```yaml
 - name: "API health check"
-  type: http
+  type: http_check
   url: "https://api.example.com/health"
   method: GET
   headers:
@@ -259,8 +258,8 @@ myapp_verification:
 **K8s Resource Check**:
 ```yaml
 - name: "Check deployment ready"
-  type: k8s_resource
-  resource: deployment     # deployment, statefulset, daemonset, service
+  type: k8s_check
+  resource: deployment/myapp  # Format: kind/name (deployment, statefulset, daemonset, service, pod)
   namespace: production
   name: myapp
   condition: available     # available, ready, complete
@@ -320,7 +319,7 @@ steps:
 
 ```yaml
 - name: "Flaky health check"
-  type: http
+  type: http_check
   url: "http://myapp/health"
   retry:
     attempts: 5
@@ -466,14 +465,14 @@ pipeline:
     - name: dev
       auto_promote: true
       verification:
-        - type: http
+        - type: http_check
           url: "http://myapp.dev.example.com/health"
 
     - name: staging
       auto_promote: false    # Requires approval
       require_approval: true
       verification:
-        - type: http
+        - type: http_check
           url: "http://myapp.staging.example.com/health"
         - type: command
           command: "./run-integration-tests.sh staging"
@@ -482,11 +481,10 @@ pipeline:
       auto_promote: false
       require_approval: true
       verification:
-        - type: http
+        - type: http_check
           url: "http://myapp.example.com/health"
-        - type: k8s_resource
-          resource: deployment
-          name: myapp
+        - type: k8s_check
+          resource: deployment/myapp
           replicas: 5
 
       # Canary deployment
@@ -602,7 +600,7 @@ git_sync:
       paths:
         states: "states/"
         reactors: "reactors/"
-        policies: "policies/"
+        vars: "vars/"
         workflows: "workflows/"
 
       # Sync interval
@@ -637,13 +635,14 @@ reactors/
     └── enforce-policies.yaml
 ```
 
-**Policies**:
+**Vars**:
 ```
-policies/
-├── security/
-│   └── ssh-hardening.rego
-└── compliance/
-    └── required-labels.rego
+vars/
+├── environments/
+│   ├── dev.yaml
+│   └── production.yaml
+└── regions/
+    └── us-east-1.yaml
 ```
 
 **Workflows**:
