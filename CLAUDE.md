@@ -5404,6 +5404,49 @@ All 10 phases implemented:
 
 **See**: `epics/23-self-management.md` for full implementation details
 
+### Epic 24: Document Review ⏳ IN PROGRESS
+
+**Implementation Plan:** 3 phases
+
+**Goal**: Validate documentation accuracy against implementation, ensure comprehensive godoc coverage, validate code examples, and identify documentation gaps.
+
+**Current Status**: Phase 1 IN PROGRESS
+
+**Phase 1: Documentation Inventory ⏳ IN PROGRESS**
+- Documentation validation tooling (`scripts/docvalidation/`)
+  - `main.go` - Documentation inventory and mapping tool
+    - Inventories 61 documentation files across 9 categories
+    - Maps documentation to epics for coverage tracking
+    - Analyzes 45 packages for godoc coverage
+    - Generates JSON, Markdown, and text reports
+  - `linkcheck.go` - Link validation tool
+    - Checks internal documentation links
+    - Optional external link checking
+    - Generates link check report
+  - `examples.go` - Code example validator
+    - Extracts 2127 code examples from docs
+    - Validates Go examples (syntax check via go vet)
+    - Validates YAML examples (syntax check)
+    - Validates Bash examples (syntax check via bash -n)
+    - Generates example validation report
+  - `cmd.go` - CLI integration
+    - Subcommands: links, examples, godoc, all
+    - Flag support for verbose output, external link checking
+- Generated reports:
+  - `doc-inventory.md` / `doc-inventory.json` - Full documentation inventory
+  - `link-check-report.md` - Link validation results
+  - `example-validation-report.md` - Code example validation
+  - `godoc-coverage-report.md` - Godoc coverage analysis
+
+**Phase 1 Metrics:**
+- 61 documentation files inventoried
+- 53 docs with examples (86.9%)
+- 45 packages analyzed
+- 89.0% average godoc coverage
+- 24 packages fully documented
+- 4 packages with no documentation (api, gitops, module, proto)
+- 5109 exported symbols, 4932 documented
+
 ## Epic Dependencies
 
 Implementation order:
@@ -5430,7 +5473,7 @@ Implementation order:
 21. **Epic 21** (Proxy Agents) - ✅ COMPLETE (All 10 phases) - Depends on Epic 1, 2, 3, 4, 8, 14 (SSH/SNMP/REST/WinRM adapters, network device support, transparent targeting)
 22. **Epic 22** (File Distribution) - ✅ COMPLETE (All 13 phases) - Depends on Epic 1, 4, 6, 14, 17, 21 (NATS-based file server, multiple backends, mirror groups, proxy caching, 241 tests)
 23. **Epic 23** (Self-Management) - ✅ COMPLETE (All 6 phases) - Depends on Epic 1, 3, 4, 5, 7, 11, 17, 22 (bootstrap, backup/restore, self-management states, validation, upgrade system, documentation & runbooks)
-24. **Epic 24** (Document Review) - NOT STARTED - Depends on Epic 10, all completed epics (documentation validation, code documentation, gap analysis)
+24. **Epic 24** (Document Review) - ⏳ IN PROGRESS (Phase 1) - Depends on Epic 10, all completed epics (documentation validation tooling, code documentation, gap analysis)
 25. **Epic 25** (Release & Distribution) - NOT STARTED - Depends on Epic 10, 12, 13, 20, 23 (release automation, package repos, doc hosting, update notifications, artifact signing)
 
 ### Future Epics (Not Yet Planned)

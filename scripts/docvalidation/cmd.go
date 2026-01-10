@@ -1,0 +1,169 @@
+package main
+
+import (
+	"fmt"
+	"os"
+	"strings"
+)
+
+// RunLinkCheck runs the link checker
+func RunLinkCheck(rootDir string, checkExternal, verbose bool) {
+	fmt.Println("Checking documentation links...")
+	checker := NewLinkChecker(rootDir, checkExternal)
+	results := checker.CheckAll(verbose)
+
+	report := GenerateLinkReport(results)
+	outputPath := "./scripts/docvalidation/link-check-report.md"
+	if err := os.WriteFile(outputPath, []byte(report), 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing report: %v\n", err)
+		return
+	}
+	fmt.Printf("Link check report written to %s\n", outputPath)
+
+	// Summary
+	var broken int
+	for _, r := range results {
+		if r.Status == "broken" {
+			broken++
+		}
+	}
+	if broken > 0 {
+		fmt.Printf("WARNING: %d broken links found\n", broken)
+	} else {
+		fmt.Println("All internal links OK")
+	}
+}
+
+// RunExampleValidation runs the example validator
+func RunExampleValidation(rootDir string, verbose bool) {
+	fmt.Println("Validating code examples...")
+	validator, err := NewExampleValidator(rootDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating validator: %v\n", err)
+		return
+	}
+	defer validator.Close()
+
+	// Extract all examples
+	examples := validator.ExtractExamples(verbose)
+	fmt.Printf("Found %d code examples\n", len(examples))
+
+	// Validate different languages
+	fmt.Println("Validating Go examples...")
+	validator.ValidateGoExamples(verbose)
+
+	fmt.Println("Validating YAML examples...")
+	validator.ValidateYAMLExamples(verbose)
+
+	fmt.Println("Validating Bash examples...")
+	validator.ValidateBashExamples(verbose)
+
+	// Generate report
+	report := GenerateExampleReport(validator.examples)
+	outputPath := "./scripts/docvalidation/example-validation-report.md"
+	if err := os.WriteFile(outputPath, []byte(report), 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing report: %v\n", err)
+		return
+	}
+	fmt.Printf("Example validation report written to %s\n", outputPath)
+}
+
+// GodocCoverageReport generates a detailed godoc coverage report
+func GodocCoverageReport(rootDir string, verbose bool) {
+	fmt.Println("Generating godoc coverage report...")
+
+	pkgRoot := rootDir + "/pkg"
+	inv := &DocInventory{
+		PkgRoot: pkgRoot,
+	}
+
+	if err := inventoryPackages(pkgRoot, inv, verbose); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		return
+	}
+
+	var sb fmt.Stringer = &godocReport{packages: inv.Packages}
+	outputPath := "./scripts/docvalidation/godoc-coverage-report.md"
+	if err := os.WriteFile(outputPath, []byte(sb.String()), 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing report: %v\n", err)
+		return
+	}
+	fmt.Printf("Godoc coverage report written to %s\n", outputPath)
+}
+
+type godocReport struct {
+	packages []Package
+}
+
+func (r *godocReport) String() string {
+	var sb stringBuilder
+
+	sb.WriteString("# Godoc Coverage Report\n\n")
+
+	// Summary statistics
+	var totalSymbols, documentedSymbols int
+	var fullCoverage, noCoverage int
+	var totalCoverage float64
+
+	for _, pkg := range r.packages {
+		totalSymbols += pkg.ExportedTypes + pkg.ExportedFuncs
+		documentedSymbols += pkg.DocumentedTypes + pkg.DocumentedFuncs
+		totalCoverage += pkg.Coverage
+		if pkg.Coverage >= 100 {
+			fullCoverage++
+		}
+		if pkg.Coverage == 0 {
+			noCoverage++
+		}
+	}
+
+	avgCoverage := totalCoverage / float64(len(r.packages))
+
+	sb.WriteString("## Summary\n\n")
+	sb.WriteString(fmt.Sprintf("- **Total packages**: %d\n", len(r.packages)))
+	sb.WriteString(fmt.Sprintf("- **Average coverage**: %.1f%%\n", avgCoverage))
+	sb.WriteString(fmt.Sprintf("- **Fully documented**: %d packages\n", fullCoverage))
+	sb.WriteString(fmt.Sprintf("- **No documentation**: %d packages\n", noCoverage))
+	sb.WriteString(fmt.Sprintf("- **Total exported symbols**: %d\n", totalSymbols))
+	sb.WriteString(fmt.Sprintf("- **Documented symbols**: %d (%.1f%%)\n\n",
+		documentedSymbols, float64(documentedSymbols)/float64(totalSymbols)*100))
+
+	// Packages needing attention (coverage < 80%)
+	sb.WriteString("## Packages Needing Attention\n\n")
+	sb.WriteString("Packages with less than 80% godoc coverage:\n\n")
+	sb.WriteString("| Package | Types | Documented | Funcs | Documented | Coverage |\n")
+	sb.WriteString("|---------|-------|------------|-------|------------|----------|\n")
+
+	for _, pkg := range r.packages {
+		if pkg.Coverage < 80 {
+			sb.WriteString(fmt.Sprintf("| %s | %d | %d | %d | %d | %.1f%% |\n",
+				pkg.Name, pkg.ExportedTypes, pkg.DocumentedTypes,
+				pkg.ExportedFuncs, pkg.DocumentedFuncs, pkg.Coverage))
+		}
+	}
+
+	sb.WriteString("\n## All Packages\n\n")
+	sb.WriteString("| Package | Has Pkg Doc | Types | Doc Types | Funcs | Doc Funcs | Coverage |\n")
+	sb.WriteString("|---------|-------------|-------|-----------|-------|-----------|----------|\n")
+
+	for _, pkg := range r.packages {
+		hasPkgDoc := "No"
+		if pkg.HasPackageDoc {
+			hasPkgDoc = "Yes"
+		}
+		sb.WriteString(fmt.Sprintf("| %s | %s | %d | %d | %d | %d | %.1f%% |\n",
+			pkg.Name, hasPkgDoc, pkg.ExportedTypes, pkg.DocumentedTypes,
+			pkg.ExportedFuncs, pkg.DocumentedFuncs, pkg.Coverage))
+	}
+
+	return sb.sb.String()
+}
+
+type stringBuilder struct {
+	sb strings.Builder
+}
+
+func (sb *stringBuilder) WriteString(s string) {
+	sb.sb.WriteString(s)
+}
+

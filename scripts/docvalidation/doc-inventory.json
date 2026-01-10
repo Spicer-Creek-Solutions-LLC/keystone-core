@@ -1,0 +1,1793 @@
+{
+  "docs_root": "docs/content/en/docs",
+  "pkg_root": "pkg",
+  "doc_files": [
+    {
+      "path": "docs/content/en/docs/_index.md",
+      "rel_path": "_index.md",
+      "title": "Documentation",
+      "category": "_index.md",
+      "line_count": 77,
+      "word_count": 386,
+      "has_examples": false,
+      "links": [
+        "/docs/getting-started/",
+        "/docs/concepts/",
+        "/docs/tutorials/",
+        "/docs/reference/",
+        "/docs/operations/",
+        "/docs/getting-started/quick-start/",
+        "/docs/getting-started/architecture/",
+        "/docs/reference/cli/",
+        "/docs/reference/state-modules/",
+        "/docs/concepts/gitops/",
+        "https://github.com/shawnbutts/keystone-core/issues",
+        "https://github.com/shawnbutts/keystone-core/discussions",
+        "/docs/community/roadmap/#known-gaps"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/community/_index.md",
+      "rel_path": "community/_index.md",
+      "title": "Community",
+      "category": "community",
+      "line_count": 55,
+      "word_count": 255,
+      "has_examples": false,
+      "links": [
+        "contributing/",
+        "development/",
+        "roadmap/",
+        "support/",
+        "https://github.com/shawnbutts/keystone-core",
+        "https://github.com/shawnbutts/keystone-core/issues",
+        "https://github.com/shawnbutts/keystone-core/discussions",
+        "https://discord.gg/kscore",
+        "https://twitter.com/kscore"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/community/contributing.md",
+      "rel_path": "community/contributing.md",
+      "title": "Contributing Guide",
+      "category": "community",
+      "line_count": 429,
+      "word_count": 1413,
+      "has_examples": true,
+      "links": [
+        "https://github.com/shawnbutts/keystone-core/issues/new?template=bug_report.md",
+        "https://github.com/shawnbutts/keystone-core/issues/new?template=feature_request.md",
+        "development/",
+        "#coding-standards",
+        "https://golang.org/doc/effective_go.html",
+        "development/",
+        "https://github.com/shawnbutts/keystone-core/labels/good%20first%20issue",
+        "https://discord.gg/kscore"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/community/development.md",
+      "rel_path": "community/development.md",
+      "title": "Development Guide",
+      "category": "community",
+      "line_count": 963,
+      "word_count": 2719,
+      "has_examples": true,
+      "links": [
+        "https://goreleaser.com/",
+        "../contributing/",
+        "https://github.com/shawnbutts/keystone-core/labels/good%20first%20issue",
+        "https://discord.gg/kscore"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/community/roadmap.md",
+      "rel_path": "community/roadmap.md",
+      "title": "Roadmap",
+      "category": "community",
+      "line_count": 750,
+      "word_count": 3355,
+      "has_examples": true,
+      "links": [
+        "https://semver.org/",
+        "https://github.com/shawnbutts/keystone-core/issues",
+        "https://github.com/shawnbutts/keystone-core/labels/good%20first%20issue",
+        "../contributing/",
+        "https://github.com/shawnbutts/keystone-core",
+        "https://github.com/shawnbutts/keystone-core/blob/main/CHANGELOG.md",
+        "https://twitter.com/kscore"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/community/support.md",
+      "rel_path": "community/support.md",
+      "title": "Support",
+      "category": "community",
+      "line_count": 432,
+      "word_count": 1388,
+      "has_examples": true,
+      "links": [
+        "/",
+        "https://github.com/shawnbutts/keystone-core/issues",
+        "https://github.com/shawnbutts/keystone-core/discussions",
+        "https://discord.gg/kscore",
+        "/docs/getting-started/",
+        "/docs/concepts/",
+        "/docs/reference/",
+        "/docs/operations/",
+        "/docs/operations/troubleshooting/#agent-connectivity-issues",
+        "/docs/operations/troubleshooting/#nats-connection-problems",
+        "/docs/operations/troubleshooting/#state-application-failures",
+        "/docs/operations/troubleshooting/#performance-issues",
+        "https://github.com/shawnbutts/keystone-core/issues/new?template=bug_report.md",
+        "https://github.com/shawnbutts/keystone-core/issues/new?template=feature_request.md",
+        "https://github.com/shawnbutts/keystone-core/security/policy",
+        "https://github.com/shawnbutts/keystone-core/blob/main/CODE_OF_CONDUCT.md",
+        "https://github.com/shawnbutts/keystone-core/issues/new?labels=documentation"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/community/windows-development.md",
+      "rel_path": "community/windows-development.md",
+      "title": "Windows Development",
+      "category": "community",
+      "epics": [
+        20
+      ],
+      "line_count": 365,
+      "word_count": 954,
+      "has_examples": true
+    },
+    {
+      "path": "docs/content/en/docs/concepts/_index.md",
+      "rel_path": "concepts/_index.md",
+      "title": "Concepts",
+      "category": "concepts",
+      "line_count": 74,
+      "word_count": 363,
+      "has_examples": false,
+      "links": [
+        "control-plane/",
+        "agents/",
+        "message-bus/",
+        "state-storage/",
+        "remote-execution/",
+        "state-management/",
+        "events/",
+        "reactors/",
+        "gitops/",
+        "policy/",
+        "observability/",
+        "modules/",
+        "kubernetes/",
+        "cloud-platforms/",
+        "edge/",
+        "../getting-started/",
+        "../tutorials/",
+        "../reference/",
+        "../operations/",
+        "../../community/contributing/"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/concepts/agents.md",
+      "rel_path": "concepts/agents.md",
+      "title": "Agents",
+      "category": "concepts",
+      "epics": [
+        1
+      ],
+      "line_count": 785,
+      "word_count": 2374,
+      "has_examples": true,
+      "links": [
+        "message-bus/",
+        "remote-execution/",
+        "state-management/",
+        "../kubernetes/"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/concepts/control-plane.md",
+      "rel_path": "concepts/control-plane.md",
+      "title": "Control Plane",
+      "category": "concepts",
+      "epics": [
+        1
+      ],
+      "line_count": 637,
+      "word_count": 2105,
+      "has_examples": true,
+      "links": [
+        "agents/",
+        "message-bus/",
+        "state-storage/",
+        "remote-execution/"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/concepts/events.md",
+      "rel_path": "concepts/events.md",
+      "title": "Events",
+      "category": "concepts",
+      "epics": [
+        4
+      ],
+      "line_count": 687,
+      "word_count": 1784,
+      "has_examples": true,
+      "links": [
+        "reactors/",
+        "control-plane/",
+        "message-bus/",
+        "observability/"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/concepts/file-distribution.md",
+      "rel_path": "concepts/file-distribution.md",
+      "title": "File Distribution",
+      "category": "concepts",
+      "epics": [
+        22
+      ],
+      "line_count": 442,
+      "word_count": 1374,
+      "has_examples": true,
+      "links": [
+        "/docs/reference/file-backends",
+        "/docs/operations/file-namespaces",
+        "/docs/operations/mirror-groups"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/concepts/gitops.md",
+      "rel_path": "concepts/gitops.md",
+      "title": "GitOps Integration",
+      "category": "concepts",
+      "epics": [
+        5
+      ],
+      "line_count": 880,
+      "word_count": 2121,
+      "has_examples": true,
+      "links": [
+        "../reactors/",
+        "../events/",
+        "../state-management/",
+        "../policy/",
+        "../observability/"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/concepts/identity.md",
+      "rel_path": "concepts/identity.md",
+      "title": "SPIFFE Identity",
+      "category": "concepts",
+      "epics": [
+        17
+      ],
+      "line_count": 1105,
+      "word_count": 2921,
+      "has_examples": true,
+      "links": [
+        "/docs/operations/identity-management",
+        "/docs/reference/identity",
+        "/docs/concepts/nats-mesh"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/concepts/message-bus.md",
+      "rel_path": "concepts/message-bus.md",
+      "title": "Message Bus",
+      "category": "concepts",
+      "epics": [
+        1
+      ],
+      "line_count": 826,
+      "word_count": 2157,
+      "has_examples": true,
+      "links": [
+        "https://nats.io/",
+        "https://github.com/nats-io/nats-surveyor",
+        "https://github.com/nats-io/prometheus-nats-exporter",
+        "state-storage/",
+        "state-storage/",
+        "remote-execution/",
+        "events/",
+        "control-plane/"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/concepts/modules.md",
+      "rel_path": "concepts/modules.md",
+      "title": "Module System \u0026 Security",
+      "category": "concepts",
+      "epics": [
+        9,
+        3
+      ],
+      "line_count": 601,
+      "word_count": 2105,
+      "has_examples": true,
+      "links": [
+        "/docs/operations/security/",
+        "/docs/concepts/policy/",
+        "/docs/concepts/state-management/",
+        "/docs/reference/cli/"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/concepts/nats-mesh.md",
+      "rel_path": "concepts/nats-mesh.md",
+      "title": "NATS Mesh Communication",
+      "category": "concepts",
+      "epics": [
+        14
+      ],
+      "line_count": 714,
+      "word_count": 1902,
+      "has_examples": true,
+      "links": [
+        "{{\u003c ref \"message-bus\" \u003e}}",
+        "{{\u003c ref \"agents\" \u003e}}",
+        "{{\u003c ref \"control-plane\" \u003e}}",
+        "{{\u003c ref \"observability\" \u003e}}"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/concepts/observability.md",
+      "rel_path": "concepts/observability.md",
+      "title": "Observability",
+      "category": "concepts",
+      "epics": [
+        7
+      ],
+      "line_count": 1362,
+      "word_count": 3244,
+      "has_examples": true,
+      "links": [
+        "https://prometheus.io/",
+        "https://grafana.com/",
+        "https://grafana.com/oss/loki/",
+        "https://www.jaegertracing.io/",
+        "https://grafana.com/oss/tempo/"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/concepts/policy.md",
+      "rel_path": "concepts/policy.md",
+      "title": "Policy Enforcement",
+      "category": "concepts",
+      "epics": [
+        6
+      ],
+      "line_count": 1186,
+      "word_count": 3055,
+      "has_examples": true,
+      "links": [
+        "../reactors/",
+        "../events/",
+        "../state-management/",
+        "../gitops/",
+        "../observability/"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/concepts/reactors.md",
+      "rel_path": "concepts/reactors.md",
+      "title": "Reactors",
+      "category": "concepts",
+      "epics": [
+        4
+      ],
+      "line_count": 714,
+      "word_count": 1900,
+      "has_examples": true,
+      "links": [
+        "../events/",
+        "../state-management/",
+        "../remote-execution/",
+        "../gitops/",
+        "../policy/"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/concepts/remote-execution.md",
+      "rel_path": "concepts/remote-execution.md",
+      "title": "Remote Execution",
+      "category": "concepts",
+      "epics": [
+        2
+      ],
+      "line_count": 882,
+      "word_count": 2729,
+      "has_examples": true,
+      "links": [
+        "state-management/",
+        "events/",
+        "control-plane/",
+        "agents/"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/concepts/state-management.md",
+      "rel_path": "concepts/state-management.md",
+      "title": "State Management",
+      "category": "concepts",
+      "epics": [
+        3
+      ],
+      "line_count": 705,
+      "word_count": 1915,
+      "has_examples": true,
+      "links": [
+        "remote-execution/",
+        "events/",
+        "reactors/",
+        "policy/"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/executive-summary/_index.md",
+      "rel_path": "executive-summary/_index.md",
+      "title": "Executive Summary",
+      "category": "executive-summary",
+      "line_count": 108,
+      "word_count": 628,
+      "has_examples": false,
+      "links": [
+        "/docs/getting-started/",
+        "/docs/getting-started/architecture/",
+        "/docs/community/roadmap/"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/getting-started/_index.md",
+      "rel_path": "getting-started/_index.md",
+      "title": "Getting Started",
+      "category": "getting-started",
+      "line_count": 74,
+      "word_count": 378,
+      "has_examples": false,
+      "links": [
+        "overview/",
+        "installation/",
+        "quick-start/",
+        "architecture/",
+        "overview/",
+        "installation/"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/getting-started/architecture.md",
+      "rel_path": "getting-started/architecture.md",
+      "title": "Architecture",
+      "category": "getting-started",
+      "line_count": 492,
+      "word_count": 1492,
+      "has_examples": true,
+      "links": [
+        "../../concepts/",
+        "../../tutorials/",
+        "../../reference/",
+        "../../concepts/message-bus/",
+        "../../concepts/state-storage/",
+        "../../concepts/events/",
+        "../../concepts/plugin-system/"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/getting-started/installation.md",
+      "rel_path": "getting-started/installation.md",
+      "title": "Installation",
+      "category": "getting-started",
+      "line_count": 445,
+      "word_count": 1037,
+      "has_examples": true,
+      "links": [
+        "../quick-start/",
+        "../architecture/",
+        "../../reference/configuration/",
+        "../../tutorials/remote-commands/",
+        "../../tutorials/state-application/",
+        "../../tutorials/monitoring/"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/getting-started/overview.md",
+      "rel_path": "getting-started/overview.md",
+      "title": "Overview",
+      "category": "getting-started",
+      "line_count": 245,
+      "word_count": 1023,
+      "has_examples": true,
+      "links": [
+        "../installation/",
+        "../quick-start/",
+        "../architecture/",
+        "../../concepts/state-management/",
+        "../../concepts/events/",
+        "../../concepts/gitops/"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/getting-started/quick-start.md",
+      "rel_path": "getting-started/quick-start.md",
+      "title": "Quick Start",
+      "category": "getting-started",
+      "line_count": 353,
+      "word_count": 964,
+      "has_examples": true,
+      "links": [
+        "../installation/",
+        "../architecture/",
+        "../../tutorials/",
+        "../../concepts/",
+        "../../tutorials/event-reactors/",
+        "../../tutorials/gitops-workflow/",
+        "../../tutorials/policy-rules/",
+        "../../concepts/multi-environment/",
+        "../../operations/deployment/high-availability/",
+        "../../operations/monitoring/metrics/",
+        "../../reference/configuration/security/",
+        "../../operations/deployment/scaling/",
+        "../architecture/",
+        "../../tutorials/"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/operations/_index.md",
+      "rel_path": "operations/_index.md",
+      "title": "Operations",
+      "category": "operations",
+      "line_count": 194,
+      "word_count": 1008,
+      "has_examples": false,
+      "links": [
+        "deployment/",
+        "monitoring/",
+        "maintenance/",
+        "troubleshooting/",
+        "security/",
+        "registry/",
+        "deployment/",
+        "monitoring/",
+        "troubleshooting/",
+        "deployment/#high-availability",
+        "deployment/#scaling",
+        "maintenance/#capacity-planning",
+        "security/",
+        "security/#authentication",
+        "security/#audit-logging",
+        "monitoring/",
+        "monitoring/#alerting",
+        "maintenance/#backup-restore",
+        "/docs/getting-started/architecture/",
+        "/docs/reference/configuration/",
+        "/docs/reference/metrics/",
+        "/docs/getting-started/",
+        "/docs/concepts/",
+        "/docs/reference/",
+        "/docs/tutorials/"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/operations/deployment.md",
+      "rel_path": "operations/deployment.md",
+      "title": "Deployment Guide",
+      "category": "operations",
+      "line_count": 1190,
+      "word_count": 3176,
+      "has_examples": true,
+      "links": [
+        "#high-availability",
+        "#nats-cluster-setup",
+        "#postgresql-setup",
+        "monitoring/",
+        "maintenance/",
+        "security/",
+        "/docs/reference/configuration/"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/operations/gateway.md",
+      "rel_path": "operations/gateway.md",
+      "title": "Telemetry Gateway",
+      "category": "operations",
+      "epics": [
+        19
+      ],
+      "line_count": 262,
+      "word_count": 684,
+      "has_examples": true
+    },
+    {
+      "path": "docs/content/en/docs/operations/ipv6.md",
+      "rel_path": "operations/ipv6.md",
+      "title": "IPv6 Deployment",
+      "category": "operations",
+      "epics": [
+        18
+      ],
+      "line_count": 613,
+      "word_count": 1452,
+      "has_examples": true
+    },
+    {
+      "path": "docs/content/en/docs/operations/maintenance.md",
+      "rel_path": "operations/maintenance.md",
+      "title": "Maintenance Guide",
+      "category": "operations",
+      "line_count": 1147,
+      "word_count": 3444,
+      "has_examples": true,
+      "links": [
+        "deployment/",
+        "monitoring/",
+        "troubleshooting/",
+        "/docs/reference/configuration/"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/operations/monitoring.md",
+      "rel_path": "operations/monitoring.md",
+      "title": "Monitoring Guide",
+      "category": "operations",
+      "line_count": 911,
+      "word_count": 2246,
+      "has_examples": true,
+      "links": [
+        "deployment/",
+        "troubleshooting/",
+        "/docs/reference/metrics/",
+        "https://github.com/shawnbutts/grafana-dashboards"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/operations/nats-mesh-deployment.md",
+      "rel_path": "operations/nats-mesh-deployment.md",
+      "title": "NATS Mesh Deployment",
+      "category": "operations",
+      "epics": [
+        14
+      ],
+      "line_count": 821,
+      "word_count": 1606,
+      "has_examples": true,
+      "links": [
+        "#simple-deployment",
+        "#standalone-production",
+        "#ha-cluster",
+        "#edge-deployment",
+        "#multi-region-supercluster",
+        "#hybrid-deployment",
+        "{{\u003c ref \"../concepts/nats-mesh\" \u003e}}",
+        "{{\u003c ref \"nats-mesh-operations\" \u003e}}",
+        "{{\u003c ref \"../reference/nats-mesh\" \u003e}}"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/operations/nats-mesh-operations.md",
+      "rel_path": "operations/nats-mesh-operations.md",
+      "title": "NATS Mesh Operations",
+      "category": "operations",
+      "epics": [
+        14
+      ],
+      "line_count": 663,
+      "word_count": 1756,
+      "has_examples": true,
+      "links": [
+        "{{\u003c ref \"../concepts/nats-mesh\" \u003e}}",
+        "{{\u003c ref \"nats-mesh-deployment\" \u003e}}",
+        "{{\u003c ref \"../reference/nats-mesh\" \u003e}}"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/operations/registry.md",
+      "rel_path": "operations/registry.md",
+      "title": "Module Registry",
+      "category": "operations",
+      "line_count": 782,
+      "word_count": 1649,
+      "has_examples": true,
+      "links": [
+        "../reference/cli/#kscore-registry-module-registry-server",
+        "../reference/cli/#kscore-module-module-management",
+        "deployment/",
+        "security/"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/operations/security.md",
+      "rel_path": "operations/security.md",
+      "title": "Security Guide",
+      "category": "operations",
+      "line_count": 1157,
+      "word_count": 3398,
+      "has_examples": true,
+      "links": [
+        "/docs/concepts/modules/",
+        "deployment/",
+        "monitoring/",
+        "maintenance/",
+        "troubleshooting/",
+        "/docs/concepts/policy/"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/operations/self-management.md",
+      "rel_path": "operations/self-management.md",
+      "title": "Self-Management Operations",
+      "category": "operations",
+      "epics": [
+        23
+      ],
+      "line_count": 893,
+      "word_count": 2476,
+      "has_examples": true
+    },
+    {
+      "path": "docs/content/en/docs/operations/troubleshooting.md",
+      "rel_path": "operations/troubleshooting.md",
+      "title": "Troubleshooting Guide",
+      "category": "operations",
+      "line_count": 966,
+      "word_count": 2517,
+      "has_examples": true,
+      "links": [
+        "/docs/operations/maintenance/#nats-recovery-ha-only",
+        "monitoring/",
+        "maintenance/",
+        "security/",
+        "deployment/"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/operations/windows-installation.md",
+      "rel_path": "operations/windows-installation.md",
+      "title": "Windows Installation",
+      "category": "operations",
+      "epics": [
+        20
+      ],
+      "line_count": 465,
+      "word_count": 1201,
+      "has_examples": true,
+      "links": [
+        "https://github.com/shawnbutts/keystone-core/releases",
+        "#configuration",
+        "/deploy/windows/README.md"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/operations/windows.md",
+      "rel_path": "operations/windows.md",
+      "title": "Windows Deployment",
+      "category": "operations",
+      "epics": [
+        20
+      ],
+      "line_count": 352,
+      "word_count": 1040,
+      "has_examples": true,
+      "links": [
+        "../deployment/#agent-configuration",
+        "../troubleshooting/",
+        "../security/"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/reference/_index.md",
+      "rel_path": "reference/_index.md",
+      "title": "Reference",
+      "category": "reference",
+      "line_count": 37,
+      "word_count": 141,
+      "has_examples": false,
+      "links": [
+        "api/",
+        "cli/",
+        "configuration/",
+        "modules/",
+        "events/",
+        "metrics/",
+        "api/#rest-api-endpoints",
+        "api/#grpc-services",
+        "events/",
+        "metrics/",
+        "cli/",
+        "configuration/#control-plane",
+        "configuration/#agent",
+        "modules/",
+        "cli/#quick-reference",
+        "configuration/#common-configurations",
+        "events/#filtering-expressions"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/reference/api.md",
+      "rel_path": "reference/api.md",
+      "title": "API Reference",
+      "category": "reference",
+      "line_count": 1310,
+      "word_count": 2790,
+      "has_examples": true,
+      "links": [
+        "#authentication",
+        "../cli/",
+        "../configuration/",
+        "../events/",
+        "../../getting-started/"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/reference/cli.md",
+      "rel_path": "reference/cli.md",
+      "title": "CLI Reference",
+      "category": "reference",
+      "line_count": 3175,
+      "word_count": 8426,
+      "has_examples": true,
+      "links": [
+        "../api/",
+        "../configuration/",
+        "../../getting-started/quick-start/"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/reference/configuration.md",
+      "rel_path": "reference/configuration.md",
+      "title": "Configuration Reference",
+      "category": "reference",
+      "line_count": 723,
+      "word_count": 1702,
+      "has_examples": true,
+      "links": [
+        "../api/",
+        "../cli/",
+        "../../getting-started/installation/"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/reference/events.md",
+      "rel_path": "reference/events.md",
+      "title": "Event Reference",
+      "category": "reference",
+      "epics": [
+        4
+      ],
+      "line_count": 856,
+      "word_count": 1646,
+      "has_examples": true,
+      "links": [
+        "#agent-events",
+        "#job-events",
+        "#state-events",
+        "#bootstrap-events",
+        "#system-events",
+        "#user-events",
+        "#event-types",
+        "../../concepts/events/",
+        "../../concepts/reactors/",
+        "../api/#events",
+        "../metrics/"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/reference/file-backends.md",
+      "rel_path": "reference/file-backends.md",
+      "title": "File Backends Reference",
+      "category": "reference",
+      "epics": [
+        22
+      ],
+      "line_count": 318,
+      "word_count": 1187,
+      "has_examples": true,
+      "links": [
+        "/docs/concepts/file-distribution",
+        "/docs/operations/mirror-groups",
+        "/docs/operations/file-namespaces"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/reference/ipv6.md",
+      "rel_path": "reference/ipv6.md",
+      "title": "IPv6 Reference",
+      "category": "reference",
+      "epics": [
+        18
+      ],
+      "line_count": 487,
+      "word_count": 1371,
+      "has_examples": true
+    },
+    {
+      "path": "docs/content/en/docs/reference/metrics.md",
+      "rel_path": "reference/metrics.md",
+      "title": "Metrics Reference",
+      "category": "reference",
+      "line_count": 890,
+      "word_count": 1818,
+      "has_examples": true,
+      "links": [
+        "#control-plane-metrics",
+        "#agent-metrics",
+        "#execution-metrics",
+        "#state-management-metrics",
+        "#event-system-metrics",
+        "#policy-metrics",
+        "#gitops-metrics",
+        "../../concepts/observability/",
+        "../api/",
+        "../configuration/#metrics",
+        "../../operations/monitoring/#grafana-dashboards"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/reference/modules.md",
+      "rel_path": "reference/modules.md",
+      "title": "Module Reference",
+      "category": "reference",
+      "epics": [
+        9,
+        3
+      ],
+      "line_count": 8802,
+      "word_count": 25755,
+      "has_examples": true,
+      "links": [
+        "#file-module",
+        "#package-module",
+        "#service-module",
+        "#user-module",
+        "#group-module",
+        "#cmd-module",
+        "#network-module",
+        "#route-module",
+        "#firewall-module",
+        "#iptables-module",
+        "#nftables-module",
+        "#firewalld-module",
+        "#cron-module",
+        "#systemd_timer-module",
+        "#launchd-module",
+        "#scheduled_task-module",
+        "#at-module",
+        "#mount-module",
+        "#swap-module",
+        "#lvm_pv-module",
+        "#lvm_vg-module",
+        "#lvm_lv-module",
+        "#disk-module",
+        "#filesystem-module",
+        "#authorized_keys-module",
+        "#known_hosts-module",
+        "#sshd_config-module",
+        "#selinux-module",
+        "#selinux_boolean-module",
+        "#apparmor-module",
+        "#apparmor_profile-module",
+        "#timezone-module",
+        "#locale-module",
+        "#hostname-module",
+        "#hosts-module",
+        "#sysctl-module",
+        "#kernel_module-module",
+        "#docker_container-module",
+        "#docker_image-module",
+        "#docker_network-module",
+        "#docker_volume-module",
+        "#podman_container-module",
+        "#podman_image-module",
+        "#podman_network-module",
+        "#podman_volume-module",
+        "#postgres_database-module",
+        "#postgres_user-module",
+        "#postgres_extension-module",
+        "#mysql_database-module",
+        "#mysql_user-module",
+        "#redis-module",
+        "#nginx_site-module",
+        "#nginx_config-module",
+        "#nginx_upstream-module",
+        "#nginx_proxy-module",
+        "#nginx_ssl-module",
+        "#nginx_location-module",
+        "#nginx_rate_limit-module",
+        "#apache_site-module",
+        "#apache_module-module",
+        "#git-module",
+        "#git_config-module",
+        "#x509-module",
+        "#ca-module",
+        "#acme-module",
+        "#k8s_namespace-module",
+        "#k8s_deployment-module",
+        "#k8s_service-module",
+        "#k8s_configmap-module",
+        "#k8s_secret-module",
+        "#k8s_ingress-module",
+        "#k8s_statefulset-module",
+        "#k8s_daemonset-module",
+        "#k8s_job-module",
+        "#k8s_cronjob-module",
+        "#k8s_pvc-module",
+        "#k8s_hpa-module",
+        "../../concepts/state-management/",
+        "../configuration/#state-file-configuration",
+        "../cli/#kscore-state-state-management",
+        "../cli/#kscore-module-module-management"
+      ]
+    },
+    {
+      "path": "docs/content/en/docs/reference/nats-mesh.md",
+      "rel_path": "reference/nats-mesh.md",
+      "title": "NATS Mesh Reference",
+      "category": "reference",
+      "epics": [
+        14
+      ],
+      "line_count": 522,
+      "word_count": 1611,
+      "has_examples": true,
+      "links": [
+        "{{\u003c ref \"../concepts/nats-mesh\" \u003e}}",
+        "{{\u003c ref \"../operations/nats-mesh-deployment\" \u003e}}",
+        "{{\u003c ref \"../operations/nats-mesh-operations\" \u003e}}"
+      ]
+    },
+    {
+      "path": "docs/runbooks/README.md",
+      "rel_path": "runbooks/README.md",
+      "title": "Keystone Core Operational Runbooks",
+      "category": "runbooks",
+      "line_count": 50,
+      "word_count": 260,
+      "has_examples": false,
+      "links": [
+        "bootstrap-new-cluster.md",
+        "scheduled-maintenance.md",
+        "emergency-rollback.md",
+        "disaster-recovery.md",
+        "certificate-rotation.md",
+        "backup-restore.md",
+        "upgrade-cluster.md",
+        "troubleshooting.md"
+      ]
+    },
+    {
+      "path": "docs/runbooks/backup-restore.md",
+      "rel_path": "runbooks/backup-restore.md",
+      "title": "Runbook: Backup and Restore",
+      "category": "runbooks",
+      "line_count": 259,
+      "word_count": 789,
+      "has_examples": true
+    },
+    {
+      "path": "docs/runbooks/bootstrap-new-cluster.md",
+      "rel_path": "runbooks/bootstrap-new-cluster.md",
+      "title": "Runbook: Bootstrap New Cluster",
+      "category": "runbooks",
+      "line_count": 194,
+      "word_count": 589,
+      "has_examples": true
+    },
+    {
+      "path": "docs/runbooks/certificate-rotation.md",
+      "rel_path": "runbooks/certificate-rotation.md",
+      "title": "Runbook: Certificate Rotation",
+      "category": "runbooks",
+      "line_count": 244,
+      "word_count": 789,
+      "has_examples": true
+    },
+    {
+      "path": "docs/runbooks/disaster-recovery.md",
+      "rel_path": "runbooks/disaster-recovery.md",
+      "title": "Runbook: Disaster Recovery",
+      "category": "runbooks",
+      "line_count": 330,
+      "word_count": 1132,
+      "has_examples": true
+    },
+    {
+      "path": "docs/runbooks/emergency-rollback.md",
+      "rel_path": "runbooks/emergency-rollback.md",
+      "title": "Runbook: Emergency Rollback",
+      "category": "runbooks",
+      "line_count": 219,
+      "word_count": 693,
+      "has_examples": true
+    },
+    {
+      "path": "docs/runbooks/scheduled-maintenance.md",
+      "rel_path": "runbooks/scheduled-maintenance.md",
+      "title": "Runbook: Scheduled Maintenance",
+      "category": "runbooks",
+      "line_count": 235,
+      "word_count": 730,
+      "has_examples": true,
+      "links": [
+        "certificate-rotation.md"
+      ]
+    },
+    {
+      "path": "docs/runbooks/troubleshooting.md",
+      "rel_path": "runbooks/troubleshooting.md",
+      "title": "Runbook: Troubleshooting Guide",
+      "category": "runbooks",
+      "line_count": 524,
+      "word_count": 1338,
+      "has_examples": true,
+      "links": [
+        "#cluster-issues",
+        "#agent-issues",
+        "#nats-issues",
+        "#database-issues",
+        "#state-application-issues",
+        "#performance-issues"
+      ]
+    },
+    {
+      "path": "docs/runbooks/upgrade-cluster.md",
+      "rel_path": "runbooks/upgrade-cluster.md",
+      "title": "Runbook: Upgrade Cluster",
+      "category": "runbooks",
+      "line_count": 317,
+      "word_count": 991,
+      "has_examples": true
+    }
+  ],
+  "packages": [
+    {
+      "path": "pkg/agent",
+      "name": "agent",
+      "epics": [
+        1
+      ],
+      "has_package_doc": true,
+      "exported_types": 43,
+      "documented_types": 43,
+      "exported_funcs": 123,
+      "documented_funcs": 123,
+      "coverage_percent": 100
+    },
+    {
+      "path": "pkg/api",
+      "name": "api",
+      "has_package_doc": false,
+      "exported_types": 0,
+      "documented_types": 0,
+      "exported_funcs": 0,
+      "documented_funcs": 0,
+      "coverage_percent": 0
+    },
+    {
+      "path": "pkg/audit",
+      "name": "audit",
+      "epics": [
+        15
+      ],
+      "has_package_doc": true,
+      "exported_types": 22,
+      "documented_types": 22,
+      "exported_funcs": 56,
+      "documented_funcs": 54,
+      "coverage_percent": 97.43589743589743
+    },
+    {
+      "path": "pkg/backup",
+      "name": "backup",
+      "epics": [
+        23
+      ],
+      "has_package_doc": true,
+      "exported_types": 76,
+      "documented_types": 76,
+      "exported_funcs": 195,
+      "documented_funcs": 191,
+      "coverage_percent": 98.5239852398524
+    },
+    {
+      "path": "pkg/bootstrap",
+      "name": "bootstrap",
+      "epics": [
+        23
+      ],
+      "has_package_doc": true,
+      "exported_types": 43,
+      "documented_types": 43,
+      "exported_funcs": 61,
+      "documented_funcs": 55,
+      "coverage_percent": 94.23076923076923
+    },
+    {
+      "path": "pkg/cloud",
+      "name": "cloud",
+      "epics": [
+        8
+      ],
+      "has_package_doc": false,
+      "exported_types": 12,
+      "documented_types": 12,
+      "exported_funcs": 24,
+      "documented_funcs": 22,
+      "coverage_percent": 94.44444444444444
+    },
+    {
+      "path": "pkg/cluster",
+      "name": "cluster",
+      "epics": [
+        11
+      ],
+      "has_package_doc": true,
+      "exported_types": 102,
+      "documented_types": 102,
+      "exported_funcs": 305,
+      "documented_funcs": 305,
+      "coverage_percent": 100
+    },
+    {
+      "path": "pkg/config",
+      "name": "config",
+      "epics": [
+        1
+      ],
+      "has_package_doc": false,
+      "exported_types": 23,
+      "documented_types": 23,
+      "exported_funcs": 7,
+      "documented_funcs": 7,
+      "coverage_percent": 100
+    },
+    {
+      "path": "pkg/container",
+      "name": "container",
+      "epics": [
+        8
+      ],
+      "has_package_doc": false,
+      "exported_types": 13,
+      "documented_types": 13,
+      "exported_funcs": 19,
+      "documented_funcs": 18,
+      "coverage_percent": 96.875
+    },
+    {
+      "path": "pkg/controlplane",
+      "name": "controlplane",
+      "epics": [
+        1
+      ],
+      "has_package_doc": true,
+      "exported_types": 15,
+      "documented_types": 15,
+      "exported_funcs": 52,
+      "documented_funcs": 50,
+      "coverage_percent": 97.01492537313433
+    },
+    {
+      "path": "pkg/credentials",
+      "name": "credentials",
+      "epics": [
+        21
+      ],
+      "has_package_doc": true,
+      "exported_types": 45,
+      "documented_types": 45,
+      "exported_funcs": 105,
+      "documented_funcs": 105,
+      "coverage_percent": 100
+    },
+    {
+      "path": "pkg/edge",
+      "name": "edge",
+      "epics": [
+        8
+      ],
+      "has_package_doc": false,
+      "exported_types": 9,
+      "documented_types": 9,
+      "exported_funcs": 23,
+      "documented_funcs": 22,
+      "coverage_percent": 96.875
+    },
+    {
+      "path": "pkg/events",
+      "name": "events",
+      "epics": [
+        4
+      ],
+      "has_package_doc": false,
+      "exported_types": 87,
+      "documented_types": 87,
+      "exported_funcs": 262,
+      "documented_funcs": 205,
+      "coverage_percent": 83.66762177650429
+    },
+    {
+      "path": "pkg/execution",
+      "name": "execution",
+      "epics": [
+        2
+      ],
+      "has_package_doc": true,
+      "exported_types": 23,
+      "documented_types": 23,
+      "exported_funcs": 57,
+      "documented_funcs": 37,
+      "coverage_percent": 75
+    },
+    {
+      "path": "pkg/files",
+      "name": "files",
+      "epics": [
+        22
+      ],
+      "has_package_doc": true,
+      "exported_types": 41,
+      "documented_types": 41,
+      "exported_funcs": 24,
+      "documented_funcs": 24,
+      "coverage_percent": 100
+    },
+    {
+      "path": "pkg/gateway",
+      "name": "gateway",
+      "epics": [
+        19
+      ],
+      "has_package_doc": true,
+      "exported_types": 34,
+      "documented_types": 34,
+      "exported_funcs": 11,
+      "documented_funcs": 11,
+      "coverage_percent": 100
+    },
+    {
+      "path": "pkg/gitops",
+      "name": "gitops",
+      "epics": [
+        5
+      ],
+      "has_package_doc": false,
+      "exported_types": 0,
+      "documented_types": 0,
+      "exported_funcs": 0,
+      "documented_funcs": 0,
+      "coverage_percent": 0
+    },
+    {
+      "path": "pkg/hardware",
+      "name": "hardware",
+      "epics": [
+        8
+      ],
+      "has_package_doc": false,
+      "exported_types": 9,
+      "documented_types": 9,
+      "exported_funcs": 15,
+      "documented_funcs": 15,
+      "coverage_percent": 100
+    },
+    {
+      "path": "pkg/health",
+      "name": "health",
+      "epics": [
+        7
+      ],
+      "has_package_doc": false,
+      "exported_types": 20,
+      "documented_types": 20,
+      "exported_funcs": 49,
+      "documented_funcs": 49,
+      "coverage_percent": 100
+    },
+    {
+      "path": "pkg/identity",
+      "name": "identity",
+      "epics": [
+        17
+      ],
+      "has_package_doc": true,
+      "exported_types": 109,
+      "documented_types": 109,
+      "exported_funcs": 196,
+      "documented_funcs": 196,
+      "coverage_percent": 100
+    },
+    {
+      "path": "pkg/k8s",
+      "name": "k8s",
+      "epics": [
+        8
+      ],
+      "has_package_doc": false,
+      "exported_types": 57,
+      "documented_types": 57,
+      "exported_funcs": 73,
+      "documented_funcs": 73,
+      "coverage_percent": 100
+    },
+    {
+      "path": "pkg/logging",
+      "name": "logging",
+      "epics": [
+        7,
+        15
+      ],
+      "has_package_doc": true,
+      "exported_types": 32,
+      "documented_types": 32,
+      "exported_funcs": 87,
+      "documented_funcs": 79,
+      "coverage_percent": 93.27731092436974
+    },
+    {
+      "path": "pkg/metrics",
+      "name": "metrics",
+      "epics": [
+        7
+      ],
+      "has_package_doc": true,
+      "exported_types": 20,
+      "documented_types": 20,
+      "exported_funcs": 78,
+      "documented_funcs": 78,
+      "coverage_percent": 100
+    },
+    {
+      "path": "pkg/module",
+      "name": "module",
+      "epics": [
+        9
+      ],
+      "has_package_doc": false,
+      "exported_types": 0,
+      "documented_types": 0,
+      "exported_funcs": 0,
+      "documented_funcs": 0,
+      "coverage_percent": 0
+    },
+    {
+      "path": "pkg/nats",
+      "name": "nats",
+      "epics": [
+        1,
+        14
+      ],
+      "has_package_doc": true,
+      "exported_types": 197,
+      "documented_types": 197,
+      "exported_funcs": 625,
+      "documented_funcs": 566,
+      "coverage_percent": 92.82238442822384
+    },
+    {
+      "path": "pkg/netutil",
+      "name": "netutil",
+      "has_package_doc": true,
+      "exported_types": 6,
+      "documented_types": 6,
+      "exported_funcs": 38,
+      "documented_funcs": 38,
+      "coverage_percent": 100
+    },
+    {
+      "path": "pkg/platform",
+      "name": "platform",
+      "epics": [
+        8
+      ],
+      "has_package_doc": false,
+      "exported_types": 8,
+      "documented_types": 8,
+      "exported_funcs": 34,
+      "documented_funcs": 34,
+      "coverage_percent": 100
+    },
+    {
+      "path": "pkg/plugin",
+      "name": "plugin",
+      "epics": [
+        2
+      ],
+      "has_package_doc": false,
+      "exported_types": 4,
+      "documented_types": 4,
+      "exported_funcs": 8,
+      "documented_funcs": 8,
+      "coverage_percent": 100
+    },
+    {
+      "path": "pkg/policy",
+      "name": "policy",
+      "epics": [
+        6
+      ],
+      "has_package_doc": false,
+      "exported_types": 44,
+      "documented_types": 44,
+      "exported_funcs": 55,
+      "documented_funcs": 55,
+      "coverage_percent": 100
+    },
+    {
+      "path": "pkg/profiling",
+      "name": "profiling",
+      "epics": [
+        7
+      ],
+      "has_package_doc": false,
+      "exported_types": 5,
+      "documented_types": 5,
+      "exported_funcs": 6,
+      "documented_funcs": 6,
+      "coverage_percent": 100
+    },
+    {
+      "path": "pkg/proto",
+      "name": "proto",
+      "has_package_doc": false,
+      "exported_types": 0,
+      "documented_types": 0,
+      "exported_funcs": 0,
+      "documented_funcs": 0,
+      "coverage_percent": 0
+    },
+    {
+      "path": "pkg/protocols",
+      "name": "protocols",
+      "epics": [
+        21
+      ],
+      "has_package_doc": true,
+      "exported_types": 21,
+      "documented_types": 21,
+      "exported_funcs": 29,
+      "documented_funcs": 29,
+      "coverage_percent": 100
+    },
+    {
+      "path": "pkg/proxy",
+      "name": "proxy",
+      "epics": [
+        21
+      ],
+      "has_package_doc": true,
+      "exported_types": 41,
+      "documented_types": 41,
+      "exported_funcs": 97,
+      "documented_funcs": 97,
+      "coverage_percent": 100
+    },
+    {
+      "path": "pkg/query",
+      "name": "query",
+      "epics": [
+        7
+      ],
+      "has_package_doc": false,
+      "exported_types": 28,
+      "documented_types": 28,
+      "exported_funcs": 27,
+      "documented_funcs": 27,
+      "coverage_percent": 100
+    },
+    {
+      "path": "pkg/security",
+      "name": "security",
+      "epics": [
+        1
+      ],
+      "has_package_doc": false,
+      "exported_types": 1,
+      "documented_types": 1,
+      "exported_funcs": 7,
+      "documented_funcs": 7,
+      "coverage_percent": 100
+    },
+    {
+      "path": "pkg/selfmgmt",
+      "name": "selfmgmt",
+      "epics": [
+        23
+      ],
+      "has_package_doc": true,
+      "exported_types": 28,
+      "documented_types": 28,
+      "exported_funcs": 88,
+      "documented_funcs": 82,
+      "coverage_percent": 94.82758620689656
+    },
+    {
+      "path": "pkg/servicemesh",
+      "name": "servicemesh",
+      "epics": [
+        8
+      ],
+      "has_package_doc": false,
+      "exported_types": 13,
+      "documented_types": 13,
+      "exported_funcs": 23,
+      "documented_funcs": 22,
+      "coverage_percent": 97.22222222222221
+    },
+    {
+      "path": "pkg/state",
+      "name": "state",
+      "epics": [
+        1
+      ],
+      "has_package_doc": false,
+      "exported_types": 19,
+      "documented_types": 19,
+      "exported_funcs": 49,
+      "documented_funcs": 49,
+      "coverage_percent": 100
+    },
+    {
+      "path": "pkg/statemgmt",
+      "name": "statemgmt",
+      "epics": [
+        3
+      ],
+      "has_package_doc": true,
+      "exported_types": 174,
+      "documented_types": 174,
+      "exported_funcs": 475,
+      "documented_funcs": 474,
+      "coverage_percent": 99.84591679506933
+    },
+    {
+      "path": "pkg/targeting",
+      "name": "targeting",
+      "epics": [
+        2
+      ],
+      "has_package_doc": false,
+      "exported_types": 9,
+      "documented_types": 9,
+      "exported_funcs": 15,
+      "documented_funcs": 15,
+      "coverage_percent": 100
+    },
+    {
+      "path": "pkg/tracing",
+      "name": "tracing",
+      "epics": [
+        7
+      ],
+      "has_package_doc": true,
+      "exported_types": 18,
+      "documented_types": 18,
+      "exported_funcs": 88,
+      "documented_funcs": 86,
+      "coverage_percent": 98.11320754716981
+    },
+    {
+      "path": "pkg/upgrade",
+      "name": "upgrade",
+      "epics": [
+        23
+      ],
+      "has_package_doc": true,
+      "exported_types": 54,
+      "documented_types": 54,
+      "exported_funcs": 61,
+      "documented_funcs": 57,
+      "coverage_percent": 96.52173913043478
+    },
+    {
+      "path": "pkg/vendors",
+      "name": "vendors",
+      "epics": [
+        21
+      ],
+      "has_package_doc": true,
+      "exported_types": 18,
+      "documented_types": 18,
+      "exported_funcs": 19,
+      "documented_funcs": 18,
+      "coverage_percent": 97.2972972972973
+    },
+    {
+      "path": "pkg/version",
+      "name": "version",
+      "has_package_doc": false,
+      "exported_types": 1,
+      "documented_types": 1,
+      "exported_funcs": 2,
+      "documented_funcs": 2,
+      "coverage_percent": 100
+    },
+    {
+      "path": "pkg/visualization",
+      "name": "visualization",
+      "epics": [
+        7
+      ],
+      "has_package_doc": false,
+      "exported_types": 12,
+      "documented_types": 12,
+      "exported_funcs": 5,
+      "documented_funcs": 5,
+      "coverage_percent": 100
+    }
+  ],
+  "epic_coverage": {
+    "1": [
+      "concepts/agents.md",
+      "concepts/control-plane.md",
+      "concepts/message-bus.md"
+    ],
+    "14": [
+      "concepts/nats-mesh.md",
+      "operations/nats-mesh-deployment.md",
+      "operations/nats-mesh-operations.md",
+      "reference/nats-mesh.md"
+    ],
+    "17": [
+      "concepts/identity.md"
+    ],
+    "18": [
+      "operations/ipv6.md",
+      "reference/ipv6.md"
+    ],
+    "19": [
+      "operations/gateway.md"
+    ],
+    "2": [
+      "concepts/remote-execution.md"
+    ],
+    "20": [
+      "community/windows-development.md",
+      "operations/windows-installation.md",
+      "operations/windows.md"
+    ],
+    "22": [
+      "concepts/file-distribution.md",
+      "reference/file-backends.md"
+    ],
+    "23": [
+      "operations/self-management.md"
+    ],
+    "3": [
+      "concepts/modules.md",
+      "concepts/state-management.md",
+      "reference/modules.md"
+    ],
+    "4": [
+      "concepts/events.md",
+      "concepts/reactors.md",
+      "reference/events.md"
+    ],
+    "5": [
+      "concepts/gitops.md"
+    ],
+    "6": [
+      "concepts/policy.md"
+    ],
+    "7": [
+      "concepts/observability.md"
+    ],
+    "9": [
+      "concepts/modules.md",
+      "reference/modules.md"
+    ]
+  },
+  "summary": {
+    "total_docs": 61,
+    "total_packages": 45,
+    "docs_with_examples": 53,
+    "avg_godoc_coverage": 88.97767351227301,
+    "packages_fully_covered": 24,
+    "packages_no_coverage": 4,
+    "total_exported_symbols": 5109,
+    "total_documented_symbols": 4932
+  }
+}

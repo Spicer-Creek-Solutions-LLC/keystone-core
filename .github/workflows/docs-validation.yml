@@ -1,0 +1,232 @@
+name: Documentation Validation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'pkg/**'
+      - 'README.md'
+      - 'CLAUDE.md'
+      - 'DESIGN.md'
+      - 'scripts/docvalidation/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'pkg/**'
+      - 'README.md'
+      - 'CLAUDE.md'
+      - 'DESIGN.md'
+      - 'scripts/docvalidation/**'
+  # Weekly comprehensive check
+  schedule:
+    - cron: '0 6 * * 1'  # Every Monday at 6am UTC
+  # Allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  validate-docs:
+    name: Validate Documentation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+
+      - name: Build docvalidation tool
+        run: |
+          cd scripts/docvalidation
+          go build -o docvalidation .
+
+      - name: Run documentation inventory
+        run: |
+          ./scripts/docvalidation/docvalidation -format markdown -output docs-inventory.md
+          echo "## Documentation Inventory" >> "$GITHUB_STEP_SUMMARY"
+          cat docs-inventory.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check internal links
+        run: |
+          ./scripts/docvalidation/docvalidation links
+          echo "## Link Check Results" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f scripts/docvalidation/link-check-report.md ]; then
+            cat scripts/docvalidation/link-check-report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Validate code examples
+        run: |
+          ./scripts/docvalidation/docvalidation examples
+          echo "## Code Example Validation" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f scripts/docvalidation/example-validation-report.md ]; then
+            cat scripts/docvalidation/example-validation-report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Check godoc coverage
+        run: |
+          ./scripts/docvalidation/docvalidation godoc
+          echo "## Godoc Coverage" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f scripts/docvalidation/godoc-coverage-report.md ]; then
+            cat scripts/docvalidation/godoc-coverage-report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Detect documentation drift
+        run: |
+          ./scripts/docvalidation/docvalidation drift
+          echo "## Documentation Drift" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f scripts/docvalidation/drift-report.md ]; then
+            cat scripts/docvalidation/drift-report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Check documentation sync
+        run: |
+          ./scripts/docvalidation/docvalidation sync
+          echo "## Documentation Sync" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f scripts/docvalidation/sync-report.md ]; then
+            cat scripts/docvalidation/sync-report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload validation reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: documentation-reports
+          path: |
+            scripts/docvalidation/*-report.md
+            docs-inventory.md
+          retention-days: 30
+
+  # Separate job for stricter checks on PRs
+  pr-checks:
+    name: PR Documentation Checks
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for comparing changes
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+
+      - name: Build docvalidation tool
+        run: |
+          cd scripts/docvalidation
+          go build -o docvalidation .
+
+      - name: Check for new undocumented exports
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          # Get list of changed Go files
+          CHANGED_FILES=$(git diff --name-only "origin/${BASE_REF}...HEAD" -- '*.go' | grep -v '_test.go' || true)
+
+          if [ -n "$CHANGED_FILES" ]; then
+            echo "Changed Go files:"
+            echo "$CHANGED_FILES"
+
+            # Run drift detection
+            ./scripts/docvalidation/docvalidation drift -verbose 2>&1 | tee drift-output.txt
+
+            # Check if any changed packages have new undocumented exports
+            ISSUES=0
+            for file in $CHANGED_FILES; do
+              pkg=$(dirname "$file" | sed 's|pkg/||')
+              if grep -q "Undocumented.*$pkg" drift-output.txt; then
+                echo "::warning file=$file::Package $pkg has undocumented exports"
+                ISSUES=$((ISSUES + 1))
+              fi
+            done
+
+            if [ $ISSUES -gt 0 ]; then
+              echo "::notice::Found $ISSUES packages with undocumented exports in changed files"
+            fi
+          else
+            echo "No Go files changed"
+          fi
+
+      - name: Check for stale documentation references
+        run: |
+          # Run sync check
+          ./scripts/docvalidation/docvalidation sync 2>&1 | tee sync-output.txt
+
+          # Count issues
+          SYNC_ISSUES=$(grep -c "different\|outdated\|missing" sync-output.txt || echo "0")
+
+          if [ "$SYNC_ISSUES" -gt "0" ]; then
+            echo "::warning::Found $SYNC_ISSUES documentation sync issues"
+          fi
+
+      - name: Verify documentation structure
+        run: |
+          # Check if Hugo docs have valid frontmatter
+          if [ -f "docs/hugo.toml" ] || [ -f "docs/config.toml" ]; then
+            echo "Hugo configuration found - checking for structure"
+            # Count docs with proper frontmatter
+            VALID_DOCS=$(find docs -name "*.md" -exec grep -l "^---$" {} \; | wc -l)
+            echo "Found $VALID_DOCS documentation files with frontmatter"
+          fi
+
+  # Weekly comprehensive check with external links
+  weekly-audit:
+    name: Weekly Documentation Audit
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+
+      - name: Build docvalidation tool
+        run: |
+          cd scripts/docvalidation
+          go build -o docvalidation .
+
+      - name: Run full validation
+        run: |
+          ./scripts/docvalidation/docvalidation all -verbose
+
+      - name: Check external links
+        run: |
+          # External link checking is slower, only run weekly
+          ./scripts/docvalidation/docvalidation links -external || true
+
+      - name: Generate audit report
+        run: |
+          {
+            echo "# Weekly Documentation Audit Report"
+            echo ""
+            echo "Generated: $(date -u)"
+            echo ""
+
+            for report in scripts/docvalidation/*-report.md; do
+              if [ -f "$report" ]; then
+                echo "---"
+                cat "$report"
+                echo ""
+              fi
+            done
+          } > audit-report.md
+
+      - name: Upload audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-audit-report
+          path: audit-report.md
+          retention-days: 90
