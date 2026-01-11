@@ -13,14 +13,25 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/config"
 )
 
-// Standard errors returned by authenticators
+// Standard errors returned by authenticators.
 var (
-	ErrNoCredentials      = errors.New("no credentials provided")
+	// ErrNoCredentials indicates no authentication credentials were provided in the request.
+	ErrNoCredentials = errors.New("no credentials provided")
+
+	// ErrInvalidCredentials indicates the provided credentials are invalid (wrong key, bad signature, etc.).
 	ErrInvalidCredentials = errors.New("invalid credentials")
+
+	// ErrExpiredCredentials indicates the credentials have expired (JWT token, API key expiry).
 	ErrExpiredCredentials = errors.New("credentials expired")
-	ErrDisabledKey        = errors.New("API key is disabled")
-	ErrInsufficientRole   = errors.New("insufficient role for this operation")
-	ErrAuthRequired       = errors.New("authentication required")
+
+	// ErrDisabledKey indicates the API key exists but has been administratively disabled.
+	ErrDisabledKey = errors.New("API key is disabled")
+
+	// ErrInsufficientRole indicates the authenticated principal lacks the required role for the operation.
+	ErrInsufficientRole = errors.New("insufficient role for this operation")
+
+	// ErrAuthRequired indicates the endpoint requires authentication but none was provided.
+	ErrAuthRequired = errors.New("authentication required")
 )
 
 // Role represents an authorization role

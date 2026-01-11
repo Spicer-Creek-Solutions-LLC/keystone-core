@@ -48,10 +48,10 @@ This remediation plan consolidates findings from Epic 24 Phase 5 (Example Valida
 
 | Issue | Location | Effort | Status |
 |-------|----------|--------|--------|
-| Internal package docs (container, platform) | Development guide | Low | Pending |
+| Internal package docs (container, platform) | `pkg/container/types.go`, `pkg/platform/types.go` | Low | ✅ Fixed |
 | NATS listen format clarification | `docs/reference/configuration.md` | Low | ✅ Fixed |
 | Agent IPv6 AddressFamily docs | `docs/reference/configuration.md` | Low | ✅ Fixed |
-| Error variable documentation | Various `pkg/*/` files | Low | Pending |
+| Error variable documentation | Various `pkg/*/` files | Low | ✅ Fixed |
 
 ## Remediation by Category
 
@@ -138,10 +138,15 @@ After remediation, verify:
 
 ## Remaining Items
 
-The following items are pending but lower priority:
+All remediation items have been completed:
 
-1. **Internal package docs** - Nice to have for developer onboarding
-2. **Error variable documentation** - Nice to have for API consumers
+1. ✅ **Internal package docs** - Added to `pkg/container/types.go` and `pkg/platform/types.go`
+2. ✅ **Error variable documentation** - Added to:
+   - `pkg/api/auth/auth.go` - Authentication errors
+   - `pkg/nats/bootstrap.go` - Bootstrap credential errors
+   - `pkg/credentials/types.go` - Credential operation errors
+   - `pkg/execution/policy.go` - Command policy errors
+   - `pkg/proxy/types.go` - Proxy agent errors
 
 ## Notes
 

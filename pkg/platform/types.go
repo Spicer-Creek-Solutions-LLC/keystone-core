@@ -1,3 +1,82 @@
+// Package platform provides cross-platform operating system detection and
+// system information gathering for Keystone Core agents.
+//
+// The package detects the operating system, distribution (for Linux), CPU
+// architecture, package manager, and init system. This information is used
+// by state modules to select the correct implementation for each platform.
+//
+// # Supported Platforms
+//
+// Operating Systems:
+//   - Linux (various distributions)
+//   - Windows (Windows Server, Windows 10/11)
+//   - macOS (Darwin)
+//   - BSD variants (FreeBSD, OpenBSD, NetBSD)
+//
+// Linux Distributions:
+//   - Debian-based: Ubuntu, Debian
+//   - RHEL-based: CentOS, RHEL, Fedora, Amazon Linux
+//   - Alpine Linux
+//   - Arch Linux
+//   - openSUSE
+//
+// # Detection Methods
+//
+// Platform detection uses multiple sources:
+//   - /etc/os-release (primary for Linux)
+//   - /etc/lsb-release (fallback for older systems)
+//   - Distribution-specific files (/etc/debian_version, /etc/redhat-release)
+//   - Runtime values (runtime.GOOS, runtime.GOARCH)
+//   - Filesystem probing (systemd, /proc, etc.)
+//
+// # Usage
+//
+// Basic detection:
+//
+//	detector := platform.NewDetector()
+//	info, err := detector.Detect()
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	fmt.Printf("OS: %s, Distro: %s, Arch: %s\n", info.OS, info.Distro, info.Arch)
+//	fmt.Printf("Package Manager: %s, Init System: %s\n", info.PackageManager, info.InitSystem)
+//
+// Helper methods:
+//
+//	if info.IsDebianBased() {
+//	    // Use apt commands
+//	}
+//	if info.UsesSystemd() {
+//	    // Use systemctl commands
+//	}
+//
+// # Package Managers
+//
+// Detected package managers:
+//   - apt (Debian, Ubuntu)
+//   - yum (CentOS 7, RHEL 7)
+//   - dnf (CentOS 8+, RHEL 8+, Fedora)
+//   - zypper (openSUSE)
+//   - pacman (Arch)
+//   - apk (Alpine)
+//   - brew (macOS)
+//   - chocolatey, winget (Windows)
+//
+// # Init Systems
+//
+// Detected init systems:
+//   - systemd (most modern Linux)
+//   - upstart (older Ubuntu)
+//   - sysv (legacy systems)
+//   - openrc (Alpine, Gentoo)
+//   - launchd (macOS)
+//   - windows_service (Windows)
+//
+// # Virtualization Detection
+//
+// The package also detects virtualization:
+//   - Virtual machines: KVM, VMware, VirtualBox, Xen, Hyper-V
+//   - Containers: Docker, LXC, Kubernetes
 package platform
 
 import (

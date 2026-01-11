@@ -463,14 +463,27 @@ type CredentialResponse struct {
 	ResponseTime time.Time `json:"response_time"`
 }
 
-// Common errors.
+// Common errors for credential operations.
 var (
-	ErrCredentialNotFound  = errors.New("credential not found")
-	ErrCredentialExpired   = errors.New("credential expired")
-	ErrInvalidCredential   = errors.New("invalid credential")
-	ErrDecryptionFailed    = errors.New("decryption failed")
-	ErrEncryptionFailed    = errors.New("encryption failed")
-	ErrKeyExchangeFailed   = errors.New("key exchange failed")
+	// ErrCredentialNotFound indicates the requested credential was not found in the store.
+	ErrCredentialNotFound = errors.New("credential not found")
+
+	// ErrCredentialExpired indicates the credential has passed its expiration time.
+	ErrCredentialExpired = errors.New("credential expired")
+
+	// ErrInvalidCredential indicates the credential format or content is invalid.
+	ErrInvalidCredential = errors.New("invalid credential")
+
+	// ErrDecryptionFailed indicates credential decryption failed (wrong key, corrupted data).
+	ErrDecryptionFailed = errors.New("decryption failed")
+
+	// ErrEncryptionFailed indicates credential encryption failed.
+	ErrEncryptionFailed = errors.New("encryption failed")
+
+	// ErrKeyExchangeFailed indicates the key exchange for secure credential transfer failed.
+	ErrKeyExchangeFailed = errors.New("key exchange failed")
+
+	// ErrInvalidCredentialRef indicates the credential reference syntax is invalid.
 	ErrInvalidCredentialRef = errors.New("invalid credential reference")
 )
 

@@ -1,3 +1,54 @@
+// Package container provides container runtime detection and metadata extraction
+// for Docker, containerd, CRI-O, and Podman environments.
+//
+// The package automatically detects whether the Keystone Core agent is running
+// inside a container and extracts runtime metadata such as container ID, image
+// information, labels, network configuration, and resource limits.
+//
+// # Supported Runtimes
+//
+// The detector supports the following container runtimes:
+//   - Docker (via /var/run/docker.sock)
+//   - containerd (via /run/containerd/containerd.sock)
+//   - CRI-O (via cgroup parsing)
+//   - Podman (via Docker-compatible API or cgroup parsing)
+//
+// # Detection Methods
+//
+// Container detection uses multiple methods:
+//   - Socket-based API queries (Docker, containerd)
+//   - Cgroup v1/v2 path parsing (/proc/self/cgroup)
+//   - Environment variable inspection
+//   - Filesystem markers (/.dockerenv, /run/.containerenv)
+//
+// # Usage
+//
+// Basic detection:
+//
+//	detector := container.NewDetector(container.DefaultConfig())
+//	metadata, err := detector.Detect()
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	if metadata.Runtime != container.RuntimeUnknown {
+//	    fmt.Printf("Running in %s container: %s\n", metadata.Runtime, metadata.ContainerID)
+//	}
+//
+// # Metadata
+//
+// When running inside a container, the detector extracts:
+//   - Container ID and name
+//   - Image ID, name, and digest
+//   - Labels and environment variables
+//   - Network configuration (IP, ports, mode)
+//   - Volume mounts
+//   - Resource limits (CPU, memory)
+//   - Health check status
+//
+// # Caching
+//
+// Detection results are cached for the duration specified in Config.CacheDuration
+// (default 5 minutes) to avoid repeated API calls.
 package container
 
 import "time"

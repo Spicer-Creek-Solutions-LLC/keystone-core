@@ -14,13 +14,24 @@ import (
 	"github.com/nats-io/nkeys"
 )
 
-// Bootstrap credential errors
+// Bootstrap credential errors.
 var (
-	ErrBootstrapExpired       = errors.New("bootstrap credential has expired")
-	ErrBootstrapRevoked       = errors.New("bootstrap credential has been revoked")
-	ErrBootstrapInvalid       = errors.New("bootstrap credential is invalid")
-	ErrBootstrapNotFound      = errors.New("bootstrap credential not found")
-	ErrBootstrapAlreadyUsed   = errors.New("bootstrap credential has already been used")
+	// ErrBootstrapExpired indicates the bootstrap credential has exceeded its TTL.
+	ErrBootstrapExpired = errors.New("bootstrap credential has expired")
+
+	// ErrBootstrapRevoked indicates the bootstrap credential was explicitly revoked.
+	ErrBootstrapRevoked = errors.New("bootstrap credential has been revoked")
+
+	// ErrBootstrapInvalid indicates the bootstrap credential format or signature is invalid.
+	ErrBootstrapInvalid = errors.New("bootstrap credential is invalid")
+
+	// ErrBootstrapNotFound indicates the bootstrap credential ID was not found in the provider.
+	ErrBootstrapNotFound = errors.New("bootstrap credential not found")
+
+	// ErrBootstrapAlreadyUsed indicates a one-time bootstrap credential has already been consumed.
+	ErrBootstrapAlreadyUsed = errors.New("bootstrap credential has already been used")
+
+	// ErrBootstrapClusterMismatch indicates the credential was issued for a different cluster.
 	ErrBootstrapClusterMismatch = errors.New("bootstrap credential cluster mismatch")
 )
 

@@ -10,13 +10,23 @@ import (
 	"sync"
 )
 
-// Standard errors for command policy violations
+// Standard errors for command policy violations.
 var (
-	ErrCommandBlocked        = errors.New("command is blocked by policy")
-	ErrCommandNotAllowed     = errors.New("command not in allowlist")
+	// ErrCommandBlocked indicates the command matches a blocklist pattern.
+	ErrCommandBlocked = errors.New("command is blocked by policy")
+
+	// ErrCommandNotAllowed indicates the command is not in the allowlist (strict mode).
+	ErrCommandNotAllowed = errors.New("command not in allowlist")
+
+	// ErrShellInjectionDetected indicates potential shell injection patterns were found.
+	// This includes command substitution, pipe chains, and other dangerous constructs.
 	ErrShellInjectionDetected = errors.New("potential shell injection detected")
-	ErrEmptyCommand          = errors.New("empty command")
-	ErrInvalidCommand        = errors.New("invalid command format")
+
+	// ErrEmptyCommand indicates an empty command string was provided.
+	ErrEmptyCommand = errors.New("empty command")
+
+	// ErrInvalidCommand indicates the command format is invalid.
+	ErrInvalidCommand = errors.New("invalid command format")
 )
 
 // permissiveWarnOnce ensures the permissive mode deprecation warning is only logged once

@@ -464,18 +464,41 @@ type ProxyAgentManager interface {
 	ReloadConfig(ctx context.Context) error
 }
 
-// Common errors.
+// Common errors for proxy agent operations.
 var (
-	ErrDeviceNotFound       = errors.New("device not found")
-	ErrDeviceAlreadyExists  = errors.New("device already exists")
-	ErrDeviceUnreachable    = errors.New("device unreachable")
-	ErrDeviceAuthFailed     = errors.New("device authentication failed")
+	// ErrDeviceNotFound indicates the proxied device was not found in the device manager.
+	ErrDeviceNotFound = errors.New("device not found")
+
+	// ErrDeviceAlreadyExists indicates a device with the same ID already exists.
+	ErrDeviceAlreadyExists = errors.New("device already exists")
+
+	// ErrDeviceUnreachable indicates the device cannot be reached via the configured protocol.
+	ErrDeviceUnreachable = errors.New("device unreachable")
+
+	// ErrDeviceAuthFailed indicates authentication to the device failed.
+	ErrDeviceAuthFailed = errors.New("device authentication failed")
+
+	// ErrProxyAgentNotRunning indicates the proxy agent is not running.
 	ErrProxyAgentNotRunning = errors.New("proxy agent not running")
-	ErrInvalidDeviceConfig  = errors.New("invalid device configuration")
-	ErrUnsupportedProtocol  = errors.New("unsupported protocol")
-	ErrCredentialNotFound   = errors.New("credential not found")
-	ErrCredentialExpired    = errors.New("credential expired")
-	ErrProfileNotFound      = errors.New("device profile not found")
-	ErrCommandTimeout       = errors.New("command execution timeout")
-	ErrConnectionPoolFull   = errors.New("connection pool is full")
+
+	// ErrInvalidDeviceConfig indicates the device configuration is invalid.
+	ErrInvalidDeviceConfig = errors.New("invalid device configuration")
+
+	// ErrUnsupportedProtocol indicates the protocol is not supported for this device.
+	ErrUnsupportedProtocol = errors.New("unsupported protocol")
+
+	// ErrCredentialNotFound indicates the credential for the device was not found.
+	ErrCredentialNotFound = errors.New("credential not found")
+
+	// ErrCredentialExpired indicates the credential for the device has expired.
+	ErrCredentialExpired = errors.New("credential expired")
+
+	// ErrProfileNotFound indicates the device profile was not found.
+	ErrProfileNotFound = errors.New("device profile not found")
+
+	// ErrCommandTimeout indicates the command execution timed out.
+	ErrCommandTimeout = errors.New("command execution timeout")
+
+	// ErrConnectionPoolFull indicates the connection pool has reached its maximum capacity.
+	ErrConnectionPoolFull = errors.New("connection pool is full")
 )
