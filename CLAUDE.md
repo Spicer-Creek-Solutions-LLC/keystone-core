@@ -237,7 +237,7 @@ These gaps should be addressed before production use.
     ├── 22-file-distribution.md           # File distribution over NATS
     ├── 23-self-management.md             # Self-management, backup/restore, upgrades
     ├── 24-document-review.md             # Documentation and code review
-    └── 25-release-distribution.md        # Release process, package repos, doc hosting
+    └── 25-blueprints.md                  # Pre-packaged, reusable state collections
 ```
 
 ## Architecture Overview
@@ -5463,6 +5463,73 @@ All 10 phases implemented:
 - Gap analysis with prioritized remediation plan
 - 5 validation/report files created in `test/doc-examples/`
 
+### Epic 25: Blueprints - NOT STARTED
+
+**Implementation Plan:** 9 phases (18 weeks total)
+
+**Goal**: Pre-packaged, reusable collections of states (similar to Salt Formulas, Ansible Roles, Helm Charts) that can be shared, versioned, and composed to deploy complex infrastructure stacks.
+
+**Key Concepts:**
+- **Blueprints vs Modules vs States**:
+  - **Modules** (Epic 9): Code that extends functionality (Starlark/WASM)
+  - **Blueprints** (Epic 25): YAML compositions that combine states with parameters
+  - **States**: Individual resource declarations
+
+**Blueprint Structure:**
+```
+blueprints/
+└── myorg/
+    └── web-stack/
+        ├── blueprint.yaml      # Manifest with parameters, dependencies
+        ├── states/
+        │   ├── nginx.yaml
+        │   ├── database.yaml
+        │   └── app.yaml
+        ├── files/              # Static files to distribute
+        ├── templates/          # Jinja2/Go templates
+        └── tests/              # Blueprint test definitions
+```
+
+**Key Features:**
+- **Namespace**: `blueprints/vendor/name` (separate from modules)
+- **Parameters**: JSON Schema-based validation with defaults, types, sensitive marking
+- **Dependencies**: `requires` (soft, concurrent) vs `requires_before` (hard, sequential)
+- **Secrets**: Backend-agnostic `!secret path/to/secret` syntax
+- **Versioning**: SemVer with breaking change detection
+- **Rollback**: Version tracking per agent, `blueprint rollback` command
+- **Multi-instance**: Same blueprint multiple times with `as:` namespace
+- **Air-gapped**: Bundle creation, mirror server support
+
+**Usage in States:**
+```yaml
+include:
+  - blueprint: blueprints/myorg/web-stack@1.2.0
+    params:
+      domain: example.com
+      db_engine: postgres
+    secrets:
+      db_password: !secret databases/prod/postgres
+```
+
+**CLI (kscore-blueprint):**
+- `init`, `validate`, `build`, `publish`
+- `install`, `list`, `show`, `update`
+- `apply`, `test`, `rollback`
+- `search`, `diff`
+
+**Implementation Phases:**
+1. Blueprint manifest and parser
+2. Parameter system with JSON Schema
+3. Dependency resolver integration
+4. State execution integration
+5. Registry and distribution
+6. Rollback support
+7. Testing framework
+8. CLI implementation
+9. Documentation and examples
+
+**Dependencies**: Depends on Epic 3 (State), Epic 4 (Events), Epic 9 (Modules), Epic 22 (File Distribution)
+
 ## Epic Dependencies
 
 Implementation order:
@@ -5490,9 +5557,11 @@ Implementation order:
 22. **Epic 22** (File Distribution) - ✅ COMPLETE (All 13 phases) - Depends on Epic 1, 4, 6, 14, 17, 21 (NATS-based file server, multiple backends, mirror groups, proxy caching, 241 tests)
 23. **Epic 23** (Self-Management) - ✅ COMPLETE (All 6 phases) - Depends on Epic 1, 3, 4, 5, 7, 11, 17, 22 (bootstrap, backup/restore, self-management states, validation, upgrade system, documentation & runbooks)
 24. **Epic 24** (Document Review) - ✅ COMPLETE - Depends on Epic 10, all completed epics (documentation validation, example testing, gap analysis, remediation planning)
-25. **Epic 25** (Release & Distribution) - NOT STARTED - Depends on Epic 10, 12, 13, 20, 23 (release automation, package repos, doc hosting, update notifications, artifact signing)
+25. **Epic 25** (Blueprints) - NOT STARTED - Depends on Epic 3, 4, 9, 22 (pre-packaged state collections, parameter system, dependency ordering, registry, rollback support)
 
 ### Future Epics (Not Yet Planned)
+
+- **Release & Distribution** - Release automation, package repos, doc hosting, update notifications, artifact signing
 
 - **Multi-Tenancy** - Namespace isolation, per-tenant RBAC/quotas, SSO integration (OIDC/SAML)
 - **Scheduled Operations** - Centralized job scheduler, maintenance windows, batch scheduling
