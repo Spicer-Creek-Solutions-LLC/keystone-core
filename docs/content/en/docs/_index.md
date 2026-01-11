@@ -22,8 +22,8 @@ New to Keystone Core? Start here to understand what it is, install it, and compl
 ### [Concepts](/docs/concepts/)
 Deep dives into Keystone Core's architecture and subsystems: agents, state management, events, GitOps integration, policy enforcement, and more.
 
-### [Tutorials](/docs/tutorials/)
-Step-by-step guides for common use cases. Each tutorial takes 15-30 minutes and includes working examples.
+### [Quick Start](/docs/getting-started/quick-start/)
+Get up and running in 5 minutes with our hands-on quick start guide. Deploy your first control plane and agent.
 
 ### [Reference](/docs/reference/)
 Complete reference documentation for the CLI, API, configuration files, state modules, events, and metrics.
@@ -36,7 +36,7 @@ Production deployment guides, monitoring setup, troubleshooting, backup/restore,
 - [5-Minute Quick Start](/docs/getting-started/quick-start/)
 - [Architecture Overview](/docs/getting-started/architecture/)
 - [CLI Reference](/docs/reference/cli/)
-- [State Modules](/docs/reference/state-modules/)
+- [State Modules](/docs/reference/modules/)
 - [GitOps Integration](/docs/concepts/gitops/)
 
 ## Need Help?

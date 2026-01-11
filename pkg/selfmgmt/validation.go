@@ -114,6 +114,11 @@ func (v *StateValidator) ValidatePath(path string) error {
 		return fmt.Errorf("path is empty")
 	}
 
+	// Require absolute path
+	if !filepath.IsAbs(path) {
+		return fmt.Errorf("path must be absolute: %s", path)
+	}
+
 	// Check for directory traversal
 	if strings.Contains(path, "..") {
 		return fmt.Errorf("path contains directory traversal")

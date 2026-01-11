@@ -108,8 +108,8 @@ After remediation, verify:
 - [x] All packages have package-level docs
 - [x] All exported types have doc comments
 - [x] Configuration examples match implementation
-- [ ] No broken internal doc links
-- [ ] Extract examples tool passes (0 invalid blocks)
+- [x] No broken internal doc links
+- [x] Extract examples tool passes (0 invalid blocks)
 
 ## Completed Fixes Summary
 

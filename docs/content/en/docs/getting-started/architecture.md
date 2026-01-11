@@ -481,7 +481,7 @@ flowchart TD
 Now that you understand the architecture:
 
 - **[Concepts](../../concepts/)** - Deep dive into each subsystem
-- **[Tutorials](../../tutorials/)** - Hands-on guides
+- **[Operations](../../operations/)** - Production deployment and operations guides
 - **[Reference](../../reference/)** - Complete API/CLI documentation
 
 Or explore specific architectural topics:

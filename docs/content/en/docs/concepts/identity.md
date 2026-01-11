@@ -1099,6 +1099,7 @@ https://your-domain.example.org/.well-known/spiffe-bundle
 
 ## Next Steps
 
-- [Operations: Identity Management](/docs/operations/identity-management) - Day-to-day identity operations
-- [Reference: Identity Configuration](/docs/reference/identity) - Complete configuration reference
+- [Operations: Security Guide](/docs/operations/security/) - Authentication, TLS, and identity operations
+- [Reference: Configuration](/docs/reference/configuration/) - Identity and security configuration reference
+- [Reference: CLI - kscore-identity](/docs/reference/cli/#kscore-identity-identity-management) - Identity management commands
 - [Concepts: NATS Mesh](/docs/concepts/nats-mesh) - How identity integrates with NATS

@@ -200,7 +200,10 @@ func (c *VersionChecker) CheckCompatibility(component ComponentType, from, to Ve
 	}
 
 	if targetEntry == nil {
-		result.Warnings = append(result.Warnings, "Target version not in compatibility matrix")
+		result.Compatible = false
+		result.Blockers = append(result.Blockers, fmt.Sprintf(
+			"Target version %s not in compatibility matrix", to,
+		))
 		return result, nil
 	}
 

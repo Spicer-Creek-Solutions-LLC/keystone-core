@@ -143,7 +143,7 @@ func (a *Adapter) Execute(ctx context.Context, req *protocols.ExecuteRequest) (*
 	if len(parts) < 2 {
 		result.Error = "invalid command format, expected: METHOD /endpoint [body]"
 		result.ExitCode = 1
-		return result, fmt.Errorf(result.Error)
+		return result, fmt.Errorf("%s", result.Error)
 	}
 
 	method := parts[0]

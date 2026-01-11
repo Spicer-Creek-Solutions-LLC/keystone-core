@@ -228,4 +228,4 @@ Before deploying Keystone Core to production, ensure you've completed:
 - [Getting Started](/docs/getting-started/) - Initial setup and quick start
 - [Concepts](/docs/concepts/) - Deep dive into Keystone Core architecture
 - [Reference](/docs/reference/) - Complete API and CLI reference
-- [Tutorials](/docs/tutorials/) - Step-by-step guides
+- [Community](/docs/community/) - Contributing and development guides

@@ -149,6 +149,10 @@ func (m *PipModule) getPipCommand(decl *StateDeclaration) string {
 	if cmd := getStringParameter(decl, "executable", ""); cmd != "" {
 		return cmd
 	}
+	// Check if pip3 is explicitly requested
+	if getBoolParameter(decl, "pip3", false) {
+		return "pip3"
+	}
 	// Try pip3 first, fall back to pip
 	if _, err := exec.LookPath("pip3"); err == nil {
 		return "pip3"

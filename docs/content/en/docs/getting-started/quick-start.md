@@ -280,20 +280,20 @@ In about 5 minutes, you've:
 
 ### Learn More
 - **[Architecture Overview](../architecture/)** - Understand how it all works
-- **[Tutorials](../../tutorials/)** - Step-by-step guides for common tasks
 - **[Concepts](../../concepts/)** - Deep dives into each subsystem
+- **[Reference](../../reference/)** - Complete API and configuration reference
 
 ### Try More Features
-- **[Event Reactors](../../tutorials/event-reactors/)** - Automate responses to events
-- **[GitOps Integration](../../tutorials/gitops-workflow/)** - Connect to ArgoCD/Flux
-- **[Policy Enforcement](../../tutorials/policy-rules/)** - Write OPA/CEL policies
+- **[Event Reactors](../../concepts/reactors/)** - Automate responses to events
+- **[GitOps Integration](../../concepts/gitops/)** - Connect to ArgoCD/Flux
+- **[Policy Enforcement](../../concepts/policy/)** - Write OPA/CEL policies
 - **[Multi-Environment](../../concepts/multi-environment/)** - Manage K8s, VMs, and cloud
 
 ### Production Deployment
-- **[High Availability](../../operations/deployment/high-availability/)** - HA setup
-- **[Monitoring Setup](../../operations/monitoring/metrics/)** - Prometheus + Grafana
-- **[Security Hardening](../../reference/configuration/security/)** - Production security
-- **[Scaling Guide](../../operations/deployment/scaling/)** - Scale to thousands of nodes
+- **[High Availability](../../operations/cluster-management/)** - HA cluster setup
+- **[Monitoring Setup](../../operations/monitoring/)** - Prometheus + Grafana dashboards
+- **[Security Hardening](../../operations/security/)** - Production security
+- **[Deployment Guide](../../operations/deployment/)** - Scale to thousands of nodes
 
 ## Cleanup
 
@@ -349,4 +349,4 @@ kscore-server --api-listen 127.0.0.1:8081 --nats-listen 127.0.0.1:4223
 
 ## Next Steps
 
-Continue to [Architecture Overview](../architecture/) to understand how Keystone Core works under the hood, or jump into [Tutorials](../../tutorials/) for hands-on guides.
+Continue to [Architecture Overview](../architecture/) to understand how Keystone Core works under the hood, or explore [Concepts](../../concepts/) for in-depth feature guides.

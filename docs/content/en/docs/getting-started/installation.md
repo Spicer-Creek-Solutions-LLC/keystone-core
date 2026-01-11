@@ -439,6 +439,6 @@ Now that Keystone Core is installed:
 3. **[Configuration Reference](../../reference/configuration/)** - Explore all configuration options
 
 Or dive into specific features:
-- [Remote Execution Tutorial](../../tutorials/remote-commands/)
-- [State Management Tutorial](../../tutorials/state-application/)
-- [Monitoring Setup](../../tutorials/monitoring/)
+- [Remote Execution](../../concepts/remote-execution/) - Execute commands across your infrastructure
+- [State Management](../../concepts/state-management/) - Declarative configuration management
+- [Monitoring](../../operations/monitoring/) - Set up observability and dashboards

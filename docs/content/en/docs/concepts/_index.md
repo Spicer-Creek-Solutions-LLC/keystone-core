@@ -64,7 +64,7 @@ Each concept page follows a consistent structure:
 ## Next Steps
 
 - **New to Keystone Core?** Start with [Getting Started](../getting-started/) first
-- **Want to learn by doing?** Try the [Tutorials](../tutorials/)
+- **Want to learn by doing?** Explore the hands-on [Quick Start](../getting-started/quick-start/)
 - **Need specific details?** Check the [Reference](../reference/) documentation
 - **Deploying to production?** See [Operations](../operations/)
 

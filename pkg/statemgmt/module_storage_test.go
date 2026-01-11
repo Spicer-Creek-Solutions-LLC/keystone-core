@@ -234,8 +234,9 @@ func TestSwapModule_Check_MissingPath(t *testing.T) {
 	m := NewSwapModule()
 	ctx := context.Background()
 
+	// ID must be empty since implementation uses ID as fallback for path
 	decl := &StateDeclaration{
-		ID:         "test-swap",
+		ID:         "",
 		Module:     "swap",
 		State:      "enabled",
 		Parameters: map[string]interface{}{},
@@ -376,8 +377,9 @@ func TestLVMPVModule_Check_MissingDevice(t *testing.T) {
 	m := NewLVMPVModule()
 	ctx := context.Background()
 
+	// ID must be empty since implementation uses ID as fallback for device
 	decl := &StateDeclaration{
-		ID:         "test-pv",
+		ID:         "",
 		Module:     "lvm_pv",
 		State:      "present",
 		Parameters: map[string]interface{}{},
@@ -481,8 +483,9 @@ func TestLVMVGModule_Check_MissingName(t *testing.T) {
 	m := NewLVMVGModule()
 	ctx := context.Background()
 
+	// ID must be empty since implementation uses ID as fallback for name
 	decl := &StateDeclaration{
-		ID:     "test-vg",
+		ID:     "",
 		Module: "lvm_vg",
 		State:  "present",
 		Parameters: map[string]interface{}{
@@ -590,8 +593,9 @@ func TestLVMLVModule_Check_MissingName(t *testing.T) {
 	m := NewLVMLVModule()
 	ctx := context.Background()
 
+	// ID must be empty since implementation uses ID as fallback for name
 	decl := &StateDeclaration{
-		ID:     "test-lv",
+		ID:     "",
 		Module: "lvm_lv",
 		State:  "present",
 		Parameters: map[string]interface{}{
@@ -833,8 +837,9 @@ func TestFilesystemModule_Check_MissingDevice(t *testing.T) {
 	m := NewFilesystemModule()
 	ctx := context.Background()
 
+	// ID must be empty since implementation uses ID as fallback for device
 	decl := &StateDeclaration{
-		ID:     "test-fs",
+		ID:     "",
 		Module: "filesystem",
 		State:  "present",
 		Parameters: map[string]interface{}{
