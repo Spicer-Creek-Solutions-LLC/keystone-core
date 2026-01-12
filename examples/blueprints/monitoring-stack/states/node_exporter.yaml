@@ -1,0 +1,57 @@
+# Node Exporter Installation and Configuration
+# Part of the Monitoring Stack Blueprint
+
+{% set node_exporter_archive = "node_exporter-" ~ parameters.node_exporter_version ~ ".linux-amd64" %}
+{% set node_exporter_url = "https://github.com/prometheus/node_exporter/releases/download/v" ~ parameters.node_exporter_version ~ "/" ~ node_exporter_archive ~ ".tar.gz" %}
+
+# Download Node Exporter
+node_exporter_download:
+  file.managed:
+    - name: /tmp/{{ node_exporter_archive }}.tar.gz
+    - source: {{ node_exporter_url }}
+    - skip_verify: true
+    - unless: test -f /usr/local/bin/node_exporter && /usr/local/bin/node_exporter --version 2>&1 | grep -q {{ parameters.node_exporter_version }}
+    - require:
+      - pkg: monitoring_dependencies
+
+# Extract Node Exporter
+node_exporter_extract:
+  cmd.run:
+    - name: |
+        cd /tmp && \
+        tar xzf {{ node_exporter_archive }}.tar.gz && \
+        cp {{ node_exporter_archive }}/node_exporter /usr/local/bin/ && \
+        chmod +x /usr/local/bin/node_exporter && \
+        rm -rf /tmp/{{ node_exporter_archive }}*
+    - unless: test -f /usr/local/bin/node_exporter && /usr/local/bin/node_exporter --version 2>&1 | grep -q {{ parameters.node_exporter_version }}
+    - require:
+      - file: node_exporter_download
+
+# Deploy systemd service
+node_exporter_service_file:
+  file.managed:
+    - name: /etc/systemd/system/node_exporter.service
+    - source: template://templates/node_exporter.service.j2
+    - template: jinja
+    - context:
+        node_exporter_port: {{ parameters.node_exporter_port }}
+        collectors: {{ parameters.node_exporter_collectors | tojson }}
+    - mode: 644
+
+# Reload systemd
+node_exporter_systemd_reload:
+  cmd.run:
+    - name: systemctl daemon-reload
+    - onchanges:
+      - file: node_exporter_service_file
+
+# Start and enable Node Exporter
+node_exporter_service:
+  service.running:
+    - name: node_exporter
+    - enable: true
+    - watch:
+      - file: node_exporter_service_file
+    - require:
+      - cmd: node_exporter_extract
+      - cmd: node_exporter_systemd_reload

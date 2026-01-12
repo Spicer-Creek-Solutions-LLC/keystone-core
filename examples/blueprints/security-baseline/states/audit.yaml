@@ -1,0 +1,60 @@
+# Audit Logging Configuration
+# Part of the Security Baseline Blueprint
+
+# Install auditd
+auditd_package:
+  pkg.installed:
+{% if parameters.os_family == 'debian' %}
+    - name: auditd
+{% else %}
+    - name: audit
+{% endif %}
+
+# Deploy auditd configuration
+auditd_config:
+  file.managed:
+    - name: /etc/audit/auditd.conf
+    - source: template://templates/auditd.conf.j2
+    - template: jinja
+    - context:
+        max_log_file: {{ parameters.audit_max_log_file }}
+        num_logs: {{ parameters.audit_num_logs }}
+    - mode: 640
+    - require:
+      - pkg: auditd_package
+
+# Deploy audit rules
+audit_rules:
+  file.managed:
+    - name: /etc/audit/rules.d/99-security-baseline.rules
+    - source: template://templates/audit.rules.j2
+    - template: jinja
+    - mode: 640
+    - require:
+      - pkg: auditd_package
+
+# Load audit rules
+load_audit_rules:
+  cmd.run:
+    - name: augenrules --load
+    - onchanges:
+      - file: audit_rules
+
+# Start and enable auditd service
+auditd_service:
+  service.running:
+    - name: auditd
+    - enable: true
+    - watch:
+      - file: auditd_config
+      - file: audit_rules
+    - require:
+      - pkg: auditd_package
+
+# Ensure audit logs are protected
+audit_log_perms:
+  file.directory:
+    - name: /var/log/audit
+    - mode: 700
+    - require:
+      - pkg: auditd_package

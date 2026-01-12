@@ -1,0 +1,178 @@
+apiVersion: blueprints.kscore.io/v1
+kind: Blueprint
+
+metadata:
+  name: lamp-stack
+  version: 1.0.0
+  description: |
+    Production-ready LAMP (Linux, Apache, MySQL, PHP) stack for web applications.
+    Includes Apache web server, MySQL/MariaDB database, and PHP with common extensions.
+  maintainers:
+    - name: Keystone Core Team
+      email: team@example.com
+  license: Apache-2.0
+  keywords:
+    - lamp
+    - apache
+    - mysql
+    - php
+    - web
+  categories:
+    - infrastructure
+    - web-servers
+    - databases
+
+parameters:
+  # Apache Configuration
+  server_name:
+    type: string
+    description: Primary server name (domain)
+    required: true
+    pattern: "^[a-z0-9][a-z0-9.-]*$"
+    examples:
+      - www.example.com
+
+  server_admin:
+    type: string
+    description: Server administrator email
+    default: webmaster@localhost
+    format: email
+
+  document_root:
+    type: string
+    description: Web document root directory
+    default: /var/www/html
+
+  http_port:
+    type: integer
+    description: HTTP port
+    default: 80
+    minimum: 1
+    maximum: 65535
+
+  https_port:
+    type: integer
+    description: HTTPS port
+    default: 443
+    minimum: 1
+    maximum: 65535
+
+  # PHP Configuration
+  php_version:
+    type: string
+    description: PHP version to install
+    default: "8.2"
+    enum: ["7.4", "8.0", "8.1", "8.2", "8.3"]
+
+  php_memory_limit:
+    type: string
+    description: PHP memory limit
+    default: 256M
+    pattern: "^[0-9]+[KMG]$"
+
+  php_max_execution_time:
+    type: integer
+    description: PHP max execution time in seconds
+    default: 30
+    minimum: 10
+    maximum: 300
+
+  php_extensions:
+    type: array
+    description: Additional PHP extensions to install
+    items:
+      type: string
+    default:
+      - curl
+      - mbstring
+      - xml
+      - zip
+      - gd
+
+  # MySQL Configuration
+  mysql_root_password:
+    type: string
+    description: MySQL root password
+    sensitive: true
+    required: true
+    minLength: 8
+
+  mysql_database:
+    type: string
+    description: Application database name
+    required: true
+    pattern: "^[a-z][a-z0-9_]*$"
+
+  mysql_user:
+    type: string
+    description: Application database user
+    required: true
+    pattern: "^[a-z][a-z0-9_]*$"
+
+  mysql_password:
+    type: string
+    description: Application database password
+    sensitive: true
+    required: true
+    minLength: 8
+
+  mysql_bind_address:
+    type: string
+    description: MySQL bind address
+    default: 127.0.0.1
+
+  mysql_max_connections:
+    type: integer
+    description: Maximum MySQL connections
+    default: 150
+    minimum: 10
+    maximum: 1000
+
+  # Platform
+  os_family:
+    type: string
+    description: Operating system family
+    default: debian
+    enum: [debian, rhel]
+
+features:
+  ssl:
+    description: Enable SSL/TLS with Let's Encrypt or custom certificates
+    default: false
+
+  phpmyadmin:
+    description: Install phpMyAdmin for database management
+    default: false
+
+  opcache:
+    description: Enable PHP OPcache for performance
+    default: true
+
+  mod_security:
+    description: Enable ModSecurity WAF
+    default: false
+
+outputs:
+  website_url:
+    description: Website URL
+    value: "http://{{ parameters.server_name }}:{{ parameters.http_port }}"
+
+  database_host:
+    description: Database connection host
+    value: "{{ parameters.mysql_bind_address }}"
+
+  php_info:
+    description: PHP version installed
+    value: "PHP {{ parameters.php_version }}"
+
+hooks:
+  pre_apply:
+    - states/pre-checks.yaml
+  post_apply:
+    - states/post-verification.yaml
+  rollback:
+    - states/rollback.yaml
+
+dependencies:
+  requires: []
+  requires_before: []

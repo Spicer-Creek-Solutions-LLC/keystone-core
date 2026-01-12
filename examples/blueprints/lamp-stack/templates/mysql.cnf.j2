@@ -1,0 +1,47 @@
+# Keystone Core LAMP Stack - MySQL/MariaDB Configuration
+
+[mysqld]
+# Network
+bind-address = {{ bind_address }}
+port = 3306
+
+# Connections
+max_connections = {{ max_connections }}
+max_connect_errors = 10000
+
+# Character Set
+character-set-server = utf8mb4
+collation-server = utf8mb4_unicode_ci
+
+# InnoDB Settings
+innodb_buffer_pool_size = 256M
+innodb_log_file_size = 64M
+innodb_flush_log_at_trx_commit = 1
+innodb_flush_method = O_DIRECT
+
+# Query Cache (disabled in MySQL 8.0+)
+query_cache_type = 0
+query_cache_size = 0
+
+# Logging
+slow_query_log = 1
+slow_query_log_file = /var/log/mysql/mysql-slow.log
+long_query_time = 2
+log_queries_not_using_indexes = 0
+
+# Temporary Tables
+tmp_table_size = 64M
+max_heap_table_size = 64M
+
+# Thread Pool
+thread_cache_size = 16
+
+# Table Cache
+table_open_cache = 4000
+table_definition_cache = 2000
+
+[client]
+default-character-set = utf8mb4
+
+[mysql]
+default-character-set = utf8mb4

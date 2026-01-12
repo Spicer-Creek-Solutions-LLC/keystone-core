@@ -1,0 +1,183 @@
+# Monitoring Stack Blueprint
+# Deploys Prometheus, Grafana, and Node Exporter for infrastructure monitoring
+
+apiVersion: blueprints.kscore.io/v1
+kind: Blueprint
+metadata:
+  name: monitoring-stack
+  namespace: kscore
+  version: 1.0.0
+  description: |
+    Production-ready monitoring stack with Prometheus for metrics collection,
+    Grafana for visualization, and Node Exporter for system metrics.
+  maintainers:
+    - name: Keystone Core Team
+      email: team@kscore.io
+  license: Apache-2.0
+  keywords:
+    - monitoring
+    - prometheus
+    - grafana
+    - metrics
+    - observability
+  platforms:
+    - debian
+    - ubuntu
+    - rhel
+    - centos
+
+spec:
+  entrypoint: states/main.yaml
+
+  parameters:
+    # Prometheus Configuration
+    prometheus_version:
+      type: string
+      default: "2.48.0"
+      description: Prometheus version to install
+
+    prometheus_retention:
+      type: string
+      default: "15d"
+      description: Prometheus data retention period
+
+    prometheus_storage_path:
+      type: string
+      default: "/var/lib/prometheus"
+      description: Prometheus data storage path
+
+    prometheus_port:
+      type: integer
+      default: 9090
+      description: Prometheus web UI port
+
+    prometheus_scrape_interval:
+      type: string
+      default: "15s"
+      description: Default scrape interval
+
+    # Grafana Configuration
+    grafana_version:
+      type: string
+      default: "10.2.2"
+      description: Grafana version to install
+
+    grafana_port:
+      type: integer
+      default: 3000
+      description: Grafana web UI port
+
+    grafana_admin_user:
+      type: string
+      default: "admin"
+      description: Grafana admin username
+
+    grafana_admin_password:
+      type: string
+      sensitive: true
+      description: Grafana admin password
+
+    grafana_domain:
+      type: string
+      default: "localhost"
+      description: Grafana server domain
+
+    grafana_root_url:
+      type: string
+      default: "%(protocol)s://%(domain)s:%(http_port)s/"
+      description: Grafana root URL
+
+    # Node Exporter Configuration
+    node_exporter_version:
+      type: string
+      default: "1.7.0"
+      description: Node Exporter version to install
+
+    node_exporter_port:
+      type: integer
+      default: 9100
+      description: Node Exporter metrics port
+
+    node_exporter_collectors:
+      type: array
+      default:
+        - cpu
+        - diskstats
+        - filesystem
+        - loadavg
+        - meminfo
+        - netdev
+        - stat
+        - time
+        - uname
+      description: Enabled Node Exporter collectors
+
+    # Alertmanager Configuration
+    alertmanager_version:
+      type: string
+      default: "0.26.0"
+      description: Alertmanager version to install
+
+    alertmanager_port:
+      type: integer
+      default: 9093
+      description: Alertmanager web UI port
+
+    # General Configuration
+    install_method:
+      type: string
+      default: "binary"
+      enum:
+        - binary
+        - docker
+        - package
+      description: Installation method
+
+    data_dir:
+      type: string
+      default: "/var/lib/monitoring"
+      description: Base data directory
+
+    config_dir:
+      type: string
+      default: "/etc/monitoring"
+      description: Base configuration directory
+
+  features:
+    alertmanager:
+      default: true
+      description: Install and configure Alertmanager
+
+    grafana:
+      default: true
+      description: Install and configure Grafana
+
+    node_exporter:
+      default: true
+      description: Install and configure Node Exporter
+
+    blackbox_exporter:
+      default: false
+      description: Install Blackbox Exporter for endpoint probing
+
+    default_dashboards:
+      default: true
+      description: Install default Grafana dashboards
+
+    default_alerts:
+      default: true
+      description: Install default Prometheus alert rules
+
+  dependencies: []
+
+  files:
+    - templates/prometheus.yml.j2
+    - templates/alertmanager.yml.j2
+    - templates/grafana.ini.j2
+    - templates/prometheus.service.j2
+    - templates/alertmanager.service.j2
+    - templates/node_exporter.service.j2
+    - files/dashboards/node-exporter.json
+    - files/dashboards/prometheus.json
+    - files/alerts/node.rules.yml
+    - files/alerts/prometheus.rules.yml

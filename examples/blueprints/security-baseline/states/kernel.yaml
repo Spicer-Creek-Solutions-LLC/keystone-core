@@ -1,0 +1,50 @@
+# Kernel Hardening Configuration
+# Part of the Security Baseline Blueprint
+
+# Deploy kernel security parameters
+kernel_security_sysctl:
+  file.managed:
+    - name: /etc/sysctl.d/99-security-baseline.conf
+    - source: template://templates/sysctl-security.conf.j2
+    - template: jinja
+    - context:
+        disable_ipv6: {{ parameters.sysctl_disable_ipv6 }}
+        disable_ip_forward: {{ parameters.sysctl_disable_ip_forward }}
+    - mode: 644
+
+# Apply sysctl settings
+apply_sysctl:
+  cmd.run:
+    - name: sysctl --system
+    - onchanges:
+      - file: kernel_security_sysctl
+
+# Disable unused filesystems
+disable_unused_filesystems:
+  file.managed:
+    - name: /etc/modprobe.d/security-baseline.conf
+    - contents: |
+        # Disable unused filesystems
+        # Managed by Keystone Core Security Baseline
+        install cramfs /bin/true
+        install freevxfs /bin/true
+        install jffs2 /bin/true
+        install hfs /bin/true
+        install hfsplus /bin/true
+        install squashfs /bin/true
+        install udf /bin/true
+
+        # Disable uncommon network protocols
+        install dccp /bin/true
+        install sctp /bin/true
+        install rds /bin/true
+        install tipc /bin/true
+    - mode: 644
+
+# Disable USB storage (optional, uncomment if needed)
+# disable_usb_storage:
+#   file.managed:
+#     - name: /etc/modprobe.d/usb-storage.conf
+#     - contents: |
+#         install usb-storage /bin/true
+#     - mode: 644

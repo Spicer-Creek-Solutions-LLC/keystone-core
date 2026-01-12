@@ -1,0 +1,26 @@
+# Security Baseline Main State File
+# Entry point for security hardening
+
+# Include component states in order
+include:
+{% if features.system_hardening %}
+  - states/system.yaml
+{% endif %}
+{% if features.ssh_hardening %}
+  - states/ssh.yaml
+{% endif %}
+{% if features.kernel_hardening %}
+  - states/kernel.yaml
+{% endif %}
+{% if features.firewall %}
+  - states/firewall.yaml
+{% endif %}
+{% if features.audit_logging %}
+  - states/audit.yaml
+{% endif %}
+{% if features.fail2ban %}
+  - states/fail2ban.yaml
+{% endif %}
+{% if features.automatic_updates %}
+  - states/updates.yaml
+{% endif %}

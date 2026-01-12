@@ -5463,13 +5463,13 @@ All 10 phases implemented:
 - Gap analysis with prioritized remediation plan
 - 5 validation/report files created in `test/doc-examples/`
 
-### Epic 25: Blueprints - IN PROGRESS (Phases 1-7 Complete)
+### Epic 25: Blueprints ✅ COMPLETE
 
 **Implementation Plan:** 9 phases (18 weeks total)
 
 **Goal**: Pre-packaged, reusable collections of states (similar to Salt Formulas, Ansible Roles, Helm Charts) that can be shared, versioned, and composed to deploy complex infrastructure stacks.
 
-**Current Status**: Phases 1-7 COMPLETE ✅
+**Current Status**: All 9 Phases COMPLETE ✅
 
 **Phase 1: Blueprint Manifest and Parser ✅ COMPLETE**
 - Blueprint manifest types (`pkg/blueprint/manifest.go`)
@@ -5589,9 +5589,43 @@ All 10 phases implemented:
   - Pattern-based test selection
 - 108 tests for the framework itself
 
-**Remaining Phases:**
-- Phase 8: Air-gapped support
-- Phase 9: Documentation and examples
+**Phase 8: Air-Gapped Support ✅ COMPLETE**
+- Bundle system (`pkg/blueprint/bundle.go`, `bundle_test.go`)
+  - BundleManifest with format, checksums, signatures, lock file
+  - Bundler for creating tar.gz bundles from blueprints
+  - BundleInstaller for extracting and verifying bundles
+  - SHA-256 checksum verification
+  - Bundle signature verification with trusted keys
+  - Path traversal protection in tar extraction
+  - Offline dependency resolution from local storage
+- Mirror server (`pkg/blueprint/mirror.go`, `mirror_test.go`)
+  - MirrorServer HTTP server for internal blueprint distribution
+  - REST API: GET/PUT /v1/blueprints/{name}/{version}
+  - Bundle endpoints: GET/PUT /v1/bundles/{name}/{version}
+  - Health and index endpoints
+  - MirrorClient for interacting with mirror servers
+  - Export/import to/from directories
+  - MirrorSyncer for syncing between mirror servers
+- 44 bundle tests + 32 mirror tests (all passing)
+- 3,414 lines of production and test code
+
+**Phase 9: Documentation and Examples ✅ COMPLETE**
+- Documentation (`docs/content/en/docs/concepts/blueprints.md`)
+  - Blueprint developer guide (structure, parameters, features, hooks)
+  - Blueprint user guide (installation, configuration, troubleshooting)
+  - Best practices guide (security, maintainability, testing)
+  - Community contribution guidelines (submission, review, standards)
+- Example blueprints (`examples/blueprints/`)
+  - **LAMP stack** (`lamp-stack/`): Apache, PHP, MySQL/MariaDB
+    - Platform-specific templates and conditionals
+    - Integration tests and documentation
+  - **Monitoring stack** (`monitoring-stack/`): Prometheus, Grafana, Node Exporter, Alertmanager
+    - Systemd service templates
+    - Alert rules and Grafana dashboards
+  - **Security baseline** (`security-baseline/`): SSH hardening, firewall, kernel, auditd
+    - CIS/STIG/PCI-DSS/HIPAA compliance mapping
+    - Feature flags for selective hardening
+- 44 files across 3 example blueprints with 5,194 lines of YAML/templates
 
 **Key Concepts:**
 - **Blueprints vs Modules vs States**:
@@ -5670,7 +5704,7 @@ Implementation order:
 22. **Epic 22** (File Distribution) - ✅ COMPLETE (All 13 phases) - Depends on Epic 1, 4, 6, 14, 17, 21 (NATS-based file server, multiple backends, mirror groups, proxy caching, 241 tests)
 23. **Epic 23** (Self-Management) - ✅ COMPLETE (All 6 phases) - Depends on Epic 1, 3, 4, 5, 7, 11, 17, 22 (bootstrap, backup/restore, self-management states, validation, upgrade system, documentation & runbooks)
 24. **Epic 24** (Document Review) - ✅ COMPLETE - Depends on Epic 10, all completed epics (documentation validation, example testing, gap analysis, remediation planning)
-25. **Epic 25** (Blueprints) - ⏳ IN PROGRESS (Phases 1-7 complete) - Depends on Epic 3, 4, 9, 22 (manifest/loader, parameters, dependencies, state execution, registry/CLI, rollback, testing framework done; air-gap, docs remaining)
+25. **Epic 25** (Blueprints) - ✅ COMPLETE (All 9 phases) - Depends on Epic 3, 4, 9, 22 (pre-packaged state collections, parameter system, dependency ordering, registry/CLI, rollback, testing framework, air-gapped support, documentation & examples)
 
 ### Future Epics (Not Yet Planned)
 

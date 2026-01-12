@@ -1,0 +1,96 @@
+# PHP Configuration
+# Part of the LAMP Stack Blueprint
+
+{% if parameters.os_family == 'debian' %}
+{% set php_pkg_prefix = 'php' + parameters.php_version %}
+{% set php_conf_dir = '/etc/php/' + parameters.php_version %}
+{% else %}
+{% set php_pkg_prefix = 'php' %}
+{% set php_conf_dir = '/etc' %}
+{% endif %}
+
+# Install PHP core
+php_core:
+  pkg.installed:
+    - name: {{ php_pkg_prefix }}
+
+# Install PHP CLI
+php_cli:
+  pkg.installed:
+    - name: {{ php_pkg_prefix }}-cli
+    - require:
+      - pkg: php_core
+
+# Install common PHP extensions
+php_common:
+  pkg.installed:
+    - name: {{ php_pkg_prefix }}-common
+    - require:
+      - pkg: php_core
+
+# Install MySQL extension for PHP
+php_mysql:
+  pkg.installed:
+    - name: {{ php_pkg_prefix }}-mysql
+    - require:
+      - pkg: php_core
+
+# Install additional PHP extensions
+{% for ext in parameters.php_extensions %}
+php_ext_{{ ext }}:
+  pkg.installed:
+    - name: {{ php_pkg_prefix }}-{{ ext }}
+    - require:
+      - pkg: php_core
+{% endfor %}
+
+# PHP configuration
+php_ini:
+  file.managed:
+    {% if parameters.os_family == 'debian' %}
+    - name: {{ php_conf_dir }}/apache2/php.ini
+    {% else %}
+    - name: /etc/php.ini
+    {% endif %}
+    - source: template://templates/php.ini.j2
+    - template: jinja
+    - context:
+        memory_limit: "{{ parameters.php_memory_limit }}"
+        max_execution_time: {{ parameters.php_max_execution_time }}
+        opcache_enabled: {{ features.opcache }}
+    - require:
+      - pkg: php_core
+
+# OPcache configuration (if enabled)
+{% if features.opcache %}
+php_opcache:
+  pkg.installed:
+    - name: {{ php_pkg_prefix }}-opcache
+    - require:
+      - pkg: php_core
+
+opcache_config:
+  file.managed:
+    {% if parameters.os_family == 'debian' %}
+    - name: {{ php_conf_dir }}/mods-available/opcache.ini
+    {% else %}
+    - name: /etc/php.d/10-opcache.ini
+    {% endif %}
+    - source: template://templates/opcache.ini.j2
+    - template: jinja
+    - require:
+      - pkg: php_opcache
+{% endif %}
+
+# Create PHP info file for testing
+php_info_file:
+  file.managed:
+    - name: {{ parameters.document_root }}/info.php
+    - contents: |
+        <?php
+        // This file should be removed in production
+        phpinfo();
+        ?>
+    - user: www-data
+    - group: www-data
+    - mode: 644

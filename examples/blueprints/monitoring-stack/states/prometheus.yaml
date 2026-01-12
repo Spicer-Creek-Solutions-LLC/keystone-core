@@ -1,0 +1,143 @@
+# Prometheus Installation and Configuration
+# Part of the Monitoring Stack Blueprint
+
+{% set prometheus_archive = "prometheus-" ~ parameters.prometheus_version ~ ".linux-amd64" %}
+{% set prometheus_url = "https://github.com/prometheus/prometheus/releases/download/v" ~ parameters.prometheus_version ~ "/" ~ prometheus_archive ~ ".tar.gz" %}
+
+# Download Prometheus
+prometheus_download:
+  file.managed:
+    - name: /tmp/{{ prometheus_archive }}.tar.gz
+    - source: {{ prometheus_url }}
+    - skip_verify: true
+    - unless: test -f /usr/local/bin/prometheus && /usr/local/bin/prometheus --version 2>&1 | grep -q {{ parameters.prometheus_version }}
+    - require:
+      - pkg: monitoring_dependencies
+
+# Extract Prometheus
+prometheus_extract:
+  cmd.run:
+    - name: |
+        cd /tmp && \
+        tar xzf {{ prometheus_archive }}.tar.gz && \
+        cp {{ prometheus_archive }}/prometheus /usr/local/bin/ && \
+        cp {{ prometheus_archive }}/promtool /usr/local/bin/ && \
+        chmod +x /usr/local/bin/prometheus /usr/local/bin/promtool && \
+        rm -rf /tmp/{{ prometheus_archive }}*
+    - unless: test -f /usr/local/bin/prometheus && /usr/local/bin/prometheus --version 2>&1 | grep -q {{ parameters.prometheus_version }}
+    - require:
+      - file: prometheus_download
+
+# Create Prometheus data directory
+prometheus_data_dir:
+  file.directory:
+    - name: {{ parameters.prometheus_storage_path }}
+    - user: prometheus
+    - group: prometheus
+    - mode: 755
+    - makedirs: true
+    - require:
+      - user: monitoring_user
+
+# Create Prometheus config directory
+prometheus_config_dir:
+  file.directory:
+    - name: {{ parameters.config_dir }}/prometheus
+    - user: root
+    - group: prometheus
+    - mode: 755
+
+# Create rules directory
+prometheus_rules_dir:
+  file.directory:
+    - name: {{ parameters.config_dir }}/prometheus/rules
+    - user: root
+    - group: prometheus
+    - mode: 755
+    - require:
+      - file: prometheus_config_dir
+
+# Create targets directory
+prometheus_targets_dir:
+  file.directory:
+    - name: {{ parameters.config_dir }}/prometheus/targets
+    - user: root
+    - group: prometheus
+    - mode: 755
+    - require:
+      - file: prometheus_config_dir
+
+# Deploy Prometheus configuration
+prometheus_config:
+  file.managed:
+    - name: {{ parameters.config_dir }}/prometheus/prometheus.yml
+    - source: template://templates/prometheus.yml.j2
+    - template: jinja
+    - context:
+        scrape_interval: "{{ parameters.prometheus_scrape_interval }}"
+        node_exporter_port: {{ parameters.node_exporter_port }}
+        alertmanager_port: {{ parameters.alertmanager_port }}
+        prometheus_port: {{ parameters.prometheus_port }}
+        alertmanager_enabled: {{ features.alertmanager }}
+        node_exporter_enabled: {{ features.node_exporter }}
+    - user: root
+    - group: prometheus
+    - mode: 640
+    - require:
+      - file: prometheus_config_dir
+
+# Deploy default alert rules
+{% if features.default_alerts %}
+prometheus_node_rules:
+  file.managed:
+    - name: {{ parameters.config_dir }}/prometheus/rules/node.rules.yml
+    - source: file://files/alerts/node.rules.yml
+    - user: root
+    - group: prometheus
+    - mode: 640
+    - require:
+      - file: prometheus_rules_dir
+
+prometheus_self_rules:
+  file.managed:
+    - name: {{ parameters.config_dir }}/prometheus/rules/prometheus.rules.yml
+    - source: file://files/alerts/prometheus.rules.yml
+    - user: root
+    - group: prometheus
+    - mode: 640
+    - require:
+      - file: prometheus_rules_dir
+{% endif %}
+
+# Deploy systemd service
+prometheus_service_file:
+  file.managed:
+    - name: /etc/systemd/system/prometheus.service
+    - source: template://templates/prometheus.service.j2
+    - template: jinja
+    - context:
+        prometheus_port: {{ parameters.prometheus_port }}
+        prometheus_storage_path: "{{ parameters.prometheus_storage_path }}"
+        prometheus_retention: "{{ parameters.prometheus_retention }}"
+        config_dir: "{{ parameters.config_dir }}"
+    - mode: 644
+
+# Reload systemd
+prometheus_systemd_reload:
+  cmd.run:
+    - name: systemctl daemon-reload
+    - onchanges:
+      - file: prometheus_service_file
+
+# Start and enable Prometheus
+prometheus_service:
+  service.running:
+    - name: prometheus
+    - enable: true
+    - watch:
+      - file: prometheus_config
+      - file: prometheus_service_file
+    - require:
+      - cmd: prometheus_extract
+      - file: prometheus_data_dir
+      - cmd: prometheus_systemd_reload

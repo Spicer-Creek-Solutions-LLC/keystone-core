@@ -1,0 +1,77 @@
+# Keystone Core Monitoring Stack - Alertmanager Configuration
+
+global:
+  # SMTP configuration (customize for your environment)
+  # smtp_smarthost: 'smtp.example.com:587'
+  # smtp_from: 'alertmanager@example.com'
+  # smtp_auth_username: 'alertmanager'
+  # smtp_auth_password: 'password'
+
+  # Default resolve timeout
+  resolve_timeout: 5m
+
+# Route configuration
+route:
+  # Default receiver
+  receiver: 'default-receiver'
+
+  # Group by alertname and job
+  group_by: ['alertname', 'job']
+
+  # Wait time before sending initial notification
+  group_wait: 30s
+
+  # Wait time before sending subsequent notifications
+  group_interval: 5m
+
+  # Repeat interval for notifications
+  repeat_interval: 4h
+
+  # Child routes
+  routes:
+    # Critical alerts - immediate notification
+    - match:
+        severity: critical
+      receiver: 'critical-receiver'
+      group_wait: 10s
+      repeat_interval: 1h
+
+    # Warning alerts - standard notification
+    - match:
+        severity: warning
+      receiver: 'warning-receiver'
+      repeat_interval: 4h
+
+# Inhibition rules
+inhibit_rules:
+  # Inhibit warning when critical exists for same alertname
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'instance']
+
+# Receivers
+receivers:
+  - name: 'default-receiver'
+    # Webhook receiver (customize for your alerting platform)
+    # webhook_configs:
+    #   - url: 'http://localhost:8080/alerts'
+    #     send_resolved: true
+
+  - name: 'critical-receiver'
+    # Email for critical alerts
+    # email_configs:
+    #   - to: 'oncall@example.com'
+    #     send_resolved: true
+    # PagerDuty integration
+    # pagerduty_configs:
+    #   - service_key: 'your-pagerduty-key'
+    #     severity: critical
+
+  - name: 'warning-receiver'
+    # Slack for warnings
+    # slack_configs:
+    #   - api_url: 'https://hooks.slack.com/services/...'
+    #     channel: '#alerts'
+    #     send_resolved: true

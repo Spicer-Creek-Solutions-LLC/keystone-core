@@ -1,0 +1,121 @@
+# System Hardening Configuration
+# Part of the Security Baseline Blueprint
+
+# Configure password policy
+password_policy_login_defs:
+  file.managed:
+    - name: /etc/login.defs
+    - source: template://templates/password-policy.j2
+    - template: jinja
+    - context:
+        pass_max_days: {{ parameters.password_max_days }}
+        pass_min_days: {{ parameters.password_min_days }}
+        pass_warn_age: {{ parameters.password_warn_days }}
+        umask: "{{ parameters.umask }}"
+    - mode: 644
+
+# Set secure permissions on sensitive files
+{% for file_path in ['/etc/passwd', '/etc/group'] %}
+secure_perms_{{ file_path | replace('/', '_') }}:
+  file.managed:
+    - name: {{ file_path }}
+    - mode: 644
+    - replace: false
+{% endfor %}
+
+{% for file_path in ['/etc/shadow', '/etc/gshadow'] %}
+secure_perms_{{ file_path | replace('/', '_') }}:
+  file.managed:
+    - name: {{ file_path }}
+    - mode: 640
+    - replace: false
+{% endfor %}
+
+# Disable root login (console) if configured
+{% if parameters.disable_root_login %}
+disable_root_console_login:
+  file.managed:
+    - name: /etc/securetty
+    - contents: |
+        # Root console login disabled by Keystone Core Security Baseline
+    - mode: 600
+{% endif %}
+
+# Configure PAM for password quality (Debian/Ubuntu)
+{% if parameters.os_family == 'debian' %}
+pam_pwquality_package:
+  pkg.installed:
+    - name: libpam-pwquality
+
+pam_pwquality_config:
+  file.managed:
+    - name: /etc/security/pwquality.conf
+    - contents: |
+        # Password quality configuration
+        # Managed by Keystone Core Security Baseline
+        minlen = 12
+        dcredit = -1
+        ucredit = -1
+        lcredit = -1
+        ocredit = -1
+        difok = 3
+        maxrepeat = 3
+        gecoscheck = 1
+        dictcheck = 1
+    - mode: 644
+    - require:
+      - pkg: pam_pwquality_package
+{% endif %}
+
+# Restrict su to wheel group
+su_wheel_only:
+  file.managed:
+    - name: /etc/pam.d/su
+    - contents: |
+        # /etc/pam.d/su - Managed by Keystone Core Security Baseline
+        #
+        auth       sufficient pam_rootok.so
+        # Uncomment the following line to require a user to be in the wheel group
+        auth       required   pam_wheel.so use_uid
+        auth       include    system-auth
+        account    sufficient pam_succeed_if.so uid = 0 use_uid quiet
+        account    include    system-auth
+        password   include    system-auth
+        session    include    system-auth
+        session    optional   pam_xauth.so
+    - mode: 644
+
+# Ensure wheel group exists
+wheel_group:
+  group.present:
+    - name: wheel
+
+# Set restrictive umask in /etc/profile
+profile_umask:
+  file.append:
+    - name: /etc/profile
+    - text: |
+        # Security baseline umask
+        umask {{ parameters.umask }}
+
+# Disable core dumps
+limits_core_dump:
+  file.managed:
+    - name: /etc/security/limits.d/99-security-baseline.conf
+    - contents: |
+        # Security baseline limits
+        # Managed by Keystone Core
+        * hard core 0
+        * soft core 0
+    - mode: 644
+
+# Remove unnecessary packages
+unnecessary_packages:
+  pkg.removed:
+    - pkgs:
+      - telnet
+      - rsh-client
+      - rsh-server
+      - ypbind
+      - tftp
+      - tftp-server

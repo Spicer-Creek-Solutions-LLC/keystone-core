@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kscore-registry
+  namespace: keystone-core
+  labels:
+    app.kubernetes.io/name: kscore-registry
+    app.kubernetes.io/component: registry
+    app.kubernetes.io/part-of: keystone-core
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kscore-registry
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kscore-registry
+        app.kubernetes.io/component: registry
+        app.kubernetes.io/part-of: keystone-core
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8081"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: kscore-registry
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: registry
+          image: ghcr.io/shawnbutts/keystone-core/kscore-registry:latest
+          imagePullPolicy: IfNotPresent
+          args:
+            - --config
+            - /etc/keystone-core/registry.yaml
+          ports:
+            - name: http
+              containerPort: 8081
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: config
+              mountPath: /etc/keystone-core
+              readOnly: true
+            - name: data
+              mountPath: /var/lib/keystone-core/registry
+      volumes:
+        - name: config
+          configMap:
+            name: kscore-registry
+        - name: data
+          persistentVolumeClaim:
+            claimName: kscore-registry-data

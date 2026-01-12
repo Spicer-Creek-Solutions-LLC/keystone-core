@@ -1,0 +1,22 @@
+# LAMP Stack Main State File
+# This is the entry point that includes all components
+
+# Include component states in order
+include:
+  - states/apache.yaml
+  - states/php.yaml
+  - states/mysql.yaml
+
+# Create index.php as landing page
+lamp_index_page:
+  file.managed:
+    - name: {{ parameters.document_root }}/index.php
+    - source: template://templates/index.php.j2
+    - template: jinja
+    - context:
+        server_name: "{{ parameters.server_name }}"
+    - user: www-data
+    - group: www-data
+    - mode: 644
+    - require:
+      - file: document_root

@@ -1,0 +1,123 @@
+# Kernel Security Parameters
+# Managed by Keystone Core Security Baseline Blueprint
+
+###################
+# Network Security
+###################
+
+# IP Forwarding
+{% if disable_ip_forward %}
+net.ipv4.ip_forward = 0
+net.ipv6.conf.all.forwarding = 0
+{% endif %}
+
+# Reverse path filtering (source validation)
+net.ipv4.conf.all.rp_filter = 1
+net.ipv4.conf.default.rp_filter = 1
+
+# Do not accept source routing
+net.ipv4.conf.all.accept_source_route = 0
+net.ipv4.conf.default.accept_source_route = 0
+net.ipv6.conf.all.accept_source_route = 0
+net.ipv6.conf.default.accept_source_route = 0
+
+# Do not accept ICMP redirects
+net.ipv4.conf.all.accept_redirects = 0
+net.ipv4.conf.default.accept_redirects = 0
+net.ipv6.conf.all.accept_redirects = 0
+net.ipv6.conf.default.accept_redirects = 0
+
+# Do not send ICMP redirects
+net.ipv4.conf.all.send_redirects = 0
+net.ipv4.conf.default.send_redirects = 0
+
+# Do not accept secure ICMP redirects
+net.ipv4.conf.all.secure_redirects = 0
+net.ipv4.conf.default.secure_redirects = 0
+
+# Log martian packets
+net.ipv4.conf.all.log_martians = 1
+net.ipv4.conf.default.log_martians = 1
+
+# Ignore ICMP broadcasts
+net.ipv4.icmp_echo_ignore_broadcasts = 1
+
+# Ignore bogus ICMP responses
+net.ipv4.icmp_ignore_bogus_error_responses = 1
+
+# SYN flood protection
+net.ipv4.tcp_syncookies = 1
+net.ipv4.tcp_max_syn_backlog = 2048
+net.ipv4.tcp_synack_retries = 2
+
+# TIME-WAIT assassination hazards
+net.ipv4.tcp_rfc1337 = 1
+
+{% if disable_ipv6 %}
+###################
+# IPv6 Disabled
+###################
+net.ipv6.conf.all.disable_ipv6 = 1
+net.ipv6.conf.default.disable_ipv6 = 1
+net.ipv6.conf.lo.disable_ipv6 = 1
+{% else %}
+# IPv6 router advertisements
+net.ipv6.conf.all.accept_ra = 0
+net.ipv6.conf.default.accept_ra = 0
+{% endif %}
+
+###################
+# Memory Protection
+###################
+
+# Restrict dmesg to root
+kernel.dmesg_restrict = 1
+
+# Restrict kernel pointer exposure
+kernel.kptr_restrict = 2
+
+# Restrict access to kernel logs
+kernel.printk = 3 4 1 3
+
+# Enable ASLR
+kernel.randomize_va_space = 2
+
+# Restrict access to perf events
+kernel.perf_event_paranoid = 3
+
+# Restrict unprivileged BPF
+kernel.unprivileged_bpf_disabled = 1
+net.core.bpf_jit_harden = 2
+
+# Restrict userfaultfd to privileged users
+vm.unprivileged_userfaultfd = 0
+
+###################
+# File System
+###################
+
+# Restrict symlink following
+fs.protected_symlinks = 1
+fs.protected_hardlinks = 1
+
+# Restrict FIFO creation
+fs.protected_fifos = 2
+
+# Restrict regular file creation
+fs.protected_regular = 2
+
+# Core dumps
+fs.suid_dumpable = 0
+
+###################
+# Kernel Features
+###################
+
+# Disable magic SysRq key
+kernel.sysrq = 0
+
+# Restrict ptrace scope
+kernel.yama.ptrace_scope = 2
+
+# Disable user namespaces (if not needed for containers)
+# kernel.unprivileged_userns_clone = 0

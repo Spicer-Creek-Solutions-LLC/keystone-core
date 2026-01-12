@@ -1,0 +1,17 @@
+# Monitoring Stack Main State File
+# Entry point that includes all monitoring components
+
+# Include component states in order
+include:
+  - states/common.yaml
+  - states/prometheus.yaml
+  - states/node_exporter.yaml
+{% if features.alertmanager %}
+  - states/alertmanager.yaml
+{% endif %}
+{% if features.grafana %}
+  - states/grafana.yaml
+{% endif %}
+{% if features.blackbox_exporter %}
+  - states/blackbox_exporter.yaml
+{% endif %}

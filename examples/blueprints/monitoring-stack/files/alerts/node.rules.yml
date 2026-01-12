@@ -1,0 +1,102 @@
+# Node Exporter Alert Rules
+# Part of Keystone Core Monitoring Stack Blueprint
+
+groups:
+  - name: node-alerts
+    rules:
+      # Instance down alert
+      - alert: InstanceDown
+        expr: up{job="node"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Instance {{ $labels.instance }} down"
+          description: "{{ $labels.instance }} has been down for more than 5 minutes."
+
+      # High CPU usage
+      - alert: HighCpuUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is above 85% for more than 10 minutes (current value: {{ $value }}%)."
+
+      - alert: CriticalCpuUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 95
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is above 95% for more than 5 minutes (current value: {{ $value }}%)."
+
+      # High memory usage
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is above 85% for more than 10 minutes (current value: {{ $value }}%)."
+
+      - alert: CriticalMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 95
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical memory usage on {{ $labels.instance }}"
+          description: "Memory usage is above 95% for more than 5 minutes (current value: {{ $value }}%)."
+
+      # Disk space alerts
+      - alert: DiskSpaceLow
+        expr: (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"})) * 100 > 80
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk space low on {{ $labels.instance }} ({{ $labels.mountpoint }})"
+          description: "Disk usage is above 80% on {{ $labels.mountpoint }} (current value: {{ $value }}%)."
+
+      - alert: DiskSpaceCritical
+        expr: (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"})) * 100 > 90
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Disk space critical on {{ $labels.instance }} ({{ $labels.mountpoint }})"
+          description: "Disk usage is above 90% on {{ $labels.mountpoint }} (current value: {{ $value }}%)."
+
+      # Network errors
+      - alert: NetworkErrors
+        expr: rate(node_network_receive_errs_total[5m]) > 10 or rate(node_network_transmit_errs_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Network errors on {{ $labels.instance }} ({{ $labels.device }})"
+          description: "Network interface {{ $labels.device }} is experiencing errors."
+
+      # System load
+      - alert: HighSystemLoad
+        expr: node_load15 / count(node_cpu_seconds_total{mode="idle"}) by (instance) > 2
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High system load on {{ $labels.instance }}"
+          description: "15-minute load average is {{ $value }} times the number of CPUs."
+
+      # Swap usage
+      - alert: SwapUsageHigh
+        expr: (node_memory_SwapTotal_bytes - node_memory_SwapFree_bytes) / node_memory_SwapTotal_bytes * 100 > 50
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High swap usage on {{ $labels.instance }}"
+          description: "Swap usage is above 50% (current value: {{ $value }}%)."

@@ -1,0 +1,187 @@
+# Security Baseline Blueprint
+# Implements security hardening best practices for Linux servers
+
+apiVersion: blueprints.kscore.io/v1
+kind: Blueprint
+metadata:
+  name: security-baseline
+  namespace: kscore
+  version: 1.0.0
+  description: |
+    Security hardening blueprint implementing industry best practices including
+    SSH hardening, firewall configuration, system hardening, and audit logging.
+  maintainers:
+    - name: Keystone Core Team
+      email: team@kscore.io
+  license: Apache-2.0
+  keywords:
+    - security
+    - hardening
+    - compliance
+    - ssh
+    - firewall
+    - audit
+  platforms:
+    - debian
+    - ubuntu
+    - rhel
+    - centos
+
+spec:
+  entrypoint: states/main.yaml
+
+  parameters:
+    # SSH Configuration
+    ssh_port:
+      type: integer
+      default: 22
+      description: SSH service port
+
+    ssh_permit_root_login:
+      type: string
+      default: "no"
+      enum:
+        - "yes"
+        - "no"
+        - prohibit-password
+      description: SSH PermitRootLogin setting
+
+    ssh_password_authentication:
+      type: string
+      default: "no"
+      enum:
+        - "yes"
+        - "no"
+      description: SSH password authentication
+
+    ssh_max_auth_tries:
+      type: integer
+      default: 3
+      description: Maximum SSH authentication attempts
+
+    ssh_client_alive_interval:
+      type: integer
+      default: 300
+      description: SSH client alive interval in seconds
+
+    ssh_client_alive_count_max:
+      type: integer
+      default: 2
+      description: SSH client alive count maximum
+
+    ssh_allowed_users:
+      type: array
+      default: []
+      description: List of users allowed SSH access
+
+    ssh_allowed_groups:
+      type: array
+      default: []
+      description: List of groups allowed SSH access
+
+    # Firewall Configuration
+    firewall_default_policy:
+      type: string
+      default: deny
+      enum:
+        - allow
+        - deny
+      description: Default firewall policy for incoming traffic
+
+    firewall_allowed_ports:
+      type: array
+      default:
+        - 22/tcp
+      description: Ports to allow through firewall
+
+    firewall_allowed_ips:
+      type: array
+      default: []
+      description: IP addresses/ranges to allow all traffic from
+
+    # System Hardening
+    disable_root_login:
+      type: boolean
+      default: true
+      description: Disable direct root login (console)
+
+    password_max_days:
+      type: integer
+      default: 90
+      description: Maximum password age in days
+
+    password_min_days:
+      type: integer
+      default: 7
+      description: Minimum days between password changes
+
+    password_warn_days:
+      type: integer
+      default: 14
+      description: Days before password expiry to warn
+
+    umask:
+      type: string
+      default: "027"
+      description: Default umask for users
+
+    # Audit Configuration
+    audit_max_log_file:
+      type: integer
+      default: 50
+      description: Maximum audit log file size in MB
+
+    audit_num_logs:
+      type: integer
+      default: 5
+      description: Number of audit log files to keep
+
+    # Sysctl Security Settings
+    sysctl_disable_ipv6:
+      type: boolean
+      default: false
+      description: Disable IPv6
+
+    sysctl_disable_ip_forward:
+      type: boolean
+      default: true
+      description: Disable IP forwarding (unless router)
+
+  features:
+    ssh_hardening:
+      default: true
+      description: Apply SSH hardening configuration
+
+    firewall:
+      default: true
+      description: Configure firewall (UFW on Debian/Ubuntu, firewalld on RHEL)
+
+    system_hardening:
+      default: true
+      description: Apply system hardening (password policy, umask, etc.)
+
+    audit_logging:
+      default: true
+      description: Configure auditd for security logging
+
+    kernel_hardening:
+      default: true
+      description: Apply kernel security parameters via sysctl
+
+    fail2ban:
+      default: false
+      description: Install and configure fail2ban
+
+    automatic_updates:
+      default: false
+      description: Enable automatic security updates
+
+  dependencies: []
+
+  files:
+    - templates/sshd_config.j2
+    - templates/auditd.conf.j2
+    - templates/audit.rules.j2
+    - templates/sysctl-security.conf.j2
+    - templates/password-policy.j2
+    - files/banner.txt

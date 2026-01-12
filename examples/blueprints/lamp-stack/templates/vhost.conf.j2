@@ -1,0 +1,35 @@
+<VirtualHost *:{{ http_port }}>
+    ServerName {{ server_name }}
+    ServerAdmin {{ server_admin }}
+    DocumentRoot {{ document_root }}
+
+    <Directory {{ document_root }}>
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    # Logging
+    ErrorLog ${APACHE_LOG_DIR}/{{ server_name }}-error.log
+    CustomLog ${APACHE_LOG_DIR}/{{ server_name }}-access.log combined
+
+    # Security headers
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+    # PHP settings via .htaccess or here
+    <FilesMatch \.php$>
+        SetHandler application/x-httpd-php
+    </FilesMatch>
+
+    # Deny access to sensitive files
+    <FilesMatch "^\.ht">
+        Require all denied
+    </FilesMatch>
+
+    <FilesMatch "(^#.*#|\.(bak|config|dist|fla|inc|ini|log|psd|sh|sql|sw[op])|~)$">
+        Require all denied
+    </FilesMatch>
+</VirtualHost>

@@ -1,0 +1,161 @@
+# Apache Web Server Configuration
+# Part of the LAMP Stack Blueprint
+
+{% if parameters.os_family == 'debian' %}
+{% set apache_pkg = 'apache2' %}
+{% set apache_svc = 'apache2' %}
+{% set apache_conf_dir = '/etc/apache2' %}
+{% set php_pkg_prefix = 'php' + parameters.php_version %}
+{% else %}
+{% set apache_pkg = 'httpd' %}
+{% set apache_svc = 'httpd' %}
+{% set apache_conf_dir = '/etc/httpd' %}
+{% set php_pkg_prefix = 'php' %}
+{% endif %}
+
+# Install Apache
+apache_package:
+  pkg.installed:
+    - name: {{ apache_pkg }}
+
+# Install mod_php
+php_apache_module:
+  pkg.installed:
+    {% if parameters.os_family == 'debian' %}
+    - name: libapache2-mod-php{{ parameters.php_version }}
+    {% else %}
+    - name: php
+    {% endif %}
+    - require:
+      - pkg: apache_package
+
+# Enable necessary Apache modules (Debian)
+{% if parameters.os_family == 'debian' %}
+apache_modules:
+  cmd.run:
+    - name: |
+        a2enmod rewrite
+        a2enmod headers
+        a2enmod ssl
+    - unless: test -L /etc/apache2/mods-enabled/rewrite.load
+    - require:
+      - pkg: apache_package
+{% endif %}
+
+# Create document root
+document_root:
+  file.directory:
+    - name: {{ parameters.document_root }}
+    - user: www-data
+    - group: www-data
+    - mode: 755
+    - makedirs: true
+
+# Apache main configuration
+apache_config:
+  file.managed:
+    - name: {{ apache_conf_dir }}/{% if parameters.os_family == 'debian' %}apache2.conf{% else %}conf/httpd.conf{% endif %}
+    - source: template://templates/apache.conf.j2
+    - template: jinja
+    - context:
+        server_name: "{{ parameters.server_name }}"
+        server_admin: "{{ parameters.server_admin }}"
+        document_root: "{{ parameters.document_root }}"
+        http_port: {{ parameters.http_port }}
+    - require:
+      - pkg: apache_package
+
+# Virtual host configuration
+{% if parameters.os_family == 'debian' %}
+default_vhost:
+  file.managed:
+    - name: /etc/apache2/sites-available/000-default.conf
+    - source: template://templates/vhost.conf.j2
+    - template: jinja
+    - context:
+        server_name: "{{ parameters.server_name }}"
+        server_admin: "{{ parameters.server_admin }}"
+        document_root: "{{ parameters.document_root }}"
+        http_port: {{ parameters.http_port }}
+    - require:
+      - pkg: apache_package
+
+enable_default_vhost:
+  cmd.run:
+    - name: a2ensite 000-default.conf
+    - unless: test -L /etc/apache2/sites-enabled/000-default.conf
+    - require:
+      - file: default_vhost
+{% else %}
+default_vhost:
+  file.managed:
+    - name: /etc/httpd/conf.d/vhost.conf
+    - source: template://templates/vhost.conf.j2
+    - template: jinja
+    - context:
+        server_name: "{{ parameters.server_name }}"
+        server_admin: "{{ parameters.server_admin }}"
+        document_root: "{{ parameters.document_root }}"
+        http_port: {{ parameters.http_port }}
+    - require:
+      - pkg: apache_package
+{% endif %}
+
+# SSL configuration (if enabled)
+{% if features.ssl %}
+ssl_vhost:
+  file.managed:
+    - name: {% if parameters.os_family == 'debian' %}/etc/apache2/sites-available/default-ssl.conf{% else %}/etc/httpd/conf.d/ssl.conf{% endif %}
+    - source: template://templates/ssl-vhost.conf.j2
+    - template: jinja
+    - context:
+        server_name: "{{ parameters.server_name }}"
+        server_admin: "{{ parameters.server_admin }}"
+        document_root: "{{ parameters.document_root }}"
+        https_port: {{ parameters.https_port }}
+    - require:
+      - pkg: apache_package
+
+{% if parameters.os_family == 'debian' %}
+enable_ssl_vhost:
+  cmd.run:
+    - name: a2ensite default-ssl.conf
+    - unless: test -L /etc/apache2/sites-enabled/default-ssl.conf
+    - require:
+      - file: ssl_vhost
+{% endif %}
+{% endif %}
+
+# ModSecurity (if enabled)
+{% if features.mod_security %}
+modsecurity_package:
+  pkg.installed:
+    - name: {% if parameters.os_family == 'debian' %}libapache2-mod-security2{% else %}mod_security{% endif %}
+    - require:
+      - pkg: apache_package
+
+{% if parameters.os_family == 'debian' %}
+enable_modsecurity:
+  cmd.run:
+    - name: a2enmod security2
+    - unless: test -L /etc/apache2/mods-enabled/security2.load
+    - require:
+      - pkg: modsecurity_package
+{% endif %}
+{% endif %}
+
+# Apache service
+apache_service:
+  service.running:
+    - name: {{ apache_svc }}
+    - enable: true
+    - reload: true
+    - watch:
+      - file: apache_config
+      - file: default_vhost
+      {% if features.ssl %}
+      - file: ssl_vhost
+      {% endif %}
+    - require:
+      - pkg: apache_package
+      - pkg: php_apache_module

@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kscore-telemetry-gateway
+  namespace: keystone-core
+  labels:
+    app.kubernetes.io/name: kscore-telemetry-gateway
+    app.kubernetes.io/component: telemetry-gateway
+    app.kubernetes.io/part-of: keystone-core
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kscore-telemetry-gateway
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kscore-telemetry-gateway
+        app.kubernetes.io/component: telemetry-gateway
+        app.kubernetes.io/part-of: keystone-core
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9091"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: kscore-telemetry-gateway
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: telemetry-gateway
+          image: ghcr.io/shawnbutts/keystone-core/kscore-telemetry-gateway:latest
+          imagePullPolicy: IfNotPresent
+          args:
+            - --config
+            - /etc/keystone-core/telemetry-gateway.yaml
+          ports:
+            - name: http
+              containerPort: 9091
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1Gi
+            requests:
+              cpu: 200m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: config
+              mountPath: /etc/keystone-core
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: kscore-telemetry-gateway

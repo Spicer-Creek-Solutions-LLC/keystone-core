@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kscore-telemetry-gateway
+  namespace: keystone-core
+  labels:
+    app.kubernetes.io/name: kscore-telemetry-gateway
+    app.kubernetes.io/component: telemetry-gateway
+    app.kubernetes.io/part-of: keystone-core
+data:
+  telemetry-gateway.yaml: |
+    # NATS connection settings
+    nats:
+      urls:
+        - "nats://kscore-server:4222"
+
+    # HTTP server settings
+    server:
+      listen: "0.0.0.0:9091"
+      read_timeout: 30s
+      write_timeout: 30s
+      metrics_path: /metrics
+      federate_path: /federate
+      health_path: /health
+      ready_path: /ready
+
+    # Metrics gateway configuration
+    metrics:
+      enabled: true
+      subject: "kscore.metrics.>"
+      max_age: 60s
+      max_series: 100000
+      max_labels_per_series: 20
+      drop_high_cardinality: false
+      high_cardinality_threshold: 1000
+      federation:
+        enabled: true
+
+    # Logs gateway configuration
+    logs:
+      enabled: true
+      subject: "kscore.logs.>"
+      max_entries: 100000
+      max_age: 1h
+      min_level: "debug"
+
+    # Traces gateway configuration
+    traces:
+      enabled: true
+      subject: "kscore.traces.>"
+      max_traces: 10000
+      max_age: 1h
+      sampling_rate: 1.0
+      sample_errors: true
+      slow_threshold: 1s
+
+    # High availability configuration
+    ha:
+      enabled: false
+      shard_count: 1
+      cleanup_interval: 1m
+
+    # Logging configuration
+    logging:
+      level: info
+      format: json
+      output: stdout

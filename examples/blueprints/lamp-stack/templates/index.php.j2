@@ -1,0 +1,85 @@
+<?php
+/**
+ * Keystone Core LAMP Stack - Default Landing Page
+ * Server: {{ server_name }}
+ */
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ server_name }} - LAMP Stack</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; margin-top: 0; }
+        .status { color: #28a745; }
+        .info { background: #f8f9fa; padding: 1rem; border-radius: 4px; margin: 1rem 0; }
+        .info dt { font-weight: bold; color: #666; }
+        .info dd { margin: 0 0 0.5rem 0; }
+        footer { margin-top: 2rem; color: #666; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Welcome to {{ server_name }}</h1>
+        <p class="status">Your LAMP stack is running successfully!</p>
+
+        <div class="info">
+            <h2>Server Information</h2>
+            <dl>
+                <dt>Server Name</dt>
+                <dd><?php echo $_SERVER['SERVER_NAME']; ?></dd>
+
+                <dt>Document Root</dt>
+                <dd><?php echo $_SERVER['DOCUMENT_ROOT']; ?></dd>
+
+                <dt>PHP Version</dt>
+                <dd><?php echo phpversion(); ?></dd>
+
+                <dt>Server Software</dt>
+                <dd><?php echo $_SERVER['SERVER_SOFTWARE']; ?></dd>
+            </dl>
+        </div>
+
+        <div class="info">
+            <h2>PHP Extensions</h2>
+            <p><?php echo implode(', ', get_loaded_extensions()); ?></p>
+        </div>
+
+        <?php
+        // Test MySQL connection if credentials are available
+        $db_test = false;
+        if (extension_loaded('mysqli')) {
+            $conn = @new mysqli('localhost', 'root', '', '');
+            if (!$conn->connect_error) {
+                $db_test = true;
+                $conn->close();
+            }
+        }
+        ?>
+
+        <div class="info">
+            <h2>Database Status</h2>
+            <p><?php echo $db_test ? '<span style="color: #28a745;">MySQL connection: OK</span>' : '<span style="color: #dc3545;">MySQL connection: Not configured</span>'; ?></p>
+        </div>
+
+        <footer>
+            <p>Deployed with <a href="https://github.com/kscore/keystone-core">Keystone Core</a> Blueprints</p>
+            <p>Generated: <?php echo date('Y-m-d H:i:s T'); ?></p>
+        </footer>
+    </div>
+</body>
+</html>

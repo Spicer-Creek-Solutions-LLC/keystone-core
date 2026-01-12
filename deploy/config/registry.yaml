@@ -1,0 +1,63 @@
+# Keystone Core Module Registry Configuration
+# See https://docs.keystonecore.io/docs/reference/configuration/ for full reference
+
+# Server settings
+server:
+  # HTTP API listen address
+  listen_address: "0.0.0.0:8081"
+
+# Storage settings
+storage:
+  # Directory for storing modules
+  data_dir: /var/lib/keystone-core/registry
+  # Maximum upload size (default 100MB)
+  max_upload_size: 104857600
+
+# Authentication settings
+auth:
+  # Enable authentication for write operations
+  enabled: false
+  # API key for write operations (publish, delete)
+  # api_key: "your-secret-api-key"
+  # Or use file for API key
+  # api_key_file: /etc/keystone-core/registry-api-key
+
+# Security settings
+security:
+  # Enable read-only mode (disable publish/delete)
+  read_only: false
+  # Enable CORS headers
+  cors_enabled: true
+  # Allowed origins for CORS (empty = all)
+  cors_origins: []
+  # TLS configuration (recommended for production)
+  # tls:
+  #   enabled: true
+  #   cert_file: /etc/keystone-core/registry.crt
+  #   key_file: /etc/keystone-core/registry.key
+
+# Signature verification
+verification:
+  # Require signatures for all published modules
+  require_signatures: false
+  # Trusted public keys for signature verification
+  # trusted_keys:
+  #   - /etc/keystone-core/trusted-keys/key1.pub
+  #   - /etc/keystone-core/trusted-keys/key2.pub
+
+# Logging configuration
+logging:
+  # Level: debug, info, warn, error
+  level: info
+  # Format: json, logfmt, text
+  format: json
+  # Output: stdout, stderr, or file path
+  output: /var/log/keystone-core/registry.log
+
+# Telemetry configuration
+telemetry:
+  enabled: true
+  prometheus:
+    enabled: true
+    # Metrics path (served on same port as API)
+    path: /metrics

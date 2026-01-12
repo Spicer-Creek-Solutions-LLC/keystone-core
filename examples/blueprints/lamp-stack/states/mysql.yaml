@@ -1,0 +1,114 @@
+# MySQL/MariaDB Configuration
+# Part of the LAMP Stack Blueprint
+
+{% if parameters.os_family == 'debian' %}
+{% set mysql_pkg = 'mariadb-server' %}
+{% set mysql_client = 'mariadb-client' %}
+{% set mysql_svc = 'mariadb' %}
+{% set mysql_conf_dir = '/etc/mysql/mariadb.conf.d' %}
+{% else %}
+{% set mysql_pkg = 'mariadb-server' %}
+{% set mysql_client = 'mariadb' %}
+{% set mysql_svc = 'mariadb' %}
+{% set mysql_conf_dir = '/etc/my.cnf.d' %}
+{% endif %}
+
+# Install MySQL/MariaDB server
+mysql_server:
+  pkg.installed:
+    - name: {{ mysql_pkg }}
+
+# Install MySQL client
+mysql_client:
+  pkg.installed:
+    - name: {{ mysql_client }}
+
+# MySQL configuration
+mysql_config:
+  file.managed:
+    - name: {{ mysql_conf_dir }}/99-kscore.cnf
+    - source: template://templates/mysql.cnf.j2
+    - template: jinja
+    - context:
+        bind_address: "{{ parameters.mysql_bind_address }}"
+        max_connections: {{ parameters.mysql_max_connections }}
+    - require:
+      - pkg: mysql_server
+
+# Start MySQL service
+mysql_service:
+  service.running:
+    - name: {{ mysql_svc }}
+    - enable: true
+    - watch:
+      - file: mysql_config
+    - require:
+      - pkg: mysql_server
+
+# Secure MySQL installation - set root password
+mysql_root_password:
+  cmd.run:
+    - name: |
+        mysql -u root <<EOF
+        ALTER USER 'root'@'localhost' IDENTIFIED BY '{{ parameters.mysql_root_password }}';
+        DELETE FROM mysql.user WHERE User='';
+        DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');
+        DROP DATABASE IF EXISTS test;
+        DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';
+        FLUSH PRIVILEGES;
+        EOF
+    - unless: mysql -u root -p'{{ parameters.mysql_root_password }}' -e "SELECT 1" 2>/dev/null
+    - require:
+      - service: mysql_service
+
+# Create application database
+app_database:
+  cmd.run:
+    - name: |
+        mysql -u root -p'{{ parameters.mysql_root_password }}' <<EOF
+        CREATE DATABASE IF NOT EXISTS {{ parameters.mysql_database }}
+          CHARACTER SET utf8mb4
+          COLLATE utf8mb4_unicode_ci;
+        EOF
+    - unless: mysql -u root -p'{{ parameters.mysql_root_password }}' -e "USE {{ parameters.mysql_database }}" 2>/dev/null
+    - require:
+      - cmd: mysql_root_password
+
+# Create application user
+app_user:
+  cmd.run:
+    - name: |
+        mysql -u root -p'{{ parameters.mysql_root_password }}' <<EOF
+        CREATE USER IF NOT EXISTS '{{ parameters.mysql_user }}'@'localhost' IDENTIFIED BY '{{ parameters.mysql_password }}';
+        GRANT ALL PRIVILEGES ON {{ parameters.mysql_database }}.* TO '{{ parameters.mysql_user }}'@'localhost';
+        FLUSH PRIVILEGES;
+        EOF
+    - unless: mysql -u root -p'{{ parameters.mysql_root_password }}' -e "SELECT User FROM mysql.user WHERE User='{{ parameters.mysql_user }}'" | grep -q {{ parameters.mysql_user }}
+    - require:
+      - cmd: app_database
+
+# phpMyAdmin (if enabled)
+{% if features.phpmyadmin %}
+phpmyadmin_package:
+  pkg.installed:
+    - name: phpmyadmin
+    - require:
+      - pkg: mysql_server
+
+phpmyadmin_config:
+  file.managed:
+    - name: /etc/phpmyadmin/config.inc.php
+    - source: template://templates/phpmyadmin.config.php.j2
+    - template: jinja
+    - require:
+      - pkg: phpmyadmin_package
+
+{% if parameters.os_family == 'debian' %}
+phpmyadmin_apache_config:
+  file.symlink:
+    - name: /etc/apache2/conf-enabled/phpmyadmin.conf
+    - target: /etc/phpmyadmin/apache.conf
+    - require:
+      - pkg: phpmyadmin_package
+{% endif %}
+{% endif %}

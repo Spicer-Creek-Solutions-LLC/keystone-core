@@ -1,0 +1,155 @@
+# LAMP Stack Blueprint Integration Tests
+# These tests verify the blueprint deployed correctly
+
+apiVersion: blueprints.kscore.io/v1
+kind: BlueprintTest
+metadata:
+  name: lamp-stack-integration
+  description: Integration tests for LAMP stack deployment
+
+tests:
+  # Apache Tests
+  - name: apache_service_running
+    description: Verify Apache is running
+    type: service
+    service:
+      name: apache2
+      state: running
+      enabled: true
+
+  - name: apache_listening
+    description: Verify Apache is listening on configured port
+    type: port
+    port:
+      number: "{{ parameters.http_port }}"
+      protocol: tcp
+      state: listening
+
+  - name: apache_responds
+    description: Verify Apache responds to HTTP requests
+    type: http
+    http:
+      url: "http://localhost:{{ parameters.http_port }}/"
+      method: GET
+      expected_status: 200
+      timeout: 10s
+
+  # PHP Tests
+  - name: php_installed
+    description: Verify PHP is installed
+    type: command
+    command:
+      cmd: php -v
+      expected_exit_code: 0
+      output_contains: "PHP"
+
+  - name: php_extensions_loaded
+    description: Verify required PHP extensions are loaded
+    type: command
+    command:
+      cmd: php -m
+      expected_exit_code: 0
+      output_contains:
+        - mysqli
+        - pdo_mysql
+        - json
+        - mbstring
+
+  - name: php_config_applied
+    description: Verify PHP configuration is applied
+    type: command
+    command:
+      cmd: php -i | grep memory_limit
+      expected_exit_code: 0
+      output_contains: "{{ parameters.php_memory_limit }}"
+
+  # MySQL Tests
+  - name: mysql_service_running
+    description: Verify MySQL/MariaDB is running
+    type: service
+    service:
+      name: mariadb
+      state: running
+      enabled: true
+
+  - name: mysql_listening
+    description: Verify MySQL is listening on port 3306
+    type: port
+    port:
+      number: 3306
+      protocol: tcp
+      state: listening
+
+  - name: mysql_accepts_connections
+    description: Verify MySQL accepts connections with root password
+    type: command
+    command:
+      cmd: mysql -u root -p'{{ parameters.mysql_root_password }}' -e "SELECT 1"
+      expected_exit_code: 0
+
+  - name: mysql_database_exists
+    description: Verify application database exists
+    type: command
+    command:
+      cmd: mysql -u root -p'{{ parameters.mysql_root_password }}' -e "USE {{ parameters.mysql_database }}"
+      expected_exit_code: 0
+
+  - name: mysql_user_exists
+    description: Verify application user can connect
+    type: command
+    command:
+      cmd: mysql -u {{ parameters.mysql_user }} -p'{{ parameters.mysql_password }}' -e "SELECT 1"
+      expected_exit_code: 0
+
+  # Integration Tests
+  - name: php_mysql_connection
+    description: Verify PHP can connect to MySQL
+    type: command
+    command:
+      cmd: |
+        php -r "
+          \$conn = new mysqli('localhost', '{{ parameters.mysql_user }}', '{{ parameters.mysql_password }}', '{{ parameters.mysql_database }}');
+          if (\$conn->connect_error) { exit(1); }
+          echo 'Connected successfully';
+          \$conn->close();
+        "
+      expected_exit_code: 0
+      output_contains: "Connected successfully"
+
+  - name: document_root_exists
+    description: Verify document root directory exists
+    type: file
+    file:
+      path: "{{ parameters.document_root }}"
+      state: directory
+      owner: www-data
+      group: www-data
+
+  - name: index_page_accessible
+    description: Verify index page is accessible
+    type: http
+    http:
+      url: "http://localhost:{{ parameters.http_port }}/index.php"
+      method: GET
+      expected_status: 200
+      body_contains: "LAMP Stack"
+
+# Conditional tests based on features
+conditional_tests:
+  - name: phpmyadmin_accessible
+    description: Verify phpMyAdmin is accessible (if enabled)
+    condition: "{{ features.phpmyadmin }}"
+    type: http
+    http:
+      url: "http://localhost:{{ parameters.http_port }}/phpmyadmin/"
+      method: GET
+      expected_status: 200
+
+  - name: opcache_enabled
+    description: Verify OPcache is enabled (if configured)
+    condition: "{{ features.opcache }}"
+    type: command
+    command:
+      cmd: php -i | grep "opcache.enable"
+      expected_exit_code: 0
+      output_contains: "On"

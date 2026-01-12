@@ -1,0 +1,133 @@
+# Keystone Core Telemetry Gateway Configuration
+# See https://docs.keystonecore.io/docs/reference/configuration/ for full reference
+
+# NATS connection settings
+nats:
+  # URLs to connect to NATS (supports multiple for failover)
+  urls:
+    - "nats://localhost:4222"
+  # Optional: Path to CA certificate for TLS
+  # ca_cert: /etc/keystone-core/ca.crt
+  # Optional: Path to client certificate for mTLS
+  # cert: /etc/keystone-core/client.crt
+  # Optional: Path to client private key for mTLS
+  # key: /etc/keystone-core/client.key
+  # Optional: Credentials file
+  # credentials_file: /etc/keystone-core/nats.creds
+
+# HTTP server settings
+server:
+  # Address to listen on
+  listen: "0.0.0.0:9091"
+  # Read timeout
+  read_timeout: 30s
+  # Write timeout
+  write_timeout: 30s
+  # Metrics endpoint path
+  metrics_path: /metrics
+  # Federation endpoint path
+  federate_path: /federate
+  # Health check endpoint path
+  health_path: /health
+  # Ready check endpoint path
+  ready_path: /ready
+  # Optional: TLS configuration
+  # tls:
+  #   cert: /etc/keystone-core/gateway.crt
+  #   key: /etc/keystone-core/gateway.key
+
+# Metrics gateway configuration
+metrics:
+  # Enable metrics gateway
+  enabled: true
+  # NATS subject for metrics
+  subject: "kscore.metrics.>"
+  # Maximum staleness age for agent metrics
+  max_age: 60s
+  # Maximum number of metric series
+  max_series: 100000
+  # Maximum labels per series
+  max_labels_per_series: 20
+  # Drop high-cardinality metrics
+  drop_high_cardinality: false
+  # Threshold for high-cardinality detection
+  high_cardinality_threshold: 1000
+  # Federation settings
+  federation:
+    enabled: true
+  # Optional: Remote write to Prometheus-compatible backends
+  # remote_write:
+  #   - url: "http://prometheus:9090/api/v1/write"
+  #     batch_size: 1000
+  #     flush_interval: 15s
+  #     timeout: 30s
+  #     max_retries: 3
+
+# Logs gateway configuration
+logs:
+  # Enable logs gateway
+  enabled: true
+  # NATS subject for logs
+  subject: "kscore.logs.>"
+  # Maximum number of log entries to keep in memory
+  max_entries: 100000
+  # Maximum age for log entries
+  max_age: 1h
+  # Minimum log level to store (debug, info, warn, error)
+  min_level: "debug"
+  # Only include logs from these sources (empty = all)
+  include_sources: []
+  # Exclude logs from these sources
+  exclude_sources: []
+  # Optional: Push to Loki
+  # loki:
+  #   url: "http://loki:3100/loki/api/v1/push"
+  #   batch_size: 100
+  #   flush_interval: 5s
+  #   timeout: 10s
+  #   max_retries: 3
+
+# Traces gateway configuration
+traces:
+  # Enable traces gateway
+  enabled: true
+  # NATS subject for traces
+  subject: "kscore.traces.>"
+  # Maximum number of traces to keep in memory
+  max_traces: 10000
+  # Maximum age for traces
+  max_age: 1h
+  # Sampling rate (0.0 to 1.0)
+  sampling_rate: 1.0
+  # Always sample traces with errors
+  sample_errors: true
+  # Always sample traces slower than this
+  slow_threshold: 1s
+  # Optional: Export to OTLP endpoint (Tempo, Jaeger, etc.)
+  # otlp:
+  #   url: "http://tempo:4318/v1/traces"
+  #   batch_size: 100
+  #   flush_interval: 5s
+  #   timeout: 10s
+  #   max_retries: 3
+  #   use_gzip: true
+
+# High availability configuration
+ha:
+  # Enable HA mode
+  enabled: false
+  # Instance ID (must be unique per instance)
+  instance_id: "gateway-1"
+  # Shard count for distributing work
+  shard_count: 1
+  # Cleanup interval for stale data
+  cleanup_interval: 1m
+
+# Logging configuration
+logging:
+  # Level: debug, info, warn, error
+  level: info
+  # Format: json, logfmt, text
+  format: json
+  # Output: stdout, stderr, or file path
+  output: /var/log/keystone-core/telemetry-gateway.log

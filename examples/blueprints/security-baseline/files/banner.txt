@@ -1,0 +1,21 @@
+*******************************************************************************
+*                                                                             *
+*                           AUTHORIZED ACCESS ONLY                            *
+*                                                                             *
+*  This system is for authorized use only. All activities on this system      *
+*  are monitored and logged. Unauthorized access or use of this system        *
+*  is prohibited and may result in criminal and/or civil prosecution.         *
+*                                                                             *
+*  By accessing this system, you consent to monitoring and logging of         *
+*  all activities, including but not limited to:                              *
+*    - Network traffic                                                        *
+*    - Command execution                                                      *
+*    - File access                                                            *
+*    - Authentication attempts                                                *
+*                                                                             *
+*  Evidence of unauthorized use collected during monitoring may be used       *
+*  for administrative, criminal, or other adverse action.                     *
+*                                                                             *
+*  DISCONNECT IMMEDIATELY if you are not an authorized user.                  *
+*                                                                             *
+*******************************************************************************

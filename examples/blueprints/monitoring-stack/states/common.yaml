@@ -1,0 +1,45 @@
+# Common Setup for Monitoring Stack
+# Creates users, directories, and installs dependencies
+
+# Create monitoring user
+monitoring_user:
+  user.present:
+    - name: prometheus
+    - system: true
+    - shell: /usr/sbin/nologin
+    - home: {{ parameters.data_dir }}
+    - createhome: false
+
+# Create monitoring group
+monitoring_group:
+  group.present:
+    - name: prometheus
+    - system: true
+
+# Create base directories
+monitoring_data_dir:
+  file.directory:
+    - name: {{ parameters.data_dir }}
+    - user: prometheus
+    - group: prometheus
+    - mode: 755
+    - makedirs: true
+
+monitoring_config_dir:
+  file.directory:
+    - name: {{ parameters.config_dir }}
+    - user: root
+    - group: prometheus
+    - mode: 755
+    - makedirs: true
+
+# Install common dependencies
+monitoring_dependencies:
+  pkg.installed:
+    - pkgs:
+      - curl
+      - tar
+      - gzip
+{% if parameters.os_family == 'debian' %}
+      - ca-certificates
+{% endif %}

@@ -1,0 +1,124 @@
+# Audit Rules
+# Managed by Keystone Core Security Baseline Blueprint
+
+# Remove any existing rules
+-D
+
+# Set buffer size (adjust based on system load)
+-b 8192
+
+# Failure mode (1=print, 2=panic)
+-f 1
+
+# Rate limit (0=disabled)
+-r 100
+
+###################
+# Identity Changes
+###################
+
+# Monitor user/group changes
+-w /etc/group -p wa -k identity
+-w /etc/passwd -p wa -k identity
+-w /etc/gshadow -p wa -k identity
+-w /etc/shadow -p wa -k identity
+-w /etc/security/opasswd -p wa -k identity
+
+# Monitor sudoers
+-w /etc/sudoers -p wa -k sudoers
+-w /etc/sudoers.d/ -p wa -k sudoers
+
+###################
+# Authentication
+###################
+
+# Monitor login configuration
+-w /etc/login.defs -p wa -k logins
+-w /etc/securetty -p wa -k logins
+-w /var/log/faillog -p wa -k logins
+-w /var/log/lastlog -p wa -k logins
+-w /var/log/tallylog -p wa -k logins
+
+# PAM configuration
+-w /etc/pam.d/ -p wa -k pam
+
+# SSH configuration
+-w /etc/ssh/sshd_config -p wa -k sshd
+-w /etc/ssh/sshd_config.d/ -p wa -k sshd
+
+###################
+# System Configuration
+###################
+
+# Monitor network configuration
+-w /etc/hosts -p wa -k network
+-w /etc/sysconfig/network -p wa -k network
+-w /etc/network/ -p wa -k network
+-w /etc/netplan/ -p wa -k network
+
+# Monitor system time changes
+-a always,exit -F arch=b64 -S adjtimex -S settimeofday -S clock_settime -k time
+-a always,exit -F arch=b32 -S adjtimex -S settimeofday -S stime -S clock_settime -k time
+-w /etc/localtime -p wa -k time
+
+# Monitor hostname/domainname changes
+-a always,exit -F arch=b64 -S sethostname -S setdomainname -k hostname
+-a always,exit -F arch=b32 -S sethostname -S setdomainname -k hostname
+
+# Monitor sysctl changes
+-w /etc/sysctl.conf -p wa -k sysctl
+-w /etc/sysctl.d/ -p wa -k sysctl
+
+###################
+# Privileged Commands
+###################
+
+# Monitor use of privilege escalation
+-w /bin/su -p x -k privilege
+-w /usr/bin/sudo -p x -k privilege
+-w /etc/sudoers -p rwa -k privilege
+
+# Monitor privilege execution (setuid/setgid)
+-a always,exit -F arch=b64 -S execve -C uid!=euid -F euid=0 -k privilege
+-a always,exit -F arch=b32 -S execve -C uid!=euid -F euid=0 -k privilege
+
+###################
+# File Access
+###################
+
+# Unauthorized access attempts
+-a always,exit -F arch=b64 -S creat -S open -S openat -S truncate -S ftruncate -F exit=-EACCES -F auid>=1000 -F auid!=4294967295 -k access
+-a always,exit -F arch=b64 -S creat -S open -S openat -S truncate -S ftruncate -F exit=-EPERM -F auid>=1000 -F auid!=4294967295 -k access
+-a always,exit -F arch=b32 -S creat -S open -S openat -S truncate -S ftruncate -F exit=-EACCES -F auid>=1000 -F auid!=4294967295 -k access
+-a always,exit -F arch=b32 -S creat -S open -S openat -S truncate -S ftruncate -F exit=-EPERM -F auid>=1000 -F auid!=4294967295 -k access
+
+# Monitor mounts
+-a always,exit -F arch=b64 -S mount -F auid>=1000 -F auid!=4294967295 -k mount
+-a always,exit -F arch=b32 -S mount -F auid>=1000 -F auid!=4294967295 -k mount
+
+###################
+# Process Execution
+###################
+
+# Monitor process termination
+-a always,exit -F arch=b64 -S kill -k process
+-a always,exit -F arch=b32 -S kill -k process
+
+# Monitor kernel module loading
+-w /sbin/insmod -p x -k modules
+-w /sbin/rmmod -p x -k modules
+-w /sbin/modprobe -p x -k modules
+-a always,exit -F arch=b64 -S init_module -S delete_module -k modules
+-a always,exit -F arch=b32 -S init_module -S delete_module -k modules
+
+###################
+# Audit Configuration
+###################
+
+# Monitor audit configuration changes
+-w /etc/audit/ -p wa -k audit
+-w /etc/libaudit.conf -p wa -k audit
+-w /etc/audisp/ -p wa -k audit
+
+# Make the audit configuration immutable (must be last)
+-e 2

@@ -1,0 +1,178 @@
+# Grafana Installation and Configuration
+# Part of the Monitoring Stack Blueprint
+
+{% if parameters.os_family == 'debian' %}
+# Add Grafana APT repository
+grafana_repo_key:
+  cmd.run:
+    - name: |
+        mkdir -p /etc/apt/keyrings/ && \
+        wget -q -O - https://apt.grafana.com/gpg.key | gpg --dearmor > /etc/apt/keyrings/grafana.gpg
+    - creates: /etc/apt/keyrings/grafana.gpg
+
+grafana_repo:
+  file.managed:
+    - name: /etc/apt/sources.list.d/grafana.list
+    - contents: |
+        deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com stable main
+    - require:
+      - cmd: grafana_repo_key
+
+grafana_apt_update:
+  cmd.run:
+    - name: apt-get update
+    - onchanges:
+      - file: grafana_repo
+
+grafana_package:
+  pkg.installed:
+    - name: grafana
+    - version: {{ parameters.grafana_version }}
+    - require:
+      - cmd: grafana_apt_update
+
+{% else %}
+# Add Grafana YUM repository
+grafana_repo:
+  file.managed:
+    - name: /etc/yum.repos.d/grafana.repo
+    - contents: |
+        [grafana]
+        name=grafana
+        baseurl=https://rpm.grafana.com
+        repo_gpgcheck=1
+        enabled=1
+        gpgcheck=1
+        gpgkey=https://rpm.grafana.com/gpg.key
+        sslverify=1
+        sslcacert=/etc/pki/tls/certs/ca-bundle.crt
+
+grafana_package:
+  pkg.installed:
+    - name: grafana
+    - version: {{ parameters.grafana_version }}
+    - require:
+      - file: grafana_repo
+{% endif %}
+
+# Create Grafana provisioning directories
+grafana_provisioning_datasources:
+  file.directory:
+    - name: /etc/grafana/provisioning/datasources
+    - user: root
+    - group: grafana
+    - mode: 755
+    - makedirs: true
+    - require:
+      - pkg: grafana_package
+
+grafana_provisioning_dashboards:
+  file.directory:
+    - name: /etc/grafana/provisioning/dashboards
+    - user: root
+    - group: grafana
+    - mode: 755
+    - makedirs: true
+    - require:
+      - pkg: grafana_package
+
+grafana_dashboards_dir:
+  file.directory:
+    - name: /var/lib/grafana/dashboards
+    - user: grafana
+    - group: grafana
+    - mode: 755
+    - require:
+      - pkg: grafana_package
+
+# Deploy Grafana configuration
+grafana_config:
+  file.managed:
+    - name: /etc/grafana/grafana.ini
+    - source: template://templates/grafana.ini.j2
+    - template: jinja
+    - context:
+        grafana_port: {{ parameters.grafana_port }}
+        grafana_domain: "{{ parameters.grafana_domain }}"
+        grafana_root_url: "{{ parameters.grafana_root_url }}"
+        grafana_admin_user: "{{ parameters.grafana_admin_user }}"
+        grafana_admin_password: "{{ parameters.grafana_admin_password }}"
+    - user: root
+    - group: grafana
+    - mode: 640
+    - require:
+      - pkg: grafana_package
+
+# Provision Prometheus datasource
+grafana_prometheus_datasource:
+  file.managed:
+    - name: /etc/grafana/provisioning/datasources/prometheus.yml
+    - contents: |
+        apiVersion: 1
+        datasources:
+          - name: Prometheus
+            type: prometheus
+            access: proxy
+            url: http://localhost:{{ parameters.prometheus_port }}
+            isDefault: true
+            editable: false
+    - user: root
+    - group: grafana
+    - mode: 640
+    - require:
+      - file: grafana_provisioning_datasources
+
+# Provision dashboard provider
+grafana_dashboard_provider:
+  file.managed:
+    - name: /etc/grafana/provisioning/dashboards/default.yml
+    - contents: |
+        apiVersion: 1
+        providers:
+          - name: 'default'
+            orgId: 1
+            folder: ''
+            type: file
+            disableDeletion: false
+            editable: true
+            options:
+              path: /var/lib/grafana/dashboards
+    - user: root
+    - group: grafana
+    - mode: 640
+    - require:
+      - file: grafana_provisioning_dashboards
+
+# Deploy default dashboards
+{% if features.default_dashboards %}
+grafana_node_dashboard:
+  file.managed:
+    - name: /var/lib/grafana/dashboards/node-exporter.json
+    - source: file://files/dashboards/node-exporter.json
+    - user: grafana
+    - group: grafana
+    - mode: 640
+    - require:
+      - file: grafana_dashboards_dir
+
+grafana_prometheus_dashboard:
+  file.managed:
+    - name: /var/lib/grafana/dashboards/prometheus.json
+    - source: file://files/dashboards/prometheus.json
+    - user: grafana
+    - group: grafana
+    - mode: 640
+    - require:
+      - file: grafana_dashboards_dir
+{% endif %}
+
+# Start and enable Grafana
+grafana_service:
+  service.running:
+    - name: grafana-server
+    - enable: true
+    - watch:
+      - file: grafana_config
+      - file: grafana_prometheus_datasource
+    - require:
+      - pkg: grafana_package

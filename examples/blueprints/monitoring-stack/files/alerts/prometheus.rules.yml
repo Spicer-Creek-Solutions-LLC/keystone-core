@@ -1,0 +1,124 @@
+# Prometheus Self-Monitoring Alert Rules
+# Part of Keystone Core Monitoring Stack Blueprint
+
+groups:
+  - name: prometheus-alerts
+    rules:
+      # Prometheus target down
+      - alert: PrometheusTargetMissing
+        expr: up == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus target missing (instance {{ $labels.instance }})"
+          description: "A Prometheus target has disappeared. Job: {{ $labels.job }}."
+
+      # Prometheus configuration reload failure
+      - alert: PrometheusConfigurationReloadFailure
+        expr: prometheus_config_last_reload_successful != 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus configuration reload failure"
+          description: "Prometheus configuration reload has failed."
+
+      # Prometheus too many restarts
+      - alert: PrometheusTooManyRestarts
+        expr: changes(process_start_time_seconds{job="prometheus"}[15m]) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus too many restarts"
+          description: "Prometheus has restarted more than twice in the last 15 minutes."
+
+      # Prometheus alerts manager not sending alerts
+      - alert: PrometheusAlertmanagerE2eDeadManSwitch
+        expr: absent(ALERTS{alertname="Watchdog", severity="none"})
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Alertmanager dead man switch"
+          description: "This is a dead man switch alert. If this fires, it means Alertmanager is not working."
+
+      # High query load
+      - alert: PrometheusQueryLoadHigh
+        expr: rate(prometheus_engine_query_duration_seconds_sum[5m]) / rate(prometheus_engine_query_duration_seconds_count[5m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus query load high"
+          description: "Prometheus is experiencing high query load. Average query duration: {{ $value }}s."
+
+      # Prometheus TSDB compaction failed
+      - alert: PrometheusTsdbCompactionsFailed
+        expr: increase(prometheus_tsdb_compactions_failed_total[1h]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus TSDB compaction failed"
+          description: "Prometheus TSDB compaction has failed in the last hour."
+
+      # Prometheus TSDB reload failure
+      - alert: PrometheusTsdbReloadsFailed
+        expr: increase(prometheus_tsdb_reloads_failures_total[1h]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus TSDB reload failed"
+          description: "Prometheus TSDB reload has failed in the last hour."
+
+      # Prometheus not connected to alertmanager
+      - alert: PrometheusNotConnectedToAlertmanager
+        expr: prometheus_notifications_alertmanagers_discovered < 1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Prometheus not connected to Alertmanager"
+          description: "Prometheus cannot reach any Alertmanager."
+
+      # Prometheus rule evaluation failures
+      - alert: PrometheusRuleEvaluationFailures
+        expr: increase(prometheus_rule_evaluation_failures_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus rule evaluation failures"
+          description: "Prometheus encountered {{ $value }} rule evaluation failures."
+
+  - name: prometheus-recording-rules
+    rules:
+      # Recording rules for common queries
+      - record: instance:node_cpu_utilisation:rate5m
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+
+      - record: instance:node_memory_utilisation:ratio
+        expr: 1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)
+
+      - record: instance:node_filesystem_utilisation:ratio
+        expr: 1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"})
+
+      - record: instance:node_network_receive_bytes:rate5m
+        expr: rate(node_network_receive_bytes_total[5m])
+
+      - record: instance:node_network_transmit_bytes:rate5m
+        expr: rate(node_network_transmit_bytes_total[5m])
+
+  - name: watchdog
+    rules:
+      # Dead man's switch - always firing alert to ensure alerting pipeline works
+      - alert: Watchdog
+        expr: vector(1)
+        labels:
+          severity: none
+        annotations:
+          summary: "Alerting Watchdog"
+          description: "This is an always-firing alert. It is used to ensure the alerting pipeline is functional."
