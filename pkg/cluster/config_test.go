@@ -787,3 +787,354 @@ func TestDefaultConfig_AddressFamilyPreference(t *testing.T) {
 	cfg := DefaultConfig()
 	assert.Equal(t, PreferIPv4, cfg.AddressFamilyPreference)
 }
+
+func TestEtcdEmbeddedTLSConfigValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  *EtcdEmbeddedTLSConfig
+		wantErr string
+	}{
+		{
+			name:    "disabled tls",
+			config:  &EtcdEmbeddedTLSConfig{Enabled: false},
+			wantErr: "",
+		},
+		{
+			name: "auto tls enabled",
+			config: &EtcdEmbeddedTLSConfig{
+				Enabled: true,
+				AutoTLS: true,
+			},
+			wantErr: "",
+		},
+		{
+			name: "peer auto tls enabled",
+			config: &EtcdEmbeddedTLSConfig{
+				Enabled:     true,
+				AutoTLS:     true,
+				PeerAutoTLS: true,
+			},
+			wantErr: "",
+		},
+		{
+			name: "missing client cert without auto tls",
+			config: &EtcdEmbeddedTLSConfig{
+				Enabled:       true,
+				ClientKeyFile: "/path/to/key",
+			},
+			wantErr: "client_cert_file is required when TLS is enabled",
+		},
+		{
+			name: "missing client key without auto tls",
+			config: &EtcdEmbeddedTLSConfig{
+				Enabled:        true,
+				ClientCertFile: "/path/to/cert",
+			},
+			wantErr: "client_key_file is required when TLS is enabled",
+		},
+		{
+			name: "client cert file not found",
+			config: &EtcdEmbeddedTLSConfig{
+				Enabled:        true,
+				ClientCertFile: "/nonexistent/client.crt",
+				ClientKeyFile:  "/nonexistent/client.key",
+			},
+			wantErr: "client_cert_file not found",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.config.Validate()
+			if tt.wantErr == "" {
+				assert.NoError(t, err)
+			} else {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestEtcdEmbeddedTLSConfigValidate_WithTempFiles(t *testing.T) {
+	// Create temporary certificate and key files for testing
+	tmpDir := t.TempDir()
+
+	clientCertFile := tmpDir + "/client.crt"
+	clientKeyFile := tmpDir + "/client.key"
+	clientCAFile := tmpDir + "/client-ca.crt"
+	peerCertFile := tmpDir + "/peer.crt"
+	peerKeyFile := tmpDir + "/peer.key"
+	peerCAFile := tmpDir + "/peer-ca.crt"
+
+	// Create empty test files
+	for _, f := range []string{clientCertFile, clientKeyFile, clientCAFile, peerCertFile, peerKeyFile, peerCAFile} {
+		err := os.WriteFile(f, []byte("test"), 0644)
+		require.NoError(t, err)
+	}
+
+	tests := []struct {
+		name    string
+		config  *EtcdEmbeddedTLSConfig
+		wantErr string
+	}{
+		{
+			name: "valid manual tls config",
+			config: &EtcdEmbeddedTLSConfig{
+				Enabled:        true,
+				ClientCertFile: clientCertFile,
+				ClientKeyFile:  clientKeyFile,
+			},
+			wantErr: "",
+		},
+		{
+			name: "valid tls with client CA",
+			config: &EtcdEmbeddedTLSConfig{
+				Enabled:        true,
+				ClientCertFile: clientCertFile,
+				ClientKeyFile:  clientKeyFile,
+				ClientCAFile:   clientCAFile,
+			},
+			wantErr: "",
+		},
+		{
+			name: "valid tls with peer certs",
+			config: &EtcdEmbeddedTLSConfig{
+				Enabled:        true,
+				ClientCertFile: clientCertFile,
+				ClientKeyFile:  clientKeyFile,
+				PeerCertFile:   peerCertFile,
+				PeerKeyFile:    peerKeyFile,
+			},
+			wantErr: "",
+		},
+		{
+			name: "valid tls with all certs",
+			config: &EtcdEmbeddedTLSConfig{
+				Enabled:        true,
+				ClientCertFile: clientCertFile,
+				ClientKeyFile:  clientKeyFile,
+				ClientCAFile:   clientCAFile,
+				PeerCertFile:   peerCertFile,
+				PeerKeyFile:    peerKeyFile,
+				PeerCAFile:     peerCAFile,
+				ClientCertAuth: true,
+				PeerCertAuth:   true,
+			},
+			wantErr: "",
+		},
+		{
+			name: "peer cert file not found",
+			config: &EtcdEmbeddedTLSConfig{
+				Enabled:        true,
+				ClientCertFile: clientCertFile,
+				ClientKeyFile:  clientKeyFile,
+				PeerCertFile:   "/nonexistent/peer.crt",
+			},
+			wantErr: "peer_cert_file not found",
+		},
+		{
+			name: "peer key file not found",
+			config: &EtcdEmbeddedTLSConfig{
+				Enabled:        true,
+				ClientCertFile: clientCertFile,
+				ClientKeyFile:  clientKeyFile,
+				PeerKeyFile:    "/nonexistent/peer.key",
+			},
+			wantErr: "peer_key_file not found",
+		},
+		{
+			name: "client CA file not found",
+			config: &EtcdEmbeddedTLSConfig{
+				Enabled:        true,
+				ClientCertFile: clientCertFile,
+				ClientKeyFile:  clientKeyFile,
+				ClientCAFile:   "/nonexistent/ca.crt",
+			},
+			wantErr: "client_ca_file not found",
+		},
+		{
+			name: "peer CA file not found",
+			config: &EtcdEmbeddedTLSConfig{
+				Enabled:        true,
+				ClientCertFile: clientCertFile,
+				ClientKeyFile:  clientKeyFile,
+				PeerCAFile:     "/nonexistent/peer-ca.crt",
+			},
+			wantErr: "peer_ca_file not found",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.config.Validate()
+			if tt.wantErr == "" {
+				assert.NoError(t, err)
+			} else {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestEtcdEmbeddedTLSConfig_GetPeerCertFile(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   *EtcdEmbeddedTLSConfig
+		expected string
+	}{
+		{
+			name: "peer cert file specified",
+			config: &EtcdEmbeddedTLSConfig{
+				ClientCertFile: "/path/to/client.crt",
+				PeerCertFile:   "/path/to/peer.crt",
+			},
+			expected: "/path/to/peer.crt",
+		},
+		{
+			name: "peer cert file empty - falls back to client",
+			config: &EtcdEmbeddedTLSConfig{
+				ClientCertFile: "/path/to/client.crt",
+				PeerCertFile:   "",
+			},
+			expected: "/path/to/client.crt",
+		},
+		{
+			name:     "both empty",
+			config:   &EtcdEmbeddedTLSConfig{},
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, tt.config.GetPeerCertFile())
+		})
+	}
+}
+
+func TestEtcdEmbeddedTLSConfig_GetPeerKeyFile(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   *EtcdEmbeddedTLSConfig
+		expected string
+	}{
+		{
+			name: "peer key file specified",
+			config: &EtcdEmbeddedTLSConfig{
+				ClientKeyFile: "/path/to/client.key",
+				PeerKeyFile:   "/path/to/peer.key",
+			},
+			expected: "/path/to/peer.key",
+		},
+		{
+			name: "peer key file empty - falls back to client",
+			config: &EtcdEmbeddedTLSConfig{
+				ClientKeyFile: "/path/to/client.key",
+				PeerKeyFile:   "",
+			},
+			expected: "/path/to/client.key",
+		},
+		{
+			name:     "both empty",
+			config:   &EtcdEmbeddedTLSConfig{},
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, tt.config.GetPeerKeyFile())
+		})
+	}
+}
+
+func TestEtcdEmbeddedTLSConfig_GetPeerCAFile(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   *EtcdEmbeddedTLSConfig
+		expected string
+	}{
+		{
+			name: "peer CA file specified",
+			config: &EtcdEmbeddedTLSConfig{
+				ClientCAFile: "/path/to/client-ca.crt",
+				PeerCAFile:   "/path/to/peer-ca.crt",
+			},
+			expected: "/path/to/peer-ca.crt",
+		},
+		{
+			name: "peer CA file empty - falls back to client",
+			config: &EtcdEmbeddedTLSConfig{
+				ClientCAFile: "/path/to/client-ca.crt",
+				PeerCAFile:   "",
+			},
+			expected: "/path/to/client-ca.crt",
+		},
+		{
+			name:     "both empty",
+			config:   &EtcdEmbeddedTLSConfig{},
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, tt.config.GetPeerCAFile())
+		})
+	}
+}
+
+func TestEtcdEmbeddedConfig_IsTLSEnabled(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   *EtcdEmbeddedConfig
+		expected bool
+	}{
+		{
+			name:     "nil TLS config",
+			config:   &EtcdEmbeddedConfig{TLS: nil},
+			expected: false,
+		},
+		{
+			name: "TLS disabled",
+			config: &EtcdEmbeddedConfig{
+				TLS: &EtcdEmbeddedTLSConfig{Enabled: false},
+			},
+			expected: false,
+		},
+		{
+			name: "TLS enabled",
+			config: &EtcdEmbeddedConfig{
+				TLS: &EtcdEmbeddedTLSConfig{Enabled: true},
+			},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, tt.config.IsTLSEnabled())
+		})
+	}
+}
+
+func TestEtcdEmbeddedConfigValidate_WithTLS(t *testing.T) {
+	// Test that embedded config validation calls TLS validation
+	config := &EtcdEmbeddedConfig{
+		DataDir:             "data/etcd",
+		ClientPort:          2379,
+		PeerPort:            2380,
+		InitialClusterState: "new",
+		QuotaBackendBytes:   2 * 1024 * 1024 * 1024,
+		TLS: &EtcdEmbeddedTLSConfig{
+			Enabled:       true,
+			ClientKeyFile: "/path/to/key", // Missing cert file
+		},
+	}
+
+	err := config.Validate()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "client_cert_file is required")
+}

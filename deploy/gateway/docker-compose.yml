@@ -9,10 +9,11 @@
 # - Grafana for visualization
 #
 # Usage:
+#   export GRAFANA_ADMIN_PASSWORD=<your-secure-password>
 #   docker-compose up -d
 #
 # Access:
-#   - Grafana: http://localhost:3000 (admin/admin)
+#   - Grafana: http://localhost:3000 (admin/GRAFANA_ADMIN_PASSWORD)
 #   - Prometheus: http://localhost:9090
 #   - Gateway: http://localhost:8080
 #     - /metrics - Prometheus metrics endpoint
@@ -115,9 +116,10 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_AUTH_ANONYMOUS_ENABLED=true
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      # SECURITY: Password is required via environment variable
+      # Set GRAFANA_ADMIN_PASSWORD before running: export GRAFANA_ADMIN_PASSWORD=<your-secure-password>
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
+      - GF_AUTH_ANONYMOUS_ENABLED=false
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - grafana_data:/var/lib/grafana

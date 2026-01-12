@@ -458,6 +458,133 @@ type EtcdEmbeddedConfig struct {
 
 	// LogLevel is the etcd log level.
 	LogLevel string `yaml:"log_level" mapstructure:"log_level"`
+
+	// TLS contains TLS configuration for embedded etcd client and peer connections.
+	// When enabled, all client and peer communication will be encrypted.
+	TLS *EtcdEmbeddedTLSConfig `yaml:"tls" mapstructure:"tls"`
+}
+
+// EtcdEmbeddedTLSConfig contains TLS configuration for embedded etcd server.
+type EtcdEmbeddedTLSConfig struct {
+	// Enabled indicates if TLS is enabled for embedded etcd.
+	Enabled bool `yaml:"enabled" mapstructure:"enabled"`
+
+	// ClientCertFile is the path to the certificate for client connections.
+	ClientCertFile string `yaml:"client_cert_file" mapstructure:"client_cert_file"`
+
+	// ClientKeyFile is the path to the private key for client connections.
+	ClientKeyFile string `yaml:"client_key_file" mapstructure:"client_key_file"`
+
+	// ClientCAFile is the path to the CA certificate for verifying client certificates.
+	// If set, client certificate authentication (mTLS) is required.
+	ClientCAFile string `yaml:"client_ca_file" mapstructure:"client_ca_file"`
+
+	// PeerCertFile is the path to the certificate for peer connections.
+	// If empty, uses ClientCertFile.
+	PeerCertFile string `yaml:"peer_cert_file" mapstructure:"peer_cert_file"`
+
+	// PeerKeyFile is the path to the private key for peer connections.
+	// If empty, uses ClientKeyFile.
+	PeerKeyFile string `yaml:"peer_key_file" mapstructure:"peer_key_file"`
+
+	// PeerCAFile is the path to the CA certificate for verifying peer certificates.
+	// If empty, uses ClientCAFile.
+	PeerCAFile string `yaml:"peer_ca_file" mapstructure:"peer_ca_file"`
+
+	// ClientCertAuth enables client certificate authentication (mTLS) for client connections.
+	ClientCertAuth bool `yaml:"client_cert_auth" mapstructure:"client_cert_auth"`
+
+	// PeerCertAuth enables peer certificate authentication (mTLS) for peer connections.
+	// This is strongly recommended for multi-node clusters.
+	PeerCertAuth bool `yaml:"peer_cert_auth" mapstructure:"peer_cert_auth"`
+
+	// AutoTLS enables automatic TLS certificate generation.
+	// Uses self-signed certificates generated at startup.
+	// Useful for development but NOT recommended for production.
+	AutoTLS bool `yaml:"auto_tls" mapstructure:"auto_tls"`
+
+	// PeerAutoTLS enables automatic TLS certificate generation for peer connections.
+	// Uses self-signed certificates generated at startup.
+	// Useful for development but NOT recommended for production.
+	PeerAutoTLS bool `yaml:"peer_auto_tls" mapstructure:"peer_auto_tls"`
+}
+
+// Validate checks if the embedded TLS configuration is valid.
+func (c *EtcdEmbeddedTLSConfig) Validate() error {
+	if c == nil || !c.Enabled {
+		return nil
+	}
+
+	// If AutoTLS is enabled, certificates are auto-generated
+	if c.AutoTLS {
+		return nil
+	}
+
+	// Manual TLS requires cert and key files
+	if c.ClientCertFile == "" {
+		return fmt.Errorf("cluster: embedded etcd tls client_cert_file is required when TLS is enabled")
+	}
+	if c.ClientKeyFile == "" {
+		return fmt.Errorf("cluster: embedded etcd tls client_key_file is required when TLS is enabled")
+	}
+
+	// Verify files exist
+	if _, err := os.Stat(c.ClientCertFile); err != nil {
+		return fmt.Errorf("cluster: embedded etcd tls client_cert_file not found: %w", err)
+	}
+	if _, err := os.Stat(c.ClientKeyFile); err != nil {
+		return fmt.Errorf("cluster: embedded etcd tls client_key_file not found: %w", err)
+	}
+
+	// If client CA is specified, verify it exists
+	if c.ClientCAFile != "" {
+		if _, err := os.Stat(c.ClientCAFile); err != nil {
+			return fmt.Errorf("cluster: embedded etcd tls client_ca_file not found: %w", err)
+		}
+	}
+
+	// If separate peer certs are specified, verify they exist
+	if c.PeerCertFile != "" {
+		if _, err := os.Stat(c.PeerCertFile); err != nil {
+			return fmt.Errorf("cluster: embedded etcd tls peer_cert_file not found: %w", err)
+		}
+	}
+	if c.PeerKeyFile != "" {
+		if _, err := os.Stat(c.PeerKeyFile); err != nil {
+			return fmt.Errorf("cluster: embedded etcd tls peer_key_file not found: %w", err)
+		}
+	}
+	if c.PeerCAFile != "" {
+		if _, err := os.Stat(c.PeerCAFile); err != nil {
+			return fmt.Errorf("cluster: embedded etcd tls peer_ca_file not found: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// GetPeerCertFile returns the peer certificate file, falling back to client cert.
+func (c *EtcdEmbeddedTLSConfig) GetPeerCertFile() string {
+	if c.PeerCertFile != "" {
+		return c.PeerCertFile
+	}
+	return c.ClientCertFile
+}
+
+// GetPeerKeyFile returns the peer key file, falling back to client key.
+func (c *EtcdEmbeddedTLSConfig) GetPeerKeyFile() string {
+	if c.PeerKeyFile != "" {
+		return c.PeerKeyFile
+	}
+	return c.ClientKeyFile
+}
+
+// GetPeerCAFile returns the peer CA file, falling back to client CA.
+func (c *EtcdEmbeddedTLSConfig) GetPeerCAFile() string {
+	if c.PeerCAFile != "" {
+		return c.PeerCAFile
+	}
+	return c.ClientCAFile
 }
 
 // Validate checks if the embedded etcd configuration is valid.
@@ -486,7 +613,19 @@ func (c *EtcdEmbeddedConfig) Validate() error {
 		return fmt.Errorf("cluster: quota_backend_bytes must be at least 100MB")
 	}
 
+	// Validate TLS configuration if present
+	if c.TLS != nil {
+		if err := c.TLS.Validate(); err != nil {
+			return err
+		}
+	}
+
 	return nil
+}
+
+// IsTLSEnabled returns true if TLS is enabled for embedded etcd.
+func (c *EtcdEmbeddedConfig) IsTLSEnabled() bool {
+	return c.TLS != nil && c.TLS.Enabled
 }
 
 // GetListenAddress returns the listen address, defaulting to localhost if empty.

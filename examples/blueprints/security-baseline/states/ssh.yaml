@@ -1,73 +1,191 @@
 # SSH Hardening Configuration
 # Part of the Security Baseline Blueprint
 
-# Ensure OpenSSH is installed
-ssh_server_package:
-  pkg.installed:
-    - name: openssh-server
+metadata:
+  name: security-ssh
+  description: SSH server security hardening
+  version: "1.0"
 
-# Backup original sshd_config
-ssh_config_backup:
-  cmd.run:
-    - name: cp -n /etc/ssh/sshd_config /etc/ssh/sshd_config.orig
-    - creates: /etc/ssh/sshd_config.orig
-    - require:
-      - pkg: ssh_server_package
+states:
+  # Ensure OpenSSH is installed
+  ssh_server_package:
+    module: package
+    state: installed
+    name: openssh-server
 
-# Deploy hardened sshd_config
-ssh_config:
-  file.managed:
-    - name: /etc/ssh/sshd_config
-    - source: template://templates/sshd_config.j2
-    - template: jinja
-    - context:
-        port: {{ parameters.ssh_port }}
-        permit_root_login: "{{ parameters.ssh_permit_root_login }}"
-        password_authentication: "{{ parameters.ssh_password_authentication }}"
-        max_auth_tries: {{ parameters.ssh_max_auth_tries }}
-        client_alive_interval: {{ parameters.ssh_client_alive_interval }}
-        client_alive_count_max: {{ parameters.ssh_client_alive_count_max }}
-        allowed_users: {{ parameters.ssh_allowed_users | tojson }}
-        allowed_groups: {{ parameters.ssh_allowed_groups | tojson }}
-    - user: root
-    - group: root
-    - mode: 600
-    - require:
-      - cmd: ssh_config_backup
+  # Backup original sshd_config
+  ssh_config_backup:
+    module: cmd
+    state: run
+    name: cp -n /etc/ssh/sshd_config /etc/ssh/sshd_config.orig
+    creates: /etc/ssh/sshd_config.orig
+    require:
+      - ssh_server_package
 
-# Deploy SSH banner
-ssh_banner:
-  file.managed:
-    - name: /etc/ssh/banner
-    - source: file://files/banner.txt
-    - user: root
-    - group: root
-    - mode: 644
+  # Deploy hardened sshd_config
+  ssh_config:
+    module: file
+    state: present
+    name: /etc/ssh/sshd_config
+    contents: |
+      # SSH Server Configuration
+      # Managed by Keystone Core Security Baseline Blueprint
+      # Do not edit manually - changes will be overwritten
 
-# Ensure SSH host keys have correct permissions
-{% for keytype in ['rsa', 'ecdsa', 'ed25519'] %}
-ssh_host_{{ keytype }}_key_perms:
-  file.managed:
-    - name: /etc/ssh/ssh_host_{{ keytype }}_key
-    - mode: 600
-    - replace: false
-    - require:
-      - pkg: ssh_server_package
-{% endfor %}
+      # Network
+      Port {{ .Params.ssh_port }}
+      AddressFamily any
+      ListenAddress 0.0.0.0
+      ListenAddress ::
 
-# Validate SSH config before restart
-ssh_config_validate:
-  cmd.run:
-    - name: sshd -t
-    - onchanges:
-      - file: ssh_config
+      # Host keys
+      HostKey /etc/ssh/ssh_host_rsa_key
+      HostKey /etc/ssh/ssh_host_ecdsa_key
+      HostKey /etc/ssh/ssh_host_ed25519_key
 
-# Restart SSH service
-ssh_service:
-  service.running:
-    - name: sshd
-    - enable: true
-    - watch:
-      - file: ssh_config
-    - require:
-      - cmd: ssh_config_validate
+      # Ciphers and algorithms
+      Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
+      MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,hmac-sha2-256
+      KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512,diffie-hellman-group-exchange-sha256
+      HostKeyAlgorithms ssh-ed25519,ssh-ed25519-cert-v01@openssh.com,sk-ssh-ed25519@openssh.com,sk-ssh-ed25519-cert-v01@openssh.com,rsa-sha2-512,rsa-sha2-512-cert-v01@openssh.com,rsa-sha2-256,rsa-sha2-256-cert-v01@openssh.com
+
+      # Logging
+      SyslogFacility AUTH
+      LogLevel VERBOSE
+
+      # Authentication
+      LoginGraceTime 60
+      PermitRootLogin {{ .Params.ssh_permit_root_login }}
+      StrictModes yes
+      MaxAuthTries {{ .Params.ssh_max_auth_tries }}
+      MaxSessions 10
+
+      PubkeyAuthentication yes
+      AuthorizedKeysFile .ssh/authorized_keys
+
+      PasswordAuthentication {{ .Params.ssh_password_authentication }}
+      PermitEmptyPasswords no
+      ChallengeResponseAuthentication no
+
+      # Kerberos options
+      KerberosAuthentication no
+      GSSAPIAuthentication no
+
+      # Session
+      UsePAM yes
+      X11Forwarding no
+      PrintMotd no
+      PrintLastLog yes
+      TCPKeepAlive yes
+      ClientAliveInterval {{ .Params.ssh_client_alive_interval }}
+      ClientAliveCountMax {{ .Params.ssh_client_alive_count_max }}
+      UseDNS no
+      PermitUserEnvironment no
+      Compression delayed
+      MaxStartups 10:30:100
+
+      # Banner
+      Banner /etc/ssh/banner
+
+      # Subsystem
+      Subsystem sftp /usr/lib/openssh/sftp-server -f AUTHPRIV -l INFO
+
+      {{ if .Params.ssh_allowed_users }}
+      # Allowed users
+      AllowUsers {{ range $i, $user := .Params.ssh_allowed_users }}{{ if $i }} {{ end }}{{ $user }}{{ end }}
+      {{ end }}
+
+      {{ if .Params.ssh_allowed_groups }}
+      # Allowed groups
+      AllowGroups {{ range $i, $group := .Params.ssh_allowed_groups }}{{ if $i }} {{ end }}{{ $group }}{{ end }}
+      {{ end }}
+
+      # Deny root from all sources except localhost
+      DenyUsers root@!localhost
+
+      # Security restrictions
+      AllowAgentForwarding no
+      AllowTcpForwarding no
+      PermitTunnel no
+    user: root
+    group: root
+    mode: "0600"
+    require:
+      - ssh_config_backup
+
+  # Deploy SSH banner
+  ssh_banner:
+    module: file
+    state: present
+    name: /etc/ssh/banner
+    contents: |
+      *******************************************************************************
+      *                                                                             *
+      *                           AUTHORIZED ACCESS ONLY                            *
+      *                                                                             *
+      *  This system is for authorized use only. All activities on this system      *
+      *  are monitored and logged. Unauthorized access or use of this system        *
+      *  is prohibited and may result in criminal and/or civil prosecution.         *
+      *                                                                             *
+      *  By accessing this system, you consent to monitoring and logging of         *
+      *  all activities, including but not limited to:                              *
+      *    - Network traffic                                                        *
+      *    - Command execution                                                      *
+      *    - File access                                                            *
+      *    - Authentication attempts                                                *
+      *                                                                             *
+      *  Evidence of unauthorized use collected during monitoring may be used       *
+      *  for administrative, criminal, or other adverse action.                     *
+      *                                                                             *
+      *  DISCONNECT IMMEDIATELY if you are not an authorized user.                  *
+      *                                                                             *
+      *******************************************************************************
+    user: root
+    group: root
+    mode: "0644"
+
+  # Ensure SSH host key permissions (RSA)
+  ssh_host_rsa_key_perms:
+    module: file
+    state: present
+    name: /etc/ssh/ssh_host_rsa_key
+    mode: "0600"
+    require:
+      - ssh_server_package
+
+  # Ensure SSH host key permissions (ECDSA)
+  ssh_host_ecdsa_key_perms:
+    module: file
+    state: present
+    name: /etc/ssh/ssh_host_ecdsa_key
+    mode: "0600"
+    require:
+      - ssh_server_package
+
+  # Ensure SSH host key permissions (Ed25519)
+  ssh_host_ed25519_key_perms:
+    module: file
+    state: present
+    name: /etc/ssh/ssh_host_ed25519_key
+    mode: "0600"
+    require:
+      - ssh_server_package
+
+  # Validate SSH config before restart
+  ssh_config_validate:
+    module: cmd
+    state: run
+    name: sshd -t
+    watch:
+      - ssh_config
+
+  # Restart SSH service
+  ssh_service:
+    module: service
+    state: running
+    name: sshd
+    enable: true
+    watch:
+      - ssh_config
+    require:
+      - ssh_config_validate

@@ -1,106 +1,221 @@
 # Alertmanager Installation and Configuration
 # Part of the Monitoring Stack Blueprint
 
-{% set alertmanager_archive = "alertmanager-" ~ parameters.alertmanager_version ~ ".linux-amd64" %}
-{% set alertmanager_url = "https://github.com/prometheus/alertmanager/releases/download/v" ~ parameters.alertmanager_version ~ "/" ~ alertmanager_archive ~ ".tar.gz" %}
+metadata:
+  name: monitoring-alertmanager
+  description: Prometheus Alertmanager for alert handling
+  version: "1.0"
 
-# Download Alertmanager
-alertmanager_download:
-  file.managed:
-    - name: /tmp/{{ alertmanager_archive }}.tar.gz
-    - source: {{ alertmanager_url }}
-    - skip_verify: true
-    - unless: test -f /usr/local/bin/alertmanager && /usr/local/bin/alertmanager --version 2>&1 | grep -q {{ parameters.alertmanager_version }}
-    - require:
-      - pkg: monitoring_dependencies
+vars:
+  alertmanager_archive: "alertmanager-{{ .Params.alertmanager_version }}.linux-amd64"
+  alertmanager_url: "https://github.com/prometheus/alertmanager/releases/download/v{{ .Params.alertmanager_version }}/alertmanager-{{ .Params.alertmanager_version }}.linux-amd64.tar.gz"
 
-# Extract Alertmanager
-alertmanager_extract:
-  cmd.run:
-    - name: |
-        cd /tmp && \
-        tar xzf {{ alertmanager_archive }}.tar.gz && \
-        cp {{ alertmanager_archive }}/alertmanager /usr/local/bin/ && \
-        cp {{ alertmanager_archive }}/amtool /usr/local/bin/ && \
-        chmod +x /usr/local/bin/alertmanager /usr/local/bin/amtool && \
-        rm -rf /tmp/{{ alertmanager_archive }}*
-    - unless: test -f /usr/local/bin/alertmanager && /usr/local/bin/alertmanager --version 2>&1 | grep -q {{ parameters.alertmanager_version }}
-    - require:
-      - file: alertmanager_download
+states:
+  # Download Alertmanager
+  alertmanager_download:
+    module: cmd
+    state: run
+    name: "curl -L -o /tmp/{{ .Vars.alertmanager_archive }}.tar.gz {{ .Vars.alertmanager_url }}"
+    creates: /tmp/{{ .Vars.alertmanager_archive }}.tar.gz
+    unless: "test -f /usr/local/bin/alertmanager && /usr/local/bin/alertmanager --version 2>&1 | grep -q {{ .Params.alertmanager_version }}"
+    require:
+      - install_curl
+      - install_tar
 
-# Create Alertmanager data directory
-alertmanager_data_dir:
-  file.directory:
-    - name: {{ parameters.data_dir }}/alertmanager
-    - user: prometheus
-    - group: prometheus
-    - mode: 755
-    - require:
-      - user: monitoring_user
-      - file: monitoring_data_dir
+  # Extract Alertmanager
+  alertmanager_extract:
+    module: cmd
+    state: run
+    name: |
+      cd /tmp && \
+      tar xzf {{ .Vars.alertmanager_archive }}.tar.gz && \
+      cp {{ .Vars.alertmanager_archive }}/alertmanager /usr/local/bin/ && \
+      cp {{ .Vars.alertmanager_archive }}/amtool /usr/local/bin/ && \
+      chmod +x /usr/local/bin/alertmanager /usr/local/bin/amtool && \
+      rm -rf /tmp/{{ .Vars.alertmanager_archive }}*
+    unless: "test -f /usr/local/bin/alertmanager && /usr/local/bin/alertmanager --version 2>&1 | grep -q {{ .Params.alertmanager_version }}"
+    require:
+      - alertmanager_download
 
-# Create Alertmanager config directory
-alertmanager_config_dir:
-  file.directory:
-    - name: {{ parameters.config_dir }}/alertmanager
-    - user: root
-    - group: prometheus
-    - mode: 755
-    - require:
-      - file: monitoring_config_dir
+  # Create Alertmanager data directory
+  alertmanager_data_dir:
+    module: file
+    state: directory
+    name: "{{ .Params.data_dir }}/alertmanager"
+    user: prometheus
+    group: prometheus
+    mode: "0755"
+    require:
+      - monitoring_user
+      - monitoring_data_dir
 
-# Create templates directory
-alertmanager_templates_dir:
-  file.directory:
-    - name: {{ parameters.config_dir }}/alertmanager/templates
-    - user: root
-    - group: prometheus
-    - mode: 755
-    - require:
-      - file: alertmanager_config_dir
+  # Create Alertmanager config directory
+  alertmanager_config_dir:
+    module: file
+    state: directory
+    name: "{{ .Params.config_dir }}/alertmanager"
+    user: root
+    group: prometheus
+    mode: "0755"
+    require:
+      - monitoring_config_dir
 
-# Deploy Alertmanager configuration
-alertmanager_config:
-  file.managed:
-    - name: {{ parameters.config_dir }}/alertmanager/alertmanager.yml
-    - source: template://templates/alertmanager.yml.j2
-    - template: jinja
-    - context:
-        alertmanager_port: {{ parameters.alertmanager_port }}
-    - user: root
-    - group: prometheus
-    - mode: 640
-    - require:
-      - file: alertmanager_config_dir
+  # Create templates directory
+  alertmanager_templates_dir:
+    module: file
+    state: directory
+    name: "{{ .Params.config_dir }}/alertmanager/templates"
+    user: root
+    group: prometheus
+    mode: "0755"
+    require:
+      - alertmanager_config_dir
 
-# Deploy systemd service
-alertmanager_service_file:
-  file.managed:
-    - name: /etc/systemd/system/alertmanager.service
-    - source: template://templates/alertmanager.service.j2
-    - template: jinja
-    - context:
-        alertmanager_port: {{ parameters.alertmanager_port }}
-        data_dir: "{{ parameters.data_dir }}"
-        config_dir: "{{ parameters.config_dir }}"
-    - mode: 644
+  # Deploy Alertmanager configuration
+  alertmanager_config:
+    module: file
+    state: present
+    name: "{{ .Params.config_dir }}/alertmanager/alertmanager.yml"
+    contents: |
+      # Keystone Core Monitoring Stack - Alertmanager Configuration
 
-# Reload systemd
-alertmanager_systemd_reload:
-  cmd.run:
-    - name: systemctl daemon-reload
-    - onchanges:
-      - file: alertmanager_service_file
+      global:
+        # SMTP configuration (customize for your environment)
+        # smtp_smarthost: 'smtp.example.com:587'
+        # smtp_from: 'alertmanager@example.com'
+        # smtp_auth_username: 'alertmanager'
+        # smtp_auth_password: 'password'
 
-# Start and enable Alertmanager
-alertmanager_service:
-  service.running:
-    - name: alertmanager
-    - enable: true
-    - watch:
-      - file: alertmanager_config
-      - file: alertmanager_service_file
-    - require:
-      - cmd: alertmanager_extract
-      - file: alertmanager_data_dir
-      - cmd: alertmanager_systemd_reload
+        # Default resolve timeout
+        resolve_timeout: 5m
+
+      # Route configuration
+      route:
+        # Default receiver
+        receiver: 'default-receiver'
+
+        # Group by alertname and job
+        group_by: ['alertname', 'job']
+
+        # Wait time before sending initial notification
+        group_wait: 30s
+
+        # Wait time before sending subsequent notifications
+        group_interval: 5m
+
+        # Repeat interval for notifications
+        repeat_interval: 4h
+
+        # Child routes
+        routes:
+          # Critical alerts - immediate notification
+          - match:
+              severity: critical
+            receiver: 'critical-receiver'
+            group_wait: 10s
+            repeat_interval: 1h
+
+          # Warning alerts - standard notification
+          - match:
+              severity: warning
+            receiver: 'warning-receiver'
+            repeat_interval: 4h
+
+      # Inhibition rules
+      inhibit_rules:
+        # Inhibit warning when critical exists for same alertname
+        - source_match:
+            severity: 'critical'
+          target_match:
+            severity: 'warning'
+          equal: ['alertname', 'instance']
+
+      # Receivers
+      receivers:
+        - name: 'default-receiver'
+          # Webhook receiver (customize for your alerting platform)
+          # webhook_configs:
+          #   - url: 'http://localhost:8080/alerts'
+          #     send_resolved: true
+
+        - name: 'critical-receiver'
+          # Email for critical alerts
+          # email_configs:
+          #   - to: 'oncall@example.com'
+          #     send_resolved: true
+          # PagerDuty integration
+          # pagerduty_configs:
+          #   - service_key: 'your-pagerduty-key'
+          #     severity: critical
+
+        - name: 'warning-receiver'
+          # Slack for warnings
+          # slack_configs:
+          #   - api_url: 'https://hooks.slack.com/services/...'
+          #     channel: '#alerts'
+          #     send_resolved: true
+    user: root
+    group: prometheus
+    mode: "0640"
+    require:
+      - alertmanager_config_dir
+
+  # Deploy systemd service
+  alertmanager_service_file:
+    module: file
+    state: present
+    name: /etc/systemd/system/alertmanager.service
+    contents: |
+      [Unit]
+      Description=Prometheus Alertmanager
+      Documentation=https://prometheus.io/docs/alerting/latest/alertmanager/
+      Wants=network-online.target
+      After=network-online.target
+
+      [Service]
+      Type=simple
+      User=prometheus
+      Group=prometheus
+      ExecReload=/bin/kill -HUP $MAINPID
+      ExecStart=/usr/local/bin/alertmanager \
+        --config.file={{ .Params.config_dir }}/alertmanager/alertmanager.yml \
+        --storage.path={{ .Params.data_dir }}/alertmanager \
+        --web.listen-address=0.0.0.0:{{ .Params.alertmanager_port }} \
+        --cluster.listen-address=
+
+      SyslogIdentifier=alertmanager
+      Restart=always
+      RestartSec=5
+
+      # Security settings
+      NoNewPrivileges=yes
+      ProtectSystem=full
+      ProtectHome=yes
+      PrivateTmp=yes
+      PrivateDevices=yes
+
+      [Install]
+      WantedBy=multi-user.target
+    mode: "0644"
+
+  # Reload systemd
+  alertmanager_systemd_reload:
+    module: cmd
+    state: run
+    name: systemctl daemon-reload
+    require:
+      - alertmanager_service_file
+
+  # Start and enable Alertmanager
+  alertmanager_service:
+    module: service
+    state: running
+    name: alertmanager
+    enable: true
+    watch:
+      - alertmanager_config
+      - alertmanager_service_file
+    require:
+      - alertmanager_extract
+      - alertmanager_data_dir
+      - alertmanager_systemd_reload

@@ -1,0 +1,103 @@
+# Fail2ban Intrusion Prevention
+# Part of the Security Baseline Blueprint
+
+metadata:
+  name: security-fail2ban
+  description: Fail2ban intrusion prevention system
+  version: "1.0"
+
+states:
+  # Install fail2ban
+  fail2ban_package:
+    module: package
+    state: installed
+    name: fail2ban
+
+  # Create fail2ban local configuration directory
+  fail2ban_config_dir:
+    module: file
+    state: directory
+    name: /etc/fail2ban/jail.d
+    mode: "0755"
+    require:
+      - fail2ban_package
+
+  # Deploy fail2ban jail configuration
+  fail2ban_jail_local:
+    module: file
+    state: present
+    name: /etc/fail2ban/jail.d/security-baseline.conf
+    contents: |
+      # Fail2ban Configuration
+      # Managed by Keystone Core Security Baseline Blueprint
+
+      [DEFAULT]
+      # Ban time (in seconds) - default 10 minutes
+      bantime = {{ .Params.fail2ban_bantime }}
+
+      # Find time window (in seconds) - default 10 minutes
+      findtime = {{ .Params.fail2ban_findtime }}
+
+      # Number of failures before ban
+      maxretry = {{ .Params.fail2ban_maxretry }}
+
+      # Action to take
+      banaction = iptables-multiport
+      banaction_allports = iptables-allports
+
+      # Backend for log monitoring
+      backend = auto
+
+      # Email notifications (disabled by default)
+      destemail = root@localhost
+      sender = fail2ban@localhost
+      mta = sendmail
+
+      # Action: ban only (no email)
+      action = %(action_)s
+
+      # Ignore localhost
+      ignoreip = 127.0.0.1/8 ::1
+
+      [sshd]
+      enabled = true
+      port = {{ .Params.ssh_port }}
+      filter = sshd
+      logpath = /var/log/auth.log
+      maxretry = {{ .Params.fail2ban_maxretry }}
+      bantime = {{ .Params.fail2ban_bantime }}
+    mode: "0644"
+    require:
+      - fail2ban_config_dir
+
+  # Deploy RHEL-specific jail configuration
+  fail2ban_jail_rhel:
+    module: file
+    state: present
+    name: /etc/fail2ban/jail.d/security-baseline-rhel.conf
+    contents: |
+      # RHEL/CentOS specific configuration
+      # Managed by Keystone Core Security Baseline Blueprint
+
+      [sshd]
+      enabled = true
+      port = {{ .Params.ssh_port }}
+      filter = sshd
+      logpath = /var/log/secure
+      maxretry = {{ .Params.fail2ban_maxretry }}
+      bantime = {{ .Params.fail2ban_bantime }}
+    mode: "0644"
+    only_if: "{{ eq .Params.os_family \"rhel\" }}"
+    require:
+      - fail2ban_config_dir
+
+  # Start and enable fail2ban service
+  fail2ban_service:
+    module: service
+    state: running
+    name: fail2ban
+    enable: true
+    watch:
+      - fail2ban_jail_local
+    require:
+      - fail2ban_package

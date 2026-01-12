@@ -1,57 +1,115 @@
 # Node Exporter Installation and Configuration
 # Part of the Monitoring Stack Blueprint
 
-{% set node_exporter_archive = "node_exporter-" ~ parameters.node_exporter_version ~ ".linux-amd64" %}
-{% set node_exporter_url = "https://github.com/prometheus/node_exporter/releases/download/v" ~ parameters.node_exporter_version ~ "/" ~ node_exporter_archive ~ ".tar.gz" %}
+metadata:
+  name: monitoring-node-exporter
+  description: Prometheus Node Exporter for system metrics
+  version: "1.0"
 
-# Download Node Exporter
-node_exporter_download:
-  file.managed:
-    - name: /tmp/{{ node_exporter_archive }}.tar.gz
-    - source: {{ node_exporter_url }}
-    - skip_verify: true
-    - unless: test -f /usr/local/bin/node_exporter && /usr/local/bin/node_exporter --version 2>&1 | grep -q {{ parameters.node_exporter_version }}
-    - require:
-      - pkg: monitoring_dependencies
+vars:
+  node_exporter_archive: "node_exporter-{{ .Params.node_exporter_version }}.linux-amd64"
+  node_exporter_url: "https://github.com/prometheus/node_exporter/releases/download/v{{ .Params.node_exporter_version }}/node_exporter-{{ .Params.node_exporter_version }}.linux-amd64.tar.gz"
 
-# Extract Node Exporter
-node_exporter_extract:
-  cmd.run:
-    - name: |
-        cd /tmp && \
-        tar xzf {{ node_exporter_archive }}.tar.gz && \
-        cp {{ node_exporter_archive }}/node_exporter /usr/local/bin/ && \
-        chmod +x /usr/local/bin/node_exporter && \
-        rm -rf /tmp/{{ node_exporter_archive }}*
-    - unless: test -f /usr/local/bin/node_exporter && /usr/local/bin/node_exporter --version 2>&1 | grep -q {{ parameters.node_exporter_version }}
-    - require:
-      - file: node_exporter_download
+states:
+  # Download Node Exporter
+  node_exporter_download:
+    module: cmd
+    state: run
+    name: "curl -L -o /tmp/{{ .Vars.node_exporter_archive }}.tar.gz {{ .Vars.node_exporter_url }}"
+    creates: /tmp/{{ .Vars.node_exporter_archive }}.tar.gz
+    unless: "test -f /usr/local/bin/node_exporter && /usr/local/bin/node_exporter --version 2>&1 | grep -q {{ .Params.node_exporter_version }}"
+    require:
+      - install_curl
+      - install_tar
 
-# Deploy systemd service
-node_exporter_service_file:
-  file.managed:
-    - name: /etc/systemd/system/node_exporter.service
-    - source: template://templates/node_exporter.service.j2
-    - template: jinja
-    - context:
-        node_exporter_port: {{ parameters.node_exporter_port }}
-        collectors: {{ parameters.node_exporter_collectors | tojson }}
-    - mode: 644
+  # Extract Node Exporter
+  node_exporter_extract:
+    module: cmd
+    state: run
+    name: |
+      cd /tmp && \
+      tar xzf {{ .Vars.node_exporter_archive }}.tar.gz && \
+      cp {{ .Vars.node_exporter_archive }}/node_exporter /usr/local/bin/ && \
+      chmod +x /usr/local/bin/node_exporter && \
+      rm -rf /tmp/{{ .Vars.node_exporter_archive }}*
+    unless: "test -f /usr/local/bin/node_exporter && /usr/local/bin/node_exporter --version 2>&1 | grep -q {{ .Params.node_exporter_version }}"
+    require:
+      - node_exporter_download
 
-# Reload systemd
-node_exporter_systemd_reload:
-  cmd.run:
-    - name: systemctl daemon-reload
-    - onchanges:
-      - file: node_exporter_service_file
+  # Create textfile collector directory
+  node_exporter_textfile_dir:
+    module: file
+    state: directory
+    name: /var/lib/prometheus/textfile_collector
+    user: prometheus
+    group: prometheus
+    mode: "0755"
+    makedirs: true
+    require:
+      - monitoring_user
 
-# Start and enable Node Exporter
-node_exporter_service:
-  service.running:
-    - name: node_exporter
-    - enable: true
-    - watch:
-      - file: node_exporter_service_file
-    - require:
-      - cmd: node_exporter_extract
-      - cmd: node_exporter_systemd_reload
+  # Deploy systemd service
+  node_exporter_service_file:
+    module: file
+    state: present
+    name: /etc/systemd/system/node_exporter.service
+    contents: |
+      [Unit]
+      Description=Prometheus Node Exporter
+      Documentation=https://github.com/prometheus/node_exporter
+      Wants=network-online.target
+      After=network-online.target
+
+      [Service]
+      Type=simple
+      User=prometheus
+      Group=prometheus
+      ExecStart=/usr/local/bin/node_exporter \
+        --web.listen-address=0.0.0.0:{{ .Params.node_exporter_port }} \
+        --collector.cpu \
+        --collector.diskstats \
+        --collector.filesystem \
+        --collector.loadavg \
+        --collector.meminfo \
+        --collector.netdev \
+        --collector.stat \
+        --collector.time \
+        --collector.uname \
+        --collector.vmstat \
+        --collector.textfile.directory=/var/lib/prometheus/textfile_collector
+
+      SyslogIdentifier=node_exporter
+      Restart=always
+      RestartSec=5
+
+      # Security settings
+      NoNewPrivileges=yes
+      ProtectSystem=full
+      ProtectHome=yes
+      PrivateTmp=yes
+      PrivateDevices=yes
+
+      [Install]
+      WantedBy=multi-user.target
+    mode: "0644"
+
+  # Reload systemd
+  node_exporter_systemd_reload:
+    module: cmd
+    state: run
+    name: systemctl daemon-reload
+    require:
+      - node_exporter_service_file
+
+  # Start and enable Node Exporter
+  node_exporter_service:
+    module: service
+    state: running
+    name: node_exporter
+    enable: true
+    watch:
+      - node_exporter_service_file
+    require:
+      - node_exporter_extract
+      - node_exporter_textfile_dir
+      - node_exporter_systemd_reload

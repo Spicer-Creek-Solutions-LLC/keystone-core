@@ -1,60 +1,232 @@
 # Audit Logging Configuration
 # Part of the Security Baseline Blueprint
 
-# Install auditd
-auditd_package:
-  pkg.installed:
-{% if parameters.os_family == 'debian' %}
-    - name: auditd
-{% else %}
-    - name: audit
-{% endif %}
+metadata:
+  name: security-audit
+  description: System audit logging configuration
+  version: "1.0"
 
-# Deploy auditd configuration
-auditd_config:
-  file.managed:
-    - name: /etc/audit/auditd.conf
-    - source: template://templates/auditd.conf.j2
-    - template: jinja
-    - context:
-        max_log_file: {{ parameters.audit_max_log_file }}
-        num_logs: {{ parameters.audit_num_logs }}
-    - mode: 640
-    - require:
-      - pkg: auditd_package
+states:
+  # Install auditd (Debian)
+  auditd_package_debian:
+    module: package
+    state: installed
+    name: auditd
+    only_if: "{{ eq .Params.os_family \"debian\" }}"
 
-# Deploy audit rules
-audit_rules:
-  file.managed:
-    - name: /etc/audit/rules.d/99-security-baseline.rules
-    - source: template://templates/audit.rules.j2
-    - template: jinja
-    - mode: 640
-    - require:
-      - pkg: auditd_package
+  # Install auditd (RHEL)
+  auditd_package_rhel:
+    module: package
+    state: installed
+    name: audit
+    only_if: "{{ eq .Params.os_family \"rhel\" }}"
 
-# Load audit rules
-load_audit_rules:
-  cmd.run:
-    - name: augenrules --load
-    - onchanges:
-      - file: audit_rules
+  # Deploy auditd configuration
+  auditd_config:
+    module: file
+    state: present
+    name: /etc/audit/auditd.conf
+    contents: |
+      # Auditd Configuration
+      # Managed by Keystone Core Security Baseline Blueprint
 
-# Start and enable auditd service
-auditd_service:
-  service.running:
-    - name: auditd
-    - enable: true
-    - watch:
-      - file: auditd_config
-      - file: audit_rules
-    - require:
-      - pkg: auditd_package
+      # Log file location
+      log_file = /var/log/audit/audit.log
+      log_format = ENRICHED
+      log_group = root
 
-# Ensure audit logs are protected
-audit_log_perms:
-  file.directory:
-    - name: /var/log/audit
-    - mode: 700
-    - require:
-      - pkg: auditd_package
+      # Write logs
+      write_logs = yes
+      flush = INCREMENTAL_ASYNC
+      freq = 50
+
+      # Log file rotation
+      max_log_file = {{ .Params.audit_max_log_file }}
+      num_logs = {{ .Params.audit_num_logs }}
+      max_log_file_action = ROTATE
+
+      # Space settings
+      space_left = 75
+      space_left_action = SYSLOG
+      admin_space_left = 50
+      admin_space_left_action = SUSPEND
+
+      # Disk full action
+      disk_full_action = SUSPEND
+      disk_error_action = SUSPEND
+
+      # Priority
+      priority_boost = 4
+
+      # Name format
+      name_format = HOSTNAME
+
+      # Network
+      distribute_network = no
+      tcp_listen_queue = 5
+      tcp_max_per_addr = 1
+      tcp_client_max_idle = 0
+
+      # Dispatcher
+      dispatcher = /sbin/audispd
+
+      # Plugins
+      plugin_dir = /etc/audit/plugins.d
+    mode: "0640"
+
+  # Deploy audit rules
+  audit_rules:
+    module: file
+    state: present
+    name: /etc/audit/rules.d/99-security-baseline.rules
+    contents: |
+      # Audit Rules
+      # Managed by Keystone Core Security Baseline Blueprint
+
+      # Remove any existing rules
+      -D
+
+      # Set buffer size (adjust based on system load)
+      -b 8192
+
+      # Failure mode (1=print, 2=panic)
+      -f 1
+
+      # Rate limit (0=disabled)
+      -r 100
+
+      ###################
+      # Identity Changes
+      ###################
+
+      # Monitor user/group changes
+      -w /etc/group -p wa -k identity
+      -w /etc/passwd -p wa -k identity
+      -w /etc/gshadow -p wa -k identity
+      -w /etc/shadow -p wa -k identity
+      -w /etc/security/opasswd -p wa -k identity
+
+      # Monitor sudoers
+      -w /etc/sudoers -p wa -k sudoers
+      -w /etc/sudoers.d/ -p wa -k sudoers
+
+      ###################
+      # Authentication
+      ###################
+
+      # Monitor login configuration
+      -w /etc/login.defs -p wa -k logins
+      -w /etc/securetty -p wa -k logins
+      -w /var/log/faillog -p wa -k logins
+      -w /var/log/lastlog -p wa -k logins
+      -w /var/log/tallylog -p wa -k logins
+
+      # PAM configuration
+      -w /etc/pam.d/ -p wa -k pam
+
+      # SSH configuration
+      -w /etc/ssh/sshd_config -p wa -k sshd
+      -w /etc/ssh/sshd_config.d/ -p wa -k sshd
+
+      ###################
+      # System Configuration
+      ###################
+
+      # Monitor network configuration
+      -w /etc/hosts -p wa -k network
+      -w /etc/sysconfig/network -p wa -k network
+      -w /etc/network/ -p wa -k network
+      -w /etc/netplan/ -p wa -k network
+
+      # Monitor system time changes
+      -a always,exit -F arch=b64 -S adjtimex -S settimeofday -S clock_settime -k time
+      -a always,exit -F arch=b32 -S adjtimex -S settimeofday -S stime -S clock_settime -k time
+      -w /etc/localtime -p wa -k time
+
+      # Monitor hostname/domainname changes
+      -a always,exit -F arch=b64 -S sethostname -S setdomainname -k hostname
+      -a always,exit -F arch=b32 -S sethostname -S setdomainname -k hostname
+
+      # Monitor sysctl changes
+      -w /etc/sysctl.conf -p wa -k sysctl
+      -w /etc/sysctl.d/ -p wa -k sysctl
+
+      ###################
+      # Privileged Commands
+      ###################
+
+      # Monitor use of privilege escalation
+      -w /bin/su -p x -k privilege
+      -w /usr/bin/sudo -p x -k privilege
+      -w /etc/sudoers -p rwa -k privilege
+
+      # Monitor privilege execution (setuid/setgid)
+      -a always,exit -F arch=b64 -S execve -C uid!=euid -F euid=0 -k privilege
+      -a always,exit -F arch=b32 -S execve -C uid!=euid -F euid=0 -k privilege
+
+      ###################
+      # File Access
+      ###################
+
+      # Unauthorized access attempts
+      -a always,exit -F arch=b64 -S creat -S open -S openat -S truncate -S ftruncate -F exit=-EACCES -F auid>=1000 -F auid!=4294967295 -k access
+      -a always,exit -F arch=b64 -S creat -S open -S openat -S truncate -S ftruncate -F exit=-EPERM -F auid>=1000 -F auid!=4294967295 -k access
+      -a always,exit -F arch=b32 -S creat -S open -S openat -S truncate -S ftruncate -F exit=-EACCES -F auid>=1000 -F auid!=4294967295 -k access
+      -a always,exit -F arch=b32 -S creat -S open -S openat -S truncate -S ftruncate -F exit=-EPERM -F auid>=1000 -F auid!=4294967295 -k access
+
+      # Monitor mounts
+      -a always,exit -F arch=b64 -S mount -F auid>=1000 -F auid!=4294967295 -k mount
+      -a always,exit -F arch=b32 -S mount -F auid>=1000 -F auid!=4294967295 -k mount
+
+      ###################
+      # Process Execution
+      ###################
+
+      # Monitor process termination
+      -a always,exit -F arch=b64 -S kill -k process
+      -a always,exit -F arch=b32 -S kill -k process
+
+      # Monitor kernel module loading
+      -w /sbin/insmod -p x -k modules
+      -w /sbin/rmmod -p x -k modules
+      -w /sbin/modprobe -p x -k modules
+      -a always,exit -F arch=b64 -S init_module -S delete_module -k modules
+      -a always,exit -F arch=b32 -S init_module -S delete_module -k modules
+
+      ###################
+      # Audit Configuration
+      ###################
+
+      # Monitor audit configuration changes
+      -w /etc/audit/ -p wa -k audit
+      -w /etc/libaudit.conf -p wa -k audit
+      -w /etc/audisp/ -p wa -k audit
+
+      # Make the audit configuration immutable (must be last)
+      -e 2
+    mode: "0640"
+
+  # Load audit rules
+  load_audit_rules:
+    module: cmd
+    state: run
+    name: augenrules --load
+    watch:
+      - audit_rules
+
+  # Start and enable auditd service
+  auditd_service:
+    module: service
+    state: running
+    name: auditd
+    enable: true
+    watch:
+      - auditd_config
+      - audit_rules
+
+  # Ensure audit logs are protected
+  audit_log_perms:
+    module: file
+    state: directory
+    name: /var/log/audit
+    mode: "0700"

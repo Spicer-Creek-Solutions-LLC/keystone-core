@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"os"
 	"strings"
@@ -9,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
@@ -18,10 +21,16 @@ import (
 
 // Config holds CLI configuration
 type Config struct {
-	ServerAddr  string
-	Timeout     time.Duration
-	AuditLevel  string
-	AuditOutput string
+	ServerAddr    string
+	Timeout       time.Duration
+	AuditLevel    string
+	AuditOutput   string
+	TLS           bool
+	TLSCACert     string
+	TLSCert       string
+	TLSKey        string
+	TLSSkipVerify bool
+	TLSServerName string
 }
 
 // newRootCmd creates the root command
@@ -52,6 +61,14 @@ Examples:
 	rootCmd.PersistentFlags().DurationVar(&cfg.Timeout, "timeout", 5*time.Minute, "Request timeout")
 	rootCmd.PersistentFlags().StringVar(&cfg.AuditLevel, "audit-level", "all", "Audit logging level (all, errors, none)")
 	rootCmd.PersistentFlags().StringVar(&cfg.AuditOutput, "audit-output", "auto", "Audit output backend (auto, syslog, journald, stderr, none)")
+
+	// TLS flags
+	rootCmd.PersistentFlags().BoolVar(&cfg.TLS, "tls", false, "Enable TLS for server connection")
+	rootCmd.PersistentFlags().StringVar(&cfg.TLSCACert, "tls-ca-cert", "", "Path to CA certificate for verifying the server")
+	rootCmd.PersistentFlags().StringVar(&cfg.TLSCert, "tls-cert", "", "Path to client certificate for mTLS authentication")
+	rootCmd.PersistentFlags().StringVar(&cfg.TLSKey, "tls-key", "", "Path to client private key for mTLS authentication")
+	rootCmd.PersistentFlags().BoolVar(&cfg.TLSSkipVerify, "tls-skip-verify", false, "Skip TLS certificate verification (INSECURE - for development only)")
+	rootCmd.PersistentFlags().StringVar(&cfg.TLSServerName, "tls-server-name", "", "Server name for TLS verification (defaults to server host)")
 
 	// Add subcommands
 	rootCmd.AddCommand(newVersionCmd())
@@ -93,21 +110,80 @@ func main() {
 }
 
 // createClient creates a gRPC client connection to the control plane
-func createClient(serverAddr string) (pb.ControlPlaneServiceClient, *grpc.ClientConn, error) {
+func createClient(cfg *Config) (pb.ControlPlaneServiceClient, *grpc.ClientConn, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// TODO: Add TLS support
-	conn, err := grpc.DialContext(ctx, serverAddr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
-	)
+	var dialOpts []grpc.DialOption
+
+	// Configure TLS or insecure credentials
+	if cfg.TLS || cfg.TLSCACert != "" || cfg.TLSCert != "" {
+		tlsConfig, err := buildTLSConfig(cfg)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to configure TLS: %w", err)
+		}
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
+	} else {
+		// Use insecure credentials only when TLS is not configured
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	}
+
+	dialOpts = append(dialOpts, grpc.WithBlock())
+
+	conn, err := grpc.DialContext(ctx, cfg.ServerAddr, dialOpts...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to connect to server: %w", err)
 	}
 
 	client := pb.NewControlPlaneServiceClient(conn)
 	return client, conn, nil
+}
+
+// buildTLSConfig builds a TLS configuration from the CLI flags
+func buildTLSConfig(cfg *Config) (*tls.Config, error) {
+	tlsConfig := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+	}
+
+	// Handle skip verify (with warning)
+	if cfg.TLSSkipVerify {
+		fmt.Fprintln(os.Stderr, "WARNING: TLS certificate verification is disabled. This is insecure and should only be used for development.")
+		tlsConfig.InsecureSkipVerify = true
+	}
+
+	// Set server name for verification
+	if cfg.TLSServerName != "" {
+		tlsConfig.ServerName = cfg.TLSServerName
+	}
+
+	// Load CA certificate if provided
+	if cfg.TLSCACert != "" {
+		caCert, err := os.ReadFile(cfg.TLSCACert)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read CA certificate: %w", err)
+		}
+
+		caCertPool := x509.NewCertPool()
+		if !caCertPool.AppendCertsFromPEM(caCert) {
+			return nil, fmt.Errorf("failed to parse CA certificate")
+		}
+		tlsConfig.RootCAs = caCertPool
+	}
+
+	// Load client certificate and key for mTLS
+	if cfg.TLSCert != "" || cfg.TLSKey != "" {
+		if cfg.TLSCert == "" || cfg.TLSKey == "" {
+			return nil, fmt.Errorf("both --tls-cert and --tls-key must be provided for mTLS")
+		}
+
+		cert, err := tls.LoadX509KeyPair(cfg.TLSCert, cfg.TLSKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load client certificate: %w", err)
+		}
+		tlsConfig.Certificates = []tls.Certificate{cert}
+	}
+
+	return tlsConfig, nil
 }
 
 // RunOptions holds run command options
@@ -244,7 +320,7 @@ func runExecute(cmd *cobra.Command, args []string, cfg *Config, opts *RunOptions
 	}
 
 	// Create client
-	client, conn, err := createClient(cfg.ServerAddr)
+	client, conn, err := createClient(cfg)
 	if err != nil {
 		logAudit(audit.ResultFailure, 1, err)
 		return err
@@ -392,7 +468,7 @@ Examples:
 func statusExecute(cmd *cobra.Command, args []string, cfg *Config) error {
 	jobID := args[0]
 
-	client, conn, err := createClient(cfg.ServerAddr)
+	client, conn, err := createClient(cfg)
 	if err != nil {
 		return err
 	}
@@ -497,7 +573,7 @@ Examples:
 }
 
 func listExecute(cmd *cobra.Command, args []string, cfg *Config, opts *ListOptions) error {
-	client, conn, err := createClient(cfg.ServerAddr)
+	client, conn, err := createClient(cfg)
 	if err != nil {
 		return err
 	}

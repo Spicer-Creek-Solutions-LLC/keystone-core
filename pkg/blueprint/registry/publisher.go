@@ -4,7 +4,9 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -32,6 +34,18 @@ type PublisherConfig struct {
 
 	// SigningKeyPassword is the password for the signing key.
 	SigningKeyPassword string
+
+	// SigningCert is the path to the signing certificate (optional).
+	SigningCert string
+
+	// KeylessSign enables keyless signing using OIDC (Fulcio).
+	KeylessSign bool
+
+	// OIDCIssuer is the OIDC issuer URL for keyless signing.
+	OIDCIssuer string
+
+	// OIDCClientID is the OIDC client ID for keyless signing.
+	OIDCClientID string
 
 	// IncludePatterns specifies which files to include (glob patterns).
 	// Default: all files
@@ -395,23 +409,49 @@ func (p *Publisher) shouldInclude(path string) bool {
 	return false
 }
 
-// signArchive signs the archive using cosign.
+// signArchive signs the archive using the configured signing key.
 func (p *Publisher) signArchive(archive []byte) (signature, certificate []byte, err error) {
-	// Calculate hash
-	hash := sha256.Sum256(archive)
+	// Create signer configuration
+	signingConfig := &SigningConfig{
+		KeyPath:     p.config.SigningKey,
+		KeyPassword: p.config.SigningKeyPassword,
+		Format:      SignatureFormatCosign,
+	}
 
-	// Sign with cosign
-	// Note: This is a placeholder - actual signing would use the cosign library
-	// For now, we'll return a mock signature
-	_ = hash
-	_ = p.config.SigningKey
-	_ = p.config.SigningKeyPassword
+	// Add certificate path if configured
+	if p.config.SigningCert != "" {
+		signingConfig.CertPath = p.config.SigningCert
+	}
 
-	// TODO: Implement actual signing with cosign
-	// sig, err := cosign.Sign(hash[:], keyPath, password)
-	// return sig, nil, nil
+	// Create signer
+	signer, err := NewSigner(signingConfig)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create signer: %w", err)
+	}
 
-	return nil, nil, nil
+	// Sign the archive
+	ctx := context.Background()
+	result, err := signer.Sign(ctx, archive)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to sign archive: %w", err)
+	}
+
+	// Decode signature from base64
+	sigBytes, err := base64.StdEncoding.DecodeString(result.Signature)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to decode signature: %w", err)
+	}
+
+	// Decode certificate if present
+	var certBytes []byte
+	if result.Certificate != "" {
+		certBytes, err = base64.StdEncoding.DecodeString(result.Certificate)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to decode certificate: %w", err)
+		}
+	}
+
+	return sigBytes, certBytes, nil
 }
 
 // isValidVersion checks if a version string is valid semver.

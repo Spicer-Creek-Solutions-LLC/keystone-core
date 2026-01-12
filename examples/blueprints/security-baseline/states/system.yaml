@@ -1,121 +1,228 @@
 # System Hardening Configuration
 # Part of the Security Baseline Blueprint
 
-# Configure password policy
-password_policy_login_defs:
-  file.managed:
-    - name: /etc/login.defs
-    - source: template://templates/password-policy.j2
-    - template: jinja
-    - context:
-        pass_max_days: {{ parameters.password_max_days }}
-        pass_min_days: {{ parameters.password_min_days }}
-        pass_warn_age: {{ parameters.password_warn_days }}
-        umask: "{{ parameters.umask }}"
-    - mode: 644
+metadata:
+  name: security-system
+  description: System-level security hardening
+  version: "1.0"
 
-# Set secure permissions on sensitive files
-{% for file_path in ['/etc/passwd', '/etc/group'] %}
-secure_perms_{{ file_path | replace('/', '_') }}:
-  file.managed:
-    - name: {{ file_path }}
-    - mode: 644
-    - replace: false
-{% endfor %}
+states:
+  # Configure password policy
+  password_policy_login_defs:
+    module: file
+    state: present
+    name: /etc/login.defs
+    contents: |
+      #
+      # /etc/login.defs - Password and login policy
+      # Managed by Keystone Core Security Baseline Blueprint
+      #
 
-{% for file_path in ['/etc/shadow', '/etc/gshadow'] %}
-secure_perms_{{ file_path | replace('/', '_') }}:
-  file.managed:
-    - name: {{ file_path }}
-    - mode: 640
-    - replace: false
-{% endfor %}
+      # Mail directory
+      MAIL_DIR        /var/mail
 
-# Disable root login (console) if configured
-{% if parameters.disable_root_login %}
-disable_root_console_login:
-  file.managed:
-    - name: /etc/securetty
-    - contents: |
-        # Root console login disabled by Keystone Core Security Baseline
-    - mode: 600
-{% endif %}
+      # Password aging
+      PASS_MAX_DAYS   {{ .Params.password_max_days }}
+      PASS_MIN_DAYS   {{ .Params.password_min_days }}
+      PASS_WARN_AGE   {{ .Params.password_warn_days }}
 
-# Configure PAM for password quality (Debian/Ubuntu)
-{% if parameters.os_family == 'debian' %}
-pam_pwquality_package:
-  pkg.installed:
-    - name: libpam-pwquality
+      # Password length
+      PASS_MIN_LEN    12
 
-pam_pwquality_config:
-  file.managed:
-    - name: /etc/security/pwquality.conf
-    - contents: |
-        # Password quality configuration
-        # Managed by Keystone Core Security Baseline
-        minlen = 12
-        dcredit = -1
-        ucredit = -1
-        lcredit = -1
-        ocredit = -1
-        difok = 3
-        maxrepeat = 3
-        gecoscheck = 1
-        dictcheck = 1
-    - mode: 644
-    - require:
-      - pkg: pam_pwquality_package
-{% endif %}
+      # UID/GID ranges
+      UID_MIN         1000
+      UID_MAX         60000
+      SYS_UID_MIN     201
+      SYS_UID_MAX     999
+      GID_MIN         1000
+      GID_MAX         60000
+      SYS_GID_MIN     201
+      SYS_GID_MAX     999
 
-# Restrict su to wheel group
-su_wheel_only:
-  file.managed:
-    - name: /etc/pam.d/su
-    - contents: |
-        # /etc/pam.d/su - Managed by Keystone Core Security Baseline
-        #
-        auth       sufficient pam_rootok.so
-        # Uncomment the following line to require a user to be in the wheel group
-        auth       required   pam_wheel.so use_uid
-        auth       include    system-auth
-        account    sufficient pam_succeed_if.so uid = 0 use_uid quiet
-        account    include    system-auth
-        password   include    system-auth
-        session    include    system-auth
-        session    optional   pam_xauth.so
-    - mode: 644
+      # Create home directory on login
+      CREATE_HOME     yes
 
-# Ensure wheel group exists
-wheel_group:
-  group.present:
-    - name: wheel
+      # Default umask
+      UMASK           {{ .Params.umask }}
 
-# Set restrictive umask in /etc/profile
-profile_umask:
-  file.append:
-    - name: /etc/profile
-    - text: |
-        # Security baseline umask
-        umask {{ parameters.umask }}
+      # Enable SHA512 password hashing
+      ENCRYPT_METHOD  SHA512
+      SHA_CRYPT_MIN_ROUNDS 5000
 
-# Disable core dumps
-limits_core_dump:
-  file.managed:
-    - name: /etc/security/limits.d/99-security-baseline.conf
-    - contents: |
-        # Security baseline limits
-        # Managed by Keystone Core
-        * hard core 0
-        * soft core 0
-    - mode: 644
+      # Allow userdel to remove group
+      USERGROUPS_ENAB yes
 
-# Remove unnecessary packages
-unnecessary_packages:
-  pkg.removed:
-    - pkgs:
-      - telnet
-      - rsh-client
-      - rsh-server
-      - ypbind
-      - tftp
-      - tftp-server
+      # Log successful su
+      SULOG_FILE      /var/log/sulog
+      SU_NAME         su
+
+      # Max login retries
+      LOGIN_RETRIES   3
+
+      # Timeout for login
+      LOGIN_TIMEOUT   60
+
+      # Home directory permissions
+      HOME_MODE       0750
+
+      # If set to MD5, MD5-based algorithm will be used for encrypting password
+      MD5_CRYPT_ENAB no
+
+      # Default shell
+      ENV_SHELL       SHELL=/bin/sh
+
+      # Terminal permissions
+      TTYGROUP        tty
+      TTYPERM         0600
+
+      # Environment path
+      ENV_PATH        PATH=/usr/local/bin:/usr/bin:/bin
+      ENV_SUPATH      PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    mode: "0644"
+
+  # Set secure permissions on /etc/passwd
+  secure_perms_etc_passwd:
+    module: file
+    state: present
+    name: /etc/passwd
+    mode: "0644"
+
+  # Set secure permissions on /etc/group
+  secure_perms_etc_group:
+    module: file
+    state: present
+    name: /etc/group
+    mode: "0644"
+
+  # Set secure permissions on /etc/shadow
+  secure_perms_etc_shadow:
+    module: file
+    state: present
+    name: /etc/shadow
+    mode: "0640"
+
+  # Set secure permissions on /etc/gshadow
+  secure_perms_etc_gshadow:
+    module: file
+    state: present
+    name: /etc/gshadow
+    mode: "0640"
+
+  # Disable root console login (if configured)
+  disable_root_console_login:
+    module: file
+    state: present
+    name: /etc/securetty
+    contents: |
+      # Root console login disabled by Keystone Core Security Baseline
+    mode: "0600"
+    only_if: "{{ .Params.disable_root_login }}"
+
+  # Install PAM password quality (Debian/Ubuntu)
+  pam_pwquality_package:
+    module: package
+    state: installed
+    name: libpam-pwquality
+    only_if: "{{ eq .Params.os_family \"debian\" }}"
+
+  # Configure PAM password quality
+  pam_pwquality_config:
+    module: file
+    state: present
+    name: /etc/security/pwquality.conf
+    contents: |
+      # Password quality configuration
+      # Managed by Keystone Core Security Baseline
+      minlen = 12
+      dcredit = -1
+      ucredit = -1
+      lcredit = -1
+      ocredit = -1
+      difok = 3
+      maxrepeat = 3
+      gecoscheck = 1
+      dictcheck = 1
+    mode: "0644"
+    only_if: "{{ eq .Params.os_family \"debian\" }}"
+    require:
+      - pam_pwquality_package
+
+  # Restrict su to wheel group
+  su_wheel_only:
+    module: file
+    state: present
+    name: /etc/pam.d/su
+    contents: |
+      # /etc/pam.d/su - Managed by Keystone Core Security Baseline
+      #
+      auth       sufficient pam_rootok.so
+      # Uncomment the following line to require a user to be in the wheel group
+      auth       required   pam_wheel.so use_uid
+      auth       include    system-auth
+      account    sufficient pam_succeed_if.so uid = 0 use_uid quiet
+      account    include    system-auth
+      password   include    system-auth
+      session    include    system-auth
+      session    optional   pam_xauth.so
+    mode: "0644"
+
+  # Ensure wheel group exists
+  wheel_group:
+    module: group
+    state: present
+    name: wheel
+
+  # Set restrictive umask in /etc/profile
+  profile_umask:
+    module: cmd
+    state: run
+    name: |
+      if ! grep -q "# Security baseline umask" /etc/profile; then
+        echo "" >> /etc/profile
+        echo "# Security baseline umask" >> /etc/profile
+        echo "umask {{ .Params.umask }}" >> /etc/profile
+      fi
+    unless: grep -q "# Security baseline umask" /etc/profile
+
+  # Disable core dumps
+  limits_core_dump:
+    module: file
+    state: present
+    name: /etc/security/limits.d/99-security-baseline.conf
+    contents: |
+      # Security baseline limits
+      # Managed by Keystone Core
+      * hard core 0
+      * soft core 0
+    mode: "0644"
+
+  # Remove unnecessary packages (Debian)
+  remove_telnet:
+    module: package
+    state: removed
+    name: telnet
+
+  remove_rsh_client:
+    module: package
+    state: removed
+    name: rsh-client
+
+  remove_rsh_server:
+    module: package
+    state: removed
+    name: rsh-server
+
+  remove_ypbind:
+    module: package
+    state: removed
+    name: ypbind
+
+  remove_tftp:
+    module: package
+    state: removed
+    name: tftp
+
+  remove_tftp_server:
+    module: package
+    state: removed
+    name: tftp-server

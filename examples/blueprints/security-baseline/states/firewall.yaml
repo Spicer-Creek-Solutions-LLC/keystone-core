@@ -1,111 +1,112 @@
 # Firewall Configuration
 # Part of the Security Baseline Blueprint
 
-{% if parameters.os_family == 'debian' %}
-# UFW for Debian/Ubuntu
+metadata:
+  name: security-firewall
+  description: Host-based firewall configuration (UFW for Debian, firewalld for RHEL)
+  version: "1.0"
 
-# Install UFW
-ufw_package:
-  pkg.installed:
-    - name: ufw
+states:
+  ###################
+  # UFW for Debian/Ubuntu
+  ###################
 
-# Set default incoming policy
-ufw_default_incoming:
-  cmd.run:
-    - name: ufw default {{ parameters.firewall_default_policy }} incoming
-    - unless: ufw status verbose | grep -q "Default: {{ parameters.firewall_default_policy }} (incoming)"
-    - require:
-      - pkg: ufw_package
+  # Install UFW
+  ufw_package:
+    module: package
+    state: installed
+    name: ufw
+    only_if: "{{ eq .Params.os_family \"debian\" }}"
 
-# Set default outgoing policy (allow)
-ufw_default_outgoing:
-  cmd.run:
-    - name: ufw default allow outgoing
-    - unless: ufw status verbose | grep -q "Default: allow (outgoing)"
-    - require:
-      - pkg: ufw_package
+  # Set default incoming policy
+  ufw_default_incoming:
+    module: cmd
+    state: run
+    name: "ufw default {{ .Params.firewall_default_policy }} incoming"
+    unless: "ufw status verbose | grep -q 'Default: {{ .Params.firewall_default_policy }} (incoming)'"
+    only_if: "{{ eq .Params.os_family \"debian\" }}"
+    require:
+      - ufw_package
 
-# Allow configured ports
-{% for port in parameters.firewall_allowed_ports %}
-ufw_allow_{{ port | replace('/', '_') }}:
-  cmd.run:
-    - name: ufw allow {{ port }}
-    - unless: ufw status | grep -qE "^{{ port.split('/')[0] }}"
-    - require:
-      - cmd: ufw_default_incoming
-{% endfor %}
+  # Set default outgoing policy (allow)
+  ufw_default_outgoing:
+    module: cmd
+    state: run
+    name: "ufw default allow outgoing"
+    unless: "ufw status verbose | grep -q 'Default: allow (outgoing)'"
+    only_if: "{{ eq .Params.os_family \"debian\" }}"
+    require:
+      - ufw_package
 
-# Allow traffic from specific IPs
-{% for ip in parameters.firewall_allowed_ips %}
-ufw_allow_ip_{{ ip | replace('.', '_') | replace('/', '_') }}:
-  cmd.run:
-    - name: ufw allow from {{ ip }}
-    - unless: ufw status | grep -q "{{ ip }}"
-    - require:
-      - cmd: ufw_default_incoming
-{% endfor %}
+  # Allow SSH (always needed)
+  ufw_allow_ssh:
+    module: cmd
+    state: run
+    name: "ufw allow {{ .Params.ssh_port }}/tcp"
+    unless: "ufw status | grep -qE '^{{ .Params.ssh_port }}/tcp'"
+    only_if: "{{ eq .Params.os_family \"debian\" }}"
+    require:
+      - ufw_default_incoming
 
-# Enable UFW
-ufw_enable:
-  cmd.run:
-    - name: ufw --force enable
-    - unless: ufw status | grep -q "Status: active"
-    - require:
-      - cmd: ufw_default_incoming
-      - cmd: ufw_default_outgoing
+  # Enable UFW
+  ufw_enable:
+    module: cmd
+    state: run
+    name: "ufw --force enable"
+    unless: "ufw status | grep -q 'Status: active'"
+    only_if: "{{ eq .Params.os_family \"debian\" }}"
+    require:
+      - ufw_default_incoming
+      - ufw_default_outgoing
+      - ufw_allow_ssh
 
-{% else %}
-# Firewalld for RHEL/CentOS
+  ###################
+  # Firewalld for RHEL/CentOS
+  ###################
 
-# Install firewalld
-firewalld_package:
-  pkg.installed:
-    - name: firewalld
+  # Install firewalld
+  firewalld_package:
+    module: package
+    state: installed
+    name: firewalld
+    only_if: "{{ eq .Params.os_family \"rhel\" }}"
 
-# Start firewalld service
-firewalld_service:
-  service.running:
-    - name: firewalld
-    - enable: true
-    - require:
-      - pkg: firewalld_package
+  # Start firewalld service
+  firewalld_service:
+    module: service
+    state: running
+    name: firewalld
+    enable: true
+    only_if: "{{ eq .Params.os_family \"rhel\" }}"
+    require:
+      - firewalld_package
 
-# Set default zone based on policy
-{% if parameters.firewall_default_policy == 'deny' %}
-firewalld_default_zone:
-  cmd.run:
-    - name: firewall-cmd --set-default-zone=drop
-    - unless: firewall-cmd --get-default-zone | grep -q drop
-    - require:
-      - service: firewalld_service
-{% else %}
-firewalld_default_zone:
-  cmd.run:
-    - name: firewall-cmd --set-default-zone=public
-    - unless: firewall-cmd --get-default-zone | grep -q public
-    - require:
-      - service: firewalld_service
-{% endif %}
+  # Set default zone based on policy (deny = drop zone)
+  firewalld_default_zone_deny:
+    module: cmd
+    state: run
+    name: firewall-cmd --set-default-zone=drop
+    unless: firewall-cmd --get-default-zone | grep -q drop
+    only_if: "{{ and (eq .Params.os_family \"rhel\") (eq .Params.firewall_default_policy \"deny\") }}"
+    require:
+      - firewalld_service
 
-# Allow configured ports
-{% for port_proto in parameters.firewall_allowed_ports %}
-{% set port = port_proto.split('/')[0] %}
-{% set proto = port_proto.split('/')[1] if '/' in port_proto else 'tcp' %}
-firewalld_allow_{{ port }}_{{ proto }}:
-  cmd.run:
-    - name: firewall-cmd --permanent --add-port={{ port }}/{{ proto }} && firewall-cmd --reload
-    - unless: firewall-cmd --list-ports | grep -q "{{ port }}/{{ proto }}"
-    - require:
-      - service: firewalld_service
-{% endfor %}
+  # Set default zone based on policy (allow = public zone)
+  firewalld_default_zone_allow:
+    module: cmd
+    state: run
+    name: firewall-cmd --set-default-zone=public
+    unless: firewall-cmd --get-default-zone | grep -q public
+    only_if: "{{ and (eq .Params.os_family \"rhel\") (ne .Params.firewall_default_policy \"deny\") }}"
+    require:
+      - firewalld_service
 
-# Allow traffic from specific IPs
-{% for ip in parameters.firewall_allowed_ips %}
-firewalld_allow_ip_{{ ip | replace('.', '_') | replace('/', '_') }}:
-  cmd.run:
-    - name: firewall-cmd --permanent --add-rich-rule='rule family="ipv4" source address="{{ ip }}" accept' && firewall-cmd --reload
-    - unless: firewall-cmd --list-rich-rules | grep -q "{{ ip }}"
-    - require:
-      - service: firewalld_service
-{% endfor %}
-{% endif %}
+  # Allow SSH port (always needed)
+  firewalld_allow_ssh:
+    module: cmd
+    state: run
+    name: firewall-cmd --permanent --add-port={{ .Params.ssh_port }}/tcp && firewall-cmd --reload
+    unless: firewall-cmd --list-ports | grep -q "{{ .Params.ssh_port }}/tcp"
+    only_if: "{{ eq .Params.os_family \"rhel\" }}"
+    require:
+      - firewalld_service

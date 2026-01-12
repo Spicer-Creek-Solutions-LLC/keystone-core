@@ -1,45 +1,75 @@
 # Common Setup for Monitoring Stack
 # Creates users, directories, and installs dependencies
 
-# Create monitoring user
-monitoring_user:
-  user.present:
-    - name: prometheus
-    - system: true
-    - shell: /usr/sbin/nologin
-    - home: {{ parameters.data_dir }}
-    - createhome: false
+metadata:
+  name: monitoring-common
+  description: Common setup for monitoring stack - users, directories, dependencies
+  version: "1.0"
 
-# Create monitoring group
-monitoring_group:
-  group.present:
-    - name: prometheus
-    - system: true
+states:
+  # Create monitoring group
+  monitoring_group:
+    module: group
+    state: present
+    name: prometheus
+    system: true
 
-# Create base directories
-monitoring_data_dir:
-  file.directory:
-    - name: {{ parameters.data_dir }}
-    - user: prometheus
-    - group: prometheus
-    - mode: 755
-    - makedirs: true
+  # Create monitoring user
+  monitoring_user:
+    module: user
+    state: present
+    name: prometheus
+    system: true
+    shell: /usr/sbin/nologin
+    home: "{{ .Params.data_dir }}"
+    createhome: false
+    require:
+      - monitoring_group
 
-monitoring_config_dir:
-  file.directory:
-    - name: {{ parameters.config_dir }}
-    - user: root
-    - group: prometheus
-    - mode: 755
-    - makedirs: true
+  # Create base directories
+  monitoring_data_dir:
+    module: file
+    state: directory
+    name: "{{ .Params.data_dir }}"
+    user: prometheus
+    group: prometheus
+    mode: "0755"
+    makedirs: true
+    require:
+      - monitoring_user
 
-# Install common dependencies
-monitoring_dependencies:
-  pkg.installed:
-    - pkgs:
-      - curl
-      - tar
-      - gzip
-{% if parameters.os_family == 'debian' %}
-      - ca-certificates
-{% endif %}
+  monitoring_config_dir:
+    module: file
+    state: directory
+    name: "{{ .Params.config_dir }}"
+    user: root
+    group: prometheus
+    mode: "0755"
+    makedirs: true
+    require:
+      - monitoring_group
+
+  # Install common dependencies - curl
+  install_curl:
+    module: package
+    state: installed
+    name: curl
+
+  # Install common dependencies - tar
+  install_tar:
+    module: package
+    state: installed
+    name: tar
+
+  # Install common dependencies - gzip
+  install_gzip:
+    module: package
+    state: installed
+    name: gzip
+
+  # Install ca-certificates (Debian only)
+  install_ca_certificates:
+    module: package
+    state: installed
+    name: ca-certificates
+    only_if: "{{ eq .Params.os_family \"debian\" }}"

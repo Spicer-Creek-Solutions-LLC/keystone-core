@@ -1,0 +1,186 @@
+# Automatic Security Updates
+# Part of the Security Baseline Blueprint
+
+metadata:
+  name: security-updates
+  description: Automatic security updates configuration
+  version: "1.0"
+
+states:
+  ###################
+  # Debian/Ubuntu - unattended-upgrades
+  ###################
+
+  # Install unattended-upgrades (Debian/Ubuntu)
+  unattended_upgrades_package:
+    module: package
+    state: installed
+    name: unattended-upgrades
+    only_if: "{{ eq .Params.os_family \"debian\" }}"
+
+  # Install apt-listchanges for notification support
+  apt_listchanges_package:
+    module: package
+    state: installed
+    name: apt-listchanges
+    only_if: "{{ eq .Params.os_family \"debian\" }}"
+
+  # Configure unattended-upgrades
+  unattended_upgrades_config:
+    module: file
+    state: present
+    name: /etc/apt/apt.conf.d/50unattended-upgrades
+    contents: |
+      // Unattended Upgrades Configuration
+      // Managed by Keystone Core Security Baseline Blueprint
+
+      // Automatically upgrade packages from these origins
+      Unattended-Upgrade::Allowed-Origins {
+          "${distro_id}:${distro_codename}";
+          "${distro_id}:${distro_codename}-security";
+          "${distro_id}ESMApps:${distro_codename}-apps-security";
+          "${distro_id}ESM:${distro_codename}-infra-security";
+      };
+
+      // List of packages to not update
+      Unattended-Upgrade::Package-Blacklist {
+      };
+
+      // Split the upgrade into the smallest possible chunks
+      Unattended-Upgrade::MinimalSteps "true";
+
+      // Send email to this address for problems or packages upgrades
+      // Unattended-Upgrade::Mail "root";
+
+      // Set this value to "true" to get emails only on errors
+      Unattended-Upgrade::MailOnlyOnError "true";
+
+      // Remove unused automatically installed kernel-related packages
+      Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+
+      // Do automatic removal of new unused dependencies after the upgrade
+      Unattended-Upgrade::Remove-Unused-Dependencies "true";
+
+      // Automatically reboot if required
+      Unattended-Upgrade::Automatic-Reboot "{{ .Params.updates_auto_reboot }}";
+
+      // Automatic reboot time
+      Unattended-Upgrade::Automatic-Reboot-Time "{{ .Params.updates_reboot_time }}";
+
+      // Enable logging to syslog
+      Unattended-Upgrade::SyslogEnable "true";
+      Unattended-Upgrade::SyslogFacility "daemon";
+    mode: "0644"
+    only_if: "{{ eq .Params.os_family \"debian\" }}"
+    require:
+      - unattended_upgrades_package
+
+  # Configure auto-upgrades
+  auto_upgrades_config:
+    module: file
+    state: present
+    name: /etc/apt/apt.conf.d/20auto-upgrades
+    contents: |
+      // Auto-Upgrades Configuration
+      // Managed by Keystone Core Security Baseline Blueprint
+
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+      APT::Periodic::Download-Upgradeable-Packages "1";
+      APT::Periodic::AutocleanInterval "7";
+    mode: "0644"
+    only_if: "{{ eq .Params.os_family \"debian\" }}"
+    require:
+      - unattended_upgrades_package
+
+  # Enable unattended-upgrades timer
+  unattended_upgrades_timer:
+    module: service
+    state: running
+    name: unattended-upgrades
+    enable: true
+    only_if: "{{ eq .Params.os_family \"debian\" }}"
+    require:
+      - unattended_upgrades_config
+
+  ###################
+  # RHEL/CentOS - dnf-automatic
+  ###################
+
+  # Install dnf-automatic (RHEL 8+)
+  dnf_automatic_package:
+    module: package
+    state: installed
+    name: dnf-automatic
+    only_if: "{{ eq .Params.os_family \"rhel\" }}"
+
+  # Configure dnf-automatic
+  dnf_automatic_config:
+    module: file
+    state: present
+    name: /etc/dnf/automatic.conf
+    contents: |
+      # DNF Automatic Configuration
+      # Managed by Keystone Core Security Baseline Blueprint
+
+      [commands]
+      # What kind of upgrade to perform
+      # security = only security upgrades
+      # default = all available updates
+      upgrade_type = security
+
+      # To just receive updates use 'no' for the download_updates and apply_updates
+      # To download and install updates use 'yes' for both options
+      download_updates = yes
+      apply_updates = yes
+
+      # Maximum random delay before downloading
+      random_sleep = 0
+
+      [emitters]
+      # Name to use for this system in messages
+      system_name = {{ .Params.hostname }}
+
+      # How to send messages
+      emit_via = stdio
+
+      [email]
+      # The address to send email messages from
+      email_from = root@localhost
+
+      # List of addresses to send messages to
+      email_to = root
+
+      # Name of the host to connect to for email
+      email_host = localhost
+
+      [command]
+      # The command to use for sending via command or command_email
+      command_format = "cat"
+
+      [command_email]
+      # The address to send email messages from
+      email_from = root@localhost
+
+      # List of addresses to send messages to
+      email_to = root
+
+      [base]
+      # This section overrides dnf.conf
+
+      # Use this to filter DNF core messages
+      debuglevel = 1
+    mode: "0644"
+    only_if: "{{ eq .Params.os_family \"rhel\" }}"
+    require:
+      - dnf_automatic_package
+
+  # Enable dnf-automatic timer
+  dnf_automatic_timer:
+    module: service
+    state: running
+    name: dnf-automatic.timer
+    enable: true
+    only_if: "{{ eq .Params.os_family \"rhel\" }}"
+    require:
+      - dnf_automatic_config

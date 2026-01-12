@@ -167,3 +167,34 @@ func (sb *stringBuilder) WriteString(s string) {
 	sb.sb.WriteString(s)
 }
 
+// RunBlueprintValidation validates blueprint files
+func RunBlueprintValidation(rootDir string, verbose bool) {
+	fmt.Println("Validating blueprint files...")
+	validator := NewBlueprintValidator(rootDir)
+	inventory := validator.ValidateBlueprints(verbose)
+
+	// Generate report
+	report := GenerateBlueprintReport(inventory)
+	outputPath := "./scripts/docvalidation/blueprint-validation-report.md"
+	if err := os.WriteFile(outputPath, []byte(report), 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing report: %v\n", err)
+		return
+	}
+	fmt.Printf("Blueprint validation report written to %s\n", outputPath)
+
+	// Print summary
+	fmt.Printf("\nBlueprint Validation Summary:\n")
+	fmt.Printf("  Blueprints: %d\n", inventory.Summary.TotalBlueprints)
+	fmt.Printf("  State Files: %d\n", inventory.Summary.TotalStateFiles)
+	fmt.Printf("  Total States: %d\n", inventory.Summary.TotalStates)
+	fmt.Printf("  Valid Files: %d\n", inventory.Summary.ValidFiles)
+	fmt.Printf("  Invalid Files: %d\n", inventory.Summary.InvalidFiles)
+	fmt.Printf("  Files with Warnings: %d\n", inventory.Summary.FilesWithWarnings)
+
+	if inventory.Summary.InvalidFiles > 0 {
+		fmt.Printf("\nWARNING: %d invalid blueprint files found\n", inventory.Summary.InvalidFiles)
+	} else {
+		fmt.Println("\nAll blueprint files are valid!")
+	}
+}
+

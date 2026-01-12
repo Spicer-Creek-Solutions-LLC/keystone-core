@@ -24,8 +24,21 @@ type Config struct {
 	Port int `json:"port,omitempty"`
 
 	// HostKeyCallback is the host key verification callback.
-	// If nil, InsecureIgnoreHostKey is used (not recommended for production).
+	// If nil, the HostKeyVerifier is used (or DefaultHostKeyVerifier if that's also nil).
 	HostKeyCallback ssh.HostKeyCallback `json:"-"`
+
+	// HostKeyVerifier provides host key verification with known_hosts support.
+	// If nil and HostKeyCallback is nil, DefaultHostKeyVerifier() is used.
+	HostKeyVerifier *HostKeyVerifier `json:"-"`
+
+	// HostKeyCheckMode sets the host key verification mode when using the default verifier.
+	// Valid values: "strict", "tofu", "accept-new", "no"
+	// Default is "tofu" (Trust On First Use).
+	HostKeyCheckMode HostKeyCheckMode `json:"host_key_check_mode,omitempty"`
+
+	// KnownHostsPath is the path to the known_hosts file.
+	// Defaults to ~/.ssh/known_hosts if empty.
+	KnownHostsPath string `json:"known_hosts_path,omitempty"`
 
 	// BannerCallback is called when a banner is received.
 	BannerCallback ssh.BannerCallback `json:"-"`
@@ -47,11 +60,12 @@ type Config struct {
 }
 
 // DefaultConfig returns a default SSH configuration.
+// By default, uses TOFU (Trust On First Use) host key verification.
 func DefaultConfig() *Config {
 	return &Config{
 		ConnectionConfig: protocols.DefaultConnectionConfig(),
 		Port:             22,
-		HostKeyCallback:  ssh.InsecureIgnoreHostKey(), // TODO: Implement proper host key verification
+		HostKeyCheckMode: HostKeyCheckTOFU,
 		ClientVersion:    "SSH-2.0-KeystoneCore",
 	}
 }
@@ -154,8 +168,25 @@ func (a *Adapter) Connect(ctx context.Context, device *proxy.ProxiedDevice, cred
 
 // buildSSHConfig builds an SSH client config from credentials.
 func (a *Adapter) buildSSHConfig(cred credentials.Credential) (*ssh.ClientConfig, error) {
+	// Determine host key callback
+	var hostKeyCallback ssh.HostKeyCallback
+	if a.config.HostKeyCallback != nil {
+		// Explicit callback takes precedence
+		hostKeyCallback = a.config.HostKeyCallback
+	} else if a.config.HostKeyVerifier != nil {
+		// Use provided verifier
+		hostKeyCallback = a.config.HostKeyVerifier.HostKeyCallback()
+	} else {
+		// Create verifier based on config
+		verifier := NewHostKeyVerifier(a.config.HostKeyCheckMode)
+		if a.config.KnownHostsPath != "" {
+			verifier.KnownHostsPath = a.config.KnownHostsPath
+		}
+		hostKeyCallback = verifier.HostKeyCallback()
+	}
+
 	config := &ssh.ClientConfig{
-		HostKeyCallback: a.config.HostKeyCallback,
+		HostKeyCallback: hostKeyCallback,
 		BannerCallback:  a.config.BannerCallback,
 		Timeout:         a.config.Timeout,
 	}

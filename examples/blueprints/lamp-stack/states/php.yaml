@@ -1,96 +1,253 @@
 # PHP Configuration
 # Part of the LAMP Stack Blueprint
 
-{% if parameters.os_family == 'debian' %}
-{% set php_pkg_prefix = 'php' + parameters.php_version %}
-{% set php_conf_dir = '/etc/php/' + parameters.php_version %}
-{% else %}
-{% set php_pkg_prefix = 'php' %}
-{% set php_conf_dir = '/etc' %}
-{% endif %}
+metadata:
+  name: lamp-php
+  description: PHP installation and configuration
+  version: "1.0"
 
-# Install PHP core
-php_core:
-  pkg.installed:
-    - name: {{ php_pkg_prefix }}
+# Platform-specific package names
+vars:
+  php_pkg: "{{ if eq .Params.os_family \"rhel\" }}php{{ else }}php{{ .Params.php_version }}{{ end }}"
+  php_cli_pkg: "{{ if eq .Params.os_family \"rhel\" }}php-cli{{ else }}php{{ .Params.php_version }}-cli{{ end }}"
+  php_common_pkg: "{{ if eq .Params.os_family \"rhel\" }}php-common{{ else }}php{{ .Params.php_version }}-common{{ end }}"
+  php_mysql_pkg: "{{ if eq .Params.os_family \"rhel\" }}php-mysqlnd{{ else }}php{{ .Params.php_version }}-mysql{{ end }}"
+  php_opcache_pkg: "{{ if eq .Params.os_family \"rhel\" }}php-opcache{{ else }}php{{ .Params.php_version }}-opcache{{ end }}"
+  php_conf_dir: "{{ if eq .Params.os_family \"rhel\" }}/etc{{ else }}/etc/php/{{ .Params.php_version }}{{ end }}"
+  apache_user: "{{ if eq .Params.os_family \"rhel\" }}apache{{ else }}www-data{{ end }}"
+  apache_group: "{{ if eq .Params.os_family \"rhel\" }}apache{{ else }}www-data{{ end }}"
 
-# Install PHP CLI
-php_cli:
-  pkg.installed:
-    - name: {{ php_pkg_prefix }}-cli
-    - require:
-      - pkg: php_core
+states:
+  # Install PHP core package
+  install_php_core:
+    module: package
+    state: installed
+    name: "{{ .Vars.php_pkg }}"
 
-# Install common PHP extensions
-php_common:
-  pkg.installed:
-    - name: {{ php_pkg_prefix }}-common
-    - require:
-      - pkg: php_core
+  # Install PHP CLI
+  install_php_cli:
+    module: package
+    state: installed
+    name: "{{ .Vars.php_cli_pkg }}"
+    require:
+      - install_php_core
 
-# Install MySQL extension for PHP
-php_mysql:
-  pkg.installed:
-    - name: {{ php_pkg_prefix }}-mysql
-    - require:
-      - pkg: php_core
+  # Install PHP common extensions
+  install_php_common:
+    module: package
+    state: installed
+    name: "{{ .Vars.php_common_pkg }}"
+    require:
+      - install_php_core
 
-# Install additional PHP extensions
-{% for ext in parameters.php_extensions %}
-php_ext_{{ ext }}:
-  pkg.installed:
-    - name: {{ php_pkg_prefix }}-{{ ext }}
-    - require:
-      - pkg: php_core
-{% endfor %}
+  # Install PHP MySQL extension
+  install_php_mysql:
+    module: package
+    state: installed
+    name: "{{ .Vars.php_mysql_pkg }}"
+    require:
+      - install_php_core
 
-# PHP configuration
-php_ini:
-  file.managed:
-    {% if parameters.os_family == 'debian' %}
-    - name: {{ php_conf_dir }}/apache2/php.ini
-    {% else %}
-    - name: /etc/php.ini
-    {% endif %}
-    - source: template://templates/php.ini.j2
-    - template: jinja
-    - context:
-        memory_limit: "{{ parameters.php_memory_limit }}"
-        max_execution_time: {{ parameters.php_max_execution_time }}
-        opcache_enabled: {{ features.opcache }}
-    - require:
-      - pkg: php_core
+  # Install PHP curl extension
+  install_php_curl:
+    module: package
+    state: installed
+    name: "{{ if eq .Params.os_family \"rhel\" }}php-curl{{ else }}php{{ .Params.php_version }}-curl{{ end }}"
+    require:
+      - install_php_core
 
-# OPcache configuration (if enabled)
-{% if features.opcache %}
-php_opcache:
-  pkg.installed:
-    - name: {{ php_pkg_prefix }}-opcache
-    - require:
-      - pkg: php_core
+  # Install PHP mbstring extension
+  install_php_mbstring:
+    module: package
+    state: installed
+    name: "{{ if eq .Params.os_family \"rhel\" }}php-mbstring{{ else }}php{{ .Params.php_version }}-mbstring{{ end }}"
+    require:
+      - install_php_core
 
-opcache_config:
-  file.managed:
-    {% if parameters.os_family == 'debian' %}
-    - name: {{ php_conf_dir }}/mods-available/opcache.ini
-    {% else %}
-    - name: /etc/php.d/10-opcache.ini
-    {% endif %}
-    - source: template://templates/opcache.ini.j2
-    - template: jinja
-    - require:
-      - pkg: php_opcache
-{% endif %}
+  # Install PHP xml extension
+  install_php_xml:
+    module: package
+    state: installed
+    name: "{{ if eq .Params.os_family \"rhel\" }}php-xml{{ else }}php{{ .Params.php_version }}-xml{{ end }}"
+    require:
+      - install_php_core
 
-# Create PHP info file for testing
-php_info_file:
-  file.managed:
-    - name: {{ parameters.document_root }}/info.php
-    - contents: |
-        <?php
-        // This file should be removed in production
-        phpinfo();
-        ?>
-    - user: www-data
-    - group: www-data
-    - mode: 644
+  # Install PHP zip extension
+  install_php_zip:
+    module: package
+    state: installed
+    name: "{{ if eq .Params.os_family \"rhel\" }}php-zip{{ else }}php{{ .Params.php_version }}-zip{{ end }}"
+    require:
+      - install_php_core
+
+  # Install PHP gd extension
+  install_php_gd:
+    module: package
+    state: installed
+    name: "{{ if eq .Params.os_family \"rhel\" }}php-gd{{ else }}php{{ .Params.php_version }}-gd{{ end }}"
+    require:
+      - install_php_core
+
+  # Install PHP OPcache extension (if enabled)
+  install_php_opcache:
+    module: package
+    state: installed
+    name: "{{ .Vars.php_opcache_pkg }}"
+    only_if: "{{ .Features.opcache }}"
+    require:
+      - install_php_core
+
+  # PHP configuration (Debian)
+  configure_php_debian:
+    module: file
+    state: present
+    name: "{{ .Vars.php_conf_dir }}/apache2/php.ini"
+    contents: |
+      [PHP]
+      ; PHP Configuration managed by Keystone Core
+
+      ; Resource Limits
+      memory_limit = {{ .Params.php_memory_limit }}
+      max_execution_time = {{ .Params.php_max_execution_time }}
+      max_input_time = 60
+
+      ; Error handling
+      error_reporting = E_ALL & ~E_DEPRECATED & ~E_STRICT
+      display_errors = Off
+      log_errors = On
+      error_log = /var/log/php/error.log
+
+      ; File Uploads
+      file_uploads = On
+      upload_max_filesize = 64M
+      post_max_size = 64M
+      max_file_uploads = 20
+
+      ; Date/Time
+      date.timezone = UTC
+
+      ; Session
+      session.save_handler = files
+      session.save_path = /var/lib/php/sessions
+      session.cookie_httponly = 1
+      session.cookie_secure = 0
+
+      ; Security
+      expose_php = Off
+      allow_url_fopen = On
+      allow_url_include = Off
+    user: root
+    group: root
+    mode: "0644"
+    only_if: "{{ eq .Params.os_family \"debian\" }}"
+    require:
+      - install_php_core
+
+  # PHP configuration (RHEL)
+  configure_php_rhel:
+    module: file
+    state: present
+    name: /etc/php.ini
+    contents: |
+      [PHP]
+      ; PHP Configuration managed by Keystone Core
+
+      ; Resource Limits
+      memory_limit = {{ .Params.php_memory_limit }}
+      max_execution_time = {{ .Params.php_max_execution_time }}
+      max_input_time = 60
+
+      ; Error handling
+      error_reporting = E_ALL & ~E_DEPRECATED & ~E_STRICT
+      display_errors = Off
+      log_errors = On
+      error_log = /var/log/php-fpm/error.log
+
+      ; File Uploads
+      file_uploads = On
+      upload_max_filesize = 64M
+      post_max_size = 64M
+      max_file_uploads = 20
+
+      ; Date/Time
+      date.timezone = UTC
+
+      ; Session
+      session.save_handler = files
+      session.save_path = /var/lib/php/session
+      session.cookie_httponly = 1
+      session.cookie_secure = 0
+
+      ; Security
+      expose_php = Off
+      allow_url_fopen = On
+      allow_url_include = Off
+    user: root
+    group: root
+    mode: "0644"
+    only_if: "{{ eq .Params.os_family \"rhel\" }}"
+    require:
+      - install_php_core
+
+  # OPcache configuration (Debian)
+  configure_opcache_debian:
+    module: file
+    state: present
+    name: "{{ .Vars.php_conf_dir }}/mods-available/opcache.ini"
+    contents: |
+      ; OPcache Configuration managed by Keystone Core
+      [opcache]
+      opcache.enable=1
+      opcache.enable_cli=0
+      opcache.memory_consumption=128
+      opcache.interned_strings_buffer=8
+      opcache.max_accelerated_files=10000
+      opcache.revalidate_freq=2
+      opcache.fast_shutdown=1
+      opcache.validate_timestamps=1
+    user: root
+    group: root
+    mode: "0644"
+    only_if: "{{ and .Features.opcache (eq .Params.os_family \"debian\") }}"
+    require:
+      - install_php_opcache
+
+  # OPcache configuration (RHEL)
+  configure_opcache_rhel:
+    module: file
+    state: present
+    name: /etc/php.d/10-opcache.ini
+    contents: |
+      ; OPcache Configuration managed by Keystone Core
+      [opcache]
+      opcache.enable=1
+      opcache.enable_cli=0
+      opcache.memory_consumption=128
+      opcache.interned_strings_buffer=8
+      opcache.max_accelerated_files=10000
+      opcache.revalidate_freq=2
+      opcache.fast_shutdown=1
+      opcache.validate_timestamps=1
+    user: root
+    group: root
+    mode: "0644"
+    only_if: "{{ and .Features.opcache (eq .Params.os_family \"rhel\") }}"
+    require:
+      - install_php_opcache
+
+  # Create PHP info file for testing (should be removed in production)
+  create_php_info:
+    module: file
+    state: present
+    name: "{{ .Params.document_root }}/info.php"
+    contents: |
+      <?php
+      // WARNING: Remove this file in production!
+      // This file exposes sensitive PHP configuration information.
+      phpinfo();
+      ?>
+    user: "{{ .Vars.apache_user }}"
+    group: "{{ .Vars.apache_group }}"
+    mode: "0644"
+    require:
+      - install_php_core

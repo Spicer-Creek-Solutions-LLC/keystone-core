@@ -103,19 +103,74 @@
                   Impersonate="no"
                   Return="ignore" />
 
-    <!-- Validate server URL format -->
+    <!--
+      Server URL validation using VBScript to prevent command injection.
+      Validates that SERVERURL matches expected patterns:
+      - nats://hostname:port
+      - tls://hostname:port
+      - nats://hostname:port,hostname:port (cluster)
+    -->
     <CustomAction Id="ValidateServerUrl"
-                  Property="SERVERURL"
-                  Error="Invalid SERVERURL format. Expected: nats://hostname:port or tls://hostname:port" />
+                  Script="vbscript"
+                  Execute="immediate">
+      <![CDATA[
+        Function ValidateServerUrl()
+          Dim serverUrl, regEx, errorMsg
+          serverUrl = Session.Property("SERVERURL")
+
+          ' If no SERVERURL provided, that's OK (will use defaults)
+          If serverUrl = "" Then
+            ValidateServerUrl = 0
+            Exit Function
+          End If
+
+          ' Create regex to validate URL format
+          ' Allowed: nats://host:port or tls://host:port
+          ' Host can be alphanumeric, dots, dashes
+          ' Port is 1-5 digits
+          ' Multiple URLs separated by comma are allowed
+          Set regEx = New RegExp
+          regEx.Pattern = "^(nats|tls)://[a-zA-Z0-9][a-zA-Z0-9\-\.]*:[0-9]{1,5}(,(nats|tls)://[a-zA-Z0-9][a-zA-Z0-9\-\.]*:[0-9]{1,5})*$"
+          regEx.IgnoreCase = True
+          regEx.Global = False
+
+          If Not regEx.Test(serverUrl) Then
+            ' Check for potentially dangerous characters (command injection)
+            Set dangerousChars = New RegExp
+            dangerousChars.Pattern = "[&|;`$(){}[\]<>!""'\\]"
+            dangerousChars.Global = True
+
+            If dangerousChars.Test(serverUrl) Then
+              errorMsg = "SERVERURL contains invalid characters. Only alphanumeric, dots, dashes, colons, and slashes are allowed."
+            Else
+              errorMsg = "Invalid SERVERURL format. Expected: nats://hostname:port or tls://hostname:port"
+            End If
+
+            Session.Property("SERVERURL_VALID") = "0"
+            Session.Message msiMessageTypeError, errorMsg
+            ValidateServerUrl = 3  ' Return error code
+            Exit Function
+          End If
+
+          Session.Property("SERVERURL_VALID") = "1"
+          ValidateServerUrl = 0
+        End Function
+      ]]>
+    </CustomAction>
+
+    <!-- Condition to ensure URL is valid before config generation -->
+    <Property Id="SERVERURL_VALID" Value="0" />
 
     <!-- Set condition for config generation -->
     <Property Id="GENERATECONFIG" Value="1" />
 
     <!-- Install sequence -->
     <InstallExecuteSequence>
+      <!-- Validate server URL first -->
+      <Custom Action="ValidateServerUrl" Before="InstallFiles" Condition="SERVERURL" />
       <!-- Generate config after files are installed, before service starts -->
-      <Custom Action="GenerateConfigRollback" After="InstallFiles" Condition="SERVERURL AND GENERATECONFIG=1" />
-      <Custom Action="GenerateConfig" After="GenerateConfigRollback" Condition="SERVERURL AND GENERATECONFIG=1" />
+      <Custom Action="GenerateConfigRollback" After="InstallFiles" Condition="SERVERURL AND GENERATECONFIG=1 AND SERVERURL_VALID=1" />
+      <Custom Action="GenerateConfig" After="GenerateConfigRollback" Condition="SERVERURL AND GENERATECONFIG=1 AND SERVERURL_VALID=1" />
     </InstallExecuteSequence>
   </Fragment>
 

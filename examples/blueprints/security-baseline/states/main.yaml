@@ -1,26 +1,24 @@
 # Security Baseline Main State File
 # Entry point for security hardening
 
-# Include component states in order
-include:
-{% if features.system_hardening %}
-  - states/system.yaml
-{% endif %}
-{% if features.ssh_hardening %}
-  - states/ssh.yaml
-{% endif %}
-{% if features.kernel_hardening %}
-  - states/kernel.yaml
-{% endif %}
-{% if features.firewall %}
-  - states/firewall.yaml
-{% endif %}
-{% if features.audit_logging %}
-  - states/audit.yaml
-{% endif %}
-{% if features.fail2ban %}
-  - states/fail2ban.yaml
-{% endif %}
-{% if features.automatic_updates %}
-  - states/updates.yaml
-{% endif %}
+metadata:
+  name: security-main
+  description: Security baseline entry point with conditional components
+  version: "1.0"
+
+# All components are conditionally included based on features
+include_if:
+  - path: states/system.yaml
+    condition: "{{ .Features.system_hardening }}"
+  - path: states/ssh.yaml
+    condition: "{{ .Features.ssh_hardening }}"
+  - path: states/kernel.yaml
+    condition: "{{ .Features.kernel_hardening }}"
+  - path: states/firewall.yaml
+    condition: "{{ .Features.firewall }}"
+  - path: states/audit.yaml
+    condition: "{{ .Features.audit_logging }}"
+  - path: states/fail2ban.yaml
+    condition: "{{ .Features.fail2ban }}"
+  - path: states/updates.yaml
+    condition: "{{ .Features.automatic_updates }}"

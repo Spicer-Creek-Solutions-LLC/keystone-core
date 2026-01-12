@@ -1,17 +1,24 @@
 # Monitoring Stack Main State File
 # Entry point that includes all monitoring components
 
+metadata:
+  name: monitoring-main
+  description: Entry point for monitoring stack with conditional components
+  version: "1.0"
+
 # Include component states in order
+# Core components are always included
+# Optional components are conditionally included based on features
 include:
   - states/common.yaml
   - states/prometheus.yaml
   - states/node_exporter.yaml
-{% if features.alertmanager %}
-  - states/alertmanager.yaml
-{% endif %}
-{% if features.grafana %}
-  - states/grafana.yaml
-{% endif %}
-{% if features.blackbox_exporter %}
-  - states/blackbox_exporter.yaml
-{% endif %}
+
+# Conditional includes based on feature flags
+include_if:
+  - path: states/alertmanager.yaml
+    condition: "{{ .Features.alertmanager }}"
+  - path: states/grafana.yaml
+    condition: "{{ .Features.grafana }}"
+  - path: states/blackbox_exporter.yaml
+    condition: "{{ .Features.blackbox_exporter }}"

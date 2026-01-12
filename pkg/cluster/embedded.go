@@ -11,6 +11,8 @@ import (
 
 	"go.etcd.io/etcd/server/v3/embed"
 	"go.uber.org/zap"
+
+	"go.etcd.io/etcd/client/pkg/v3/transport"
 )
 
 // EmbeddedEtcdServer manages an embedded etcd server instance.
@@ -87,7 +89,7 @@ func (s *EmbeddedEtcdServer) Start(ctx context.Context) error {
 	embedCfg.Dir = dataDir
 
 	// Determine if TLS is enabled (for URL scheme)
-	useTLS := false // TODO: Add TLS support for embedded etcd
+	useTLS := cfg.IsTLSEnabled()
 
 	// Client URLs - use configurable listen/advertise addresses with IPv6 support
 	clientListenURL, err := url.Parse(cfg.GetClientListenURL(useTLS))
@@ -149,6 +151,39 @@ func (s *EmbeddedEtcdServer) Start(ctx context.Context) error {
 
 	// Disable strict reconfiguration check for single-node bootstrap
 	embedCfg.StrictReconfigCheck = false
+
+	// Configure TLS if enabled
+	if cfg.TLS != nil && cfg.TLS.Enabled {
+		// Configure client TLS (for client-to-server connections)
+		if cfg.TLS.AutoTLS {
+			embedCfg.ClientAutoTLS = true
+		} else {
+			clientTLSInfo := transport.TLSInfo{
+				CertFile:       cfg.TLS.ClientCertFile,
+				KeyFile:        cfg.TLS.ClientKeyFile,
+				ClientCertAuth: cfg.TLS.ClientCertAuth,
+			}
+			if cfg.TLS.ClientCAFile != "" {
+				clientTLSInfo.TrustedCAFile = cfg.TLS.ClientCAFile
+			}
+			embedCfg.ClientTLSInfo = clientTLSInfo
+		}
+
+		// Configure peer TLS (for peer-to-peer connections)
+		if cfg.TLS.PeerAutoTLS {
+			embedCfg.PeerAutoTLS = true
+		} else {
+			peerTLSInfo := transport.TLSInfo{
+				CertFile:       cfg.TLS.GetPeerCertFile(),
+				KeyFile:        cfg.TLS.GetPeerKeyFile(),
+				ClientCertAuth: cfg.TLS.PeerCertAuth,
+			}
+			if cfg.TLS.GetPeerCAFile() != "" {
+				peerTLSInfo.TrustedCAFile = cfg.TLS.GetPeerCAFile()
+			}
+			embedCfg.PeerTLSInfo = peerTLSInfo
+		}
+	}
 
 	// Start the embedded server
 	server, err := embed.StartEtcd(embedCfg)

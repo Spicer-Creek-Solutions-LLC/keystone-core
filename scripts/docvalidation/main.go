@@ -121,6 +121,9 @@ func main() {
 		case "sync":
 			runSyncCommand(os.Args[2:])
 			return
+		case "blueprints":
+			runBlueprintsCommand(os.Args[2:])
+			return
 		case "all":
 			runAllCommand(os.Args[2:])
 			return
@@ -147,6 +150,7 @@ Commands:
   godoc       Generate godoc coverage report
   drift       Detect documentation drift from code changes
   sync        Check README/CLAUDE.md/docs synchronization
+  blueprints  Validate blueprint example files
   all         Run all validations
 
 Flags:
@@ -162,6 +166,7 @@ Examples:
   docvalidation examples                  # Validate code examples
   docvalidation godoc                     # Generate godoc coverage report
   docvalidation drift                     # Detect code/docs drift
+  docvalidation blueprints -verbose       # Validate blueprints
   docvalidation all -root /path/to/repo   # Run all validations
 `)
 }
@@ -277,6 +282,15 @@ func runSyncCommand(args []string) {
 	RunSyncCheck(*rootDir, *verbose)
 }
 
+func runBlueprintsCommand(args []string) {
+	fs := flag.NewFlagSet("blueprints", flag.ExitOnError)
+	rootDir := fs.String("root", ".", "Root directory of keystone-core")
+	verbose := fs.Bool("verbose", false, "Verbose output")
+	fs.Parse(args)
+
+	RunBlueprintValidation(*rootDir, *verbose)
+}
+
 func runAllCommand(args []string) {
 	fs := flag.NewFlagSet("all", flag.ExitOnError)
 	rootDir := fs.String("root", ".", "Root directory of keystone-core")
@@ -315,6 +329,11 @@ func runAllCommand(args []string) {
 	// Run sync check
 	fmt.Println("--- Documentation Sync Check ---")
 	RunSyncCheck(*rootDir, *verbose)
+	fmt.Println()
+
+	// Run blueprint validation
+	fmt.Println("--- Blueprint Validation ---")
+	RunBlueprintValidation(*rootDir, *verbose)
 	fmt.Println()
 
 	fmt.Println("=== Validation Complete ===")
