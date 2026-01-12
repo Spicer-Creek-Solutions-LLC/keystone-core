@@ -23,7 +23,7 @@ Keystone Core is a cloud-native runtime infrastructure control plane that provid
 
 | Status | Description |
 |--------|-------------|
-| **Epics 1-23** | COMPLETE |
+| **Epics 1-25** | COMPLETE |
 
 ### Completed Capabilities
 
@@ -45,6 +45,8 @@ Keystone Core is a cloud-native runtime infrastructure control plane that provid
 - **Proxy Agents** - Manage unmanaged devices via SSH, SNMP, REST, WinRM; network device support (Cisco, Juniper, Arista)
 - **File Distribution** - NATS-based file server, multiple backends (S3/GCS/Azure/Git), mirror groups, proxy caching
 - **Self-Management** - Bootstrap from scratch, backup/restore, rolling/canary upgrades, self-management states, operational runbooks
+- **Document Review** - Documentation validation, example testing, gap analysis
+- **Blueprints** - Pre-packaged, reusable state collections (design complete)
 - **Documentation** - Hugo + Docsy site with comprehensive documentation
 
 ## Quick Start
@@ -350,7 +352,10 @@ hugo         # Build to docs/public/
 | 18-20 | Complete | IPv6 support, telemetry gateway, Windows support |
 | 21 | Complete | Proxy agents for unmanaged devices (SSH, SNMP, REST, WinRM, vendor adapters) |
 | 22 | Complete | File distribution over NATS with multiple backends, mirror groups |
-| 23 | In Progress | Self-management (Phase 1-5: bootstrap, backup/restore, state modules, validation, upgrades) |
+| 23 | Complete | Self-management (bootstrap, backup/restore, state modules, validation, upgrades, runbooks) |
+| 24 | Complete | Documentation review, validation, example testing, gap analysis |
+| 25 | Complete | Blueprints - pre-packaged, reusable state collections (design) |
+| 26 | Planned | NEEDSWORK remediation - security, API, testing, documentation, code quality improvements |
 
 See `epics/` directory for detailed implementation plans.
 

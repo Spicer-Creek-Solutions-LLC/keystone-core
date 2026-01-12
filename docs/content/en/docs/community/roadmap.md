@@ -25,29 +25,33 @@ Keystone Core aims to be the operational layer between GitOps/IaC deployments an
 ---
 
 ```
-COMPLETED (Epics 1-21)                 PLANNED (Epics 22-23)
+COMPLETED (Epics 1-25)                 PLANNED (Epic 26)
 ───────────────────────────────────────────────────────────────────────
-Epic 1: Core Infrastructure            Epic 22: File Distribution
-Epic 2: Remote Execution               Epic 23: Self-Management
-Epic 3: State Management
-Epic 4: Event System                   Future Considerations:
-Epic 5: GitOps Integration               - Multi-Tenancy & Namespace Isolation
-Epic 6: Policy Enforcement               - Scheduled Operations & Maintenance Windows
-Epic 7: Observability                    - Web UI Dashboard
-Epic 8: Multi-Environment                - Automatic Drift Remediation
-Epic 9: Plugin System                    - Agent Self-Update
-Epic 10: Documentation                   - Compliance Framework Presets
-Epic 11: HA Clustering                   - Network Discovery & Topology
-Epic 12: E2E Testing                     - Runbook Automation
-Epic 13: CGO Removal                     - Secrets Management (Vault, AWS SM)
-Epic 14: NATS Mesh Communication         - Terraform Provider
-Epic 15: Observability Enhancements      - ServiceNow/ITSM Integration
-Epic 16: Stdlib System Modules           - Chef/Puppet Migration Tools
-Epic 17: SPIFFE Identity Framework       - Mobile Monitoring App
-Epic 18: IPv6 Support                    - Natural Language Interface
+Epic 1: Core Infrastructure            Epic 26: NEEDSWORK Remediation
+Epic 2: Remote Execution
+Epic 3: State Management               Future Considerations:
+Epic 4: Event System                     - Multi-Tenancy & Namespace Isolation
+Epic 5: GitOps Integration               - Scheduled Operations & Maintenance Windows
+Epic 6: Policy Enforcement               - Web UI Dashboard
+Epic 7: Observability                    - Automatic Drift Remediation
+Epic 8: Multi-Environment                - Agent Self-Update
+Epic 9: Plugin System                    - Compliance Framework Presets
+Epic 10: Documentation                   - Network Discovery & Topology
+Epic 11: HA Clustering                   - Runbook Automation
+Epic 12: E2E Testing                     - Secrets Management (Vault, AWS SM)
+Epic 13: CGO Removal                     - Terraform Provider
+Epic 14: NATS Mesh Communication         - ServiceNow/ITSM Integration
+Epic 15: Observability Enhancements      - Chef/Puppet Migration Tools
+Epic 16: Stdlib System Modules           - Mobile Monitoring App
+Epic 17: SPIFFE Identity Framework       - Natural Language Interface
+Epic 18: IPv6 Support
 Epic 19: Observability Gateway
 Epic 20: Windows Support
 Epic 21: Proxy Agents
+Epic 22: File Distribution
+Epic 23: Self-Management
+Epic 24: Document Review
+Epic 25: Blueprints
 ```
 
 ## Completed Milestones
@@ -511,38 +515,108 @@ Manage devices that cannot run native agents:
 
 ---
 
-## Planned Epics
+### Epic 22: File Distribution ✅
 
-### Epic 22: File Distribution
-
-**Status**: Planned | **Depends on**: Epic 1, 4, 6, 14, 17, 21
+**Status**: Complete | **Depends on**: Epic 1, 4, 6, 14, 17, 21
 
 NATS-based file distribution for agents:
 
-- **File Server**: Dedicated `kscore-files` service with REST and NATS APIs
-- **Storage Backends**: NATS JetStream Object Store, S3/GCS/Azure, local filesystem, Git, HTTP
+- **File Server**: Dedicated file server with REST and NATS APIs
+- **Storage Backends**: NATS JetStream Object Store, S3/GCS/Azure, local filesystem, Git
 - **Mirror Groups**: Multi-region storage with geographic routing, sync, and failover
 - **Transfer Protocol**: Chunked transfers up to 10GB with resume support
 - **Security**: Policy-based access control, integrity verification (SHA-256)
 - **Caching**: Proxy agent file caching for bandwidth reduction
-- **Observability**: Transfer metrics, Grafana dashboard
-- **CLI Tools**: `kscore-files` CLI for file management
+- **Observability**: 241 tests, Grafana dashboard
+
+**Key Achievements**:
+- NATS-native file distribution (no HTTP required)
+- Multiple storage backend support
+- Geographic routing with failover
+- Conflict detection and resolution
 
 ---
 
-### Epic 23: Self-Management
+### Epic 23: Self-Management ✅
 
-**Status**: Planned | **Depends on**: Epic 1, 3, 4, 5, 7, 11, 17, 22
+**Status**: Complete | **Depends on**: Epic 1, 3, 4, 5, 7, 11, 17, 22
 
 Use Keystone Core to manage itself:
 
 - **Bootstrap**: Deploy fresh clusters from seed configuration
 - **Backup/Restore**: Full system backup to portable artifact, disaster recovery
 - **Rolling Upgrades**: Zero-downtime upgrades with automatic rollback
-- **Self-Healing**: Automatic recovery from common failures
-- **Drift Detection**: Detect when Keystone Core config diverges from desired state
+- **Validation**: Comprehensive configuration validation
 - **State Modules**: kscore_server, kscore_agent, kscore_nats, kscore_database, kscore_backup
-- **DR Testing**: Automated disaster recovery testing
+- **Runbooks**: 9 operational runbook templates
+
+**Key Achievements**:
+- Zero-dependency bootstrap (embedded NATS + SQLite)
+- Complete backup/restore with encryption
+- Rolling and canary upgrade strategies
+- Comprehensive operational runbooks
+
+---
+
+### Epic 24: Document Review ✅
+
+**Status**: Complete | **Depends on**: Epic 10, all completed epics
+
+Documentation validation and quality assurance:
+
+- **Documentation Inventory**: Automated inventory of all docs and code
+- **Link Validation**: Broken link detection
+- **Example Validation**: Code example syntax validation (YAML, JSON, Go, Bash)
+- **Gap Analysis**: Documentation coverage analysis with remediation plan
+
+**Key Achievements**:
+- 61 documentation files validated
+- 2,103 code examples checked and fixed
+- Comprehensive gap analysis with prioritized remediation plan
+
+---
+
+### Epic 25: Blueprints ✅
+
+**Status**: Complete (Design) | **Depends on**: Epic 3, 4, 9, 22
+
+Pre-packaged, reusable state collections (similar to Salt Formulas, Ansible Roles, Helm Charts):
+
+- **Blueprint Structure**: YAML compositions with parameters, dependencies, secrets
+- **Parameter System**: JSON Schema-based validation with defaults and types
+- **Dependencies**: Soft (concurrent) and hard (sequential) dependency ordering
+- **Versioning**: SemVer with breaking change detection
+- **CLI**: kscore-blueprint commands (init, validate, build, publish, install, apply, rollback)
+
+**Key Achievements**:
+- Complete design specification
+- Blueprint manifest format defined
+- Parameter and secret handling designed
+- Registry and distribution model specified
+
+---
+
+## Planned Epics
+
+### Epic 26: NEEDSWORK Remediation
+
+**Status**: Planned | **Depends on**: All completed epics
+
+Address all issues identified in the comprehensive project review (NEEDSWORK.md):
+
+- **Phase 1: Security** (2 weeks) - Credential exposure in tests, TLS validation gaps, rate limiting
+- **Phase 2: API Completeness** (4 weeks) - Registry server completeness, cluster operations, backup orchestration
+- **Phase 3: Testing** (4 weeks) - Integration test coverage, race condition tests, E2E test completion
+- **Phase 4: Documentation** (4 weeks) - Godoc coverage, internal docs, API reference completion
+- **Phase 5: Polish** (2 weeks) - Error messages, code cleanup, dependency updates
+
+72 total issues to address:
+- **Critical** (8 issues): Security and data integrity
+- **High** (22 issues): Functionality gaps
+- **Medium** (29 issues): Documentation and testing
+- **Low** (13 issues): Polish and cleanup
+
+**Estimated**: 580 hours / 16 weeks
 
 ---
 
@@ -678,9 +752,8 @@ Keystone Core follows [Semantic Versioning](https://semver.org/):
 
 | Version | Target | Scope |
 |---------|--------|-------|
-| v0.21.0 | Current | Proxy Agents complete (Epics 1-21) |
-| v0.22.0 | Next | File Distribution |
-| v0.23.0 | Planned | Self-Management |
+| v0.25.0 | Current | Epics 1-25 complete (Core through Blueprints design) |
+| v0.26.0 | Next | NEEDSWORK Remediation (security, API, testing, documentation, polish) |
 | v1.0.0 | Future | Stable release after comprehensive testing and hardening |
 
 ### Release Cadence
