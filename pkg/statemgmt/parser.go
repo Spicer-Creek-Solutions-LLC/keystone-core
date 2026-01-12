@@ -57,8 +57,20 @@ func (p *Parser) ParseFile(path string) (*StateFile, error) {
 	// Extract includes if present
 	if includes, ok := rawState["include"].([]interface{}); ok {
 		for _, inc := range includes {
-			if incStr, ok := inc.(string); ok {
-				stateFile.Includes = append(stateFile.Includes, incStr)
+			switch v := inc.(type) {
+			case string:
+				// Simple file include
+				stateFile.Includes = append(stateFile.Includes, v)
+			case map[string]interface{}:
+				// Check if this is a blueprint include or file include
+				if blueprintRef, ok := v["blueprint"].(string); ok {
+					// Blueprint include
+					bpInclude := parseBlueprintInclude(blueprintRef, v)
+					stateFile.BlueprintIncludes = append(stateFile.BlueprintIncludes, bpInclude)
+				} else if fileRef, ok := v["file"].(string); ok {
+					// File include with extra options (treat as simple include for now)
+					stateFile.Includes = append(stateFile.Includes, fileRef)
+				}
 			}
 		}
 		delete(rawState, "include")
@@ -345,6 +357,48 @@ func ParseSource(source string) (SourceType, string) {
 
 	// Default to file path
 	return SourceTypeFile, source
+}
+
+// parseBlueprintInclude parses a blueprint include from a map
+func parseBlueprintInclude(blueprintRef string, data map[string]interface{}) BlueprintInclude {
+	include := BlueprintInclude{
+		Blueprint: blueprintRef,
+	}
+
+	// Parse version
+	if version, ok := data["version"].(string); ok {
+		include.Version = version
+	}
+
+	// Parse as (namespace)
+	if as, ok := data["as"].(string); ok {
+		include.As = as
+	}
+
+	// Parse entrypoint
+	if entrypoint, ok := data["entrypoint"].(string); ok {
+		include.Entrypoint = entrypoint
+	}
+
+	// Parse features
+	if features, ok := data["features"].(map[string]interface{}); ok {
+		include.Features = make(map[string]bool)
+		for name, enabled := range features {
+			if enabledBool, ok := enabled.(bool); ok {
+				include.Features[name] = enabledBool
+			}
+		}
+	}
+
+	// Parse parameters
+	if params, ok := data["params"].(map[string]interface{}); ok {
+		include.Parameters = params
+	} else if params, ok := data["parameters"].(map[string]interface{}); ok {
+		// Also support "parameters" key
+		include.Parameters = params
+	}
+
+	return include
 }
 
 // LoadStateFiles loads multiple state files and resolves includes

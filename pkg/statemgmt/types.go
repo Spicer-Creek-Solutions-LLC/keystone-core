@@ -9,8 +9,11 @@ type StateFile struct {
 	// Path to the state file
 	Path string
 
-	// Includes are other state files to include
+	// Includes are other state files to include (simple file paths)
 	Includes []string
+
+	// BlueprintIncludes are blueprint includes with parameters
+	BlueprintIncludes []BlueprintInclude
 
 	// Variables for templating
 	Variables map[string]interface{}
@@ -20,6 +23,32 @@ type StateFile struct {
 
 	// Metadata about the state file
 	Metadata StateMetadata
+}
+
+// BlueprintInclude represents a blueprint include directive in a state file.
+type BlueprintInclude struct {
+	// Blueprint is the blueprint reference (e.g., "blueprints/community/web-app-stack")
+	Blueprint string
+
+	// Version is the version constraint (e.g., "^1.0.0", ">=1.2.0")
+	Version string
+
+	// As is the namespace for this instance (for multiple instances of same blueprint)
+	As string
+
+	// Entrypoint specifies a specific entry point within the blueprint
+	Entrypoint string
+
+	// Features enables/disables optional blueprint features
+	Features map[string]bool
+
+	// Parameters are the values for the blueprint's parameters
+	Parameters map[string]interface{}
+}
+
+// IsBlueprint returns true (satisfies interface for polymorphic include handling).
+func (i *BlueprintInclude) IsBlueprint() bool {
+	return true
 }
 
 // StateMetadata contains metadata about a state file

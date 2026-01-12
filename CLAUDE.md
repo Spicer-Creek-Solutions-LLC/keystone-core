@@ -5463,11 +5463,135 @@ All 10 phases implemented:
 - Gap analysis with prioritized remediation plan
 - 5 validation/report files created in `test/doc-examples/`
 
-### Epic 25: Blueprints - NOT STARTED
+### Epic 25: Blueprints - IN PROGRESS (Phases 1-7 Complete)
 
 **Implementation Plan:** 9 phases (18 weeks total)
 
 **Goal**: Pre-packaged, reusable collections of states (similar to Salt Formulas, Ansible Roles, Helm Charts) that can be shared, versioned, and composed to deploy complex infrastructure stacks.
+
+**Current Status**: Phases 1-7 COMPLETE ✅
+
+**Phase 1: Blueprint Manifest and Parser ✅ COMPLETE**
+- Blueprint manifest types (`pkg/blueprint/manifest.go`)
+  - Blueprint, Metadata, Maintainer, ParameterSchema, Feature, Output, Hooks
+  - YAML parsing with validation
+- Blueprint loader (`pkg/blueprint/loader.go`)
+  - Load from file, directory, or registry
+  - Include resolution for nested blueprints
+- Blueprint validator (`pkg/blueprint/validator.go`)
+  - Schema validation, required fields, type checking
+- Storage backends (`pkg/blueprint/storage.go`, `storage_local.go`)
+  - Local filesystem storage
+  - Blueprint installation tracking
+
+**Phase 2: Parameter System ✅ COMPLETE**
+- Parameter validator (`pkg/blueprint/parameter_validator.go`)
+  - JSON Schema-based validation
+  - Type coercion and default values
+  - Enum, pattern, min/max constraints
+- Parameter documentation (`pkg/blueprint/parameter_docs.go`)
+  - Generate parameter documentation from schema
+- Platform defaults (`pkg/blueprint/platform_defaults.go`)
+  - OS-specific parameter defaults
+- Secrets integration (`pkg/blueprint/secrets.go`)
+  - `!secret` YAML tag support
+  - Backend-agnostic secret resolution
+
+**Phase 3: Dependency Resolution ✅ COMPLETE**
+- Dependency resolver (`pkg/blueprint/dependency.go`)
+  - DAG-based dependency ordering
+  - Circular dependency detection
+  - Version constraint resolution
+- Blueprint inheritance (`pkg/blueprint/inheritance.go`)
+  - Parameter inheritance from parent blueprints
+  - Override and merge semantics
+
+**Phase 4: State Execution Integration ✅ COMPLETE**
+- State resolver (`pkg/blueprint/state_resolver.go`)
+  - `include: blueprint:` syntax in state files
+  - Blueprint expansion to state declarations
+  - Version constraint resolution during include
+- State types (`pkg/blueprint/state_types.go`)
+  - BlueprintStateFile, BlueprintStateDeclaration
+  - BlueprintInclude with parameters, features, entrypoint
+  - BlueprintRequisites for state dependencies
+- Blueprint executor (`pkg/blueprint/executor.go`)
+  - ExpandBlueprintIncludes for inline expansion
+  - Namespace prefixing with `as:` support
+  - Applied blueprint tracking
+  - State rendering with resolved parameters
+- Applied blueprint tracking (`pkg/blueprint/tracker.go`)
+  - Per-agent blueprint version tracking
+  - AppliedBlueprint with version, namespace, parameters
+
+**Phase 5: Registry and CLI ✅ COMPLETE**
+- Registry client (`pkg/blueprint/registry/`)
+  - HTTPClient for registry API operations
+  - Search, versioning, publishing
+  - Signature verification (Cosign-compatible)
+  - SumDB transparency log verification
+- CLI plugin (`cmd/kscore-blueprint/`)
+  - init, validate, lint - Development
+  - search, info, versions - Discovery
+  - install, update, remove - Management
+  - publish, sign, verify - Distribution
+  - docs - Documentation generation
+
+**Phase 6: Rollback Support ✅ COMPLETE**
+- State snapshots (`pkg/blueprint/snapshot.go`)
+  - SnapshotManager for creating, listing, deleting snapshots
+  - StateCapture with files, packages, services, users, groups
+  - Checksum verification and size tracking
+  - Retention policies (max per blueprint, max total)
+- Breaking change detection (`pkg/blueprint/breaking.go`)
+  - BreakingChangeDetector comparing parameter schemas
+  - Severity levels: breaking, deprecation, addition, modification
+  - Migration hint generation for parameter changes
+  - detectParameterChanges for schema comparison
+- Rollback executor (`pkg/blueprint/rollback_executor.go`)
+  - RollbackExecutor for executing rollback entrypoints
+  - ExecuteRollbackEntrypoint with parameter context
+  - ExecuteStateRestore generating states from snapshots
+  - sanitizeID for safe state ID generation
+- CLI commands (`cmd/kscore-blueprint/cmd_rollback.go`, `cmd_snapshot.go`)
+  - `rollback` - Rollback to previous version or snapshot
+  - `snapshot list`, `snapshot show`, `snapshot delete`
+  - `--accept-breaking-changes` flag for upgrades with breaking changes
+  - Version history display and target selection
+
+**Phase 7: Testing Framework ✅ COMPLETE**
+- Test specification format (`pkg/blueprint/testing/types.go`)
+  - TestSuite, TestCase, TestAssertion, TestSetup, TestTeardown
+  - YAML schema for test definitions
+  - 19 assertion types (state, file, directory, command, output, idempotency)
+- Test loader (`pkg/blueprint/testing/loader.go`)
+  - Load test suites from files or directories
+  - Pattern matching for test file discovery (*_test.yaml)
+  - Tag-based filtering
+- Test runner (`pkg/blueprint/testing/runner.go`)
+  - Sequential and parallel test execution
+  - Setup/teardown hooks
+  - Timeout support per test
+  - Expected failure and skip handling
+  - Event handler interface for custom reporting
+- Mock/stub support (`pkg/blueprint/testing/mocks.go`)
+  - MockRegistry for command, file, HTTP, package, service mocks
+  - Pattern-based mock matching (regex)
+  - MockBuilder for applying mocks from config
+- Test reporting (`pkg/blueprint/testing/results.go`)
+  - Console output with pass/fail indicators
+  - JSON format for CI/CD integration
+  - JUnit XML for test result aggregation
+- CLI command (`cmd/kscore-blueprint/test_command.go`)
+  - `blueprint test` - Run blueprint tests
+  - `--tags`, `--parallel`, `--verbose`, `--output` flags
+  - JUnit XML output (`--junit-xml`)
+  - Pattern-based test selection
+- 108 tests for the framework itself
+
+**Remaining Phases:**
+- Phase 8: Air-gapped support
+- Phase 9: Documentation and examples
 
 **Key Concepts:**
 - **Blueprints vs Modules vs States**:
@@ -5512,21 +5636,10 @@ include:
 ```
 
 **CLI (kscore-blueprint):**
-- `init`, `validate`, `build`, `publish`
-- `install`, `list`, `show`, `update`
-- `apply`, `test`, `rollback`
-- `search`, `diff`
-
-**Implementation Phases:**
-1. Blueprint manifest and parser
-2. Parameter system with JSON Schema
-3. Dependency resolver integration
-4. State execution integration
-5. Registry and distribution
-6. Rollback support
-7. Testing framework
-8. CLI implementation
-9. Documentation and examples
+- `init`, `validate`, `lint`, `docs` - Development
+- `search`, `info`, `versions` - Discovery
+- `install`, `update`, `remove` - Management
+- `publish`, `sign`, `verify` - Distribution
 
 **Dependencies**: Depends on Epic 3 (State), Epic 4 (Events), Epic 9 (Modules), Epic 22 (File Distribution)
 
@@ -5557,7 +5670,7 @@ Implementation order:
 22. **Epic 22** (File Distribution) - ✅ COMPLETE (All 13 phases) - Depends on Epic 1, 4, 6, 14, 17, 21 (NATS-based file server, multiple backends, mirror groups, proxy caching, 241 tests)
 23. **Epic 23** (Self-Management) - ✅ COMPLETE (All 6 phases) - Depends on Epic 1, 3, 4, 5, 7, 11, 17, 22 (bootstrap, backup/restore, self-management states, validation, upgrade system, documentation & runbooks)
 24. **Epic 24** (Document Review) - ✅ COMPLETE - Depends on Epic 10, all completed epics (documentation validation, example testing, gap analysis, remediation planning)
-25. **Epic 25** (Blueprints) - NOT STARTED - Depends on Epic 3, 4, 9, 22 (pre-packaged state collections, parameter system, dependency ordering, registry, rollback support)
+25. **Epic 25** (Blueprints) - ⏳ IN PROGRESS (Phases 1-7 complete) - Depends on Epic 3, 4, 9, 22 (manifest/loader, parameters, dependencies, state execution, registry/CLI, rollback, testing framework done; air-gap, docs remaining)
 
 ### Future Epics (Not Yet Planned)
 

@@ -392,3 +392,246 @@ func TestGetDefaultState(t *testing.T) {
 		})
 	}
 }
+
+func TestParseFile_BlueprintIncludes(t *testing.T) {
+	tmpDir := t.TempDir()
+	stateFile := filepath.Join(tmpDir, "with_blueprint.yaml")
+
+	content := `
+include:
+  - blueprint: blueprints/community/web-stack
+    version: "^1.0.0"
+    as: web
+    entrypoint: production
+    features:
+      ssl: true
+      monitoring: false
+    params:
+      domain: example.com
+      port: 8080
+      workers: 4
+
+service:
+  myapp:
+    state: running
+`
+
+	if err := os.WriteFile(stateFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to write test file: %v", err)
+	}
+
+	parser := NewParser(tmpDir)
+	state, err := parser.ParseFile(stateFile)
+	if err != nil {
+		t.Fatalf("ParseFile() error = %v", err)
+	}
+
+	// Verify blueprint include is parsed
+	if len(state.BlueprintIncludes) != 1 {
+		t.Fatalf("Expected 1 blueprint include, got %d", len(state.BlueprintIncludes))
+	}
+
+	bp := state.BlueprintIncludes[0]
+
+	if bp.Blueprint != "blueprints/community/web-stack" {
+		t.Errorf("Blueprint = %s, want 'blueprints/community/web-stack'", bp.Blueprint)
+	}
+
+	if bp.Version != "^1.0.0" {
+		t.Errorf("Version = %s, want '^1.0.0'", bp.Version)
+	}
+
+	if bp.As != "web" {
+		t.Errorf("As = %s, want 'web'", bp.As)
+	}
+
+	if bp.Entrypoint != "production" {
+		t.Errorf("Entrypoint = %s, want 'production'", bp.Entrypoint)
+	}
+
+	// Check features
+	if len(bp.Features) != 2 {
+		t.Fatalf("Expected 2 features, got %d", len(bp.Features))
+	}
+
+	if ssl, ok := bp.Features["ssl"]; !ok || !ssl {
+		t.Errorf("Feature ssl = %v, want true", bp.Features["ssl"])
+	}
+
+	if monitoring, ok := bp.Features["monitoring"]; !ok || monitoring {
+		t.Errorf("Feature monitoring = %v, want false", bp.Features["monitoring"])
+	}
+
+	// Check parameters
+	if len(bp.Parameters) != 3 {
+		t.Fatalf("Expected 3 parameters, got %d", len(bp.Parameters))
+	}
+
+	if domain, ok := bp.Parameters["domain"].(string); !ok || domain != "example.com" {
+		t.Errorf("Parameter domain = %v, want 'example.com'", bp.Parameters["domain"])
+	}
+
+	if port, ok := bp.Parameters["port"].(int); !ok || port != 8080 {
+		t.Errorf("Parameter port = %v, want 8080", bp.Parameters["port"])
+	}
+
+	// Verify regular states still work
+	if len(state.States["service"]) != 1 {
+		t.Errorf("Expected 1 service state, got %d", len(state.States["service"]))
+	}
+}
+
+func TestParseFile_MixedIncludes(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a simple include file
+	includeFile := filepath.Join(tmpDir, "base.yaml")
+	includeContent := `
+package:
+  nginx:
+    state: installed
+`
+	if err := os.WriteFile(includeFile, []byte(includeContent), 0644); err != nil {
+		t.Fatalf("Failed to write include file: %v", err)
+	}
+
+	// Create main file with both file and blueprint includes
+	mainFile := filepath.Join(tmpDir, "main.yaml")
+	mainContent := `
+include:
+  - base.yaml
+  - blueprint: blueprints/myorg/database
+    params:
+      engine: postgres
+  - file: another.yaml
+
+service:
+  app:
+    state: running
+`
+
+	if err := os.WriteFile(mainFile, []byte(mainContent), 0644); err != nil {
+		t.Fatalf("Failed to write main file: %v", err)
+	}
+
+	parser := NewParser(tmpDir)
+	state, err := parser.ParseFile(mainFile)
+	if err != nil {
+		t.Fatalf("ParseFile() error = %v", err)
+	}
+
+	// Should have 2 file includes (string and file: key)
+	if len(state.Includes) != 2 {
+		t.Errorf("Expected 2 file includes, got %d", len(state.Includes))
+	}
+
+	// Should have 1 blueprint include
+	if len(state.BlueprintIncludes) != 1 {
+		t.Errorf("Expected 1 blueprint include, got %d", len(state.BlueprintIncludes))
+	}
+
+	if state.BlueprintIncludes[0].Blueprint != "blueprints/myorg/database" {
+		t.Errorf("Blueprint = %s, want 'blueprints/myorg/database'", state.BlueprintIncludes[0].Blueprint)
+	}
+}
+
+func TestParseBlueprintInclude_Basic(t *testing.T) {
+	data := map[string]interface{}{
+		"blueprint": "blueprints/test/example",
+	}
+
+	include := parseBlueprintInclude("blueprints/test/example", data)
+
+	if include.Blueprint != "blueprints/test/example" {
+		t.Errorf("Blueprint = %s, want 'blueprints/test/example'", include.Blueprint)
+	}
+
+	if include.Version != "" {
+		t.Errorf("Version = %s, want empty", include.Version)
+	}
+}
+
+func TestParseBlueprintInclude_AllFields(t *testing.T) {
+	data := map[string]interface{}{
+		"blueprint":  "blueprints/vendor/stack",
+		"version":    ">=2.0.0",
+		"as":         "mystack",
+		"entrypoint": "custom",
+		"features": map[string]interface{}{
+			"feature1": true,
+			"feature2": false,
+		},
+		"params": map[string]interface{}{
+			"key1": "value1",
+			"key2": 123,
+		},
+	}
+
+	include := parseBlueprintInclude("blueprints/vendor/stack", data)
+
+	if include.Blueprint != "blueprints/vendor/stack" {
+		t.Errorf("Blueprint = %s, want 'blueprints/vendor/stack'", include.Blueprint)
+	}
+
+	if include.Version != ">=2.0.0" {
+		t.Errorf("Version = %s, want '>=2.0.0'", include.Version)
+	}
+
+	if include.As != "mystack" {
+		t.Errorf("As = %s, want 'mystack'", include.As)
+	}
+
+	if include.Entrypoint != "custom" {
+		t.Errorf("Entrypoint = %s, want 'custom'", include.Entrypoint)
+	}
+
+	if len(include.Features) != 2 {
+		t.Fatalf("Expected 2 features, got %d", len(include.Features))
+	}
+
+	if !include.Features["feature1"] {
+		t.Error("feature1 should be true")
+	}
+
+	if include.Features["feature2"] {
+		t.Error("feature2 should be false")
+	}
+
+	if len(include.Parameters) != 2 {
+		t.Fatalf("Expected 2 parameters, got %d", len(include.Parameters))
+	}
+
+	if include.Parameters["key1"] != "value1" {
+		t.Errorf("key1 = %v, want 'value1'", include.Parameters["key1"])
+	}
+}
+
+func TestParseBlueprintInclude_ParametersKey(t *testing.T) {
+	// Test with "parameters" key instead of "params"
+	data := map[string]interface{}{
+		"blueprint": "blueprints/test/example",
+		"parameters": map[string]interface{}{
+			"param1": "value1",
+		},
+	}
+
+	include := parseBlueprintInclude("blueprints/test/example", data)
+
+	if len(include.Parameters) != 1 {
+		t.Fatalf("Expected 1 parameter, got %d", len(include.Parameters))
+	}
+
+	if include.Parameters["param1"] != "value1" {
+		t.Errorf("param1 = %v, want 'value1'", include.Parameters["param1"])
+	}
+}
+
+func TestBlueprintInclude_IsBlueprint(t *testing.T) {
+	include := BlueprintInclude{
+		Blueprint: "blueprints/test/example",
+	}
+
+	if !include.IsBlueprint() {
+		t.Error("IsBlueprint() should return true")
+	}
+}
