@@ -187,7 +187,8 @@ func (m *FileModule) checkAttributes(path string, decl *StateDeclaration, info o
 		// Check source file
 		if source := getStringParameter(decl, "source", ""); source != "" {
 			sourceType, sourcePath := ParseSource(source)
-			if sourceType == SourceTypeFile {
+			switch sourceType {
+			case SourceTypeFile:
 				normalizedSourcePath := m.normalizePath(sourcePath)
 				sourceHash, err := m.hashFile(normalizedSourcePath)
 				if err == nil {
@@ -197,6 +198,11 @@ func (m *FileModule) checkAttributes(path string, decl *StateDeclaration, info o
 						result.Diff["contents"] = "differs from source"
 					}
 				}
+			case SourceTypeTemplate:
+				// Note: template comparison requires context, skipped in Check
+				// Template files are always considered as potentially changed
+				result.Diff["contents"] = "template source - requires apply to verify"
+				matches = false
 			}
 		}
 	}
@@ -245,7 +251,7 @@ func (m *FileModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateR
 	case "absent":
 		applyErr = m.applyAbsent(normalizedPath, decl, result)
 	case "present":
-		applyErr = m.applyPresent(normalizedPath, decl, result)
+		applyErr = m.applyPresent(ctx, normalizedPath, decl, result)
 	case "directory":
 		applyErr = m.applyDirectory(normalizedPath, decl, result)
 	case "symlink":
@@ -296,7 +302,7 @@ func (m *FileModule) applyAbsent(path string, decl *StateDeclaration, result *St
 }
 
 // applyPresent creates or updates a file
-func (m *FileModule) applyPresent(path string, decl *StateDeclaration, result *StateResult) error {
+func (m *FileModule) applyPresent(ctx context.Context, path string, decl *StateDeclaration, result *StateResult) error {
 	// Create parent directories if needed
 	if getBoolParameter(decl, "makedirs", false) {
 		dir := filepath.Dir(path)
@@ -313,13 +319,29 @@ func (m *FileModule) applyPresent(path string, decl *StateDeclaration, result *S
 		content = []byte(contents)
 	} else if source := getStringParameter(decl, "source", ""); source != "" {
 		sourceType, sourcePath := ParseSource(source)
-		if sourceType == SourceTypeFile {
+		switch sourceType {
+		case SourceTypeFile:
 			normalizedSourcePath := m.normalizePath(sourcePath)
 			content, err = os.ReadFile(normalizedSourcePath)
 			if err != nil {
 				return fmt.Errorf("failed to read source file: %w", err)
 			}
-		} else {
+		case SourceTypeTemplate:
+			// Get template context from context.Context
+			tplCtx := TemplateContextFromContext(ctx)
+			if tplCtx == nil {
+				// If no context, use empty context (template will have no variables)
+				tplCtx = &TemplateContext{
+					Vars:  make(map[string]interface{}),
+					Facts: make(map[string]interface{}),
+				}
+			}
+			normalizedSourcePath := m.normalizePath(sourcePath)
+			content, err = RenderTemplateFile(normalizedSourcePath, tplCtx)
+			if err != nil {
+				return fmt.Errorf("failed to render template file: %w", err)
+			}
+		default:
 			return fmt.Errorf("unsupported source type: %s", sourceType)
 		}
 	}

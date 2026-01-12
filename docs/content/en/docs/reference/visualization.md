@@ -16,18 +16,19 @@ The Visualization API offers:
 - **Graph View**: Graph representation with nodes and edges
 - **Real-time Updates**: WebSocket stream for live topology changes
 
-```
-                    ┌─────────────────────────────────────────┐
-                    │         Visualization Server            │
-                    │  ┌──────────┬──────────┬─────────────┐  │
-                    │  │  /api/*  │ /ws/*    │   Provider  │  │
-                    │  │  (HTTP)  │(WebSocket)│  Interface  │  │
-                    │  └────┬─────┴─────┬────┴──────┬──────┘  │
-                    └───────┼───────────┼───────────┼─────────┘
-                            │           │           │
-                    ┌───────▼───────────▼───────────▼─────────┐
-                    │           Agent Data Store              │
-                    └─────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph VS["Visualization Server"]
+        API["/api/*<br>(HTTP)"]
+        WS["/ws/*<br>(WebSocket)"]
+        PI["Provider<br>Interface"]
+    end
+
+    API --> ADS
+    WS --> ADS
+    PI --> ADS
+
+    ADS["Agent Data Store"]
 ```
 
 ## Server Configuration

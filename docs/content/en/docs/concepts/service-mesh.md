@@ -25,18 +25,17 @@ When the agent starts in a Kubernetes environment with a service mesh sidecar, i
 3. **Collects proxy configuration** (ports, endpoints)
 4. **Reports mesh metadata** to the control plane
 
-```
-┌─────────────────────────────────────────────────────────┐
-│ Pod                                                      │
-│  ┌────────────────┐    ┌────────────────────────────┐   │
-│  │ kscore-agent   │    │ Sidecar Proxy (Envoy)      │   │
-│  │                │    │                            │   │
-│  │ ┌────────────┐ │    │ ┌──────────────────────┐   │   │
-│  │ │ Mesh       │◄┼────┼─┤ /certs/cert-chain.pem│   │   │
-│  │ │ Detector   │ │    │ │ /certs/key.pem       │   │   │
-│  │ └────────────┘ │    │ └──────────────────────┘   │   │
-│  └────────────────┘    └────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph Pod["Pod"]
+        subgraph Agent["kscore-agent"]
+            MD[Mesh Detector]
+        end
+        subgraph Sidecar["Sidecar Proxy (Envoy)"]
+            Certs["/certs/cert-chain.pem<br>/certs/key.pem"]
+        end
+        Certs -->|reads| MD
+    end
 ```
 
 ## Mesh Metadata

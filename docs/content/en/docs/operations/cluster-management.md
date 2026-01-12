@@ -18,20 +18,30 @@ This guide covers day-to-day operations for Keystone Core HA clusters, including
 
 A production Keystone Core cluster consists of:
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                     Load Balancer                        │
-└─────────────────────────────────────────────────────────┘
-                            │
-        ┌───────────────────┼───────────────────┐
-        ▼                   ▼                   ▼
-┌───────────────┐   ┌───────────────┐   ┌───────────────┐
-│  kscore-1     │   │  kscore-2     │   │  kscore-3     │
-│  (leader)     │   │  (follower)   │   │  (follower)   │
-│  ┌─────────┐  │   │  ┌─────────┐  │   │  ┌─────────┐  │
-│  │  etcd   │◄─┼───┼─►│  etcd   │◄─┼───┼─►│  etcd   │  │
-│  └─────────┘  │   │  └─────────┘  │   │  └─────────┘  │
-└───────────────┘   └───────────────┘   └───────────────┘
+```mermaid
+flowchart TB
+    subgraph LB["Load Balancer"]
+    end
+
+    subgraph K1["kscore-1 (leader)"]
+        E1["etcd"]
+    end
+
+    subgraph K2["kscore-2 (follower)"]
+        E2["etcd"]
+    end
+
+    subgraph K3["kscore-3 (follower)"]
+        E3["etcd"]
+    end
+
+    LB --> K1
+    LB --> K2
+    LB --> K3
+
+    E1 <--> E2
+    E2 <--> E3
+    E1 <--> E3
 ```
 
 **Quorum Requirements:**

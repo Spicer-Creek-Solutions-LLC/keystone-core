@@ -305,3 +305,184 @@ func TestFileModule_Test(t *testing.T) {
 		t.Error("Expected state to match")
 	}
 }
+
+func TestFileModule_Apply_TemplateSource(t *testing.T) {
+	module := NewFileModule()
+
+	// Create temp directories for template and output
+	tmpDir, err := os.MkdirTemp("", "template-file-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create a template file
+	templatePath := filepath.Join(tmpDir, "config.tpl")
+	templateContent := `server:
+  name: {{.vars.server_name}}
+  port: {{.vars.port}}
+`
+	if err := os.WriteFile(templatePath, []byte(templateContent), 0644); err != nil {
+		t.Fatalf("Failed to write template file: %v", err)
+	}
+
+	// Create template context and add to context.Context
+	tplCtx := &TemplateContext{
+		Vars: map[string]interface{}{
+			"server_name": "myserver",
+			"port":        8080,
+		},
+		Facts: map[string]interface{}{},
+	}
+	ctx := WithTemplateContext(context.Background(), tplCtx)
+
+	// Output file path
+	outputPath := filepath.Join(tmpDir, "config.yaml")
+
+	decl := &StateDeclaration{
+		ID:     outputPath,
+		Module: "file",
+		State:  "present",
+		Parameters: map[string]interface{}{
+			"source": "template://" + templatePath,
+		},
+	}
+
+	result, err := module.Apply(ctx, decl)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
+
+	if !result.Success {
+		t.Errorf("Expected success, got error: %v", result.Error)
+	}
+
+	if !result.Changed {
+		t.Error("Expected changes")
+	}
+
+	// Verify the output file was created with rendered content
+	content, err := os.ReadFile(outputPath)
+	if err != nil {
+		t.Fatalf("Failed to read output file: %v", err)
+	}
+
+	expected := `server:
+  name: myserver
+  port: 8080
+`
+	if string(content) != expected {
+		t.Errorf("Expected:\n%s\nGot:\n%s", expected, string(content))
+	}
+}
+
+func TestFileModule_Apply_TemplateSource_NoContext(t *testing.T) {
+	// Test that template rendering works even without context (uses empty vars/facts)
+	module := NewFileModule()
+
+	// Create temp directories for template and output
+	tmpDir, err := os.MkdirTemp("", "template-file-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create a simple template file without variables
+	templatePath := filepath.Join(tmpDir, "simple.tpl")
+	templateContent := `# Static configuration file
+enabled: true
+`
+	if err := os.WriteFile(templatePath, []byte(templateContent), 0644); err != nil {
+		t.Fatalf("Failed to write template file: %v", err)
+	}
+
+	// Use context without template context
+	ctx := context.Background()
+
+	// Output file path
+	outputPath := filepath.Join(tmpDir, "config.yaml")
+
+	decl := &StateDeclaration{
+		ID:     outputPath,
+		Module: "file",
+		State:  "present",
+		Parameters: map[string]interface{}{
+			"source": "template://" + templatePath,
+		},
+	}
+
+	result, err := module.Apply(ctx, decl)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
+
+	if !result.Success {
+		t.Errorf("Expected success, got error: %v", result.Error)
+	}
+
+	// Verify the output file was created
+	content, err := os.ReadFile(outputPath)
+	if err != nil {
+		t.Fatalf("Failed to read output file: %v", err)
+	}
+
+	if string(content) != templateContent {
+		t.Errorf("Expected:\n%s\nGot:\n%s", templateContent, string(content))
+	}
+}
+
+func TestFileModule_Check_TemplateSource(t *testing.T) {
+	// Test that Check marks template sources as needing verification
+	module := NewFileModule()
+
+	// Create temp directories for template and output
+	tmpDir, err := os.MkdirTemp("", "template-file-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create a template file
+	templatePath := filepath.Join(tmpDir, "config.tpl")
+	templateContent := `server: {{.vars.name}}`
+	if err := os.WriteFile(templatePath, []byte(templateContent), 0644); err != nil {
+		t.Fatalf("Failed to write template file: %v", err)
+	}
+
+	// Create output file (so it exists)
+	outputPath := filepath.Join(tmpDir, "config.yaml")
+	if err := os.WriteFile(outputPath, []byte("server: oldvalue"), 0644); err != nil {
+		t.Fatalf("Failed to write output file: %v", err)
+	}
+
+	ctx := context.Background()
+
+	decl := &StateDeclaration{
+		ID:     outputPath,
+		Module: "file",
+		State:  "present",
+		Parameters: map[string]interface{}{
+			"source": "template://" + templatePath,
+		},
+	}
+
+	result, err := module.Check(ctx, decl)
+	if err != nil {
+		t.Fatalf("Check failed: %v", err)
+	}
+
+	// Template sources should always show as not matching during Check
+	// because we can't determine rendered content without the full context
+	if result.Matches {
+		t.Error("Expected state to not match for template source (requires apply to verify)")
+	}
+
+	// Check that diff indicates template source
+	diff, ok := result.Diff["contents"]
+	if !ok {
+		t.Error("Expected diff to contain 'contents' key")
+	}
+	if diff != "template source - requires apply to verify" {
+		t.Errorf("Expected diff message about template, got: %v", diff)
+	}
+}

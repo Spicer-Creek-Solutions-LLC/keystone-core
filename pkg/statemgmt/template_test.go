@@ -1,6 +1,9 @@
 package statemgmt
 
 import (
+	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -316,5 +319,131 @@ func TestTemplateRenderer_ErrorHandling(t *testing.T) {
 	}
 	if result != "<no value>" {
 		t.Logf("Got result: '%s'", result)
+	}
+}
+
+func TestWithTemplateContext(t *testing.T) {
+	// Test adding template context to context.Context
+	tplCtx := &TemplateContext{
+		Vars: map[string]interface{}{
+			"name": "TestApp",
+		},
+		Facts: map[string]interface{}{
+			"os": "linux",
+		},
+	}
+
+	ctx := context.Background()
+	ctx = WithTemplateContext(ctx, tplCtx)
+
+	// Retrieve it back
+	retrieved := TemplateContextFromContext(ctx)
+	if retrieved == nil {
+		t.Fatal("Expected to retrieve template context")
+	}
+
+	name, ok := retrieved.Vars["name"]
+	if !ok || name != "TestApp" {
+		t.Errorf("Expected name='TestApp', got %v", name)
+	}
+
+	osVal, ok := retrieved.Facts["os"]
+	if !ok || osVal != "linux" {
+		t.Errorf("Expected os='linux', got %v", osVal)
+	}
+}
+
+func TestTemplateContextFromContext_NoContext(t *testing.T) {
+	// Test with no template context set
+	ctx := context.Background()
+	retrieved := TemplateContextFromContext(ctx)
+	if retrieved != nil {
+		t.Error("Expected nil for context without template context")
+	}
+}
+
+func TestRenderTemplateFile(t *testing.T) {
+	// Create a temp directory for our template file
+	tmpDir, err := os.MkdirTemp("", "template-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create a template file
+	templatePath := filepath.Join(tmpDir, "config.tpl")
+	templateContent := `server:
+  name: {{.vars.server_name}}
+  port: {{.vars.port}}
+  environment: {{.facts.environment}}
+`
+	err = os.WriteFile(templatePath, []byte(templateContent), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write template file: %v", err)
+	}
+
+	// Create template context
+	tplCtx := &TemplateContext{
+		Vars: map[string]interface{}{
+			"server_name": "myserver",
+			"port":        8080,
+		},
+		Facts: map[string]interface{}{
+			"environment": "production",
+		},
+	}
+
+	// Render the template
+	result, err := RenderTemplateFile(templatePath, tplCtx)
+	if err != nil {
+		t.Fatalf("RenderTemplateFile failed: %v", err)
+	}
+
+	expected := `server:
+  name: myserver
+  port: 8080
+  environment: production
+`
+	if string(result) != expected {
+		t.Errorf("Expected:\n%s\nGot:\n%s", expected, string(result))
+	}
+}
+
+func TestRenderTemplateFile_NotFound(t *testing.T) {
+	tplCtx := &TemplateContext{
+		Vars:  map[string]interface{}{},
+		Facts: map[string]interface{}{},
+	}
+
+	_, err := RenderTemplateFile("/nonexistent/path/template.tpl", tplCtx)
+	if err == nil {
+		t.Error("Expected error for non-existent template file")
+	}
+}
+
+func TestRenderTemplateFile_InvalidTemplate(t *testing.T) {
+	// Create a temp directory for our template file
+	tmpDir, err := os.MkdirTemp("", "template-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create an invalid template file
+	templatePath := filepath.Join(tmpDir, "invalid.tpl")
+	templateContent := `This template has an error: {{.vars.name`
+	err = os.WriteFile(templatePath, []byte(templateContent), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write template file: %v", err)
+	}
+
+	tplCtx := &TemplateContext{
+		Vars:  map[string]interface{}{},
+		Facts: map[string]interface{}{},
+	}
+
+	_, err = RenderTemplateFile(templatePath, tplCtx)
+	if err == nil {
+		t.Error("Expected error for invalid template syntax")
 	}
 }

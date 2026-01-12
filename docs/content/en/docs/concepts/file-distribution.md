@@ -22,26 +22,17 @@ The file distribution system enables:
 
 ## Architecture
 
-```
-                                    ┌──────────────────┐
-                                    │   Control Plane  │
-                                    │   (kscore-files) │
-                                    └────────┬─────────┘
-                                             │
-                           ┌─────────────────┼─────────────────┐
-                           │                 │                 │
-                    ┌──────▼─────┐    ┌──────▼─────┐    ┌──────▼─────┐
-                    │  Backend   │    │  Backend   │    │  Backend   │
-                    │   (S3)     │    │  (Local)   │    │   (Git)    │
-                    └────────────┘    └────────────┘    └────────────┘
-                           │                 │                 │
-                           └─────────────────┼─────────────────┘
-                                             │
-                               ┌─────────────┼─────────────────┐
-                               │             │                 │
-                        ┌──────▼───┐  ┌──────▼───┐      ┌──────▼───┐
-                        │  Agent   │  │  Agent   │ ...  │  Agent   │
-                        └──────────┘  └──────────┘      └──────────┘
+```mermaid
+flowchart TB
+    CP["Control Plane<br>(kscore-files)"]
+
+    CP --> S3["Backend<br>(S3)"]
+    CP --> Local["Backend<br>(Local)"]
+    CP --> Git["Backend<br>(Git)"]
+
+    S3 & Local & Git --> A1["Agent"]
+    S3 & Local & Git --> A2["Agent"]
+    S3 & Local & Git --> A3["Agent"]
 ```
 
 ## Storage Backends

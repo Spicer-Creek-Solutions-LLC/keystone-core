@@ -15,18 +15,17 @@ The Query API abstracts away the differences between various observability backe
 - **Logs**: LogQL queries against Grafana Loki or in-memory storage
 - **Traces**: Search and retrieval from Jaeger or compatible backends
 
-```
-                    ┌─────────────────────────────────────────┐
-                    │            Query API                     │
-                    │  ┌───────────┬───────────┬───────────┐  │
-                    │  │  Metrics  │   Logs    │  Traces   │  │
-                    │  │  Querier  │  Querier  │  Querier  │  │
-                    │  └─────┬─────┴─────┬─────┴─────┬─────┘  │
-                    └────────┼───────────┼───────────┼────────┘
-                             │           │           │
-                    ┌────────▼───┐ ┌─────▼────┐ ┌────▼───────┐
-                    │ Prometheus │ │   Loki   │ │   Jaeger   │
-                    └────────────┘ └──────────┘ └────────────┘
+```mermaid
+flowchart TB
+    subgraph QA["Query API"]
+        MQ["Metrics<br>Querier"]
+        LQ["Logs<br>Querier"]
+        TQ["Traces<br>Querier"]
+    end
+
+    MQ --> Prometheus
+    LQ --> Loki
+    TQ --> Jaeger
 ```
 
 ## Metrics Querying

@@ -1,0 +1,663 @@
+syntax = "proto3";
+
+package keystone.core.v1;
+
+option go_package = "github.com/shawnbutts/keystone-core/pkg/api/v1;v1";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+// PolicyService provides policy management and evaluation operations
+service PolicyService {
+  // EvaluatePolicy evaluates a policy against input data
+  rpc EvaluatePolicy(EvaluatePolicyRequest) returns (EvaluatePolicyResponse);
+
+  // EvaluatePolicySet evaluates all policies in a policy set
+  rpc EvaluatePolicySet(EvaluatePolicySetRequest) returns (EvaluatePolicySetResponse);
+
+  // ListPolicies lists all policies
+  rpc ListPolicies(ListPoliciesRequest) returns (ListPoliciesResponse);
+
+  // GetPolicy retrieves a specific policy
+  rpc GetPolicy(GetPolicyRequest) returns (GetPolicyResponse);
+
+  // CreatePolicy creates a new policy
+  rpc CreatePolicy(CreatePolicyRequest) returns (CreatePolicyResponse);
+
+  // UpdatePolicy updates an existing policy
+  rpc UpdatePolicy(UpdatePolicyRequest) returns (UpdatePolicyResponse);
+
+  // DeletePolicy deletes a policy
+  rpc DeletePolicy(DeletePolicyRequest) returns (DeletePolicyResponse);
+
+  // ListViolations lists policy violations
+  rpc ListViolations(ListViolationsRequest) returns (ListViolationsResponse);
+
+  // GetComplianceReport generates a compliance report
+  rpc GetComplianceReport(GetComplianceReportRequest) returns (GetComplianceReportResponse);
+
+  // GetAuditLog retrieves policy evaluation audit log
+  rpc GetAuditLog(GetAuditLogRequest) returns (GetAuditLogResponse);
+
+  // ListPolicySets lists policy sets
+  rpc ListPolicySets(ListPolicySetsRequest) returns (ListPolicySetsResponse);
+
+  // GetPolicySet retrieves a policy set
+  rpc GetPolicySet(GetPolicySetRequest) returns (GetPolicySetResponse);
+}
+
+// PolicyType represents the policy language
+enum PolicyType {
+  POLICY_TYPE_UNSPECIFIED = 0;
+  POLICY_TYPE_OPA = 1;        // Open Policy Agent (Rego)
+  POLICY_TYPE_CEL = 2;        // Common Expression Language
+  POLICY_TYPE_BUILTIN = 3;    // Built-in policy rules
+}
+
+// PolicyCategory represents the policy category
+enum PolicyCategory {
+  POLICY_CATEGORY_UNSPECIFIED = 0;
+  POLICY_CATEGORY_SECURITY = 1;
+  POLICY_CATEGORY_COMPLIANCE = 2;
+  POLICY_CATEGORY_OPERATIONAL = 3;
+  POLICY_CATEGORY_COST = 4;
+  POLICY_CATEGORY_CUSTOM = 5;
+}
+
+// PolicySeverity represents violation severity
+enum PolicySeverity {
+  POLICY_SEVERITY_UNSPECIFIED = 0;
+  POLICY_SEVERITY_LOW = 1;
+  POLICY_SEVERITY_MEDIUM = 2;
+  POLICY_SEVERITY_HIGH = 3;
+  POLICY_SEVERITY_CRITICAL = 4;
+}
+
+// EnforcementMode defines how violations are handled
+enum EnforcementMode {
+  ENFORCEMENT_MODE_UNSPECIFIED = 0;
+  ENFORCEMENT_MODE_AUDIT = 1;     // Log only, don't block
+  ENFORCEMENT_MODE_WARN = 2;      // Warn but allow
+  ENFORCEMENT_MODE_ENFORCE = 3;   // Block violations
+}
+
+// Policy represents a policy definition
+message Policy {
+  // Unique policy ID
+  string id = 1;
+
+  // Human-readable name
+  string name = 2;
+
+  // Description of what the policy enforces
+  string description = 3;
+
+  // Policy language type
+  PolicyType type = 4;
+
+  // Policy category
+  PolicyCategory category = 5;
+
+  // Default severity for violations
+  PolicySeverity severity = 6;
+
+  // Enforcement mode
+  EnforcementMode enforcement_mode = 7;
+
+  // Policy code (Rego, CEL, or builtin name)
+  string policy = 8;
+
+  // Whether policy is enabled
+  bool enabled = 9;
+
+  // Tags for organization
+  repeated string tags = 10;
+
+  // Additional metadata
+  map<string, string> metadata = 11;
+
+  // Created timestamp
+  google.protobuf.Timestamp created_at = 12;
+
+  // Updated timestamp
+  google.protobuf.Timestamp updated_at = 13;
+}
+
+// PolicySet represents a collection of policies
+message PolicySet {
+  // Unique policy set ID
+  string id = 1;
+
+  // Human-readable name
+  string name = 2;
+
+  // Description
+  string description = 3;
+
+  // Policy IDs in this set
+  repeated string policy_ids = 4;
+
+  // Enforcement mode for the set
+  EnforcementMode enforcement_mode = 5;
+
+  // Whether set is enabled
+  bool enabled = 6;
+
+  // Created timestamp
+  google.protobuf.Timestamp created_at = 7;
+
+  // Updated timestamp
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+// Violation represents a policy violation
+message Violation {
+  // Rule that was violated
+  string rule = 1;
+
+  // Description of the violation
+  string message = 2;
+
+  // Violation severity
+  PolicySeverity severity = 3;
+
+  // Path to the violating element
+  string path = 4;
+
+  // Expected value
+  string expected = 5;
+
+  // Actual value
+  string actual = 6;
+
+  // Remediation suggestion
+  string remediation = 7;
+}
+
+// EvaluationInput represents input data for policy evaluation
+message EvaluationInput {
+  // Resource being evaluated
+  google.protobuf.Struct resource = 1;
+
+  // Action being performed
+  string action = 2;
+
+  // User performing the action
+  string user = 3;
+
+  // Evaluation context
+  map<string, string> context = 4;
+}
+
+// EvaluationResult represents the result of policy evaluation
+message EvaluationResult {
+  // Policy ID that was evaluated
+  string policy_id = 1;
+
+  // Policy name
+  string policy_name = 2;
+
+  // Whether the action is allowed
+  bool allowed = 3;
+
+  // Policy violations found
+  repeated Violation violations = 4;
+
+  // Policy warnings
+  repeated string warnings = 5;
+
+  // Result message
+  string message = 6;
+
+  // Evaluation duration in milliseconds
+  int64 duration_ms = 7;
+
+  // Evaluated at timestamp
+  google.protobuf.Timestamp evaluated_at = 8;
+}
+
+// EvaluatePolicyRequest requests policy evaluation
+message EvaluatePolicyRequest {
+  // Policy ID to evaluate
+  string policy_id = 1;
+
+  // Evaluation input
+  EvaluationInput input = 2;
+}
+
+// EvaluatePolicyResponse returns evaluation result
+message EvaluatePolicyResponse {
+  // Evaluation result
+  EvaluationResult result = 1;
+}
+
+// EvaluatePolicySetRequest requests policy set evaluation
+message EvaluatePolicySetRequest {
+  // Policy set ID
+  string policy_set_id = 1;
+
+  // Evaluation input
+  EvaluationInput input = 2;
+}
+
+// EvaluatePolicySetResponse returns policy set evaluation results
+message EvaluatePolicySetResponse {
+  // Overall allowed status
+  bool allowed = 1;
+
+  // Individual policy results
+  repeated EvaluationResult results = 2;
+
+  // Summary
+  PolicyEvaluationSummary summary = 3;
+
+  // Total duration in milliseconds
+  int64 total_duration_ms = 4;
+
+  // Evaluated at timestamp
+  google.protobuf.Timestamp evaluated_at = 5;
+}
+
+// PolicyEvaluationSummary provides summary statistics
+message PolicyEvaluationSummary {
+  // Total policies evaluated
+  int32 total_policies = 1;
+
+  // Policies that allowed
+  int32 allowed_policies = 2;
+
+  // Policies that denied
+  int32 denied_policies = 3;
+
+  // Total violations
+  int32 total_violations = 4;
+
+  // Violations by severity
+  map<string, int32> violations_by_severity = 5;
+}
+
+// ListPoliciesRequest requests policy list
+message ListPoliciesRequest {
+  // Filter by category
+  PolicyCategory category = 1;
+
+  // Filter by type
+  PolicyType type = 2;
+
+  // Filter by enabled status
+  OptionalBool enabled = 3;
+
+  // Filter by tags
+  repeated string tags = 4;
+
+  // Pagination
+  int32 page_size = 5;
+  string page_token = 6;
+}
+
+// OptionalBool allows distinguishing unset from false
+message OptionalBool {
+  bool value = 1;
+}
+
+// ListPoliciesResponse returns policy list
+message ListPoliciesResponse {
+  // Policies
+  repeated Policy policies = 1;
+
+  // Next page token
+  string next_page_token = 2;
+
+  // Total count
+  int32 total_count = 3;
+}
+
+// GetPolicyRequest requests a specific policy
+message GetPolicyRequest {
+  // Policy ID
+  string policy_id = 1;
+}
+
+// GetPolicyResponse returns a policy
+message GetPolicyResponse {
+  // Policy
+  Policy policy = 1;
+}
+
+// CreatePolicyRequest creates a new policy
+message CreatePolicyRequest {
+  // Policy to create (ID is optional, will be generated)
+  Policy policy = 1;
+}
+
+// CreatePolicyResponse returns created policy
+message CreatePolicyResponse {
+  // Created policy
+  Policy policy = 1;
+}
+
+// UpdatePolicyRequest updates a policy
+message UpdatePolicyRequest {
+  // Policy to update (ID must be set)
+  Policy policy = 1;
+
+  // Fields to update (empty = all fields)
+  repeated string update_mask = 2;
+}
+
+// UpdatePolicyResponse returns updated policy
+message UpdatePolicyResponse {
+  // Updated policy
+  Policy policy = 1;
+}
+
+// DeletePolicyRequest deletes a policy
+message DeletePolicyRequest {
+  // Policy ID
+  string policy_id = 1;
+}
+
+// DeletePolicyResponse confirms deletion
+message DeletePolicyResponse {
+  // Deleted
+  bool deleted = 1;
+}
+
+// ListViolationsRequest requests violation list
+message ListViolationsRequest {
+  // Filter by policy ID
+  string policy_id = 1;
+
+  // Filter by severity
+  PolicySeverity severity = 2;
+
+  // Filter by minimum severity
+  PolicySeverity min_severity = 3;
+
+  // Filter by resource type
+  string resource_type = 4;
+
+  // Filter by user
+  string user = 5;
+
+  // Time range
+  google.protobuf.Timestamp start_time = 6;
+  google.protobuf.Timestamp end_time = 7;
+
+  // Pagination
+  int32 page_size = 8;
+  string page_token = 9;
+}
+
+// ListViolationsResponse returns violation list
+message ListViolationsResponse {
+  // Violation records
+  repeated ViolationRecord records = 1;
+
+  // Next page token
+  string next_page_token = 2;
+
+  // Total count
+  int32 total_count = 3;
+}
+
+// ViolationRecord represents a recorded violation
+message ViolationRecord {
+  // Record ID
+  string id = 1;
+
+  // Timestamp
+  google.protobuf.Timestamp timestamp = 2;
+
+  // Policy ID
+  string policy_id = 3;
+
+  // Policy name
+  string policy_name = 4;
+
+  // Violation details
+  Violation violation = 5;
+
+  // Resource type
+  string resource_type = 6;
+
+  // User
+  string user = 7;
+
+  // Action
+  string action = 8;
+
+  // Enforcement mode at time of violation
+  EnforcementMode enforcement_mode = 9;
+
+  // Whether action was blocked
+  bool blocked = 10;
+}
+
+// GetComplianceReportRequest requests a compliance report
+message GetComplianceReportRequest {
+  // Report period start
+  google.protobuf.Timestamp start_time = 1;
+
+  // Report period end
+  google.protobuf.Timestamp end_time = 2;
+
+  // Filter by policy category
+  PolicyCategory category = 3;
+
+  // Filter by policy set ID
+  string policy_set_id = 4;
+
+  // Include detailed violations
+  bool include_violations = 5;
+}
+
+// GetComplianceReportResponse returns compliance report
+message GetComplianceReportResponse {
+  // Report period
+  ReportPeriod period = 1;
+
+  // Overall compliance rate (0-100)
+  float compliance_rate = 2;
+
+  // Total evaluations
+  int64 total_evaluations = 3;
+
+  // Compliant evaluations
+  int64 compliant_evaluations = 4;
+
+  // Non-compliant evaluations
+  int64 non_compliant_evaluations = 5;
+
+  // Policy statistics
+  repeated PolicyComplianceStats policy_stats = 6;
+
+  // Top violations
+  repeated ViolationSummary top_violations = 7;
+
+  // Severity distribution
+  map<string, int64> violations_by_severity = 8;
+
+  // Trend data
+  repeated ComplianceTrendPoint trend = 9;
+}
+
+// ReportPeriod represents the report time period
+message ReportPeriod {
+  // Start time
+  google.protobuf.Timestamp start_time = 1;
+
+  // End time
+  google.protobuf.Timestamp end_time = 2;
+}
+
+// PolicyComplianceStats contains per-policy compliance statistics
+message PolicyComplianceStats {
+  // Policy ID
+  string policy_id = 1;
+
+  // Policy name
+  string policy_name = 2;
+
+  // Total evaluations
+  int64 total_evaluations = 3;
+
+  // Compliant evaluations
+  int64 compliant_evaluations = 4;
+
+  // Compliance rate (0-100)
+  float compliance_rate = 5;
+
+  // Violation count
+  int64 violation_count = 6;
+}
+
+// ViolationSummary summarizes a violation type
+message ViolationSummary {
+  // Policy ID
+  string policy_id = 1;
+
+  // Policy name
+  string policy_name = 2;
+
+  // Violation rule
+  string rule = 3;
+
+  // Occurrence count
+  int64 count = 4;
+
+  // Severity
+  PolicySeverity severity = 5;
+}
+
+// ComplianceTrendPoint represents compliance at a point in time
+message ComplianceTrendPoint {
+  // Timestamp
+  google.protobuf.Timestamp timestamp = 1;
+
+  // Compliance rate
+  float compliance_rate = 2;
+
+  // Evaluation count
+  int64 evaluation_count = 3;
+
+  // Violation count
+  int64 violation_count = 4;
+}
+
+// GetAuditLogRequest requests audit log entries
+message GetAuditLogRequest {
+  // Filter by policy ID
+  string policy_id = 1;
+
+  // Filter by user
+  string user = 2;
+
+  // Filter by action
+  string action = 3;
+
+  // Filter by resource type
+  string resource_type = 4;
+
+  // Filter by allowed status
+  OptionalBool allowed = 5;
+
+  // Time range
+  google.protobuf.Timestamp start_time = 6;
+  google.protobuf.Timestamp end_time = 7;
+
+  // Pagination
+  int32 page_size = 8;
+  string page_token = 9;
+}
+
+// GetAuditLogResponse returns audit log entries
+message GetAuditLogResponse {
+  // Audit entries
+  repeated AuditEntry entries = 1;
+
+  // Next page token
+  string next_page_token = 2;
+
+  // Total count
+  int32 total_count = 3;
+}
+
+// AuditEntry represents a policy evaluation audit record
+message AuditEntry {
+  // Entry ID
+  string id = 1;
+
+  // Timestamp
+  google.protobuf.Timestamp timestamp = 2;
+
+  // Policy ID
+  string policy_id = 3;
+
+  // Policy name
+  string policy_name = 4;
+
+  // Policy type
+  PolicyType policy_type = 5;
+
+  // Resource type
+  string resource_type = 6;
+
+  // Whether action was allowed
+  bool allowed = 7;
+
+  // Evaluation duration in milliseconds
+  int64 duration_ms = 8;
+
+  // Violations found
+  repeated Violation violations = 9;
+
+  // Enforcement mode
+  EnforcementMode enforcement_mode = 10;
+
+  // User
+  string user = 11;
+
+  // Action
+  string action = 12;
+
+  // Additional metadata
+  map<string, string> metadata = 13;
+}
+
+// ListPolicySetsRequest requests policy set list
+message ListPolicySetsRequest {
+  // Filter by enabled status
+  OptionalBool enabled = 1;
+
+  // Pagination
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+// ListPolicySetsResponse returns policy set list
+message ListPolicySetsResponse {
+  // Policy sets
+  repeated PolicySet policy_sets = 1;
+
+  // Next page token
+  string next_page_token = 2;
+
+  // Total count
+  int32 total_count = 3;
+}
+
+// GetPolicySetRequest requests a policy set
+message GetPolicySetRequest {
+  // Policy set ID
+  string policy_set_id = 1;
+}
+
+// GetPolicySetResponse returns a policy set
+message GetPolicySetResponse {
+  // Policy set
+  PolicySet policy_set = 1;
+
+  // Policies in the set
+  repeated Policy policies = 2;
+}

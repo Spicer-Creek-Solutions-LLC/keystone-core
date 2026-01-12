@@ -1,0 +1,542 @@
+syntax = "proto3";
+
+package keystone.core.v1;
+
+option go_package = "github.com/shawnbutts/keystone-core/pkg/api/v1;v1";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+// StateService provides state management operations
+service StateService {
+  // ApplyState applies state declarations to one or more agents
+  rpc ApplyState(ApplyStateRequest) returns (stream ApplyStateResponse);
+
+  // CheckState checks state without applying (dry-run mode)
+  rpc CheckState(CheckStateRequest) returns (CheckStateResponse);
+
+  // DetectDrift detects configuration drift from desired state
+  rpc DetectDrift(DetectDriftRequest) returns (DetectDriftResponse);
+
+  // GetStateHistory retrieves state application history
+  rpc GetStateHistory(GetStateHistoryRequest) returns (GetStateHistoryResponse);
+
+  // GetStateStatus retrieves current state status for an agent
+  rpc GetStateStatus(GetStateStatusRequest) returns (GetStateStatusResponse);
+}
+
+// ApplyStateRequest requests state application
+message ApplyStateRequest {
+  // Target expression to select agents (e.g., "os:linux and role:web")
+  string target = 1;
+
+  // State file content (YAML)
+  string state_content = 2;
+
+  // State file path (alternative to content)
+  string state_path = 3;
+
+  // Variables for templating
+  map<string, string> variables = 4;
+
+  // Dry run mode (check only, don't apply)
+  bool dry_run = 5;
+
+  // Execution timeout (seconds)
+  int32 timeout = 6;
+
+  // Maximum concurrency (number of parallel agents)
+  int32 concurrency = 7;
+
+  // Continue on failure (default: true)
+  bool continue_on_failure = 8;
+
+  // Correlation ID for tracking
+  string correlation_id = 9;
+}
+
+// ApplyStateResponse streams state application progress
+message ApplyStateResponse {
+  // Run ID for this state application
+  string run_id = 1;
+
+  // Response type
+  StateResponseType type = 2;
+
+  // Agent ID (for agent-specific responses)
+  string agent_id = 3;
+
+  // State result (for STATE_RESULT type)
+  StateResult state_result = 4;
+
+  // Progress information (for PROGRESS type)
+  StateProgress progress = 5;
+
+  // Run summary (for RUN_COMPLETE type)
+  StateRunSummary summary = 6;
+
+  // Error message (for errors)
+  string error = 7;
+
+  // Timestamp
+  google.protobuf.Timestamp timestamp = 8;
+}
+
+// StateResponseType indicates the type of state response
+enum StateResponseType {
+  STATE_RESPONSE_TYPE_UNSPECIFIED = 0;
+  STATE_RESPONSE_TYPE_RUN_START = 1;       // State run started
+  STATE_RESPONSE_TYPE_AGENT_START = 2;     // Agent started processing
+  STATE_RESPONSE_TYPE_STATE_RESULT = 3;    // Individual state result
+  STATE_RESPONSE_TYPE_AGENT_COMPLETE = 4;  // Agent completed all states
+  STATE_RESPONSE_TYPE_AGENT_FAILED = 5;    // Agent failed
+  STATE_RESPONSE_TYPE_PROGRESS = 6;        // Progress update
+  STATE_RESPONSE_TYPE_RUN_COMPLETE = 7;    // State run completed
+  STATE_RESPONSE_TYPE_RUN_FAILED = 8;      // State run failed
+}
+
+// StateResult represents the result of applying a single state
+message StateResult {
+  // State ID
+  string state_id = 1;
+
+  // Module name (file, package, service, etc.)
+  string module = 2;
+
+  // Desired state
+  string state = 3;
+
+  // Whether the state was applied successfully
+  bool success = 4;
+
+  // Whether changes were made
+  bool changed = 5;
+
+  // Error message if failed
+  string error = 6;
+
+  // Comment describing what happened
+  string comment = 7;
+
+  // Changes made (key-value pairs)
+  map<string, string> changes = 8;
+
+  // Duration in milliseconds
+  int64 duration_ms = 9;
+
+  // Timestamp
+  google.protobuf.Timestamp timestamp = 10;
+}
+
+// StateProgress represents state application progress
+message StateProgress {
+  // Total number of agents
+  int32 total_agents = 1;
+
+  // Completed agents
+  int32 completed_agents = 2;
+
+  // Total states across all agents
+  int32 total_states = 3;
+
+  // Completed states
+  int32 completed_states = 4;
+
+  // Success rate percentage (0-100)
+  float success_rate = 5;
+}
+
+// StateRunSummary contains summary of a state run
+message StateRunSummary {
+  // Run ID
+  string run_id = 1;
+
+  // Total states processed
+  int32 total = 2;
+
+  // Successful states
+  int32 succeeded = 3;
+
+  // Failed states
+  int32 failed = 4;
+
+  // Changed states
+  int32 changed = 5;
+
+  // Unchanged states
+  int32 unchanged = 6;
+
+  // Overall success
+  bool success = 7;
+
+  // Duration in milliseconds
+  int64 duration_ms = 8;
+
+  // Start time
+  google.protobuf.Timestamp start_time = 9;
+
+  // End time
+  google.protobuf.Timestamp end_time = 10;
+
+  // Per-agent results
+  repeated AgentStateResult agent_results = 11;
+}
+
+// AgentStateResult contains state results for a single agent
+message AgentStateResult {
+  // Agent ID
+  string agent_id = 1;
+
+  // Success status
+  bool success = 2;
+
+  // Total states
+  int32 total = 3;
+
+  // Succeeded states
+  int32 succeeded = 4;
+
+  // Failed states
+  int32 failed = 5;
+
+  // Changed states
+  int32 changed = 6;
+
+  // Error message if failed
+  string error = 7;
+
+  // Duration in milliseconds
+  int64 duration_ms = 8;
+}
+
+// CheckStateRequest requests a state check (dry-run)
+message CheckStateRequest {
+  // Target expression to select agents
+  string target = 1;
+
+  // State file content (YAML)
+  string state_content = 2;
+
+  // State file path (alternative to content)
+  string state_path = 3;
+
+  // Variables for templating
+  map<string, string> variables = 4;
+
+  // Timeout (seconds)
+  int32 timeout = 5;
+}
+
+// CheckStateResponse returns state check results
+message CheckStateResponse {
+  // Run ID
+  string run_id = 1;
+
+  // Per-agent check results
+  repeated AgentCheckResult agent_results = 2;
+
+  // Overall would-change count
+  int32 would_change = 3;
+
+  // Overall would-fail count
+  int32 would_fail = 4;
+
+  // Overall success
+  bool success = 5;
+}
+
+// AgentCheckResult contains check results for a single agent
+message AgentCheckResult {
+  // Agent ID
+  string agent_id = 1;
+
+  // State check results
+  repeated StateCheckResult states = 2;
+
+  // Total states
+  int32 total = 3;
+
+  // Would change count
+  int32 would_change = 4;
+
+  // Would fail count
+  int32 would_fail = 5;
+
+  // Success status
+  bool success = 6;
+
+  // Error message if failed
+  string error = 7;
+}
+
+// StateCheckResult contains check result for a single state
+message StateCheckResult {
+  // State ID
+  string state_id = 1;
+
+  // Module name
+  string module = 2;
+
+  // Desired state
+  string state = 3;
+
+  // Whether changes would be made
+  bool would_change = 4;
+
+  // Whether it would fail
+  bool would_fail = 5;
+
+  // Comment describing what would happen
+  string comment = 6;
+
+  // Proposed changes
+  map<string, string> proposed_changes = 7;
+}
+
+// DetectDriftRequest requests drift detection
+message DetectDriftRequest {
+  // Target expression to select agents
+  string target = 1;
+
+  // State file content (YAML)
+  string state_content = 2;
+
+  // State file path (alternative to content)
+  string state_path = 3;
+
+  // Variables for templating
+  map<string, string> variables = 4;
+
+  // Timeout (seconds)
+  int32 timeout = 5;
+
+  // Minimum severity to report
+  DriftSeverity min_severity = 6;
+}
+
+// DetectDriftResponse returns drift detection results
+message DetectDriftResponse {
+  // Run ID
+  string run_id = 1;
+
+  // Checked at timestamp
+  google.protobuf.Timestamp checked_at = 2;
+
+  // Duration in milliseconds
+  int64 duration_ms = 3;
+
+  // Per-agent drift results
+  repeated AgentDriftResult agent_results = 4;
+
+  // Overall drift summary
+  DriftSummary summary = 5;
+}
+
+// AgentDriftResult contains drift results for a single agent
+message AgentDriftResult {
+  // Agent ID
+  string agent_id = 1;
+
+  // Drift statuses for each state
+  repeated DriftStatus drift_statuses = 2;
+
+  // Has any drift
+  bool has_drift = 3;
+
+  // Highest severity drift found
+  DriftSeverity max_severity = 4;
+
+  // Error message if check failed
+  string error = 5;
+}
+
+// DriftStatus represents drift status for a single state
+message DriftStatus {
+  // State ID
+  string state_id = 1;
+
+  // Module name
+  string module = 2;
+
+  // Whether drift was detected
+  bool has_drift = 3;
+
+  // Drift severity
+  DriftSeverity severity = 4;
+
+  // Differences found
+  repeated DriftDifference differences = 5;
+
+  // Checked at timestamp
+  google.protobuf.Timestamp checked_at = 6;
+}
+
+// DriftDifference represents a single difference
+message DriftDifference {
+  // Field path (e.g., "mode", "owner", "contents")
+  string path = 1;
+
+  // Expected value
+  string desired = 2;
+
+  // Actual value
+  string actual = 3;
+
+  // Severity of this difference
+  DriftSeverity severity = 4;
+
+  // Human-readable message
+  string message = 5;
+}
+
+// DriftSeverity indicates the severity of drift
+enum DriftSeverity {
+  DRIFT_SEVERITY_UNSPECIFIED = 0;
+  DRIFT_SEVERITY_NONE = 1;
+  DRIFT_SEVERITY_LOW = 2;
+  DRIFT_SEVERITY_MEDIUM = 3;
+  DRIFT_SEVERITY_HIGH = 4;
+  DRIFT_SEVERITY_CRITICAL = 5;
+}
+
+// DriftSummary provides drift statistics
+message DriftSummary {
+  // Total states checked
+  int32 total = 1;
+
+  // States with no drift
+  int32 no_drift = 2;
+
+  // States with low severity drift
+  int32 low_drift = 3;
+
+  // States with medium severity drift
+  int32 medium_drift = 4;
+
+  // States with high severity drift
+  int32 high_drift = 5;
+
+  // States with critical severity drift
+  int32 critical_drift = 6;
+
+  // Overall has drift
+  bool has_drift = 7;
+
+  // Maximum severity found
+  DriftSeverity max_severity = 8;
+}
+
+// GetStateHistoryRequest requests state application history
+message GetStateHistoryRequest {
+  // Filter by agent ID (optional)
+  string agent_id = 1;
+
+  // Filter by state file path (optional)
+  string state_path = 2;
+
+  // Filter by success status (optional, unset = all)
+  OptionalBool success = 3;
+
+  // Filter by time range
+  google.protobuf.Timestamp start_time = 4;
+  google.protobuf.Timestamp end_time = 5;
+
+  // Pagination
+  int32 page_size = 6;
+  string page_token = 7;
+}
+
+// OptionalBool allows distinguishing unset from false
+message OptionalBool {
+  bool value = 1;
+}
+
+// GetStateHistoryResponse returns state application history
+message GetStateHistoryResponse {
+  // State runs
+  repeated StateRun runs = 1;
+
+  // Next page token
+  string next_page_token = 2;
+
+  // Total count
+  int32 total_count = 3;
+}
+
+// StateRun represents a single state application run
+message StateRun {
+  // Run ID
+  string run_id = 1;
+
+  // State files applied
+  repeated string state_files = 2;
+
+  // Target expression
+  string target = 3;
+
+  // Dry run mode
+  bool dry_run = 4;
+
+  // Summary
+  StateRunSummary summary = 5;
+
+  // Start time
+  google.protobuf.Timestamp start_time = 6;
+
+  // End time
+  google.protobuf.Timestamp end_time = 7;
+
+  // Correlation ID
+  string correlation_id = 8;
+
+  // User who initiated the run
+  string user = 9;
+}
+
+// GetStateStatusRequest requests current state status
+message GetStateStatusRequest {
+  // Agent ID
+  string agent_id = 1;
+
+  // State file path (optional, for specific state file)
+  string state_path = 2;
+}
+
+// GetStateStatusResponse returns current state status
+message GetStateStatusResponse {
+  // Agent ID
+  string agent_id = 1;
+
+  // Last run information
+  StateRun last_run = 2;
+
+  // Current state statuses
+  repeated CurrentStateStatus states = 3;
+
+  // Last checked timestamp
+  google.protobuf.Timestamp last_checked = 4;
+}
+
+// CurrentStateStatus represents current status of a state
+message CurrentStateStatus {
+  // State ID
+  string state_id = 1;
+
+  // Module name
+  string module = 2;
+
+  // Current state
+  string current_state = 3;
+
+  // Desired state
+  string desired_state = 4;
+
+  // In compliance
+  bool compliant = 5;
+
+  // Last applied timestamp
+  google.protobuf.Timestamp last_applied = 6;
+
+  // Last checked timestamp
+  google.protobuf.Timestamp last_checked = 7;
+}

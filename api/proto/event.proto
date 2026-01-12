@@ -1,0 +1,274 @@
+syntax = "proto3";
+
+package keystone.core.v1;
+
+option go_package = "github.com/shawnbutts/keystone-core/pkg/api/v1;v1";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+// EventService provides event management operations
+service EventService {
+  // ListEvents lists events with filtering
+  rpc ListEvents(ListEventsRequest) returns (ListEventsResponse);
+
+  // GetEvent retrieves a specific event
+  rpc GetEvent(GetEventRequest) returns (GetEventResponse);
+
+  // EmitEvent emits a custom event
+  rpc EmitEvent(EmitEventRequest) returns (EmitEventResponse);
+
+  // SubscribeEvents subscribes to events in real-time
+  rpc SubscribeEvents(SubscribeEventsRequest) returns (stream Event);
+
+  // GetEventTypes returns available event types
+  rpc GetEventTypes(GetEventTypesRequest) returns (GetEventTypesResponse);
+
+  // GetEventStats returns event statistics
+  rpc GetEventStats(GetEventStatsRequest) returns (GetEventStatsResponse);
+}
+
+// Event represents a Keystone Core event
+message Event {
+  // Unique event ID
+  string id = 1;
+
+  // Event type (e.g., "agent.connect", "state.change")
+  string type = 2;
+
+  // Event source (e.g., "/agents/web-01", "/control-plane")
+  string source = 3;
+
+  // Event timestamp
+  google.protobuf.Timestamp time = 4;
+
+  // Event severity
+  EventSeverity severity = 5;
+
+  // Correlation ID for linking related events
+  string correlation_id = 6;
+
+  // Tags for filtering and categorization
+  map<string, string> tags = 7;
+
+  // Event-specific data payload
+  google.protobuf.Struct data = 8;
+
+  // NATS subject (if applicable)
+  string subject = 9;
+}
+
+// EventSeverity indicates the importance of an event
+enum EventSeverity {
+  EVENT_SEVERITY_UNSPECIFIED = 0;
+  EVENT_SEVERITY_DEBUG = 1;
+  EVENT_SEVERITY_INFO = 2;
+  EVENT_SEVERITY_WARNING = 3;
+  EVENT_SEVERITY_ERROR = 4;
+  EVENT_SEVERITY_CRITICAL = 5;
+}
+
+// EventCategory groups related event types
+enum EventCategory {
+  EVENT_CATEGORY_UNSPECIFIED = 0;
+  EVENT_CATEGORY_AGENT = 1;
+  EVENT_CATEGORY_JOB = 2;
+  EVENT_CATEGORY_STATE = 3;
+  EVENT_CATEGORY_USER = 4;
+  EVENT_CATEGORY_SYSTEM = 5;
+  EVENT_CATEGORY_POLICY = 6;
+  EVENT_CATEGORY_GITOPS = 7;
+}
+
+// ListEventsRequest requests events with filtering
+message ListEventsRequest {
+  // Filter by event type (optional)
+  string type = 1;
+
+  // Filter by source (optional)
+  string source = 2;
+
+  // Filter by severity (optional)
+  EventSeverity severity = 3;
+
+  // Filter by minimum severity (optional)
+  EventSeverity min_severity = 4;
+
+  // Filter by correlation ID (optional)
+  string correlation_id = 5;
+
+  // Filter by tags (all must match)
+  map<string, string> tags = 6;
+
+  // Filter by time range
+  google.protobuf.Timestamp start_time = 7;
+  google.protobuf.Timestamp end_time = 8;
+
+  // Filter expression (CEL)
+  string filter = 9;
+
+  // Pagination
+  int32 page_size = 10;
+  string page_token = 11;
+
+  // Sort order (default: descending by time)
+  SortOrder sort_order = 12;
+}
+
+// SortOrder defines the sort direction
+enum SortOrder {
+  SORT_ORDER_UNSPECIFIED = 0;
+  SORT_ORDER_ASCENDING = 1;
+  SORT_ORDER_DESCENDING = 2;
+}
+
+// ListEventsResponse returns a list of events
+message ListEventsResponse {
+  // Events matching the filter
+  repeated Event events = 1;
+
+  // Next page token
+  string next_page_token = 2;
+
+  // Total count (may be approximate for large result sets)
+  int32 total_count = 3;
+}
+
+// GetEventRequest requests a specific event
+message GetEventRequest {
+  // Event ID
+  string event_id = 1;
+}
+
+// GetEventResponse returns a specific event
+message GetEventResponse {
+  // The event
+  Event event = 1;
+}
+
+// EmitEventRequest emits a custom event
+message EmitEventRequest {
+  // Event type (required)
+  string type = 1;
+
+  // Event source (required)
+  string source = 2;
+
+  // Event severity (default: INFO)
+  EventSeverity severity = 3;
+
+  // Correlation ID (optional)
+  string correlation_id = 4;
+
+  // Tags for categorization
+  map<string, string> tags = 5;
+
+  // Event data payload
+  google.protobuf.Struct data = 6;
+}
+
+// EmitEventResponse confirms event emission
+message EmitEventResponse {
+  // Generated event ID
+  string event_id = 1;
+
+  // Event timestamp
+  google.protobuf.Timestamp timestamp = 2;
+}
+
+// SubscribeEventsRequest subscribes to events
+message SubscribeEventsRequest {
+  // Filter by event types (empty = all)
+  repeated string types = 1;
+
+  // Filter by sources (empty = all)
+  repeated string sources = 2;
+
+  // Filter by minimum severity
+  EventSeverity min_severity = 3;
+
+  // Filter by tags (all must match)
+  map<string, string> tags = 4;
+
+  // Filter expression (CEL)
+  string filter = 5;
+
+  // Include historical events from the last N seconds (0 = real-time only)
+  int32 replay_seconds = 6;
+
+  // Queue group for load balancing (optional)
+  string queue_group = 7;
+}
+
+// GetEventTypesRequest requests available event types
+message GetEventTypesRequest {
+  // Filter by category (optional)
+  EventCategory category = 1;
+}
+
+// GetEventTypesResponse returns available event types
+message GetEventTypesResponse {
+  // Event types
+  repeated EventTypeInfo types = 1;
+}
+
+// EventTypeInfo describes an event type
+message EventTypeInfo {
+  // Event type name
+  string type = 1;
+
+  // Category
+  EventCategory category = 2;
+
+  // Description
+  string description = 3;
+
+  // Example data schema
+  string data_schema = 4;
+}
+
+// GetEventStatsRequest requests event statistics
+message GetEventStatsRequest {
+  // Time range for statistics
+  google.protobuf.Timestamp start_time = 1;
+  google.protobuf.Timestamp end_time = 2;
+
+  // Group by (type, source, severity, hour, day)
+  string group_by = 3;
+}
+
+// GetEventStatsResponse returns event statistics
+message GetEventStatsResponse {
+  // Total events in time range
+  int64 total_events = 1;
+
+  // Events by type
+  map<string, int64> by_type = 2;
+
+  // Events by severity
+  map<string, int64> by_severity = 3;
+
+  // Events by source
+  map<string, int64> by_source = 4;
+
+  // Event rate (events per second)
+  float event_rate = 5;
+
+  // Time series data (for charts)
+  repeated EventTimeSeries time_series = 6;
+}
+
+// EventTimeSeries represents event counts over time
+message EventTimeSeries {
+  // Timestamp for this bucket
+  google.protobuf.Timestamp timestamp = 1;
+
+  // Event count
+  int64 count = 2;
+
+  // Breakdown by type (optional)
+  map<string, int64> by_type = 3;
+
+  // Breakdown by severity (optional)
+  map<string, int64> by_severity = 4;
+}

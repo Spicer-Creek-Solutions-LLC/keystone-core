@@ -5,7 +5,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -13,66 +12,139 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
 	"github.com/shawnbutts/keystone-core/pkg/gateway"
+	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
-var (
-	version   = "dev"
-	commit    = "unknown"
-	buildDate = "unknown"
-)
+// Config holds CLI configuration
+type Config struct {
+	ConfigFile     string
+	ListenAddr     string
+	NATSURL        string
+	MetricsEnabled bool
+	LogsEnabled    bool
+	TracesEnabled  bool
+}
 
-func main() {
-	// Parse command line flags
-	configFile := flag.String("config", "", "Path to configuration file")
-	listenAddr := flag.String("listen", "", "Listen address (e.g., 0.0.0.0:9091)")
-	natsURL := flag.String("nats-url", "", "NATS server URL")
-	metricsEnabled := flag.Bool("metrics", true, "Enable metrics gateway")
-	logsEnabled := flag.Bool("logs", true, "Enable logs gateway")
-	tracesEnabled := flag.Bool("traces", true, "Enable traces gateway")
-	showVersion := flag.Bool("version", false, "Show version information")
-
-	flag.Parse()
-
-	if *showVersion {
-		fmt.Printf("kscore-telemetry-gateway %s\n", version)
-		fmt.Printf("  commit: %s\n", commit)
-		fmt.Printf("  built: %s\n", buildDate)
-		os.Exit(0)
+// newRootCmd creates the root command
+func newRootCmd() *cobra.Command {
+	cfg := &Config{
+		MetricsEnabled: true,
+		LogsEnabled:    true,
+		TracesEnabled:  true,
 	}
 
+	rootCmd := &cobra.Command{
+		Use:   "kscore-telemetry-gateway",
+		Short: "Telemetry aggregation gateway for Keystone Core",
+		Long: `The telemetry gateway aggregates metrics, logs, and traces from agents over NATS
+and exposes them to observability backends (Prometheus, Loki, Tempo/Jaeger).
+
+The gateway subscribes to NATS subjects for each telemetry type and provides:
+  - Prometheus scrape endpoint for metrics
+  - Loki push integration for logs
+  - OTLP export for traces
+
+Examples:
+  # Start with default settings
+  kscore-telemetry-gateway serve
+
+  # Start with custom config file
+  kscore-telemetry-gateway serve --config /etc/kscore/gateway.yaml
+
+  # Override specific settings
+  kscore-telemetry-gateway serve --listen 0.0.0.0:9091 --nats-url nats://localhost:4222`,
+	}
+
+	// Global flags
+	rootCmd.PersistentFlags().StringVar(&cfg.ConfigFile, "config", "", "Path to configuration file")
+	rootCmd.PersistentFlags().StringVar(&cfg.ListenAddr, "listen", "", "Listen address (e.g., 0.0.0.0:9091)")
+	rootCmd.PersistentFlags().StringVar(&cfg.NATSURL, "nats-url", "", "NATS server URL")
+	rootCmd.PersistentFlags().BoolVar(&cfg.MetricsEnabled, "metrics", true, "Enable metrics gateway")
+	rootCmd.PersistentFlags().BoolVar(&cfg.LogsEnabled, "logs", true, "Enable logs gateway")
+	rootCmd.PersistentFlags().BoolVar(&cfg.TracesEnabled, "traces", true, "Enable traces gateway")
+
+	// Add subcommands
+	rootCmd.AddCommand(newVersionCmd())
+	rootCmd.AddCommand(newServeCmd(cfg))
+
+	return rootCmd
+}
+
+// newVersionCmd creates the version command
+func newVersionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print version information",
+		Run: func(cmd *cobra.Command, args []string) {
+			info := version.Get()
+			fmt.Fprintln(cmd.OutOrStdout(), info.String())
+		},
+	}
+}
+
+// newServeCmd creates the serve command
+func newServeCmd(cfg *Config) *cobra.Command {
+	return &cobra.Command{
+		Use:   "serve",
+		Short: "Start the telemetry gateway server",
+		Long: `Start the telemetry gateway server to aggregate metrics, logs, and traces.
+
+The server will:
+  - Connect to NATS and subscribe to telemetry subjects
+  - Expose a Prometheus-compatible /metrics endpoint
+  - Push logs to Loki if configured
+  - Export traces via OTLP if configured
+
+Examples:
+  # Start with defaults
+  kscore-telemetry-gateway serve
+
+  # Start with config file
+  kscore-telemetry-gateway serve --config /etc/kscore/gateway.yaml
+
+  # Start with overrides
+  kscore-telemetry-gateway serve --listen :9091 --nats-url nats://nats:4222`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runServe(cfg)
+		},
+	}
+}
+
+func runServe(cfg *Config) error {
 	// Load configuration
 	config := gateway.DefaultConfig()
 
-	if *configFile != "" {
-		data, err := os.ReadFile(*configFile)
+	if cfg.ConfigFile != "" {
+		data, err := os.ReadFile(cfg.ConfigFile)
 		if err != nil {
-			log.Fatalf("Failed to read config file: %v", err)
+			return fmt.Errorf("failed to read config file: %w", err)
 		}
 		if err := yaml.Unmarshal(data, config); err != nil {
-			log.Fatalf("Failed to parse config file: %v", err)
+			return fmt.Errorf("failed to parse config file: %w", err)
 		}
-		log.Printf("Loaded configuration from %s", *configFile)
+		log.Printf("Loaded configuration from %s", cfg.ConfigFile)
 	}
 
 	// Override with command line flags
-	if *listenAddr != "" {
-		config.Server.Listen = *listenAddr
+	if cfg.ListenAddr != "" {
+		config.Server.Listen = cfg.ListenAddr
 	}
-	if *natsURL != "" {
-		config.NATS.URLs = []string{*natsURL}
+	if cfg.NATSURL != "" {
+		config.NATS.URLs = []string{cfg.NATSURL}
 	}
-	config.Metrics.Enabled = *metricsEnabled
-	config.Logs.Enabled = *logsEnabled
-	config.Traces.Enabled = *tracesEnabled
+	config.Metrics.Enabled = cfg.MetricsEnabled
+	config.Logs.Enabled = cfg.LogsEnabled
+	config.Traces.Enabled = cfg.TracesEnabled
 
 	// Create and start the server
 	server := gateway.NewServer(config)
 
 	if err := server.Start(); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+		return fmt.Errorf("failed to start server: %w", err)
 	}
 
 	log.Printf("Telemetry gateway started")
@@ -136,4 +208,12 @@ func main() {
 	}
 
 	log.Printf("Telemetry gateway stopped")
+	return nil
+}
+
+func main() {
+	if err := newRootCmd().Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
 }

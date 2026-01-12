@@ -2,7 +2,9 @@ package statemgmt
 
 import (
 	"bytes"
+	"context"
 	"fmt"
+	"os"
 	"runtime"
 	"strings"
 	"text/template"
@@ -172,6 +174,41 @@ func LoadVarsFromYAML(data map[string]interface{}) *Vars {
 	vars := NewVars()
 	vars.Data = data
 	return vars
+}
+
+// templateContextKey is a context key for passing template context
+type templateContextKey struct{}
+
+// WithTemplateContext adds a template context to a context.Context
+func WithTemplateContext(ctx context.Context, tplCtx *TemplateContext) context.Context {
+	return context.WithValue(ctx, templateContextKey{}, tplCtx)
+}
+
+// TemplateContextFromContext retrieves the template context from a context.Context
+// Returns nil if no template context is set
+func TemplateContextFromContext(ctx context.Context) *TemplateContext {
+	if tplCtx, ok := ctx.Value(templateContextKey{}).(*TemplateContext); ok {
+		return tplCtx
+	}
+	return nil
+}
+
+// RenderTemplateFile reads a template file from disk and renders it with the given context
+func RenderTemplateFile(templatePath string, ctx *TemplateContext) ([]byte, error) {
+	// Read the template file
+	templateContent, err := os.ReadFile(templatePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read template file: %w", err)
+	}
+
+	// Render the template
+	renderer := NewTemplateRenderer()
+	rendered, err := renderer.Render(string(templateContent), ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to render template: %w", err)
+	}
+
+	return []byte(rendered), nil
 }
 
 // RenderStateFile renders all templates in a state file

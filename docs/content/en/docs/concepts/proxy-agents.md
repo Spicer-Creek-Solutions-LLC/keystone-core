@@ -19,32 +19,21 @@ Keystone Core proxy agents enable management of devices that cannot run the nati
 
 ## Architecture
 
-```
-                                    ┌──────────────────────────────────────┐
-                                    │         Control Plane                │
-                                    └───────────────┬──────────────────────┘
-                                                    │
-                                                    │ NATS
-                                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              Proxy Agent                                     │
-│                                                                              │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
-│  │   Device    │  │ Credential  │  │  Protocol   │  │      Discovery      │ │
-│  │  Registry   │  │   Store     │  │  Adapters   │  │       Service       │ │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └──────────┬──────────┘ │
-│         │                │                │                     │            │
-│         └────────────────┴────────────────┴─────────────────────┘            │
-│                                   │                                          │
-└───────────────────────────────────┼──────────────────────────────────────────┘
-                                    │
-                    ┌───────────────┼───────────────┐
-                    │               │               │
-                    ▼               ▼               ▼
-            ┌───────────┐   ┌───────────┐   ┌───────────┐
-            │  Router   │   │  Switch   │   │ Firewall  │
-            │  (SSH)    │   │  (SNMP)   │   │  (REST)   │
-            └───────────┘   └───────────┘   └───────────┘
+```mermaid
+flowchart TB
+    CP["Control Plane"]
+    CP -->|NATS| PA
+
+    subgraph PA["Proxy Agent"]
+        DR["Device<br>Registry"]
+        CS["Credential<br>Store"]
+        Proto["Protocol<br>Adapters"]
+        DS["Discovery<br>Service"]
+    end
+
+    PA --> Router["Router<br>(SSH)"]
+    PA --> Switch["Switch<br>(SNMP)"]
+    PA --> FW["Firewall<br>(REST)"]
 ```
 
 ### How It Works

@@ -1,0 +1,509 @@
+syntax = "proto3";
+
+package keystone.core.v1;
+
+option go_package = "github.com/shawnbutts/keystone-core/pkg/api/v1;v1";
+
+import "google/protobuf/timestamp.proto";
+
+// ClusterService provides cluster management operations
+service ClusterService {
+  // GetClusterStatus returns the overall cluster status
+  rpc GetClusterStatus(GetClusterStatusRequest) returns (GetClusterStatusResponse);
+
+  // ListMembers lists all cluster members
+  rpc ListMembers(ListMembersRequest) returns (ListMembersResponse);
+
+  // GetMember retrieves a specific cluster member
+  rpc GetMember(GetMemberRequest) returns (GetMemberResponse);
+
+  // AddMember adds a new member to the cluster
+  rpc AddMember(AddMemberRequest) returns (AddMemberResponse);
+
+  // RemoveMember removes a member from the cluster
+  rpc RemoveMember(RemoveMemberRequest) returns (RemoveMemberResponse);
+
+  // GetLeader returns the current cluster leader
+  rpc GetLeader(GetLeaderRequest) returns (GetLeaderResponse);
+
+  // TransferLeader transfers leadership to another member
+  rpc TransferLeader(TransferLeaderRequest) returns (TransferLeaderResponse);
+
+  // Rebalance triggers agent rebalancing across cluster members
+  rpc Rebalance(RebalanceRequest) returns (RebalanceResponse);
+
+  // CreateBackup creates a cluster state backup
+  rpc CreateBackup(CreateBackupRequest) returns (CreateBackupResponse);
+
+  // RestoreBackup restores cluster state from a backup
+  rpc RestoreBackup(RestoreBackupRequest) returns (RestoreBackupResponse);
+
+  // WatchMembership watches for membership changes
+  rpc WatchMembership(WatchMembershipRequest) returns (stream MembershipEvent);
+
+  // WatchLeadership watches for leadership changes
+  rpc WatchLeadership(WatchLeadershipRequest) returns (stream LeadershipEvent);
+}
+
+// MemberStatus represents the health status of a cluster member
+enum MemberStatus {
+  MEMBER_STATUS_UNSPECIFIED = 0;
+  MEMBER_STATUS_HEALTHY = 1;
+  MEMBER_STATUS_DEGRADED = 2;
+  MEMBER_STATUS_UNHEALTHY = 3;
+  MEMBER_STATUS_UNKNOWN = 4;
+  MEMBER_STATUS_LEAVING = 5;
+}
+
+// ClusterStatus represents the overall cluster health
+enum ClusterStatus {
+  CLUSTER_STATUS_UNSPECIFIED = 0;
+  CLUSTER_STATUS_HEALTHY = 1;
+  CLUSTER_STATUS_DEGRADED = 2;
+  CLUSTER_STATUS_UNHEALTHY = 3;
+  CLUSTER_STATUS_FORMING = 4;
+}
+
+// EtcdMode represents the etcd deployment mode
+enum EtcdMode {
+  ETCD_MODE_UNSPECIFIED = 0;
+  ETCD_MODE_EMBEDDED = 1;
+  ETCD_MODE_EXTERNAL = 2;
+}
+
+// LeadershipEventType represents leadership change types
+enum LeadershipEventType {
+  LEADERSHIP_EVENT_TYPE_UNSPECIFIED = 0;
+  LEADERSHIP_EVENT_TYPE_ELECTED = 1;
+  LEADERSHIP_EVENT_TYPE_RESIGNED = 2;
+  LEADERSHIP_EVENT_TYPE_LOST = 3;
+  LEADERSHIP_EVENT_TYPE_TRANSFERRED = 4;
+}
+
+// MembershipEventType represents membership change types
+enum MembershipEventType {
+  MEMBERSHIP_EVENT_TYPE_UNSPECIFIED = 0;
+  MEMBERSHIP_EVENT_TYPE_JOINED = 1;
+  MEMBERSHIP_EVENT_TYPE_LEFT = 2;
+  MEMBERSHIP_EVENT_TYPE_FAILED = 3;
+  MEMBERSHIP_EVENT_TYPE_RECOVERED = 4;
+  MEMBERSHIP_EVENT_TYPE_UPDATED = 5;
+}
+
+// Member represents a cluster member
+message Member {
+  // Unique member ID
+  string id = 1;
+
+  // Human-readable name
+  string name = 2;
+
+  // Network address (host:port) for API communication
+  string address = 3;
+
+  // gRPC endpoint address
+  string grpc_address = 4;
+
+  // NATS endpoint for agent connections
+  string nats_address = 5;
+
+  // Current health status
+  MemberStatus status = 6;
+
+  // Whether this member is the current leader
+  bool is_leader = 7;
+
+  // Keystone Core version
+  string version = 8;
+
+  // When this member joined the cluster
+  google.protobuf.Timestamp joined_at = 9;
+
+  // Last heartbeat timestamp
+  google.protobuf.Timestamp last_heartbeat = 10;
+
+  // Additional metadata
+  map<string, string> metadata = 11;
+
+  // Number of agents connected to this member
+  int32 agent_count = 12;
+
+  // Number of active jobs on this member
+  int32 job_count = 13;
+}
+
+// ClusterInfo represents the current cluster state
+message ClusterInfo {
+  // Cluster name
+  string name = 1;
+
+  // Overall cluster status
+  ClusterStatus status = 2;
+
+  // Current leader ID
+  string leader_id = 3;
+
+  // Cluster members
+  repeated Member members = 4;
+
+  // Total number of members
+  int32 member_count = 5;
+
+  // Number of healthy members
+  int32 healthy_count = 6;
+
+  // Number of members required for quorum
+  int32 quorum_size = 7;
+
+  // Whether the cluster has quorum
+  bool has_quorum = 8;
+
+  // When the cluster was created
+  google.protobuf.Timestamp created_at = 9;
+
+  // When the cluster info was last updated
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+// LeadershipEvent represents a leadership change event
+message LeadershipEvent {
+  // Event type
+  LeadershipEventType type = 1;
+
+  // New leader's ID (empty if no leader)
+  string leader_id = 2;
+
+  // Previous leader's ID
+  string previous_leader_id = 3;
+
+  // When the event occurred
+  google.protobuf.Timestamp timestamp = 4;
+
+  // Additional context
+  string reason = 5;
+}
+
+// MembershipEvent represents a membership change event
+message MembershipEvent {
+  // Event type
+  MembershipEventType type = 1;
+
+  // Affected member
+  Member member = 2;
+
+  // When the event occurred
+  google.protobuf.Timestamp timestamp = 3;
+
+  // Additional context
+  string reason = 4;
+}
+
+// ShardAssignment represents the assignment of an agent to a member
+message ShardAssignment {
+  // Agent ID
+  string agent_id = 1;
+
+  // Member ID responsible for this agent
+  string member_id = 2;
+
+  // When the assignment was made
+  google.protobuf.Timestamp assigned_at = 3;
+
+  // Version for optimistic locking
+  int64 version = 4;
+}
+
+// RebalanceEvent represents a work rebalancing event
+message RebalanceEvent {
+  // Member that triggered rebalancing
+  string trigger_member_id = 1;
+
+  // Reason for rebalancing
+  string reason = 2;
+
+  // Number of agents that were reassigned
+  int32 moved_agents = 3;
+
+  // When rebalancing started
+  google.protobuf.Timestamp start_time = 4;
+
+  // When rebalancing completed
+  google.protobuf.Timestamp end_time = 5;
+
+  // Duration in milliseconds
+  int64 duration_ms = 6;
+}
+
+// BackupData represents a cluster backup
+message BackupData {
+  // Backup format version
+  string version = 1;
+
+  // When the backup was created
+  google.protobuf.Timestamp timestamp = 2;
+
+  // Cluster information
+  ClusterBackup cluster = 3;
+
+  // Shard assignments
+  repeated ShardBackup shards = 4;
+
+  // Configuration key-value pairs
+  map<string, string> config = 5;
+}
+
+// ClusterBackup contains cluster membership information
+message ClusterBackup {
+  // Cluster name
+  string name = 1;
+
+  // Quorum size
+  int32 quorum_size = 2;
+
+  // Members
+  repeated Member members = 3;
+
+  // Current leader ID
+  string leader_id = 4;
+}
+
+// ShardBackup contains a shard assignment backup
+message ShardBackup {
+  // Agent ID
+  string agent_id = 1;
+
+  // Member ID
+  string member_id = 2;
+
+  // When the assignment was made
+  google.protobuf.Timestamp assigned_at = 3;
+}
+
+// GetClusterStatusRequest requests cluster status
+message GetClusterStatusRequest {}
+
+// GetClusterStatusResponse returns cluster status
+message GetClusterStatusResponse {
+  // Overall cluster health
+  bool healthy = 1;
+
+  // Number of members
+  int32 member_count = 2;
+
+  // Quorum size
+  int32 quorum_size = 3;
+
+  // Whether cluster has quorum
+  bool has_quorum = 4;
+
+  // Current leader ID
+  string leader_id = 5;
+
+  // Cluster members
+  repeated Member members = 6;
+
+  // When status was last updated
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+// ListMembersRequest requests member list
+message ListMembersRequest {
+  // Filter by status (optional)
+  MemberStatus status = 1;
+
+  // Pagination
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+// ListMembersResponse returns member list
+message ListMembersResponse {
+  // Members
+  repeated Member members = 1;
+
+  // Next page token
+  string next_page_token = 2;
+
+  // Total count
+  int32 total_count = 3;
+}
+
+// GetMemberRequest requests a specific member
+message GetMemberRequest {
+  // Member ID
+  string member_id = 1;
+}
+
+// GetMemberResponse returns a member
+message GetMemberResponse {
+  // Member
+  Member member = 1;
+}
+
+// AddMemberRequest adds a new member
+message AddMemberRequest {
+  // Member ID (optional, generated if empty)
+  string id = 1;
+
+  // Human-readable name (optional)
+  string name = 2;
+
+  // Network address (required)
+  string address = 3;
+
+  // gRPC address (optional, derived from address if empty)
+  string grpc_address = 4;
+
+  // NATS address (optional)
+  string nats_address = 5;
+
+  // Additional metadata
+  map<string, string> metadata = 6;
+}
+
+// AddMemberResponse returns the created member
+message AddMemberResponse {
+  // Created member
+  Member member = 1;
+}
+
+// RemoveMemberRequest removes a member
+message RemoveMemberRequest {
+  // Member ID
+  string member_id = 1;
+
+  // Force removal even if member is healthy
+  bool force = 2;
+}
+
+// RemoveMemberResponse confirms removal
+message RemoveMemberResponse {
+  // Whether member was removed
+  bool removed = 1;
+}
+
+// GetLeaderRequest requests current leader
+message GetLeaderRequest {}
+
+// GetLeaderResponse returns current leader
+message GetLeaderResponse {
+  // Current leader
+  Member leader = 1;
+}
+
+// TransferLeaderRequest requests leadership transfer
+message TransferLeaderRequest {
+  // Target member ID
+  string target_id = 1;
+}
+
+// TransferLeaderResponse confirms transfer
+message TransferLeaderResponse {
+  // Whether transfer was initiated
+  bool initiated = 1;
+
+  // Message
+  string message = 2;
+
+  // Target member ID
+  string target_id = 3;
+}
+
+// RebalanceRequest requests agent rebalancing
+message RebalanceRequest {
+  // Reason for rebalancing
+  string reason = 1;
+}
+
+// RebalanceResponse returns rebalance results
+message RebalanceResponse {
+  // Whether rebalancing succeeded
+  bool success = 1;
+
+  // Reason
+  string reason = 2;
+
+  // Number of agents moved
+  int32 moved_agents = 3;
+
+  // Member that triggered rebalancing
+  string trigger_member_id = 4;
+
+  // When rebalancing started
+  google.protobuf.Timestamp start_time = 5;
+
+  // When rebalancing completed
+  google.protobuf.Timestamp end_time = 6;
+
+  // Duration string
+  string duration = 7;
+}
+
+// CreateBackupRequest requests a cluster backup
+message CreateBackupRequest {
+  // Include shard assignments
+  bool include_shards = 1;
+
+  // Include configuration
+  bool include_config = 2;
+}
+
+// CreateBackupResponse returns the backup
+message CreateBackupResponse {
+  // Backup data
+  BackupData backup = 1;
+
+  // Backup as JSON bytes (for file download)
+  bytes backup_json = 2;
+}
+
+// RestoreBackupRequest requests cluster restore
+message RestoreBackupRequest {
+  // Backup data
+  BackupData backup = 1;
+
+  // Backup as JSON bytes (from file upload)
+  bytes backup_json = 2;
+
+  // Restore shard assignments
+  bool restore_shards = 3;
+
+  // Restore configuration
+  bool restore_config = 4;
+
+  // Force restore even if cluster is healthy
+  bool force = 5;
+}
+
+// RestoreBackupResponse confirms restore
+message RestoreBackupResponse {
+  // Whether restore succeeded
+  bool success = 1;
+
+  // Message
+  string message = 2;
+
+  // Number of shards restored
+  int32 shards_restored = 3;
+
+  // Number of config entries restored
+  int32 config_restored = 4;
+
+  // Warnings
+  repeated string warnings = 5;
+}
+
+// WatchMembershipRequest requests membership watch
+message WatchMembershipRequest {
+  // Filter by event types (empty = all)
+  repeated MembershipEventType types = 1;
+
+  // Filter by member IDs (empty = all)
+  repeated string member_ids = 2;
+}
+
+// WatchLeadershipRequest requests leadership watch
+message WatchLeadershipRequest {
+  // Filter by event types (empty = all)
+  repeated LeadershipEventType types = 1;
+}
