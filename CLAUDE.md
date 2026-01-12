@@ -237,7 +237,8 @@ These gaps should be addressed before production use.
     ├── 22-file-distribution.md           # File distribution over NATS
     ├── 23-self-management.md             # Self-management, backup/restore, upgrades
     ├── 24-document-review.md             # Documentation and code review
-    └── 25-blueprints.md                  # Pre-packaged, reusable state collections
+    ├── 25-blueprints.md                  # Pre-packaged, reusable state collections
+    └── 26-needswork-remediation.md       # NEEDSWORK.md issue remediation
 ```
 
 ## Architecture Overview
@@ -5705,6 +5706,7 @@ Implementation order:
 23. **Epic 23** (Self-Management) - ✅ COMPLETE (All 6 phases) - Depends on Epic 1, 3, 4, 5, 7, 11, 17, 22 (bootstrap, backup/restore, self-management states, validation, upgrade system, documentation & runbooks)
 24. **Epic 24** (Document Review) - ✅ COMPLETE - Depends on Epic 10, all completed epics (documentation validation, example testing, gap analysis, remediation planning)
 25. **Epic 25** (Blueprints) - ✅ COMPLETE (All 9 phases) - Depends on Epic 3, 4, 9, 22 (pre-packaged state collections, parameter system, dependency ordering, registry/CLI, rollback, testing framework, air-gapped support, documentation & examples)
+26. **Epic 26** (NEEDSWORK Remediation) - NOT STARTED - Depends on all completed epics (security fixes, API completeness, testing improvements, documentation updates, code quality)
 
 ### Future Epics (Not Yet Planned)
 
