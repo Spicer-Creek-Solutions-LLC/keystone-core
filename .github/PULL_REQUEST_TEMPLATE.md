@@ -35,7 +35,6 @@ Fixes #
 
 **If AI was used:**
 - [ ] AI tool used: <!-- e.g., Claude, GitHub Copilot, GPT-4 -->
-- [ ] Commit messages include `🤖 Generated with [Tool]` attribution
 - [ ] Commit messages include `Co-Authored-By:` for AI assistance
 - [ ] I have reviewed and tested ALL AI-generated content
 - [ ] I take responsibility for this contribution as if I authored it myself

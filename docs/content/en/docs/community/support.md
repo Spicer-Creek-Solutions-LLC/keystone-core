@@ -25,7 +25,6 @@ Before reaching out for help, please:
 | Documentation | User guides and reference | [docs.keystonecore.io](/) |
 | GitHub Issues | Bug reports and feature requests | [github.com/shawnbutts/keystone-core/issues](https://github.com/shawnbutts/keystone-core/issues) |
 | GitHub Discussions | Q&A and community discussions | [github.com/shawnbutts/keystone-core/discussions](https://github.com/shawnbutts/keystone-core/discussions) |
-| Discord | Real-time community chat | [discord.gg/kscore](https://discord.gg/kscore) |
 
 ---
 

@@ -23,6 +23,12 @@ See what's planned for future releases and help prioritize features.
 ### [Support](support/)
 Get help, ask questions, and connect with other Keystone Core users.
 
+### [Governance](governance/)
+Learn about project governance, decision making, and the RFC process.
+
+### [Compatibility & Support Policy](compatibility/)
+Understand release compatibility, support windows, upgrade paths, and versioning guarantees.
+
 ## Community Principles
 
 **Open and Inclusive**: We welcome contributors of all skill levels and backgrounds.
@@ -38,17 +44,9 @@ Get help, ask questions, and connect with other Keystone Core users.
 - **GitHub Repository**: [github.com/shawnbutts/keystone-core](https://github.com/shawnbutts/keystone-core)
 - **Issue Tracker**: [github.com/shawnbutts/keystone-core/issues](https://github.com/shawnbutts/keystone-core/issues)
 - **Discussions**: [github.com/shawnbutts/keystone-core/discussions](https://github.com/shawnbutts/keystone-core/discussions)
-- **Discord**: [discord.gg/kscore](https://discord.gg/kscore)
-- **Twitter**: [@kscore](https://twitter.com/kscore)
 
 ## Code of Conduct
 
-Keystone Core is committed to providing a welcoming and harassment-free experience for everyone. We expect all community members to:
-
-- Use welcoming and inclusive language
-- Be respectful of differing viewpoints and experiences
-- Gracefully accept constructive criticism
-- Focus on what is best for the community
-- Show empathy towards other community members
-
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the project maintainers.
+We expect respectful, constructive behavior from all community members. See
+[CODE_OF_CONDUCT.md](https://github.com/shawnbutts/keystone-core/blob/main/CODE_OF_CONDUCT.md) for
+details.

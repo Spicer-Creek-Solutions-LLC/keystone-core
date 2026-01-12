@@ -21,9 +21,9 @@ Keystone Core is a cloud-native runtime infrastructure control plane that provid
 ---
 
 
-| Status | Description |
-|--------|-------------|
-| **Epics 1-25** | COMPLETE |
+| Status         | Description |
+|----------------|-------------|
+| **Epics 1-25** | COMPLETE    |
 
 ### Completed Capabilities
 
@@ -53,7 +53,7 @@ Keystone Core is a cloud-native runtime infrastructure control plane that provid
 
 ### Prerequisites
 
-- Go 1.21 or later
+- Go 1.25 or later
 - Make
 
 ### Build
@@ -109,22 +109,22 @@ make build
 
 ## CLI Tools
 
-| Binary | Description |
-|--------|-------------|
-| `kscorectl` | Main CLI tool (plugin dispatcher, like git) |
-| `kscore-server` | Control plane daemon |
-| `kscore-agent` | Agent daemon for managed nodes |
-| `kscore-exec` | Remote execution plugin |
-| `kscore-state` | State management plugin |
-| `kscore-monitor` | Real-time TUI monitoring (8 views) |
-| `kscore-module` | Module management (init, build, sign, publish) |
-| `kscore-policy` | Policy management and evaluation |
-| `kscore-gitops` | GitOps operations and webhooks |
-| `kscore-cluster` | Cluster management and status |
-| `kscore-identity` | SPIFFE identity and certificate management |
-| `kscore-migrate` | Database migration (SQLite → PostgreSQL) |
-| `kscore-registry` | Module registry server |
-| `kscore-telemetry-gateway` | Telemetry aggregation for isolated agents |
+| Binary                     | Description                                    |
+|----------------------------|------------------------------------------------|
+| `kscorectl`                | Main CLI tool (plugin dispatcher, like git)    |
+| `kscore-server`            | Control plane daemon                           |
+| `kscore-agent`             | Agent daemon for managed nodes                 |
+| `kscore-exec`              | Remote execution plugin                        |
+| `kscore-state`             | State management plugin                        |
+| `kscore-monitor`           | Real-time TUI monitoring (8 views)             |
+| `kscore-module`            | Module management (init, build, sign, publish) |
+| `kscore-policy`            | Policy management and evaluation               |
+| `kscore-gitops`            | GitOps operations and webhooks                 |
+| `kscore-cluster`           | Cluster management and status                  |
+| `kscore-identity`          | SPIFFE identity and certificate management     |
+| `kscore-migrate`           | Database migration (SQLite → PostgreSQL)       |
+| `kscore-registry`          | Module registry server                         |
+| `kscore-telemetry-gateway` | Telemetry aggregation for isolated agents      |
 
 ## Architecture
 
@@ -225,18 +225,18 @@ flowchart TB
 
 ### NATS Modes
 
-| Mode | Use Case | Description |
-|------|----------|-------------|
-| **Embedded** | Dev, small deployments | In-process NATS, zero dependencies |
-| **External** | Production | Connect to NATS cluster for HA |
-| **Leaf** | Edge deployments | Embedded NATS as leaf node, works offline |
+| Mode         | Use Case               | Description                               |
+|--------------|------------------------|-------------------------------------------|
+| **Embedded** | Dev, small deployments | In-process NATS, zero dependencies        |
+| **External** | Production             | Connect to NATS cluster for HA            |
+| **Leaf**     | Edge deployments       | Embedded NATS as leaf node, works offline |
 
 ### Storage Backends
 
-| Backend | Use Case | Description |
-|---------|----------|-------------|
-| **SQLite** | Dev, small deployments | Embedded, zero configuration |
-| **PostgreSQL** | Production | HA, replication, scalable |
+| Backend        | Use Case               | Description                  |
+|----------------|------------------------|------------------------------|
+| **SQLite**     | Dev, small deployments | Embedded, zero configuration |
+| **PostgreSQL** | Production             | HA, replication, scalable    |
 
 See `keystone-core.yaml.example` for all configuration options.
 
@@ -343,19 +343,22 @@ hugo         # Build to docs/public/
 
 ## Roadmap
 
-| Epic | Status | Description |
-|------|--------|-------------|
-| 1-11 | Complete | Core infrastructure, execution, state, events, GitOps, policy, observability, multi-env, plugins, docs, clustering |
-| 12-13 | Complete | E2E testing infrastructure, CGO removal (pure Go) |
-| 14-15 | Complete | NATS mesh communication, observability enhancements |
-| 16-17 | Complete | 84 stdlib system modules, SPIFFE identity framework |
-| 18-20 | Complete | IPv6 support, telemetry gateway, Windows support |
-| 21 | Complete | Proxy agents for unmanaged devices (SSH, SNMP, REST, WinRM, vendor adapters) |
-| 22 | Complete | File distribution over NATS with multiple backends, mirror groups |
-| 23 | Complete | Self-management (bootstrap, backup/restore, state modules, validation, upgrades, runbooks) |
-| 24 | Complete | Documentation review, validation, example testing, gap analysis |
-| 25 | Complete | Blueprints - pre-packaged, reusable state collections (design) |
-| 26 | Planned | NEEDSWORK remediation - security, API, testing, documentation, code quality improvements |
+| Epic  | Status   | Description                                                                                                        |
+|-------|----------|--------------------------------------------------------------------------------------------------------------------|
+| 1-11  | Complete | Core infrastructure, execution, state, events, GitOps, policy, observability, multi-env, plugins, docs, clustering |
+| 12-13 | Complete | E2E testing infrastructure, CGO removal (pure Go)                                                                  |
+| 14-15 | Complete | NATS mesh communication, observability enhancements                                                                |
+| 16-17 | Complete | 84 stdlib system modules, SPIFFE identity framework                                                                |
+| 18-20 | Complete | IPv6 support, telemetry gateway, Windows support                                                                   |
+| 21    | Complete | Proxy agents for unmanaged devices (SSH, SNMP, REST, WinRM, vendor adapters)                                       |
+| 22    | Complete | File distribution over NATS with multiple backends, mirror groups                                                  |
+| 23    | Complete | Self-management (bootstrap, backup/restore, state modules, validation, upgrades, runbooks)                         |
+| 24    | Complete | Documentation review, validation, example testing, gap analysis                                                    |
+| 25    | Complete | Blueprints - pre-packaged, reusable state collections (design)                                                     |
+| 26    | Planned  | NEEDSWORK remediation - security, API, testing, documentation, code quality improvements                           |
+| 27    | Planned  | Agent bootstrap experience - single-binary TUI-guided bootstrap for all deployment modes                           |
+| 28    | Planned  | Standard deployment blueprints - 14 official blueprints for demo/production/enterprise                             |
+| 29    | Planned  | Bootstrap testing infrastructure - Docker and VM-based validation across platforms                                 |
 
 See `epics/` directory for detailed implementation plans.
 
@@ -377,3 +380,22 @@ Apache 2.0
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and contribution workflow.
+
+## Compatibility & Support
+
+Keystone Core follows a predictable release cadence (every 6 months) with a 2-year support window. See [COMPATIBILITY.md](COMPATIBILITY.md) for details on:
+
+- Versioning (SemVer) and release schedule
+- Support windows and upgrade paths
+- Controller ↔ Agent compatibility
+- Breaking change policies
+
+### Governance (TL;DR)
+
+Keystone Core is run as a **technical meritocracy** with a **BDFL** (Benevolent Dictator for Life)
+who guides long-term direction, architecture, and compatibility.
+
+- **Governance:** Day-to-day decisions by maintainers; big changes go through RFCs; BDFL has final
+  say on project direction and breaking changes
+
+For details, see `GOVERNANCE.md` and `RFC.md`.

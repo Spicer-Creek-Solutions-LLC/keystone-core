@@ -25,11 +25,14 @@ Keystone Core aims to be the operational layer between GitOps/IaC deployments an
 ---
 
 ```
-COMPLETED (Epics 1-25)                 PLANNED (Epic 26)
+COMPLETED (Epics 1-25)                 PLANNED (Epics 26-29)
 ───────────────────────────────────────────────────────────────────────
 Epic 1: Core Infrastructure            Epic 26: NEEDSWORK Remediation
-Epic 2: Remote Execution
-Epic 3: State Management               Future Considerations:
+Epic 2: Remote Execution               Epic 27: Agent Bootstrap Experience
+Epic 3: State Management               Epic 28: Standard Deployment Blueprints
+                                       Epic 29: Bootstrap Testing Infrastructure
+
+                                       Future Considerations:
 Epic 4: Event System                     - Multi-Tenancy & Namespace Isolation
 Epic 5: GitOps Integration               - Scheduled Operations & Maintenance Windows
 Epic 6: Policy Enforcement               - Web UI Dashboard
@@ -620,6 +623,53 @@ Address all issues identified in the comprehensive project review (NEEDSWORK.md)
 
 ---
 
+### Epic 27: Agent Bootstrap Experience
+
+**Status**: Planned | **Depends on**: Epic 23, 25
+
+Transform getting started from multi-step manual process to single-binary TUI-guided bootstrap:
+
+- **Single Binary Bootstrap**: Download agent, run `kscore-agent bootstrap`, answer questions, done
+- **Interactive TUI**: Bubble Tea-based wizard with deployment mode selection
+- **CLI/Envvar Support**: All options available via flags and environment variables
+- **Deployment Modes**: Demo (5-min), Production HA, Full-scale Enterprise
+- **Package Repository Setup**: Automatic apt/dnf/yum/apk repository configuration
+- **Cluster Formation**: Multi-node setup with certificate generation and distribution
+
+---
+
+### Epic 28: Standard Deployment Blueprints
+
+**Status**: Planned | **Depends on**: Epic 25, 27
+
+Official blueprints for all deployment scenarios (implements Epic 25 blueprint runtime):
+
+- **Core Blueprints**: demo, production-cluster, enterprise-platform
+- **Infrastructure Blueprints**: nats-cluster, postgres-ha
+- **Observability Blueprints**: monitoring-stack (Prometheus/Loki/Tempo/Grafana), metrics-only
+- **Security Blueprints**: security-baseline, identity-federation
+- **Integration Blueprints**: gitops-integration, proxy-agents, file-distribution
+- **Platform Blueprints**: kubernetes-operator, edge-deployment
+
+14 total blueprints with full documentation and parameter validation.
+
+---
+
+### Epic 29: Bootstrap Testing Infrastructure
+
+**Status**: Planned | **Depends on**: Epic 27, 28
+
+Comprehensive testing for the bootstrap experience:
+
+- **Docker-Based Tests**: CI/CD integration, all bootstrap scenarios
+- **VM-Based Tests**: Real VM validation with user-provided IPs/credentials
+- **Platform Matrix**: Ubuntu, Debian, RHEL, Rocky, Fedora, Alpine
+- **Cluster Tests**: Multi-node formation, join scenarios, failover
+- **Blueprint Tests**: All blueprints tested across platforms
+- **GitHub Actions**: Automated CI/CD with nightly full test runs
+
+---
+
 ## Future Considerations
 
 These items are under consideration for future development:
@@ -748,12 +798,17 @@ Keystone Core follows [Semantic Versioning](https://semver.org/):
 - **Minor versions (0.X.0)**: New features, backward compatible
 - **Patch versions (0.0.X)**: Bug fixes, security patches
 
+For detailed information on support windows, upgrade paths, and compatibility guarantees, see the [Compatibility & Support Policy](compatibility/).
+
 ### Planned Releases
 
 | Version | Target | Scope |
 |---------|--------|-------|
 | v0.25.0 | Current | Epics 1-25 complete (Core through Blueprints design) |
-| v0.26.0 | Next | NEEDSWORK Remediation (security, API, testing, documentation, polish) |
+| v0.26.0 | Planned | NEEDSWORK Remediation (security, API, testing, documentation, polish) |
+| v0.27.0 | Planned | Agent Bootstrap Experience (single-binary TUI-guided setup) |
+| v0.28.0 | Planned | Standard Deployment Blueprints (14 official blueprints) |
+| v0.29.0 | Planned | Bootstrap Testing Infrastructure (Docker + VM validation) |
 | v1.0.0 | Future | Stable release after comprehensive testing and hardening |
 
 ### Release Cadence
@@ -818,5 +873,3 @@ The roadmap is reviewed and updated monthly. Major changes are announced on Disc
 
 - **GitHub Releases**: Watch the [repository](https://github.com/shawnbutts/keystone-core) for release notifications
 - **Changelog**: See [CHANGELOG.md](https://github.com/shawnbutts/keystone-core/blob/main/CHANGELOG.md) for detailed release notes
-- **Discord**: Join for real-time updates and discussions
-- **Twitter**: Follow [@kscore](https://twitter.com/kscore) for announcements

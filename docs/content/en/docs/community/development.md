@@ -959,4 +959,4 @@ export LOG_PKG_NATS=trace
 - **Start Contributing**: See [Contributing Guide](../contributing/)
 - **Explore the Codebase**: Read through `pkg/` directories
 - **Pick an Issue**: Browse [good first issues](https://github.com/shawnbutts/keystone-core/labels/good%20first%20issue)
-- **Join the Community**: Connect on [Discord](https://discord.gg/kscore)
+- **Join the Community**: Start a [GitHub Discussion](https://github.com/shawnbutts/keystone-core/discussions)
