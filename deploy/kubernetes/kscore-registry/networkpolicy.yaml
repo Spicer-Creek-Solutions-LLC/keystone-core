@@ -1,0 +1,59 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kscore-registry
+  namespace: keystone-core
+  labels:
+    app.kubernetes.io/name: kscore-registry
+    app.kubernetes.io/component: network-policy
+spec:
+  # Apply to kscore-registry pods
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: kscore-registry
+  policyTypes:
+    - Ingress
+  ingress:
+    # Allow agents to download modules
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: kscore-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: kscore-agent
+      ports:
+        - protocol: TCP
+          port: 8081
+
+    # Allow server to access registry
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: kscore-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: kscore-server
+      ports:
+        - protocol: TCP
+          port: 8081
+
+    # Allow Prometheus to scrape metrics
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - protocol: TCP
+          port: 8081
+
+    # Allow cluster-wide access for module downloads
+    # Restrict in production to specific namespaces as needed
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8081

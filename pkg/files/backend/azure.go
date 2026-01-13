@@ -184,6 +184,11 @@ func (b *AzureBackend) Type() BackendType {
 	return BackendTypeAzure
 }
 
+// BaseConfig returns the base configuration for path matching and priority.
+func (b *AzureBackend) BaseConfig() *Config {
+	return &b.config.Config
+}
+
 // Get retrieves a file from Azure Blob Storage.
 func (b *AzureBackend) Get(ctx context.Context, filePath string, opts *GetOptions) (*GetResult, error) {
 	b.mu.RLock()

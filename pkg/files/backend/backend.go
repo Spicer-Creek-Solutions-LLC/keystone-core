@@ -15,6 +15,9 @@ type Backend interface {
 	// Type returns the backend type (filesystem, s3, gcs, azure, nats, git, http).
 	Type() BackendType
 
+	// BaseConfig returns the base configuration for path matching and priority.
+	BaseConfig() *Config
+
 	// Get retrieves a file from the backend.
 	// Returns a reader that streams the file content and metadata.
 	Get(ctx context.Context, path string, opts *GetOptions) (*GetResult, error)

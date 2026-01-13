@@ -190,6 +190,11 @@ func (b *GitBackend) Type() BackendType {
 	return BackendTypeGit
 }
 
+// BaseConfig returns the base configuration for path matching and priority.
+func (b *GitBackend) BaseConfig() *Config {
+	return &b.config.Config
+}
+
 // Get retrieves a file from the Git repository.
 func (b *GitBackend) Get(ctx context.Context, filePath string, opts *GetOptions) (*GetResult, error) {
 	b.mu.RLock()

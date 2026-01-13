@@ -9,6 +9,7 @@ resources:
   - deployment.yaml
   - service.yaml
   - pvc.yaml
+  - networkpolicy.yaml
 
 commonLabels:
   app.kubernetes.io/name: kscore-registry

@@ -181,6 +181,11 @@ func (b *GCSBackend) Type() BackendType {
 	return BackendTypeGCS
 }
 
+// BaseConfig returns the base configuration for path matching and priority.
+func (b *GCSBackend) BaseConfig() *Config {
+	return &b.config.Config
+}
+
 // Get retrieves a file from GCS.
 func (b *GCSBackend) Get(ctx context.Context, filePath string, opts *GetOptions) (*GetResult, error) {
 	b.mu.RLock()

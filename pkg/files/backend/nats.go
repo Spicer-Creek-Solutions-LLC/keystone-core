@@ -197,6 +197,11 @@ func (b *NATSBackend) Type() BackendType {
 	return BackendTypeNATSObject
 }
 
+// BaseConfig returns the base configuration for path matching and priority.
+func (b *NATSBackend) BaseConfig() *Config {
+	return &b.config.Config
+}
+
 // Get retrieves a file from NATS Object Store.
 func (b *NATSBackend) Get(ctx context.Context, filePath string, opts *GetOptions) (*GetResult, error) {
 	b.mu.RLock()

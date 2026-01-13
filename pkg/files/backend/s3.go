@@ -181,6 +181,11 @@ func (b *S3Backend) Type() BackendType {
 	return BackendTypeS3
 }
 
+// BaseConfig returns the base configuration for path matching and priority.
+func (b *S3Backend) BaseConfig() *Config {
+	return &b.config.Config
+}
+
 // Get retrieves a file from S3.
 func (b *S3Backend) Get(ctx context.Context, filePath string, opts *GetOptions) (*GetResult, error) {
 	b.mu.RLock()

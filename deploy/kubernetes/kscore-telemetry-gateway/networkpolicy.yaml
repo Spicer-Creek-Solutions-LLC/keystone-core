@@ -1,0 +1,61 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kscore-telemetry-gateway
+  namespace: keystone-core
+  labels:
+    app.kubernetes.io/name: kscore-telemetry-gateway
+    app.kubernetes.io/component: network-policy
+spec:
+  # Apply to kscore-telemetry-gateway pods
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: kscore-telemetry-gateway
+  policyTypes:
+    - Ingress
+  ingress:
+    # Allow agents to push telemetry data
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: kscore-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: kscore-agent
+      ports:
+        - protocol: TCP
+          port: 9091
+
+    # Allow Prometheus to scrape metrics
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - protocol: TCP
+          port: 9091
+
+    # Allow metrics scraping from any namespace
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 9091
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: keystone-core
+  labels:
+    app.kubernetes.io/name: keystone-core
+    app.kubernetes.io/component: network-policy
+spec:
+  # Apply to all pods in the namespace
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  # No ingress rules means deny all ingress by default

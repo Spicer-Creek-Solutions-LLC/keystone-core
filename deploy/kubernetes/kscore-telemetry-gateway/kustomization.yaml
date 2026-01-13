@@ -8,6 +8,7 @@ resources:
   - configmap.yaml
   - deployment.yaml
   - service.yaml
+  - networkpolicy.yaml
 
 commonLabels:
   app.kubernetes.io/name: kscore-telemetry-gateway

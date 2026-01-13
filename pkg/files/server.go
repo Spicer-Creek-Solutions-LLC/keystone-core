@@ -414,6 +414,8 @@ func (s *Server) handleMetadataRequest(msg *nats.Msg) {
 }
 
 // findBackend finds the appropriate backend for a path.
+// It uses path matching from backend config and returns the highest priority
+// (lowest priority number) healthy backend that matches the path.
 func (s *Server) findBackend(path string) backend.Backend {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -426,15 +428,31 @@ func (s *Server) findBackend(path string) backend.Backend {
 	var matches []match
 
 	for _, b := range s.backends {
-		// For now, use first backend that's healthy
-		// TODO: Implement path matching based on backend config
-		if err := b.Health(context.Background()); err == nil {
-			matches = append(matches, match{backend: b, priority: 0})
+		cfg := b.BaseConfig()
+
+		// Check if backend matches this path
+		// If no paths configured, backend matches all paths (fallback)
+		pathMatches := len(cfg.Paths) == 0 || cfg.MatchesPath(path)
+
+		if pathMatches {
+			// Only include healthy backends
+			if err := b.Health(context.Background()); err == nil {
+				matches = append(matches, match{backend: b, priority: cfg.Priority})
+			}
 		}
 	}
 
 	if len(matches) == 0 {
 		return nil
+	}
+
+	// Sort by priority (lower number = higher priority)
+	for i := 0; i < len(matches)-1; i++ {
+		for j := i + 1; j < len(matches); j++ {
+			if matches[j].priority < matches[i].priority {
+				matches[i], matches[j] = matches[j], matches[i]
+			}
+		}
 	}
 
 	return matches[0].backend

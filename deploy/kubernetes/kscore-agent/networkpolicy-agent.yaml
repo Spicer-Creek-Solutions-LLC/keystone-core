@@ -1,0 +1,83 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kscore-agent
+  namespace: kscore-system
+  labels:
+    app.kubernetes.io/name: kscore-agent
+    app.kubernetes.io/component: network-policy
+spec:
+  # Apply to kscore-agent pods
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: kscore-agent
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow Prometheus to scrape metrics on port 9100
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - protocol: TCP
+          port: 9100  # Metrics
+
+    # Allow metrics scraping from any namespace (for flexible Prometheus deployments)
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 9100  # Metrics
+
+  egress:
+    # Allow agents to connect to kscore-server via gRPC and NATS
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: kscore-server
+      ports:
+        - protocol: TCP
+          port: 9090  # gRPC
+        - protocol: TCP
+          port: 4222  # NATS
+
+    # Allow DNS resolution
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+    # Allow egress to telemetry gateway for metrics/logs/traces
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: keystone-core
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: kscore-telemetry-gateway
+      ports:
+        - protocol: TCP
+          port: 9091
+
+    # Allow egress to registry for module downloads
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: keystone-core
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: kscore-registry
+      ports:
+        - protocol: TCP
+          port: 8081

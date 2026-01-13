@@ -9,6 +9,9 @@ import "agent.proto";
 
 // ControlPlaneService defines the control plane API
 service ControlPlaneService {
+  // GetServerStatus retrieves the server status and runtime information
+  rpc GetServerStatus(GetServerStatusRequest) returns (GetServerStatusResponse);
+
   // ListAgents lists all registered agents
   rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse);
 
@@ -32,6 +35,79 @@ service ControlPlaneService {
 
   // ListBatchJobs lists batch job execution history
   rpc ListBatchJobs(ListBatchJobsRequest) returns (ListBatchJobsResponse);
+}
+
+// GetServerStatusRequest requests server status information
+message GetServerStatusRequest {
+  // Empty request - no parameters needed
+}
+
+// GetServerStatusResponse returns server status information
+message GetServerStatusResponse {
+  // Server status information
+  ServerStatus status = 1;
+}
+
+// ServerStatus contains server runtime information
+message ServerStatus {
+  // Server version string
+  string version = 1;
+
+  // Server uptime in seconds
+  int64 uptime_seconds = 2;
+
+  // Server start timestamp
+  google.protobuf.Timestamp started_at = 3;
+
+  // Current number of connected agents
+  int32 connected_agents = 4;
+
+  // Total number of registered agents
+  int32 total_agents = 5;
+
+  // Event processing rate (events per second)
+  double event_rate = 6;
+
+  // API request rate (requests per second)
+  double api_request_rate = 7;
+
+  // Memory usage in megabytes
+  int64 memory_usage_mb = 8;
+
+  // Number of goroutines
+  int32 goroutine_count = 9;
+
+  // Server health status
+  ServerHealth health = 10;
+
+  // Cluster information (if clustered)
+  ClusterInfo cluster = 11;
+}
+
+// ServerHealth represents the server's health status
+enum ServerHealth {
+  SERVER_HEALTH_UNSPECIFIED = 0;
+  SERVER_HEALTH_HEALTHY = 1;
+  SERVER_HEALTH_DEGRADED = 2;
+  SERVER_HEALTH_UNHEALTHY = 3;
+}
+
+// ClusterInfo contains cluster-related information
+message ClusterInfo {
+  // Whether the server is part of a cluster
+  bool clustered = 1;
+
+  // Whether this server is the leader
+  bool is_leader = 2;
+
+  // Leader server ID
+  string leader_id = 3;
+
+  // Number of cluster members
+  int32 member_count = 4;
+
+  // Whether the cluster has quorum
+  bool has_quorum = 5;
 }
 
 // ListAgentsRequest requests a list of agents

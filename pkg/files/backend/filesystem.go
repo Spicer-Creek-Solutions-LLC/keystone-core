@@ -80,6 +80,11 @@ func (b *FilesystemBackend) Type() BackendType {
 	return BackendTypeFilesystem
 }
 
+// BaseConfig returns the base configuration for path matching and priority.
+func (b *FilesystemBackend) BaseConfig() *Config {
+	return &b.config.Config
+}
+
 // Get retrieves a file from the filesystem.
 func (b *FilesystemBackend) Get(ctx context.Context, path string, opts *GetOptions) (*GetResult, error) {
 	fullPath := b.fullPath(path)

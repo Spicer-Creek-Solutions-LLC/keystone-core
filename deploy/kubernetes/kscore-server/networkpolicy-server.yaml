@@ -1,0 +1,54 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kscore-server
+  namespace: kscore-system
+  labels:
+    app.kubernetes.io/name: kscore-server
+    app.kubernetes.io/component: network-policy
+spec:
+  # Apply to kscore-server pods
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: kscore-server
+  policyTypes:
+    - Ingress
+  ingress:
+    # Allow agents to connect via gRPC (9090) and NATS (4222)
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: kscore-agent
+      ports:
+        - protocol: TCP
+          port: 9090  # gRPC API
+        - protocol: TCP
+          port: 4222  # NATS
+
+    # Allow Prometheus to scrape metrics on port 8080
+    # Adjust the namespace selector to match your Prometheus installation
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - protocol: TCP
+          port: 8080
+
+    # Allow external HTTP API access (from any namespace within cluster)
+    # For production, restrict this to specific namespaces or use an ingress controller
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8080  # HTTP API
+
+    # Allow cluster-internal gRPC access for CLI tools and other services
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 9090  # gRPC API

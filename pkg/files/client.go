@@ -519,11 +519,12 @@ func (c *Client) Metrics() ClientMetrics {
 	}
 }
 
-// FileCache handles local file caching.
+// FileCache handles local file caching with LRU eviction.
 type FileCache struct {
-	config  *CacheConfig
-	entries map[string]*CacheEntry
-	mu      sync.RWMutex
+	config    *CacheConfig
+	entries   map[string]*CacheEntry
+	totalSize int64
+	mu        sync.RWMutex
 }
 
 // CacheConfig configures the file cache.
@@ -535,12 +536,13 @@ type CacheConfig struct {
 
 // CacheEntry represents a cached file.
 type CacheEntry struct {
-	Path      string
-	Version   string
-	Checksum  string
-	LocalPath string
-	Size      int64
-	CachedAt  time.Time
+	Path         string
+	Version      string
+	Checksum     string
+	LocalPath    string
+	Size         int64
+	CachedAt     time.Time
+	LastAccessed time.Time
 }
 
 // NewFileCache creates a new file cache.
@@ -561,8 +563,8 @@ func NewFileCache(config *CacheConfig) (*FileCache, error) {
 
 // Get retrieves a file from the cache.
 func (fc *FileCache) Get(path, version string) (*CacheEntry, error) {
-	fc.mu.RLock()
-	defer fc.mu.RUnlock()
+	fc.mu.Lock()
+	defer fc.mu.Unlock()
 
 	key := fc.cacheKey(path, version)
 	entry, ok := fc.entries[key]
@@ -572,13 +574,20 @@ func (fc *FileCache) Get(path, version string) (*CacheEntry, error) {
 
 	// Check TTL
 	if time.Since(entry.CachedAt) > fc.config.TTL {
+		// Remove expired entry
+		fc.removeEntryLocked(key, entry)
 		return nil, fmt.Errorf("cache entry expired")
 	}
 
 	// Verify file exists
 	if _, err := os.Stat(entry.LocalPath); os.IsNotExist(err) {
+		// Remove missing entry
+		fc.removeEntryLocked(key, entry)
 		return nil, fmt.Errorf("cached file missing")
 	}
+
+	// Update last accessed time for LRU
+	entry.LastAccessed = time.Now()
 
 	return entry, nil
 }
@@ -587,6 +596,21 @@ func (fc *FileCache) Get(path, version string) (*CacheEntry, error) {
 func (fc *FileCache) Put(path, version, checksum, localPath string, size int64) error {
 	fc.mu.Lock()
 	defer fc.mu.Unlock()
+
+	key := fc.cacheKey(path, version)
+
+	// Check if entry already exists - if so, just update access time
+	if existing, ok := fc.entries[key]; ok {
+		existing.LastAccessed = time.Now()
+		return nil
+	}
+
+	// Evict old entries if adding this would exceed size limit
+	if fc.config.MaxSize > 0 {
+		for fc.totalSize+size > fc.config.MaxSize && len(fc.entries) > 0 {
+			fc.evictLRUEntryLocked()
+		}
+	}
 
 	// Copy to cache directory
 	cacheFile := filepath.Join(fc.config.Dir, fmt.Sprintf("%s-%s", filepath.Base(path), checksum[:8]))
@@ -609,19 +633,52 @@ func (fc *FileCache) Put(path, version, checksum, localPath string, size int64) 
 		}
 	}
 
-	key := fc.cacheKey(path, version)
+	now := time.Now()
 	fc.entries[key] = &CacheEntry{
-		Path:      path,
-		Version:   version,
-		Checksum:  checksum,
-		LocalPath: cacheFile,
-		Size:      size,
-		CachedAt:  time.Now(),
+		Path:         path,
+		Version:      version,
+		Checksum:     checksum,
+		LocalPath:    cacheFile,
+		Size:         size,
+		CachedAt:     now,
+		LastAccessed: now,
 	}
-
-	// TODO: Evict old entries if over size limit
+	fc.totalSize += size
 
 	return nil
+}
+
+// removeEntryLocked removes a cache entry (must be called with lock held).
+func (fc *FileCache) removeEntryLocked(key string, entry *CacheEntry) {
+	// Remove from entries map
+	delete(fc.entries, key)
+	fc.totalSize -= entry.Size
+
+	// Remove the cached file
+	os.Remove(entry.LocalPath)
+}
+
+// evictLRUEntryLocked evicts the least recently used entry (must be called with lock held).
+func (fc *FileCache) evictLRUEntryLocked() {
+	if len(fc.entries) == 0 {
+		return
+	}
+
+	var oldestKey string
+	var oldestEntry *CacheEntry
+	var oldestTime time.Time
+
+	for key, entry := range fc.entries {
+		if oldestEntry == nil || entry.LastAccessed.Before(oldestTime) {
+			oldestKey = key
+			oldestEntry = entry
+			oldestTime = entry.LastAccessed
+		}
+	}
+
+	if oldestEntry != nil {
+		fc.removeEntryLocked(oldestKey, oldestEntry)
+	}
 }
 
 // cacheKey generates a cache key from path and version.
@@ -630,6 +687,35 @@ func (fc *FileCache) cacheKey(path, version string) string {
 		version = "latest"
 	}
 	return fmt.Sprintf("%s@%s", path, version)
+}
+
+// Size returns the current total size of cached files in bytes.
+func (fc *FileCache) Size() int64 {
+	fc.mu.RLock()
+	defer fc.mu.RUnlock()
+	return fc.totalSize
+}
+
+// Count returns the number of entries in the cache.
+func (fc *FileCache) Count() int {
+	fc.mu.RLock()
+	defer fc.mu.RUnlock()
+	return len(fc.entries)
+}
+
+// Clear removes all entries from the cache.
+func (fc *FileCache) Clear() {
+	fc.mu.Lock()
+	defer fc.mu.Unlock()
+
+	// Remove all cached files
+	for _, entry := range fc.entries {
+		os.Remove(entry.LocalPath)
+	}
+
+	// Reset state
+	fc.entries = make(map[string]*CacheEntry)
+	fc.totalSize = 0
 }
 
 // Close closes the cache.

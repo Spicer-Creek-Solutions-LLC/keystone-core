@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -61,6 +62,9 @@ func newVersionCmd() *cobra.Command {
 }
 
 func runServer(cmd *cobra.Command, args []string) {
+	// Capture server start time for uptime calculation
+	startTime := time.Now()
+
 	// Initialize logger early (use env vars before config is loaded)
 	logger = logging.InitDefaultLogger("kscore-server")
 
@@ -293,6 +297,14 @@ func runServer(cmd *cobra.Command, args []string) {
 		online := connMgr.GetOnlineAgentCount()
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(fmt.Sprintf(`{"status":"ok","agents":{"total":%d,"online":%d}}`, total, online)))
+	})
+
+	// Server status endpoint for monitor TUI and other tools
+	httpMux.HandleFunc("/api/status", func(w http.ResponseWriter, r *http.Request) {
+		statusJSON := buildServerStatusJSON(connMgr, startTime)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(statusJSON)
 	})
 
 	// Create HTTP listeners for each address
@@ -591,4 +603,63 @@ func (a *stateStoreAdapter) SaveAgent(ctx context.Context, agent *controlplane.S
 	}
 
 	return a.store.SaveAgent(ctx, record)
+}
+
+// buildServerStatusJSON returns server status as JSON bytes for the /api/status endpoint.
+// This provides version, uptime, memory, goroutines, and agent statistics.
+func buildServerStatusJSON(connMgr *controlplane.ConnectionManager, startTime time.Time) []byte {
+	// Get memory stats
+	var memStats runtime.MemStats
+	runtime.ReadMemStats(&memStats)
+
+	// Calculate uptime
+	uptime := time.Since(startTime)
+	uptimeSeconds := int64(uptime.Seconds())
+
+	// Get version info
+	info := version.Get()
+
+	// Get agent counts
+	totalAgents := connMgr.GetAgentCount()
+	onlineAgents := connMgr.GetOnlineAgentCount()
+
+	// Get goroutine count
+	goroutines := runtime.NumGoroutine()
+
+	// Memory usage in MB
+	memoryMB := float64(memStats.Alloc) / 1024 / 1024
+
+	// Build JSON response
+	return []byte(fmt.Sprintf(`{
+  "version": "%s",
+  "git_commit": "%s",
+  "build_date": "%s",
+  "uptime_seconds": %d,
+  "started_at": "%s",
+  "agents": {
+    "total": %d,
+    "online": %d,
+    "offline": %d
+  },
+  "runtime": {
+    "goroutines": %d,
+    "memory_alloc_mb": %.2f,
+    "memory_sys_mb": %.2f,
+    "gc_runs": %d
+  },
+  "health": "healthy"
+}`,
+		info.Version,
+		info.GitCommit,
+		info.BuildDate,
+		uptimeSeconds,
+		startTime.UTC().Format(time.RFC3339),
+		totalAgents,
+		onlineAgents,
+		totalAgents-onlineAgents,
+		goroutines,
+		memoryMB,
+		float64(memStats.Sys)/1024/1024,
+		memStats.NumGC,
+	))
 }
