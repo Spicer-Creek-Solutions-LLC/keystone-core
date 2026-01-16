@@ -1,0 +1,18 @@
+metadata:
+  name: gitops-integration-main
+  description: Placeholder state for the gitops-integration blueprint scaffold
+  version: "0.1"
+
+states:
+  gitops-integration_blueprint_dir:
+    module: file
+    state: directory
+    name: /var/lib/kscore/blueprints
+
+  gitops-integration_blueprint_placeholder:
+    module: file
+    state: managed
+    name: /var/lib/kscore/blueprints/gitops-integration.txt
+    contents: "Placeholder for kscore/gitops-integration blueprint."
+    require:
+      - gitops-integration_blueprint_dir

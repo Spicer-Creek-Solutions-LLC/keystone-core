@@ -1,0 +1,18 @@
+metadata:
+  name: metrics-only-main
+  description: Placeholder state for the metrics-only blueprint scaffold
+  version: "0.1"
+
+states:
+  metrics-only_blueprint_dir:
+    module: file
+    state: directory
+    name: /var/lib/kscore/blueprints
+
+  metrics-only_blueprint_placeholder:
+    module: file
+    state: managed
+    name: /var/lib/kscore/blueprints/metrics-only.txt
+    contents: "Placeholder for kscore/metrics-only blueprint."
+    require:
+      - metrics-only_blueprint_dir

@@ -1,0 +1,18 @@
+metadata:
+  name: postgres-ha-main
+  description: Placeholder state for the postgres-ha blueprint scaffold
+  version: "0.1"
+
+states:
+  postgres-ha_blueprint_dir:
+    module: file
+    state: directory
+    name: /var/lib/kscore/blueprints
+
+  postgres-ha_blueprint_placeholder:
+    module: file
+    state: managed
+    name: /var/lib/kscore/blueprints/postgres-ha.txt
+    contents: "Placeholder for kscore/postgres-ha blueprint."
+    require:
+      - postgres-ha_blueprint_dir

@@ -9,6 +9,32 @@ description: >
 
 Blueprints are pre-packaged, reusable collections of states that can be shared, versioned, and composed to deploy complex infrastructure stacks. This reference covers the blueprint manifest format, CLI commands, parameter system, and testing framework.
 
+## Standard Blueprint Catalog (Epic 28)
+
+Official blueprints follow the `kscore/<name>` naming convention:
+
+- **Core**: `kscore/demo`, `kscore/production-cluster`, `kscore/enterprise-platform`
+- **Infrastructure**: `kscore/nats-cluster`, `kscore/postgres-ha`
+- **Observability**: `kscore/monitoring-stack`, `kscore/metrics-only`
+- **Security**: `kscore/security-baseline`, `kscore/identity-federation`
+- **Integrations**: `kscore/gitops-integration`, `kscore/proxy-agents`, `kscore/file-distribution`
+- **Platform**: `kscore/kubernetes-operator`, `kscore/edge-deployment`
+
+These blueprints are designed to be composed and parameterized rather than forked.
+
+## Parameter Conventions
+
+Standard parameters use consistent naming across blueprints:
+
+- Cluster: `cluster_name`, `node_role`, `node_labels`, `regions`
+- NATS: `nats_mode`, `nats_urls`, `nats_creds_file`
+- PostgreSQL: `postgres_host`, `postgres_port`, `postgres_database`, `postgres_user`, `postgres_password`
+- TLS: `tls_mode`, `tls_cert`, `tls_key`, `ca_cert`, `tls_csr`
+- Backups: `backup_enabled`, `backup_destination`
+- Identity: `identity_provider`, `federation_domains`, `oidc_issuer`
+
+Secrets should be declared with `sensitive: true` and `source: secret`.
+
 ## Blueprint Manifest (blueprint.yaml)
 
 The blueprint manifest defines metadata, parameters, dependencies, and entry points.

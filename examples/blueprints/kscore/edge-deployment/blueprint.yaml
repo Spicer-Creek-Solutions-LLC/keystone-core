@@ -1,0 +1,45 @@
+apiVersion: blueprints.kscore.io/v1
+kind: Blueprint
+metadata:
+  name: edge-deployment
+  version: 0.1.0
+  description: Edge deployment blueprint for lightweight Keystone Core nodes.
+  maintainers:
+    - name: Keystone Core Team
+      email: team@kscore.io
+  license: Apache-2.0
+  keywords:
+    - edge
+    - iot
+    - offline
+  categories:
+    - platform
+    - edge
+
+compatibility:
+  platforms:
+    - os: linux
+
+entrypoints:
+  default: states/main.yaml
+
+parameters:
+  hub_endpoint:
+    type: string
+    required: true
+    description: Central hub endpoint
+
+  offline_buffer_size:
+    type: string
+    default: 100Mi
+    description: Offline message buffer size
+
+  cache_size:
+    type: string
+    default: 500Mi
+    description: Local cache size
+
+  sync_interval:
+    type: string
+    default: 5m
+    description: Sync interval when online

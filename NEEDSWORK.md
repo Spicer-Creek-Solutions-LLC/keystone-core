@@ -148,7 +148,7 @@ apache_package:
 
 ### ✅ CRIT-7: Missing Blueprint State Files (FIXED)
 
-**Location**: `examples/blueprints/security-baseline/states/`
+**Location**: `examples/blueprints/kscore/security-baseline/states/`
 **Impact**: Security baseline blueprint incomplete - 2 of 7 features won't work
 **Missing**:
 - `fail2ban.yaml` (referenced by `features.fail2ban`)

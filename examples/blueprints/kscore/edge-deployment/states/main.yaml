@@ -1,0 +1,18 @@
+metadata:
+  name: edge-deployment-main
+  description: Placeholder state for the edge-deployment blueprint scaffold
+  version: "0.1"
+
+states:
+  edge-deployment_blueprint_dir:
+    module: file
+    state: directory
+    name: /var/lib/kscore/blueprints
+
+  edge-deployment_blueprint_placeholder:
+    module: file
+    state: managed
+    name: /var/lib/kscore/blueprints/edge-deployment.txt
+    contents: "Placeholder for kscore/edge-deployment blueprint."
+    require:
+      - edge-deployment_blueprint_dir

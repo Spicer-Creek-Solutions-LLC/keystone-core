@@ -1,0 +1,18 @@
+metadata:
+  name: production-cluster-main
+  description: Placeholder state for the production-cluster blueprint scaffold
+  version: "0.1"
+
+states:
+  production-cluster_blueprint_dir:
+    module: file
+    state: directory
+    name: /var/lib/kscore/blueprints
+
+  production-cluster_blueprint_placeholder:
+    module: file
+    state: managed
+    name: /var/lib/kscore/blueprints/production-cluster.txt
+    contents: "Placeholder for kscore/production-cluster blueprint."
+    require:
+      - production-cluster_blueprint_dir

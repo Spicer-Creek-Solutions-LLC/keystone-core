@@ -1,0 +1,148 @@
+apiVersion: blueprints.kscore.io/v1
+kind: Blueprint
+metadata:
+  name: enterprise-platform
+  version: 0.1.0
+  description: Enterprise multi-region platform blueprint for Keystone Core.
+  maintainers:
+    - name: Keystone Core Team
+      email: team@kscore.io
+  license: Apache-2.0
+  keywords:
+    - enterprise
+    - multi-region
+    - compliance
+  categories:
+    - core
+    - enterprise
+
+compatibility:
+  platforms:
+    - os: linux
+
+entrypoints:
+  default: states/main.yaml
+
+parameters:
+  cluster_name:
+    type: string
+    default: keystone
+    description: Cluster identifier
+
+  control_plane_nodes:
+    type: array
+    required: true
+    description: Control plane node addresses
+
+  regions:
+    type: array
+    required: true
+    description: Region configurations
+
+  nats_mode:
+    type: string
+    default: embedded-cluster
+    enum:
+      - embedded-cluster
+      - external
+    description: NATS deployment mode
+
+  nats_urls:
+    type: array
+    default: []
+    description: External NATS URLs (if external)
+
+  postgres_host:
+    type: string
+    required: true
+    description: PostgreSQL host
+
+  postgres_port:
+    type: integer
+    default: 5432
+    description: PostgreSQL port
+
+  postgres_database:
+    type: string
+    default: keystone
+    description: PostgreSQL database name
+
+  postgres_user:
+    type: string
+    default: keystone
+    description: PostgreSQL user
+
+  postgres_password:
+    type: string
+    sensitive: true
+    required: true
+    description: PostgreSQL password
+
+  tls_mode:
+    type: string
+    default: generate
+    enum:
+      - generate
+      - provided
+      - letsencrypt
+    description: TLS certificate mode
+
+  tls_cert:
+    type: string
+    description: TLS certificate path (provided mode)
+
+  tls_key:
+    type: string
+    description: TLS key path (provided mode)
+
+  ca_cert:
+    type: string
+    description: CA certificate path (provided mode)
+
+  identity_provider:
+    type: string
+    default: embedded
+    enum:
+      - embedded
+      - spire
+      - aws
+      - gcp
+      - azure
+    description: Identity provider
+
+  spire_server:
+    type: string
+    description: SPIRE server address
+
+  federation_domains:
+    type: array
+    default: []
+    description: Federated trust domains
+
+  ldap_enabled:
+    type: boolean
+    default: false
+    description: Enable LDAP integration
+
+  ldap_server:
+    type: string
+    description: LDAP server address
+
+  oidc_enabled:
+    type: boolean
+    default: false
+    description: Enable OIDC SSO
+
+  oidc_issuer:
+    type: string
+    description: OIDC issuer URL
+
+  audit_destination:
+    type: string
+    default: local
+    description: Audit log destination
+
+  compliance_frameworks:
+    type: array
+    default: []
+    description: Compliance frameworks to enable

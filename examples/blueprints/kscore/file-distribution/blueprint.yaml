@@ -1,0 +1,52 @@
+apiVersion: blueprints.kscore.io/v1
+kind: Blueprint
+metadata:
+  name: file-distribution
+  version: 0.1.0
+  description: File distribution server blueprint for Keystone Core.
+  maintainers:
+    - name: Keystone Core Team
+      email: team@kscore.io
+  license: Apache-2.0
+  keywords:
+    - file-distribution
+    - storage
+    - nats
+  categories:
+    - integrations
+    - storage
+
+compatibility:
+  platforms:
+    - os: linux
+
+entrypoints:
+  default: states/main.yaml
+
+parameters:
+  backends:
+    type: array
+    default:
+      - local
+    description: Storage backends
+
+  s3_bucket:
+    type: string
+    description: S3 bucket name
+
+  s3_region:
+    type: string
+    description: S3 region
+
+  gcs_bucket:
+    type: string
+    description: GCS bucket name
+
+  azure_container:
+    type: string
+    description: Azure container name
+
+  mirror_groups:
+    type: array
+    default: []
+    description: Mirror group configurations

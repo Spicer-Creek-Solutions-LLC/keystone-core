@@ -1,0 +1,18 @@
+metadata:
+  name: identity-federation-main
+  description: Placeholder state for the identity-federation blueprint scaffold
+  version: "0.1"
+
+states:
+  identity-federation_blueprint_dir:
+    module: file
+    state: directory
+    name: /var/lib/kscore/blueprints
+
+  identity-federation_blueprint_placeholder:
+    module: file
+    state: managed
+    name: /var/lib/kscore/blueprints/identity-federation.txt
+    contents: "Placeholder for kscore/identity-federation blueprint."
+    require:
+      - identity-federation_blueprint_dir

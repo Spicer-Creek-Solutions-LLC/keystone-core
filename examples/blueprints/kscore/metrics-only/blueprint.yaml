@@ -1,0 +1,37 @@
+apiVersion: blueprints.kscore.io/v1
+kind: Blueprint
+metadata:
+  name: metrics-only
+  version: 0.1.0
+  description: Lightweight Prometheus-only metrics blueprint.
+  maintainers:
+    - name: Keystone Core Team
+      email: team@kscore.io
+  license: Apache-2.0
+  keywords:
+    - metrics
+    - prometheus
+  categories:
+    - observability
+
+compatibility:
+  platforms:
+    - os: linux
+
+entrypoints:
+  default: states/main.yaml
+
+parameters:
+  retention:
+    type: string
+    default: 15d
+    description: Metrics retention period
+
+  remote_write_url:
+    type: string
+    description: Remote write endpoint
+
+  scrape_interval:
+    type: string
+    default: 15s
+    description: Scrape interval

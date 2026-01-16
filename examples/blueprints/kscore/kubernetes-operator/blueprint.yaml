@@ -1,0 +1,50 @@
+apiVersion: blueprints.kscore.io/v1
+kind: Blueprint
+metadata:
+  name: kubernetes-operator
+  version: 0.1.0
+  description: Kubernetes operator blueprint for Keystone Core.
+  maintainers:
+    - name: Keystone Core Team
+      email: team@kscore.io
+  license: Apache-2.0
+  keywords:
+    - kubernetes
+    - operator
+    - rbac
+  categories:
+    - platform
+    - kubernetes
+
+compatibility:
+  platforms:
+    - os: linux
+
+entrypoints:
+  default: states/main.yaml
+
+parameters:
+  namespace:
+    type: string
+    default: keystone-system
+    description: Kubernetes namespace
+
+  service_mesh:
+    type: string
+    default: none
+    enum:
+      - none
+      - istio
+      - linkerd
+      - consul
+    description: Service mesh integration
+
+  ingress_enabled:
+    type: boolean
+    default: true
+    description: Enable ingress
+
+  ingress_class:
+    type: string
+    default: nginx
+    description: Ingress class

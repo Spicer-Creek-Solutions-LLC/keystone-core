@@ -16,6 +16,68 @@ Create a comprehensive set of official blueprints that enable users to deploy co
 6. Version-controlled with semantic versioning
 7. Published to official blueprint registry
 
+## Phase 0 Notes (Catalog & Conventions)
+
+### Catalog Inventory
+
+**Core**:
+- `kscore/demo`
+- `kscore/production-cluster`
+- `kscore/enterprise-platform`
+
+**Infrastructure**:
+- `kscore/nats-cluster`
+- `kscore/postgres-ha`
+
+**Observability**:
+- `kscore/monitoring-stack`
+- `kscore/metrics-only`
+
+**Security**:
+- `kscore/security-baseline`
+- `kscore/identity-federation`
+
+**Integrations**:
+- `kscore/gitops-integration`
+- `kscore/proxy-agents`
+- `kscore/file-distribution`
+
+**Platform**:
+- `kscore/kubernetes-operator`
+- `kscore/edge-deployment`
+
+### Shared Parameter Conventions
+
+- Use `cluster_name`, `node_role`, `nats_mode`, `nats_urls`, `postgres_host`, `postgres_port`
+- Prefer `tls_mode` with `generate|provided|letsencrypt` and `tls_cert|tls_key|ca_cert` for provided certs
+- Use `backup_enabled` and `backup_destination` consistently across blueprints
+- Secrets use `type: string`, `sensitive: true`, `source: secret`
+- Lists use consistent naming (`*_nodes`, `*_hosts`, `*_urls`) with required markers in docs
+
+### Parameter Schema Template
+
+```yaml
+parameters:
+  cluster_name:
+    type: string
+    description: Cluster identifier
+    default: keystone
+  postgres_host:
+    type: string
+    description: PostgreSQL host
+    required: true
+  postgres_password:
+    type: string
+    description: PostgreSQL password
+    sensitive: true
+    source: secret
+  tls_mode:
+    type: string
+    description: TLS mode
+    enum: [generate, provided, letsencrypt]
+    default: generate
+```
+
 ## User Stories
 
 ### US28.1: Demo Environment Blueprint

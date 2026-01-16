@@ -1,0 +1,18 @@
+metadata:
+  name: nats-cluster-main
+  description: Placeholder state for the nats-cluster blueprint scaffold
+  version: "0.1"
+
+states:
+  nats-cluster_blueprint_dir:
+    module: file
+    state: directory
+    name: /var/lib/kscore/blueprints
+
+  nats-cluster_blueprint_placeholder:
+    module: file
+    state: managed
+    name: /var/lib/kscore/blueprints/nats-cluster.txt
+    contents: "Placeholder for kscore/nats-cluster blueprint."
+    require:
+      - nats-cluster_blueprint_dir

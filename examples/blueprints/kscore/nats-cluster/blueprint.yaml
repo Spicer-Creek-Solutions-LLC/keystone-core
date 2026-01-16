@@ -1,0 +1,55 @@
+apiVersion: blueprints.kscore.io/v1
+kind: Blueprint
+metadata:
+  name: nats-cluster
+  version: 0.1.0
+  description: NATS cluster blueprint for Keystone Core deployments.
+  maintainers:
+    - name: Keystone Core Team
+      email: team@kscore.io
+  license: Apache-2.0
+  keywords:
+    - nats
+    - messaging
+    - cluster
+  categories:
+    - infrastructure
+    - messaging
+
+compatibility:
+  platforms:
+    - os: linux
+
+entrypoints:
+  default: states/main.yaml
+
+parameters:
+  nodes:
+    type: array
+    required: true
+    description: NATS node addresses
+
+  cluster_name:
+    type: string
+    default: keystone-nats
+    description: NATS cluster name
+
+  jetstream_enabled:
+    type: boolean
+    default: true
+    description: Enable JetStream
+
+  storage_dir:
+    type: string
+    default: /var/lib/nats
+    description: JetStream storage directory
+
+  max_memory:
+    type: string
+    default: 1Gi
+    description: JetStream memory limit
+
+  max_storage:
+    type: string
+    default: 10Gi
+    description: JetStream storage limit

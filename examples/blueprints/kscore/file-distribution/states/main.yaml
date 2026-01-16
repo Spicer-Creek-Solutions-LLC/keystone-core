@@ -1,0 +1,18 @@
+metadata:
+  name: file-distribution-main
+  description: Placeholder state for the file-distribution blueprint scaffold
+  version: "0.1"
+
+states:
+  file-distribution_blueprint_dir:
+    module: file
+    state: directory
+    name: /var/lib/kscore/blueprints
+
+  file-distribution_blueprint_placeholder:
+    module: file
+    state: managed
+    name: /var/lib/kscore/blueprints/file-distribution.txt
+    contents: "Placeholder for kscore/file-distribution blueprint."
+    require:
+      - file-distribution_blueprint_dir

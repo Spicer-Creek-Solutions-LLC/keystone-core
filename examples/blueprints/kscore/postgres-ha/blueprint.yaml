@@ -1,0 +1,61 @@
+apiVersion: blueprints.kscore.io/v1
+kind: Blueprint
+metadata:
+  name: postgres-ha
+  version: 0.1.0
+  description: PostgreSQL HA blueprint for Keystone Core storage.
+  maintainers:
+    - name: Keystone Core Team
+      email: team@kscore.io
+  license: Apache-2.0
+  keywords:
+    - postgres
+    - database
+    - ha
+  categories:
+    - infrastructure
+    - database
+
+compatibility:
+  platforms:
+    - os: linux
+
+entrypoints:
+  default: states/main.yaml
+
+parameters:
+  primary_host:
+    type: string
+    required: true
+    description: Primary PostgreSQL host
+
+  replica_hosts:
+    type: array
+    default: []
+    description: Replica hosts
+
+  database:
+    type: string
+    default: keystone
+    description: Database name
+
+  user:
+    type: string
+    default: keystone
+    description: Database user
+
+  password:
+    type: string
+    sensitive: true
+    required: true
+    description: Database password
+
+  enable_pgbouncer:
+    type: boolean
+    default: true
+    description: Enable connection pooling
+
+  backup_enabled:
+    type: boolean
+    default: true
+    description: Enable WAL archiving

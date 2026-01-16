@@ -1,0 +1,44 @@
+apiVersion: blueprints.kscore.io/v1
+kind: Blueprint
+metadata:
+  name: identity-federation
+  version: 0.1.0
+  description: Identity federation blueprint for Keystone Core trust domains.
+  maintainers:
+    - name: Keystone Core Team
+      email: team@kscore.io
+  license: Apache-2.0
+  keywords:
+    - identity
+    - spiffe
+    - federation
+  categories:
+    - security
+    - identity
+
+compatibility:
+  platforms:
+    - os: linux
+
+entrypoints:
+  default: states/main.yaml
+
+parameters:
+  local_domain:
+    type: string
+    required: true
+    description: Local trust domain
+
+  federated_domains:
+    type: array
+    default: []
+    description: Domains to federate with
+
+  federation_policy:
+    type: string
+    default: verify
+    enum:
+      - trust
+      - verify
+      - strict
+    description: Federation policy

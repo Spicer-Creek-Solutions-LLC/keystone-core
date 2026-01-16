@@ -862,7 +862,7 @@ A complete Linux, Apache, MySQL, PHP stack for web applications.
 - MySQL/MariaDB with secure installation
 - Optional phpMyAdmin
 
-#### Monitoring Stack (`examples/blueprints/monitoring-stack`)
+#### Monitoring Stack (`examples/blueprints/kscore/monitoring-stack`)
 Production monitoring with Prometheus, Grafana, and Node Exporter.
 
 **Features:**
@@ -872,7 +872,7 @@ Production monitoring with Prometheus, Grafana, and Node Exporter.
 - Alertmanager for notifications
 - Default alert rules
 
-#### Security Baseline (`examples/blueprints/security-baseline`)
+#### Security Baseline (`examples/blueprints/kscore/security-baseline`)
 Security hardening for Linux servers following industry best practices.
 
 **Features:**

@@ -1,0 +1,48 @@
+apiVersion: blueprints.kscore.io/v1
+kind: Blueprint
+metadata:
+  name: proxy-agents
+  version: 0.1.0
+  description: Proxy agents blueprint for unmanaged device integrations.
+  maintainers:
+    - name: Keystone Core Team
+      email: team@kscore.io
+  license: Apache-2.0
+  keywords:
+    - proxy
+    - ssh
+    - snmp
+    - winrm
+  categories:
+    - integrations
+
+compatibility:
+  platforms:
+    - os: linux
+
+entrypoints:
+  default: states/main.yaml
+
+parameters:
+  credential_backend:
+    type: string
+    default: file
+    enum:
+      - file
+      - vault
+      - k8s
+    description: Credential backend
+
+  vault_address:
+    type: string
+    description: Vault server address
+
+  discovery_enabled:
+    type: boolean
+    default: false
+    description: Enable device discovery
+
+  discovery_subnets:
+    type: array
+    default: []
+    description: Subnets to scan

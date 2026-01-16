@@ -1,0 +1,18 @@
+metadata:
+  name: proxy-agents-main
+  description: Placeholder state for the proxy-agents blueprint scaffold
+  version: "0.1"
+
+states:
+  proxy-agents_blueprint_dir:
+    module: file
+    state: directory
+    name: /var/lib/kscore/blueprints
+
+  proxy-agents_blueprint_placeholder:
+    module: file
+    state: managed
+    name: /var/lib/kscore/blueprints/proxy-agents.txt
+    contents: "Placeholder for kscore/proxy-agents blueprint."
+    require:
+      - proxy-agents_blueprint_dir

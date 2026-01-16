@@ -1,0 +1,49 @@
+apiVersion: blueprints.kscore.io/v1
+kind: Blueprint
+metadata:
+  name: gitops-integration
+  version: 0.1.0
+  description: GitOps integration blueprint for ArgoCD and Flux.
+  maintainers:
+    - name: Keystone Core Team
+      email: team@kscore.io
+  license: Apache-2.0
+  keywords:
+    - gitops
+    - argocd
+    - flux
+  categories:
+    - integrations
+
+compatibility:
+  platforms:
+    - os: linux
+
+entrypoints:
+  default: states/main.yaml
+
+parameters:
+  argocd_enabled:
+    type: boolean
+    default: true
+    description: Enable ArgoCD integration
+
+  flux_enabled:
+    type: boolean
+    default: true
+    description: Enable Flux integration
+
+  verification_enabled:
+    type: boolean
+    default: true
+    description: Enable deployment verification
+
+  rollback_enabled:
+    type: boolean
+    default: true
+    description: Enable automatic rollback
+
+  git_repos:
+    type: array
+    default: []
+    description: Git repositories to sync

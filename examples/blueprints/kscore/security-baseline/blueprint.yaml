@@ -1,0 +1,215 @@
+# Security Baseline Blueprint
+# Implements security hardening best practices for Linux servers
+
+apiVersion: blueprints.kscore.io/v1
+kind: Blueprint
+metadata:
+  name: security-baseline
+  version: 1.0.0
+  description: |
+    Security hardening blueprint implementing industry best practices including
+    SSH hardening, firewall configuration, system hardening, and audit logging.
+  maintainers:
+    - name: Keystone Core Team
+      email: team@kscore.io
+  license: Apache-2.0
+  keywords:
+    - security
+    - hardening
+    - compliance
+    - ssh
+    - firewall
+    - audit
+  categories:
+    - security
+    - compliance
+
+compatibility:
+  platforms:
+    - os: linux
+      family: debian
+    - os: linux
+      family: rhel
+
+entrypoints:
+  default: states/main.yaml
+
+parameters:
+  ssh_port:
+    type: integer
+    default: 22
+    description: SSH service port
+
+  ssh_permit_root_login:
+    type: string
+    default: "no"
+    enum:
+      - "yes"
+      - "no"
+      - prohibit-password
+    description: SSH PermitRootLogin setting
+
+  ssh_password_authentication:
+    type: string
+    default: "no"
+    enum:
+      - "yes"
+      - "no"
+    description: SSH password authentication
+
+  ssh_max_auth_tries:
+    type: integer
+    default: 3
+    description: Maximum SSH authentication attempts
+
+  ssh_client_alive_interval:
+    type: integer
+    default: 300
+    description: SSH client alive interval in seconds
+
+  ssh_client_alive_count_max:
+    type: integer
+    default: 2
+    description: SSH client alive count maximum
+
+  ssh_allowed_users:
+    type: array
+    default: []
+    description: List of users allowed SSH access
+
+  ssh_allowed_groups:
+    type: array
+    default: []
+    description: List of groups allowed SSH access
+
+  firewall_default_policy:
+    type: string
+    default: deny
+    enum:
+      - allow
+      - deny
+    description: Default firewall policy for incoming traffic
+
+  firewall_allowed_ports:
+    type: array
+    default:
+      - 22/tcp
+    description: Ports to allow through firewall
+
+  firewall_allowed_ips:
+    type: array
+    default: []
+    description: IP addresses/ranges to allow all traffic from
+
+  disable_root_login:
+    type: boolean
+    default: true
+    description: Disable direct root login (console)
+
+  password_max_days:
+    type: integer
+    default: 90
+    description: Maximum password age in days
+
+  password_min_days:
+    type: integer
+    default: 7
+    description: Minimum days between password changes
+
+  password_warn_days:
+    type: integer
+    default: 14
+    description: Days before expiration to warn users
+
+  password_min_length:
+    type: integer
+    default: 12
+    description: Minimum password length
+
+  password_require_upper:
+    type: boolean
+    default: true
+    description: Require uppercase characters in passwords
+
+  password_require_lower:
+    type: boolean
+    default: true
+    description: Require lowercase characters in passwords
+
+  password_require_numeric:
+    type: boolean
+    default: true
+    description: Require numeric characters in passwords
+
+  password_require_special:
+    type: boolean
+    default: true
+    description: Require special characters in passwords
+
+  audit_enabled:
+    type: boolean
+    default: true
+    description: Enable audit logging
+
+  audit_log_size:
+    type: integer
+    default: 50
+    description: Maximum audit log size in MB
+
+  audit_num_logs:
+    type: integer
+    default: 10
+    description: Number of audit log files to keep
+
+  sysctl_disable_ipv6:
+    type: boolean
+    default: false
+    description: Disable IPv6
+
+  sysctl_disable_ip_forward:
+    type: boolean
+    default: true
+    description: Disable IP forwarding (unless router)
+
+features:
+  ssh_hardening:
+    default: true
+    description: Apply SSH hardening configuration
+    enables:
+      - states/ssh.yaml
+
+  firewall:
+    default: true
+    description: Configure firewall (UFW on Debian/Ubuntu, firewalld on RHEL)
+    enables:
+      - states/firewall.yaml
+
+  system_hardening:
+    default: true
+    description: Apply system hardening (password policy, umask, etc.)
+    enables:
+      - states/system.yaml
+
+  audit_logging:
+    default: true
+    description: Configure auditd for security logging
+    enables:
+      - states/audit.yaml
+
+  kernel_hardening:
+    default: true
+    description: Apply kernel security parameters via sysctl
+    enables:
+      - states/kernel.yaml
+
+  fail2ban:
+    default: false
+    description: Install and configure fail2ban
+    enables:
+      - states/fail2ban.yaml
+
+  automatic_updates:
+    default: false
+    description: Enable automatic security updates
+    enables:
+      - states/updates.yaml
