@@ -1187,13 +1187,10 @@ Validate configuration files:
 
 ```bash
 # Validate control plane config
-kscore-server --config server.yaml --validate
+kscorectl config validate --config server.yaml
 
 # Validate agent config
-kscore-agent --config agent.yaml --validate
-
-# Test configuration
-kscore-server --config server.yaml --test
+kscorectl config validate --config agent.yaml
 ```
 
 ## Configuration Examples

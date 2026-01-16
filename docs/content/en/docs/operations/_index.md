@@ -38,6 +38,18 @@ Operational maintenance procedures:
 - **Data retention** - Event and log retention policies
 - **Capacity planning** - Resource sizing and growth planning
 
+### [Best Practices](best-practices/)
+Recommended patterns for reliable and secure operations:
+- **Deployment defaults** - Embedded vs external guidance
+- **Security posture** - Identity, audit, and least privilege
+- **Operational hygiene** - Backups, dry-run, rollout patterns
+
+### [Migrations](migrations/)
+Common migration paths and rollout strategies:
+- **Salt to Keystone Core** - State translation and phased rollout
+- **SQLite to PostgreSQL** - `kscore-migrate` workflow
+- **Embedded to external NATS** - Cluster migration steps
+
 ### [Troubleshooting](troubleshooting/)
 Diagnostic and resolution guides:
 - **Agent connectivity** - Debug agent-to-control-plane connections

@@ -190,6 +190,7 @@ func buildTLSConfig(cfg *Config) (*tls.Config, error) {
 type RunOptions struct {
 	Concurrency      int32
 	ContinueOnError  bool
+	Target           string
 	WorkingDir       string
 	User             string
 	CommandTimeout   int32
@@ -204,7 +205,7 @@ func newRunCmd(cfg *Config) *cobra.Command {
 	opts := &RunOptions{}
 
 	cmd := &cobra.Command{
-		Use:   "run <target-expression> -- <command> [args...]",
+	Use:   "run <target-expression> -- <command> [args...]",
 		Short: "Execute a command across multiple agents",
 		Long: `Execute a command across agents matching the target expression.
 
@@ -223,6 +224,9 @@ Examples:
   # Execute on specific hostname pattern
   kscorectl exec run "hostname:web-*" -- apt-get update
 
+  # Execute using a target flag
+  kscorectl exec run "uptime" --target "role:web"
+
   # Execute with environment variables
   kscorectl exec run "role:db" --env DB_HOST=localhost -- ./backup.sh
 
@@ -236,6 +240,7 @@ Examples:
 
 	cmd.Flags().Int32Var(&opts.Concurrency, "concurrency", 10, "Number of concurrent executions")
 	cmd.Flags().BoolVar(&opts.ContinueOnError, "continue-on-failure", true, "Continue executing on other agents if some fail")
+	cmd.Flags().StringVar(&opts.Target, "target", "", "Target expression (optional when command is first)")
 	cmd.Flags().StringVar(&opts.WorkingDir, "working-dir", "", "Working directory for command execution")
 	cmd.Flags().StringVar(&opts.User, "user", "", "User to execute command as")
 	cmd.Flags().Int32Var(&opts.CommandTimeout, "command-timeout", 300, "Command timeout in seconds")
@@ -266,29 +271,34 @@ func runExecute(cmd *cobra.Command, args []string, cfg *Config, opts *RunOptions
 		_ = audit.Log(ctx, auditEntry)
 	}
 
-	if len(args) < 1 {
-		err := fmt.Errorf("target expression is required")
-		logAudit(audit.ResultFailure, 1, err)
-		return err
+	target := opts.Target
+	argOffset := 0
+	if target == "" {
+		if len(args) < 1 {
+			err := fmt.Errorf("target expression is required")
+			logAudit(audit.ResultFailure, 1, err)
+			return err
+		}
+		target = args[0]
+		argOffset = 1
 	}
-
-	target := args[0]
 	auditEntry.Target = target
 
 	// Find the command after "--"
 	var command string
 	var cmdArgs []string
 
-	for i, arg := range args {
+	remaining := args[argOffset:]
+	for i, arg := range remaining {
 		if arg == "--" {
-			if i+1 >= len(args) {
+			if i+1 >= len(remaining) {
 				err := fmt.Errorf("command is required after '--'")
 				logAudit(audit.ResultFailure, 1, err)
 				return err
 			}
-			command = args[i+1]
-			if i+2 < len(args) {
-				cmdArgs = args[i+2:]
+			command = remaining[i+1]
+			if i+2 < len(remaining) {
+				cmdArgs = remaining[i+2:]
 			}
 			break
 		}
@@ -296,14 +306,14 @@ func runExecute(cmd *cobra.Command, args []string, cfg *Config, opts *RunOptions
 
 	if command == "" {
 		// No "--" separator, assume everything after target is the command
-		if len(args) < 2 {
+		if len(remaining) < 1 {
 			err := fmt.Errorf("command is required")
 			logAudit(audit.ResultFailure, 1, err)
 			return err
 		}
-		command = args[1]
-		if len(args) > 2 {
-			cmdArgs = args[2:]
+		command = remaining[0]
+		if len(remaining) > 1 {
+			cmdArgs = remaining[1:]
 		}
 	}
 

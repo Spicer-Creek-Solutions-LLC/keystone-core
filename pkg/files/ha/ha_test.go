@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 // mockHealthChecker is a mock health checker for testing.
@@ -63,9 +65,6 @@ func TestInstanceManager_StartStop(t *testing.T) {
 		t.Errorf("expected state Ready after start, got '%s'", manager.info.State)
 	}
 
-	// Give time for a health report.
-	time.Sleep(150 * time.Millisecond)
-
 	// Stop the manager.
 	if err := manager.Stop(ctx); err != nil {
 		t.Fatalf("Stop() error: %v", err)
@@ -96,8 +95,11 @@ func TestInstanceManager_WithHealthChecker(t *testing.T) {
 	}
 	defer manager.Stop(ctx)
 
-	// Wait for a health check.
-	time.Sleep(100 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return manager.info.State == InstanceStateReady, nil
+	}); err != nil {
+		t.Fatalf("expected state Ready with healthy checker: %v", err)
+	}
 
 	if manager.info.State != InstanceStateReady {
 		t.Errorf("expected state Ready with healthy checker, got '%s'", manager.info.State)
@@ -107,8 +109,11 @@ func TestInstanceManager_WithHealthChecker(t *testing.T) {
 	healthChecker.healthy = false
 	healthChecker.err = errors.New("unhealthy")
 
-	// Wait for another health check.
-	time.Sleep(100 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return manager.info.State == InstanceStateUnhealthy, nil
+	}); err != nil {
+		t.Fatalf("expected state Unhealthy with failing checker: %v", err)
+	}
 
 	if manager.info.State != InstanceStateUnhealthy {
 		t.Errorf("expected state Unhealthy with failing checker, got '%s'", manager.info.State)
@@ -117,8 +122,11 @@ func TestInstanceManager_WithHealthChecker(t *testing.T) {
 	// Make the health check pass again.
 	healthChecker.healthy = true
 
-	// Wait for recovery.
-	time.Sleep(100 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return manager.info.State == InstanceStateReady, nil
+	}); err != nil {
+		t.Fatalf("expected state Ready after recovery: %v", err)
+	}
 
 	if manager.info.State != InstanceStateReady {
 		t.Errorf("expected state Ready after recovery, got '%s'", manager.info.State)

@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestNewClient(t *testing.T) {
@@ -298,7 +300,12 @@ func TestFileCacheTTLExpiry(t *testing.T) {
 	}
 
 	// Wait for TTL to expire
-	time.Sleep(10 * time.Millisecond)
+	start := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 1*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 10*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("TTL wait did not elapse: %v", err)
+	}
 
 	// Get should fail due to expiry
 	_, err = cache.Get("/test/file.txt", "v1")

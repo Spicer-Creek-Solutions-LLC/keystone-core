@@ -10,34 +10,52 @@ import (
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 )
 
-// Store defines the interface for state storage
-type Store interface {
-	// Agent operations
+// AgentStore defines the interface for agent persistence.
+type AgentStore interface {
 	SaveAgent(ctx context.Context, agent *AgentRecord) error
 	GetAgent(ctx context.Context, agentID string) (*AgentRecord, error)
 	ListAgents(ctx context.Context, filter *AgentFilter) ([]*AgentRecord, error)
 	UpdateAgentStatus(ctx context.Context, agentID string, status pb.AgentStatus, lastHeartbeat time.Time) error
 	UpdateAgentMetrics(ctx context.Context, agentID string, metrics *pb.SystemMetrics) error
 	DeleteAgent(ctx context.Context, agentID string) error
+}
 
-	// Command operations
+// CommandStore defines the interface for command persistence.
+type CommandStore interface {
 	SaveCommand(ctx context.Context, cmd *CommandRecord) error
 	GetCommand(ctx context.Context, commandID string) (*CommandRecord, error)
 	ListCommands(ctx context.Context, filter *CommandFilter) ([]*CommandRecord, error)
 	UpdateCommandStatus(ctx context.Context, commandID string, status pb.CommandStatus) error
 	UpdateCommandResult(ctx context.Context, commandID string, result *CommandResult) error
+}
 
-	// Batch job operations
+// BatchJobStore defines the interface for batch job persistence.
+type BatchJobStore interface {
 	SaveBatchJob(ctx context.Context, job *BatchJobRecord) error
 	GetBatchJob(ctx context.Context, batchJobID string) (*BatchJobRecord, error)
 	ListBatchJobs(ctx context.Context, filter *BatchJobFilter) ([]*BatchJobRecord, error)
 	UpdateBatchJobStatus(ctx context.Context, batchJobID string, status pb.BatchJobStatus) error
 	UpdateBatchJobProgress(ctx context.Context, batchJobID string, progress *BatchJobProgress) error
 	SaveBatchAgentResult(ctx context.Context, batchJobID string, result *BatchAgentResultRecord) error
+}
 
-	// Health and lifecycle
+// HealthStore defines the interface for health checks and lifecycle management.
+type HealthStore interface {
 	Ping(ctx context.Context) error
 	Close() error
+}
+
+// ControlPlaneStore groups agent, command, and batch job storage requirements.
+type ControlPlaneStore interface {
+	AgentStore
+	CommandStore
+	BatchJobStore
+}
+
+// Store defines the interface for full state storage.
+type Store interface {
+	ControlPlaneStore
+	HealthStore
 }
 
 // AgentRecord represents an agent in the database

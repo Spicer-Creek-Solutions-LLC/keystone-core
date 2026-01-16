@@ -13,8 +13,10 @@ This section provides detailed technical reference documentation for all Keyston
 - **[CLI Reference](cli/)** - Complete command-line interface documentation
 - **[Configuration Reference](configuration/)** - All configuration options for control plane and agents
 - **[Module Reference](modules/)** - State module parameters and specifications
+- **[SDK Reference](sdk/)** - Language SDKs for module development
 - **[Event Reference](events/)** - Event types, schemas, and filtering
 - **[Metrics Reference](metrics/)** - Prometheus metrics catalog with examples
+- **[Glossary](glossary/)** - Terminology reference
 - **[Query API Reference](query-api/)** - Unified telemetry querying for metrics, logs, and traces
 - **[Visualization API Reference](visualization/)** - Infrastructure topology and real-time updates
 

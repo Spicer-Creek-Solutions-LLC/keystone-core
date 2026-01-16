@@ -4,6 +4,8 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestProvider_String(t *testing.T) {
@@ -203,8 +205,11 @@ func TestMultiCloudDetector_CacheExpiration(t *testing.T) {
 		t.Error("expected cache to be valid immediately")
 	}
 
-	// Wait for cache to expire
-	time.Sleep(150 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return !detector.isCacheValid(), nil
+	}); err != nil {
+		t.Fatalf("expected cache to be invalid after expiration: %v", err)
+	}
 
 	// Cache should be invalid now
 	if detector.isCacheValid() {

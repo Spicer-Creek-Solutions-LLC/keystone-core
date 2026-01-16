@@ -226,3 +226,23 @@ func TestHttpResponseTypes(t *testing.T) {
 		t.Error("Body should not be empty")
 	}
 }
+
+func BenchmarkLogLevelString(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_ = LogLevelInfo.String()
+	}
+}
+
+func BenchmarkErrorString(b *testing.B) {
+	err := NewHTTPError("benchmark")
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = err.Error()
+	}
+}
+
+func BenchmarkLogInfoStub(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		LogInfo("benchmark")
+	}
+}

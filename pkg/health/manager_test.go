@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestNewManager(t *testing.T) {
@@ -184,8 +186,12 @@ func TestManagerStartStop(t *testing.T) {
 
 	m.Start(ctx)
 
-	// Let it run a few checks
-	time.Sleep(250 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		_, exists := m.GetCheckResult("test")
+		return exists, nil
+	}); err != nil {
+		t.Fatalf("Expected at least one check to have run: %v", err)
+	}
 
 	m.Stop()
 

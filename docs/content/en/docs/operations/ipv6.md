@@ -308,13 +308,13 @@ Target agents using their IPv6 addresses:
 
 ```bash
 # Target specific IPv6 address
-kscorectl exec -t 'ipv6:2001:db8::5' -- hostname
+kscorectl exec run --target 'ipv6:2001:db8::5' -- hostname
 
 # Target IPv6 prefix (CIDR)
-kscorectl exec -t 'ipv6_cidr:2001:db8::/32' -- uptime
+kscorectl exec run --target 'ipv6_cidr:2001:db8::/32' -- uptime
 
 # Combine with other selectors
-kscorectl exec -t 'ipv6:2001:db8::* AND role:webserver' -- systemctl status nginx
+kscorectl exec run --target 'ipv6:2001:db8::* AND role:webserver' -- systemctl status nginx
 ```
 
 ### Agent Metadata
@@ -588,7 +588,7 @@ table ip6 filter {
 
 1. **Verify all agents support IPv6:**
    ```bash
-   kscorectl exec -t 'ipv6:*' -- echo "IPv6 OK"
+   kscorectl exec run --target 'ipv6:*' -- echo "IPv6 OK"
    ```
 
 2. **Update address_family** to ipv6_only:

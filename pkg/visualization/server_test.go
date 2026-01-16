@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 // MockAgentProvider is a mock implementation of AgentProvider
@@ -56,12 +58,16 @@ func TestServerStartStop(t *testing.T) {
 		t.Fatalf("Failed to start server: %v", err)
 	}
 
-	// Give server time to start
-	time.Sleep(100 * time.Millisecond)
-
 	// Test that server is running
-	resp, err := http.Get("http://localhost:18080/api/agents")
-	if err != nil {
+	var resp *http.Response
+	if err := helpers.WaitForTimeout(2*time.Second, 50*time.Millisecond, func() (bool, error) {
+		var reqErr error
+		resp, reqErr = http.Get("http://localhost:18080/api/agents")
+		if reqErr != nil {
+			return false, nil
+		}
+		return true, nil
+	}); err != nil {
 		t.Fatalf("Failed to access server: %v", err)
 	}
 	defer resp.Body.Close()

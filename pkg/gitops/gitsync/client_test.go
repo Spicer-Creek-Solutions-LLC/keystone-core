@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func createTestRepo(t *testing.T, path string) *git.Repository {
@@ -527,7 +528,12 @@ func createTestRepoWithMultipleCommits(t *testing.T, path string, numCommits int
 		}
 
 		// Small delay to ensure different timestamps
-		time.Sleep(10 * time.Millisecond)
+		start := time.Now()
+		if err := helpers.WaitForTimeout(2*time.Second, 1*time.Millisecond, func() (bool, error) {
+			return time.Since(start) >= 10*time.Millisecond, nil
+		}); err != nil {
+			t.Fatalf("timestamp wait did not elapse: %v", err)
+		}
 	}
 
 	return gitRepo

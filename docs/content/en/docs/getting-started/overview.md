@@ -61,7 +61,7 @@ kscorectl exec run "systemctl restart nginx" \
   --target "role:web and datacenter:us-east-1"
 
 # Batch execution across 1000 nodes
-kscorectl exec run "apt-get update" --target "os:ubuntu" --batch-size 100
+kscorectl exec run "apt-get update" --target "os:ubuntu" --concurrency 100
 ```
 
 **Features**:

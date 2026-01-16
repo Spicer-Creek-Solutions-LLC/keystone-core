@@ -427,7 +427,7 @@ include:
 kscorectl state apply /srv/states/webserver.yaml
 
 # Apply to specific targets
-kscorectl state apply /srv/states/webserver.yaml --target "role:webserver"
+kscorectl state apply /srv/states/webserver.yaml
 
 # Dry run to preview changes
 kscorectl state apply /srv/states/webserver.yaml --dry-run
@@ -722,8 +722,8 @@ kscorectl blueprint tree myorg/my-blueprint
 #### State Application Fails
 
 ```bash
-# Run with debug logging
-kscorectl state apply state.yaml --log-level debug
+# Run a dry-run first
+kscorectl state check state.yaml
 
 # Common causes:
 # - Missing required parameters

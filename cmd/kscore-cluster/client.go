@@ -22,8 +22,7 @@ type ClusterClient struct {
 
 // newClusterClient creates a new cluster client.
 func newClusterClient(ctx context.Context) (*ClusterClient, error) {
-	// For now, use HTTP REST API
-	// TODO: Add gRPC support when protobuf definitions are available
+	// Use HTTP REST API for cluster management.
 	httpClient := &http.Client{
 		Timeout: 30 * time.Second,
 	}

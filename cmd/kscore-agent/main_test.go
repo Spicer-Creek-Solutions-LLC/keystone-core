@@ -36,14 +36,20 @@ func TestRootCommand(t *testing.T) {
 
 	// Check that version subcommand exists
 	found := false
+	bootstrapFound := false
 	for _, sub := range cmd.Commands() {
 		if sub.Name() == "version" {
 			found = true
-			break
+		}
+		if sub.Name() == "bootstrap" {
+			bootstrapFound = true
 		}
 	}
 	if !found {
 		t.Error("expected version subcommand not found")
+	}
+	if !bootstrapFound {
+		t.Error("expected bootstrap subcommand not found")
 	}
 }
 

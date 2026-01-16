@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestNewCircuitBreaker(t *testing.T) {
@@ -110,17 +112,10 @@ func TestCircuitBreakerHalfOpenTransition(t *testing.T) {
 		t.Errorf("Expected state %s, got %s", StateOpen, cb.State())
 	}
 
-	// Wait for timeout
-	time.Sleep(60 * time.Millisecond)
-
-	// Next allow should transition to half-open
-	err := cb.Allow()
-	if err != nil {
-		t.Errorf("Allow should not error after timeout: %v", err)
-	}
-
-	if cb.State() != StateHalfOpen {
-		t.Errorf("Expected state %s after timeout, got %s", StateHalfOpen, cb.State())
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return cb.Allow() == nil && cb.State() == StateHalfOpen, nil
+	}); err != nil {
+		t.Fatalf("Expected half-open transition after timeout: %v", err)
 	}
 }
 
@@ -137,11 +132,11 @@ func TestCircuitBreakerHalfOpenSuccess(t *testing.T) {
 	// Open the circuit
 	cb.RecordFailure()
 
-	// Wait for timeout
-	time.Sleep(20 * time.Millisecond)
-
-	// Transition to half-open
-	cb.Allow()
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return cb.Allow() == nil && cb.State() == StateHalfOpen, nil
+	}); err != nil {
+		t.Fatalf("Expected half-open transition after timeout: %v", err)
+	}
 
 	// Record successes
 	cb.RecordSuccess()
@@ -166,11 +161,11 @@ func TestCircuitBreakerHalfOpenFailure(t *testing.T) {
 	// Open the circuit
 	cb.RecordFailure()
 
-	// Wait for timeout
-	time.Sleep(20 * time.Millisecond)
-
-	// Transition to half-open
-	cb.Allow()
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return cb.Allow() == nil && cb.State() == StateHalfOpen, nil
+	}); err != nil {
+		t.Fatalf("Expected half-open transition after timeout: %v", err)
+	}
 
 	// Record failure
 	cb.RecordFailure()
@@ -274,8 +269,11 @@ func TestCircuitBreakerOnStateChange(t *testing.T) {
 		cb.RecordFailure()
 	}
 
-	// Give callback time to execute
-	time.Sleep(10 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return called, nil
+	}); err != nil {
+		t.Fatalf("OnStateChange callback was not called: %v", err)
+	}
 
 	if !called {
 		t.Error("OnStateChange callback was not called")

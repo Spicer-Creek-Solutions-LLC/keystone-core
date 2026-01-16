@@ -5,14 +5,16 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestNewBridge(t *testing.T) {
 	config := &BridgeConfig{
-		Name:        "test-bridge",
-		Description: "Test bridge",
-		Enabled:     true,
-		SourceType:  "nats",
+		Name:            "test-bridge",
+		Description:     "Test bridge",
+		Enabled:         true,
+		SourceType:      "nats",
 		DestinationType: "kafka",
 	}
 
@@ -139,7 +141,6 @@ func TestBridge_EventForwarding(t *testing.T) {
 		SubscribeFunc: func(subject string, handler EventHandler) (*Subscription, error) {
 			// Simulate receiving an event
 			go func() {
-				time.Sleep(50 * time.Millisecond)
 				event := NewEvent(EventTypeAgentConnect).Source("/test").Build()
 				handler(event)
 			}()
@@ -164,7 +165,13 @@ func TestBridge_EventForwarding(t *testing.T) {
 	}
 
 	// Wait for event to be forwarded
-	time.Sleep(200 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(publishedEvents) == 1, nil
+	}); err != nil {
+		t.Fatalf("Expected 1 forwarded event: %v", err)
+	}
 
 	mu.Lock()
 	eventCount := len(publishedEvents)
@@ -208,7 +215,6 @@ func TestBridge_EventFiltering(t *testing.T) {
 	mockSub := &MockSubscriber{
 		SubscribeFunc: func(subject string, handler EventHandler) (*Subscription, error) {
 			go func() {
-				time.Sleep(50 * time.Millisecond)
 				// Send matching event
 				handler(NewEvent(EventTypeAgentConnect).Source("/test").Build())
 				// Send non-matching event
@@ -230,7 +236,13 @@ func TestBridge_EventFiltering(t *testing.T) {
 	bridge.SetSubscriber(mockSub).SetPublisher(mockPub)
 	bridge.Start()
 
-	time.Sleep(200 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		return publishedCount == 1, nil
+	}); err != nil {
+		t.Fatalf("Expected 1 forwarded event (filtered): %v", err)
+	}
 
 	mu.Lock()
 	count := publishedCount
@@ -269,7 +281,6 @@ func TestBridge_EventTransformation(t *testing.T) {
 	mockSub := &MockSubscriber{
 		SubscribeFunc: func(subject string, handler EventHandler) (*Subscription, error) {
 			go func() {
-				time.Sleep(50 * time.Millisecond)
 				event := NewEvent(EventTypeAgentConnect).Source("/test").Build()
 				handler(event)
 			}()
@@ -289,7 +300,13 @@ func TestBridge_EventTransformation(t *testing.T) {
 	bridge.SetSubscriber(mockSub).SetPublisher(mockPub)
 	bridge.Start()
 
-	time.Sleep(200 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		return transformedEvent != nil, nil
+	}); err != nil {
+		t.Fatalf("Expected transformed event: %v", err)
+	}
 
 	mu.Lock()
 	if transformedEvent == nil {
@@ -326,7 +343,6 @@ func TestBridge_TransformError(t *testing.T) {
 	mockSub := &MockSubscriber{
 		SubscribeFunc: func(subject string, handler EventHandler) (*Subscription, error) {
 			go func() {
-				time.Sleep(50 * time.Millisecond)
 				event := NewEvent(EventTypeAgentConnect).Source("/test").Build()
 				handler(event)
 			}()
@@ -346,7 +362,17 @@ func TestBridge_TransformError(t *testing.T) {
 	bridge.SetSubscriber(mockSub).SetPublisher(mockPub)
 	bridge.Start()
 
-	time.Sleep(200 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		metrics := bridge.GetMetrics()
+		if metrics.TransformErrors != 1 {
+			return false, nil
+		}
+		mu.Lock()
+		defer mu.Unlock()
+		return publishedCount == 1, nil
+	}); err != nil {
+		t.Fatalf("Expected transform error and forward: %v", err)
+	}
 
 	metrics := bridge.GetMetrics()
 	if metrics.TransformErrors != 1 {
@@ -382,7 +408,6 @@ func TestBridge_PublishRetry(t *testing.T) {
 	mockSub := &MockSubscriber{
 		SubscribeFunc: func(subject string, handler EventHandler) (*Subscription, error) {
 			go func() {
-				time.Sleep(50 * time.Millisecond)
 				event := NewEvent(EventTypeAgentConnect).Source("/test").Build()
 				handler(event)
 			}()
@@ -402,14 +427,20 @@ func TestBridge_PublishRetry(t *testing.T) {
 	bridge.SetSubscriber(mockSub).SetPublisher(mockPub)
 	bridge.Start()
 
-	time.Sleep(500 * time.Millisecond)
+	expectedAttempts := config.MaxRetries + 1
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		return attempts == expectedAttempts, nil
+	}); err != nil {
+		t.Fatalf("Expected %d publish attempts: %v", expectedAttempts, err)
+	}
 
 	mu.Lock()
 	attemptCount := attempts
 	mu.Unlock()
 
 	// Should retry MaxRetries+1 times (initial + retries)
-	expectedAttempts := config.MaxRetries + 1
 	if attemptCount != expectedAttempts {
 		t.Errorf("Expected %d publish attempts, got %d", expectedAttempts, attemptCount)
 	}

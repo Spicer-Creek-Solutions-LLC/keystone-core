@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/query"
 )
 
 // RollingStrategy implements rolling upgrade logic.
@@ -13,11 +15,11 @@ type RollingStrategy struct {
 	logger      Logger
 	config      *RollingConfig
 
-	mu              sync.Mutex
-	currentBatch    int
-	completedNodes  int
-	failedNodes     int
-	healthyNodes    map[string]bool
+	mu             sync.Mutex
+	currentBatch   int
+	completedNodes int
+	failedNodes    int
+	healthyNodes   map[string]bool
 }
 
 // NewRollingStrategy creates a new rolling upgrade strategy.
@@ -351,6 +353,12 @@ type CanaryStrategy struct {
 	successfulChecks  int
 	failedChecks      int
 	metrics           map[string]float64
+	metricsQuerier    metricsQuerier
+	initErr           error
+}
+
+type metricsQuerier interface {
+	Query(ctx context.Context, query *query.MetricsQuery) (*query.MetricsResult, error)
 }
 
 // NewCanaryStrategy creates a new canary upgrade strategy.
@@ -361,16 +369,34 @@ func NewCanaryStrategy(nodeManager NodeManager, logger Logger, config *CanaryCon
 	if logger == nil {
 		logger = &noopLogger{}
 	}
-	return &CanaryStrategy{
+	strategy := &CanaryStrategy{
 		nodeManager: nodeManager,
 		logger:      logger,
 		config:      config,
 		metrics:     make(map[string]float64),
 	}
+
+	if config.PrometheusAddress != "" {
+		querier, err := query.NewPrometheusQuerier(config.PrometheusAddress)
+		if err != nil {
+			strategy.initErr = fmt.Errorf("init Prometheus querier: %w", err)
+		} else {
+			strategy.metricsQuerier = querier
+		}
+	}
+
+	return strategy
 }
 
 // Execute executes the canary upgrade.
 func (s *CanaryStrategy) Execute(ctx context.Context, state *UpgradeState, progressFn func(*UpgradeState)) error {
+	if s.initErr != nil {
+		return s.initErr
+	}
+	if len(s.config.Metrics) > 0 && s.metricsQuerier == nil {
+		return fmt.Errorf("prometheus address is required for canary metrics")
+	}
+
 	s.currentPercentage = s.config.InitialPercentage
 	s.successfulChecks = 0
 	s.failedChecks = 0
@@ -522,7 +548,15 @@ func (s *CanaryStrategy) monitorCanary(ctx context.Context, state *UpgradeState)
 	// Check configured metrics (simplified - in production would query Prometheus)
 	allHealthy := true
 	for _, metric := range s.config.Metrics {
-		value := s.checkMetric(ctx, metric)
+		value, err := s.checkMetric(ctx, metric)
+		if err != nil {
+			allHealthy = false
+			s.logger.Warn("Canary metric query failed",
+				"metric", metric.Name,
+				"error", err,
+			)
+			continue
+		}
 		s.metrics[metric.Name] = value
 
 		if !s.evaluateMetric(metric, value) {
@@ -544,11 +578,25 @@ func (s *CanaryStrategy) monitorCanary(ctx context.Context, state *UpgradeState)
 	return nil
 }
 
-// checkMetric checks a canary metric (placeholder implementation).
-func (s *CanaryStrategy) checkMetric(ctx context.Context, metric CanaryMetric) float64 {
-	// In production, this would query Prometheus
-	// For now, return a placeholder value
-	return 0.0
+// checkMetric queries Prometheus for the metric and extracts a numeric value.
+func (s *CanaryStrategy) checkMetric(ctx context.Context, metric CanaryMetric) (float64, error) {
+	if metric.Query == "" {
+		return 0, fmt.Errorf("metric query is required")
+	}
+	if s.metricsQuerier == nil {
+		return 0, fmt.Errorf("metrics querier is not configured")
+	}
+
+	queryReq := &query.MetricsQuery{
+		Query:   metric.Query,
+		Timeout: s.config.QueryTimeout,
+	}
+	result, err := s.metricsQuerier.Query(ctx, queryReq)
+	if err != nil {
+		return 0, err
+	}
+
+	return extractMetricValue(result)
 }
 
 // evaluateMetric evaluates if a metric passes the threshold.
@@ -568,6 +616,45 @@ func (s *CanaryStrategy) evaluateMetric(metric CanaryMetric, value float64) bool
 		return value != metric.Threshold
 	default:
 		return true
+	}
+}
+
+func extractMetricValue(result *query.MetricsResult) (float64, error) {
+	if result == nil {
+		return 0, fmt.Errorf("metrics result is nil")
+	}
+
+	switch result.ResultType {
+	case "scalar":
+		valueMap, ok := result.Result.(map[string]interface{})
+		if !ok {
+			return 0, fmt.Errorf("unexpected scalar result format")
+		}
+		value, ok := valueMap["value"].(float64)
+		if !ok {
+			return 0, fmt.Errorf("unexpected scalar value type")
+		}
+		return value, nil
+	case "vector":
+		vector, ok := result.Result.([]map[string]interface{})
+		if !ok {
+			return 0, fmt.Errorf("unexpected vector result format")
+		}
+		if len(vector) == 0 {
+			return 0, fmt.Errorf("vector result is empty")
+		}
+
+		var sum float64
+		for _, sample := range vector {
+			value, ok := sample["value"].(float64)
+			if !ok {
+				return 0, fmt.Errorf("unexpected vector value type")
+			}
+			sum += value
+		}
+		return sum / float64(len(vector)), nil
+	default:
+		return 0, fmt.Errorf("unsupported result type: %s", result.ResultType)
 	}
 }
 

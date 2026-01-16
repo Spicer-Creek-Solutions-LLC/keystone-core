@@ -146,23 +146,25 @@ EOF
 Apply the state:
 
 ```bash
-kscorectl state apply /tmp/test-state.yaml \
-  --target "agent_id:my-first-agent"
+kscorectl state apply /tmp/test-state.yaml
 ```
+
+This applies locally on the host running `kscorectl` (which is the same host as the agent in this quick start).
 
 **Expected output**:
 ```
-Applying state to 1 agent(s)...
+Loading state file: /tmp/test-state.yaml
+Applying state: Create a test file
 
-Agent: my-first-agent
-  test_file: ✓ created
+=== Results ===
+✓ file.test_file: changed
 
-Summary:
-  Total: 1
-  Succeeded: 1
-  Changed: 1
-  Unchanged: 0
-  Failed: 0
+=== Summary ===
+Total states:  1
+Succeeded:     1
+Failed:        0
+Changed:       1
+Unchanged:     0
 ```
 
 Verify the file was created:
@@ -194,37 +196,51 @@ kscorectl exec run "echo 'Modified!' > /tmp/kscore-test.txt" \
 Check for drift:
 
 ```bash
-kscorectl state check /tmp/test-state.yaml \
-  --target "agent_id:my-first-agent"
+kscorectl state drift /tmp/test-state.yaml
 ```
 
 **Expected output**:
 ```
-Checking state on 1 agent(s)...
+Checking drift for: Create a test file
 
-Agent: my-first-agent
-  test_file: ✗ drift detected
-    - contents: expected "Keystone Core was here!", got "Modified!\n"
+=== Drift Report ===
+Run ID: ...
+Checked: ...
+Duration: ...
 
-Drift Summary:
-  Total: 1
-  Compliant: 0
-  Drift: 1
+=== Summary ===
+Total states: 1
+No drift: 0
+Low drift: 0
+Medium drift: 1
+High drift: 0
+Critical drift: 0
+Overall severity: medium
+
+--- file.test_file [medium] ---
+  - contents: expected \"Keystone Core was here!\", got \"Modified!\\n\"
 ```
 
 Fix the drift:
 
 ```bash
-kscorectl state apply /tmp/test-state.yaml \
-  --target "agent_id:my-first-agent"
+kscorectl state apply /tmp/test-state.yaml
 ```
 
 **Expected output**:
 ```
-Agent: my-first-agent
-  test_file: ✓ updated (drift fixed)
+Loading state file: /tmp/test-state.yaml
+Applying state: Create a test file
 
-Summary: 1 succeeded, 1 changed
+=== Results ===
+✓ file.test_file: changed
+
+=== Summary ===
+Total states:  1
+Succeeded:     1
+Failed:        0
+Changed:       1
+Unchanged:     0
 ```
 
 ✅ **Checkpoint**: Drift detection and remediation works
@@ -349,4 +365,4 @@ kscore-server --api-listen 127.0.0.1:8081 --nats-listen 127.0.0.1:4223
 
 ## Next Steps
 
-Continue to [Architecture Overview](../architecture/) to understand how Keystone Core works under the hood, or explore [Concepts](../../concepts/) for in-depth feature guides.
+Apply the minimal [Hello World](../hello-world/) state, continue to the [Architecture Overview](../architecture/), or explore [Concepts](../../concepts/) for in-depth feature guides.

@@ -6,6 +6,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestLeafNodeRole_String(t *testing.T) {
@@ -176,8 +178,8 @@ func TestLeafNodeConfig_Validate(t *testing.T) {
 		{
 			name: "negative reconnect interval",
 			config: &LeafNodeConfig{
-				Role: LeafNodeRoleHub,
-				Port: 7422,
+				Role:              LeafNodeRoleHub,
+				Port:              7422,
 				ReconnectInterval: -1 * time.Second,
 			},
 			wantErr: true,
@@ -870,11 +872,11 @@ func TestLeafNodeManager_HubMode(t *testing.T) {
 
 func TestLeafRemoteStats(t *testing.T) {
 	stats := LeafRemoteStats{
-		URL:       "nats://localhost:7422",
-		State:     LeafConnectionStateConnected,
-		Latency:   5 * time.Millisecond,
+		URL:        "nats://localhost:7422",
+		State:      LeafConnectionStateConnected,
+		Latency:    5 * time.Millisecond,
 		Reconnects: 3,
-		LastError: "test error",
+		LastError:  "test error",
 	}
 
 	if stats.URL != "nats://localhost:7422" {
@@ -1129,8 +1131,11 @@ func TestLeafNodeManager_StateChangeCallback(t *testing.T) {
 
 	manager.Stop()
 
-	// Wait briefly for callbacks
-	time.Sleep(50 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return stateChangeCount.Load() >= 2, nil
+	}); err != nil {
+		t.Fatalf("expected state change callbacks: %v", err)
+	}
 
 	if stateChangeCount.Load() < 2 {
 		t.Errorf("expected at least 2 state changes, got %d", stateChangeCount.Load())

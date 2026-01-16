@@ -113,36 +113,39 @@ func runMembers(showDetails bool) error {
 		return fmt.Errorf("failed to get cluster members: %w", err)
 	}
 
-	if outputFormat == "json" || outputFormat == "yaml" {
+	switch outputFormat {
+	case "json", "yaml":
 		return outputResult(members, outputFormat)
-	}
+	case "table", "text":
+		// Table output
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 
-	// Table output
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-
-	if showDetails {
-		fmt.Fprintln(w, "ID\tADDRESS\tSTATUS\tLEADER\tVERSION\tAGENTS\tJOBS\tLAST SEEN")
-		for _, m := range members {
-			leader := ""
-			if m.IsLeader {
-				leader = "*"
+		if showDetails {
+			fmt.Fprintln(w, "ID\tADDRESS\tSTATUS\tLEADER\tVERSION\tAGENTS\tJOBS\tLAST SEEN")
+			for _, m := range members {
+				leader := ""
+				if m.IsLeader {
+					leader = "*"
+				}
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%d\t%d\t%s\n",
+					m.ID, m.Address, m.Status, leader, m.Version,
+					m.AgentCount, m.JobCount, formatDuration(time.Since(m.LastSeen)))
 			}
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%d\t%d\t%s\n",
-				m.ID, m.Address, m.Status, leader, m.Version,
-				m.AgentCount, m.JobCount, formatDuration(time.Since(m.LastSeen)))
-		}
-	} else {
-		fmt.Fprintln(w, "ID\tADDRESS\tSTATUS\tLEADER")
-		for _, m := range members {
-			leader := ""
-			if m.IsLeader {
-				leader = "*"
+		} else {
+			fmt.Fprintln(w, "ID\tADDRESS\tSTATUS\tLEADER")
+			for _, m := range members {
+				leader := ""
+				if m.IsLeader {
+					leader = "*"
+				}
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", m.ID, m.Address, m.Status, leader)
 			}
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", m.ID, m.Address, m.Status, leader)
 		}
-	}
 
-	return w.Flush()
+		return w.Flush()
+	default:
+		return fmt.Errorf("unsupported output format: %s", outputFormat)
+	}
 }
 
 // newLeaderCommand creates the 'leader' command
@@ -182,6 +185,8 @@ func runLeader(cmd *cobra.Command, args []string) error {
 
 // newAddCommand creates the 'add' command
 func newAddCommand() *cobra.Command {
+	var dryRun bool
+
 	cmd := &cobra.Command{
 		Use:   "add <address>",
 		Short: "Add a new member to the cluster",
@@ -191,14 +196,21 @@ The new member must be running and accessible at the specified address.
 The cluster will automatically rebalance agents after the new member joins.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runAdd(args[0])
+			return runAdd(args[0], dryRun)
 		},
 	}
+
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without adding a member")
 
 	return cmd
 }
 
-func runAdd(address string) error {
+func runAdd(address string, dryRun bool) error {
+	if dryRun {
+		fmt.Printf("Dry run: would add cluster member at %s\n", address)
+		return nil
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -220,6 +232,7 @@ func runAdd(address string) error {
 // newRemoveCommand creates the 'remove' command
 func newRemoveCommand() *cobra.Command {
 	var force bool
+	var dryRun bool
 
 	cmd := &cobra.Command{
 		Use:   "remove <member-id>",
@@ -230,16 +243,22 @@ The member's agents will be redistributed to remaining members.
 Use --force to remove an unresponsive member.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRemove(args[0], force)
+			return runRemove(args[0], force, dryRun)
 		},
 	}
 
 	cmd.Flags().BoolVar(&force, "force", false, "Force remove even if member is unresponsive")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without removing the member")
 
 	return cmd
 }
 
-func runRemove(memberID string, force bool) error {
+func runRemove(memberID string, force bool, dryRun bool) error {
+	if dryRun {
+		fmt.Printf("Dry run: would remove member %s (force=%t)\n", memberID, force)
+		return nil
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -259,6 +278,8 @@ func runRemove(memberID string, force bool) error {
 
 // newTransferLeaderCommand creates the 'transfer-leader' command
 func newTransferLeaderCommand() *cobra.Command {
+	var dryRun bool
+
 	cmd := &cobra.Command{
 		Use:   "transfer-leader <member-id>",
 		Short: "Transfer leadership to another member",
@@ -268,14 +289,21 @@ This is useful before performing maintenance on the current leader.
 The specified member must be healthy and capable of becoming leader.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runTransferLeader(args[0])
+			return runTransferLeader(args[0], dryRun)
 		},
 	}
+
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without transferring leadership")
 
 	return cmd
 }
 
-func runTransferLeader(targetID string) error {
+func runTransferLeader(targetID string, dryRun bool) error {
+	if dryRun {
+		fmt.Printf("Dry run: would transfer leadership to %s\n", targetID)
+		return nil
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -296,6 +324,7 @@ func runTransferLeader(targetID string) error {
 // newRebalanceCommand creates the 'rebalance' command
 func newRebalanceCommand() *cobra.Command {
 	var reason string
+	var dryRun bool
 
 	cmd := &cobra.Command{
 		Use:   "rebalance",
@@ -304,16 +333,23 @@ func newRebalanceCommand() *cobra.Command {
 
 This redistributes agent connections to achieve a more even load distribution.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRebalance(reason)
+			return runRebalance(reason, dryRun)
 		},
 	}
 
 	cmd.Flags().StringVar(&reason, "reason", "CLI request", "Reason for rebalancing")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without rebalancing")
 
 	return cmd
 }
 
-func runRebalance(reason string) error {
+func runRebalance(reason string, dryRun bool) error {
+	if dryRun {
+		fmt.Printf("Dry run: would rebalance agents (reason: %s)\n", reason)
+		return nil
+	}
+
+	fmt.Println("Rebalancing agents...")
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
@@ -364,6 +400,7 @@ This creates a snapshot of:
 }
 
 func runBackup(outputPath string) error {
+	fmt.Println("Creating cluster backup...")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
@@ -395,27 +432,34 @@ func runBackup(outputPath string) error {
 func newRestoreCommand() *cobra.Command {
 	var inputPath string
 	var force bool
+	var dryRun bool
 
 	cmd := &cobra.Command{
 		Use:   "restore",
 		Short: "Restore cluster state from backup",
 		Long: `Restore cluster state from a backup file.
 
-WARNING: This will overwrite the current cluster state.
-Use --force to skip confirmation.`,
+	WARNING: This will overwrite the current cluster state.
+	Use --force to skip confirmation.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRestore(inputPath, force)
+			return runRestore(inputPath, force, dryRun)
 		},
 	}
 
 	cmd.Flags().StringVarP(&inputPath, "input", "f", "", "Input backup file path (required)")
 	cmd.Flags().BoolVar(&force, "force", false, "Skip confirmation prompt")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without restoring")
 	cmd.MarkFlagRequired("input")
 
 	return cmd
 }
 
-func runRestore(inputPath string, force bool) error {
+func runRestore(inputPath string, force bool, dryRun bool) error {
+	if dryRun {
+		fmt.Printf("Dry run: would restore cluster state from %s\n", inputPath)
+		return nil
+	}
+
 	if !force {
 		fmt.Print("WARNING: This will overwrite the current cluster state. Continue? [y/N]: ")
 		var response string
@@ -431,6 +475,7 @@ func runRestore(inputPath string, force bool) error {
 		return fmt.Errorf("failed to read backup file: %w", err)
 	}
 
+	fmt.Println("Restoring cluster state...")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
@@ -459,9 +504,10 @@ func outputResult(v interface{}, format string) error {
 	case "yaml":
 		enc := yaml.NewEncoder(os.Stdout)
 		return enc.Encode(v)
-	default:
-		// Table format - handled by each command
+	case "table", "text":
 		return outputTable(v)
+	default:
+		return fmt.Errorf("unsupported output format: %s", format)
 	}
 }
 

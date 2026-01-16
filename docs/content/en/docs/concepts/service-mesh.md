@@ -115,16 +115,16 @@ Use mesh metadata in targeting expressions:
 
 ```bash
 # Target all Istio workloads
-kscorectl exec "mesh.type == 'istio'" -- istioctl version
+kscorectl exec run "mesh.type == 'istio'" -- istioctl version
 
 # Target specific service
-kscorectl exec "mesh.service.name == 'payment-service'" -- curl localhost:8080/health
+kscorectl exec run "mesh.service.name == 'payment-service'" -- curl localhost:8080/health
 
 # Target by mesh namespace
-kscorectl exec "mesh.service.namespace == 'production'" -- env
+kscorectl exec run "mesh.service.namespace == 'production'" -- env
 
 # Target by SPIFFE identity
-kscorectl exec "mesh.identity.spiffe_id contains 'sa/frontend'" -- uptime
+kscorectl exec run "mesh.identity.spiffe_id contains 'sa/frontend'" -- uptime
 ```
 
 ## Proxy Metrics Integration

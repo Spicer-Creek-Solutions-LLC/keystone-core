@@ -3,15 +3,17 @@ package cluster
 import (
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestNewLeaderElector(t *testing.T) {
 	tests := []struct {
-		name      string
-		config    *Config
-		etcd      *EtcdClient
-		memberID  string
-		wantErr   bool
+		name     string
+		config   *Config
+		etcd     *EtcdClient
+		memberID string
+		wantErr  bool
 	}{
 		{
 			name:     "nil config",
@@ -132,8 +134,11 @@ func TestLeaderElector_Observers(t *testing.T) {
 
 	le.notifyObservers(testEvent)
 
-	// Wait a bit for async notification
-	time.Sleep(100 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return called, nil
+	}); err != nil {
+		t.Fatalf("Observer was not called: %v", err)
+	}
 
 	if !called {
 		t.Error("Observer was not called")

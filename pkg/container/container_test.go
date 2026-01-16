@@ -3,6 +3,8 @@ package container
 import (
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestRuntime_String(t *testing.T) {
@@ -178,8 +180,11 @@ func TestMultiRuntimeDetector_CacheExpiration(t *testing.T) {
 		t.Error("expected cache to be valid immediately")
 	}
 
-	// Wait for cache to expire
-	time.Sleep(150 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return !detector.isCacheValid(), nil
+	}); err != nil {
+		t.Fatalf("expected cache to be invalid after expiration: %v", err)
+	}
 
 	// Cache should be invalid now
 	if detector.isCacheValid() {
@@ -731,10 +736,10 @@ func TestDockerDetector_parseDockerJSON(t *testing.T) {
 
 func TestPortMapping_AllFields(t *testing.T) {
 	tests := []struct {
-		name     string
-		mapping  PortMapping
-		wantPort int
-		wantHost int
+		name      string
+		mapping   PortMapping
+		wantPort  int
+		wantHost  int
 		wantProto string
 	}{
 		{
@@ -886,18 +891,18 @@ func TestIsHexString_EdgeCases(t *testing.T) {
 		input    string
 		expected bool
 	}{
-		{"", true},                                                              // Empty string
-		{"0", true},                                                              // Single char
-		{"a", true},                                                              // Single hex
-		{"A", true},                                                              // Uppercase single hex
-		{"g", false},                                                             // Just past 'f'
-		{"G", false},                                                             // Just past 'F'
-		{"abcdef0123456789", true},                                               // All valid hex chars
-		{"ABCDEF0123456789", true},                                               // All uppercase
-		{"AbCdEf0123456789", true},                                               // Mixed case
-		{"abc123xyz", false},                                                     // Contains invalid chars
-		{"123-456", false},                                                       // Contains dash
-		{"abc 123", false},                                                       // Contains space
+		{"", true},                 // Empty string
+		{"0", true},                // Single char
+		{"a", true},                // Single hex
+		{"A", true},                // Uppercase single hex
+		{"g", false},               // Just past 'f'
+		{"G", false},               // Just past 'F'
+		{"abcdef0123456789", true}, // All valid hex chars
+		{"ABCDEF0123456789", true}, // All uppercase
+		{"AbCdEf0123456789", true}, // Mixed case
+		{"abc123xyz", false},       // Contains invalid chars
+		{"123-456", false},         // Contains dash
+		{"abc 123", false},         // Contains space
 		{"abc123def456789012345678901234567890123456789012345678901234567890", true}, // 64 chars (typical container ID length)
 	}
 

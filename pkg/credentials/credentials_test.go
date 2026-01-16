@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 // =============================================================================
@@ -994,8 +996,12 @@ func TestCredentialCache_TTL(t *testing.T) {
 		t.Fatalf("Get() error = %v", err)
 	}
 
-	// Wait for TTL to expire
-	time.Sleep(100 * time.Millisecond)
+	start := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 100*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("TTL wait did not elapse: %v", err)
+	}
 
 	// Entry should be expired, will be fetched from backend again
 	_, err = cache.Get(ctx, "ttl-test")

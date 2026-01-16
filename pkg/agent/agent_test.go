@@ -10,6 +10,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/shawnbutts/keystone-core/pkg/config"
 	natsmgr "github.com/shawnbutts/keystone-core/pkg/nats"
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 	"google.golang.org/protobuf/proto"
 
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
@@ -38,7 +39,12 @@ func createTestNATSManager(t *testing.T) *natsmgr.Manager {
 	}
 
 	// Wait for connection
-	time.Sleep(100 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		conn := mgr.Conn()
+		return conn != nil && conn.Status() == nats.CONNECTED, nil
+	}); err != nil {
+		t.Fatalf("Timed out waiting for NATS connection: %v", err)
+	}
 
 	return mgr
 }
@@ -150,8 +156,9 @@ func TestAgent_Register(t *testing.T) {
 			t.Fatalf("Failed to subscribe to register: %v", err)
 		}
 
-		// Wait for subscription to be active
-		time.Sleep(100 * time.Millisecond)
+		if err := mgr.Conn().FlushTimeout(2 * time.Second); err != nil {
+			t.Fatalf("Failed to flush register subscription: %v", err)
+		}
 
 		// Register
 		err = agent2.register()
@@ -202,8 +209,9 @@ func TestAgent_SendHeartbeat(t *testing.T) {
 		t.Fatalf("Failed to subscribe to heartbeat: %v", err)
 	}
 
-	// Wait for subscription
-	time.Sleep(100 * time.Millisecond)
+	if err := mgr.Conn().FlushTimeout(2 * time.Second); err != nil {
+		t.Fatalf("Failed to flush heartbeat subscription: %v", err)
+	}
 
 	// Send heartbeat
 	err = agent.sendHeartbeat()
@@ -274,8 +282,9 @@ func TestAgent_SubscribeToCommands(t *testing.T) {
 
 	data, _ := proto.Marshal(req)
 
-	// Give subscription time to be active
-	time.Sleep(100 * time.Millisecond)
+	if err := mgr.Conn().FlushTimeout(2 * time.Second); err != nil {
+		t.Fatalf("Failed to flush command subscription: %v", err)
+	}
 
 	// Publish command (don't wait for response, just verify no error)
 	err = mgr.Publish(subject, data)
@@ -299,8 +308,9 @@ func TestAgent_HandleCommandRequest(t *testing.T) {
 		t.Fatalf("subscribeToCommands failed: %v", err)
 	}
 
-	// Wait for subscription
-	time.Sleep(100 * time.Millisecond)
+	if err := mgr.Conn().FlushTimeout(2 * time.Second); err != nil {
+		t.Fatalf("Failed to flush command subscription: %v", err)
+	}
 
 	// Create a command request
 	req := &pb.ExecuteCommandRequest{
@@ -332,8 +342,9 @@ func TestAgent_HandleCommandRequest(t *testing.T) {
 		t.Fatalf("Failed to subscribe to responses: %v", err)
 	}
 
-	// Wait for response subscription
-	time.Sleep(100 * time.Millisecond)
+	if err := mgr.Conn().FlushTimeout(2 * time.Second); err != nil {
+		t.Fatalf("Failed to flush response subscription: %v", err)
+	}
 
 	// Create a NATS message with reply subject
 	natsMsg := &nats.Msg{
@@ -400,8 +411,9 @@ func TestAgent_SendCommandResponse(t *testing.T) {
 		t.Fatalf("Failed to subscribe: %v", err)
 	}
 
-	// Wait for subscription
-	time.Sleep(100 * time.Millisecond)
+	if err := mgr.Conn().FlushTimeout(2 * time.Second); err != nil {
+		t.Fatalf("Failed to flush response subscription: %v", err)
+	}
 
 	// Create a fake original message with reply
 	originalMsg := &nats.Msg{
@@ -454,8 +466,9 @@ func TestAgent_SendCommandError(t *testing.T) {
 		t.Fatalf("Failed to subscribe: %v", err)
 	}
 
-	// Wait for subscription
-	time.Sleep(100 * time.Millisecond)
+	if err := mgr.Conn().FlushTimeout(2 * time.Second); err != nil {
+		t.Fatalf("Failed to flush error subscription: %v", err)
+	}
 
 	// Create a fake original message with reply
 	originalMsg := &nats.Msg{
@@ -491,8 +504,15 @@ func TestAgent_StartStop(t *testing.T) {
 		t.Fatalf("Start failed: %v", err)
 	}
 
-	// Give it time to run loops
-	time.Sleep(300 * time.Millisecond)
+	startTime := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		agent.mu.RLock()
+		lastMetadata := agent.lastMetadata
+		agent.mu.RUnlock()
+		return !lastMetadata.IsZero() && lastMetadata.After(startTime), nil
+	}); err != nil {
+		t.Fatalf("Agent loops did not update metadata: %v", err)
+	}
 
 	// Stop agent
 	err = agent.Stop()
@@ -522,8 +542,9 @@ func TestAgent_HeartbeatLoop(t *testing.T) {
 		t.Fatalf("Failed to subscribe: %v", err)
 	}
 
-	// Wait for subscription to be ready
-	time.Sleep(100 * time.Millisecond)
+	if err := mgr.Conn().FlushTimeout(2 * time.Second); err != nil {
+		t.Fatalf("Failed to flush heartbeat subscription: %v", err)
+	}
 
 	// Start the heartbeat loop
 	agent.wg.Add(1)
@@ -570,8 +591,14 @@ func TestAgent_MetadataUpdateLoop(t *testing.T) {
 	agent.wg.Add(1)
 	go agent.metadataUpdateLoop()
 
-	// Wait for at least one update
-	time.Sleep(150 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		agent.mu.RLock()
+		lastMetadata := agent.lastMetadata
+		agent.mu.RUnlock()
+		return lastMetadata.After(initialTime), nil
+	}); err != nil {
+		t.Fatalf("Timed out waiting for metadata update: %v", err)
+	}
 
 	// Stop the agent
 	agent.cancel()
@@ -600,9 +627,6 @@ func TestAgent_ContextCancellation(t *testing.T) {
 	agent.wg.Add(2)
 	go agent.heartbeatLoop()
 	go agent.metadataUpdateLoop()
-
-	// Let them run briefly
-	time.Sleep(50 * time.Millisecond)
 
 	// Cancel context
 	agent.cancel()
@@ -661,8 +685,9 @@ func TestAgent_HandleCommandRequest_InvalidProto(t *testing.T) {
 		t.Fatalf("subscribeToCommands failed: %v", err)
 	}
 
-	// Wait for subscription
-	time.Sleep(100 * time.Millisecond)
+	if err := mgr.Conn().FlushTimeout(2 * time.Second); err != nil {
+		t.Fatalf("Failed to flush command subscription: %v", err)
+	}
 
 	// Send invalid protobuf data
 	subject := fmt.Sprintf("kscore.default.agent.%s.command", agent.ID())
@@ -679,8 +704,9 @@ func TestAgent_HandleCommandRequest_InvalidProto(t *testing.T) {
 		t.Fatalf("Failed to subscribe to errors: %v", err)
 	}
 
-	// Wait for subscription
-	time.Sleep(100 * time.Millisecond)
+	if err := mgr.Conn().FlushTimeout(2 * time.Second); err != nil {
+		t.Fatalf("Failed to flush error subscription: %v", err)
+	}
 
 	// Send invalid command
 	natsMsg := &nats.Msg{
@@ -736,8 +762,14 @@ func TestExecutor_CancelRunningCommand(t *testing.T) {
 		resultChan <- result
 	}()
 
-	// Wait for command to start
-	time.Sleep(200 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		executor.mu.RLock()
+		_, running := executor.runningCommands["cancel-test"]
+		executor.mu.RUnlock()
+		return running, nil
+	}); err != nil {
+		t.Fatalf("Timed out waiting for command start: %v", err)
+	}
 
 	// Cancel the command
 	err := executor.CancelCommand("cancel-test")
@@ -787,8 +819,14 @@ func TestExecutor_ContextCancellation(t *testing.T) {
 		resultChan <- result
 	}()
 
-	// Wait for command to start
-	time.Sleep(200 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		executor.mu.RLock()
+		_, running := executor.runningCommands["context-cancel-test"]
+		executor.mu.RUnlock()
+		return running, nil
+	}); err != nil {
+		t.Fatalf("Timed out waiting for command start: %v", err)
+	}
 
 	// Cancel the context
 	cancel()
@@ -862,8 +900,9 @@ func TestAgent_HandleCommandRequest_CommandFailure(t *testing.T) {
 		t.Fatalf("subscribeToCommands failed: %v", err)
 	}
 
-	// Wait for subscription
-	time.Sleep(100 * time.Millisecond)
+	if err := mgr.Conn().FlushTimeout(2 * time.Second); err != nil {
+		t.Fatalf("Failed to flush command subscription: %v", err)
+	}
 
 	// Create a command that will fail
 	req := &pb.ExecuteCommandRequest{
@@ -894,8 +933,9 @@ func TestAgent_HandleCommandRequest_CommandFailure(t *testing.T) {
 		t.Fatalf("Failed to subscribe to responses: %v", err)
 	}
 
-	// Wait for response subscription
-	time.Sleep(100 * time.Millisecond)
+	if err := mgr.Conn().FlushTimeout(2 * time.Second); err != nil {
+		t.Fatalf("Failed to flush response subscription: %v", err)
+	}
 
 	// Create a NATS message with reply subject
 	natsMsg := &nats.Msg{

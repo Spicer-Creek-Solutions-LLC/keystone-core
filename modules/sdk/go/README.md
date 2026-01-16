@@ -60,6 +60,22 @@ tinygo build -o module.wasm -target wasm32-wasi .
 tinygo build -o module.wasm -target wasm32-wasi -opt=z .
 ```
 
+## Benchmarks
+
+Run the SDK micro-benchmarks from this directory:
+
+```bash
+go test -bench .
+```
+
+Sample results (Linux x86_64, Go 1.25):
+
+```
+BenchmarkLogLevelString-8    1000000000    0.1946 ns/op
+BenchmarkErrorString-8       16122675     75.79 ns/op
+BenchmarkLogInfoStub-8       1000000000    0.1983 ns/op
+```
+
 ## Available Capabilities
 
 ### Filesystem

@@ -107,7 +107,7 @@ Summary:
 Verify the file was created:
 
 ```bash
-kscorectl exec "*" -- cat /tmp/hello-keystone.txt
+kscorectl exec run "*" -- cat /tmp/hello-keystone.txt
 ```
 
 Output:

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -111,8 +112,7 @@ func (r *HTTPReceiver) Start() error {
 	// Start server in background
 	go func() {
 		if err := r.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			// TODO: Log error properly
-			fmt.Printf("HTTP server error: %v\n", err)
+			log.Printf("events http receiver error: %v", err)
 		}
 	}()
 

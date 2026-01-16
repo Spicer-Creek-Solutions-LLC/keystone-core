@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/shawnbutts/keystone-core/pkg/cli/output"
 )
 
 // newNamespaceCmd creates the namespace command group.
@@ -48,26 +50,26 @@ type NamespaceInfo struct {
 
 // NamespaceQuota contains quota information.
 type NamespaceQuota struct {
-	MaxSize       int64 `json:"max_size,omitempty"`
-	MaxFiles      int64 `json:"max_files,omitempty"`
-	MaxFileSize   int64 `json:"max_file_size,omitempty"`
-	UsedSize      int64 `json:"used_size"`
-	UsedFiles     int64 `json:"used_files"`
-	SizePercent   float64 `json:"size_percent"`
-	FilesPercent  float64 `json:"files_percent"`
+	MaxSize      int64   `json:"max_size,omitempty"`
+	MaxFiles     int64   `json:"max_files,omitempty"`
+	MaxFileSize  int64   `json:"max_file_size,omitempty"`
+	UsedSize     int64   `json:"used_size"`
+	UsedFiles    int64   `json:"used_files"`
+	SizePercent  float64 `json:"size_percent"`
+	FilesPercent float64 `json:"files_percent"`
 }
 
 // NamespaceAccess contains access control information.
 type NamespaceAccess struct {
-	ReadOnly    bool     `json:"read_only"`
-	AllowedIPs  []string `json:"allowed_ips,omitempty"`
+	ReadOnly     bool     `json:"read_only"`
+	AllowedIPs   []string `json:"allowed_ips,omitempty"`
 	AllowedUsers []string `json:"allowed_users,omitempty"`
-	DeniedUsers []string `json:"denied_users,omitempty"`
+	DeniedUsers  []string `json:"denied_users,omitempty"`
 }
 
 // newNamespaceListCmd creates the list command.
 func newNamespaceListCmd() *cobra.Command {
-	var outputJSON bool
+	var outputFmt string
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -76,7 +78,7 @@ func newNamespaceListCmd() *cobra.Command {
 
 Examples:
   kscore-files namespace list
-  kscore-files ns list --json`,
+  kscore-files ns list --output json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, cleanup, err := createAdminClient()
 			if err != nil {
@@ -84,7 +86,7 @@ Examples:
 			}
 			defer cleanup()
 
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutAdmin)
 			defer cancel()
 
 			namespaces, err := listNamespaces(ctx, client)
@@ -92,34 +94,48 @@ Examples:
 				return err
 			}
 
-			if outputJSON {
-				enc := json.NewEncoder(os.Stdout)
-				enc.SetIndent("", "  ")
-				return enc.Encode(namespaces)
+			format, err := output.ParseFormat(outputFmt)
+			if err != nil {
+				return err
 			}
 
-			if len(namespaces) == 0 {
-				fmt.Println("No namespaces configured")
-				return nil
-			}
-
-			fmt.Printf("%-20s %-15s %-10s %-12s %s\n", "NAME", "BACKEND", "FILES", "SIZE", "DESCRIPTION")
-			fmt.Println(strings.Repeat("-", 80))
-
-			for _, ns := range namespaces {
-				desc := ns.Description
-				if len(desc) > 25 {
-					desc = desc[:22] + "..."
+			switch format {
+			case output.FormatJSON:
+				return output.WriteJSON(os.Stdout, namespaces)
+			case output.FormatYAML:
+				return output.WriteYAML(os.Stdout, namespaces)
+			case output.FormatTable, output.FormatText:
+				if len(namespaces) == 0 {
+					fmt.Println("No namespaces configured")
+					return nil
 				}
-				fmt.Printf("%-20s %-15s %-10d %-12s %s\n",
-					ns.Name, ns.Backend, ns.FileCount, formatSize(ns.TotalSize), desc)
-			}
 
-			return nil
+				rows := make([][]string, 0, len(namespaces))
+				for _, ns := range namespaces {
+					desc := ns.Description
+					if len(desc) > 25 {
+						desc = desc[:22] + "..."
+					}
+					rows = append(rows, []string{
+						ns.Name,
+						ns.Backend,
+						fmt.Sprintf("%d", ns.FileCount),
+						formatSize(ns.TotalSize),
+						desc,
+					})
+				}
+				table := &output.Table{
+					Headers: []string{"NAME", "BACKEND", "FILES", "SIZE", "DESCRIPTION"},
+					Rows:    rows,
+				}
+				return output.WriteTable(os.Stdout, table)
+			default:
+				return fmt.Errorf("unsupported output format: %s", outputFmt)
+			}
 		},
 	}
 
-	cmd.Flags().BoolVar(&outputJSON, "json", false, "Output in JSON format")
+	cmd.Flags().StringVarP(&outputFmt, "output", "o", "table", "Output format (table, text, json, yaml)")
 
 	return cmd
 }
@@ -133,6 +149,7 @@ func newNamespaceCreateCmd() *cobra.Command {
 		maxSize     string
 		maxFiles    int64
 		readOnly    bool
+		dryRun      bool
 	)
 
 	cmd := &cobra.Command{
@@ -158,15 +175,6 @@ Examples:
 				}
 			}
 
-			client, cleanup, err := createAdminClient()
-			if err != nil {
-				return err
-			}
-			defer cleanup()
-
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			defer cancel()
-
 			req := &CreateNamespaceRequest{
 				Name:        name,
 				Backend:     backend,
@@ -176,6 +184,34 @@ Examples:
 				MaxFiles:    maxFiles,
 				ReadOnly:    readOnly,
 			}
+
+			if dryRun {
+				fmt.Printf("Dry run: would create namespace %s\n", name)
+				fmt.Printf("  Backend: %s\n", backend)
+				if path != "" {
+					fmt.Printf("  Path: %s\n", path)
+				}
+				if description != "" {
+					fmt.Printf("  Description: %s\n", description)
+				}
+				if maxSizeBytes > 0 {
+					fmt.Printf("  Max Size: %s\n", formatSize(maxSizeBytes))
+				}
+				if maxFiles > 0 {
+					fmt.Printf("  Max Files: %d\n", maxFiles)
+				}
+				fmt.Printf("  Read Only: %t\n", readOnly)
+				return nil
+			}
+
+			client, cleanup, err := createAdminClient()
+			if err != nil {
+				return err
+			}
+			defer cleanup()
+
+			ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutAdmin)
+			defer cancel()
 
 			if err := createNamespace(ctx, client, req); err != nil {
 				return err
@@ -192,6 +228,7 @@ Examples:
 	cmd.Flags().StringVar(&maxSize, "max-size", "", "Maximum total size (e.g., 10GB, 500MB)")
 	cmd.Flags().Int64Var(&maxFiles, "max-files", 0, "Maximum number of files")
 	cmd.Flags().BoolVar(&readOnly, "read-only", false, "Make namespace read-only")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be created without creating")
 
 	cmd.MarkFlagRequired("backend")
 
@@ -200,7 +237,10 @@ Examples:
 
 // newNamespaceDeleteCmd creates the delete command.
 func newNamespaceDeleteCmd() *cobra.Command {
-	var force bool
+	var (
+		force  bool
+		dryRun bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "delete <name>",
@@ -213,6 +253,11 @@ Examples:
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
+
+			if dryRun {
+				fmt.Printf("Dry run: would delete namespace %s\n", name)
+				return nil
+			}
 
 			if !force {
 				fmt.Printf("Delete namespace %s? [y/N]: ", name)
@@ -230,7 +275,7 @@ Examples:
 			}
 			defer cleanup()
 
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutAdmin)
 			defer cancel()
 
 			if err := deleteNamespace(ctx, client, name); err != nil {
@@ -243,13 +288,14 @@ Examples:
 	}
 
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Don't prompt for confirmation")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be deleted without deleting")
 
 	return cmd
 }
 
 // newNamespaceInfoCmd creates the info command.
 func newNamespaceInfoCmd() *cobra.Command {
-	var outputJSON bool
+	var outputFmt string
 
 	cmd := &cobra.Command{
 		Use:   "info <name>",
@@ -258,7 +304,7 @@ func newNamespaceInfoCmd() *cobra.Command {
 
 Examples:
   kscore-files namespace info packages
-  kscore-files ns info configs --json`,
+  kscore-files ns info configs --output json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
@@ -269,7 +315,7 @@ Examples:
 			}
 			defer cleanup()
 
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutAdmin)
 			defer cancel()
 
 			info, err := getNamespaceInfo(ctx, client, name)
@@ -277,65 +323,119 @@ Examples:
 				return err
 			}
 
-			if outputJSON {
-				enc := json.NewEncoder(os.Stdout)
-				enc.SetIndent("", "  ")
-				return enc.Encode(info)
+			format, err := output.ParseFormat(outputFmt)
+			if err != nil {
+				return err
 			}
 
-			fmt.Printf("Namespace: %s\n", info.Name)
-			if info.Description != "" {
-				fmt.Printf("Description: %s\n", info.Description)
-			}
-			fmt.Printf("Backend: %s\n", info.Backend)
-			fmt.Printf("Path: %s\n", info.Path)
-			fmt.Printf("Created: %s\n", info.Created.Format(time.RFC3339))
-			fmt.Printf("Modified: %s\n", info.Modified.Format(time.RFC3339))
-			fmt.Printf("Files: %d\n", info.FileCount)
-			fmt.Printf("Total Size: %s\n", formatSize(info.TotalSize))
+			switch format {
+			case output.FormatJSON:
+				return output.WriteJSON(os.Stdout, info)
+			case output.FormatYAML:
+				return output.WriteYAML(os.Stdout, info)
+			case output.FormatTable:
+				table := buildKeyValueTable([][2]string{
+					{"NAMESPACE", info.Name},
+					{"DESCRIPTION", info.Description},
+					{"BACKEND", info.Backend},
+					{"PATH", info.Path},
+					{"CREATED", info.Created.Format(time.RFC3339)},
+					{"MODIFIED", info.Modified.Format(time.RFC3339)},
+					{"FILES", fmt.Sprintf("%d", info.FileCount)},
+					{"TOTAL SIZE", formatSize(info.TotalSize)},
+				})
+				if err := output.WriteTable(os.Stdout, table); err != nil {
+					return err
+				}
+				if info.Quota != nil {
+					fmt.Println("\nQuota:")
+					quota := buildKeyValueTable([][2]string{
+						{"SIZE", quotaLine(info.Quota)},
+						{"FILES", quotaFilesLine(info.Quota)},
+						{"MAX FILE SIZE", quotaMaxFileSize(info.Quota)},
+					})
+					if err := output.WriteTable(os.Stdout, quota); err != nil {
+						return err
+					}
+				}
+				if info.Access != nil {
+					fmt.Println("\nAccess:")
+					access := buildKeyValueTable([][2]string{
+						{"READ-ONLY", fmt.Sprintf("%t", info.Access.ReadOnly)},
+						{"ALLOWED IPS", strings.Join(info.Access.AllowedIPs, ", ")},
+						{"ALLOWED USERS", strings.Join(info.Access.AllowedUsers, ", ")},
+						{"DENIED USERS", strings.Join(info.Access.DeniedUsers, ", ")},
+					})
+					if err := output.WriteTable(os.Stdout, access); err != nil {
+						return err
+					}
+				}
+				if len(info.Metadata) > 0 {
+					rows := make([][2]string, 0, len(info.Metadata))
+					for k, v := range info.Metadata {
+						rows = append(rows, [2]string{k, v})
+					}
+					fmt.Println("\nMetadata:")
+					return output.WriteTable(os.Stdout, buildKeyValueTable(rows))
+				}
+				return nil
+			case output.FormatText:
+				fmt.Printf("Namespace: %s\n", info.Name)
+				if info.Description != "" {
+					fmt.Printf("Description: %s\n", info.Description)
+				}
+				fmt.Printf("Backend: %s\n", info.Backend)
+				fmt.Printf("Path: %s\n", info.Path)
+				fmt.Printf("Created: %s\n", info.Created.Format(time.RFC3339))
+				fmt.Printf("Modified: %s\n", info.Modified.Format(time.RFC3339))
+				fmt.Printf("Files: %d\n", info.FileCount)
+				fmt.Printf("Total Size: %s\n", formatSize(info.TotalSize))
 
-			if info.Quota != nil {
-				fmt.Println("\nQuota:")
-				if info.Quota.MaxSize > 0 {
-					fmt.Printf("  Size: %s / %s (%.1f%%)\n",
-						formatSize(info.Quota.UsedSize),
-						formatSize(info.Quota.MaxSize),
-						info.Quota.SizePercent)
+				if info.Quota != nil {
+					fmt.Println("\nQuota:")
+					if info.Quota.MaxSize > 0 {
+						fmt.Printf("  Size: %s / %s (%.1f%%)\n",
+							formatSize(info.Quota.UsedSize),
+							formatSize(info.Quota.MaxSize),
+							info.Quota.SizePercent)
+					}
+					if info.Quota.MaxFiles > 0 {
+						fmt.Printf("  Files: %d / %d (%.1f%%)\n",
+							info.Quota.UsedFiles,
+							info.Quota.MaxFiles,
+							info.Quota.FilesPercent)
+					}
+					if info.Quota.MaxFileSize > 0 {
+						fmt.Printf("  Max File Size: %s\n", formatSize(info.Quota.MaxFileSize))
+					}
 				}
-				if info.Quota.MaxFiles > 0 {
-					fmt.Printf("  Files: %d / %d (%.1f%%)\n",
-						info.Quota.UsedFiles,
-						info.Quota.MaxFiles,
-						info.Quota.FilesPercent)
-				}
-				if info.Quota.MaxFileSize > 0 {
-					fmt.Printf("  Max File Size: %s\n", formatSize(info.Quota.MaxFileSize))
-				}
-			}
 
-			if info.Access != nil {
-				fmt.Println("\nAccess:")
-				fmt.Printf("  Read-Only: %v\n", info.Access.ReadOnly)
-				if len(info.Access.AllowedIPs) > 0 {
-					fmt.Printf("  Allowed IPs: %s\n", strings.Join(info.Access.AllowedIPs, ", "))
+				if info.Access != nil {
+					fmt.Println("\nAccess:")
+					fmt.Printf("  Read-Only: %v\n", info.Access.ReadOnly)
+					if len(info.Access.AllowedIPs) > 0 {
+						fmt.Printf("  Allowed IPs: %s\n", strings.Join(info.Access.AllowedIPs, ", "))
+					}
+					if len(info.Access.AllowedUsers) > 0 {
+						fmt.Printf("  Allowed Users: %s\n", strings.Join(info.Access.AllowedUsers, ", "))
+					}
 				}
-				if len(info.Access.AllowedUsers) > 0 {
-					fmt.Printf("  Allowed Users: %s\n", strings.Join(info.Access.AllowedUsers, ", "))
-				}
-			}
 
-			if len(info.Metadata) > 0 {
-				fmt.Println("\nMetadata:")
-				for k, v := range info.Metadata {
-					fmt.Printf("  %s: %s\n", k, v)
+				if len(info.Metadata) > 0 {
+					fmt.Println("\nMetadata:")
+					for k, v := range info.Metadata {
+						fmt.Printf("  %s: %s\n", k, v)
+					}
 				}
-			}
 
-			return nil
+				return nil
+			default:
+				return fmt.Errorf("unsupported output format: %s", outputFmt)
+			}
 		},
 	}
 
-	cmd.Flags().BoolVar(&outputJSON, "json", false, "Output in JSON format")
+	cmd.Flags().StringVarP(&outputFmt, "output", "o", "text", "Output format (text, json, yaml, table)")
 
 	return cmd
 }
@@ -347,6 +447,7 @@ func newNamespaceQuotaCmd() *cobra.Command {
 		maxFiles    int64
 		maxFileSize string
 		clear       bool
+		dryRun      bool
 	)
 
 	cmd := &cobra.Command{
@@ -362,16 +463,21 @@ Examples:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 
-			client, cleanup, err := createAdminClient()
-			if err != nil {
-				return err
-			}
-			defer cleanup()
-
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			defer cancel()
-
 			if clear {
+				if dryRun {
+					fmt.Printf("Dry run: would clear quota for namespace %s\n", name)
+					return nil
+				}
+
+				client, cleanup, err := createAdminClient()
+				if err != nil {
+					return err
+				}
+				defer cleanup()
+
+				ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutAdmin)
+				defer cancel()
+
 				if err := setNamespaceQuota(ctx, client, name, nil); err != nil {
 					return err
 				}
@@ -401,6 +507,29 @@ Examples:
 				quota.MaxFileSize = size
 			}
 
+			if dryRun {
+				fmt.Printf("Dry run: would update quota for namespace %s\n", name)
+				if quota.MaxSize > 0 {
+					fmt.Printf("  Max Size: %s\n", formatSize(quota.MaxSize))
+				}
+				if quota.MaxFiles > 0 {
+					fmt.Printf("  Max Files: %d\n", quota.MaxFiles)
+				}
+				if quota.MaxFileSize > 0 {
+					fmt.Printf("  Max File Size: %s\n", formatSize(quota.MaxFileSize))
+				}
+				return nil
+			}
+
+			client, cleanup, err := createAdminClient()
+			if err != nil {
+				return err
+			}
+			defer cleanup()
+
+			ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutAdmin)
+			defer cancel()
+
 			if err := setNamespaceQuota(ctx, client, name, quota); err != nil {
 				return err
 			}
@@ -414,6 +543,7 @@ Examples:
 	cmd.Flags().Int64Var(&maxFiles, "max-files", 0, "Maximum number of files")
 	cmd.Flags().StringVar(&maxFileSize, "max-file-size", "", "Maximum file size")
 	cmd.Flags().BoolVar(&clear, "clear", false, "Clear all quotas")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be changed without updating quota")
 
 	return cmd
 }
@@ -421,13 +551,14 @@ Examples:
 // newNamespaceAccessCmd creates the access command.
 func newNamespaceAccessCmd() *cobra.Command {
 	var (
-		readOnly     bool
-		readWrite    bool
-		allowIP      []string
-		denyIP       []string
-		allowUser    []string
-		denyUser     []string
-		clearAccess  bool
+		readOnly    bool
+		readWrite   bool
+		allowIP     []string
+		denyIP      []string
+		allowUser   []string
+		denyUser    []string
+		clearAccess bool
+		dryRun      bool
 	)
 
 	cmd := &cobra.Command{
@@ -444,16 +575,21 @@ Examples:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 
-			client, cleanup, err := createAdminClient()
-			if err != nil {
-				return err
-			}
-			defer cleanup()
-
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			defer cancel()
-
 			if clearAccess {
+				if dryRun {
+					fmt.Printf("Dry run: would clear access controls for namespace %s\n", name)
+					return nil
+				}
+
+				client, cleanup, err := createAdminClient()
+				if err != nil {
+					return err
+				}
+				defer cleanup()
+
+				ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutAdmin)
+				defer cancel()
+
 				if err := setNamespaceAccess(ctx, client, name, nil); err != nil {
 					return err
 				}
@@ -479,6 +615,30 @@ Examples:
 				fmt.Println("Warning: --deny-ip requires existing --allow-ip rules")
 			}
 
+			if dryRun {
+				fmt.Printf("Dry run: would update access controls for namespace %s\n", name)
+				fmt.Printf("  Read Only: %t\n", access.ReadOnly)
+				if len(access.AllowedIPs) > 0 {
+					fmt.Printf("  Allowed IPs: %s\n", strings.Join(access.AllowedIPs, ", "))
+				}
+				if len(allowUser) > 0 {
+					fmt.Printf("  Allowed Users: %s\n", strings.Join(allowUser, ", "))
+				}
+				if len(denyUser) > 0 {
+					fmt.Printf("  Denied Users: %s\n", strings.Join(denyUser, ", "))
+				}
+				return nil
+			}
+
+			client, cleanup, err := createAdminClient()
+			if err != nil {
+				return err
+			}
+			defer cleanup()
+
+			ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutAdmin)
+			defer cancel()
+
 			if err := setNamespaceAccess(ctx, client, name, access); err != nil {
 				return err
 			}
@@ -495,6 +655,7 @@ Examples:
 	cmd.Flags().StringSliceVar(&allowUser, "allow-user", nil, "Allow user")
 	cmd.Flags().StringSliceVar(&denyUser, "deny-user", nil, "Deny user")
 	cmd.Flags().BoolVar(&clearAccess, "clear", false, "Clear all access controls")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be changed without updating access controls")
 
 	return cmd
 }
@@ -589,6 +750,27 @@ func setNamespaceAccess(ctx context.Context, client *AdminClient, name string, a
 
 	_, err := client.nc.RequestWithContext(ctx, subject, reqData)
 	return err
+}
+
+func quotaLine(quota *NamespaceQuota) string {
+	if quota == nil || quota.MaxSize == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%s / %s (%.1f%%)", formatSize(quota.UsedSize), formatSize(quota.MaxSize), quota.SizePercent)
+}
+
+func quotaFilesLine(quota *NamespaceQuota) string {
+	if quota == nil || quota.MaxFiles == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%d / %d (%.1f%%)", quota.UsedFiles, quota.MaxFiles, quota.FilesPercent)
+}
+
+func quotaMaxFileSize(quota *NamespaceQuota) string {
+	if quota == nil || quota.MaxFileSize == 0 {
+		return ""
+	}
+	return formatSize(quota.MaxFileSize)
 }
 
 func parseSize(s string) (int64, error) {

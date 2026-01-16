@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -18,12 +19,12 @@ type ControlPlaneServer struct {
 	connMgr         *controlplane.ConnectionManager
 	dispatcher      *controlplane.CommandDispatcher
 	batchDispatcher *controlplane.BatchDispatcher
-	store           state.Store
+	store           state.ControlPlaneStore
 	policyEngine    *policy.PolicyEngine
 }
 
 // NewControlPlaneServer creates a new control plane API server
-func NewControlPlaneServer(connMgr *controlplane.ConnectionManager, dispatcher *controlplane.CommandDispatcher, batchDispatcher *controlplane.BatchDispatcher, store state.Store) *ControlPlaneServer {
+func NewControlPlaneServer(connMgr *controlplane.ConnectionManager, dispatcher *controlplane.CommandDispatcher, batchDispatcher *controlplane.BatchDispatcher, store state.ControlPlaneStore) *ControlPlaneServer {
 	return &ControlPlaneServer{
 		connMgr:         connMgr,
 		dispatcher:      dispatcher,
@@ -187,11 +188,20 @@ func (s *ControlPlaneServer) GetCommandStatus(ctx context.Context, req *pb.GetCo
 
 // ListCommands lists command execution history
 func (s *ControlPlaneServer) ListCommands(ctx context.Context, req *pb.ListCommandsRequest) (*pb.ListCommandsResponse, error) {
+	offset := 0
+	if req.PageToken != "" {
+		parsed, err := strconv.Atoi(req.PageToken)
+		if err != nil || parsed < 0 {
+			return nil, fmt.Errorf("invalid page_token: %q", req.PageToken)
+		}
+		offset = parsed
+	}
+
 	// Build filter
 	filter := &state.CommandFilter{
 		AgentID: req.AgentId,
 		Limit:   int(req.PageSize),
-		Offset:  0, // TODO: Parse page_token for offset
+		Offset:  offset,
 	}
 
 	if req.Status != pb.CommandStatus_COMMAND_STATUS_UNSPECIFIED {
@@ -226,9 +236,15 @@ func (s *ControlPlaneServer) ListCommands(ctx context.Context, req *pb.ListComma
 		pbCommands = append(pbCommands, cmdInfo)
 	}
 
+	nextToken := ""
+	if req.PageSize > 0 && len(pbCommands) == int(req.PageSize) {
+		nextToken = strconv.Itoa(offset + len(pbCommands))
+	}
+
 	return &pb.ListCommandsResponse{
-		Commands:   pbCommands,
-		TotalCount: int32(len(pbCommands)),
+		Commands:      pbCommands,
+		TotalCount:    int32(len(pbCommands)),
+		NextPageToken: nextToken,
 	}, nil
 }
 

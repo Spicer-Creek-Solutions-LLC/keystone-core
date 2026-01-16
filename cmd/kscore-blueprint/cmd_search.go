@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -376,7 +377,9 @@ func parseReference(ref string) (name, version string) {
 }
 
 func getDefaultRegistry() string {
-	// TODO: Read from config file
+	if registryURL := os.Getenv("KSCORE_BLUEPRINT_REGISTRY"); registryURL != "" {
+		return registryURL
+	}
 	return "https://blueprints.keystone-core.io"
 }
 

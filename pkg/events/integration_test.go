@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -30,8 +31,6 @@ func TestIntegration_PublishSubscribe(t *testing.T) {
 	})
 	require.NoError(t, err)
 	defer sub.Unsubscribe()
-
-	time.Sleep(100 * time.Millisecond)
 
 	// Publish various events
 	events := []*Event{
@@ -61,7 +60,11 @@ func TestIntegration_PublishSubscribe(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	time.Sleep(500 * time.Millisecond)
+	require.NoError(t, helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(receivedEvents) == len(events), nil
+	}))
 
 	// Verify all events were received
 	mu.Lock()
@@ -104,7 +107,11 @@ func TestIntegration_EventPersistence(t *testing.T) {
 	defer sub.Unsubscribe()
 
 	// Wait for events to be delivered
-	time.Sleep(1 * time.Second)
+	require.NoError(t, helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(receivedEvents) == 5, nil
+	}))
 
 	// Should receive all persisted events
 	mu.Lock()
@@ -150,8 +157,6 @@ func TestIntegration_MultipleSubscribers(t *testing.T) {
 	require.NoError(t, err)
 	defer sub2.Unsubscribe()
 
-	time.Sleep(100 * time.Millisecond)
-
 	// Publish events
 	for i := 0; i < 3; i++ {
 		event := NewEvent(EventTypeStateChange).
@@ -160,7 +165,13 @@ func TestIntegration_MultipleSubscribers(t *testing.T) {
 		publisher.Publish(event)
 	}
 
-	time.Sleep(500 * time.Millisecond)
+	require.NoError(t, helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		mu1.Lock()
+		defer mu1.Unlock()
+		mu2.Lock()
+		defer mu2.Unlock()
+		return len(events1) == 3 && len(events2) == 3, nil
+	}))
 
 	// Both subscribers should receive all events
 	mu1.Lock()
@@ -192,8 +203,6 @@ func TestIntegration_WildcardSubscription(t *testing.T) {
 	require.NoError(t, err)
 	defer sub.Unsubscribe()
 
-	time.Sleep(100 * time.Millisecond)
-
 	// Publish various events
 	testEvents := []EventType{
 		EventTypeAgentConnect,
@@ -209,7 +218,11 @@ func TestIntegration_WildcardSubscription(t *testing.T) {
 		manager.Publish(event)
 	}
 
-	time.Sleep(500 * time.Millisecond)
+	require.NoError(t, helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		return categoryCount["agent"] == 4, nil
+	}))
 
 	// Should only receive agent events
 	mu.Lock()
@@ -247,8 +260,6 @@ func TestIntegration_ErrorHandling(t *testing.T) {
 	require.NoError(t, err)
 	defer sub.Unsubscribe()
 
-	time.Sleep(100 * time.Millisecond)
-
 	// Publish an event
 	event := NewEvent(EventTypeJobStart).
 		Source("/test").
@@ -259,7 +270,11 @@ func TestIntegration_ErrorHandling(t *testing.T) {
 	require.NoError(t, err)
 
 	// Wait for retries
-	time.Sleep(2 * time.Second)
+	require.NoError(t, helpers.WaitForTimeout(5*time.Second, 10*time.Millisecond, func() (bool, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		return attemptCount[event.ID] == 3, nil
+	}))
 
 	// Should have been attempted 3 times
 	mu.Lock()
@@ -287,8 +302,6 @@ func TestIntegration_CorrelatedEvents(t *testing.T) {
 	require.NoError(t, err)
 	defer sub.Unsubscribe()
 
-	time.Sleep(100 * time.Millisecond)
-
 	// Publish correlated events (simulating a job lifecycle)
 	correlationID := "job-workflow-123"
 
@@ -315,10 +328,13 @@ func TestIntegration_CorrelatedEvents(t *testing.T) {
 
 	for _, event := range events {
 		manager.Publish(event)
-		time.Sleep(50 * time.Millisecond)
 	}
 
-	time.Sleep(500 * time.Millisecond)
+	require.NoError(t, helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(receivedEvents) == len(events), nil
+	}))
 
 	// Verify all events have same correlation ID
 	mu.Lock()
@@ -350,8 +366,6 @@ func TestIntegration_HighThroughput(t *testing.T) {
 	require.NoError(t, err)
 	defer sub.Unsubscribe()
 
-	time.Sleep(100 * time.Millisecond)
-
 	// Publish many events
 	eventCount := 100
 	for i := 0; i < eventCount; i++ {
@@ -373,7 +387,11 @@ func TestIntegration_HighThroughput(t *testing.T) {
 	}
 
 	// Wait for all events to be received
-	time.Sleep(2 * time.Second)
+	require.NoError(t, helpers.WaitForTimeout(5*time.Second, 10*time.Millisecond, func() (bool, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		return receivedCount == eventCount, nil
+	}))
 
 	// Should receive all events
 	mu.Lock()

@@ -85,7 +85,7 @@ Summary: No drift detected
 Let's create some drift by manually modifying the file:
 
 ```bash
-kscorectl exec "web-*" -- sed -i 's/worker_processes auto/worker_processes 1/' /etc/nginx/nginx.conf
+kscorectl exec run "web-*" -- sed -i 's/worker_processes auto/worker_processes 1/' /etc/nginx/nginx.conf
 ```
 
 Now check for drift again:
@@ -231,11 +231,11 @@ View historical drift data:
 # Show recent drift events
 kscorectl events list --type state.drift --last 24h
 
-# Show drift summary by severity
-kscorectl state drift --summary
+# Show a drift report
+kscorectl state drift webserver-config.yaml
 
-# Export drift report
-kscorectl state drift --output json > drift-report.json
+# Export drift report (text)
+kscorectl state drift webserver-config.yaml > drift-report.txt
 ```
 
 ## Step 8: Configure Drift Severity

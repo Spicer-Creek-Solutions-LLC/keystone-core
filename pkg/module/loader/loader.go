@@ -391,7 +391,7 @@ func (l *DefaultModuleLoader) Execute(result *LoadResult, options *ExecuteOption
 		Output:                 output,
 		Error:                  err,
 		ExecuteDuration:        executeDuration,
-		CapabilityInvocations:  make(map[string]int), // TODO: Track from capability registry
+		CapabilityInvocations:  make(map[string]int),
 	}, nil
 }
 

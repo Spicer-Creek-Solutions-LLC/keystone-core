@@ -1187,7 +1187,7 @@ Audit logging is integrated into all CLI tools:
 
 ```bash
 # kscore-exec logs command executions
-kscorectl exec --target "role:web" "systemctl restart nginx"
+kscorectl exec run --target "role:web" -- systemctl restart nginx
 # → Audit: command_executed, result=success, agents=50
 
 # kscore-state logs state applications
@@ -1202,10 +1202,10 @@ kscorectl state drift webserver.yaml
 **Override audit settings**:
 ```bash
 # Disable audit logging
-kscorectl exec --audit-level none "echo test"
+kscorectl exec --audit-level none run "role:web" -- echo test
 
-# Log to file
-kscorectl exec --audit-output file:/var/log/audit.log "echo test"
+# Log to stderr
+kscorectl exec --audit-output stderr run "role:web" -- echo test
 ```
 
 ### Sensitive Data Redaction
@@ -1214,7 +1214,7 @@ Audit logs automatically redact sensitive data:
 
 ```bash
 # Input
-kscorectl exec "mysql -p secret123 -e 'SELECT *'"
+kscorectl exec run "role:db" -- mysql -p secret123 -e 'SELECT *'
 
 # Audit entry (redacted)
 {

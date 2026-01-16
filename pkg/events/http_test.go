@@ -59,10 +59,10 @@ func TestHTTPReceiver_HandleEvent_Native(t *testing.T) {
 	config := DefaultHTTPReceiverConfig()
 	config.SignatureRequired = false
 
-	var publishedEvent *Event
+	published := make(chan *Event, 1)
 	mockPub := &MockPublisher{
 		PublishAsyncFunc: func(event *Event) error {
-			publishedEvent = event
+			published <- event
 			return nil
 		},
 	}
@@ -87,7 +87,10 @@ func TestHTTPReceiver_HandleEvent_Native(t *testing.T) {
 		t.Errorf("Expected status 202, got %d", w.Code)
 	}
 
-	if publishedEvent == nil {
+	var publishedEvent *Event
+	select {
+	case publishedEvent = <-published:
+	case <-time.After(2 * time.Second):
 		t.Fatal("Expected event to be published")
 	}
 
@@ -100,10 +103,10 @@ func TestHTTPReceiver_HandleEvent_CloudEvents(t *testing.T) {
 	config := DefaultHTTPReceiverConfig()
 	config.SignatureRequired = false
 
-	var publishedEvent *Event
+	published := make(chan *Event, 1)
 	mockPub := &MockPublisher{
 		PublishAsyncFunc: func(event *Event) error {
-			publishedEvent = event
+			published <- event
 			return nil
 		},
 	}
@@ -129,7 +132,10 @@ func TestHTTPReceiver_HandleEvent_CloudEvents(t *testing.T) {
 		t.Errorf("Expected status 202, got %d", w.Code)
 	}
 
-	if publishedEvent == nil {
+	var publishedEvent *Event
+	select {
+	case publishedEvent = <-published:
+	case <-time.After(2 * time.Second):
 		t.Fatal("Expected event to be published")
 	}
 
@@ -144,10 +150,10 @@ func TestHTTPReceiver_HandleEvent_WithSignature(t *testing.T) {
 	config.Secret = secret
 	config.SignatureRequired = true
 
-	var publishedEvent *Event
+	published := make(chan *Event, 1)
 	mockPub := &MockPublisher{
 		PublishAsyncFunc: func(event *Event) error {
-			publishedEvent = event
+			published <- event
 			return nil
 		},
 	}
@@ -173,7 +179,9 @@ func TestHTTPReceiver_HandleEvent_WithSignature(t *testing.T) {
 		t.Errorf("Expected status 202, got %d", w.Code)
 	}
 
-	if publishedEvent == nil {
+	select {
+	case <-published:
+	case <-time.After(2 * time.Second):
 		t.Error("Expected event to be published")
 	}
 }
@@ -497,10 +505,10 @@ func TestHTTPIntegration(t *testing.T) {
 	config := DefaultHTTPReceiverConfig()
 	config.SignatureRequired = false
 
-	var publishedEvent *Event
+	published := make(chan *Event, 1)
 	mockPub := &MockPublisher{
 		PublishAsyncFunc: func(event *Event) error {
-			publishedEvent = event
+			published <- event
 			return nil
 		},
 	}
@@ -527,10 +535,10 @@ func TestHTTPIntegration(t *testing.T) {
 		t.Fatalf("Send failed: %v", err)
 	}
 
-	// Wait a bit for async publishing
-	time.Sleep(100 * time.Millisecond)
-
-	if publishedEvent == nil {
+	var publishedEvent *Event
+	select {
+	case publishedEvent = <-published:
+	case <-time.After(2 * time.Second):
 		t.Fatal("Expected event to be published")
 	}
 
@@ -547,10 +555,10 @@ func TestHTTPIntegration_CloudEvents(t *testing.T) {
 	config := DefaultHTTPReceiverConfig()
 	config.SignatureRequired = false
 
-	var publishedEvent *Event
+	published := make(chan *Event, 1)
 	mockPub := &MockPublisher{
 		PublishAsyncFunc: func(event *Event) error {
-			publishedEvent = event
+			published <- event
 			return nil
 		},
 	}
@@ -577,10 +585,10 @@ func TestHTTPIntegration_CloudEvents(t *testing.T) {
 		t.Fatalf("Send failed: %v", err)
 	}
 
-	// Wait a bit for async publishing
-	time.Sleep(100 * time.Millisecond)
-
-	if publishedEvent == nil {
+	var publishedEvent *Event
+	select {
+	case publishedEvent = <-published:
+	case <-time.After(2 * time.Second):
 		t.Fatal("Expected event to be published")
 	}
 

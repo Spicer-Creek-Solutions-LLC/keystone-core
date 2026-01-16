@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestConnectionRole_String(t *testing.T) {
@@ -644,7 +645,11 @@ func TestHybridModeManager_StartWithHostMode(t *testing.T) {
 	defer manager.Stop()
 
 	// Wait for startup
-	time.Sleep(100 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return manager.State() == HybridModeStateActive, nil
+	}); err != nil {
+		t.Fatalf("manager did not become active: %v", err)
+	}
 
 	if manager.State() != HybridModeStateActive {
 		t.Errorf("State() = %v, want active", manager.State())
@@ -685,7 +690,11 @@ func TestHybridModeManager_StartTwice(t *testing.T) {
 	defer manager.Stop()
 
 	// Wait for startup
-	time.Sleep(100 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return manager.State() == HybridModeStateActive, nil
+	}); err != nil {
+		t.Fatalf("manager did not become active: %v", err)
+	}
 
 	// Starting again should error
 	if err := manager.Start(ctx); err == nil {
@@ -782,7 +791,12 @@ func TestHybridModeManager_StatsAfterStart(t *testing.T) {
 	}
 	defer manager.Stop()
 
-	time.Sleep(100 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		stats := manager.GetStats()
+		return stats.State == HybridModeStateActive && stats.ClientConnected, nil
+	}); err != nil {
+		t.Fatalf("stats did not update: %v", err)
+	}
 
 	stats := manager.GetStats()
 	if stats.State != HybridModeStateActive {

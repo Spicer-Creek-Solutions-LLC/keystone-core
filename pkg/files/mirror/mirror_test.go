@@ -3,6 +3,8 @@ package mirror
 import (
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestNewMirrorGroup(t *testing.T) {
@@ -491,7 +493,12 @@ func TestCircuitBreaker(t *testing.T) {
 	}
 
 	// Wait for reset timeout
-	time.Sleep(150 * time.Millisecond)
+	start := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 5*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 150*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("reset wait did not elapse: %v", err)
+	}
 	if !cb.Allow() {
 		t.Error("Should allow request after reset timeout (half-open)")
 	}

@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/shawnbutts/keystone-core/pkg/cli/auditutil"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
@@ -14,6 +15,8 @@ var (
 	serverAddr   string
 	outputFormat string
 	verbose      bool
+	auditLevel   string
+	auditOutput  string
 )
 
 // newRootCmd creates the root command for kscore-cluster
@@ -39,8 +42,10 @@ Usage via kscorectl:
 
 	// Global flags
 	rootCmd.PersistentFlags().StringVarP(&serverAddr, "server", "s", "localhost:9090", "Control plane server address")
-	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "table", "Output format (table, json, yaml)")
+	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "table", "Output format (table, text, json, yaml)")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
+	rootCmd.PersistentFlags().StringVar(&auditLevel, "audit-level", "all", "Audit logging level (all, errors, none)")
+	rootCmd.PersistentFlags().StringVar(&auditOutput, "audit-output", "auto", "Audit output backend (auto, syslog, journald, stderr, none)")
 
 	// Add subcommands
 	rootCmd.AddCommand(
@@ -72,7 +77,10 @@ func newVersionCmd() *cobra.Command {
 }
 
 func main() {
-	if err := newRootCmd().Execute(); err != nil {
+	rootCmd := newRootCmd()
+	auditHandler := auditutil.Attach(rootCmd, "kscore-cluster", &auditLevel, &auditOutput)
+	if err := rootCmd.Execute(); err != nil {
+		auditHandler.LogFailure(err)
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}

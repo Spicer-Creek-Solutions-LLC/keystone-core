@@ -285,7 +285,7 @@ Hardware metadata is available via agent registration and the control plane API:
 kscorectl agents get agent-123 --format json | jq '.metadata.hardware'
 
 # Target agents by hardware characteristics
-kscorectl exec "memory.total > 64GB and cpu.vendor == 'AuthenticAMD'" -- uptime
+kscorectl exec run "memory.total > 64GB and cpu.vendor == 'AuthenticAMD'" -- uptime
 
 # Find all servers with BMC
 kscorectl agents list --filter "bmc.present == true"
@@ -699,7 +699,7 @@ Agents support health checks:
 **Problem**: Agent process fails to start
 
 Check:
-- Config file syntax: `kscore-agent --config agent.yaml --test-config`
+- Config file validation: `kscorectl config validate --config agent.yaml`
 - Permissions: Agent user has access to config file and directories
 - Dependencies: NATS URL is accessible
 

@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestNewFileCache(t *testing.T) {
@@ -352,7 +354,12 @@ func TestFileCache_MaxAge(t *testing.T) {
 	}
 
 	// Wait for expiry
-	time.Sleep(100 * time.Millisecond)
+	start := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 5*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 100*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("expiry wait did not elapse: %v", err)
+	}
 
 	// Should not exist (expired)
 	exists, _ = cache.Exists(ctx, "/test.txt")
@@ -386,9 +393,19 @@ func TestFileCache_MaxFiles(t *testing.T) {
 
 	// Add 3 files (exceeds limit)
 	cache.Put(ctx, "/file1.txt", bytes.NewReader([]byte("test1")), &CacheEntry{})
-	time.Sleep(10 * time.Millisecond)
+	start := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 1*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 10*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("cache gap wait did not elapse: %v", err)
+	}
 	cache.Put(ctx, "/file2.txt", bytes.NewReader([]byte("test2")), &CacheEntry{})
-	time.Sleep(10 * time.Millisecond)
+	start = time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 1*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 10*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("cache gap wait did not elapse: %v", err)
+	}
 	cache.Put(ctx, "/file3.txt", bytes.NewReader([]byte("test3")), &CacheEntry{})
 
 	// First file should be evicted (FIFO)
@@ -418,9 +435,19 @@ func TestFileCache_MaxSize(t *testing.T) {
 
 	// Add files (5 bytes each)
 	cache.Put(ctx, "/file1.txt", bytes.NewReader([]byte("12345")), &CacheEntry{})
-	time.Sleep(10 * time.Millisecond)
+	start := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 1*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 10*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("cache gap wait did not elapse: %v", err)
+	}
 	cache.Put(ctx, "/file2.txt", bytes.NewReader([]byte("67890")), &CacheEntry{})
-	time.Sleep(10 * time.Millisecond)
+	start = time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 1*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 10*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("cache gap wait did not elapse: %v", err)
+	}
 
 	// This should trigger eviction of file1
 	cache.Put(ctx, "/file3.txt", bytes.NewReader([]byte("abcde")), &CacheEntry{})
@@ -455,11 +482,21 @@ func TestFileCache_EvictionLRU(t *testing.T) {
 	cache.Put(ctx, "/file2.txt", bytes.NewReader([]byte("test2")), &CacheEntry{})
 
 	// Access file1 to make it recently used
-	time.Sleep(10 * time.Millisecond)
+	start := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 1*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 10*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("access gap wait did not elapse: %v", err)
+	}
 	cache.Get(ctx, "/file1.txt")
 
 	// Add file3, should evict file2 (least recently used)
-	time.Sleep(10 * time.Millisecond)
+	start = time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 1*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 10*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("access gap wait did not elapse: %v", err)
+	}
 	cache.Put(ctx, "/file3.txt", bytes.NewReader([]byte("test3")), &CacheEntry{})
 
 	// File2 should be evicted, file1 should remain
@@ -553,7 +590,12 @@ func TestFileCache_Cleanup(t *testing.T) {
 	cache.Put(ctx, "/test.txt", bytes.NewReader([]byte("test")), &CacheEntry{})
 
 	// Wait for expiry
-	time.Sleep(100 * time.Millisecond)
+	start := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 5*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 100*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("expiry wait did not elapse: %v", err)
+	}
 
 	// Run cleanup
 	err = cache.Cleanup(ctx)

@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -52,9 +53,6 @@ func TestSubscriber_Subscribe(t *testing.T) {
 	require.NotNil(t, sub)
 	defer sub.Unsubscribe()
 
-	// Give subscription time to be established
-	time.Sleep(100 * time.Millisecond)
-
 	// Publish agent events
 	event1 := NewEvent(EventTypeAgentConnect).
 		Source("/agents/agent-1").
@@ -71,7 +69,11 @@ func TestSubscriber_Subscribe(t *testing.T) {
 	require.NoError(t, err)
 
 	// Wait for events to be received
-	time.Sleep(500 * time.Millisecond)
+	require.NoError(t, helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(receivedEvents) >= 2, nil
+	}))
 
 	// Verify events were received
 	mu.Lock()
@@ -105,8 +107,6 @@ func TestSubscriber_SubscribeSpecificEvent(t *testing.T) {
 	require.NoError(t, err)
 	defer sub.Unsubscribe()
 
-	time.Sleep(100 * time.Millisecond)
-
 	// Publish multiple event types
 	event1 := NewEvent(EventTypeAgentConnect).Source("/test").Build()
 	event2 := NewEvent(EventTypeAgentHeartbeat).Source("/test").Build()
@@ -116,7 +116,11 @@ func TestSubscriber_SubscribeSpecificEvent(t *testing.T) {
 	publisher.Publish(event2) // This should NOT be received
 	publisher.Publish(event3)
 
-	time.Sleep(500 * time.Millisecond)
+	require.NoError(t, helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(receivedEvents) >= 2, nil
+	}))
 
 	// Should only receive connect events
 	mu.Lock()
@@ -165,8 +169,6 @@ func TestSubscriber_SubscribeQueue(t *testing.T) {
 	require.NoError(t, err)
 	defer sub2.Unsubscribe()
 
-	time.Sleep(100 * time.Millisecond)
-
 	// Publish multiple events
 	for i := 0; i < 10; i++ {
 		event := NewEvent(EventTypeJobStart).
@@ -176,7 +178,11 @@ func TestSubscriber_SubscribeQueue(t *testing.T) {
 		publisher.Publish(event)
 	}
 
-	time.Sleep(500 * time.Millisecond)
+	require.NoError(t, helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		return sub1Count+sub2Count >= 10, nil
+	}))
 
 	// Both subscribers should have received some events (load-balanced)
 	mu.Lock()
@@ -217,8 +223,6 @@ func TestSubscriber_SubscribeWithFilter(t *testing.T) {
 	require.NoError(t, err)
 	defer sub.Unsubscribe()
 
-	time.Sleep(100 * time.Millisecond)
-
 	// Publish events with different severities
 	event1 := NewEvent(EventTypeAgentConnect).Severity(SeverityInfo).Source("/test").Build()
 	event2 := NewEvent(EventTypeAgentError).Severity(SeverityError).Source("/test").Build()
@@ -230,7 +234,11 @@ func TestSubscriber_SubscribeWithFilter(t *testing.T) {
 	publisher.Publish(event3)
 	publisher.Publish(event4)
 
-	time.Sleep(500 * time.Millisecond)
+	require.NoError(t, helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(receivedEvents) >= 2, nil
+	}))
 
 	// Should only receive error and critical events (>= error severity)
 	mu.Lock()
@@ -264,13 +272,15 @@ func TestSubscriber_Unsubscribe(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	time.Sleep(100 * time.Millisecond)
-
 	// Publish event
 	event1 := NewEvent(EventTypeAgentConnect).Source("/test").Build()
 	publisher.Publish(event1)
 
-	time.Sleep(200 * time.Millisecond)
+	require.NoError(t, helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		return receivedCount >= 1, nil
+	}))
 
 	// Unsubscribe
 	err = sub.Unsubscribe()
@@ -281,7 +291,12 @@ func TestSubscriber_Unsubscribe(t *testing.T) {
 	event2 := NewEvent(EventTypeAgentHeartbeat).Source("/test").Build()
 	publisher.Publish(event2)
 
-	time.Sleep(200 * time.Millisecond)
+	err = helpers.WaitForTimeout(300*time.Millisecond, 10*time.Millisecond, func() (bool, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		return receivedCount > 1, nil
+	})
+	assert.Error(t, err)
 
 	// Should only have received the first event
 	mu.Lock()
@@ -307,7 +322,9 @@ func TestSubscriber_Close(t *testing.T) {
 	sub2, err := subscriber.Subscribe("job.*", func(event *Event) error { return nil })
 	require.NoError(t, err)
 
-	time.Sleep(100 * time.Millisecond)
+	require.NoError(t, helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return subscriber.GetActiveSubscriptionCount() == 2, nil
+	}))
 
 	assert.Equal(t, 2, subscriber.GetActiveSubscriptionCount())
 

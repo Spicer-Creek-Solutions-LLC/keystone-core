@@ -18,6 +18,7 @@ var (
 	// Global flags
 	auditLevel  string
 	auditOutput string
+	stateTarget string
 
 	rootCmd = &cobra.Command{
 		Use:   "state",
@@ -109,6 +110,7 @@ Examples:
 }
 
 func init() {
+	applyCmd.Flags().StringVar(&stateTarget, "target", "", "Target expression (not used in local mode)")
 	applyCmd.Flags().StringVar(&applyVarsFile, "vars", "", "Variables file (YAML)")
 	applyCmd.Flags().BoolVar(&applyDryRun, "dry-run", false, "Check what would change without applying")
 }
@@ -116,6 +118,7 @@ func init() {
 func applyExecute(cmd *cobra.Command, args []string) error {
 	startTime := time.Now()
 	ctx := context.Background()
+	warnTarget(cmd, stateTarget)
 
 	// Create audit entry (Epic 15)
 	action := audit.ActionStateApplied
@@ -262,6 +265,7 @@ Examples:
 }
 
 func init() {
+	checkCmd.Flags().StringVar(&stateTarget, "target", "", "Target expression (not used in local mode)")
 	checkCmd.Flags().StringVar(&checkVarsFile, "vars", "", "Variables file (YAML)")
 }
 
@@ -298,12 +302,14 @@ Examples:
 }
 
 func init() {
+	driftCmd.Flags().StringVar(&stateTarget, "target", "", "Target expression (not used in local mode)")
 	driftCmd.Flags().StringVar(&driftVarsFile, "vars", "", "Variables file (YAML)")
 }
 
 func driftExecute(cmd *cobra.Command, args []string) error {
 	startTime := time.Now()
 	ctx := context.Background()
+	warnTarget(cmd, stateTarget)
 
 	// Create audit entry (Epic 15)
 	auditEntry := audit.StartEntry(audit.ActionStateApplied, "drift")
@@ -411,6 +417,13 @@ func driftExecute(cmd *cobra.Command, args []string) error {
 	logAudit(audit.ResultSuccess, 0, nil)
 
 	return nil
+}
+
+func warnTarget(cmd *cobra.Command, target string) {
+	if target == "" {
+		return
+	}
+	fmt.Fprintln(cmd.ErrOrStderr(), "Warning: --target is not supported for local state runs; applying locally.")
 }
 
 // Helper functions

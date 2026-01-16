@@ -743,7 +743,7 @@ kscorectl cluster health --verbose
 kscorectl agent list --status
 
 # Verify state integrity
-kscorectl state check --all
+kscorectl state check /etc/kscore/states/*.yaml
 
 # Run integration tests
 kscore-test integration --suite recovery

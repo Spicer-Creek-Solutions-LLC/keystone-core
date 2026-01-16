@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/shawnbutts/keystone-core/pkg/cli/output"
 )
 
 // newCacheCmd creates the cache command group.
@@ -49,14 +51,14 @@ type CacheStatus struct {
 
 // CacheEntry contains information about a cached file.
 type CacheEntry struct {
-	Key        string    `json:"key"`
-	Path       string    `json:"path"`
-	Size       int64     `json:"size"`
-	Checksum   string    `json:"checksum"`
-	CachedAt   time.Time `json:"cached_at"`
-	ExpiresAt  time.Time `json:"expires_at,omitempty"`
-	LastAccess time.Time `json:"last_access"`
-	AccessCount int64    `json:"access_count"`
+	Key         string    `json:"key"`
+	Path        string    `json:"path"`
+	Size        int64     `json:"size"`
+	Checksum    string    `json:"checksum"`
+	CachedAt    time.Time `json:"cached_at"`
+	ExpiresAt   time.Time `json:"expires_at,omitempty"`
+	LastAccess  time.Time `json:"last_access"`
+	AccessCount int64     `json:"access_count"`
 }
 
 // CacheStats contains detailed cache statistics.
@@ -76,7 +78,7 @@ type CacheStats struct {
 
 // newCacheStatusCmd creates the status command.
 func newCacheStatusCmd() *cobra.Command {
-	var outputJSON bool
+	var outputFmt string
 
 	cmd := &cobra.Command{
 		Use:   "status [name]",
@@ -86,7 +88,7 @@ func newCacheStatusCmd() *cobra.Command {
 Examples:
   kscore-files cache status
   kscore-files cache status agent-cache
-  kscore-files cache status --json`,
+  kscore-files cache status --output json`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, cleanup, err := createAdminClient()
@@ -95,7 +97,7 @@ Examples:
 			}
 			defer cleanup()
 
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutAdmin)
 			defer cancel()
 
 			var caches []CacheStatus
@@ -116,36 +118,64 @@ Examples:
 				caches = []CacheStatus{*status}
 			}
 
-			if outputJSON {
-				enc := json.NewEncoder(os.Stdout)
-				enc.SetIndent("", "  ")
-				return enc.Encode(caches)
+			format, err := output.ParseFormat(outputFmt)
+			if err != nil {
+				return err
 			}
 
-			for _, cache := range caches {
-				fmt.Printf("Cache: %s\n", cache.Name)
-				fmt.Printf("Type: %s\n", cache.Type)
-				fmt.Printf("Enabled: %v\n", cache.Enabled)
-				fmt.Printf("Size: %s / %s (%.1f%%)\n",
-					formatSize(cache.Size),
-					formatSize(cache.MaxSize),
-					float64(cache.Size)/float64(cache.MaxSize)*100)
-				fmt.Printf("Entries: %d / %d\n", cache.Entries, cache.MaxEntries)
-				fmt.Printf("Hit Rate: %.2f%%\n", cache.HitRate*100)
-				fmt.Printf("Hits/Misses: %d / %d\n", cache.Hits, cache.Misses)
-				fmt.Printf("Evictions: %d\n", cache.Evictions)
-				fmt.Printf("TTL: %s\n", cache.TTL)
-				if !cache.LastCleared.IsZero() {
-					fmt.Printf("Last Cleared: %s\n", cache.LastCleared.Format(time.RFC3339))
+			switch format {
+			case output.FormatJSON:
+				return output.WriteJSON(os.Stdout, caches)
+			case output.FormatYAML:
+				return output.WriteYAML(os.Stdout, caches)
+			case output.FormatTable:
+				if len(caches) == 0 {
+					fmt.Println("No caches configured")
+					return nil
 				}
-				fmt.Println()
+				rows := make([][]string, 0, len(caches))
+				for _, cache := range caches {
+					rows = append(rows, []string{
+						cache.Name,
+						cache.Type,
+						fmt.Sprintf("%t", cache.Enabled),
+						fmt.Sprintf("%s / %s", formatSize(cache.Size), formatSize(cache.MaxSize)),
+						fmt.Sprintf("%d / %d", cache.Entries, cache.MaxEntries),
+						fmt.Sprintf("%.2f%%", cache.HitRate*100),
+					})
+				}
+				table := &output.Table{
+					Headers: []string{"NAME", "TYPE", "ENABLED", "SIZE", "ENTRIES", "HIT RATE"},
+					Rows:    rows,
+				}
+				return output.WriteTable(os.Stdout, table)
+			case output.FormatText:
+				for _, cache := range caches {
+					fmt.Printf("Cache: %s\n", cache.Name)
+					fmt.Printf("Type: %s\n", cache.Type)
+					fmt.Printf("Enabled: %v\n", cache.Enabled)
+					fmt.Printf("Size: %s / %s (%.1f%%)\n",
+						formatSize(cache.Size),
+						formatSize(cache.MaxSize),
+						float64(cache.Size)/float64(cache.MaxSize)*100)
+					fmt.Printf("Entries: %d / %d\n", cache.Entries, cache.MaxEntries)
+					fmt.Printf("Hit Rate: %.2f%%\n", cache.HitRate*100)
+					fmt.Printf("Hits/Misses: %d / %d\n", cache.Hits, cache.Misses)
+					fmt.Printf("Evictions: %d\n", cache.Evictions)
+					fmt.Printf("TTL: %s\n", cache.TTL)
+					if !cache.LastCleared.IsZero() {
+						fmt.Printf("Last Cleared: %s\n", cache.LastCleared.Format(time.RFC3339))
+					}
+					fmt.Println()
+				}
+				return nil
+			default:
+				return fmt.Errorf("unsupported output format: %s", outputFmt)
 			}
-
-			return nil
 		},
 	}
 
-	cmd.Flags().BoolVar(&outputJSON, "json", false, "Output in JSON format")
+	cmd.Flags().StringVarP(&outputFmt, "output", "o", "text", "Output format (text, json, yaml, table)")
 
 	return cmd
 }
@@ -156,6 +186,7 @@ func newCacheClearCmd() *cobra.Command {
 		pattern string
 		force   bool
 		older   string
+		dryRun  bool
 	)
 
 	cmd := &cobra.Command{
@@ -173,6 +204,17 @@ Examples:
 			cacheName := ""
 			if len(args) > 0 {
 				cacheName = args[0]
+			}
+
+			if dryRun {
+				fmt.Printf("Dry run: would clear cache %s\n", cacheName)
+				if pattern != "" {
+					fmt.Printf("  Pattern: %s\n", pattern)
+				}
+				if older != "" {
+					fmt.Printf("  Older than: %s\n", older)
+				}
+				return nil
 			}
 
 			if !force {
@@ -205,7 +247,7 @@ Examples:
 			}
 			defer cleanup()
 
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutAdminLong)
 			defer cancel()
 
 			// Parse older duration
@@ -231,6 +273,7 @@ Examples:
 	cmd.Flags().StringVar(&pattern, "pattern", "", "Clear only entries matching pattern")
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Don't prompt for confirmation")
 	cmd.Flags().StringVar(&older, "older", "", "Clear entries older than duration (e.g., 7d, 24h)")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be cleared without clearing")
 
 	return cmd
 }
@@ -262,7 +305,7 @@ Examples:
 			}
 			defer cleanup()
 
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+			ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutAdminSync)
 			defer cancel()
 
 			result, err := warmCache(ctx, client, path, namespace, recursive, dryRun)
@@ -297,10 +340,10 @@ Examples:
 // newCacheListCmd creates the list command.
 func newCacheListCmd() *cobra.Command {
 	var (
-		pattern    string
-		limit      int
-		sortBy     string
-		outputJSON bool
+		pattern   string
+		limit     int
+		sortBy    string
+		outputFmt string
 	)
 
 	cmd := &cobra.Command{
@@ -325,7 +368,7 @@ Examples:
 			}
 			defer cleanup()
 
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutAdmin)
 			defer cancel()
 
 			entries, err := listCacheEntries(ctx, client, cacheName, pattern, sortBy, limit)
@@ -333,45 +376,61 @@ Examples:
 				return err
 			}
 
-			if outputJSON {
-				enc := json.NewEncoder(os.Stdout)
-				enc.SetIndent("", "  ")
-				return enc.Encode(entries)
+			format, err := output.ParseFormat(outputFmt)
+			if err != nil {
+				return err
 			}
 
-			if len(entries) == 0 {
-				fmt.Println("No cached entries found")
+			switch format {
+			case output.FormatJSON:
+				return output.WriteJSON(os.Stdout, entries)
+			case output.FormatYAML:
+				return output.WriteYAML(os.Stdout, entries)
+			case output.FormatTable, output.FormatText:
+				if len(entries) == 0 {
+					fmt.Println("No cached entries found")
+					return nil
+				}
+
+				rows := make([][]string, 0, len(entries))
+				for _, entry := range entries {
+					rows = append(rows, []string{
+						formatSize(entry.Size),
+						fmt.Sprintf("%d", entry.AccessCount),
+						entry.CachedAt.Format("2006-01-02 15:04:05"),
+						entry.LastAccess.Format("2006-01-02 15:04:05"),
+						entry.Path,
+					})
+				}
+				table := &output.Table{
+					Headers: []string{"SIZE", "ACCESSES", "CACHED", "LAST ACCESS", "PATH"},
+					Rows:    rows,
+				}
+				if err := output.WriteTable(os.Stdout, table); err != nil {
+					return err
+				}
+				fmt.Printf("\nTotal: %d entries\n", len(entries))
 				return nil
+			default:
+				return fmt.Errorf("unsupported output format: %s", outputFmt)
 			}
-
-			fmt.Printf("%-12s %-10s %-20s %-20s %s\n", "SIZE", "ACCESSES", "CACHED", "LAST ACCESS", "PATH")
-			fmt.Println(strings.Repeat("-", 90))
-
-			for _, entry := range entries {
-				fmt.Printf("%-12s %-10d %-20s %-20s %s\n",
-					formatSize(entry.Size),
-					entry.AccessCount,
-					entry.CachedAt.Format("2006-01-02 15:04:05"),
-					entry.LastAccess.Format("2006-01-02 15:04:05"),
-					entry.Path)
-			}
-
-			fmt.Printf("\nTotal: %d entries\n", len(entries))
-			return nil
 		},
 	}
 
 	cmd.Flags().StringVar(&pattern, "pattern", "", "Filter by pattern")
 	cmd.Flags().IntVar(&limit, "limit", 100, "Maximum entries to show")
 	cmd.Flags().StringVar(&sortBy, "sort-by", "last_access", "Sort by (size, last_access, cached_at, access_count)")
-	cmd.Flags().BoolVar(&outputJSON, "json", false, "Output in JSON format")
+	cmd.Flags().StringVarP(&outputFmt, "output", "o", "table", "Output format (table, text, json, yaml)")
 
 	return cmd
 }
 
 // newCacheEvictCmd creates the evict command.
 func newCacheEvictCmd() *cobra.Command {
-	var force bool
+	var (
+		force  bool
+		dryRun bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "evict <path>",
@@ -384,6 +443,11 @@ Examples:
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := args[0]
+
+			if dryRun {
+				fmt.Printf("Dry run: would evict %s from cache\n", path)
+				return nil
+			}
 
 			if !force {
 				fmt.Printf("Evict %s from cache? [y/N]: ", path)
@@ -401,7 +465,7 @@ Examples:
 			}
 			defer cleanup()
 
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutAdmin)
 			defer cancel()
 
 			evicted, err := evictFromCache(ctx, client, path)
@@ -415,13 +479,14 @@ Examples:
 	}
 
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Don't prompt for confirmation")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be evicted without evicting")
 
 	return cmd
 }
 
 // newCacheStatsCmd creates the stats command.
 func newCacheStatsCmd() *cobra.Command {
-	var outputJSON bool
+	var outputFmt string
 
 	cmd := &cobra.Command{
 		Use:   "stats [name]",
@@ -430,7 +495,7 @@ func newCacheStatsCmd() *cobra.Command {
 
 Examples:
   kscore-files cache stats
-  kscore-files cache stats agent-cache --json`,
+  kscore-files cache stats agent-cache --output json`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cacheName := ""
@@ -444,7 +509,7 @@ Examples:
 			}
 			defer cleanup()
 
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutAdmin)
 			defer cancel()
 
 			stats, err := getCacheStats(ctx, client, cacheName)
@@ -452,40 +517,75 @@ Examples:
 				return err
 			}
 
-			if outputJSON {
-				enc := json.NewEncoder(os.Stdout)
-				enc.SetIndent("", "  ")
-				return enc.Encode(stats)
+			format, err := output.ParseFormat(outputFmt)
+			if err != nil {
+				return err
 			}
 
-			fmt.Printf("Cache Statistics\n")
-			fmt.Println(strings.Repeat("-", 40))
-			fmt.Printf("Hit Rate:        %.2f%%\n", stats.HitRate*100)
-			fmt.Printf("Total Hits:      %d\n", stats.TotalHits)
-			fmt.Printf("Total Misses:    %d\n", stats.TotalMisses)
-			fmt.Printf("Total Evictions: %d\n", stats.TotalEvictions)
-			fmt.Printf("Bytes Served:    %s\n", formatSize(stats.BytesServed))
-			fmt.Printf("Avg Latency:     %s\n", stats.AverageLatency)
-			fmt.Printf("Current Size:    %s\n", formatSize(stats.CurrentSize))
-			fmt.Printf("Current Entries: %d\n", stats.CurrentEntries)
-			if !stats.OldestEntry.IsZero() {
-				fmt.Printf("Oldest Entry:    %s\n", stats.OldestEntry.Format(time.RFC3339))
-			}
-			if !stats.NewestEntry.IsZero() {
-				fmt.Printf("Newest Entry:    %s\n", stats.NewestEntry.Format(time.RFC3339))
-			}
-			if len(stats.TopAccessedKeys) > 0 {
-				fmt.Println("\nTop Accessed:")
-				for i, key := range stats.TopAccessedKeys {
-					fmt.Printf("  %d. %s\n", i+1, key)
+			switch format {
+			case output.FormatJSON:
+				return output.WriteJSON(os.Stdout, stats)
+			case output.FormatYAML:
+				return output.WriteYAML(os.Stdout, stats)
+			case output.FormatTable:
+				table := buildKeyValueTable([][2]string{
+					{"HIT RATE", fmt.Sprintf("%.2f%%", stats.HitRate*100)},
+					{"TOTAL HITS", fmt.Sprintf("%d", stats.TotalHits)},
+					{"TOTAL MISSES", fmt.Sprintf("%d", stats.TotalMisses)},
+					{"TOTAL EVICTIONS", fmt.Sprintf("%d", stats.TotalEvictions)},
+					{"BYTES SERVED", formatSize(stats.BytesServed)},
+					{"AVG LATENCY", stats.AverageLatency.String()},
+					{"CURRENT SIZE", formatSize(stats.CurrentSize)},
+					{"CURRENT ENTRIES", fmt.Sprintf("%d", stats.CurrentEntries)},
+					{"OLDEST ENTRY", formatTime(stats.OldestEntry)},
+					{"NEWEST ENTRY", formatTime(stats.NewestEntry)},
+				})
+				if err := output.WriteTable(os.Stdout, table); err != nil {
+					return err
 				}
+				if len(stats.TopAccessedKeys) > 0 {
+					rows := make([][]string, 0, len(stats.TopAccessedKeys))
+					for i, key := range stats.TopAccessedKeys {
+						rows = append(rows, []string{fmt.Sprintf("%d", i+1), key})
+					}
+					fmt.Println("\nTop Accessed:")
+					return output.WriteTable(os.Stdout, &output.Table{
+						Headers: []string{"RANK", "KEY"},
+						Rows:    rows,
+					})
+				}
+				return nil
+			case output.FormatText:
+				fmt.Printf("Cache Statistics\n")
+				fmt.Println(strings.Repeat("-", 40))
+				fmt.Printf("Hit Rate:        %.2f%%\n", stats.HitRate*100)
+				fmt.Printf("Total Hits:      %d\n", stats.TotalHits)
+				fmt.Printf("Total Misses:    %d\n", stats.TotalMisses)
+				fmt.Printf("Total Evictions: %d\n", stats.TotalEvictions)
+				fmt.Printf("Bytes Served:    %s\n", formatSize(stats.BytesServed))
+				fmt.Printf("Avg Latency:     %s\n", stats.AverageLatency)
+				fmt.Printf("Current Size:    %s\n", formatSize(stats.CurrentSize))
+				fmt.Printf("Current Entries: %d\n", stats.CurrentEntries)
+				if !stats.OldestEntry.IsZero() {
+					fmt.Printf("Oldest Entry:    %s\n", stats.OldestEntry.Format(time.RFC3339))
+				}
+				if !stats.NewestEntry.IsZero() {
+					fmt.Printf("Newest Entry:    %s\n", stats.NewestEntry.Format(time.RFC3339))
+				}
+				if len(stats.TopAccessedKeys) > 0 {
+					fmt.Println("\nTop Accessed:")
+					for i, key := range stats.TopAccessedKeys {
+						fmt.Printf("  %d. %s\n", i+1, key)
+					}
+				}
+				return nil
+			default:
+				return fmt.Errorf("unsupported output format: %s", outputFmt)
 			}
-
-			return nil
 		},
 	}
 
-	cmd.Flags().BoolVar(&outputJSON, "json", false, "Output in JSON format")
+	cmd.Flags().StringVarP(&outputFmt, "output", "o", "text", "Output format (text, json, yaml, table)")
 
 	return cmd
 }

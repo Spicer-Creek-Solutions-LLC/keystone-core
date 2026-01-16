@@ -4,6 +4,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestMetricsCollector_RecordEventPublished(t *testing.T) {
@@ -171,8 +173,12 @@ func TestMetricsCollector_RecordStorageOperation(t *testing.T) {
 func TestMetricsCollector_GetMetrics_Uptime(t *testing.T) {
 	collector := NewMetricsCollector()
 
-	// Wait a bit
-	time.Sleep(100 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		metrics := collector.GetMetrics()
+		return metrics.Uptime >= 100*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("Expected uptime >= 100ms: %v", err)
+	}
 
 	metrics := collector.GetMetrics()
 
@@ -193,12 +199,11 @@ func TestMetricsCollector_GetMetrics_EventRate(t *testing.T) {
 		collector.RecordEventPublished(EventTypeAgentConnect, SeverityInfo)
 	}
 
-	time.Sleep(100 * time.Millisecond)
-
-	metrics := collector.GetMetrics()
-
-	if metrics.EventRate <= 0 {
-		t.Error("Expected positive event rate")
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		metrics := collector.GetMetrics()
+		return metrics.EventRate > 0, nil
+	}); err != nil {
+		t.Fatalf("Expected positive event rate: %v", err)
 	}
 }
 

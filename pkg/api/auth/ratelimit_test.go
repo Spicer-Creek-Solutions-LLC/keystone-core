@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
@@ -98,8 +99,11 @@ func TestAuthRateLimiter_LockoutRemaining(t *testing.T) {
 		t.Error("expected lockout remaining time after failures")
 	}
 
-	// Wait for lockout to expire
-	time.Sleep(1100 * time.Millisecond)
+	if err := helpers.WaitForTimeout(3*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return rl.IsAllowed(clientID), nil
+	}); err != nil {
+		t.Fatalf("expected client to be allowed after lockout expires: %v", err)
+	}
 
 	// Should be allowed again
 	if !rl.IsAllowed(clientID) {

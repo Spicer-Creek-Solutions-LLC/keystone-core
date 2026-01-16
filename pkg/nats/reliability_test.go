@@ -6,6 +6,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 // ============================================================================
@@ -84,7 +86,12 @@ func TestCircuitBreaker_StateTransitions(t *testing.T) {
 	}
 
 	// Wait for timeout
-	time.Sleep(150 * time.Millisecond)
+	start := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 5*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 150*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("timeout wait did not elapse: %v", err)
+	}
 
 	// Next Allow() should transition to half-open
 	if err := cb.Allow(); err != nil {
@@ -393,7 +400,12 @@ func TestDeduplicator_Expiry(t *testing.T) {
 	}
 
 	// Wait for expiry
-	time.Sleep(100 * time.Millisecond)
+	start := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 5*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 100*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("expiry wait did not elapse: %v", err)
+	}
 
 	// Should not be duplicate after expiry
 	if dedup.IsDuplicate("test.subject", []byte("msg-1")) {
@@ -790,11 +802,11 @@ func TestDeliveryManager_Stats(t *testing.T) {
 func TestReliabilityIntegration_CircuitBreakerWithDegradation(t *testing.T) {
 	// Create circuit breaker
 	cbConfig := &AdvancedCircuitBreakerConfig{
-		FailureThreshold: 2,
-		SuccessThreshold: 1,
-		Timeout:          100 * time.Millisecond,
+		FailureThreshold:    2,
+		SuccessThreshold:    1,
+		Timeout:             100 * time.Millisecond,
 		HalfOpenMaxRequests: 1,
-		IsFailure: func(err error) bool { return err != nil },
+		IsFailure:           func(err error) bool { return err != nil },
 	}
 	cb, _ := NewCircuitBreaker("test-endpoint", cbConfig)
 

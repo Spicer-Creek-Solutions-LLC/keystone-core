@@ -6,6 +6,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestEndpointType(t *testing.T) {
@@ -351,8 +353,13 @@ func TestEndpointAdvertiser_Lifecycle(t *testing.T) {
 		t.Error("IsRunning() = false, want true")
 	}
 
-	// Wait for a few advertisements
-	time.Sleep(350 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(advertisements) >= 2, nil
+	}); err != nil {
+		t.Fatalf("expected advertisements: %v", err)
+	}
 
 	mu.Lock()
 	count := len(advertisements)

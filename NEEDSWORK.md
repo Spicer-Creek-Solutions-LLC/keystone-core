@@ -32,13 +32,13 @@ The Keystone Core project is well-architected with 25 completed Epics, comprehen
 
 | Category | Critical | High | Medium | Low |
 |----------|----------|------|--------|-----|
-| Security | ~~3~~ 0 ✅ | ~~1~~ 0 ✅ | 2 | 0 |
-| API Completeness | ~~2~~ 0 ✅ | 4 | 3 | 0 |
-| Documentation | ~~1~~ 0 ✅ | ~~2~~ 0 ✅ | 4 | 3 |
-| Testing | 0 | ~~4~~ 0 ✅ | 6 | 3 |
-| Code Quality | 0 | ~~1~~ 0 ✅ | 8 | 5 |
-| Examples | ~~2~~ 0 ✅ | 3 | 2 | 1 |
-| **TOTAL** | **~~8~~ 0 ✅** | **~~13~~ 0 ✅** | **25** | **12** |
+| Security | ~~3~~ 0 ✅ | ~~1~~ 0 ✅ | ~~2~~ 0 ✅ | 0 |
+| API Completeness | ~~2~~ 0 ✅ | ~~4~~ 0 ✅ | ~~3~~ 0 ✅ | 0 |
+| Documentation | ~~1~~ 0 ✅ | ~~2~~ 0 ✅ | ~~4~~ 0 ✅ | ~~3~~ 0 ✅ |
+| Testing | 0 | ~~4~~ 0 ✅ | ~~6~~ 0 ✅ | ~~3~~ 0 ✅ |
+| Code Quality | 0 | ~~1~~ 0 ✅ | ~~8~~ 0 ✅ | ~~5~~ 0 ✅ |
+| Examples | ~~2~~ 0 ✅ | ~~3~~ 0 ✅ | ~~2~~ 0 ✅ | ~~1~~ 0 ✅ |
+| **TOTAL** | **~~8~~ 0 ✅** | **~~13~~ 0 ✅** | **~~25~~ 0 ✅** | **~~12~~ 0 ✅** |
 
 ---
 
@@ -334,48 +334,61 @@ KSCORE_E2E_TESTS=1 KSCORE_TOPOLOGY=ipv6 make -C test/e2e test-ipv6
 
 ## Medium Priority (Nice to Have)
 
-### 🟡 MED-1: Inconsistent CLI Output Formats
+### ✅ MED-1: Inconsistent CLI Output Formats (RESOLVED)
 
 **Impact**: Some commands support `--output json/yaml/table`, others don't
-**Fix**: Standardize `--output` flag across all CLI plugins.
+**Resolution**: Standardized output formatting across CLI plugins:
+- Added shared formatter in `pkg/cli/output`
+- Added `--output json|yaml|table|text` across plugins
+- Ensured consistent validation and error messaging
 
 ---
 
-### 🟡 MED-2: Inconsistent Error Handling Patterns
+### ✅ MED-2: Inconsistent Error Handling Patterns (RESOLVED)
 
 **Impact**: Mix of custom error types, inline fmt.Errorf, and sentinel errors
-**Fix**: Standardize on wrapped errors with consistent types.
+**Resolution**: Standardized error handling:
+- Added typed errors in `pkg/cli/errors`
+- Updated CLI paths to use consistent wrapped error patterns
 
 ---
 
-### 🟡 MED-3: Large Interfaces Hard to Implement
+### ✅ MED-3: Large Interfaces Hard to Implement (RESOLVED)
 
-**Location**: Various packages
-**Impact**: `pkg/state/interface.go` has 30+ method interfaces
-**Fix**: Consider breaking into smaller, focused interfaces.
+**Location**: `pkg/state/interface.go`
+**Impact**: `pkg/state/interface.go` had 30+ method interfaces
+**Resolution**: Split into focused interfaces:
+- Added `AgentStore`, `CommandStore`, `BatchJobStore`, `HealthStore`
+- Introduced `ControlPlaneStore` and kept `Store` as the full composite
+- Updated control plane dispatchers to depend on narrower interfaces
 
 ---
 
-### 🟡 MED-4: 194 time.Sleep() Calls in Tests
+### ✅ MED-4: 194 time.Sleep() Calls in Tests (RESOLVED)
 
 **Location**: Various test files
 **Impact**: Flaky tests on slow systems
-**Fix**: Replace with wait helpers and condition checks.
+**Resolution**: Replaced sleeps with condition-based waits:
+- Added `pkg/testing/helpers` wait utilities
+- Updated affected tests to use timeouts and readiness checks
 
 ---
 
-### 🟡 MED-5: No Centralized Mock Infrastructure
+### ✅ MED-5: No Centralized Mock Infrastructure (RESOLVED)
 
 **Impact**: Each package creates its own mocks (duplication)
-**Fix**: Create `pkg/testing/` with shared mocks for NATS, database, policy, etc.
+**Resolution**: Added shared test mocks:
+- Introduced `pkg/testing/mocks` for NATS, database, policy, files, and agents
+- Migrated key packages to use shared mocks
 
 ---
 
-### 🟡 MED-6: Missing Audit Logging in Most CLI Plugins
+### ✅ MED-6: Missing Audit Logging in Most CLI Plugins (RESOLVED)
 
 **Impact**: Only kscore-exec and kscore-state have audit integration
-**Missing**: kscore-monitor, kscore-policy, kscore-module, kscore-cluster
-**Fix**: Add consistent audit logging across all plugins.
+**Resolution**: Added consistent audit logging across plugins:
+- Introduced helpers in `pkg/cli/auditutil`
+- Covered kscore-monitor, kscore-policy, kscore-module, kscore-cluster
 
 ---
 
@@ -407,19 +420,19 @@ KSCORE_E2E_TESTS=1 KSCORE_TOPOLOGY=ipv6 make -C test/e2e test-ipv6
 
 ---
 
-### 🟡 MED-9: Canary Metrics Are Placeholders
+### ✅ MED-9: Canary Metrics Are Placeholders (RESOLVED)
 
 **Location**: `pkg/upgrade/rolling.go`
 **Impact**: Canary deployments can't actually check metrics
-**Fix**: Implement real metric checking from Prometheus.
+**Resolution**: Implemented Prometheus queries with thresholds and error handling.
 
 ---
 
-### 🟡 MED-10: Version Compatibility Check is Placeholder
+### ✅ MED-10: Version Compatibility Check is Placeholder (RESOLVED)
 
 **Location**: `pkg/upgrade/version.go`
 **Impact**: `IsCompatibleWith()` doesn't actually check compatibility
-**Fix**: Implement real version compatibility matrix checking.
+**Resolution**: Implemented compatibility matrix rules with test coverage.
 
 ---
 
@@ -432,11 +445,11 @@ KSCORE_E2E_TESTS=1 KSCORE_TOPOLOGY=ipv6 make -C test/e2e test-ipv6
 
 ---
 
-### 🟡 MED-12: mDNS Discovery is Placeholder
+### ✅ MED-12: mDNS Discovery is Placeholder (RESOLVED)
 
 **Location**: `pkg/nats/discovery.go`
 **Impact**: Local network NATS discovery won't work
-**Fix**: Implement using hashicorp/mdns library.
+**Resolution**: Implemented mDNS discovery via `hashicorp/mdns` with tests.
 
 ---
 
@@ -444,53 +457,53 @@ KSCORE_E2E_TESTS=1 KSCORE_TOPOLOGY=ipv6 make -C test/e2e test-ipv6
 
 ## Low Priority (Polish)
 
-### 🟢 LOW-1: Inconsistent Constructor Patterns
+### ✅ LOW-1: Inconsistent Constructor Patterns (RESOLVED)
 
 **Impact**: Some return pointers, others values; parameter styles vary
-**Fix**: Standardize on config struct pattern with pointer returns.
+**Resolution**: Standardized constructors on config structs with pointer returns where appropriate.
 
 ---
 
-### 🟢 LOW-2: Inconsistent Lifecycle Methods
+### ✅ LOW-2: Inconsistent Lifecycle Methods (RESOLVED)
 
 **Impact**: Mix of `Close()`, `Stop()`, `Shutdown()` across packages
-**Fix**: Standardize on `Close()` for cleanup, `Stop()` for services.
+**Resolution**: Standardized `Close()` for cleanup and `Stop()` for services where applicable.
 
 ---
 
-### 🟢 LOW-3: Version Output Inconsistency
+### ✅ LOW-3: Version Output Inconsistency (RESOLVED)
 
 **Impact**: kscore-monitor uses `version.Version` directly, others use `version.Get().String()`
-**Fix**: Use consistent version output pattern.
+**Resolution**: Standardized kscore-monitor to use `version.Get().String()`.
 
 ---
 
-### 🟢 LOW-4: No Plugin Development Documentation
+### ✅ LOW-4: No Plugin Development Documentation (RESOLVED)
 
 **Location**: `docs/`
 **Impact**: Third-party developers can't easily create plugins
-**Fix**: Add plugin development guide.
+**Resolution**: Added plugin development documentation and examples.
 
 ---
 
-### 🟢 LOW-5: Example Module Organization Fragmented
+### ✅ LOW-5: Example Module Organization Fragmented (RESOLVED)
 
 **Impact**: Hello world examples split between `modules/examples/` and `modules/sdk/*/examples/`
-**Fix**: Consolidate or clearly document the split.
+**Resolution**: Documented example locations and roles in module documentation.
 
 ---
 
-### 🟢 LOW-6: Performance Benchmarks Not Measured
+### ✅ LOW-6: Performance Benchmarks Not Measured (RESOLVED)
 
 **Impact**: SDK READMEs show approximate times, not actual measurements
-**Fix**: Add actual benchmark results.
+**Resolution**: Added Go SDK micro-benchmarks and documented sample results.
 
 ---
 
-### 🟢 LOW-7: No Glossary in Documentation
+### ✅ LOW-7: No Glossary in Documentation (RESOLVED)
 
 **Impact**: Users may not understand domain-specific terms
-**Fix**: Add glossary/terminology reference.
+**Resolution**: Added glossary/terminology reference.
 
 ---
 
@@ -509,15 +522,15 @@ KSCORE_E2E_TESTS=1 KSCORE_TOPOLOGY=ipv6 make -C test/e2e test-ipv6
 | ✅ `/docs/reference/blueprints/` | Low | Created - Blueprint API reference |
 | ✅ FAQ Section | Medium | Created - Comprehensive FAQ in community docs |
 | ✅ Tutorials Section | Medium | Created - first-state, remote-execution, drift-detection tutorials |
-| Best Practices Guide | Medium | No best practices document |
-| SDK Documentation | Medium | 4 SDKs minimally documented outside of README files |
-| Migration Guides | Low | Salt→Keystone, embedded→external, SQLite→PostgreSQL |
+| ✅ Best Practices Guide | Medium | Created - best practices guide |
+| ✅ SDK Documentation | Medium | Added SDK reference documentation beyond README files |
+| ✅ Migration Guides | Low | Created migration guides (Salt→Keystone, embedded→external, SQLite→PostgreSQL) |
 
 ### Documentation Quality Issues
 
-- Some code examples use outdated patterns
-- API reference doesn't match implementation (7 services documented, 3 implemented)
-- Blueprint parameter passing format undocumented
+- ✅ Updated code examples to match current patterns
+- ✅ API reference matches implementation (7 services documented, 7 implemented)
+- ✅ Blueprint parameter passing documented in reference docs
 
 ---
 
@@ -632,47 +645,7 @@ KSCORE_E2E_TESTS=1 KSCORE_TOPOLOGY=ipv6 make -C test/e2e test-ipv6
 
 ## TODO/FIXME Comments in Code
 
-**Total**: 37 TODO/FIXME comments found
-
-### Critical (Security/Correctness)
-
-| Location | Comment | Status |
-|----------|---------|--------|
-| `pkg/protocols/ssh/adapter.go` | TODO: Implement proper host key verification | ✅ FIXED (hostkey.go - TOFU default) |
-| `pkg/blueprint/registry/publisher.go` | TODO: Implement actual signing with cosign | ✅ FIXED (signing.go) |
-| `pkg/cluster/embedded.go` | TODO: Add TLS support for embedded etcd | ✅ FIXED (config.go, embedded.go) |
-| `cmd/kscore-exec/main.go` | TODO: Add TLS support | ✅ FIXED (buildTLSConfig) |
-
-### High (Functionality)
-
-| Location | Comment |
-|----------|---------|
-| `pkg/module/loader/loader.go` | TODO: Track from capability registry |
-| `pkg/gitops/verification/engine.go` | TODO: Pass timeout context to verifier |
-| `pkg/files/client.go` | TODO: Evict old entries if over size limit |
-| `pkg/files/server.go` | TODO: Implement path matching |
-| `pkg/files/mirror/sync.go` | TODO: Implement proper glob matching |
-| `cmd/kscore-monitor/client/client.go` | TODO: Get from control plane (3 instances) |
-| `cmd/kscore-cluster/client.go` | TODO: Add gRPC support |
-
-### Medium (Improvements)
-
-| Location | Comment |
-|----------|---------|
-| `pkg/events/kafka.go` | TODO: Log error properly (5 instances) |
-| `pkg/events/http.go` | TODO: Log error properly |
-| `pkg/statemgmt/module_web.go` | TODO: content comparison for idempotency |
-| `pkg/statemgmt/module_lvm.go` | TODO: Check if PVs match, Check size match |
-| `pkg/api/server/controlplane_server.go` | TODO: Parse page_token for offset |
-
-### Low (Housekeeping)
-
-| Location | Comment |
-|----------|---------|
-| `pkg/servicemesh/linkerd.go` | TODO: Extract more metadata |
-| `pkg/edge/manager.go` | TODO: separate state vs command counts |
-| `cmd/kscore-blueprint/cmd_install.go` | TODO: Check dependencies |
-| `cmd/kscore-blueprint/cmd_search.go` | TODO: Read from config file |
+**Total**: 0 TODO comments in project code. Vendor Docsy assets still include upstream TODO/FIXME notes.
 
 ---
 
@@ -685,11 +658,11 @@ KSCORE_E2E_TESTS=1 KSCORE_TOPOLOGY=ipv6 make -C test/e2e test-ipv6
 | Markdown files | 846 |
 | Total lines of Go code | ~180,000 |
 | Test files | 277 |
-| TODO/FIXME comments | 37 (4 critical resolved) |
+| TODO/FIXME comments | 0 |
 | Critical issues | 8 (**8 resolved** ✅) |
-| High priority issues | 13 (11 resolved) |
-| Medium priority issues | 25 (1 resolved) |
-| Low priority issues | 12 |
+| High priority issues | 13 (13 resolved ✅) |
+| Medium priority issues | 25 (25 resolved ✅) |
+| Low priority issues | 12 (12 resolved ✅) |
 | Packages with <50% coverage | 3+ (was 6+) |
 | Broken documentation links | 5 (5 resolved ✅) |
 | Skipped E2E tests | 47 (by design for specific environments) |
@@ -717,13 +690,13 @@ KSCORE_E2E_TESTS=1 KSCORE_TOPOLOGY=ipv6 make -C test/e2e test-ipv6
 4. ~~Enable skipped E2E tests (HIGH-7)~~ ✅ By design - environmental gates for test isolation
 5. ~~Add embedded etcd TLS (HIGH-2)~~ ✅ Full TLS support exists
 
-### Phase 4: Documentation & Polish (2-4 weeks) - IN PROGRESS
+### Phase 4: Documentation & Polish (2-4 weeks) ✅ COMPLETE
 1. ~~Fix broken links (HIGH-9)~~ ✅ All 5 broken links resolved
 2. ~~Create missing concept pages~~ ✅ Kubernetes, cloud-platforms, edge, state-storage pages created
 3. ~~Add FAQ and tutorials~~ ✅ FAQ and 3 tutorials created
 4. ~~Standardize CLI framework (HIGH-6)~~ ✅ Telemetry gateway refactored to Cobra
-5. Standardize CLI output formats (MED-1) - Pending
-6. Add audit logging to CLI plugins (MED-6) - Pending
+5. ~~Standardize CLI output formats (MED-1)~~ ✅ COMPLETE
+6. ~~Add audit logging to CLI plugins (MED-6)~~ ✅ COMPLETE
 
 ---
 

@@ -8,6 +8,7 @@ import (
 
 	"github.com/IBM/sarama"
 	"github.com/IBM/sarama/mocks"
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestDefaultKafkaConfig(t *testing.T) {
@@ -138,7 +139,7 @@ func TestKafkaPublisher_BuildMessage_CloudEvent(t *testing.T) {
 	foundContentType := false
 	for _, header := range msg.Headers {
 		if string(header.Key) == "content-type" &&
-		   string(header.Value) == "application/cloudevents+json" {
+			string(header.Value) == "application/cloudevents+json" {
 			foundContentType = true
 			break
 		}
@@ -195,7 +196,7 @@ func TestKafkaPublisher_BuildMessage_Native(t *testing.T) {
 		// Native format shouldn't have CloudEvent content-type
 		for _, header := range msg.Headers {
 			if string(header.Key) == "content-type" &&
-			   string(header.Value) == "application/cloudevents+json" {
+				string(header.Value) == "application/cloudevents+json" {
 				t.Error("Expected no CloudEvent content-type for native format")
 			}
 		}
@@ -382,8 +383,11 @@ func TestKafkaSubscriber_Subscribe(t *testing.T) {
 		t.Errorf("Expected subject=test-topic, got %s", sub.Subject)
 	}
 
-	// Wait a bit for consumer to start
-	time.Sleep(100 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return len(subscriber.handlers) == 1, nil
+	}); err != nil {
+		t.Fatalf("Expected subscription to be registered: %v", err)
+	}
 
 	// Clean up
 	subscriber.Close()
@@ -436,10 +440,10 @@ func (m *mockConsumerGroup) Close() error {
 	return nil
 }
 
-func (m *mockConsumerGroup) Pause(partitions map[string][]int32) {}
+func (m *mockConsumerGroup) Pause(partitions map[string][]int32)  {}
 func (m *mockConsumerGroup) Resume(partitions map[string][]int32) {}
-func (m *mockConsumerGroup) PauseAll() {}
-func (m *mockConsumerGroup) ResumeAll() {}
+func (m *mockConsumerGroup) PauseAll()                            {}
+func (m *mockConsumerGroup) ResumeAll()                           {}
 
 // Benchmark Kafka message building
 func BenchmarkKafkaPublisher_BuildMessage_CloudEvent(b *testing.B) {

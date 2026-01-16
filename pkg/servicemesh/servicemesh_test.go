@@ -3,6 +3,8 @@ package servicemesh
 import (
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestMeshType_String(t *testing.T) {
@@ -177,8 +179,11 @@ func TestMultiMeshDetector_CacheExpiration(t *testing.T) {
 		t.Error("expected cache to be valid immediately")
 	}
 
-	// Wait for cache to expire
-	time.Sleep(150 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return !detector.isCacheValid(), nil
+	}); err != nil {
+		t.Fatalf("expected cache to be invalid after expiration: %v", err)
+	}
 
 	// Cache should be invalid now
 	if detector.isCacheValid() {
@@ -290,13 +295,13 @@ func TestProxyConfig(t *testing.T) {
 
 func TestTLSConfig(t *testing.T) {
 	config := &TLSConfig{
-		Enabled:       true,
-		Mode:          "STRICT",
-		CertChainFile: "/etc/certs/cert-chain.pem",
+		Enabled:        true,
+		Mode:           "STRICT",
+		CertChainFile:  "/etc/certs/cert-chain.pem",
 		PrivateKeyFile: "/etc/certs/key.pem",
-		CAFile:        "/etc/certs/root-cert.pem",
-		CertProvider:  "istiod",
-		SPIFFEID:      "spiffe://cluster.local/ns/default/sa/default",
+		CAFile:         "/etc/certs/root-cert.pem",
+		CertProvider:   "istiod",
+		SPIFFEID:       "spiffe://cluster.local/ns/default/sa/default",
 	}
 
 	if !config.Enabled {
@@ -518,10 +523,10 @@ func TestMetricsInfo(t *testing.T) {
 		BytesSent:          1024 * 1024 * 1024, // 1GB
 		BytesReceived:      512 * 1024 * 1024,  // 512MB
 		RequestDuration: map[string]float64{
-			"p50": 0.005,   // 5ms
-			"p90": 0.015,   // 15ms
-			"p95": 0.025,   // 25ms
-			"p99": 0.100,   // 100ms
+			"p50": 0.005, // 5ms
+			"p90": 0.015, // 15ms
+			"p95": 0.025, // 25ms
+			"p99": 0.100, // 100ms
 		},
 	}
 

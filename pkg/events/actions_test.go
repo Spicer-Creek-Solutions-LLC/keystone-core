@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestLogAction(t *testing.T) {
@@ -302,12 +304,15 @@ func TestSequenceAction_StopOnError(t *testing.T) {
 
 func TestParallelAction(t *testing.T) {
 	count := int32(0)
+	started := make(chan struct{}, 3)
+	release := make(chan struct{})
 
 	actions := []Action{}
 	for i := 0; i < 3; i++ {
 		actions = append(actions, NewFunctionAction(fmt.Sprintf("action-%d", i), func(ctx context.Context, event *Event) error {
 			atomic.AddInt32(&count, 1)
-			time.Sleep(50 * time.Millisecond)
+			started <- struct{}{}
+			<-release
 			return nil
 		}))
 	}
@@ -316,7 +321,19 @@ func TestParallelAction(t *testing.T) {
 
 	event := NewEvent(EventTypeAgentConnect).Source("/test").Build()
 	start := time.Now()
-	err := parallel.Execute(context.Background(), event)
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- parallel.Execute(context.Background(), event)
+	}()
+
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return len(started) == 3, nil
+	}); err != nil {
+		close(release)
+		t.Fatalf("Expected parallel execution to start all actions: %v", err)
+	}
+	close(release)
+	err := <-errCh
 	duration := time.Since(start)
 
 	if err != nil {

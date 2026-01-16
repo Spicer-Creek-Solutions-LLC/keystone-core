@@ -9,6 +9,7 @@ import (
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 	"github.com/shawnbutts/keystone-core/pkg/config"
 	natsmgr "github.com/shawnbutts/keystone-core/pkg/nats"
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -78,7 +79,12 @@ func TestConnectionManager_StartStop(t *testing.T) {
 	}
 
 	// Give it a moment to subscribe
-	time.Sleep(100 * time.Millisecond)
+	start := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 5*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 100*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("subscribe wait did not elapse: %v", err)
+	}
 
 	// Stop the connection manager
 	if err := cm.Stop(); err != nil {
@@ -95,7 +101,12 @@ func TestConnectionManager_AgentRegistration(t *testing.T) {
 	}
 
 	// Give subscriptions time to be established
-	time.Sleep(100 * time.Millisecond)
+	start := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 5*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 100*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("subscribe wait did not elapse: %v", err)
+	}
 
 	// Create registration request
 	req := &pb.RegisterRequest{
@@ -134,9 +145,15 @@ func TestConnectionManager_AgentRegistration(t *testing.T) {
 	}
 
 	// Verify agent was registered
-	time.Sleep(100 * time.Millisecond)
-	agent, err := cm.GetAgent("test-agent-1")
-	if err != nil {
+	var agent *AgentInfo
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		loaded, err := cm.GetAgent("test-agent-1")
+		if err != nil {
+			return false, nil
+		}
+		agent = loaded
+		return true, nil
+	}); err != nil {
 		t.Fatalf("Failed to get agent: %v", err)
 	}
 
@@ -161,7 +178,12 @@ func TestConnectionManager_Heartbeat(t *testing.T) {
 		t.Fatalf("Failed to start connection manager: %v", err)
 	}
 
-	time.Sleep(100 * time.Millisecond)
+	start := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 5*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 100*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("subscribe wait did not elapse: %v", err)
+	}
 
 	// Register an agent first
 	regReq := &pb.RegisterRequest{
@@ -173,7 +195,12 @@ func TestConnectionManager_Heartbeat(t *testing.T) {
 	regData, _ := proto.Marshal(regReq)
 	natsMgr.PublishRequest("kscore.default.agent.register", regData, 1*time.Second)
 
-	time.Sleep(100 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		_, err := cm.GetAgent("test-agent-2")
+		return err == nil, nil
+	}); err != nil {
+		t.Fatalf("agent registration did not complete: %v", err)
+	}
 
 	// Send heartbeat
 	hbReq := &pb.HeartbeatRequest{
@@ -195,12 +222,19 @@ func TestConnectionManager_Heartbeat(t *testing.T) {
 		t.Fatalf("Failed to send heartbeat: %v", err)
 	}
 
-	time.Sleep(100 * time.Millisecond)
-
-	// Verify agent received heartbeat
-	agent, err := cm.GetAgent("test-agent-2")
-	if err != nil {
-		t.Fatalf("Failed to get agent: %v", err)
+	var agent *AgentInfo
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		loaded, err := cm.GetAgent("test-agent-2")
+		if err != nil {
+			return false, nil
+		}
+		if loaded.LastMetrics == nil {
+			return false, nil
+		}
+		agent = loaded
+		return true, nil
+	}); err != nil {
+		t.Fatalf("Failed to get agent after heartbeat: %v", err)
 	}
 
 	if agent.LastMetrics == nil {
@@ -224,7 +258,12 @@ func TestConnectionManager_ListAgents(t *testing.T) {
 		t.Fatalf("Failed to start connection manager: %v", err)
 	}
 
-	time.Sleep(100 * time.Millisecond)
+	start := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 5*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 100*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("subscribe wait did not elapse: %v", err)
+	}
 
 	// Register multiple agents
 	for i := 1; i <= 3; i++ {
@@ -238,7 +277,11 @@ func TestConnectionManager_ListAgents(t *testing.T) {
 		natsMgr.PublishRequest("kscore.default.agent.register", data, 1*time.Second)
 	}
 
-	time.Sleep(200 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return cm.GetAgentCount() == 3, nil
+	}); err != nil {
+		t.Fatalf("agents did not register: %v", err)
+	}
 
 	// List agents
 	agents := cm.ListAgents()
@@ -269,7 +312,12 @@ func TestConnectionManager_GetAgentCount(t *testing.T) {
 		t.Fatalf("Failed to start connection manager: %v", err)
 	}
 
-	time.Sleep(100 * time.Millisecond)
+	start := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 5*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 100*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("subscribe wait did not elapse: %v", err)
+	}
 
 	// Initially should be 0
 	if count := cm.GetAgentCount(); count != 0 {
@@ -288,7 +336,11 @@ func TestConnectionManager_GetAgentCount(t *testing.T) {
 		natsMgr.PublishRequest("kscore.default.agent.register", data, 1*time.Second)
 	}
 
-	time.Sleep(200 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return cm.GetAgentCount() == 2, nil
+	}); err != nil {
+		t.Fatalf("agents did not register: %v", err)
+	}
 
 	if count := cm.GetAgentCount(); count != 2 {
 		t.Errorf("Expected 2 agents, got %d", count)
@@ -339,7 +391,12 @@ func TestConnectionManager_SendCommand(t *testing.T) {
 		t.Fatalf("Failed to start connection manager: %v", err)
 	}
 
-	time.Sleep(100 * time.Millisecond)
+	start := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 5*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 100*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("subscribe wait did not elapse: %v", err)
+	}
 
 	// Register an agent
 	regReq := &pb.RegisterRequest{
@@ -351,7 +408,12 @@ func TestConnectionManager_SendCommand(t *testing.T) {
 	regData, _ := proto.Marshal(regReq)
 	natsMgr.PublishRequest("kscore.default.agent.register", regData, 1*time.Second)
 
-	time.Sleep(100 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		_, err := cm.GetAgent("test-agent-cmd")
+		return err == nil, nil
+	}); err != nil {
+		t.Fatalf("agent registration did not complete: %v", err)
+	}
 
 	// Subscribe to agent commands (simulate agent)
 	received := make(chan *pb.ExecuteCommandRequest, 1)
@@ -362,7 +424,12 @@ func TestConnectionManager_SendCommand(t *testing.T) {
 		}
 	})
 
-	time.Sleep(50 * time.Millisecond)
+	start = time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 5*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 50*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("subscribe wait did not elapse: %v", err)
+	}
 
 	// Send a heartbeat to keep agent online (with short test timeouts, it can go offline quickly)
 	hbReq := &pb.HeartbeatRequest{
@@ -372,7 +439,15 @@ func TestConnectionManager_SendCommand(t *testing.T) {
 	hbData, _ := proto.Marshal(hbReq)
 	natsMgr.Publish("kscore.default.agent.heartbeat", hbData)
 
-	time.Sleep(50 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		agent, err := cm.GetAgent("test-agent-cmd")
+		if err != nil {
+			return false, nil
+		}
+		return agent.Status == pb.AgentStatus_AGENT_STATUS_ONLINE, nil
+	}); err != nil {
+		t.Fatalf("agent heartbeat did not process: %v", err)
+	}
 
 	// Send command to agent
 	cmdReq := &pb.ExecuteCommandRequest{
@@ -490,7 +565,12 @@ func TestConnectionManager_HeartbeatResetsStatus(t *testing.T) {
 		t.Fatalf("Failed to start connection manager: %v", err)
 	}
 
-	time.Sleep(100 * time.Millisecond)
+	start := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 5*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 100*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("subscribe wait did not elapse: %v", err)
+	}
 
 	// Register an agent
 	regReq := &pb.RegisterRequest{
@@ -502,7 +582,12 @@ func TestConnectionManager_HeartbeatResetsStatus(t *testing.T) {
 	regData, _ := proto.Marshal(regReq)
 	natsMgr.PublishRequest("kscore.default.agent.register", regData, 1*time.Second)
 
-	time.Sleep(100 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		_, err := cm.GetAgent("recovery-agent")
+		return err == nil, nil
+	}); err != nil {
+		t.Fatalf("agent registration did not complete: %v", err)
+	}
 
 	// Manually mark agent as degraded
 	cm.mu.Lock()
@@ -518,10 +603,23 @@ func TestConnectionManager_HeartbeatResetsStatus(t *testing.T) {
 	hbData, _ := proto.Marshal(hbReq)
 	natsMgr.Publish("kscore.default.agent.heartbeat", hbData)
 
-	time.Sleep(100 * time.Millisecond)
-
-	// Agent should be back to ONLINE with reset missed count
-	agent, _ := cm.GetAgent("recovery-agent")
+	var agent *AgentInfo
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		loaded, err := cm.GetAgent("recovery-agent")
+		if err != nil {
+			return false, nil
+		}
+		if loaded.Status != pb.AgentStatus_AGENT_STATUS_ONLINE {
+			return false, nil
+		}
+		if loaded.HeartbeatMissed != 0 {
+			return false, nil
+		}
+		agent = loaded
+		return true, nil
+	}); err != nil {
+		t.Fatalf("agent heartbeat did not reset status: %v", err)
+	}
 	if agent.Status != pb.AgentStatus_AGENT_STATUS_ONLINE {
 		t.Errorf("Expected agent to be ONLINE after heartbeat, got %v", agent.Status)
 	}

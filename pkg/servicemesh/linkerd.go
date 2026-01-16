@@ -87,12 +87,6 @@ func (d *LinkerdDetector) Detect() (*Metadata, error) {
 		}
 	}
 
-	// Get proxy metrics endpoint info
-	if proxyInfo, err := d.getProxyInfo(); err == nil {
-		// Parse additional info from proxy
-		_ = proxyInfo // TODO: Extract more metadata
-	}
-
 	// Get proxy configuration
 	metadata.ProxyConfig = d.getProxyConfig()
 

@@ -162,16 +162,16 @@ func TestCARotationManager(t *testing.T) {
 
 	// Create a CA that doesn't need rotation (young CA with 70% lifetime remaining)
 	now := time.Now()
-	youngCANotBefore := now.Add(-90 * 24 * time.Hour)  // Started 90 days ago
-	youngCANotAfter := now.Add(275 * 24 * time.Hour)   // Expires in 275 days (>70% remaining of 1 year)
+	youngCANotBefore := now.Add(-90 * 24 * time.Hour) // Started 90 days ago
+	youngCANotAfter := now.Add(275 * 24 * time.Hour)  // Expires in 275 days (>70% remaining of 1 year)
 
 	if manager.ShouldRotate(youngCANotBefore, youngCANotAfter) {
 		t.Error("Young CA should not need rotation")
 	}
 
 	// Create a CA that needs rotation (old CA with less than 30% lifetime remaining)
-	oldCANotBefore := now.Add(-300 * 24 * time.Hour)  // Started 300 days ago
-	oldCANotAfter := now.Add(65 * 24 * time.Hour)     // Expires in 65 days (<30% remaining of 1 year)
+	oldCANotBefore := now.Add(-300 * 24 * time.Hour) // Started 300 days ago
+	oldCANotAfter := now.Add(65 * 24 * time.Hour)    // Expires in 65 days (<30% remaining of 1 year)
 
 	if !manager.ShouldRotate(oldCANotBefore, oldCANotAfter) {
 		t.Error("Old CA should need rotation")
@@ -948,7 +948,6 @@ func TestPhase2_Integration(t *testing.T) {
 				if err != nil {
 					return
 				}
-				time.Sleep(10 * time.Millisecond)
 				pool.Put(conn)
 			}()
 		}

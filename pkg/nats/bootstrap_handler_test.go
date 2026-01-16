@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestDefaultBootstrapHandlerConfig(t *testing.T) {
@@ -287,7 +289,12 @@ func TestBootstrapRegistrationHandler_CleanupExpiredCredentials(t *testing.T) {
 	})
 
 	// Wait for short-lived to expire
-	time.Sleep(5 * time.Millisecond)
+	start := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 1*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 5*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("expiry wait did not elapse: %v", err)
+	}
 
 	// Cleanup
 	removed, err := handler.CleanupExpiredCredentials(ctx)

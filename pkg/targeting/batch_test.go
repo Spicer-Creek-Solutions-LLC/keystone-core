@@ -87,7 +87,13 @@ func (m *mockCommandDispatcher) ExecuteCommand(ctx context.Context, req *pb.Exec
 
 		// Simulate delay if specified
 		if exec.delay > 0 {
-			time.Sleep(exec.delay)
+			timer := time.NewTimer(exec.delay)
+			defer timer.Stop()
+			select {
+			case <-ctx.Done():
+				return
+			case <-timer.C:
+			}
 		}
 
 		// Send output
@@ -442,11 +448,11 @@ func TestBatchExecutor_Concurrency(t *testing.T) {
 
 func TestBatchExecution_SuccessRate(t *testing.T) {
 	tests := []struct {
-		name         string
-		total        int
-		completed    int
-		failed       int
-		wantRate     float64
+		name      string
+		total     int
+		completed int
+		failed    int
+		wantRate  float64
 	}{
 		{
 			name:      "all successful",

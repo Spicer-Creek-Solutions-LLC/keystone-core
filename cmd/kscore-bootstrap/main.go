@@ -3,16 +3,18 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/shawnbutts/keystone-core/pkg/bootstrap"
+	"github.com/shawnbutts/keystone-core/pkg/cli/auditutil"
+	"github.com/shawnbutts/keystone-core/pkg/cli/output"
 )
 
 var (
@@ -33,6 +35,8 @@ var (
 	skipVerification bool
 	outputFormat     string
 	timeout          time.Duration
+	auditLevel       string
+	auditOutput      string
 )
 
 func main() {
@@ -59,7 +63,12 @@ This tool handles:
 	rootCmd.AddCommand(cleanupCmd())
 	rootCmd.AddCommand(versionCmd())
 
+	rootCmd.PersistentFlags().StringVar(&auditLevel, "audit-level", "all", "Audit logging level (all, errors, none)")
+	rootCmd.PersistentFlags().StringVar(&auditOutput, "audit-output", "auto", "Audit output backend (auto, syslog, journald, stderr, none)")
+
+	auditHandler := auditutil.Attach(rootCmd, "kscore-bootstrap", &auditLevel, &auditOutput)
 	if err := rootCmd.Execute(); err != nil {
+		auditHandler.LogFailure(err)
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
@@ -135,7 +144,7 @@ Example:
 		RunE: runValidate,
 	}
 
-	cmd.Flags().StringVarP(&outputFormat, "output", "o", "text", "Output format (text, json)")
+	cmd.Flags().StringVarP(&outputFormat, "output", "o", "text", "Output format (text, json, yaml, table)")
 	return cmd
 }
 
@@ -151,7 +160,7 @@ Example:
 		RunE: runStatus,
 	}
 
-	cmd.Flags().StringVarP(&outputFormat, "output", "o", "text", "Output format (text, json)")
+	cmd.Flags().StringVarP(&outputFormat, "output", "o", "text", "Output format (text, json, yaml, table)")
 	return cmd
 }
 
@@ -328,43 +337,92 @@ func runImport(cmd *cobra.Command, args []string) error {
 func runValidate(cmd *cobra.Command, args []string) error {
 	configPath := args[0]
 
+	format, err := output.ParseFormat(outputFormat)
+	if err != nil {
+		return err
+	}
+
 	loader := bootstrap.NewConfigLoader()
 	config, err := loader.LoadSeedConfig(configPath)
 	if err != nil {
-		if outputFormat == "json" {
-			out, _ := json.MarshalIndent(map[string]any{
-				"valid": false,
-				"error": err.Error(),
-			}, "", "  ")
-			fmt.Println(string(out))
-		} else {
-			fmt.Printf("Error: %v\n", err)
+		result := map[string]any{
+			"valid": false,
+			"error": err.Error(),
+		}
+		switch format {
+		case output.FormatJSON:
+			_ = output.WriteJSON(cmd.OutOrStdout(), result)
+		case output.FormatYAML:
+			_ = output.WriteYAML(cmd.OutOrStdout(), result)
+		case output.FormatTable:
+			table := buildKeyValueTable([][2]string{
+				{"VALID", "false"},
+				{"ERROR", err.Error()},
+			})
+			_ = output.WriteTable(cmd.OutOrStdout(), table)
+		case output.FormatText:
+			fmt.Fprintf(cmd.OutOrStdout(), "Error: %v\n", err)
+		default:
+			return fmt.Errorf("unsupported output format: %s", outputFormat)
 		}
 		return err
 	}
 
 	validationErr := bootstrap.ValidateSeedConfig(config)
 
-	if outputFormat == "json" {
+	switch format {
+	case output.FormatJSON:
 		result := map[string]any{
-			"valid":  validationErr == nil,
-			"config": config,
+			"valid": validationErr == nil,
 		}
-		if validationErr != nil {
+		if validationErr == nil {
+			result["config"] = config
+		} else {
 			result["errors"] = validationErr.Error()
 		}
-		out, _ := json.MarshalIndent(result, "", "  ")
-		fmt.Println(string(out))
-	} else {
+		return output.WriteJSON(cmd.OutOrStdout(), result)
+	case output.FormatYAML:
+		result := map[string]any{
+			"valid": validationErr == nil,
+		}
+		if validationErr == nil {
+			result["config"] = config
+		} else {
+			result["errors"] = validationErr.Error()
+		}
+		return output.WriteYAML(cmd.OutOrStdout(), result)
+	case output.FormatTable:
+		table := buildKeyValueTable([][2]string{
+			{"VALID", fmt.Sprintf("%t", validationErr == nil)},
+			{"CLUSTER", config.Cluster.Name},
+			{"CONTROL PLANE REPLICAS", fmt.Sprintf("%d", config.ControlPlane.Replicas)},
+			{"NATS MODE", string(config.NATS.Mode)},
+			{"DATABASE TYPE", string(config.Database.Type)},
+			{"ERRORS", func() string {
+				if validationErr == nil {
+					return ""
+				}
+				return validationErr.Error()
+			}()},
+		})
+		if err := output.WriteTable(cmd.OutOrStdout(), table); err != nil {
+			return err
+		}
 		if validationErr != nil {
-			fmt.Printf("Configuration is invalid:\n  %v\n", validationErr)
 			return validationErr
 		}
-		fmt.Println("Configuration is valid.")
-		fmt.Printf("  Cluster name: %s\n", config.Cluster.Name)
-		fmt.Printf("  Control plane replicas: %d\n", config.ControlPlane.Replicas)
-		fmt.Printf("  NATS mode: %s\n", config.NATS.Mode)
-		fmt.Printf("  Database type: %s\n", config.Database.Type)
+	case output.FormatText:
+		if validationErr != nil {
+			fmt.Fprintf(cmd.OutOrStdout(), "Configuration is invalid:\n  %v\n", validationErr)
+			return validationErr
+		}
+		fmt.Fprintln(cmd.OutOrStdout(), "Configuration is valid.")
+		fmt.Fprintf(cmd.OutOrStdout(), "  Cluster name: %s\n", config.Cluster.Name)
+		fmt.Fprintf(cmd.OutOrStdout(), "  Control plane replicas: %d\n", config.ControlPlane.Replicas)
+		fmt.Fprintf(cmd.OutOrStdout(), "  NATS mode: %s\n", config.NATS.Mode)
+		fmt.Fprintf(cmd.OutOrStdout(), "  Database type: %s\n", config.Database.Type)
+	default:
+		return fmt.Errorf("unsupported output format: %s", outputFormat)
 	}
 
 	return nil
@@ -376,27 +434,71 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	state, err := bootstrap.LoadHandoffState(stateDir)
 	if err != nil {
 		if os.IsNotExist(err) {
-			fmt.Println("No bootstrap state found.")
-			return nil
+			format, formatErr := output.ParseFormat(outputFormat)
+			if formatErr != nil {
+				return formatErr
+			}
+			result := map[string]any{
+				"status":  "not_found",
+				"message": "No bootstrap state found.",
+			}
+			switch format {
+			case output.FormatJSON:
+				return output.WriteJSON(cmd.OutOrStdout(), result)
+			case output.FormatYAML:
+				return output.WriteYAML(cmd.OutOrStdout(), result)
+			case output.FormatTable:
+				table := buildKeyValueTable([][2]string{
+					{"STATUS", "not_found"},
+					{"MESSAGE", "No bootstrap state found."},
+				})
+				return output.WriteTable(cmd.OutOrStdout(), table)
+			case output.FormatText:
+				fmt.Fprintln(cmd.OutOrStdout(), "No bootstrap state found.")
+				return nil
+			default:
+				return fmt.Errorf("unsupported output format: %s", outputFormat)
+			}
 		}
 		return fmt.Errorf("failed to load state: %w", err)
 	}
 
-	if outputFormat == "json" {
-		out, _ := json.MarshalIndent(state, "", "  ")
-		fmt.Println(string(out))
-	} else {
-		fmt.Printf("Bootstrap Status\n")
-		fmt.Printf("  Phase: %s\n", state.Phase)
-		fmt.Printf("  Started: %s\n", state.StartTime.Format(time.RFC3339))
-		fmt.Printf("  Completed steps: %v\n", state.CompletedSteps)
-		fmt.Printf("  Pending steps: %v\n", state.PendingSteps)
-		fmt.Printf("  Health verified: %v\n", state.HealthVerified)
-		fmt.Printf("  States applied: %v\n", state.StatesApplied)
-		fmt.Printf("  Agents connected: %d\n", state.AgentsConnected)
+	format, err := output.ParseFormat(outputFormat)
+	if err != nil {
+		return err
+	}
+
+	switch format {
+	case output.FormatJSON:
+		return output.WriteJSON(cmd.OutOrStdout(), state)
+	case output.FormatYAML:
+		return output.WriteYAML(cmd.OutOrStdout(), state)
+	case output.FormatTable:
+		table := buildKeyValueTable([][2]string{
+			{"PHASE", state.Phase},
+			{"STARTED", state.StartTime.Format(time.RFC3339)},
+			{"COMPLETED STEPS", strings.Join(state.CompletedSteps, ", ")},
+			{"PENDING STEPS", strings.Join(state.PendingSteps, ", ")},
+			{"HEALTH VERIFIED", fmt.Sprintf("%t", state.HealthVerified)},
+			{"STATES APPLIED", fmt.Sprintf("%t", state.StatesApplied)},
+			{"AGENTS CONNECTED", fmt.Sprintf("%d", state.AgentsConnected)},
+			{"ERROR", state.Error},
+		})
+		return output.WriteTable(cmd.OutOrStdout(), table)
+	case output.FormatText:
+		fmt.Fprintln(cmd.OutOrStdout(), "Bootstrap Status")
+		fmt.Fprintf(cmd.OutOrStdout(), "  Phase: %s\n", state.Phase)
+		fmt.Fprintf(cmd.OutOrStdout(), "  Started: %s\n", state.StartTime.Format(time.RFC3339))
+		fmt.Fprintf(cmd.OutOrStdout(), "  Completed steps: %v\n", state.CompletedSteps)
+		fmt.Fprintf(cmd.OutOrStdout(), "  Pending steps: %v\n", state.PendingSteps)
+		fmt.Fprintf(cmd.OutOrStdout(), "  Health verified: %v\n", state.HealthVerified)
+		fmt.Fprintf(cmd.OutOrStdout(), "  States applied: %v\n", state.StatesApplied)
+		fmt.Fprintf(cmd.OutOrStdout(), "  Agents connected: %d\n", state.AgentsConnected)
 		if state.Error != "" {
-			fmt.Printf("  Error: %s\n", state.Error)
+			fmt.Fprintf(cmd.OutOrStdout(), "  Error: %s\n", state.Error)
 		}
+	default:
+		return fmt.Errorf("unsupported output format: %s", outputFormat)
 	}
 
 	return nil
@@ -513,4 +615,19 @@ func (l *cliLogger) Error(msg string, args ...any) {
 		}
 	}
 	fmt.Println()
+}
+
+func buildKeyValueTable(pairs [][2]string) *output.Table {
+	rows := make([][]string, 0, len(pairs))
+	for _, pair := range pairs {
+		if pair[1] == "" {
+			continue
+		}
+		rows = append(rows, []string{pair[0], pair[1]})
+	}
+
+	return &output.Table{
+		Headers: []string{"KEY", "VALUE"},
+		Rows:    rows,
+	}
 }

@@ -149,16 +149,16 @@ Supported backends:
 Use targeting expressions:
 ```bash
 # By hostname glob
-kscorectl exec "web-*" -- uptime
+kscorectl exec run "web-*" -- uptime
 
 # By label
-kscorectl exec "role=database" -- df -h
+kscorectl exec run "role=database" -- df -h
 
 # By expression
-kscorectl exec "os=linux AND cloud.provider=aws" -- cat /etc/os-release
+kscorectl exec run "os=linux AND cloud.provider=aws" -- cat /etc/os-release
 
 # Compound targeting
-kscorectl exec "environment=prod AND NOT role=database" -- uptime
+kscorectl exec run "environment=prod AND NOT role=database" -- uptime
 ```
 
 ### What shells are supported?
@@ -166,16 +166,16 @@ kscorectl exec "environment=prod AND NOT role=database" -- uptime
 - **Linux/macOS**: bash, sh, zsh
 - **Windows**: PowerShell, cmd.exe
 
-The shell is auto-detected based on the OS but can be overridden:
+The shell is auto-detected based on the OS. If you need a specific shell, invoke it explicitly:
 ```bash
-kscorectl exec --shell powershell "windows-*" -- Get-Process
+kscorectl exec run "windows-*" -- powershell -Command "Get-Process"
 ```
 
 ### How do I run commands as a different user?
 
 Use the `--user` flag:
 ```bash
-kscorectl exec --user postgres "db-*" -- psql -c "SELECT 1"
+kscorectl exec run --user postgres "db-*" -- psql -c "SELECT 1"
 ```
 
 Note: Requires the agent to run as root (Linux) or with appropriate privileges (Windows).
@@ -294,13 +294,13 @@ Agents are assigned to control plane nodes using consistent hashing. When a node
 
 2. **Increase timeout**:
    ```bash
-   kscorectl exec --timeout 5m "target" -- long-running-command
+   kscorectl exec run --command-timeout 300 "target" -- long-running-command
    ```
 
-3. **Use async execution**:
+3. **Track a job by ID**:
    ```bash
-   kscorectl exec --async "target" -- long-running-command
-   kscorectl exec status job-id
+   kscorectl exec run --job-id job-123 "target" -- long-running-command
+   kscorectl exec status job-123
    ```
 
 ## Performance

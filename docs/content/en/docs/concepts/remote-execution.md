@@ -183,19 +183,15 @@ Summary: 3 succeeded, 0 failed
 Duration: 1.2s
 ```
 
-### Asynchronous Execution
+### Job Tracking
 
-Fire and forget, poll for results later:
+Assign a job ID to make results easy to find later:
 
 ```bash
-# Start execution
-JOB_ID=$(kscorectl exec run "apt-get update" --target "os:linux" --async)
+kscorectl exec run "apt-get update" --target "os:linux" --job-id job-123
 
 # Check status
-kscorectl exec status $JOB_ID
-
-# Get results when ready
-kscorectl exec output $JOB_ID
+kscorectl exec status job-123
 ```
 
 ### Batch Execution
@@ -206,13 +202,7 @@ Control concurrency to avoid overwhelming infrastructure:
 # Execute on max 10 agents at a time
 kscorectl exec run "systemctl restart app" \
   --target "role:web" \
-  --batch-size 10
-
-# With delay between batches
-kscorectl exec run "yum update -y" \
-  --target "os:linux" \
-  --batch-size 20 \
-  --batch-delay 30s
+  --concurrency 10
 ```
 
 Execution pattern:
@@ -235,9 +225,9 @@ Default shell is bash:
 kscorectl exec run "ps aux | grep nginx" --target "os:linux"
 ```
 
-Specify shell:
+Specify shell explicitly:
 ```bash
-kscorectl exec run "echo \$SHELL" --target "os:linux" --shell sh
+kscorectl exec run "echo \$SHELL" --target "os:linux" -- bash -lc 'echo $SHELL'
 ```
 
 ### Windows (PowerShell/cmd)
@@ -251,7 +241,7 @@ kscorectl exec run "Get-Process | Where-Object {$_.CPU -gt 10}" \
 
 Command Prompt:
 ```bash
-kscorectl exec run "dir C:\\" --target "os:windows" --shell cmd
+kscorectl exec run "dir C:\\" --target "os:windows" -- cmd /c dir C:\
 ```
 
 ### macOS (bash/zsh)
@@ -278,16 +268,10 @@ flowchart TD
 
 ```bash
 # List recent jobs
-kscorectl exec jobs
+kscorectl exec list
 
 # Get job details
 kscorectl exec status <job-id>
-
-# Get job output
-kscorectl exec output <job-id>
-
-# Cancel running job
-kscorectl exec cancel <job-id>
 ```
 
 ### Job Results
@@ -317,28 +301,18 @@ Set maximum execution time:
 # 30 second timeout
 kscorectl exec run "long-running-command" \
   --target "role:web" \
-  --timeout 30s
+  --command-timeout 30
 
 # 5 minute timeout
 kscorectl exec run "database-backup" \
   --target "role:db" \
-  --timeout 5m
+  --command-timeout 300
 ```
 
 Behavior on timeout:
 - Agent kills process after timeout
 - Returns exit code 124 (timeout)
 - Stderr contains "Command timed out after Xs"
-
-### Job Timeouts
-
-Total job timeout (all agents):
-
-```bash
-kscorectl exec run "command" \
-  --target "role:web" \
-  --job-timeout 10m
-```
 
 If any agent hasn't completed after 10 minutes:
 - Job is marked as failed
@@ -365,19 +339,13 @@ Output appears in real-time:
 ...
 ```
 
-### Output Formatting
+### Progress Controls
 
-Control output format:
+Control progress and per-agent output:
 
 ```bash
-# JSON output (for scripting)
-kscorectl exec run "hostname" --target "role:web" --output json
-
-# Table output
-kscorectl exec run "uptime" --target "role:web" --output table
-
-# Quiet (only errors)
-kscorectl exec run "systemctl restart app" --target "role:web" --quiet
+# Show progress only
+kscorectl exec run "systemctl restart app" --target "role:web" --show-results=false
 ```
 
 ## Error Handling
@@ -417,7 +385,7 @@ Stop on first failure:
 ```bash
 kscorectl exec run "migrate-database" \
   --target "role:db" \
-  --fail-fast
+  --continue-on-failure=false
 ```
 
 First failure stops execution on remaining agents.
@@ -460,9 +428,7 @@ Executes: kscore-exec run "cmd"
 **kscore-exec** - Remote execution:
 - `kscorectl exec run` - Execute command
 - `kscorectl exec status` - Check job status
-- `kscorectl exec output` - Get job output
-- `kscorectl exec jobs` - List jobs
-- `kscorectl exec cancel` - Cancel job
+- `kscorectl exec list` - List recent jobs
 
 **kscore-state** - State management:
 - `kscorectl state apply` - Apply state
@@ -588,7 +554,7 @@ kscorectl exec run "cmd" --target "windows-01" --user "Administrator"
 kscorectl exec run "pg_dump mydb > /backup/mydb.sql" \
   --target "role:db" \
   --user "postgres" \
-  --timeout 30m
+  --command-timeout 1800
 ```
 
 **Example: Web Server Restart**
@@ -679,7 +645,7 @@ Total: ~170ms overhead (plus actual command execution time)
    --target "role:web"  # Hits ALL web servers in ALL environments
    ```
 
-2. **Test First**: Use `--dry-run` or target a single agent first
+2. **Test First**: Target a single agent first
    ```bash
    # Test on one agent
    kscorectl exec run "risky-command" --target "web-01"
@@ -695,18 +661,13 @@ Total: ~170ms overhead (plus actual command execution time)
 
 ### Batch Execution
 
-1. **Start Small**: Use small batches for risky operations
+1. **Start Small**: Use limited concurrency for risky operations
    ```bash
-   --batch-size 5  # For service restarts
-   --batch-size 20 # For package updates
+   --concurrency 5  # For service restarts
+   --concurrency 20 # For package updates
    ```
 
-2. **Add Delays**: Give systems time to stabilize
-   ```bash
-   --batch-delay 30s  # Between batches
-   ```
-
-3. **Monitor**: Watch for issues in early batches before continuing
+2. **Monitor**: Watch for issues in early batches before continuing
 
 ### Commands
 
@@ -721,7 +682,7 @@ Total: ~170ms overhead (plus actual command execution time)
 
 2. **Timeouts**: Always set reasonable timeouts
    ```bash
-   --timeout 5m  # For long-running commands
+   --command-timeout 300  # For long-running commands
    ```
 
 3. **Error Handling**: Check exit codes in scripts
@@ -736,9 +697,9 @@ Total: ~170ms overhead (plus actual command execution time)
    kscorectl exec run "command" --target "..." > output.log 2>&1
    ```
 
-2. **JSON for Automation**: Use JSON output for scripting
+2. **Filter Output**: Use standard shell tools for filtering
    ```bash
-   kscorectl exec run "command" --target "..." --output json | jq '.results'
+   kscorectl exec run "command" --target "..." | grep "expected"
    ```
 
 ## Examples
@@ -750,8 +711,7 @@ Restart services with zero downtime:
 ```bash
 kscorectl exec run "systemctl restart nginx" \
   --target "role:web and environment:prod" \
-  --batch-size 1 \
-  --batch-delay 10s
+  --concurrency 1
 ```
 
 ### Package Updates
@@ -762,14 +722,14 @@ Update packages across fleet:
 # Ubuntu/Debian
 kscorectl exec run "apt-get update && apt-get upgrade -y" \
   --target "os:linux and environment:staging" \
-  --batch-size 10 \
-  --timeout 10m
+  --concurrency 10 \
+  --command-timeout 600
 
 # RHEL/CentOS
 kscorectl exec run "yum update -y" \
   --target "os:linux and environment:staging" \
-  --batch-size 10 \
-  --timeout 10m
+  --concurrency 10 \
+  --command-timeout 600
 ```
 
 ### Health Checks
@@ -788,7 +748,7 @@ Collect logs from all servers:
 ```bash
 kscorectl exec run "tail -100 /var/log/app.log" \
   --target "role:web and environment:prod" \
-  --output json > logs.json
+  > logs.txt
 ```
 
 ### Resource Usage
@@ -837,7 +797,7 @@ Check:
 Fix:
 ```bash
 # Increase timeout
---timeout 10m
+--command-timeout 600
 
 # Test command locally first
 ssh agent-01 "command"
@@ -866,8 +826,8 @@ kscorectl exec run "sudo command" --target "..."
 
 Debug:
 ```bash
-# Get detailed output
-kscorectl exec output <job-id> --verbose
+# Get job status
+kscorectl exec status <job-id>
 
 # Check specific failed agent
 kscorectl exec run "command" --target "failed-agent-id"

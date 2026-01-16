@@ -51,8 +51,8 @@ func TestVersionCommand(t *testing.T) {
 	}
 
 	output := buf.String()
-	if !strings.Contains(output, "kscore-monitor version") {
-		t.Errorf("expected version output to contain 'kscore-monitor version', got: %s", output)
+	if !strings.Contains(output, "Keystone Core") {
+		t.Errorf("expected version output to contain 'Keystone Core', got: %s", output)
 	}
 }
 

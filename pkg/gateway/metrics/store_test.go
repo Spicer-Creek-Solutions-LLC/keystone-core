@@ -5,6 +5,7 @@ import (
 	"time"
 
 	dto "github.com/prometheus/client_model/go"
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestMetricsStore_Store(t *testing.T) {
@@ -128,8 +129,8 @@ func TestMetricsStore_Remove(t *testing.T) {
 
 func TestMetricsStore_RemoveStale(t *testing.T) {
 	config := StoreConfig{
-		MaxAge:     100 * time.Millisecond,
-		MaxSeries:  1000,
+		MaxAge:    100 * time.Millisecond,
+		MaxSeries: 1000,
 	}
 	store := NewMetricsStore(config)
 
@@ -148,7 +149,12 @@ func TestMetricsStore_RemoveStale(t *testing.T) {
 	})
 
 	// Wait for staleness
-	time.Sleep(150 * time.Millisecond)
+	start := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 5*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 150*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("staleness wait did not elapse: %v", err)
+	}
 
 	removed := store.RemoveStale()
 	if len(removed) != 1 {

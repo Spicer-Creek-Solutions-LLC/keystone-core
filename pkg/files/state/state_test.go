@@ -7,41 +7,20 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/mocks"
 )
-
-// mockFileSource implements FileSource for testing.
-type mockFileSource struct {
-	content  string
-	checksum string
-	version  string
-	err      error
-}
-
-func (m *mockFileSource) Get(ctx context.Context) (io.ReadCloser, error) {
-	if m.err != nil {
-		return nil, m.err
-	}
-	return io.NopCloser(strings.NewReader(m.content)), nil
-}
-
-func (m *mockFileSource) GetChecksum() string {
-	return m.checksum
-}
-
-func (m *mockFileSource) GetVersion() string {
-	return m.version
-}
 
 // TestParseKSCoreURL tests the ParseKSCoreURL function.
 func TestParseKSCoreURL(t *testing.T) {
 	tests := []struct {
-		name        string
-		url         string
-		wantErr     bool
-		namespace   string
-		path        string
-		version     string
-		checksum    string
+		name      string
+		url       string
+		wantErr   bool
+		namespace string
+		path      string
+		version   string
+		checksum  string
 	}{
 		{
 			name:      "simple_url",
@@ -355,9 +334,9 @@ func TestTemplateRendererCustomDelimiters(t *testing.T) {
 
 // TestTemplateFileSource tests the TemplateFileSource.
 func TestTemplateFileSource(t *testing.T) {
-	source := &mockFileSource{
-		content: "Hello, {{ .name }}!",
-		version: "v1",
+	source := &mocks.FileSource{
+		Data:    []byte("Hello, {{ .name }}!"),
+		Version: "v1",
 	}
 
 	renderer := NewTemplateRenderer(nil)

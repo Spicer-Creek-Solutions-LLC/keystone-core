@@ -142,7 +142,7 @@ func (m *DashboardModel) View() string {
 
 	// Calculate agent stats
 	offline := m.agentsTotal - m.agentsConnected
-	degraded := 0 // TODO: Track degraded agents separately
+	degraded := "n/a"
 
 	// Agents section
 	agentsContent := lipgloss.JoinVertical(
@@ -151,7 +151,7 @@ func (m *DashboardModel) View() string {
 		fmt.Sprintf("Connected: %d/%d", m.agentsConnected, m.agentsTotal),
 		fmt.Sprintf("Online: %d", m.agentsConnected),
 		fmt.Sprintf("Offline: %d", offline),
-		fmt.Sprintf("Degraded: %d", degraded),
+		fmt.Sprintf("Degraded: %s", degraded),
 	)
 	agentsBox := boxStyle.Render(agentsContent)
 
@@ -172,7 +172,7 @@ func (m *DashboardModel) View() string {
 		titleStyle.Render("State"),
 		fmt.Sprintf("Resources: %d", m.stateResources),
 		fmt.Sprintf("Drift Detected: %d", m.stateDriftCount),
-		"Last Check: TODO",
+		fmt.Sprintf("Last Check: n/a"),
 	)
 	stateBox := boxStyle.Render(stateContent)
 

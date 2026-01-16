@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestDefaultConfig(t *testing.T) {
@@ -61,12 +63,16 @@ func TestServerStartStop(t *testing.T) {
 		t.Fatalf("Failed to start server: %v", err)
 	}
 
-	// Give server time to start
-	time.Sleep(100 * time.Millisecond)
-
 	// Test that pprof endpoint is accessible
-	resp, err := http.Get("http://localhost:16061/debug/pprof/")
-	if err != nil {
+	var resp *http.Response
+	if err := helpers.WaitForTimeout(2*time.Second, 50*time.Millisecond, func() (bool, error) {
+		var reqErr error
+		resp, reqErr = http.Get("http://localhost:16061/debug/pprof/")
+		if reqErr != nil {
+			return false, nil
+		}
+		return true, nil
+	}); err != nil {
 		t.Fatalf("Failed to access pprof endpoint: %v", err)
 	}
 	defer resp.Body.Close()

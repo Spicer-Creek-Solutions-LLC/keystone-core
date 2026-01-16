@@ -3,6 +3,8 @@ package policy
 import (
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestRegistryRegisterPolicy(t *testing.T) {
@@ -114,8 +116,11 @@ func TestRegistryUpdatePolicy(t *testing.T) {
 
 	originalCreatedAt := policy.CreatedAt
 
-	// Wait a bit to ensure UpdatedAt changes
-	time.Sleep(10 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return time.Since(originalCreatedAt) >= 10*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("expected UpdatedAt to have a later timestamp: %v", err)
+	}
 
 	updated := &Policy{
 		ID:              "test-policy",

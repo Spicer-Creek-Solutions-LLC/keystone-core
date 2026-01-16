@@ -7,10 +7,11 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/spf13/cobra"
 	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/config"
 	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/ui"
+	"github.com/shawnbutts/keystone-core/pkg/cli/auditutil"
 	"github.com/shawnbutts/keystone-core/pkg/version"
+	"github.com/spf13/cobra"
 )
 
 // Options holds CLI options
@@ -24,8 +25,16 @@ type Options struct {
 	cfg          *config.Config
 }
 
+var (
+	auditLevel  string
+	auditOutput string
+)
+
 func main() {
-	if err := newRootCmd().Execute(); err != nil {
+	rootCmd := newRootCmd()
+	auditHandler := auditutil.Attach(rootCmd, "kscore-monitor", &auditLevel, &auditOutput)
+	if err := rootCmd.Execute(); err != nil {
+		auditHandler.LogFailure(err)
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -61,6 +70,8 @@ Press 'q' to quit, '?' for help.`,
 	}
 
 	rootCmd.PersistentFlags().StringVar(&opts.ConfigFile, "config", "", "config file (default: $HOME/.kscore/monitor.yaml)")
+	rootCmd.PersistentFlags().StringVar(&auditLevel, "audit-level", "all", "Audit logging level (all, errors, none)")
+	rootCmd.PersistentFlags().StringVar(&auditOutput, "audit-output", "auto", "Audit output backend (auto, syslog, journald, stderr, none)")
 	rootCmd.Flags().StringVar(&opts.ControlPlane, "control-plane", "localhost:50051", "Control plane gRPC address")
 	rootCmd.Flags().StringVar(&opts.NATSURL, "nats-url", "nats://localhost:4222", "NATS server URL")
 	rootCmd.Flags().StringVar(&opts.Theme, "theme", "dark", "UI theme (dark, light, solarized-dark, solarized-light, monokai)")
@@ -78,9 +89,8 @@ func newVersionCmd() *cobra.Command {
 		Use:   "version",
 		Short: "Print version information",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Fprintf(cmd.OutOrStdout(), "kscore-monitor version %s\n", version.Version)
-			fmt.Fprintf(cmd.OutOrStdout(), "  Build date: %s\n", version.BuildDate)
-			fmt.Fprintf(cmd.OutOrStdout(), "  Git commit: %s\n", version.GitCommit)
+			info := version.Get()
+			fmt.Fprintln(cmd.OutOrStdout(), info.String())
 		},
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -128,8 +129,7 @@ func NewKafkaPublisher(config *KafkaConfig) (*KafkaPublisher, error) {
 // handleAsyncErrors processes async producer errors
 func (p *KafkaPublisher) handleAsyncErrors() {
 	for err := range p.async.Errors() {
-		// TODO: Log error properly
-		fmt.Printf("Kafka async producer error: %v\n", err)
+		log.Printf("events kafka async producer error: %v", err)
 	}
 }
 
@@ -344,8 +344,7 @@ func NewKafkaSubscriber(config *KafkaConfig) (*KafkaSubscriber, error) {
 // handleErrors processes consumer group errors
 func (s *KafkaSubscriber) handleErrors() {
 	for err := range s.consumerGroup.Errors() {
-		// TODO: Log error properly
-		fmt.Printf("Kafka consumer group error: %v\n", err)
+		log.Printf("events kafka consumer group error: %v", err)
 	}
 }
 
@@ -399,8 +398,7 @@ func (s *KafkaSubscriber) consume() {
 		// Consume will block until the context is cancelled or an error occurs
 		err := s.consumerGroup.Consume(s.ctx, []string{s.config.Topic}, consumerHandler)
 		if err != nil {
-			// TODO: Log error properly
-			fmt.Printf("Kafka consume error: %v\n", err)
+			log.Printf("events kafka consume error: %v", err)
 
 			// If context is cancelled, exit
 			if s.ctx.Err() != nil {
@@ -456,8 +454,7 @@ func (h *kafkaConsumerHandler) ConsumeClaim(session sarama.ConsumerGroupSession,
 			// Parse event from message
 			event, err := h.parseMessage(message)
 			if err != nil {
-				// TODO: Log error properly
-				fmt.Printf("Failed to parse Kafka message: %v\n", err)
+				log.Printf("events kafka parse error: %v", err)
 				session.MarkMessage(message, "")
 				continue
 			}
@@ -466,8 +463,7 @@ func (h *kafkaConsumerHandler) ConsumeClaim(session sarama.ConsumerGroupSession,
 			h.subscriber.mu.RLock()
 			for _, handler := range h.subscriber.handlers {
 				if err := handler(event); err != nil {
-					// TODO: Log error properly
-					fmt.Printf("Event handler error: %v\n", err)
+					log.Printf("events kafka handler error: %v", err)
 				}
 			}
 			h.subscriber.mu.RUnlock()

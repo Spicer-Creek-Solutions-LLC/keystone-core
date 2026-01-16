@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 )
@@ -52,8 +53,12 @@ func TestRemoteExecutionController(t *testing.T) {
 			errCh <- controller.Start(ctx)
 		}()
 
-		// Give it time to start
-		time.Sleep(50 * time.Millisecond)
+		start := time.Now()
+		if err := helpers.WaitForTimeout(2*time.Second, 5*time.Millisecond, func() (bool, error) {
+			return time.Since(start) >= 50*time.Millisecond, nil
+		}); err != nil {
+			t.Fatalf("Controller start wait did not elapse: %v", err)
+		}
 
 		// Stop it
 		cancel()
@@ -105,7 +110,12 @@ func TestStateConfigController(t *testing.T) {
 			errCh <- controller.Start(ctx)
 		}()
 
-		time.Sleep(50 * time.Millisecond)
+		start := time.Now()
+		if err := helpers.WaitForTimeout(2*time.Second, 5*time.Millisecond, func() (bool, error) {
+			return time.Since(start) >= 50*time.Millisecond, nil
+		}); err != nil {
+			t.Fatalf("Controller start wait did not elapse: %v", err)
+		}
 
 		cancel()
 		controller.Stop()
@@ -166,7 +176,12 @@ func TestOperatorManager(t *testing.T) {
 			errCh <- manager.Start(ctx)
 		}()
 
-		time.Sleep(50 * time.Millisecond)
+		start := time.Now()
+		if err := helpers.WaitForTimeout(2*time.Second, 5*time.Millisecond, func() (bool, error) {
+			return time.Since(start) >= 50*time.Millisecond, nil
+		}); err != nil {
+			t.Fatalf("Manager start wait did not elapse: %v", err)
+		}
 
 		cancel()
 		manager.Stop()

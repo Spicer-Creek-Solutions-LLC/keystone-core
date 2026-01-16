@@ -125,6 +125,7 @@ func TestRunCommandFlags(t *testing.T) {
 	}{
 		{"concurrency", "10"},
 		{"continue-on-failure", "true"},
+		{"target", ""},
 		{"working-dir", ""},
 		{"user", ""},
 		{"command-timeout", "300"},

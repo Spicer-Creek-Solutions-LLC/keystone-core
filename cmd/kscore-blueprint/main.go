@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/shawnbutts/keystone-core/pkg/cli/auditutil"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
@@ -55,6 +56,9 @@ Examples:
   kscorectl blueprint publish .`,
 	}
 
+	rootCmd.PersistentFlags().StringVar(&auditLevel, "audit-level", "all", "Audit logging level (all, errors, none)")
+	rootCmd.PersistentFlags().StringVar(&auditOutput, "audit-output", "auto", "Audit output backend (auto, syslog, journald, stderr, none)")
+
 	// Add subcommands
 	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(initCmd)
@@ -90,8 +94,16 @@ func newVersionCmd() *cobra.Command {
 }
 
 func main() {
-	if err := newRootCmd().Execute(); err != nil {
+	rootCmd := newRootCmd()
+	auditHandler := auditutil.Attach(rootCmd, "kscore-blueprint", &auditLevel, &auditOutput)
+	if err := rootCmd.Execute(); err != nil {
+		auditHandler.LogFailure(err)
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 }
+
+var (
+	auditLevel  string
+	auditOutput string
+)

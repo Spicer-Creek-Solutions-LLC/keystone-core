@@ -154,6 +154,48 @@ func TestVersionCompare(t *testing.T) {
 	}
 }
 
+func TestVersionCompatibility(t *testing.T) {
+	tests := []struct {
+		name string
+		v1   Version
+		v2   Version
+		want bool
+	}{
+		{
+			name: "same major compatible",
+			v1:   Version{Major: 1, Minor: 0, Patch: 0},
+			v2:   Version{Major: 1, Minor: 2, Patch: 3},
+			want: true,
+		},
+		{
+			name: "different major incompatible",
+			v1:   Version{Major: 1, Minor: 2, Patch: 3},
+			v2:   Version{Major: 2, Minor: 0, Patch: 0},
+			want: false,
+		},
+		{
+			name: "zero major same minor compatible",
+			v1:   Version{Major: 0, Minor: 3, Patch: 1},
+			v2:   Version{Major: 0, Minor: 3, Patch: 5},
+			want: true,
+		},
+		{
+			name: "zero major different minor incompatible",
+			v1:   Version{Major: 0, Minor: 3, Patch: 1},
+			v2:   Version{Major: 0, Minor: 4, Patch: 0},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.v1.IsCompatibleWith(tt.v2); got != tt.want {
+				t.Errorf("Version.IsCompatibleWith() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestVersionString(t *testing.T) {
 	tests := []struct {
 		name string
@@ -332,6 +374,22 @@ func TestVersionChecker(t *testing.T) {
 			t.Errorf("CheckCompatibility() compatible = false, want true (no restrictions)")
 		}
 	})
+
+	t.Run("no matrix incompatible", func(t *testing.T) {
+		from := Version{Major: 1, Minor: 0, Patch: 0}
+		to := Version{Major: 2, Minor: 0, Patch: 0}
+
+		result, err := checker.CheckCompatibility(ComponentAgent, from, to)
+		if err != nil {
+			t.Fatalf("CheckCompatibility() error = %v", err)
+		}
+		if result.Compatible {
+			t.Error("CheckCompatibility() compatible = true, want false for incompatible majors")
+		}
+		if len(result.Blockers) == 0 {
+			t.Error("CheckCompatibility() blockers = none, want blockers for incompatible majors")
+		}
+	})
 }
 
 // =============================================================================
@@ -461,6 +519,9 @@ func TestDefaultCanaryConfig(t *testing.T) {
 	}
 	if cfg.Interval != 5*time.Minute {
 		t.Errorf("Interval = %v, want %v", cfg.Interval, 5*time.Minute)
+	}
+	if cfg.QueryTimeout != 15*time.Second {
+		t.Errorf("QueryTimeout = %v, want %v", cfg.QueryTimeout, 15*time.Second)
 	}
 }
 
@@ -722,8 +783,8 @@ func TestCanaryStats(t *testing.T) {
 		SuccessfulChecks:  5,
 		FailedChecks:      1,
 		Metrics: map[string]float64{
-			"error_rate":     0.01,
-			"response_time":  150.0,
+			"error_rate":    0.01,
+			"response_time": 150.0,
 		},
 	}
 
@@ -876,11 +937,11 @@ func TestUpgradePlan(t *testing.T) {
 // =============================================================================
 
 type mockNodeManager struct {
-	nodes          []NodeInfo
-	healthMap      map[string]HealthStatus
-	drainCalled    map[string]bool
-	versionMap     map[string]Version
-	upgradedNodes  map[string]string
+	nodes         []NodeInfo
+	healthMap     map[string]HealthStatus
+	drainCalled   map[string]bool
+	versionMap    map[string]Version
+	upgradedNodes map[string]string
 }
 
 func newMockNodeManager() *mockNodeManager {

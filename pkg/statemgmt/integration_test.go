@@ -162,7 +162,17 @@ cmd:
 	}
 
 	// Step 6: Test state removal
-	stateFile.States["file"][1].State = "absent"  // Remove config file
+	configStateUpdated := false
+	for i := range stateFile.States["file"] {
+		if stateFile.States["file"][i].ID == configFile {
+			stateFile.States["file"][i].State = "absent" // Remove config file
+			configStateUpdated = true
+			break
+		}
+	}
+	if !configStateUpdated {
+		t.Fatalf("Failed to locate config file state for %s", configFile)
+	}
 
 	run4, err := ApplyState(ctx, stateFile, false)
 	if err != nil {

@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestNewConnectionDebugger(t *testing.T) {
@@ -119,7 +121,12 @@ func TestConnectionDebugger_EndTrace(t *testing.T) {
 	debugger.AddHop(traceID, "server-1", "nats://localhost:4222", "received")
 	debugger.CompleteHop(traceID, nil)
 
-	time.Sleep(5 * time.Millisecond) // Small delay
+	start := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 1*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 5*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("trace delay did not elapse: %v", err)
+	}
 	debugger.EndTrace(traceID, "agent-2", "delivered", nil)
 
 	trace := debugger.GetTrace(traceID)

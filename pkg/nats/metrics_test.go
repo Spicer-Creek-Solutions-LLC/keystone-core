@@ -6,6 +6,7 @@ import (
 	"time"
 
 	natsclient "github.com/nats-io/nats.go"
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestNewConnectionMetrics(t *testing.T) {
@@ -206,7 +207,12 @@ func TestConnectionMetrics_RecordHealthCheck(t *testing.T) {
 func TestConnectionMetrics_Uptime(t *testing.T) {
 	m := NewConnectionMetrics()
 
-	time.Sleep(10 * time.Millisecond)
+	start := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 1*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 10*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("uptime wait did not elapse: %v", err)
+	}
 
 	uptime := m.Uptime()
 	if uptime < 10*time.Millisecond {

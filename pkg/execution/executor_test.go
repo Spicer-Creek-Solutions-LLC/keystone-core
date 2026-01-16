@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 // newPermissiveExecutor creates an executor with a permissive policy for testing
@@ -347,8 +349,17 @@ func TestExecutor_GetRunningCommands(t *testing.T) {
 		}, nil)
 	}()
 
-	// Give it time to start
-	time.Sleep(100 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		running := e.GetRunningCommands()
+		for _, id := range running {
+			if id == "long-running" {
+				return true, nil
+			}
+		}
+		return false, nil
+	}); err != nil {
+		t.Fatalf("Long-running command not found in running commands: %v", err)
+	}
 
 	running := e.GetRunningCommands()
 	found := false
@@ -386,8 +397,17 @@ func TestExecutor_CancelCommand(t *testing.T) {
 		close(done)
 	}()
 
-	// Give it time to start
-	time.Sleep(100 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		running := e.GetRunningCommands()
+		for _, id := range running {
+			if id == "cancel-test" {
+				return true, nil
+			}
+		}
+		return false, nil
+	}); err != nil {
+		t.Fatalf("Cancel command did not start: %v", err)
+	}
 
 	// Cancel the command
 	err := e.CancelCommand("cancel-test")
@@ -437,8 +457,17 @@ func TestExecutor_Execute_ContextCancellation(t *testing.T) {
 		close(done)
 	}()
 
-	// Give it time to start
-	time.Sleep(100 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		running := e.GetRunningCommands()
+		for _, id := range running {
+			if id == "ctx-cancel-test" {
+				return true, nil
+			}
+		}
+		return false, nil
+	}); err != nil {
+		t.Fatalf("Context cancel command did not start: %v", err)
+	}
 
 	// Cancel context
 	cancel()

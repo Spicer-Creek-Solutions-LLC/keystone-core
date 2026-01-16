@@ -5,6 +5,8 @@ import (
 	"crypto/tls"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestEmbeddedNATSMode_String(t *testing.T) {
@@ -649,16 +651,14 @@ func TestEmbeddedNATSStats(t *testing.T) {
 	}
 	defer server.Stop()
 
-	// Let server run briefly
-	time.Sleep(100 * time.Millisecond)
-
-	// Stats after start
-	stats = server.GetStats()
-	if stats.State != EmbeddedNATSStateRunning {
-		t.Errorf("stats.State = %v, want running", stats.State)
-	}
-	if stats.Uptime < 100*time.Millisecond {
-		t.Errorf("stats.Uptime = %v, want >= 100ms", stats.Uptime)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		stats = server.GetStats()
+		if stats.State != EmbeddedNATSStateRunning {
+			return false, nil
+		}
+		return stats.Uptime >= 100*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("stats did not update: %v", err)
 	}
 }
 

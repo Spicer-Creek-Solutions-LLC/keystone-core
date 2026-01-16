@@ -17,7 +17,7 @@ import (
 type BatchDispatcher struct {
 	connMgr   *ConnectionManager
 	cmdDsp    *CommandDispatcher
-	store     state.Store
+	store     state.BatchJobStore
 	executor  *targeting.BatchExecutor
 
 	// Track batch jobs
@@ -78,7 +78,7 @@ func (a *connectionManagerAdapter) GetAgent(id string) (*targeting.AgentInfo, er
 }
 
 // NewBatchDispatcher creates a new batch dispatcher
-func NewBatchDispatcher(connMgr *ConnectionManager, cmdDsp *CommandDispatcher, store state.Store) *BatchDispatcher {
+func NewBatchDispatcher(connMgr *ConnectionManager, cmdDsp *CommandDispatcher, store state.BatchJobStore) *BatchDispatcher {
 	// Create adapter for connection manager
 	adapter := &connectionManagerAdapter{connMgr: connMgr}
 

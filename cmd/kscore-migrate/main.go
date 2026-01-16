@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/shawnbutts/keystone-core/pkg/cli/auditutil"
 	"github.com/shawnbutts/keystone-core/pkg/state"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 	"github.com/spf13/cobra"
@@ -13,7 +14,9 @@ import (
 
 var (
 	// Global flags
-	verbose bool
+	verbose     bool
+	auditLevel  string
+	auditOutput string
 
 	// Migration flags
 	sqlitePath    string
@@ -45,6 +48,8 @@ Usage via kscorectl:
 
 	// Global flags
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
+	rootCmd.PersistentFlags().StringVar(&auditLevel, "audit-level", "all", "Audit logging level (all, errors, none)")
+	rootCmd.PersistentFlags().StringVar(&auditOutput, "audit-output", "auto", "Audit output backend (auto, syslog, journald, stderr, none)")
 
 	// Add subcommands
 	rootCmd.AddCommand(
@@ -69,7 +74,10 @@ func newVersionCmd() *cobra.Command {
 }
 
 func main() {
-	if err := newRootCmd().Execute(); err != nil {
+	rootCmd := newRootCmd()
+	auditHandler := auditutil.Attach(rootCmd, "kscore-migrate", &auditLevel, &auditOutput)
+	if err := rootCmd.Execute(); err != nil {
+		auditHandler.LogFailure(err)
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}

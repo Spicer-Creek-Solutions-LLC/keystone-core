@@ -2,6 +2,7 @@ package statemgmt
 
 import (
 	"context"
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -331,6 +332,8 @@ func (m *NginxConfigModule) Check(ctx context.Context, decl *StateDeclaration) (
 		return nil, fmt.Errorf("name parameter is required")
 	}
 
+	content := getStringParameter(decl, "content", "")
+	source := getStringParameter(decl, "source", "")
 	dest := getStringParameter(decl, "dest", "")
 	if dest == "" {
 		// Default to conf.d directory
@@ -360,7 +363,38 @@ func (m *NginxConfigModule) Check(ctx context.Context, decl *StateDeclaration) (
 	switch decl.State {
 	case "present":
 		result.Matches = result.Present
-		// TODO: content comparison for idempotency
+		if result.Present && (content != "" || source != "") {
+			var expected []byte
+			if content != "" {
+				expected = []byte(content)
+			} else {
+				var err error
+				expected, err = os.ReadFile(source)
+				if err != nil {
+					result.Matches = false
+					result.Diff = map[string]interface{}{
+						"source": map[string]interface{}{"error": err.Error()},
+					}
+					break
+				}
+			}
+
+			actual, err := os.ReadFile(configPath)
+			if err != nil {
+				result.Matches = false
+				result.Diff = map[string]interface{}{
+					"content": map[string]interface{}{"error": err.Error()},
+				}
+				break
+			}
+
+			if !bytes.Equal(actual, expected) {
+				result.Matches = false
+				result.Diff = map[string]interface{}{
+					"content": map[string]interface{}{"current": "different", "desired": "expected"},
+				}
+			}
+		}
 	case "absent":
 		result.Matches = !result.Present
 	}

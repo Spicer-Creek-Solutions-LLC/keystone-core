@@ -18,7 +18,7 @@ import (
 // CommandDispatcher handles command execution and tracking
 type CommandDispatcher struct {
 	connMgr *ConnectionManager
-	store   state.Store
+	store   state.CommandStore
 
 	// Track in-flight commands
 	mu               sync.RWMutex
@@ -44,7 +44,7 @@ type CommandExecution struct {
 }
 
 // NewCommandDispatcher creates a new command dispatcher
-func NewCommandDispatcher(connMgr *ConnectionManager, store state.Store) *CommandDispatcher {
+func NewCommandDispatcher(connMgr *ConnectionManager, store state.CommandStore) *CommandDispatcher {
 	return &CommandDispatcher{
 		connMgr:          connMgr,
 		store:            store,

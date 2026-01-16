@@ -16,6 +16,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/shawnbutts/keystone-core/pkg/cli/auditutil"
 	"github.com/shawnbutts/keystone-core/pkg/identity"
 	"github.com/shawnbutts/keystone-core/pkg/identity/federation"
 )
@@ -24,12 +25,17 @@ var (
 	version = "dev"
 
 	// Global flags
-	serverAddr string
-	outputFmt  string
+	serverAddr  string
+	outputFmt   string
+	auditLevel  string
+	auditOutput string
 )
 
 func main() {
-	if err := newRootCmd().Execute(); err != nil {
+	rootCmd := newRootCmd()
+	auditHandler := auditutil.Attach(rootCmd, "kscore-identity", &auditLevel, &auditOutput)
+	if err := rootCmd.Execute(); err != nil {
+		auditHandler.LogFailure(err)
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -49,7 +55,9 @@ This plugin is typically invoked via kscorectl:
 	}
 
 	rootCmd.PersistentFlags().StringVar(&serverAddr, "server", "localhost:9090", "Control plane API address")
-	rootCmd.PersistentFlags().StringVarP(&outputFmt, "output", "o", "table", "Output format (table, json, yaml)")
+	rootCmd.PersistentFlags().StringVarP(&outputFmt, "output", "o", "table", "Output format (table, text, json, yaml)")
+	rootCmd.PersistentFlags().StringVar(&auditLevel, "audit-level", "all", "Audit logging level (all, errors, none)")
+	rootCmd.PersistentFlags().StringVar(&auditOutput, "audit-output", "auto", "Audit output backend (auto, syslog, journald, stderr, none)")
 
 	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(newStatusCmd())
@@ -504,8 +512,8 @@ var federationCmd = &cobra.Command{
 }
 
 var (
-	fedBundleEndpoint string
-	fedType           string
+	fedBundleEndpoint  string
+	fedType            string
 	fedRefreshInterval time.Duration
 )
 
@@ -590,12 +598,12 @@ Example:
 
 		// Create federation domain
 		fedDomain := &federation.FederatedDomain{
-			TrustDomain:       trustDomain,
-			Type:              federation.FederationType(fedType),
-			State:             federation.FederationStatePending,
-			BundleEndpoint:    fedBundleEndpoint,
-			RefreshInterval:   fedRefreshInterval,
-			CreatedAt:         time.Now(),
+			TrustDomain:     trustDomain,
+			Type:            federation.FederationType(fedType),
+			State:           federation.FederationStatePending,
+			BundleEndpoint:  fedBundleEndpoint,
+			RefreshInterval: fedRefreshInterval,
+			CreatedAt:       time.Now(),
 		}
 
 		if outputFmt == "json" {
@@ -631,9 +639,9 @@ var fedShowCmd = &cobra.Command{
 			CreatedAt:       time.Now().Add(-7 * 24 * time.Hour),
 			LastRefresh:     time.Now().Add(-2 * time.Minute),
 			Policy: PolicyInfo{
-				AllowedPaths:  []string{"/service/**", "/agent/**"},
-				DeniedPaths:   []string{"/admin/**"},
-				RequireMTLS:   true,
+				AllowedPaths: []string{"/service/**", "/agent/**"},
+				DeniedPaths:  []string{"/admin/**"},
+				RequireMTLS:  true,
 			},
 			Certificates: []CertSummary{
 				{Subject: "CN=Partner CA", Expiry: time.Now().Add(365 * 24 * time.Hour)},
@@ -679,9 +687,9 @@ type FederationDetails struct {
 }
 
 type PolicyInfo struct {
-	AllowedPaths  []string `json:"allowed_paths"`
-	DeniedPaths   []string `json:"denied_paths"`
-	RequireMTLS   bool     `json:"require_mtls"`
+	AllowedPaths []string `json:"allowed_paths"`
+	DeniedPaths  []string `json:"denied_paths"`
+	RequireMTLS  bool     `json:"require_mtls"`
 }
 
 type CertSummary struct {
@@ -824,7 +832,7 @@ Formats:
 						"x5c": []string{"MIIBxDCCAWqgAwIBAgIQExample..."},
 					},
 				},
-				"spiffe_refresh_hint":     300,
+				"spiffe_refresh_hint":    300,
 				"spiffe_sequence_number": 42,
 			}
 			data, _ := json.MarshalIndent(bundle, "", "  ")

@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestPrometheusExporter_Export(t *testing.T) {
@@ -234,7 +236,12 @@ func TestPrometheusExporter_Export_ProcessingDuration(t *testing.T) {
 func TestPrometheusExporter_Export_Uptime(t *testing.T) {
 	collector := NewMetricsCollector()
 
-	time.Sleep(100 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		metrics := collector.GetMetrics()
+		return metrics.Uptime >= 100*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("Expected uptime >= 100ms: %v", err)
+	}
 
 	exporter := NewPrometheusExporter(collector)
 
@@ -264,7 +271,12 @@ func TestPrometheusExporter_Export_EventRate(t *testing.T) {
 		collector.RecordEventPublished(EventTypeAgentConnect, SeverityInfo)
 	}
 
-	time.Sleep(100 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		metrics := collector.GetMetrics()
+		return metrics.EventRate > 0, nil
+	}); err != nil {
+		t.Fatalf("Expected positive event rate: %v", err)
+	}
 
 	exporter := NewPrometheusExporter(collector)
 

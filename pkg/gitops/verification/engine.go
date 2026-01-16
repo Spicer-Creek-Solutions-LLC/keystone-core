@@ -167,16 +167,39 @@ func (e *Engine) executeStep(ctx context.Context, step *VerificationStep) *Verif
 		default:
 		}
 
-		// Create step context with timeout
+		// Execute verification with optional timeout
+		stepCtx := ctx
+		cancel := func() {}
 		if step.Timeout > 0 {
-			var cancel context.CancelFunc
-			_, cancel = context.WithTimeout(ctx, step.Timeout)
-			defer cancel()
-			// TODO: Pass timeout context to verifier.Verify() when API is updated
+			stepCtx, cancel = context.WithTimeout(ctx, step.Timeout)
 		}
 
-		// Execute verification
-		result, err = verifier.Verify(step)
+		type verifyOutcome struct {
+			result *VerificationResult
+			err    error
+		}
+		outcomeCh := make(chan verifyOutcome, 1)
+		go func() {
+			res, verifyErr := verifier.Verify(step)
+			outcomeCh <- verifyOutcome{result: res, err: verifyErr}
+		}()
+
+		select {
+		case <-stepCtx.Done():
+			result = &VerificationResult{
+				StepName:  step.Name,
+				Success:   false,
+				Message:   "Step timed out",
+				Timestamp: start,
+				Duration:  time.Since(start),
+				Error:     stepCtx.Err(),
+			}
+			err = stepCtx.Err()
+		case outcome := <-outcomeCh:
+			result = outcome.result
+			err = outcome.err
+		}
+		cancel()
 		attempts++
 
 		if err == nil && result.Success {

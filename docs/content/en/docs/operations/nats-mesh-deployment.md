@@ -804,7 +804,7 @@ kscorectl cluster status
 kscorectl agent list
 
 # Test cross-cluster routing (supercluster)
-kscorectl exec --target region:us-east "hostname"
+kscorectl exec run --target "region:us-east" -- hostname
 
 # Check leaf node connections
 nats server report leafnodes

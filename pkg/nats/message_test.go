@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestMessagePriorityString(t *testing.T) {
@@ -33,7 +34,7 @@ func TestEnvelopeBuilder(t *testing.T) {
 		CorrelationID("corr-123").
 		Destination("agent-456").
 		Priority(PriorityHigh).
-		TTL(30 * time.Second).
+		TTL(30*time.Second).
 		Payload([]byte("test payload")).
 		Header("custom", "value").
 		Trace("trace-abc", "span-def").
@@ -354,7 +355,12 @@ func TestDeduplicationTrackerExpiry(t *testing.T) {
 	}
 
 	// Wait for expiry
-	time.Sleep(100 * time.Millisecond)
+	start := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 5*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 100*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("expiry wait did not elapse: %v", err)
+	}
 
 	// After expiry, should not be duplicate anymore
 	if tracker.IsDuplicate("msg-1") {

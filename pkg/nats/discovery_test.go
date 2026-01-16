@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 // ============================================================================
@@ -320,13 +322,13 @@ func TestNewMDNSDiscoverer(t *testing.T) {
 		t.Errorf("Method() = %v, want mdns", d.Method())
 	}
 
-	// Discover should return empty (placeholder implementation)
+	// Discover should complete without error.
 	endpoints, err := d.Discover(context.Background())
 	if err != nil {
 		t.Errorf("Discover() error = %v", err)
 	}
-	if len(endpoints) != 0 {
-		t.Errorf("Discover() = %v, want empty", endpoints)
+	if endpoints == nil {
+		t.Error("Discover() returned nil endpoints")
 	}
 }
 
@@ -701,7 +703,11 @@ func TestDiscoveryManager_StartStop(t *testing.T) {
 	}
 
 	// Wait for initial discovery
-	time.Sleep(50 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return len(m.GetEndpoints()) == 1, nil
+	}); err != nil {
+		t.Fatalf("expected initial discovery: %v", err)
+	}
 
 	// Should have endpoints
 	endpoints := m.GetEndpoints()
@@ -746,7 +752,11 @@ func TestDiscoveryManager_EndpointsChangedCallback(t *testing.T) {
 	defer m.Stop()
 
 	// Wait for callback
-	time.Sleep(100 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return atomic.LoadInt32(&callCount) > 0, nil
+	}); err != nil {
+		t.Fatalf("callback should have been called: %v", err)
+	}
 
 	if atomic.LoadInt32(&callCount) == 0 {
 		t.Error("callback should have been called")
@@ -779,9 +789,12 @@ func TestDiscoveryManager_GetBestEndpoint(t *testing.T) {
 	}
 	defer m.Stop()
 
-	time.Sleep(50 * time.Millisecond)
-
-	best = m.GetBestEndpoint()
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		best = m.GetBestEndpoint()
+		return best != nil, nil
+	}); err != nil {
+		t.Fatalf("GetBestEndpoint() = nil, want endpoint: %v", err)
+	}
 	if best == nil {
 		t.Fatal("GetBestEndpoint() = nil, want endpoint")
 	}
@@ -821,7 +834,11 @@ func TestDiscoveryManager_HealthCheck(t *testing.T) {
 	defer m.Stop()
 
 	// Wait for health checks to complete
-	time.Sleep(200 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return m.IsEndpointHealthy(url), nil
+	}); err != nil {
+		t.Fatalf("health checks did not complete: %v", err)
+	}
 
 	// The test server endpoint should be healthy
 	if !m.IsEndpointHealthy(url) {
@@ -876,7 +893,11 @@ func TestAutoConfigurator_WithStaticURLs(t *testing.T) {
 	}
 	defer ac.Stop()
 
-	time.Sleep(50 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return len(ac.GetEndpoints()) == 1, nil
+	}); err != nil {
+		t.Fatalf("expected endpoints: %v", err)
+	}
 
 	endpoints := ac.GetEndpoints()
 	if len(endpoints) != 1 {
@@ -897,7 +918,11 @@ func TestAutoConfigurator_Configure(t *testing.T) {
 	}
 	defer ac.Stop()
 
-	time.Sleep(50 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return len(ac.GetEndpoints()) == 1, nil
+	}); err != nil {
+		t.Fatalf("expected endpoints: %v", err)
+	}
 
 	ctx := context.Background()
 	result, err := ac.Configure(ctx)
@@ -927,16 +952,14 @@ func TestAutoConfigurator_Configure(t *testing.T) {
 		t.Error("expected cached result")
 	}
 
-	// Wait for cache to expire
-	time.Sleep(150 * time.Millisecond)
-
-	result3, err := ac.Configure(ctx)
-	if err != nil {
-		t.Fatalf("Configure() after expiry error = %v", err)
-	}
-
-	if result3.DiscoveredAt == result.DiscoveredAt {
-		t.Error("expected fresh result after cache expiry")
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		result3, err := ac.Configure(ctx)
+		if err != nil {
+			return false, nil
+		}
+		return result3.DiscoveredAt != result.DiscoveredAt, nil
+	}); err != nil {
+		t.Fatalf("expected fresh result after cache expiry: %v", err)
 	}
 }
 
@@ -994,9 +1017,13 @@ func TestAutoConfigurator_GetBestEndpoint(t *testing.T) {
 	}
 	defer ac.Stop()
 
-	time.Sleep(50 * time.Millisecond)
-
-	best := ac.GetBestEndpoint()
+	var best *DiscoveredEndpoint
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		best = ac.GetBestEndpoint()
+		return best != nil, nil
+	}); err != nil {
+		t.Fatalf("GetBestEndpoint() = nil, want endpoint: %v", err)
+	}
 	if best == nil {
 		t.Fatal("GetBestEndpoint() = nil, want endpoint")
 	}
@@ -1032,7 +1059,11 @@ func TestDiscoveryManager_MultipleDiscoverers(t *testing.T) {
 	}
 	defer m.Stop()
 
-	time.Sleep(100 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return len(m.GetEndpoints()) == 2, nil
+	}); err != nil {
+		t.Fatalf("expected endpoints: %v", err)
+	}
 
 	endpoints := m.GetEndpoints()
 	if len(endpoints) != 2 {
@@ -1082,7 +1113,12 @@ func TestDNSDiscoverer_Watch(t *testing.T) {
 	}
 
 	// Let watch run briefly
-	time.Sleep(100 * time.Millisecond)
+	start := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 5*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 100*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("watch wait did not elapse: %v", err)
+	}
 }
 
 func TestMDNSDiscoverer_Watch(t *testing.T) {

@@ -117,28 +117,28 @@ func (r *VersionRange) Contains(v Version) bool {
 
 // CompatibilityMatrix defines version compatibility between components.
 type CompatibilityMatrix struct {
-	Component ComponentType              `json:"component" yaml:"component"`
-	Entries   []CompatibilityEntry       `json:"entries" yaml:"entries"`
-	SkipRules []VersionSkipRule          `json:"skip_rules,omitempty" yaml:"skip_rules,omitempty"`
+	Component ComponentType        `json:"component" yaml:"component"`
+	Entries   []CompatibilityEntry `json:"entries" yaml:"entries"`
+	SkipRules []VersionSkipRule    `json:"skip_rules,omitempty" yaml:"skip_rules,omitempty"`
 }
 
 // CompatibilityEntry defines compatibility between two versions.
 type CompatibilityEntry struct {
-	Version      Version   `json:"version" yaml:"version"`
-	MinUpgrade   *Version  `json:"min_upgrade,omitempty" yaml:"min_upgrade,omitempty"`
-	MaxUpgrade   *Version  `json:"max_upgrade,omitempty" yaml:"max_upgrade,omitempty"`
-	Dependencies []string  `json:"dependencies,omitempty" yaml:"dependencies,omitempty"`
-	Breaking     bool      `json:"breaking,omitempty" yaml:"breaking,omitempty"`
-	MigrationURL string    `json:"migration_url,omitempty" yaml:"migration_url,omitempty"`
+	Version      Version  `json:"version" yaml:"version"`
+	MinUpgrade   *Version `json:"min_upgrade,omitempty" yaml:"min_upgrade,omitempty"`
+	MaxUpgrade   *Version `json:"max_upgrade,omitempty" yaml:"max_upgrade,omitempty"`
+	Dependencies []string `json:"dependencies,omitempty" yaml:"dependencies,omitempty"`
+	Breaking     bool     `json:"breaking,omitempty" yaml:"breaking,omitempty"`
+	MigrationURL string   `json:"migration_url,omitempty" yaml:"migration_url,omitempty"`
 }
 
 // VersionSkipRule defines when version skipping is allowed.
 type VersionSkipRule struct {
-	From     *Version `json:"from,omitempty" yaml:"from,omitempty"`
-	To       *Version `json:"to,omitempty" yaml:"to,omitempty"`
-	MaxJump  int      `json:"max_jump,omitempty" yaml:"max_jump,omitempty"`  // Maximum minor versions to skip
-	Allowed  bool     `json:"allowed" yaml:"allowed"`
-	Reason   string   `json:"reason,omitempty" yaml:"reason,omitempty"`
+	From    *Version `json:"from,omitempty" yaml:"from,omitempty"`
+	To      *Version `json:"to,omitempty" yaml:"to,omitempty"`
+	MaxJump int      `json:"max_jump,omitempty" yaml:"max_jump,omitempty"` // Maximum minor versions to skip
+	Allowed bool     `json:"allowed" yaml:"allowed"`
+	Reason  string   `json:"reason,omitempty" yaml:"reason,omitempty"`
 }
 
 // VersionChecker checks version compatibility.
@@ -186,7 +186,14 @@ func (c *VersionChecker) CheckCompatibility(component ComponentType, from, to Ve
 	// Check matrix if available
 	matrix, ok := c.matrices[component]
 	if !ok {
-		result.Warnings = append(result.Warnings, "No compatibility matrix available, proceeding with caution")
+		if !from.IsCompatibleWith(to) {
+			result.Compatible = false
+			result.Blockers = append(result.Blockers, fmt.Sprintf(
+				"Versions %s and %s are not semver-compatible (no matrix available)", from, to,
+			))
+			return result, nil
+		}
+		result.Warnings = append(result.Warnings, "No compatibility matrix available, using semver compatibility")
 		return result, nil
 	}
 

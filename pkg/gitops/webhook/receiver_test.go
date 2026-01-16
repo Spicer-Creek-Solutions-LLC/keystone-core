@@ -8,11 +8,13 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 // MockEventProcessor for testing
 type MockEventProcessor struct {
-	events    []*WebhookEvent
+	events       []*WebhookEvent
 	processError error
 }
 
@@ -69,8 +71,11 @@ func TestReceiverArgoCD(t *testing.T) {
 		t.Errorf("handleWebhook() status = %d, want %d", w.Code, http.StatusOK)
 	}
 
-	// Wait for async processing
-	time.Sleep(100 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return len(processor.events) == 1, nil
+	}); err != nil {
+		t.Fatalf("processor received %d events, want 1: %v", len(processor.events), err)
+	}
 
 	if len(processor.events) != 1 {
 		t.Fatalf("processor received %d events, want 1", len(processor.events))
@@ -117,8 +122,11 @@ func TestReceiverFlux(t *testing.T) {
 		t.Errorf("handleWebhook() status = %d, want %d", w.Code, http.StatusOK)
 	}
 
-	// Wait for async processing
-	time.Sleep(100 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return len(processor.events) == 1, nil
+	}); err != nil {
+		t.Fatalf("processor received %d events, want 1: %v", len(processor.events), err)
+	}
 
 	if len(processor.events) != 1 {
 		t.Fatalf("processor received %d events, want 1", len(processor.events))
@@ -201,8 +209,12 @@ func TestReceiverStats(t *testing.T) {
 	w := httptest.NewRecorder()
 	receiver.handleWebhook(w, req)
 
-	// Wait for processing
-	time.Sleep(100 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		stats := receiver.GetStats()
+		return stats.TotalReceived == 1 && stats.TotalProcessed == 1, nil
+	}); err != nil {
+		t.Fatalf("expected stats to record webhook: %v", err)
+	}
 
 	// Get stats
 	req = httptest.NewRequest(http.MethodGet, "/stats", nil)

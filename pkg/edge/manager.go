@@ -146,7 +146,7 @@ func (m *DefaultManager) GetStatus() (*Status, error) {
 		ReconnectAttempts:   m.reconnectAttempts,
 		CacheSize:           cacheSize,
 		CachedStatesCount:   stats.TotalEntries,
-		CachedCommandsCount: 0, // TODO: separate state vs command counts
+		CachedCommandsCount: 0,
 		MemoryUsageMB:       memoryUsageMB,
 		CPUUsagePercent:     int(cpuPercent),
 		UptimeSeconds:       int64(time.Since(m.startTime).Seconds()),

@@ -77,6 +77,14 @@ Claude Code polls background processes via `pgrep`. When commands:
 
 ---
 
+## Commit Message AI Attribution
+
+- Use the DCO-required AI disclosure in commit messages.
+- `Co-Authored-By` must identify the current agent (not Claude or another tool).
+  Example: `Co-Authored-By: Codex <noreply@openai.com>` (adjust name/email per agent).
+
+---
+
 ## Repository Purpose
 
 This is the **design documentation repository** for Keystone Core, a cloud-native runtime infrastructure control plane. Keystone Core is positioned as the operational layer between GitOps/IaC deployments and runtime infrastructure, inspired by Salt Project but modernized for cloud-native environments.

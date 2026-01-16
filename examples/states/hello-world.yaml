@@ -1,0 +1,12 @@
+metadata:
+  name: hello-world
+  description: Minimal hello world state example
+  version: "1.0"
+
+states:
+  hello_world_file:
+    module: file
+    state: present
+    name: /tmp/hello-from-kscore.txt
+    contents: "Hello from Keystone Core!\n"
+    mode: "0644"

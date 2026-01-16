@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestNewHealthMonitor(t *testing.T) {
@@ -153,8 +155,11 @@ func TestHealthMonitor_StartStop(t *testing.T) {
 		t.Error("expected error on second Start")
 	}
 
-	// Wait for at least one check
-	time.Sleep(150 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return len(m.GetResults()) > 0, nil
+	}); err != nil {
+		t.Fatalf("expected results after running checks: %v", err)
+	}
 
 	// Stop
 	m.Stop()
@@ -418,7 +423,10 @@ func TestNewFunctionHealthChecker(t *testing.T) {
 
 func TestHealthCheck_Duration(t *testing.T) {
 	checker := NewFunctionHealthChecker("slow", func(ctx context.Context) (HealthStatus, string, map[string]string) {
-		time.Sleep(50 * time.Millisecond)
+		start := time.Now()
+		_ = helpers.WaitForTimeout(2*time.Second, 1*time.Millisecond, func() (bool, error) {
+			return time.Since(start) >= 50*time.Millisecond, nil
+		})
 		return HealthStatusHealthy, "Done", nil
 	})
 

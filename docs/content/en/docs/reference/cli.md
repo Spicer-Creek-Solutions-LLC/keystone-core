@@ -105,6 +105,14 @@ kscorectl completion zsh > "${fpath[1]}/_kscorectl"
 kscorectl completion fish > ~/.config/fish/completions/kscorectl.fish
 ```
 
+### kscorectl config validate
+
+Validate a configuration file against schema rules.
+
+```bash
+kscorectl config validate --config /etc/kscore/server.yaml
+```
+
 ## kscore-exec (Remote Execution)
 
 Execute commands on remote agents.
@@ -115,12 +123,14 @@ Execute command synchronously across multiple agents.
 
 ```bash
 kscorectl exec run <target-expression> -- <command> [args...]
+kscorectl exec run <command> --target <target-expression>
 ```
 
 **Arguments**:
 - `<target-expression>`: Target expression to select agents (required)
 - `<command>`: Command to execute (required, after --)
 - `[args...]`: Command arguments (optional)
+ - `--target`: Optional target expression flag (useful when command comes first)
 
 **Global Flags**:
 - `--server string`: Keystone Core server address (default: localhost:50051)
@@ -303,6 +313,7 @@ kscorectl state apply <state-file> [flags]
 **Flags**:
 - `--vars string`: Variables file (YAML)
 - `--dry-run`: Check what would change without applying
+- `--target string`: Target expression (accepted but ignored in local mode)
 - `--audit-level string`: Audit logging level (all, errors, none)
 - `--audit-output string`: Audit output backend (auto, syslog, journald, stderr, none)
 
@@ -355,6 +366,7 @@ kscorectl state check <state-file> [flags]
 
 **Flags**:
 - `--vars string`: Variables file (YAML)
+- `--target string`: Target expression (accepted but ignored in local mode)
 
 **Examples**:
 ```bash
@@ -402,6 +414,7 @@ kscorectl state drift <state-file> [flags]
 
 **Flags**:
 - `--vars string`: Variables file (YAML)
+- `--target string`: Target expression (accepted but ignored in local mode)
 
 **Examples**:
 ```bash
@@ -3061,7 +3074,7 @@ alias tam='kscorectl monitor'
 **Usage**:
 ```bash
 tae "uptime" --target "role:web"
-tas web-server.yaml --target "role:web"
+tas web-server.yaml
 tam
 ```
 
@@ -3165,10 +3178,10 @@ kscorectl completion fish > ~/.config/fish/completions/kscorectl.fish
 **Deploy and verify**:
 ```bash
 # Apply state
-kscorectl state apply web-server.yaml --target "role:web"
+kscorectl state apply web-server.yaml
 
 # Check for drift
-kscorectl state drift web-server.yaml --target "role:web"
+kscorectl state drift web-server.yaml
 
 # Restart services if needed
 kscorectl exec run "systemctl restart nginx" --target "role:web"
@@ -3196,7 +3209,7 @@ kscorectl policy violations --severity high
 
 # Remediate
 kscorectl state apply security-baseline.yaml \
-  --target "environment:production"
+  --dry-run
 ```
 
 ## kscore-files (File Distribution Server)

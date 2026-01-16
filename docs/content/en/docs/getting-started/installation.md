@@ -385,6 +385,21 @@ journalctl -u kscore-server -f
 journalctl -u kscore-agent -f
 ```
 
+## Shell Completion
+
+Enable shell completion for faster CLI usage:
+
+```bash
+# Bash
+echo 'source <(kscorectl completion bash)' >> ~/.bashrc
+
+# Zsh
+echo 'source <(kscorectl completion zsh)' >> ~/.zshrc
+
+# Fish
+kscorectl completion fish > ~/.config/fish/completions/kscorectl.fish
+```
+
 ## Troubleshooting
 
 ### Control Plane Won't Start
@@ -399,8 +414,8 @@ journalctl -u kscore-server -n 50
 # - Database connection failed (PostgreSQL not reachable)
 # - NATS connection failed (external NATS not reachable)
 
-# Test configuration
-kscore-server --config /etc/kscore/server.yaml --test-config
+# Validate configuration
+kscorectl config validate --config /etc/kscore/server.yaml
 ```
 
 ### Agent Won't Connect

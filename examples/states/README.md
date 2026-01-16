@@ -6,6 +6,7 @@ This directory contains example state files demonstrating various Keystone Core 
 
 | File | Description | Modules Used |
 |------|-------------|--------------|
+| [hello-world.yaml](hello-world.yaml) | Minimal hello world state | file |
 | [webserver.yaml](webserver.yaml) | Configure a production Nginx web server | package, file, service |
 | [python-app.yaml](python-app.yaml) | Deploy a Python Flask application | user, file, pip, service, cmd |
 | [firewall.yaml](firewall.yaml) | Configure UFW firewall rules | package, ufw, cmd |

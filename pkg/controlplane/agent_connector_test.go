@@ -8,6 +8,7 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/shawnbutts/keystone-core/pkg/agent"
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestAgentConnectionState_String(t *testing.T) {
@@ -346,8 +347,8 @@ func TestAgentConnection_State(t *testing.T) {
 func TestAgentConnector_HandleEndpointChange(t *testing.T) {
 	registry := agent.NewEndpointRegistry()
 	cfg := DefaultAgentConnectorConfig()
-	cfg.DiscoveryInterval = 1 * time.Hour  // Prevent auto-discovery
-	cfg.CleanupInterval = 1 * time.Hour    // Prevent auto-cleanup
+	cfg.DiscoveryInterval = 1 * time.Hour // Prevent auto-discovery
+	cfg.CleanupInterval = 1 * time.Hour   // Prevent auto-cleanup
 
 	connector, err := NewAgentConnector(cfg, registry)
 	if err != nil {
@@ -375,8 +376,11 @@ func TestAgentConnector_HandleEndpointChange(t *testing.T) {
 		t.Fatalf("Register() error = %v", err)
 	}
 
-	// Give time for async connection attempt
-	time.Sleep(100 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return connector.GetConnection("agent-1") != nil, nil
+	}); err != nil {
+		t.Fatalf("expected connection record: %v", err)
+	}
 
 	// Connection should be tracked (even if failed due to no server)
 	conn := connector.GetConnection("agent-1")
@@ -387,8 +391,11 @@ func TestAgentConnector_HandleEndpointChange(t *testing.T) {
 	// Unregister should trigger disconnect
 	registry.Unregister("agent-1")
 
-	// Give time for cleanup
-	time.Sleep(100 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return connector.GetConnection("agent-1") == nil, nil
+	}); err != nil {
+		t.Fatalf("expected connection to be removed: %v", err)
+	}
 
 	// Connection should be removed
 	conn = connector.GetConnection("agent-1")
@@ -428,8 +435,11 @@ func TestAgentConnector_TLSRequired(t *testing.T) {
 	}
 	defer connector.Stop()
 
-	// Give time for connection attempt
-	time.Sleep(100 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return connector.GetConnection("agent-1") != nil, nil
+	}); err != nil {
+		t.Fatalf("expected connection record: %v", err)
+	}
 
 	// Connection should be tracked
 	conn := connector.GetConnection("agent-1")

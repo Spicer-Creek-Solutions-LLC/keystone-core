@@ -159,6 +159,26 @@ Parameters use JSON Schema-like validation:
 | `source` | string | Value source (`secret` for secret backend) |
 | `feature` | string | Restrict to specific feature |
 
+### Parameter Files and Overrides
+
+Parameter values can be supplied via a YAML file and merged with defaults
+defined in the blueprint `vars/` directory.
+
+Example `params.yaml`:
+
+```yaml
+parameters:
+  domain: app.example.com
+  port: 8080
+  db_password: !secret databases/postgres/admin
+```
+
+Use `--params` with commands that need parameter values:
+
+```bash
+kscore-blueprint validate ./my-blueprint --params params.yaml
+```
+
 **String Validation:**
 
 ```yaml

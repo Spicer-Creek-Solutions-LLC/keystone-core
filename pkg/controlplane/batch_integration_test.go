@@ -7,10 +7,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nats-io/nats.go"
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 	"github.com/shawnbutts/keystone-core/pkg/config"
 	natsmgr "github.com/shawnbutts/keystone-core/pkg/nats"
 	"github.com/shawnbutts/keystone-core/pkg/state"
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -46,7 +48,12 @@ func TestBatchExecution_EndToEnd(t *testing.T) {
 	defer natsManager.Shutdown()
 
 	// Wait for NATS to be ready
-	time.Sleep(100 * time.Millisecond)
+	start := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 5*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 100*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("NATS wait did not elapse: %v", err)
+	}
 
 	// Initialize state store
 	storeConfig := &state.Config{
@@ -78,7 +85,12 @@ func TestBatchExecution_EndToEnd(t *testing.T) {
 	defer connMgr.Stop()
 
 	// Wait for connection manager to be ready
-	time.Sleep(100 * time.Millisecond)
+	start = time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 5*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 100*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("connection manager wait did not elapse: %v", err)
+	}
 
 	// Register test agents
 	testAgents := []*pb.RegisterRequest{
@@ -133,7 +145,11 @@ func TestBatchExecution_EndToEnd(t *testing.T) {
 	}
 
 	// Wait for agents to be registered
-	time.Sleep(200 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return connMgr.GetAgentCount() == len(testAgents), nil
+	}); err != nil {
+		t.Fatalf("agents did not register: %v", err)
+	}
 
 	// Verify agents are registered
 	agentCount := connMgr.GetAgentCount()
@@ -143,9 +159,57 @@ func TestBatchExecution_EndToEnd(t *testing.T) {
 
 	// Initialize command dispatcher
 	cmdDispatcher := NewCommandDispatcher(connMgr, stateStore)
+	if err := cmdDispatcher.Start(); err != nil {
+		t.Fatalf("Failed to start command dispatcher: %v", err)
+	}
+	defer cmdDispatcher.Stop()
 
 	// Initialize batch dispatcher
 	batchDispatcher := NewBatchDispatcher(connMgr, cmdDispatcher, stateStore)
+
+	// Simulate agent command handling by responding on reply subjects.
+	subject := connMgr.subjects.AgentCommand("*")
+	sub, err := natsManager.Conn().Subscribe(subject, func(msg *nats.Msg) {
+		var req pb.ExecuteCommandRequest
+		if err := proto.Unmarshal(msg.Data, &req); err != nil {
+			t.Logf("Failed to unmarshal command request: %v", err)
+			return
+		}
+		if msg.Reply == "" {
+			t.Log("Missing reply subject for command request")
+			return
+		}
+
+		stdoutResp := &pb.ExecuteCommandResponse{
+			CommandId: req.CommandId,
+			Type:      pb.CommandResponseType_COMMAND_RESPONSE_TYPE_STDOUT,
+			Data:      []byte("ok\n"),
+		}
+		completeResp := &pb.ExecuteCommandResponse{
+			CommandId: req.CommandId,
+			Type:      pb.CommandResponseType_COMMAND_RESPONSE_TYPE_COMPLETED,
+			ExitCode:  0,
+		}
+
+		for _, resp := range []*pb.ExecuteCommandResponse{stdoutResp, completeResp} {
+			data, err := proto.Marshal(resp)
+			if err != nil {
+				t.Logf("Failed to marshal command response: %v", err)
+				return
+			}
+			if err := natsManager.Conn().Publish(msg.Reply, data); err != nil {
+				t.Logf("Failed to publish command response: %v", err)
+				return
+			}
+		}
+	})
+	if err != nil {
+		t.Fatalf("Failed to subscribe for agent commands: %v", err)
+	}
+	defer sub.Unsubscribe()
+	if err := natsManager.Conn().FlushTimeout(2 * time.Second); err != nil {
+		t.Fatalf("Failed to flush command subscription: %v", err)
+	}
 
 	// Execute batch command targeting web servers
 	batchReq := &pb.BatchExecuteCommandRequest{
@@ -154,6 +218,7 @@ func TestBatchExecution_EndToEnd(t *testing.T) {
 		Command:     "echo",
 		Args:        []string{"hello", "from", "batch"},
 		Concurrency: 2,
+		Timeout:     2,
 	}
 
 	responseChan, err := batchDispatcher.ExecuteBatch(ctx, batchReq)
@@ -163,9 +228,22 @@ func TestBatchExecution_EndToEnd(t *testing.T) {
 
 	// Collect responses
 	var responses []*pb.BatchExecuteCommandResponse
-	for resp := range responseChan {
-		responses = append(responses, resp)
-		t.Logf("Received response type: %s", resp.Type)
+	timeout := time.After(5 * time.Second)
+	for {
+		select {
+		case resp, ok := <-responseChan:
+			if !ok {
+				timeout = nil
+				break
+			}
+			responses = append(responses, resp)
+			t.Logf("Received response type: %s", resp.Type)
+		case <-timeout:
+			t.Fatal("Timed out waiting for batch responses")
+		}
+		if timeout == nil {
+			break
+		}
 	}
 
 	// Verify we got expected response types

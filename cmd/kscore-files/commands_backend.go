@@ -12,6 +12,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/spf13/cobra"
 
+	"github.com/shawnbutts/keystone-core/pkg/cli/output"
 	"github.com/shawnbutts/keystone-core/pkg/files"
 )
 
@@ -35,7 +36,7 @@ func newBackendCmd() *cobra.Command {
 
 // newBackendListCmd creates the list command.
 func newBackendListCmd() *cobra.Command {
-	var outputJSON bool
+	var outputFmt string
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -44,7 +45,7 @@ func newBackendListCmd() *cobra.Command {
 
 Examples:
   kscore-files backend list
-  kscore-files backend list --json`,
+  kscore-files backend list --output json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, cleanup, err := createAdminClient()
 			if err != nil {
@@ -52,7 +53,7 @@ Examples:
 			}
 			defer cleanup()
 
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutAdmin)
 			defer cancel()
 
 			backends, err := client.ListBackends(ctx)
@@ -60,48 +61,58 @@ Examples:
 				return fmt.Errorf("failed to list backends: %w", err)
 			}
 
-			if outputJSON {
-				enc := json.NewEncoder(os.Stdout)
-				enc.SetIndent("", "  ")
-				return enc.Encode(backends)
+			format, err := output.ParseFormat(outputFmt)
+			if err != nil {
+				return err
 			}
 
-			if len(backends) == 0 {
-				fmt.Println("No backends configured")
-				return nil
+			switch format {
+			case output.FormatJSON:
+				return output.WriteJSON(os.Stdout, backends)
+			case output.FormatYAML:
+				return output.WriteYAML(os.Stdout, backends)
+			case output.FormatTable, output.FormatText:
+				if len(backends) == 0 {
+					fmt.Println("No backends configured")
+					return nil
+				}
+
+				rows := make([][]string, 0, len(backends))
+				for _, b := range backends {
+					status := "enabled"
+					if !b.Enabled {
+						status = "disabled"
+					}
+					readOnly := "no"
+					if b.ReadOnly {
+						readOnly = "yes"
+					}
+					paths := strings.Join(b.Paths, ", ")
+					if len(paths) > 30 {
+						paths = paths[:27] + "..."
+					}
+					rows = append(rows, []string{b.Name, b.Type, status, readOnly, paths})
+				}
+
+				table := &output.Table{
+					Headers: []string{"NAME", "TYPE", "STATUS", "READONLY", "PATHS"},
+					Rows:    rows,
+				}
+				return output.WriteTable(os.Stdout, table)
+			default:
+				return fmt.Errorf("unsupported output format: %s", outputFmt)
 			}
-
-			fmt.Printf("%-20s %-15s %-10s %-10s %s\n", "NAME", "TYPE", "STATUS", "READONLY", "PATHS")
-			fmt.Println(strings.Repeat("-", 80))
-
-			for _, b := range backends {
-				status := "enabled"
-				if !b.Enabled {
-					status = "disabled"
-				}
-				readOnly := "no"
-				if b.ReadOnly {
-					readOnly = "yes"
-				}
-				paths := strings.Join(b.Paths, ", ")
-				if len(paths) > 30 {
-					paths = paths[:27] + "..."
-				}
-				fmt.Printf("%-20s %-15s %-10s %-10s %s\n", b.Name, b.Type, status, readOnly, paths)
-			}
-
-			return nil
 		},
 	}
 
-	cmd.Flags().BoolVar(&outputJSON, "json", false, "Output in JSON format")
+	cmd.Flags().StringVarP(&outputFmt, "output", "o", "table", "Output format (table, text, json, yaml)")
 
 	return cmd
 }
 
 // newBackendStatusCmd creates the status command.
 func newBackendStatusCmd() *cobra.Command {
-	var outputJSON bool
+	var outputFmt string
 
 	cmd := &cobra.Command{
 		Use:   "status <name>",
@@ -110,7 +121,7 @@ func newBackendStatusCmd() *cobra.Command {
 
 Examples:
   kscore-files backend status local
-  kscore-files backend status s3-primary --json`,
+  kscore-files backend status s3-primary --output json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
@@ -121,7 +132,7 @@ Examples:
 			}
 			defer cleanup()
 
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutAdmin)
 			defer cancel()
 
 			status, err := client.GetBackendStatus(ctx, name)
@@ -129,37 +140,67 @@ Examples:
 				return fmt.Errorf("failed to get backend status: %w", err)
 			}
 
-			if outputJSON {
-				enc := json.NewEncoder(os.Stdout)
-				enc.SetIndent("", "  ")
-				return enc.Encode(status)
+			format, err := output.ParseFormat(outputFmt)
+			if err != nil {
+				return err
 			}
 
-			fmt.Printf("Backend: %s\n", status.Name)
-			fmt.Printf("Type: %s\n", status.Type)
-			fmt.Printf("Status: %s\n", formatStatus(status.Healthy))
-			fmt.Printf("Enabled: %v\n", status.Enabled)
-			fmt.Printf("Read-Only: %v\n", status.ReadOnly)
-			fmt.Println()
-			fmt.Printf("Statistics:\n")
-			fmt.Printf("  Files: %d\n", status.Stats.FileCount)
-			fmt.Printf("  Total Size: %s\n", formatSize(status.Stats.TotalSize))
-			fmt.Printf("  Reads: %d (%s)\n", status.Stats.ReadCount, formatSize(status.Stats.BytesRead))
-			fmt.Printf("  Writes: %d (%s)\n", status.Stats.WriteCount, formatSize(status.Stats.BytesWritten))
-			fmt.Printf("  Errors: %d\n", status.Stats.ErrorCount)
-			fmt.Println()
-			if status.LastError != "" {
-				fmt.Printf("Last Error: %s (at %s)\n", status.LastError, status.LastErrorTime.Format(time.RFC3339))
+			switch format {
+			case output.FormatJSON:
+				return output.WriteJSON(os.Stdout, status)
+			case output.FormatYAML:
+				return output.WriteYAML(os.Stdout, status)
+			case output.FormatTable:
+				table := buildKeyValueTable([][2]string{
+					{"BACKEND", status.Name},
+					{"TYPE", status.Type},
+					{"STATUS", formatStatus(status.Healthy)},
+					{"ENABLED", fmt.Sprintf("%t", status.Enabled)},
+					{"READ-ONLY", fmt.Sprintf("%t", status.ReadOnly)},
+					{"LAST ERROR", status.LastError},
+					{"LAST ERROR TIME", formatTime(status.LastErrorTime)},
+					{"LAST SYNC", formatTime(status.LastSync)},
+				})
+				if err := output.WriteTable(os.Stdout, table); err != nil {
+					return err
+				}
+				stats := buildKeyValueTable([][2]string{
+					{"FILES", fmt.Sprintf("%d", status.Stats.FileCount)},
+					{"TOTAL SIZE", formatSize(status.Stats.TotalSize)},
+					{"READS", fmt.Sprintf("%d (%s)", status.Stats.ReadCount, formatSize(status.Stats.BytesRead))},
+					{"WRITES", fmt.Sprintf("%d (%s)", status.Stats.WriteCount, formatSize(status.Stats.BytesWritten))},
+					{"ERRORS", fmt.Sprintf("%d", status.Stats.ErrorCount)},
+				})
+				fmt.Println("\nStatistics:")
+				return output.WriteTable(os.Stdout, stats)
+			case output.FormatText:
+				fmt.Printf("Backend: %s\n", status.Name)
+				fmt.Printf("Type: %s\n", status.Type)
+				fmt.Printf("Status: %s\n", formatStatus(status.Healthy))
+				fmt.Printf("Enabled: %v\n", status.Enabled)
+				fmt.Printf("Read-Only: %v\n", status.ReadOnly)
+				fmt.Println()
+				fmt.Printf("Statistics:\n")
+				fmt.Printf("  Files: %d\n", status.Stats.FileCount)
+				fmt.Printf("  Total Size: %s\n", formatSize(status.Stats.TotalSize))
+				fmt.Printf("  Reads: %d (%s)\n", status.Stats.ReadCount, formatSize(status.Stats.BytesRead))
+				fmt.Printf("  Writes: %d (%s)\n", status.Stats.WriteCount, formatSize(status.Stats.BytesWritten))
+				fmt.Printf("  Errors: %d\n", status.Stats.ErrorCount)
+				fmt.Println()
+				if status.LastError != "" {
+					fmt.Printf("Last Error: %s (at %s)\n", status.LastError, status.LastErrorTime.Format(time.RFC3339))
+				}
+				if !status.LastSync.IsZero() {
+					fmt.Printf("Last Sync: %s\n", status.LastSync.Format(time.RFC3339))
+				}
+				return nil
+			default:
+				return fmt.Errorf("unsupported output format: %s", outputFmt)
 			}
-			if !status.LastSync.IsZero() {
-				fmt.Printf("Last Sync: %s\n", status.LastSync.Format(time.RFC3339))
-			}
-
-			return nil
 		},
 	}
 
-	cmd.Flags().BoolVar(&outputJSON, "json", false, "Output in JSON format")
+	cmd.Flags().StringVarP(&outputFmt, "output", "o", "text", "Output format (text, json, yaml, table)")
 
 	return cmd
 }
@@ -191,12 +232,18 @@ Examples:
 			}
 			defer cleanup()
 
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+			ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutAdminSync)
 			defer cancel()
 
 			opts := &files.BackendSyncOptions{
 				DryRun: dryRun,
 				Force:  force,
+			}
+
+			if dryRun {
+				fmt.Println("Calculating backend sync plan...")
+			} else {
+				fmt.Println("Syncing backends...")
 			}
 
 			result, err := client.SyncBackends(ctx, source, dest, opts)
@@ -232,7 +279,9 @@ Examples:
 
 // newBackendEnableCmd creates the enable command.
 func newBackendEnableCmd() *cobra.Command {
-	return &cobra.Command{
+	var dryRun bool
+
+	cmd := &cobra.Command{
 		Use:   "enable <name>",
 		Short: "Enable a backend",
 		Long: `Enable a storage backend for serving files.
@@ -243,13 +292,18 @@ Examples:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 
+			if dryRun {
+				fmt.Printf("Dry run: would enable backend %s\n", name)
+				return nil
+			}
+
 			client, cleanup, err := createAdminClient()
 			if err != nil {
 				return err
 			}
 			defer cleanup()
 
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutAdmin)
 			defer cancel()
 
 			if err := client.SetBackendEnabled(ctx, name, true); err != nil {
@@ -260,11 +314,17 @@ Examples:
 			return nil
 		},
 	}
+
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without enabling")
+
+	return cmd
 }
 
 // newBackendDisableCmd creates the disable command.
 func newBackendDisableCmd() *cobra.Command {
-	return &cobra.Command{
+	var dryRun bool
+
+	cmd := &cobra.Command{
 		Use:   "disable <name>",
 		Short: "Disable a backend",
 		Long: `Disable a storage backend (stops serving files from it).
@@ -275,13 +335,18 @@ Examples:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 
+			if dryRun {
+				fmt.Printf("Dry run: would disable backend %s\n", name)
+				return nil
+			}
+
 			client, cleanup, err := createAdminClient()
 			if err != nil {
 				return err
 			}
 			defer cleanup()
 
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutAdmin)
 			defer cancel()
 
 			if err := client.SetBackendEnabled(ctx, name, false); err != nil {
@@ -292,11 +357,15 @@ Examples:
 			return nil
 		},
 	}
+
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without disabling")
+
+	return cmd
 }
 
 // newBackendHealthCmd creates the health command.
 func newBackendHealthCmd() *cobra.Command {
-	var outputJSON bool
+	var outputFmt string
 
 	cmd := &cobra.Command{
 		Use:   "health",
@@ -305,7 +374,7 @@ func newBackendHealthCmd() *cobra.Command {
 
 Examples:
   kscore-files backend health
-  kscore-files backend health --json`,
+  kscore-files backend health --output json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, cleanup, err := createAdminClient()
 			if err != nil {
@@ -313,7 +382,7 @@ Examples:
 			}
 			defer cleanup()
 
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutAdmin)
 			defer cancel()
 
 			health, err := client.CheckBackendHealth(ctx)
@@ -321,43 +390,50 @@ Examples:
 				return fmt.Errorf("failed to check backend health: %w", err)
 			}
 
-			if outputJSON {
-				enc := json.NewEncoder(os.Stdout)
-				enc.SetIndent("", "  ")
-				return enc.Encode(health)
+			format, err := output.ParseFormat(outputFmt)
+			if err != nil {
+				return err
 			}
 
-			fmt.Printf("%-20s %-10s %-15s %s\n", "BACKEND", "STATUS", "LATENCY", "MESSAGE")
-			fmt.Println(strings.Repeat("-", 70))
+			switch format {
+			case output.FormatJSON:
+				return output.WriteJSON(os.Stdout, health)
+			case output.FormatYAML:
+				return output.WriteYAML(os.Stdout, health)
+			case output.FormatTable, output.FormatText:
+				fmt.Printf("%-20s %-10s %-15s %s\n", "BACKEND", "STATUS", "LATENCY", "MESSAGE")
+				fmt.Println(strings.Repeat("-", 70))
 
-			allHealthy := true
-			for _, h := range health {
-				status := "healthy"
-				if !h.Healthy {
-					status = "unhealthy"
-					allHealthy = false
+				allHealthy := true
+				for _, h := range health {
+					status := "healthy"
+					if !h.Healthy {
+						status = "unhealthy"
+						allHealthy = false
+					}
+					latency := fmt.Sprintf("%dms", h.Latency.Milliseconds())
+					message := h.Message
+					if len(message) > 30 {
+						message = message[:27] + "..."
+					}
+					fmt.Printf("%-20s %-10s %-15s %s\n", h.Name, status, latency, message)
 				}
-				latency := fmt.Sprintf("%dms", h.Latency.Milliseconds())
-				message := h.Message
-				if len(message) > 30 {
-					message = message[:27] + "..."
+
+				fmt.Println()
+				if allHealthy {
+					fmt.Println("All backends healthy")
+				} else {
+					fmt.Println("Some backends are unhealthy")
+					return fmt.Errorf("unhealthy backends detected")
 				}
-				fmt.Printf("%-20s %-10s %-15s %s\n", h.Name, status, latency, message)
+				return nil
+			default:
+				return fmt.Errorf("unsupported output format: %s", outputFmt)
 			}
-
-			fmt.Println()
-			if allHealthy {
-				fmt.Println("All backends healthy")
-			} else {
-				fmt.Println("Some backends are unhealthy")
-				return fmt.Errorf("unhealthy backends detected")
-			}
-
-			return nil
 		},
 	}
 
-	cmd.Flags().BoolVar(&outputJSON, "json", false, "Output in JSON format")
+	cmd.Flags().StringVarP(&outputFmt, "output", "o", "table", "Output format (table, text, json, yaml)")
 
 	return cmd
 }
@@ -412,7 +488,7 @@ type BackendHealth struct {
 func createAdminClient() (*AdminClient, func(), error) {
 	nc, err := nats.Connect(natsURL)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to connect to NATS: %w", err)
+		return nil, nil, fmt.Errorf("failed to connect to NATS (check --nats-url or server availability): %w", err)
 	}
 
 	client := &AdminClient{

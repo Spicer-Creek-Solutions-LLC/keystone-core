@@ -135,6 +135,27 @@ func (v Version) Compare(other Version) int {
 	return 0
 }
 
+// IsNewerThan returns true if v is newer than other.
+func (v Version) IsNewerThan(other Version) bool {
+	return v.Compare(other) > 0
+}
+
+// IsOlderThan returns true if v is older than other.
+func (v Version) IsOlderThan(other Version) bool {
+	return v.Compare(other) < 0
+}
+
+// IsCompatibleWith returns true if v is semver-compatible with other.
+func (v Version) IsCompatibleWith(other Version) bool {
+	if v.Major != other.Major {
+		return false
+	}
+	if v.Major == 0 {
+		return v.Minor == other.Minor
+	}
+	return true
+}
+
 // IsZero returns true if this is the zero version.
 func (v Version) IsZero() bool {
 	return v.Major == 0 && v.Minor == 0 && v.Patch == 0 && v.Prerelease == "" && v.Build == ""
@@ -146,13 +167,13 @@ type VersionInfo struct {
 	ReleaseDate  time.Time `json:"release_date" yaml:"release_date"`
 	Channel      string    `json:"channel" yaml:"channel"` // stable, beta, nightly
 	Changelog    string    `json:"changelog,omitempty" yaml:"changelog,omitempty"`
-	MinUpgrade   *Version  `json:"min_upgrade,omitempty" yaml:"min_upgrade,omitempty"`     // Minimum version to upgrade from
-	MaxUpgrade   *Version  `json:"max_upgrade,omitempty" yaml:"max_upgrade,omitempty"`     // Maximum version to upgrade from
+	MinUpgrade   *Version  `json:"min_upgrade,omitempty" yaml:"min_upgrade,omitempty"`   // Minimum version to upgrade from
+	MaxUpgrade   *Version  `json:"max_upgrade,omitempty" yaml:"max_upgrade,omitempty"`   // Maximum version to upgrade from
 	Dependencies []string  `json:"dependencies,omitempty" yaml:"dependencies,omitempty"` // Required component versions
 	Deprecated   bool      `json:"deprecated,omitempty" yaml:"deprecated,omitempty"`
 	SecurityFix  bool      `json:"security_fix,omitempty" yaml:"security_fix,omitempty"`
-	Checksum     string    `json:"checksum,omitempty" yaml:"checksum,omitempty"`         // SHA-256 checksum
-	Signature    string    `json:"signature,omitempty" yaml:"signature,omitempty"`       // Cosign signature
+	Checksum     string    `json:"checksum,omitempty" yaml:"checksum,omitempty"`   // SHA-256 checksum
+	Signature    string    `json:"signature,omitempty" yaml:"signature,omitempty"` // Cosign signature
 }
 
 // UpgradeConfig defines the upgrade configuration.
@@ -228,6 +249,12 @@ type CanaryConfig struct {
 
 	// Metrics are the metrics to monitor during canary.
 	Metrics []CanaryMetric `json:"metrics,omitempty" yaml:"metrics,omitempty"`
+
+	// PrometheusAddress is the Prometheus base URL for metric queries.
+	PrometheusAddress string `json:"prometheus_address,omitempty" yaml:"prometheus_address,omitempty"`
+
+	// QueryTimeout is the timeout for each Prometheus query.
+	QueryTimeout time.Duration `json:"query_timeout,omitempty" yaml:"query_timeout,omitempty"`
 }
 
 // CanaryMetric defines a metric to monitor during canary deployment.
@@ -657,6 +684,7 @@ func DefaultCanaryConfig() *CanaryConfig {
 		Interval:          5 * time.Minute,
 		SuccessThreshold:  3,
 		FailureThreshold:  2,
+		QueryTimeout:      15 * time.Second,
 	}
 }
 
@@ -696,4 +724,3 @@ func DefaultAgentBatchConfig() *AgentBatchConfig {
 		MaxFailures: 2,
 	}
 }
-

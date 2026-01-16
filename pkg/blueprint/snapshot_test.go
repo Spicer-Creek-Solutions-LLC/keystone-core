@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestDefaultSnapshotConfig(t *testing.T) {
@@ -211,7 +213,12 @@ func TestSnapshotManager_ListSnapshots(t *testing.T) {
 	// Create multiple snapshots
 	capture := NewStateCapture()
 	for i := 0; i < 3; i++ {
-		time.Sleep(10 * time.Millisecond) // Ensure different timestamps
+		start := time.Now()
+		if err := helpers.WaitForTimeout(2*time.Second, 1*time.Millisecond, func() (bool, error) {
+			return time.Since(start) >= 10*time.Millisecond, nil
+		}); err != nil {
+			t.Fatalf("timestamp wait did not elapse: %v", err)
+		}
 		_, err := manager.CreateSnapshot("agent-1", "test-bp", "1.0.0", "default", capture)
 		if err != nil {
 			t.Fatalf("CreateSnapshot failed: %v", err)
@@ -295,7 +302,12 @@ func TestSnapshotManager_GetLatestSnapshot(t *testing.T) {
 
 	capture := NewStateCapture()
 	_, _ = manager.CreateSnapshot("agent-1", "test-bp", "1.0.0", "default", capture)
-	time.Sleep(10 * time.Millisecond)
+	start := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 1*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 10*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("timestamp wait did not elapse: %v", err)
+	}
 	latest, _ := manager.CreateSnapshot("agent-1", "test-bp", "1.1.0", "default", capture)
 
 	retrieved, err := manager.GetLatestSnapshot("agent-1", "test-bp", "default")
@@ -535,7 +547,12 @@ func TestSnapshotManager_EnforceLimits(t *testing.T) {
 
 	// Create more snapshots than the limit
 	for i := 0; i < 4; i++ {
-		time.Sleep(10 * time.Millisecond) // Ensure different timestamps
+		start := time.Now()
+		if err := helpers.WaitForTimeout(2*time.Second, 1*time.Millisecond, func() (bool, error) {
+			return time.Since(start) >= 10*time.Millisecond, nil
+		}); err != nil {
+			t.Fatalf("timestamp wait did not elapse: %v", err)
+		}
 		_, err := manager.CreateSnapshot("agent-1", "test-bp", "1.0.0", "default", capture)
 		if err != nil {
 			t.Fatalf("CreateSnapshot failed: %v", err)

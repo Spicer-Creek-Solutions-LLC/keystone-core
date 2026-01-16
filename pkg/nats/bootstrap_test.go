@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestBootstrapClaims_IsExpired(t *testing.T) {
@@ -540,7 +542,12 @@ func TestInMemoryBootstrapProvider_Cleanup(t *testing.T) {
 	}
 
 	// Wait for short TTL to expire
-	time.Sleep(5 * time.Millisecond)
+	start := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 1*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 5*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("expiry wait did not elapse: %v", err)
+	}
 
 	// Cleanup
 	removed, err := provider.Cleanup(ctx)

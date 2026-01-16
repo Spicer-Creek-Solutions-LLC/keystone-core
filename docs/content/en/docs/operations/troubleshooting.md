@@ -264,7 +264,7 @@ sudo journalctl -u kscore-agent | grep state
 **3. Test Individual States:**
 ```bash
 # Apply single state for debugging
-kscore-state apply nginx-package.yaml --target "web-01"
+kscore-state apply nginx-package.yaml
 ```
 
 ### Common Causes and Solutions
@@ -575,13 +575,13 @@ kscorectl policy audit --resource "state/nginx-config"
 **Check:**
 ```bash
 # View drift details
-kscorectl state drift web-server.yaml --target "web-01"
+kscorectl state drift web-server.yaml
 ```
 
 **Fix:**
 ```bash
 # Reapply state to fix drift
-kscorectl state apply web-server.yaml --target "web-01"
+kscorectl state apply web-server.yaml
 ```
 
 ## Debug Logging

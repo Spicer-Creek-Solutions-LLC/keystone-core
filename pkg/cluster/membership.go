@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
 const (
@@ -820,6 +822,5 @@ func (m *MembershipManager) RemoveMember(ctx context.Context, memberID string, f
 // getVersion returns the current version.
 // This should be replaced with the actual version from pkg/version.
 func getVersion() string {
-	// TODO: Import from pkg/version when available
-	return "0.11.0-dev"
+	return version.Get().Version
 }

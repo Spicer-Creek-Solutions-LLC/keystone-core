@@ -863,7 +863,7 @@ func TestCreateMockSocket(t *testing.T) {
 	go func() {
 		conn, _ := listener.Accept()
 		if conn != nil {
-			time.Sleep(100 * time.Millisecond)
+			<-ctx.Done()
 			conn.Close()
 		}
 	}()

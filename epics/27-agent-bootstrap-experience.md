@@ -67,6 +67,38 @@ Transform the Keystone Core getting started experience from a multi-step manual 
 
 ## Technical Tasks
 
+### Phase 0: Discovery & Tasking (Week 0)
+
+#### T0.1: Inventory Existing Bootstrap Capabilities
+- Review `cmd/kscore-bootstrap` and shared packages for reusable logic
+- Identify overlaps with `kscore-agent bootstrap` scope
+- Document gaps vs. Epic 27 requirements
+
+#### T0.2: Bootstrap Architecture Sketch
+- Define bootstrap phases and failure rollback strategy
+- Decide shared packages vs. new `cmd/kscore-agent/bootstrap/`
+- Outline config flow (TUI → config → execution)
+
+#### T0.3: Configuration Contract
+- Draft schema for bootstrap config file (YAML)
+- Map CLI flags and environment variables to schema fields
+- Define defaults per deployment mode
+
+#### T0.4: Platform Support Matrix
+- Enumerate supported distros and init systems
+- Identify required package managers per distro
+- Capture constraints for demo vs production modes
+
+**Acceptance Criteria**:
+- Reuse plan for existing bootstrap code is documented
+- Config schema and flag/env mapping is defined
+- Platform coverage and constraints are explicit
+
+**Phase 0 Notes (Initial Findings)**:
+- Existing `cmd/kscore-bootstrap` CLI already supports seed/restore/import flows with audit logging.
+- Shared bootstrap primitives exist in `pkg/bootstrap` (phases, config schema, installers, handoff).
+- Epic 27 can reuse `pkg/bootstrap` and decide whether to wrap or subsume `kscore-bootstrap`.
+
 ### Phase 1: Core Bootstrap Command (Weeks 1-3)
 
 #### T1.1: Bootstrap Command Structure

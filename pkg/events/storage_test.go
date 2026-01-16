@@ -5,6 +5,8 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestNewSQLiteEventStore(t *testing.T) {
@@ -494,7 +496,6 @@ func TestEventStore_ApplyRetention_MaxCount(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		event := NewEvent(EventTypeAgentConnect).Source("/test").Build()
 		store.Store(ctx, event)
-		time.Sleep(10 * time.Millisecond) // Ensure different created_at timestamps
 	}
 
 	// Apply retention: keep only 5 events
@@ -679,11 +680,15 @@ func TestEventStore_AutoRetention(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		event := NewEvent(EventTypeAgentConnect).Source("/test").Build()
 		store.Store(ctx, event)
-		time.Sleep(10 * time.Millisecond)
 	}
 
-	// Give auto-retention time to run at least once
-	time.Sleep(250 * time.Millisecond)
+	if err := helpers.WaitForTimeout(5*time.Second, 10*time.Millisecond, func() (bool, error) {
+		query := NewEventQuery()
+		count, _ := store.Count(ctx, query)
+		return count <= 5, nil
+	}); err != nil {
+		t.Fatalf("Expected auto-retention to reduce events: %v", err)
+	}
 
 	// Verify retention was applied (should keep only 5 events)
 	query := NewEventQuery()

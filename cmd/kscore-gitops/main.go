@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -11,6 +12,9 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
+	"github.com/shawnbutts/keystone-core/pkg/cli/auditutil"
+	clierrors "github.com/shawnbutts/keystone-core/pkg/cli/errors"
+	"github.com/shawnbutts/keystone-core/pkg/cli/output"
 	"github.com/shawnbutts/keystone-core/pkg/gitops/promotion"
 	"github.com/shawnbutts/keystone-core/pkg/gitops/rollback"
 	"github.com/shawnbutts/keystone-core/pkg/gitops/verification"
@@ -44,6 +48,9 @@ Examples:
   kscorectl gitops webhook list`,
 	}
 
+	rootCmd.PersistentFlags().StringVar(&auditLevel, "audit-level", "all", "Audit logging level (all, errors, none)")
+	rootCmd.PersistentFlags().StringVar(&auditOutput, "audit-output", "auto", "Audit output backend (auto, syslog, journald, stderr, none)")
+
 	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(verifyCmd)
 	rootCmd.AddCommand(rollbackCmd)
@@ -67,7 +74,10 @@ func newVersionCmd() *cobra.Command {
 }
 
 func main() {
-	if err := newRootCmd().Execute(); err != nil {
+	rootCmd := newRootCmd()
+	auditHandler := auditutil.Attach(rootCmd, "kscore-gitops", &auditLevel, &auditOutput)
+	if err := rootCmd.Execute(); err != nil {
+		auditHandler.LogFailure(err)
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
@@ -81,6 +91,8 @@ var (
 	verifyParallel bool
 	verifyTimeout  string
 	verifyOutput   string
+	auditLevel     string
+	auditOutput    string
 )
 
 var verifyCmd = &cobra.Command{
@@ -110,11 +122,16 @@ Examples:
 func init() {
 	verifyCmd.Flags().BoolVar(&verifyParallel, "parallel", false, "Run steps in parallel")
 	verifyCmd.Flags().StringVar(&verifyTimeout, "timeout", "2m", "Workflow timeout")
-	verifyCmd.Flags().StringVarP(&verifyOutput, "output", "o", "text", "Output format (text, json)")
+	verifyCmd.Flags().StringVarP(&verifyOutput, "output", "o", "text", "Output format (text, json, yaml, table)")
 }
 
 func verifyExecute(cmd *cobra.Command, args []string) error {
 	workflowFile := args[0]
+
+	format, err := output.ParseFormat(verifyOutput)
+	if err != nil {
+		return err
+	}
 
 	// Load workflow from file
 	workflow, err := loadVerificationWorkflow(workflowFile)
@@ -136,18 +153,20 @@ func verifyExecute(cmd *cobra.Command, args []string) error {
 		workflow.Timeout = timeout
 	}
 
-	fmt.Printf("Running verification workflow: %s\n", workflow.Name)
-	if workflow.Description != "" {
-		fmt.Printf("Description: %s\n", workflow.Description)
-	}
-	fmt.Printf("Steps: %d\n", len(workflow.Steps))
-	fmt.Printf("Mode: %s\n", func() string {
-		if workflow.Parallel {
-			return "parallel"
+	if format == output.FormatText {
+		fmt.Fprintf(cmd.OutOrStdout(), "Running verification workflow: %s\n", workflow.Name)
+		if workflow.Description != "" {
+			fmt.Fprintf(cmd.OutOrStdout(), "Description: %s\n", workflow.Description)
 		}
-		return "sequential"
-	}())
-	fmt.Println()
+		fmt.Fprintf(cmd.OutOrStdout(), "Steps: %d\n", len(workflow.Steps))
+		fmt.Fprintf(cmd.OutOrStdout(), "Mode: %s\n", func() string {
+			if workflow.Parallel {
+				return "parallel"
+			}
+			return "sequential"
+		}())
+		fmt.Fprintln(cmd.OutOrStdout())
+	}
 
 	// Create engine and register verifiers
 	engine := verification.NewEngine()
@@ -161,15 +180,26 @@ func verifyExecute(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("workflow execution failed: %w", err)
 	}
 
-	// Output result
-	if verifyOutput == "json" {
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(result)
+	switch format {
+	case output.FormatJSON:
+		if err := output.WriteJSON(cmd.OutOrStdout(), result); err != nil {
+			return err
+		}
+	case output.FormatYAML:
+		if err := output.WriteYAML(cmd.OutOrStdout(), result); err != nil {
+			return err
+		}
+	case output.FormatTable:
+		table := buildVerificationTable(result)
+		if err := output.WriteTable(cmd.OutOrStdout(), table); err != nil {
+			return err
+		}
+		printVerificationSummary(cmd.OutOrStdout(), result)
+	case output.FormatText:
+		printVerificationResult(cmd.OutOrStdout(), result)
+	default:
+		return clierrors.New(clierrors.KindInvalidArgument, fmt.Sprintf("unsupported output format: %s", verifyOutput))
 	}
-
-	// Text output
-	printVerificationResult(result)
 
 	if !result.Success {
 		os.Exit(1)
@@ -178,33 +208,57 @@ func verifyExecute(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func printVerificationResult(result *verification.WorkflowResult) {
-	fmt.Println("=== Step Results ===")
+func printVerificationResult(writer io.Writer, result *verification.WorkflowResult) {
+	fmt.Fprintln(writer, "=== Step Results ===")
 	for _, step := range result.Steps {
 		status := "✓"
 		if !step.Success {
 			status = "✗"
 		}
-		fmt.Printf("%s %s: %s (%s)\n", status, step.StepName, step.Message, step.Duration.Round(time.Millisecond))
+		fmt.Fprintf(writer, "%s %s: %s (%s)\n", status, step.StepName, step.Message, step.Duration.Round(time.Millisecond))
 		if step.Error != nil {
-			fmt.Printf("  Error: %v\n", step.Error)
+			fmt.Fprintf(writer, "  Error: %v\n", step.Error)
 		}
 		if step.Retries > 0 {
-			fmt.Printf("  Retries: %d\n", step.Retries)
+			fmt.Fprintf(writer, "  Retries: %d\n", step.Retries)
 		}
 	}
 
-	fmt.Println()
-	fmt.Println("=== Summary ===")
-	fmt.Printf("Total Steps:  %d\n", result.TotalSteps)
-	fmt.Printf("Passed:       %d\n", result.PassedSteps)
-	fmt.Printf("Failed:       %d\n", result.FailedSteps)
-	fmt.Printf("Duration:     %s\n", result.Duration.Round(time.Millisecond))
-
+	printVerificationSummary(writer, result)
 	if result.Success {
-		fmt.Println("\n✓ Verification passed!")
+		fmt.Fprintln(writer, "\n✓ Verification passed!")
 	} else {
-		fmt.Println("\n✗ Verification failed!")
+		fmt.Fprintln(writer, "\n✗ Verification failed!")
+	}
+}
+
+func printVerificationSummary(writer io.Writer, result *verification.WorkflowResult) {
+	fmt.Fprintln(writer)
+	fmt.Fprintln(writer, "=== Summary ===")
+	fmt.Fprintf(writer, "Total Steps:  %d\n", result.TotalSteps)
+	fmt.Fprintf(writer, "Passed:       %d\n", result.PassedSteps)
+	fmt.Fprintf(writer, "Failed:       %d\n", result.FailedSteps)
+	fmt.Fprintf(writer, "Duration:     %s\n", result.Duration.Round(time.Millisecond))
+}
+
+func buildVerificationTable(result *verification.WorkflowResult) *output.Table {
+	rows := make([][]string, 0, len(result.Steps))
+	for _, step := range result.Steps {
+		status := "OK"
+		if !step.Success {
+			status = "FAIL"
+		}
+		rows = append(rows, []string{
+			step.StepName,
+			status,
+			step.Message,
+			step.Duration.Round(time.Millisecond).String(),
+		})
+	}
+
+	return &output.Table{
+		Headers: []string{"STEP", "STATUS", "MESSAGE", "DURATION"},
+		Rows:    rows,
 	}
 }
 
@@ -260,7 +314,7 @@ func init() {
 	rollbackCmd.Flags().StringVar(&rollbackReason, "reason", "", "Reason for rollback")
 	rollbackCmd.Flags().StringVar(&rollbackUser, "user", "", "User performing rollback")
 	rollbackCmd.Flags().BoolVar(&rollbackDryRun, "dry-run", false, "Simulate rollback without executing")
-	rollbackCmd.Flags().StringVarP(&rollbackOutput, "output", "o", "text", "Output format (text, json)")
+	rollbackCmd.Flags().StringVarP(&rollbackOutput, "output", "o", "text", "Output format (text, json, yaml, table)")
 	rollbackCmd.MarkFlagRequired("app")
 }
 
@@ -271,12 +325,12 @@ func rollbackExecute(cmd *cobra.Command, args []string) error {
 	case rollback.StrategyPreviousRevision, rollback.StrategySpecificRevision, rollback.StrategyLastKnownGood:
 		// Valid
 	default:
-		return fmt.Errorf("invalid strategy: %s (use: previous, specific, last_known_good)", rollbackStrategy)
+		return clierrors.New(clierrors.KindInvalidArgument, fmt.Sprintf("invalid strategy: %s (use: previous, specific, last_known_good)", rollbackStrategy))
 	}
 
 	// Require revision for specific strategy
 	if strategy == rollback.StrategySpecificRevision && rollbackRevision == "" {
-		return fmt.Errorf("--revision is required for 'specific' strategy")
+		return clierrors.New(clierrors.KindInvalidArgument, "--revision is required for 'specific' strategy")
 	}
 
 	// Build rollback config
@@ -299,25 +353,78 @@ func rollbackExecute(cmd *cobra.Command, args []string) error {
 		OverrideRevision: rollbackRevision,
 	}
 
-	fmt.Printf("Rollback Configuration\n")
-	fmt.Printf("======================\n")
-	fmt.Printf("Application:  %s\n", config.Application)
-	fmt.Printf("Namespace:    %s\n", config.Namespace)
-	fmt.Printf("Type:         %s\n", config.Type)
-	fmt.Printf("Strategy:     %s\n", config.Strategy)
-	if config.Revision != "" {
-		fmt.Printf("Revision:     %s\n", config.Revision)
+	format, err := output.ParseFormat(rollbackOutput)
+	if err != nil {
+		return err
 	}
-	if request.Reason != "" {
-		fmt.Printf("Reason:       %s\n", request.Reason)
+
+	if format == output.FormatText {
+		fmt.Fprintln(cmd.OutOrStdout(), "Rollback Configuration")
+		fmt.Fprintln(cmd.OutOrStdout(), "======================")
+		fmt.Fprintf(cmd.OutOrStdout(), "Application:  %s\n", config.Application)
+		fmt.Fprintf(cmd.OutOrStdout(), "Namespace:    %s\n", config.Namespace)
+		fmt.Fprintf(cmd.OutOrStdout(), "Type:         %s\n", config.Type)
+		fmt.Fprintf(cmd.OutOrStdout(), "Strategy:     %s\n", config.Strategy)
+		if config.Revision != "" {
+			fmt.Fprintf(cmd.OutOrStdout(), "Revision:     %s\n", config.Revision)
+		}
+		if request.Reason != "" {
+			fmt.Fprintf(cmd.OutOrStdout(), "Reason:       %s\n", request.Reason)
+		}
+		fmt.Fprintln(cmd.OutOrStdout())
 	}
-	fmt.Println()
+	if format == output.FormatTable {
+		table := buildKeyValueTable([][2]string{
+			{"APPLICATION", config.Application},
+			{"NAMESPACE", config.Namespace},
+			{"TYPE", string(config.Type)},
+			{"STRATEGY", string(config.Strategy)},
+			{"REVISION", config.Revision},
+			{"REASON", request.Reason},
+		})
+		if err := output.WriteTable(cmd.OutOrStdout(), table); err != nil {
+			return err
+		}
+		fmt.Fprintln(cmd.OutOrStdout())
+	}
 
 	if rollbackDryRun {
-		fmt.Println("=== DRY RUN ===")
-		fmt.Println("Would execute rollback with the above configuration.")
-		fmt.Println("No changes made.")
-		return nil
+		dryRun := map[string]any{
+			"dry_run":  true,
+			"config":   config,
+			"request":  request,
+			"message":  "Would execute rollback with the above configuration.",
+			"datetime": time.Now().UTC(),
+		}
+
+		switch format {
+		case output.FormatJSON:
+			return output.WriteJSON(cmd.OutOrStdout(), dryRun)
+		case output.FormatYAML:
+			return output.WriteYAML(cmd.OutOrStdout(), dryRun)
+		case output.FormatTable:
+			table := buildKeyValueTable([][2]string{
+				{"DRY RUN", "true"},
+				{"APPLICATION", config.Application},
+				{"NAMESPACE", config.Namespace},
+				{"TYPE", string(config.Type)},
+				{"STRATEGY", string(config.Strategy)},
+				{"REVISION", config.Revision},
+				{"REASON", request.Reason},
+			})
+			if err := output.WriteTable(cmd.OutOrStdout(), table); err != nil {
+				return err
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), "\nNo changes made.")
+			return nil
+		case output.FormatText:
+			fmt.Fprintln(cmd.OutOrStdout(), "=== DRY RUN ===")
+			fmt.Fprintln(cmd.OutOrStdout(), "Would execute rollback with the above configuration.")
+			fmt.Fprintln(cmd.OutOrStdout(), "No changes made.")
+			return nil
+		default:
+			return clierrors.New(clierrors.KindInvalidArgument, fmt.Sprintf("unsupported output format: %s", rollbackOutput))
+		}
 	}
 
 	// In a real implementation, this would connect to the control plane
@@ -328,7 +435,7 @@ func rollbackExecute(cmd *cobra.Command, args []string) error {
 		Request:          request,
 		Status:           rollback.StatusCompleted,
 		PreviousRevision: "abc123",
-		CurrentRevision:  func() string {
+		CurrentRevision: func() string {
 			if config.Revision != "" {
 				return config.Revision
 			}
@@ -340,25 +447,41 @@ func rollbackExecute(cmd *cobra.Command, args []string) error {
 		Message:   "Rollback completed successfully",
 	}
 
-	// Output result
-	if rollbackOutput == "json" {
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(result)
+	switch format {
+	case output.FormatJSON:
+		return output.WriteJSON(cmd.OutOrStdout(), result)
+	case output.FormatYAML:
+		return output.WriteYAML(cmd.OutOrStdout(), result)
+	case output.FormatTable:
+		table := buildKeyValueTable([][2]string{
+			{"ID", result.ID},
+			{"STATUS", string(result.Status)},
+			{"FROM", result.PreviousRevision},
+			{"TO", result.CurrentRevision},
+			{"DURATION", result.Duration.String()},
+			{"MESSAGE", result.Message},
+		})
+		if err := output.WriteTable(cmd.OutOrStdout(), table); err != nil {
+			return err
+		}
+		fmt.Fprintln(cmd.OutOrStdout(), "\n✓ Rollback completed!")
+		fmt.Fprintln(cmd.OutOrStdout(), "\nNote: This CLI reads from local configuration.")
+		fmt.Fprintln(cmd.OutOrStdout(), "For production rollbacks, connect to the control plane API.")
+	case output.FormatText:
+		fmt.Fprintln(cmd.OutOrStdout(), "=== Rollback Result ===")
+		fmt.Fprintf(cmd.OutOrStdout(), "ID:       %s\n", result.ID)
+		fmt.Fprintf(cmd.OutOrStdout(), "Status:   %s\n", result.Status)
+		fmt.Fprintf(cmd.OutOrStdout(), "From:     %s\n", result.PreviousRevision)
+		fmt.Fprintf(cmd.OutOrStdout(), "To:       %s\n", result.CurrentRevision)
+		fmt.Fprintf(cmd.OutOrStdout(), "Duration: %s\n", result.Duration)
+		fmt.Fprintf(cmd.OutOrStdout(), "Message:  %s\n", result.Message)
+
+		fmt.Fprintln(cmd.OutOrStdout(), "\n✓ Rollback completed!")
+		fmt.Fprintln(cmd.OutOrStdout(), "\nNote: This CLI reads from local configuration.")
+		fmt.Fprintln(cmd.OutOrStdout(), "For production rollbacks, connect to the control plane API.")
+	default:
+		return clierrors.New(clierrors.KindInvalidArgument, fmt.Sprintf("unsupported output format: %s", rollbackOutput))
 	}
-
-	// Text output
-	fmt.Println("=== Rollback Result ===")
-	fmt.Printf("ID:       %s\n", result.ID)
-	fmt.Printf("Status:   %s\n", result.Status)
-	fmt.Printf("From:     %s\n", result.PreviousRevision)
-	fmt.Printf("To:       %s\n", result.CurrentRevision)
-	fmt.Printf("Duration: %s\n", result.Duration)
-	fmt.Printf("Message:  %s\n", result.Message)
-
-	fmt.Println("\n✓ Rollback completed!")
-	fmt.Println("\nNote: This CLI reads from local configuration.")
-	fmt.Println("For production rollbacks, connect to the control plane API.")
 
 	return nil
 }
@@ -368,16 +491,16 @@ func rollbackExecute(cmd *cobra.Command, args []string) error {
 // =============================================================================
 
 var (
-	promotePipeline        string
-	promoteFrom            string
-	promoteTo              string
-	promoteRevision        string
-	promoteReason          string
-	promoteUser            string
-	promoteSkipVerify      bool
-	promoteForce           bool
-	promoteDryRun          bool
-	promoteOutput          string
+	promotePipeline   string
+	promoteFrom       string
+	promoteTo         string
+	promoteRevision   string
+	promoteReason     string
+	promoteUser       string
+	promoteSkipVerify bool
+	promoteForce      bool
+	promoteDryRun     bool
+	promoteOutput     string
 )
 
 var promoteCmd = &cobra.Command{
@@ -413,7 +536,7 @@ func init() {
 	promoteCmd.Flags().BoolVar(&promoteSkipVerify, "skip-verify", false, "Skip verification step")
 	promoteCmd.Flags().BoolVar(&promoteForce, "force", false, "Force promotion even if checks fail")
 	promoteCmd.Flags().BoolVar(&promoteDryRun, "dry-run", false, "Simulate promotion without executing")
-	promoteCmd.Flags().StringVarP(&promoteOutput, "output", "o", "text", "Output format (text, json)")
+	promoteCmd.Flags().StringVarP(&promoteOutput, "output", "o", "text", "Output format (text, json, yaml, table)")
 	promoteCmd.MarkFlagRequired("pipeline")
 	promoteCmd.MarkFlagRequired("from")
 	promoteCmd.MarkFlagRequired("to")
@@ -432,27 +555,81 @@ func promoteExecute(cmd *cobra.Command, args []string) error {
 		Force:            promoteForce,
 	}
 
-	fmt.Printf("Promotion Request\n")
-	fmt.Printf("=================\n")
-	fmt.Printf("Pipeline:    %s\n", request.Pipeline)
-	fmt.Printf("From:        %s\n", request.FromEnvironment)
-	fmt.Printf("To:          %s\n", request.ToEnvironment)
-	if request.Revision != "" {
-		fmt.Printf("Revision:    %s\n", request.Revision)
+	format, err := output.ParseFormat(promoteOutput)
+	if err != nil {
+		return err
 	}
-	if request.Reason != "" {
-		fmt.Printf("Reason:      %s\n", request.Reason)
+
+	if format == output.FormatText {
+		fmt.Fprintln(cmd.OutOrStdout(), "Promotion Request")
+		fmt.Fprintln(cmd.OutOrStdout(), "=================")
+		fmt.Fprintf(cmd.OutOrStdout(), "Pipeline:    %s\n", request.Pipeline)
+		fmt.Fprintf(cmd.OutOrStdout(), "From:        %s\n", request.FromEnvironment)
+		fmt.Fprintf(cmd.OutOrStdout(), "To:          %s\n", request.ToEnvironment)
+		if request.Revision != "" {
+			fmt.Fprintf(cmd.OutOrStdout(), "Revision:    %s\n", request.Revision)
+		}
+		if request.Reason != "" {
+			fmt.Fprintf(cmd.OutOrStdout(), "Reason:      %s\n", request.Reason)
+		}
+		if request.SkipVerification {
+			fmt.Fprintln(cmd.OutOrStdout(), "Verification: skipped")
+		}
+		fmt.Fprintln(cmd.OutOrStdout())
 	}
-	if request.SkipVerification {
-		fmt.Printf("Verification: skipped\n")
+	if format == output.FormatTable {
+		table := buildKeyValueTable([][2]string{
+			{"PIPELINE", request.Pipeline},
+			{"FROM", request.FromEnvironment},
+			{"TO", request.ToEnvironment},
+			{"REVISION", request.Revision},
+			{"REASON", request.Reason},
+			{"SKIP VERIFICATION", fmt.Sprintf("%t", request.SkipVerification)},
+			{"FORCE", fmt.Sprintf("%t", request.Force)},
+		})
+		if err := output.WriteTable(cmd.OutOrStdout(), table); err != nil {
+			return err
+		}
+		fmt.Fprintln(cmd.OutOrStdout())
 	}
-	fmt.Println()
 
 	if promoteDryRun {
-		fmt.Println("=== DRY RUN ===")
-		fmt.Println("Would execute promotion with the above configuration.")
-		fmt.Println("No changes made.")
-		return nil
+		dryRun := map[string]any{
+			"dry_run":  true,
+			"request":  request,
+			"message":  "Would execute promotion with the above configuration.",
+			"datetime": time.Now().UTC(),
+		}
+
+		switch format {
+		case output.FormatJSON:
+			return output.WriteJSON(cmd.OutOrStdout(), dryRun)
+		case output.FormatYAML:
+			return output.WriteYAML(cmd.OutOrStdout(), dryRun)
+		case output.FormatTable:
+			table := buildKeyValueTable([][2]string{
+				{"DRY RUN", "true"},
+				{"PIPELINE", request.Pipeline},
+				{"FROM", request.FromEnvironment},
+				{"TO", request.ToEnvironment},
+				{"REVISION", request.Revision},
+				{"REASON", request.Reason},
+				{"SKIP VERIFICATION", fmt.Sprintf("%t", request.SkipVerification)},
+				{"FORCE", fmt.Sprintf("%t", request.Force)},
+			})
+			if err := output.WriteTable(cmd.OutOrStdout(), table); err != nil {
+				return err
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), "\nNo changes made.")
+			return nil
+		case output.FormatText:
+			fmt.Fprintln(cmd.OutOrStdout(), "=== DRY RUN ===")
+			fmt.Fprintln(cmd.OutOrStdout(), "Would execute promotion with the above configuration.")
+			fmt.Fprintln(cmd.OutOrStdout(), "No changes made.")
+			return nil
+		default:
+			return clierrors.New(clierrors.KindInvalidArgument, fmt.Sprintf("unsupported output format: %s", promoteOutput))
+		}
 	}
 
 	// In a real implementation, this would connect to the control plane
@@ -483,34 +660,55 @@ func promoteExecute(cmd *cobra.Command, args []string) error {
 		Message:   "Promotion completed successfully",
 	}
 
-	// Output result
-	if promoteOutput == "json" {
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(result)
-	}
-
-	// Text output
-	fmt.Println("=== Promotion Result ===")
-	fmt.Printf("ID:       %s\n", result.ID)
-	fmt.Printf("Status:   %s\n", result.Status)
-	fmt.Printf("Duration: %s\n", result.Duration)
-	fmt.Printf("Message:  %s\n", result.Message)
-
-	if len(result.Stages) > 0 {
-		fmt.Println("\nStages:")
-		for i, stage := range result.Stages {
-			status := "✓"
-			if stage.Status != promotion.StatusCompleted {
-				status = "✗"
-			}
-			fmt.Printf("  %d. %s %s: %s (%s)\n", i+1, status, stage.Environment, stage.Status, stage.Duration.Round(time.Millisecond))
+	switch format {
+	case output.FormatJSON:
+		return output.WriteJSON(cmd.OutOrStdout(), result)
+	case output.FormatYAML:
+		return output.WriteYAML(cmd.OutOrStdout(), result)
+	case output.FormatTable:
+		table := buildKeyValueTable([][2]string{
+			{"ID", result.ID},
+			{"STATUS", string(result.Status)},
+			{"DURATION", result.Duration.String()},
+			{"MESSAGE", result.Message},
+		})
+		if err := output.WriteTable(cmd.OutOrStdout(), table); err != nil {
+			return err
 		}
-	}
+		if len(result.Stages) > 0 {
+			stageTable := buildPromotionStageTable(result)
+			fmt.Fprintln(cmd.OutOrStdout(), "\nStages:")
+			if err := output.WriteTable(cmd.OutOrStdout(), stageTable); err != nil {
+				return err
+			}
+		}
+		fmt.Fprintln(cmd.OutOrStdout(), "\n✓ Promotion completed!")
+		fmt.Fprintln(cmd.OutOrStdout(), "\nNote: This CLI reads from local configuration.")
+		fmt.Fprintln(cmd.OutOrStdout(), "For production promotions, connect to the control plane API.")
+	case output.FormatText:
+		fmt.Fprintln(cmd.OutOrStdout(), "=== Promotion Result ===")
+		fmt.Fprintf(cmd.OutOrStdout(), "ID:       %s\n", result.ID)
+		fmt.Fprintf(cmd.OutOrStdout(), "Status:   %s\n", result.Status)
+		fmt.Fprintf(cmd.OutOrStdout(), "Duration: %s\n", result.Duration)
+		fmt.Fprintf(cmd.OutOrStdout(), "Message:  %s\n", result.Message)
 
-	fmt.Println("\n✓ Promotion completed!")
-	fmt.Println("\nNote: This CLI reads from local configuration.")
-	fmt.Println("For production promotions, connect to the control plane API.")
+		if len(result.Stages) > 0 {
+			fmt.Fprintln(cmd.OutOrStdout(), "\nStages:")
+			for i, stage := range result.Stages {
+				status := "✓"
+				if stage.Status != promotion.StatusCompleted {
+					status = "✗"
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "  %d. %s %s: %s (%s)\n", i+1, status, stage.Environment, stage.Status, stage.Duration.Round(time.Millisecond))
+			}
+		}
+
+		fmt.Fprintln(cmd.OutOrStdout(), "\n✓ Promotion completed!")
+		fmt.Fprintln(cmd.OutOrStdout(), "\nNote: This CLI reads from local configuration.")
+		fmt.Fprintln(cmd.OutOrStdout(), "For production promotions, connect to the control plane API.")
+	default:
+		return clierrors.New(clierrors.KindInvalidArgument, fmt.Sprintf("unsupported output format: %s", promoteOutput))
+	}
 
 	return nil
 }
@@ -562,6 +760,7 @@ Examples:
 func init() {
 	webhookCmd.AddCommand(webhookListCmd)
 	webhookCmd.AddCommand(webhookTestCmd)
+	webhookListCmd.Flags().StringVarP(&webhookOutput, "output", "o", "text", "Output format (text, json, yaml, table)")
 }
 
 func webhookListExecute(cmd *cobra.Command, args []string) error {
@@ -593,20 +792,42 @@ func webhookListExecute(cmd *cobra.Command, args []string) error {
 		},
 	}
 
-	fmt.Println("Registered Webhook Handlers")
-	fmt.Println("===========================")
-	fmt.Println()
-
-	for _, h := range handlers {
-		fmt.Printf("%s\n", strings.ToUpper(h.Type))
-		fmt.Printf("  Description: %s\n", h.Description)
-		fmt.Printf("  Events:      %s\n", strings.Join(h.Events, ", "))
-		fmt.Println()
+	format, err := output.ParseFormat(webhookOutput)
+	if err != nil {
+		return err
 	}
 
-	fmt.Println("Webhook Endpoint: POST /webhooks/<type>")
-	fmt.Println("\nNote: Configure webhooks on the control plane server.")
-	fmt.Println("Use the server's webhook.port and webhook.path settings.")
+	switch format {
+	case output.FormatJSON:
+		return output.WriteJSON(cmd.OutOrStdout(), handlers)
+	case output.FormatYAML:
+		return output.WriteYAML(cmd.OutOrStdout(), handlers)
+	case output.FormatTable:
+		table := buildWebhookTable(handlers)
+		if err := output.WriteTable(cmd.OutOrStdout(), table); err != nil {
+			return err
+		}
+		fmt.Fprintln(cmd.OutOrStdout(), "\nWebhook Endpoint: POST /webhooks/<type>")
+		fmt.Fprintln(cmd.OutOrStdout(), "\nNote: Configure webhooks on the control plane server.")
+		fmt.Fprintln(cmd.OutOrStdout(), "Use the server's webhook.port and webhook.path settings.")
+	case output.FormatText:
+		fmt.Fprintln(cmd.OutOrStdout(), "Registered Webhook Handlers")
+		fmt.Fprintln(cmd.OutOrStdout(), "===========================")
+		fmt.Fprintln(cmd.OutOrStdout())
+
+		for _, h := range handlers {
+			fmt.Fprintln(cmd.OutOrStdout(), strings.ToUpper(h.Type))
+			fmt.Fprintf(cmd.OutOrStdout(), "  Description: %s\n", h.Description)
+			fmt.Fprintf(cmd.OutOrStdout(), "  Events:      %s\n", strings.Join(h.Events, ", "))
+			fmt.Fprintln(cmd.OutOrStdout())
+		}
+
+		fmt.Fprintln(cmd.OutOrStdout(), "Webhook Endpoint: POST /webhooks/<type>")
+		fmt.Fprintln(cmd.OutOrStdout(), "\nNote: Configure webhooks on the control plane server.")
+		fmt.Fprintln(cmd.OutOrStdout(), "Use the server's webhook.port and webhook.path settings.")
+	default:
+		return clierrors.New(clierrors.KindInvalidArgument, fmt.Sprintf("unsupported output format: %s", webhookOutput))
+	}
 
 	return nil
 }
@@ -619,7 +840,7 @@ func webhookTestExecute(cmd *cobra.Command, args []string) error {
 	case "argocd", "flux", "github", "gitlab":
 		// Valid
 	default:
-		return fmt.Errorf("invalid webhook type: %s (use: argocd, flux, github, gitlab)", webhookType)
+		return clierrors.New(clierrors.KindInvalidArgument, fmt.Sprintf("invalid webhook type: %s (use: argocd, flux, github, gitlab)", webhookType))
 	}
 
 	fmt.Printf("Test Webhook: %s\n", webhookType)
@@ -692,9 +913,10 @@ func webhookTestExecute(cmd *cobra.Command, args []string) error {
 // =============================================================================
 
 var (
-	statusType      string
-	statusLimit     int
-	statusOutput    string
+	statusType    string
+	statusLimit   int
+	statusOutput  string
+	webhookOutput string
 )
 
 var statusCmd = &cobra.Command{
@@ -722,21 +944,12 @@ Examples:
 func init() {
 	statusCmd.Flags().StringVar(&statusType, "type", "all", "Status type (rollbacks, promotions, verifications, all)")
 	statusCmd.Flags().IntVar(&statusLimit, "limit", 10, "Maximum entries to show")
-	statusCmd.Flags().StringVarP(&statusOutput, "output", "o", "text", "Output format (text, json)")
+	statusCmd.Flags().StringVarP(&statusOutput, "output", "o", "text", "Output format (text, json, yaml, table)")
 }
 
 func statusExecute(cmd *cobra.Command, args []string) error {
 	// In a real implementation, this would query the control plane
 	// For now, show sample data
-
-	type OperationStatus struct {
-		ID        string    `json:"id"`
-		Type      string    `json:"type"`
-		Status    string    `json:"status"`
-		Target    string    `json:"target"`
-		StartTime time.Time `json:"start_time"`
-		Duration  string    `json:"duration"`
-	}
 
 	operations := []OperationStatus{
 		{
@@ -781,38 +994,58 @@ func statusExecute(cmd *cobra.Command, args []string) error {
 		operations = operations[:statusLimit]
 	}
 
-	// Output
-	if statusOutput == "json" {
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(operations)
+	format, err := output.ParseFormat(statusOutput)
+	if err != nil {
+		return err
 	}
 
-	// Text output
-	if len(operations) == 0 {
-		fmt.Println("No operations found.")
-		fmt.Println("\nNote: This CLI shows sample data.")
-		fmt.Println("For real status, connect to the control plane API.")
-		return nil
+	switch format {
+	case output.FormatJSON:
+		return output.WriteJSON(cmd.OutOrStdout(), operations)
+	case output.FormatYAML:
+		return output.WriteYAML(cmd.OutOrStdout(), operations)
+	case output.FormatTable:
+		if len(operations) == 0 {
+			fmt.Fprintln(cmd.OutOrStdout(), "No operations found.")
+			fmt.Fprintln(cmd.OutOrStdout(), "\nNote: This CLI shows sample data.")
+			fmt.Fprintln(cmd.OutOrStdout(), "For real status, connect to the control plane API.")
+			return nil
+		}
+		table := buildStatusTable(operations)
+		if err := output.WriteTable(cmd.OutOrStdout(), table); err != nil {
+			return err
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "\nTotal: %d operations\n", len(operations))
+		fmt.Fprintln(cmd.OutOrStdout(), "\nNote: This CLI shows sample data.")
+		fmt.Fprintln(cmd.OutOrStdout(), "For real status, connect to the control plane API.")
+	case output.FormatText:
+		if len(operations) == 0 {
+			fmt.Fprintln(cmd.OutOrStdout(), "No operations found.")
+			fmt.Fprintln(cmd.OutOrStdout(), "\nNote: This CLI shows sample data.")
+			fmt.Fprintln(cmd.OutOrStdout(), "For real status, connect to the control plane API.")
+			return nil
+		}
+
+		fmt.Fprintf(cmd.OutOrStdout(), "%-12s %-12s %-12s %-30s %-20s %-10s\n", "ID", "TYPE", "STATUS", "TARGET", "TIME", "DURATION")
+		fmt.Fprintln(cmd.OutOrStdout(), strings.Repeat("-", 100))
+
+		for _, op := range operations {
+			fmt.Fprintf(cmd.OutOrStdout(), "%-12s %-12s %-12s %-30s %-20s %-10s\n",
+				op.ID,
+				op.Type,
+				op.Status,
+				truncate(op.Target, 30),
+				op.StartTime.Format("2006-01-02 15:04:05"),
+				op.Duration,
+			)
+		}
+
+		fmt.Fprintf(cmd.OutOrStdout(), "\nTotal: %d operations\n", len(operations))
+		fmt.Fprintln(cmd.OutOrStdout(), "\nNote: This CLI shows sample data.")
+		fmt.Fprintln(cmd.OutOrStdout(), "For real status, connect to the control plane API.")
+	default:
+		return clierrors.New(clierrors.KindInvalidArgument, fmt.Sprintf("unsupported output format: %s", statusOutput))
 	}
-
-	fmt.Printf("%-12s %-12s %-12s %-30s %-20s %-10s\n", "ID", "TYPE", "STATUS", "TARGET", "TIME", "DURATION")
-	fmt.Println(strings.Repeat("-", 100))
-
-	for _, op := range operations {
-		fmt.Printf("%-12s %-12s %-12s %-30s %-20s %-10s\n",
-			op.ID,
-			op.Type,
-			op.Status,
-			truncate(op.Target, 30),
-			op.StartTime.Format("2006-01-02 15:04:05"),
-			op.Duration,
-		)
-	}
-
-	fmt.Printf("\nTotal: %d operations\n", len(operations))
-	fmt.Println("\nNote: This CLI shows sample data.")
-	fmt.Println("For real status, connect to the control plane API.")
 
 	return nil
 }
@@ -820,6 +1053,15 @@ func statusExecute(cmd *cobra.Command, args []string) error {
 // =============================================================================
 // Helper Functions
 // =============================================================================
+
+type OperationStatus struct {
+	ID        string    `json:"id"`
+	Type      string    `json:"type"`
+	Status    string    `json:"status"`
+	Target    string    `json:"target"`
+	StartTime time.Time `json:"start_time"`
+	Duration  string    `json:"duration"`
+}
 
 // VerificationWorkflowFile represents a workflow definition file
 type VerificationWorkflowFile struct {
@@ -908,4 +1150,80 @@ func truncate(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen-3] + "..."
+}
+
+func buildKeyValueTable(pairs [][2]string) *output.Table {
+	rows := make([][]string, 0, len(pairs))
+	for _, pair := range pairs {
+		if pair[1] == "" {
+			continue
+		}
+		rows = append(rows, []string{pair[0], pair[1]})
+	}
+
+	return &output.Table{
+		Headers: []string{"KEY", "VALUE"},
+		Rows:    rows,
+	}
+}
+
+func buildPromotionStageTable(result *promotion.PromotionResult) *output.Table {
+	rows := make([][]string, 0, len(result.Stages))
+	for _, stage := range result.Stages {
+		status := "OK"
+		if stage.Status != promotion.StatusCompleted {
+			status = "FAIL"
+		}
+		rows = append(rows, []string{
+			stage.Environment,
+			string(stage.Status),
+			status,
+			stage.Duration.Round(time.Millisecond).String(),
+			stage.Message,
+		})
+	}
+
+	return &output.Table{
+		Headers: []string{"ENVIRONMENT", "STATUS", "RESULT", "DURATION", "MESSAGE"},
+		Rows:    rows,
+	}
+}
+
+func buildWebhookTable(handlers []struct {
+	Type        string
+	Description string
+	Events      []string
+}) *output.Table {
+	rows := make([][]string, 0, len(handlers))
+	for _, handler := range handlers {
+		rows = append(rows, []string{
+			handler.Type,
+			handler.Description,
+			strings.Join(handler.Events, ", "),
+		})
+	}
+
+	return &output.Table{
+		Headers: []string{"TYPE", "DESCRIPTION", "EVENTS"},
+		Rows:    rows,
+	}
+}
+
+func buildStatusTable(operations []OperationStatus) *output.Table {
+	rows := make([][]string, 0, len(operations))
+	for _, op := range operations {
+		rows = append(rows, []string{
+			op.ID,
+			op.Type,
+			op.Status,
+			truncate(op.Target, 30),
+			op.StartTime.Format("2006-01-02 15:04:05"),
+			op.Duration,
+		})
+	}
+
+	return &output.Table{
+		Headers: []string{"ID", "TYPE", "STATUS", "TARGET", "TIME", "DURATION"},
+		Rows:    rows,
+	}
 }

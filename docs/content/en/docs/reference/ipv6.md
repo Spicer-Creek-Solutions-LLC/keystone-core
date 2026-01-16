@@ -348,22 +348,22 @@ Example agent metadata:
 
 ```bash
 # Target specific IPv6 address
-kscorectl exec -t 'ipv6:2001:db8::5' -- hostname
+kscorectl exec run --target 'ipv6:2001:db8::5' -- hostname
 
 # Target all agents in IPv6 prefix
-kscorectl exec -t 'ipv6_cidr:2001:db8::/32' -- uptime
+kscorectl exec run --target 'ipv6_cidr:2001:db8::/32' -- uptime
 
 # Target IPv6 with glob pattern
-kscorectl exec -t 'ipv6:2001:db8:85a3::*' -- date
+kscorectl exec run --target 'ipv6:2001:db8:85a3::*' -- date
 
 # Target agents with any IPv6 address
-kscorectl exec -t 'has_ipv6:true' -- ip -6 addr
+kscorectl exec run --target 'has_ipv6:true' -- ip -6 addr
 
 # Combine IPv6 with other selectors
-kscorectl exec -t 'ipv6_cidr:2001:db8::/32 AND role:webserver' -- nginx -t
+kscorectl exec run --target 'ipv6_cidr:2001:db8::/32 AND role:webserver' -- nginx -t
 
 # Target by both IPv4 and IPv6
-kscorectl exec -t 'ipv4:10.0.1.* OR ipv6:2001:db8::*' -- hostname
+kscorectl exec run --target 'ipv4:10.0.1.* OR ipv6:2001:db8::*' -- hostname
 ```
 
 ## Metrics Reference

@@ -657,8 +657,10 @@ agent_restart:
 ```
 
 ```bash
-kscorectl state apply agent-upgrade.yaml --target "all"
+kscorectl state apply agent-upgrade.yaml
 ```
+
+Run this on each agent host that you want to upgrade.
 
 ### Rollback Procedure
 

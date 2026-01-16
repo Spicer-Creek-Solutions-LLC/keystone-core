@@ -5,11 +5,13 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 // mockCapability is a test capability
 type mockCapability struct {
-	name      string
+	name       string
 	validateFn func() error
 }
 
@@ -62,7 +64,12 @@ func TestCapabilityContext(t *testing.T) {
 	}
 
 	// Test Duration
-	time.Sleep(10 * time.Millisecond)
+	start := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 1*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 10*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("duration wait did not elapse: %v", err)
+	}
 	duration := capCtx.Duration()
 	if duration < 10*time.Millisecond {
 		t.Errorf("expected duration >= 10ms, got %v", duration)

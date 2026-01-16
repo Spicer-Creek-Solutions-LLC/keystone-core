@@ -49,6 +49,23 @@ Keystone Core is a cloud-native runtime infrastructure control plane that provid
 - **Blueprints** - Pre-packaged, reusable state collections (design complete)
 - **Documentation** - Hugo + Docsy site with comprehensive documentation
 
+## Frequently Asked Questions (FAQ)
+
+### Q: Why does this exist?
+Existing automation tools either do too little or too much, or require heavy cloud-native abstractions for simple deployments.
+Also, "deploying a stack" and "maintaining a stack" are not the same thing. Neither should require large teams with complex incantations to complete.
+
+### Q: Is this production-ready?
+Not yet. We're just getting stated. If you need something like this for production, setup Keystone Core in a home lab and give us some feedback.
+
+
+
+## Contributing
+Contributions are welcome. Issues, pull requests, and design discussions help steer the direction of the project. Please maintain clarity, functionality, and testability in all contributions.
+
+### Q: Can I use AI-generated code or documentation?
+Yes. AI-generated contributions are welcome as long as they meet quality standards, follow our [Developer Certificate of Origin](DCO.md),  [AI Contributions Policy](AI-CONTRIBUTIONS.md), and other policies.  Of course, humans are still responsible for the consequences.
+
 ## Quick Start
 
 ### Prerequisites

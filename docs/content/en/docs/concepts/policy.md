@@ -580,7 +580,7 @@ enforcement: enforce
 
 **Example**:
 ```bash
-$ kscorectl state apply web-server.yaml --target "role:web"
+$ kscorectl state apply web-server.yaml
 
 Policy Violation: ssh-hardening
   - SSH must not use default port 22
@@ -601,7 +601,7 @@ enforcement: audit
 
 **Example**:
 ```bash
-$ kscorectl state apply web-server.yaml --target "role:web"
+$ kscorectl state apply web-server.yaml
 
 Policy Violation: ssh-hardening (audit mode)
   - SSH must not use default port 22
@@ -623,7 +623,7 @@ enforcement: warn
 
 **Example**:
 ```bash
-$ kscorectl state apply web-server.yaml --target "role:web"
+$ kscorectl state apply web-server.yaml
 
 Policy Warning: best-practices
   - Consider using systemd for service management

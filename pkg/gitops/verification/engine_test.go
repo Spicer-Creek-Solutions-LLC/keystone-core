@@ -21,7 +21,9 @@ func (m *MockVerifier) Type() VerificationType {
 
 func (m *MockVerifier) Verify(step *VerificationStep) (*VerificationResult, error) {
 	if m.delay > 0 {
-		time.Sleep(m.delay)
+		timer := time.NewTimer(m.delay)
+		<-timer.C
+		timer.Stop()
 	}
 
 	m.callNum++

@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shawnbutts/keystone-core/pkg/version"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -436,9 +437,14 @@ func testContextWithTimeout(t *testing.T) context.Context {
 }
 
 func TestGetVersion(t *testing.T) {
-	version := getVersion()
-	assert.NotEmpty(t, version)
-	assert.Contains(t, version, "0.11.0")
+	original := version.Version
+	version.Version = "1.2.3"
+	t.Cleanup(func() {
+		version.Version = original
+	})
+
+	got := getVersion()
+	assert.Equal(t, "1.2.3", got)
 }
 
 func TestMembershipManager_RemoveMember(t *testing.T) {

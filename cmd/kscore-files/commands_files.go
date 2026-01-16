@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -16,6 +15,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/spf13/cobra"
 
+	"github.com/shawnbutts/keystone-core/pkg/cli/output"
 	"github.com/shawnbutts/keystone-core/pkg/files"
 )
 
@@ -40,9 +40,9 @@ func newFilesCmd() *cobra.Command {
 // newFilesListCmd creates the list command.
 func newFilesListCmd() *cobra.Command {
 	var (
-		namespace  string
-		recursive  bool
-		outputJSON bool
+		namespace string
+		recursive bool
+		outputFmt string
 	)
 
 	cmd := &cobra.Command{
@@ -67,7 +67,7 @@ Examples:
 			}
 			defer cleanup()
 
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutShort)
 			defer cancel()
 
 			result, err := client.ListFiles(ctx, path, &files.ListFilesOptions{
@@ -78,37 +78,54 @@ Examples:
 				return fmt.Errorf("failed to list files: %w", err)
 			}
 
-			if outputJSON {
-				enc := json.NewEncoder(os.Stdout)
-				enc.SetIndent("", "  ")
-				return enc.Encode(result)
+			format, err := output.ParseFormat(outputFmt)
+			if err != nil {
+				return err
 			}
 
-			if len(result.Entries) == 0 {
-				fmt.Println("No files found")
-				return nil
-			}
-
-			fmt.Printf("%-10s %-12s %-20s %s\n", "TYPE", "SIZE", "MODIFIED", "PATH")
-			fmt.Println(strings.Repeat("-", 70))
-			for _, entry := range result.Entries {
-				entryType := "file"
-				if entry.IsDir {
-					entryType = "dir"
+			switch format {
+			case output.FormatJSON:
+				return output.WriteJSON(os.Stdout, result)
+			case output.FormatYAML:
+				return output.WriteYAML(os.Stdout, result)
+			case output.FormatTable, output.FormatText:
+				if len(result.Entries) == 0 {
+					fmt.Println("No files found")
+					return nil
 				}
-				size := formatSize(entry.Size)
-				modified := entry.ModTime.Format("2006-01-02 15:04:05")
-				fmt.Printf("%-10s %-12s %-20s %s\n", entryType, size, modified, entry.Path)
-			}
 
-			fmt.Printf("\nTotal: %d entries\n", len(result.Entries))
-			return nil
+				rows := make([][]string, 0, len(result.Entries))
+				for _, entry := range result.Entries {
+					entryType := "file"
+					if entry.IsDir {
+						entryType = "dir"
+					}
+					rows = append(rows, []string{
+						entryType,
+						formatSize(entry.Size),
+						entry.ModTime.Format("2006-01-02 15:04:05"),
+						entry.Path,
+					})
+				}
+
+				table := &output.Table{
+					Headers: []string{"TYPE", "SIZE", "MODIFIED", "PATH"},
+					Rows:    rows,
+				}
+				if err := output.WriteTable(os.Stdout, table); err != nil {
+					return err
+				}
+				fmt.Printf("\nTotal: %d entries\n", len(result.Entries))
+				return nil
+			default:
+				return fmt.Errorf("unsupported output format: %s", outputFmt)
+			}
 		},
 	}
 
 	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Namespace to list from")
 	cmd.Flags().BoolVarP(&recursive, "recursive", "r", false, "List recursively")
-	cmd.Flags().BoolVar(&outputJSON, "json", false, "Output in JSON format")
+	cmd.Flags().StringVarP(&outputFmt, "output", "o", "table", "Output format (table, text, json, yaml)")
 
 	return cmd
 }
@@ -141,7 +158,7 @@ Examples:
 			}
 			defer cleanup()
 
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutDownload)
 			defer cancel()
 
 			opts := &files.GetFileOptions{
@@ -215,6 +232,7 @@ func newFilesPutCmd() *cobra.Command {
 		recursive   bool
 		createDirs  bool
 		contentType string
+		dryRun      bool
 	)
 
 	cmd := &cobra.Command{
@@ -237,23 +255,44 @@ Examples:
 				return fmt.Errorf("failed to stat source: %w", err)
 			}
 
+			if info.IsDir() {
+				if !recursive {
+					return fmt.Errorf("source is a directory; use --recursive to upload directories")
+				}
+				if dryRun {
+					fmt.Printf("Dry run: would upload directory %s to %s\n", source, dest)
+					return nil
+				}
+
+				client, cleanup, err := createClient()
+				if err != nil {
+					return err
+				}
+				defer cleanup()
+
+				ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutUpload)
+				defer cancel()
+
+				fmt.Println("Uploading directory...")
+				return uploadDirectory(ctx, client, source, dest, namespace, contentType)
+			}
+
+			// Upload single file
+			if dryRun {
+				fmt.Printf("Dry run: would upload file %s to %s\n", source, dest)
+				return nil
+			}
+
 			client, cleanup, err := createClient()
 			if err != nil {
 				return err
 			}
 			defer cleanup()
 
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+			ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutUpload)
 			defer cancel()
 
-			if info.IsDir() {
-				if !recursive {
-					return fmt.Errorf("source is a directory; use --recursive to upload directories")
-				}
-				return uploadDirectory(ctx, client, source, dest, namespace, contentType)
-			}
-
-			// Upload single file
+			fmt.Println("Uploading file...")
 			return uploadFile(ctx, client, source, dest, namespace, contentType)
 		},
 	}
@@ -262,6 +301,7 @@ Examples:
 	cmd.Flags().BoolVarP(&recursive, "recursive", "r", false, "Upload directories recursively")
 	cmd.Flags().BoolVar(&createDirs, "create-dirs", true, "Create parent directories")
 	cmd.Flags().StringVar(&contentType, "content-type", "", "Content type")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be uploaded without uploading")
 
 	return cmd
 }
@@ -272,6 +312,7 @@ func newFilesDeleteCmd() *cobra.Command {
 		namespace string
 		recursive bool
 		force     bool
+		dryRun    bool
 	)
 
 	cmd := &cobra.Command{
@@ -286,6 +327,11 @@ Examples:
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := args[0]
+
+			if dryRun {
+				fmt.Printf("Dry run: would delete %s\n", path)
+				return nil
+			}
 
 			if !force {
 				fmt.Printf("Delete %s? [y/N]: ", path)
@@ -303,7 +349,7 @@ Examples:
 			}
 			defer cleanup()
 
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutShort)
 			defer cancel()
 
 			opts := &files.DeleteFileOptions{
@@ -323,6 +369,7 @@ Examples:
 	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Namespace")
 	cmd.Flags().BoolVarP(&recursive, "recursive", "r", false, "Delete directories recursively")
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Don't prompt for confirmation")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be deleted without deleting")
 
 	return cmd
 }
@@ -330,8 +377,8 @@ Examples:
 // newFilesInfoCmd creates the info command.
 func newFilesInfoCmd() *cobra.Command {
 	var (
-		namespace  string
-		outputJSON bool
+		namespace string
+		outputFmt string
 	)
 
 	cmd := &cobra.Command{
@@ -341,7 +388,7 @@ func newFilesInfoCmd() *cobra.Command {
 
 Examples:
   kscore-files files info /packages/nginx-1.20.rpm
-  kscore-files files info /configs/app.yaml --json`,
+  kscore-files files info /configs/app.yaml --output json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := args[0]
@@ -352,7 +399,7 @@ Examples:
 			}
 			defer cleanup()
 
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutShort)
 			defer cancel()
 
 			info, err := client.GetFileInfo(ctx, path, &files.GetFileInfoOptions{
@@ -362,35 +409,53 @@ Examples:
 				return fmt.Errorf("failed to get file info: %w", err)
 			}
 
-			if outputJSON {
-				enc := json.NewEncoder(os.Stdout)
-				enc.SetIndent("", "  ")
-				return enc.Encode(info)
+			format, err := output.ParseFormat(outputFmt)
+			if err != nil {
+				return err
 			}
 
-			fmt.Printf("Path:        %s\n", info.Path)
-			fmt.Printf("Size:        %s (%d bytes)\n", formatSize(info.Size), info.Size)
-			fmt.Printf("Modified:    %s\n", info.ModifiedTime.Format(time.RFC3339))
-			fmt.Printf("Checksum:    %s\n", info.Checksum)
-			if info.ContentType != "" {
-				fmt.Printf("Content-Type: %s\n", info.ContentType)
-			}
-			if info.Version != "" {
-				fmt.Printf("Version:     %s\n", info.Version)
-			}
-			if len(info.Tags) > 0 {
-				fmt.Println("Tags:")
-				for k, v := range info.Tags {
-					fmt.Printf("  %s: %s\n", k, v)
+			switch format {
+			case output.FormatJSON:
+				return output.WriteJSON(os.Stdout, info)
+			case output.FormatYAML:
+				return output.WriteYAML(os.Stdout, info)
+			case output.FormatTable:
+				table := buildKeyValueTable([][2]string{
+					{"PATH", info.Path},
+					{"SIZE", fmt.Sprintf("%s (%d bytes)", formatSize(info.Size), info.Size)},
+					{"MODIFIED", info.ModifiedTime.Format(time.RFC3339)},
+					{"CHECKSUM", info.Checksum},
+					{"CONTENT-TYPE", info.ContentType},
+					{"VERSION", info.Version},
+					{"TAGS", formatTags(info.Tags)},
+				})
+				return output.WriteTable(os.Stdout, table)
+			case output.FormatText:
+				fmt.Printf("Path:        %s\n", info.Path)
+				fmt.Printf("Size:        %s (%d bytes)\n", formatSize(info.Size), info.Size)
+				fmt.Printf("Modified:    %s\n", info.ModifiedTime.Format(time.RFC3339))
+				fmt.Printf("Checksum:    %s\n", info.Checksum)
+				if info.ContentType != "" {
+					fmt.Printf("Content-Type: %s\n", info.ContentType)
 				}
+				if info.Version != "" {
+					fmt.Printf("Version:     %s\n", info.Version)
+				}
+				if len(info.Tags) > 0 {
+					fmt.Println("Tags:")
+					for k, v := range info.Tags {
+						fmt.Printf("  %s: %s\n", k, v)
+					}
+				}
+				return nil
+			default:
+				return fmt.Errorf("unsupported output format: %s", outputFmt)
 			}
-
-			return nil
 		},
 	}
 
 	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Namespace")
-	cmd.Flags().BoolVar(&outputJSON, "json", false, "Output in JSON format")
+	cmd.Flags().StringVarP(&outputFmt, "output", "o", "text", "Output format (text, json, yaml, table)")
 
 	return cmd
 }
@@ -424,7 +489,7 @@ Examples:
 			}
 			defer cleanup()
 
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+			ctx, cancel := context.WithTimeout(context.Background(), filesTimeoutSync)
 			defer cancel()
 
 			// Determine direction (upload or download)
@@ -453,7 +518,7 @@ Examples:
 func createClient() (*files.Client, func(), error) {
 	nc, err := nats.Connect(natsURL)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to connect to NATS: %w", err)
+		return nil, nil, fmt.Errorf("failed to connect to NATS (check --nats-url or server availability): %w", err)
 	}
 
 	client, err := files.NewClient(&files.ClientConfig{

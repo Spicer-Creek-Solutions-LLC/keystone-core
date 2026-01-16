@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	agentbootstrap "github.com/shawnbutts/keystone-core/cmd/kscore-agent/bootstrap"
 	"github.com/shawnbutts/keystone-core/pkg/agent"
 	"github.com/shawnbutts/keystone-core/pkg/config"
 	"github.com/shawnbutts/keystone-core/pkg/logging"
@@ -35,6 +36,7 @@ from the control plane. It supports embedded NATS mode for edge deployments.`,
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is ./keystone-core-agent.yaml)")
 	rootCmd.AddCommand(newVersionCmd())
+	rootCmd.AddCommand(agentbootstrap.NewCommand())
 
 	// Add Windows service management commands
 	rootCmd.AddCommand(newServiceInstallCmd())

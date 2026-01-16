@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestHealthStatus_String(t *testing.T) {
@@ -263,8 +265,12 @@ func TestHealthTracker_StartStop(t *testing.T) {
 	// Start tracking
 	tracker.Start()
 
-	// Wait for at least one check
-	time.Sleep(50 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		health := tracker.GetHealth(endpoint)
+		return health != nil && health.Status != HealthStatusUnknown, nil
+	}); err != nil {
+		t.Fatalf("expected at least one check: %v", err)
+	}
 
 	// Stop should work
 	tracker.Stop()

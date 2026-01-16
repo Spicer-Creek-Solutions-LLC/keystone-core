@@ -7,6 +7,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestReactorEngine_AddReactor(t *testing.T) {
@@ -125,7 +127,11 @@ func TestReactorEngine_ProcessEvent(t *testing.T) {
 	engine.ProcessEvent(event)
 
 	// Wait for async execution
-	time.Sleep(100 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return executed, nil
+	}); err != nil {
+		t.Fatalf("Reactor action was not executed: %v", err)
+	}
 
 	if !executed {
 		t.Error("Reactor action was not executed")
@@ -159,9 +165,10 @@ func TestReactorEngine_ProcessEvent_NoMatch(t *testing.T) {
 	event := NewEvent(EventTypeJobStart).Source("/test").Build()
 	engine.ProcessEvent(event)
 
-	time.Sleep(100 * time.Millisecond)
-
-	if executed {
+	err := helpers.WaitForTimeout(200*time.Millisecond, 10*time.Millisecond, func() (bool, error) {
+		return executed, nil
+	})
+	if err == nil {
 		t.Error("Reactor action should not have been executed")
 	}
 }
@@ -194,9 +201,10 @@ func TestReactorEngine_DisableReactor(t *testing.T) {
 	event := NewEvent(EventTypeAgentConnect).Source("/test").Build()
 	engine.ProcessEvent(event)
 
-	time.Sleep(100 * time.Millisecond)
-
-	if executed {
+	err := helpers.WaitForTimeout(200*time.Millisecond, 10*time.Millisecond, func() (bool, error) {
+		return executed, nil
+	})
+	if err == nil {
 		t.Error("Disabled reactor should not execute")
 	}
 
@@ -204,10 +212,10 @@ func TestReactorEngine_DisableReactor(t *testing.T) {
 	engine.EnableReactor("test-reactor")
 	engine.ProcessEvent(event)
 
-	time.Sleep(100 * time.Millisecond)
-
-	if !executed {
-		t.Error("Re-enabled reactor should execute")
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return executed, nil
+	}); err != nil {
+		t.Fatalf("Re-enabled reactor should execute: %v", err)
 	}
 }
 
@@ -306,25 +314,38 @@ func TestReactorEngine_Throttle(t *testing.T) {
 
 	// Send multiple events rapidly
 	event := NewEvent(EventType("test")).Source("/test").Build()
-	for i := 0; i < 5; i++ {
-		engine.ProcessEvent(event)
-		time.Sleep(50 * time.Millisecond)
+	engine.ProcessEvent(event)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return atomic.LoadInt32(&count) == 1, nil
+	}); err != nil {
+		t.Fatalf("Expected 1 execution due to throttle, got %d", atomic.LoadInt32(&count))
 	}
 
-	time.Sleep(200 * time.Millisecond)
+	for i := 0; i < 4; i++ {
+		engine.ProcessEvent(event)
+	}
 
-	// Should only execute once due to throttling
-	if count != 1 {
-		t.Errorf("Expected 1 execution due to throttle, got %d", count)
+	err := helpers.WaitForTimeout(200*time.Millisecond, 10*time.Millisecond, func() (bool, error) {
+		return atomic.LoadInt32(&count) > 1, nil
+	})
+	if err == nil {
+		t.Fatalf("Expected throttle to suppress additional executions, got %d", atomic.LoadInt32(&count))
 	}
 
 	// Wait for throttle to expire and send another
-	time.Sleep(500 * time.Millisecond)
+	throttleStart := time.Now()
+	err = helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return time.Since(throttleStart) >= 500*time.Millisecond, nil
+	})
+	if err != nil {
+		t.Fatalf("Throttle window did not elapse: %v", err)
+	}
 	engine.ProcessEvent(event)
-	time.Sleep(200 * time.Millisecond)
 
-	if count != 2 {
-		t.Errorf("Expected 2 executions after throttle expired, got %d", count)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return atomic.LoadInt32(&count) == 2, nil
+	}); err != nil {
+		t.Fatalf("Expected 2 executions after throttle expired, got %d", atomic.LoadInt32(&count))
 	}
 }
 
@@ -358,15 +379,17 @@ func TestReactorEngine_Debounce(t *testing.T) {
 	event := NewEvent(EventType("test")).Source("/test").Build()
 	for i := 0; i < 5; i++ {
 		engine.ProcessEvent(event)
-		time.Sleep(50 * time.Millisecond)
 	}
 
 	// Wait for debounce to fire
-	time.Sleep(500 * time.Millisecond)
-
-	// Should only execute once after quiet period
-	if count != 1 {
-		t.Errorf("Expected 1 execution due to debounce, got %d", count)
+	debounceStart := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		if time.Since(debounceStart) < 300*time.Millisecond {
+			return false, nil
+		}
+		return atomic.LoadInt32(&count) == 1, nil
+	}); err != nil {
+		t.Fatalf("Expected 1 execution due to debounce, got %d", atomic.LoadInt32(&count))
 	}
 }
 
@@ -376,6 +399,8 @@ func TestReactorEngine_MaxConcurrent(t *testing.T) {
 	activeCount := int32(0)
 	maxActive := int32(0)
 	done := make(chan bool, 10)
+	started := make(chan struct{}, 10)
+	gate := make(chan struct{})
 
 	reactor := &Reactor{
 		ID:   "test-reactor",
@@ -397,7 +422,8 @@ func TestReactorEngine_MaxConcurrent(t *testing.T) {
 					}
 				}
 
-				time.Sleep(100 * time.Millisecond)
+				started <- struct{}{}
+				<-gate
 				atomic.AddInt32(&activeCount, -1)
 				done <- true
 				return nil
@@ -415,7 +441,13 @@ func TestReactorEngine_MaxConcurrent(t *testing.T) {
 		engine.ProcessEvent(event)
 	}
 
-	// Wait for all to complete
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return len(started) >= 2, nil
+	}); err != nil {
+		t.Fatalf("Timeout waiting for executions: %v", err)
+	}
+	close(gate)
+
 	for i := 0; i < 2; i++ { // Only 2 should execute due to MaxConcurrent
 		select {
 		case <-done:
@@ -423,8 +455,6 @@ func TestReactorEngine_MaxConcurrent(t *testing.T) {
 			t.Fatal("Timeout waiting for executions")
 		}
 	}
-
-	time.Sleep(200 * time.Millisecond)
 
 	max := atomic.LoadInt32(&maxActive)
 	if max > 2 {
@@ -475,7 +505,13 @@ func TestReactorEngine_OnError_Continue(t *testing.T) {
 	event := NewEvent(EventType("test")).Source("/test").Build()
 	engine.ProcessEvent(event)
 
-	time.Sleep(200 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(executed) == 3, nil
+	}); err != nil {
+		t.Fatalf("Expected 3 actions executed: %v", err)
+	}
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -529,7 +565,13 @@ func TestReactorEngine_OnError_Stop(t *testing.T) {
 	event := NewEvent(EventType("test")).Source("/test").Build()
 	engine.ProcessEvent(event)
 
-	time.Sleep(200 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(executed) == 2, nil
+	}); err != nil {
+		t.Fatalf("Expected 2 actions executed: %v", err)
+	}
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -571,7 +613,6 @@ func TestReactorEngine_Conditions_OnlyIf(t *testing.T) {
 	// Event with low severity - should not execute
 	event1 := NewEvent(EventType("test")).Source("/test").Severity(SeverityInfo).Build()
 	engine.ProcessEvent(event1)
-	time.Sleep(100 * time.Millisecond)
 
 	if executed {
 		t.Error("Reactor should not execute when OnlyIf condition fails")
@@ -580,10 +621,11 @@ func TestReactorEngine_Conditions_OnlyIf(t *testing.T) {
 	// Event with high severity - should execute
 	event2 := NewEvent(EventType("test")).Source("/test").Severity(SeverityError).Build()
 	engine.ProcessEvent(event2)
-	time.Sleep(100 * time.Millisecond)
 
-	if !executed {
-		t.Error("Reactor should execute when OnlyIf condition passes")
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return executed, nil
+	}); err != nil {
+		t.Fatalf("Reactor should execute when OnlyIf condition passes: %v", err)
 	}
 }
 
@@ -618,7 +660,6 @@ func TestReactorEngine_Conditions_Unless(t *testing.T) {
 	// Event with test env - should not execute
 	event1 := NewEvent(EventType("test")).Source("/test").Tag("env", "test").Build()
 	engine.ProcessEvent(event1)
-	time.Sleep(100 * time.Millisecond)
 
 	if executed {
 		t.Error("Reactor should not execute when Unless condition is true")
@@ -628,10 +669,11 @@ func TestReactorEngine_Conditions_Unless(t *testing.T) {
 	executed = false
 	event2 := NewEvent(EventType("test")).Source("/test").Tag("env", "prod").Build()
 	engine.ProcessEvent(event2)
-	time.Sleep(100 * time.Millisecond)
 
-	if !executed {
-		t.Error("Reactor should execute when Unless condition is false")
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		return executed, nil
+	}); err != nil {
+		t.Fatalf("Reactor should execute when Unless condition is false: %v", err)
 	}
 }
 
@@ -662,7 +704,12 @@ func TestReactorEngine_Metrics(t *testing.T) {
 		engine.ProcessEvent(event)
 	}
 
-	time.Sleep(200 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		metrics := engine.GetMetrics()
+		return metrics.EventsEvaluated == 3 && metrics.ExecutionsTriggered == 3, nil
+	}); err != nil {
+		t.Fatalf("Metrics did not update: %v", err)
+	}
 
 	metrics := engine.GetMetrics()
 

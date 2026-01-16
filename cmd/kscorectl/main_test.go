@@ -5,6 +5,7 @@ package main
 
 import (
 	"bytes"
+	"os"
 	"strings"
 	"testing"
 
@@ -36,6 +37,17 @@ func TestRootCommand(t *testing.T) {
 	}
 	if !found {
 		t.Error("expected version subcommand to be present")
+	}
+
+	found = false
+	for _, sub := range cmd.Commands() {
+		if sub.Name() == "config" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected config subcommand to be present")
 	}
 }
 
@@ -94,6 +106,43 @@ func TestVersionCommandOutput(t *testing.T) {
 	output := buf.String()
 	if output == "" {
 		t.Error("expected version output to not be empty")
+	}
+}
+
+func TestConfigValidateCommand(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "kscore-config-*.yaml")
+	if err != nil {
+		t.Fatalf("failed to create temp config: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Remove(tmpFile.Name()) })
+
+	configData := []byte(`nats:
+  mode: embedded
+storage:
+  backend: sqlite
+auth:
+  enabled: false
+`)
+
+	if _, err := tmpFile.Write(configData); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+	if err := tmpFile.Close(); err != nil {
+		t.Fatalf("failed to close config: %v", err)
+	}
+
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"config", "validate", "--config", tmpFile.Name()})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("config validate failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Config OK") {
+		t.Errorf("expected config validate output to include 'Config OK', got: %s", output)
 	}
 }
 

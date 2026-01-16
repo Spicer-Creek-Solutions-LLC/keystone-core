@@ -526,9 +526,9 @@ func (p *loggingEventProcessor) ProcessEvent(ctx context.Context, event *webhook
 	return nil
 }
 
-// stateStoreAdapter adapts state.Store to controlplane.AgentStore
+// stateStoreAdapter adapts state.AgentStore to controlplane.AgentStore.
 type stateStoreAdapter struct {
-	store state.Store
+	store state.AgentStore
 }
 
 func (a *stateStoreAdapter) ListAgents(ctx context.Context, filter *controlplane.AgentFilter) ([]controlplane.StoredAgent, error) {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/shawnbutts/keystone-core/pkg/config"
 	"github.com/spf13/cobra"
 	"github.com/shawnbutts/keystone-core/pkg/plugin"
 	"github.com/shawnbutts/keystone-core/pkg/version"
@@ -27,6 +28,7 @@ It uses a Git-style plugin architecture where subcommands are
 implemented as separate binaries (kscore-*).`,
 	}
 
+	rootCmd.AddCommand(newConfigCmd())
 	rootCmd.AddCommand(newVersionCmd())
 
 	// Discover and register plugins
@@ -43,6 +45,43 @@ implemented as separate binaries (kscore-*).`,
 	}
 
 	return rootCmd
+}
+
+func newConfigCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "config",
+		Short: "Configuration utilities",
+		Long:  "Validate and inspect Keystone Core configuration files.",
+	}
+
+	cmd.AddCommand(newConfigValidateCmd())
+
+	return cmd
+}
+
+func newConfigValidateCmd() *cobra.Command {
+	var cfgFile string
+
+	cmd := &cobra.Command{
+		Use:   "validate",
+		Short: "Validate a configuration file",
+		Long:  "Validate a Keystone Core configuration file against schema rules.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.LoadConfig(cfgFile)
+			if err != nil {
+				return err
+			}
+			if err := cfg.Validate(); err != nil {
+				return fmt.Errorf("config validation failed: %w", err)
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), "Config OK")
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVarP(&cfgFile, "config", "c", "", "Config file path (defaults to standard search paths)")
+
+	return cmd
 }
 
 // newVersionCmd creates the version command

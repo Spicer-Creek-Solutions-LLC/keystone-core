@@ -16,6 +16,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/hashicorp/mdns"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -189,8 +190,8 @@ type DNSDiscoverer struct {
 	resolver *net.Resolver
 
 	// State
-	mu        sync.RWMutex
-	endpoints []*DiscoveredEndpoint
+	mu          sync.RWMutex
+	endpoints   []*DiscoveredEndpoint
 	lastRefresh time.Time
 
 	// Lifecycle
@@ -493,12 +494,104 @@ func (d *MDNSDiscoverer) Method() DiscoveryMethod {
 }
 
 func (d *MDNSDiscoverer) Discover(ctx context.Context) ([]*DiscoveredEndpoint, error) {
-	// Note: Full mDNS implementation requires a library like github.com/hashicorp/mdns
-	// This is a placeholder that demonstrates the interface
-	// In production, use the mdns library for actual mDNS browsing
+	timeout := d.config.BrowseTimeout
+	if deadline, ok := ctx.Deadline(); ok {
+		remaining := time.Until(deadline)
+		if remaining > 0 && (timeout == 0 || remaining < timeout) {
+			timeout = remaining
+		}
+	}
+	if timeout <= 0 {
+		timeout = 3 * time.Second
+	}
 
-	// For now, return empty - actual implementation would use mDNS library
-	return []*DiscoveredEndpoint{}, nil
+	entries := make(chan *mdns.ServiceEntry, 32)
+	params := mdns.DefaultParams(d.config.ServiceType)
+	params.Domain = strings.TrimSuffix(d.config.Domain, ".")
+	params.Timeout = timeout
+	params.Entries = entries
+	params.Interface = d.config.Interface
+
+	errCh := make(chan error, 1)
+	done := make(chan struct{})
+	go func() {
+		errCh <- mdns.Query(params)
+		close(done)
+	}()
+
+	endpoints := make(map[string]*DiscoveredEndpoint)
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-done:
+			err := <-errCh
+			for {
+				select {
+				case entry := <-entries:
+					if entry == nil {
+						continue
+					}
+					d.addMDNSEntry(endpoints, entry)
+				default:
+					return mapToEndpoints(endpoints), err
+				}
+			}
+		case entry := <-entries:
+			if entry == nil {
+				continue
+			}
+			d.addMDNSEntry(endpoints, entry)
+		}
+	}
+}
+
+func (d *MDNSDiscoverer) addMDNSEntry(endpoints map[string]*DiscoveredEndpoint, entry *mdns.ServiceEntry) {
+	host := ""
+	switch {
+	case entry.AddrV4 != nil:
+		host = entry.AddrV4.String()
+	case entry.AddrV6 != nil:
+		host = entry.AddrV6.String()
+	case entry.Host != "":
+		host = strings.TrimSuffix(entry.Host, ".")
+	}
+	if host == "" || entry.Port == 0 {
+		return
+	}
+
+	scheme := d.config.DefaultScheme
+	url := fmt.Sprintf("%s://%s:%d", scheme, host, entry.Port)
+	key := fmt.Sprintf("%s:%d", host, entry.Port)
+
+	endpoints[key] = &DiscoveredEndpoint{
+		URL:          url,
+		Host:         host,
+		Port:         entry.Port,
+		Priority:     0,
+		Weight:       0,
+		TLS:          scheme == SchemeTLS || scheme == SchemeWSS,
+		Scheme:       scheme,
+		Method:       DiscoveryMethodMDNS,
+		TTL:          d.config.RefreshInterval,
+		DiscoveredAt: time.Now(),
+		Metadata: map[string]string{
+			"service": d.config.ServiceType,
+			"domain":  d.config.Domain,
+			"name":    entry.Name,
+		},
+	}
+}
+
+func mapToEndpoints(endpointMap map[string]*DiscoveredEndpoint) []*DiscoveredEndpoint {
+	if len(endpointMap) == 0 {
+		return []*DiscoveredEndpoint{}
+	}
+	endpoints := make([]*DiscoveredEndpoint, 0, len(endpointMap))
+	for _, endpoint := range endpointMap {
+		endpoints = append(endpoints, endpoint)
+	}
+	return endpoints
 }
 
 func (d *MDNSDiscoverer) Watch(ctx context.Context, callback func([]*DiscoveredEndpoint)) error {
@@ -1864,9 +1957,9 @@ func NewAutoConfigurator(opts *AutoConfiguratorOptions) *AutoConfigurator {
 	}
 
 	ac := &AutoConfigurator{
-		staticURLs:     opts.StaticURLs,
-		cacheExpiry:    opts.CacheExpiry,
-		connectTimeout: opts.ConnectTimeout,
+		staticURLs:      opts.StaticURLs,
+		cacheExpiry:     opts.CacheExpiry,
+		connectTimeout:  opts.ConnectTimeout,
 		preferWebSocket: opts.PreferWebSocket,
 	}
 

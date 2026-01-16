@@ -329,14 +329,14 @@ agent:
 
 ### Cached State Application
 
-When offline, agents can apply cached states:
+When offline, agents can apply locally stored state files that were synced earlier:
 
 ```bash
-# Apply cached state
-kscorectl state apply --cached web-config.yaml
+# Apply local state
+kscorectl state apply web-config.yaml
 
-# Check against cached desired state
-kscorectl state check --cached
+# Check local desired state
+kscorectl state check web-config.yaml
 ```
 
 ### Event Buffering

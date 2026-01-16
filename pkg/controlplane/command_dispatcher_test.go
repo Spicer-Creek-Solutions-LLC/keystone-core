@@ -11,6 +11,7 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/config"
 	natsmgr "github.com/shawnbutts/keystone-core/pkg/nats"
 	"github.com/shawnbutts/keystone-core/pkg/state"
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func setupTestCommandDispatcher(t *testing.T) (*CommandDispatcher, *ConnectionManager, func()) {
@@ -60,7 +61,7 @@ func setupTestCommandDispatcher(t *testing.T) (*CommandDispatcher, *ConnectionMa
 	dispatcher := NewCommandDispatcher(cm, store)
 
 	cleanup := func() {
-		dispatcher.store.Close()
+		store.Close()
 		cm.Stop()
 		natsM.Shutdown()
 		os.Remove(tmpFile)
@@ -120,15 +121,20 @@ func TestCommandDispatcher_ExecuteCommand(t *testing.T) {
 	}
 
 	// Verify command was saved to database
-	time.Sleep(100 * time.Millisecond)
+	var cmd *state.CommandRecord
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		loaded, err := dispatcher.GetCommand(ctx, req.CommandId)
+		if err != nil {
+			return false, nil
+		}
+		cmd = loaded
+		return true, nil
+	}); err != nil {
+		t.Fatalf("Failed to get command from database: %v", err)
+	}
 
 	if req.CommandId == "" {
 		t.Error("Command ID should have been generated")
-	}
-
-	cmd, err := dispatcher.GetCommand(ctx, req.CommandId)
-	if err != nil {
-		t.Fatalf("Failed to get command from database: %v", err)
 	}
 
 	if cmd.Command != "echo" {
@@ -317,10 +323,19 @@ func TestCommandDispatcher_HandleCommandResponse_Completed(t *testing.T) {
 	}
 
 	// Verify database was updated
-	time.Sleep(100 * time.Millisecond)
-	cmd, err := dispatcher.GetCommand(ctx, "cmd-complete-1")
-	if err != nil {
-		t.Fatalf("Failed to get command from database: %v", err)
+	var cmd *state.CommandRecord
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		loaded, err := dispatcher.GetCommand(ctx, "cmd-complete-1")
+		if err != nil {
+			return false, nil
+		}
+		if loaded.Status != pb.CommandStatus_COMMAND_STATUS_COMPLETED {
+			return false, nil
+		}
+		cmd = loaded
+		return true, nil
+	}); err != nil {
+		t.Fatalf("Failed to get completed command from database: %v", err)
 	}
 
 	if cmd.Status != pb.CommandStatus_COMMAND_STATUS_COMPLETED {
@@ -383,10 +398,19 @@ func TestCommandDispatcher_HandleCommandResponse_Failed(t *testing.T) {
 	}
 
 	// Verify database
-	time.Sleep(100 * time.Millisecond)
-	cmd, err := dispatcher.GetCommand(ctx, "cmd-failed-1")
-	if err != nil {
-		t.Fatalf("Failed to get command from database: %v", err)
+	var cmd *state.CommandRecord
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		loaded, err := dispatcher.GetCommand(ctx, "cmd-failed-1")
+		if err != nil {
+			return false, nil
+		}
+		if loaded.Status != pb.CommandStatus_COMMAND_STATUS_FAILED {
+			return false, nil
+		}
+		cmd = loaded
+		return true, nil
+	}); err != nil {
+		t.Fatalf("Failed to get failed command from database: %v", err)
 	}
 
 	if cmd.Status != pb.CommandStatus_COMMAND_STATUS_FAILED {
@@ -443,10 +467,19 @@ func TestCommandDispatcher_HandleCommandResponse_Timeout(t *testing.T) {
 	}
 
 	// Verify database
-	time.Sleep(100 * time.Millisecond)
-	cmd, err := dispatcher.GetCommand(ctx, "cmd-timeout-1")
-	if err != nil {
-		t.Fatalf("Failed to get command from database: %v", err)
+	var cmd *state.CommandRecord
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		loaded, err := dispatcher.GetCommand(ctx, "cmd-timeout-1")
+		if err != nil {
+			return false, nil
+		}
+		if loaded.Status != pb.CommandStatus_COMMAND_STATUS_TIMEOUT {
+			return false, nil
+		}
+		cmd = loaded
+		return true, nil
+	}); err != nil {
+		t.Fatalf("Failed to get timeout command from database: %v", err)
 	}
 
 	if cmd.Status != pb.CommandStatus_COMMAND_STATUS_TIMEOUT {
@@ -548,7 +581,15 @@ func TestCommandDispatcher_ListCommands(t *testing.T) {
 		dispatcher.ExecuteCommand(ctx, req)
 	}
 
-	time.Sleep(200 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		commands, err := dispatcher.ListCommands(ctx, nil)
+		if err != nil {
+			return false, nil
+		}
+		return len(commands) == 3, nil
+	}); err != nil {
+		t.Fatalf("Failed to list commands: %v", err)
+	}
 
 	// List all commands
 	commands, err := dispatcher.ListCommands(ctx, nil)

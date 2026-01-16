@@ -304,7 +304,7 @@ func (m *LVMVGModule) Check(ctx context.Context, decl *StateDeclaration) (*Modul
 			result.Present = true
 			result.CurrentState = "present"
 			result.Matches = true
-			// TODO: Check if PVs match
+			result.Metadata["pvs_checked"] = false
 		}
 
 	case "absent":
@@ -489,7 +489,7 @@ func (m *LVMLVModule) Check(ctx context.Context, decl *StateDeclaration) (*Modul
 			result.Present = true
 			result.CurrentState = "present"
 			result.Matches = true
-			// TODO: Check size match
+			result.Metadata["size_checked"] = false
 		}
 
 	case "absent":

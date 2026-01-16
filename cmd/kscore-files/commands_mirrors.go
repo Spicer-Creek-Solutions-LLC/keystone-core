@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"sort"
@@ -9,6 +8,8 @@ import (
 	"text/tabwriter"
 	"time"
 
+	clierrors "github.com/shawnbutts/keystone-core/pkg/cli/errors"
+	"github.com/shawnbutts/keystone-core/pkg/cli/output"
 	"github.com/shawnbutts/keystone-core/pkg/files/mirror"
 	"github.com/spf13/cobra"
 )
@@ -28,7 +29,7 @@ func newMirrorsCmd() *cobra.Command {
 		Long:  "List all registered mirror groups and their status.",
 		RunE:  runListMirrors,
 	}
-	listMirrorsCmd.Flags().Bool("json", false, "Output in JSON format")
+	listMirrorsCmd.Flags().StringP("output", "o", "table", "Output format (table, text, json, yaml)")
 	cmd.AddCommand(listMirrorsCmd)
 
 	// Show mirror group details
@@ -39,7 +40,7 @@ func newMirrorsCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE:  runShowMirror,
 	}
-	showMirrorCmd.Flags().Bool("json", false, "Output in JSON format")
+	showMirrorCmd.Flags().StringP("output", "o", "text", "Output format (text, json, yaml, table)")
 	cmd.AddCommand(showMirrorCmd)
 
 	// Sync status
@@ -50,7 +51,7 @@ func newMirrorsCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE:  runSyncStatus,
 	}
-	syncStatusCmd.Flags().Bool("json", false, "Output in JSON format")
+	syncStatusCmd.Flags().StringP("output", "o", "text", "Output format (text, json, yaml, table)")
 	cmd.AddCommand(syncStatusCmd)
 
 	// Trigger sync
@@ -66,6 +67,7 @@ func newMirrorsCmd() *cobra.Command {
 	syncCmd.Flags().String("target", "", "Target mirror ID")
 	syncCmd.Flags().Int("priority", 0, "Sync priority (higher = more urgent)")
 	syncCmd.Flags().Bool("wait", false, "Wait for sync to complete")
+	syncCmd.Flags().Bool("dry-run", false, "Show what would be synchronized without syncing")
 	cmd.AddCommand(syncCmd)
 
 	// Mirror health
@@ -76,7 +78,7 @@ func newMirrorsCmd() *cobra.Command {
 		RunE:  runMirrorHealth,
 	}
 	healthCmd.Flags().String("group", "", "Filter by group ID")
-	healthCmd.Flags().Bool("json", false, "Output in JSON format")
+	healthCmd.Flags().StringP("output", "o", "table", "Output format (table, text, json, yaml)")
 	cmd.AddCommand(healthCmd)
 
 	// Failover
@@ -88,6 +90,7 @@ func newMirrorsCmd() *cobra.Command {
 		RunE:  runFailover,
 	}
 	failoverCmd.Flags().String("to", "", "Target mirror ID (required)")
+	failoverCmd.Flags().Bool("dry-run", false, "Show what would be done without failing over")
 	failoverCmd.MarkFlagRequired("to")
 	cmd.AddCommand(failoverCmd)
 
@@ -99,7 +102,7 @@ func newMirrorsCmd() *cobra.Command {
 		RunE:  runLatencyMatrix,
 	}
 	latencyCmd.Flags().String("group", "", "Filter by group ID")
-	latencyCmd.Flags().Bool("json", false, "Output in JSON format")
+	latencyCmd.Flags().StringP("output", "o", "table", "Output format (table, text, json, yaml)")
 	cmd.AddCommand(latencyCmd)
 
 	// List conflicts
@@ -110,7 +113,7 @@ func newMirrorsCmd() *cobra.Command {
 		RunE:  runListConflicts,
 	}
 	conflictsCmd.Flags().String("group", "", "Filter by group ID")
-	conflictsCmd.Flags().Bool("json", false, "Output in JSON format")
+	conflictsCmd.Flags().StringP("output", "o", "table", "Output format (table, text, json, yaml)")
 	cmd.AddCommand(conflictsCmd)
 
 	// Resolve conflict
@@ -122,6 +125,7 @@ func newMirrorsCmd() *cobra.Command {
 		RunE:  runResolveConflict,
 	}
 	resolveCmd.Flags().String("strategy", "newest-wins", "Resolution strategy: newest-wins, largest-wins, source, target")
+	resolveCmd.Flags().Bool("dry-run", false, "Show what would be done without resolving")
 	cmd.AddCommand(resolveCmd)
 
 	// Sync history
@@ -133,7 +137,7 @@ func newMirrorsCmd() *cobra.Command {
 	}
 	historyCmd.Flags().Int("limit", 20, "Maximum number of entries to show")
 	historyCmd.Flags().String("group", "", "Filter by group ID")
-	historyCmd.Flags().Bool("json", false, "Output in JSON format")
+	historyCmd.Flags().StringP("output", "o", "table", "Output format (table, text, json, yaml)")
 	cmd.AddCommand(historyCmd)
 
 	return cmd
@@ -141,31 +145,31 @@ func newMirrorsCmd() *cobra.Command {
 
 // MirrorGroupInfo contains mirror group information for display.
 type MirrorGroupInfo struct {
-	ID           string           `json:"id"`
-	Name         string           `json:"name"`
-	Description  string           `json:"description,omitempty"`
-	MirrorCount  int              `json:"mirror_count"`
-	ReadStrategy string           `json:"read_strategy"`
-	WritePolicy  string           `json:"write_policy"`
-	PathPrefixes []string         `json:"path_prefixes,omitempty"`
-	Namespaces   []string         `json:"namespaces,omitempty"`
-	Mirrors      []MirrorInfo     `json:"mirrors"`
-	SyncStatus   *SyncStatusInfo  `json:"sync_status,omitempty"`
+	ID           string          `json:"id"`
+	Name         string          `json:"name"`
+	Description  string          `json:"description,omitempty"`
+	MirrorCount  int             `json:"mirror_count"`
+	ReadStrategy string          `json:"read_strategy"`
+	WritePolicy  string          `json:"write_policy"`
+	PathPrefixes []string        `json:"path_prefixes,omitempty"`
+	Namespaces   []string        `json:"namespaces,omitempty"`
+	Mirrors      []MirrorInfo    `json:"mirrors"`
+	SyncStatus   *SyncStatusInfo `json:"sync_status,omitempty"`
 }
 
 // MirrorInfo contains mirror information for display.
 type MirrorInfo struct {
-	ID        string  `json:"id"`
-	Name      string  `json:"name"`
-	ClusterID string  `json:"cluster_id"`
-	State     string  `json:"state"`
-	Latency   string  `json:"latency"`
-	Priority  int     `json:"priority"`
-	Weight    int     `json:"weight"`
-	Primary   bool    `json:"primary"`
-	ReadOnly  bool    `json:"read_only"`
-	Enabled   bool    `json:"enabled"`
-	Location  string  `json:"location,omitempty"`
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	ClusterID string `json:"cluster_id"`
+	State     string `json:"state"`
+	Latency   string `json:"latency"`
+	Priority  int    `json:"priority"`
+	Weight    int    `json:"weight"`
+	Primary   bool   `json:"primary"`
+	ReadOnly  bool   `json:"read_only"`
+	Enabled   bool   `json:"enabled"`
+	Location  string `json:"location,omitempty"`
 }
 
 // SyncStatusInfo contains sync status for display.
@@ -207,7 +211,7 @@ type HistoryInfo struct {
 }
 
 func runListMirrors(cmd *cobra.Command, args []string) error {
-	jsonOutput, _ := cmd.Flags().GetBool("json")
+	outputFmt, _ := cmd.Flags().GetString("output")
 
 	registry, _, err := getMirrorRegistry()
 	if err != nil {
@@ -228,10 +232,20 @@ func runListMirrors(cmd *cobra.Command, args []string) error {
 		infos = append(infos, info)
 	}
 
-	if jsonOutput {
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(infos)
+	format, err := output.ParseFormat(outputFmt)
+	if err != nil {
+		return err
+	}
+
+	switch format {
+	case output.FormatJSON:
+		return output.WriteJSON(os.Stdout, infos)
+	case output.FormatYAML:
+		return output.WriteYAML(os.Stdout, infos)
+	case output.FormatTable, output.FormatText:
+		// continue below
+	default:
+		return fmt.Errorf("unsupported output format: %s", outputFmt)
 	}
 
 	if len(infos) == 0 {
@@ -251,7 +265,7 @@ func runListMirrors(cmd *cobra.Command, args []string) error {
 
 func runShowMirror(cmd *cobra.Command, args []string) error {
 	groupID := args[0]
-	jsonOutput, _ := cmd.Flags().GetBool("json")
+	outputFmt, _ := cmd.Flags().GetString("output")
 
 	registry, syncEngine, err := getMirrorRegistry()
 	if err != nil {
@@ -260,7 +274,7 @@ func runShowMirror(cmd *cobra.Command, args []string) error {
 
 	group, ok := registry.Get(groupID)
 	if !ok {
-		return fmt.Errorf("mirror group not found: %s", groupID)
+		return clierrors.New(clierrors.KindNotFound, fmt.Sprintf("mirror group not found: %s", groupID))
 	}
 
 	info := MirrorGroupInfo{
@@ -298,10 +312,10 @@ func runShowMirror(cmd *cobra.Command, args []string) error {
 	if syncEngine != nil {
 		status := syncEngine.GetGroupStatus(groupID)
 		info.SyncStatus = &SyncStatusInfo{
-			State:          string(status.State),
-			PendingOps:     status.PendingOps,
-			ActiveOps:      status.ActiveOps,
-			ConflictCount:  status.ConflictCount,
+			State:         string(status.State),
+			PendingOps:    status.PendingOps,
+			ActiveOps:     status.ActiveOps,
+			ConflictCount: status.ConflictCount,
 		}
 		if !status.LastSyncAt.IsZero() {
 			info.SyncStatus.LastSyncAt = status.LastSyncAt.Format(time.RFC3339)
@@ -313,10 +327,59 @@ func runShowMirror(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if jsonOutput {
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(info)
+	format, err := output.ParseFormat(outputFmt)
+	if err != nil {
+		return err
+	}
+
+	switch format {
+	case output.FormatJSON:
+		return output.WriteJSON(os.Stdout, info)
+	case output.FormatYAML:
+		return output.WriteYAML(os.Stdout, info)
+	case output.FormatTable:
+		table := buildKeyValueTable([][2]string{
+			{"GROUP", info.ID},
+			{"NAME", info.Name},
+			{"STRATEGY", info.ReadStrategy},
+			{"POLICY", info.WritePolicy},
+		})
+		if err := output.WriteTable(os.Stdout, table); err != nil {
+			return err
+		}
+		fmt.Println("\nMirrors:")
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+		fmt.Fprintln(w, "  ID\tCLUSTER\tSTATE\tLATENCY\tPRIORITY\tPRIMARY\tENABLED")
+		for _, m := range info.Mirrors {
+			primary := ""
+			if m.Primary {
+				primary = "yes"
+			}
+			enabled := ""
+			if m.Enabled {
+				enabled = "yes"
+			}
+			fmt.Fprintf(w, "  %s\t%s\t%s\t%s\t%d\t%s\t%s\n",
+				m.ID, m.ClusterID, m.State, m.Latency, m.Priority, primary, enabled)
+		}
+		w.Flush()
+		if info.SyncStatus != nil {
+			fmt.Println("\nSync Status:")
+			status := buildKeyValueTable([][2]string{
+				{"STATE", info.SyncStatus.State},
+				{"LAST SYNC", fmt.Sprintf("%s (%s, %s)", info.SyncStatus.LastSyncAt, info.SyncStatus.LastSyncDuration, info.SyncStatus.LastSyncStatus)},
+				{"NEXT SYNC", info.SyncStatus.NextSyncAt},
+				{"PENDING", fmt.Sprintf("%d", info.SyncStatus.PendingOps)},
+				{"ACTIVE", fmt.Sprintf("%d", info.SyncStatus.ActiveOps)},
+				{"CONFLICTS", fmt.Sprintf("%d", info.SyncStatus.ConflictCount)},
+			})
+			return output.WriteTable(os.Stdout, status)
+		}
+		return nil
+	case output.FormatText:
+		// continue below
+	default:
+		return fmt.Errorf("unsupported output format: %s", outputFmt)
 	}
 
 	// Text output
@@ -366,7 +429,7 @@ func runShowMirror(cmd *cobra.Command, args []string) error {
 
 func runSyncStatus(cmd *cobra.Command, args []string) error {
 	groupID := args[0]
-	jsonOutput, _ := cmd.Flags().GetBool("json")
+	outputFmt, _ := cmd.Flags().GetString("output")
 
 	registry, syncEngine, err := getMirrorRegistry()
 	if err != nil {
@@ -375,11 +438,11 @@ func runSyncStatus(cmd *cobra.Command, args []string) error {
 
 	_, ok := registry.Get(groupID)
 	if !ok {
-		return fmt.Errorf("mirror group not found: %s", groupID)
+		return clierrors.New(clierrors.KindNotFound, fmt.Sprintf("mirror group not found: %s", groupID))
 	}
 
 	if syncEngine == nil {
-		return fmt.Errorf("sync engine not available")
+		return clierrors.New(clierrors.KindUnavailable, "sync engine not available")
 	}
 
 	status := syncEngine.GetGroupStatus(groupID)
@@ -402,19 +465,61 @@ func runSyncStatus(cmd *cobra.Command, args []string) error {
 	activeOps := syncEngine.GetActiveOperations()
 	pendingOps := syncEngine.GetPendingOperations()
 
-	if jsonOutput {
-		result := struct {
-			Status     SyncStatusInfo           `json:"status"`
-			ActiveOps  []*mirror.SyncOperation  `json:"active_ops,omitempty"`
-			PendingOps []*mirror.SyncOperation  `json:"pending_ops,omitempty"`
-		}{
-			Status:     info,
-			ActiveOps:  filterOpsByGroup(activeOps, groupID),
-			PendingOps: filterOpsByGroup(pendingOps, groupID),
+	result := struct {
+		Status     SyncStatusInfo          `json:"status"`
+		ActiveOps  []*mirror.SyncOperation `json:"active_ops,omitempty"`
+		PendingOps []*mirror.SyncOperation `json:"pending_ops,omitempty"`
+	}{
+		Status:     info,
+		ActiveOps:  filterOpsByGroup(activeOps, groupID),
+		PendingOps: filterOpsByGroup(pendingOps, groupID),
+	}
+
+	format, err := output.ParseFormat(outputFmt)
+	if err != nil {
+		return err
+	}
+
+	switch format {
+	case output.FormatJSON:
+		return output.WriteJSON(os.Stdout, result)
+	case output.FormatYAML:
+		return output.WriteYAML(os.Stdout, result)
+	case output.FormatTable:
+		status := buildKeyValueTable([][2]string{
+			{"STATE", info.State},
+			{"LAST SYNC", info.LastSyncAt},
+			{"DURATION", info.LastSyncDuration},
+			{"RESULT", info.LastSyncStatus},
+			{"NEXT SYNC", info.NextSyncAt},
+			{"PENDING", fmt.Sprintf("%d operations", info.PendingOps)},
+			{"ACTIVE", fmt.Sprintf("%d operations", info.ActiveOps)},
+			{"CONFLICTS", fmt.Sprintf("%d unresolved", info.ConflictCount)},
+		})
+		if err := output.WriteTable(os.Stdout, status); err != nil {
+			return err
 		}
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(result)
+		if len(result.ActiveOps) > 0 {
+			fmt.Println("\nActive Operations:")
+			rows := make([][]string, 0, len(result.ActiveOps))
+			for _, op := range result.ActiveOps {
+				rows = append(rows, []string{
+					op.ID,
+					op.SourceMirror,
+					op.TargetMirror,
+					fmt.Sprintf("%.1f%%", op.Progress*100),
+				})
+			}
+			return output.WriteTable(os.Stdout, &output.Table{
+				Headers: []string{"ID", "SOURCE", "TARGET", "PROGRESS"},
+				Rows:    rows,
+			})
+		}
+		return nil
+	case output.FormatText:
+		// continue below
+	default:
+		return fmt.Errorf("unsupported output format: %s", outputFmt)
 	}
 
 	// Text output
@@ -450,11 +555,29 @@ func runSyncStatus(cmd *cobra.Command, args []string) error {
 
 func runSync(cmd *cobra.Command, args []string) error {
 	groupID := args[0]
-	// path, _ := cmd.Flags().GetString("path")
+	pathPrefix, _ := cmd.Flags().GetString("path")
 	source, _ := cmd.Flags().GetString("source")
 	target, _ := cmd.Flags().GetString("target")
 	priority, _ := cmd.Flags().GetInt("priority")
-	// wait, _ := cmd.Flags().GetBool("wait")
+	wait, _ := cmd.Flags().GetBool("wait")
+	dryRun, _ := cmd.Flags().GetBool("dry-run")
+
+	if dryRun {
+		if source != "" && target != "" {
+			fmt.Printf("Dry run: would sync %s -> %s in group %s (priority %d)\n", source, target, groupID, priority)
+		} else {
+			if pathPrefix != "" {
+				fmt.Printf("Dry run: would sync group %s (path %s, priority %d)\n", groupID, pathPrefix, priority)
+			} else {
+				fmt.Printf("Dry run: would sync group %s (priority %d)\n", groupID, priority)
+			}
+		}
+		return nil
+	}
+
+	if wait {
+		fmt.Println("Note: --wait is not implemented yet; returning after scheduling.")
+	}
 
 	registry, syncEngine, err := getMirrorRegistry()
 	if err != nil {
@@ -463,11 +586,11 @@ func runSync(cmd *cobra.Command, args []string) error {
 
 	group, ok := registry.Get(groupID)
 	if !ok {
-		return fmt.Errorf("mirror group not found: %s", groupID)
+		return clierrors.New(clierrors.KindNotFound, fmt.Sprintf("mirror group not found: %s", groupID))
 	}
 
 	if syncEngine == nil {
-		return fmt.Errorf("sync engine not available")
+		return clierrors.New(clierrors.KindUnavailable, "sync engine not available")
 	}
 
 	// If source/target specified, trigger specific sync
@@ -485,10 +608,10 @@ func runSync(cmd *cobra.Command, args []string) error {
 	// Otherwise schedule sync for entire group
 	mirrors := group.GetMirrors()
 	if len(mirrors) < 2 {
-		return fmt.Errorf("group has fewer than 2 mirrors, nothing to sync")
+		return clierrors.New(clierrors.KindInvalidArgument, "group has fewer than 2 mirrors, nothing to sync")
 	}
 
-	err = syncEngine.ScheduleSync(groupID, "", priority)
+	err = syncEngine.ScheduleSync(groupID, pathPrefix, priority)
 	if err != nil {
 		return fmt.Errorf("failed to schedule sync: %w", err)
 	}
@@ -499,7 +622,7 @@ func runSync(cmd *cobra.Command, args []string) error {
 
 func runMirrorHealth(cmd *cobra.Command, args []string) error {
 	groupFilter, _ := cmd.Flags().GetString("group")
-	jsonOutput, _ := cmd.Flags().GetBool("json")
+	outputFmt, _ := cmd.Flags().GetString("output")
 
 	registry, _, err := getMirrorRegistry()
 	if err != nil {
@@ -547,10 +670,20 @@ func runMirrorHealth(cmd *cobra.Command, args []string) error {
 		return entries[i].MirrorID < entries[j].MirrorID
 	})
 
-	if jsonOutput {
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(entries)
+	format, err := output.ParseFormat(outputFmt)
+	if err != nil {
+		return err
+	}
+
+	switch format {
+	case output.FormatJSON:
+		return output.WriteJSON(os.Stdout, entries)
+	case output.FormatYAML:
+		return output.WriteYAML(os.Stdout, entries)
+	case output.FormatTable, output.FormatText:
+		// continue below
+	default:
+		return fmt.Errorf("unsupported output format: %s", outputFmt)
 	}
 
 	if len(entries) == 0 {
@@ -579,6 +712,12 @@ func runMirrorHealth(cmd *cobra.Command, args []string) error {
 func runFailover(cmd *cobra.Command, args []string) error {
 	groupID := args[0]
 	targetMirror, _ := cmd.Flags().GetString("to")
+	dryRun, _ := cmd.Flags().GetBool("dry-run")
+
+	if dryRun {
+		fmt.Printf("Dry run: would fail over group %s to mirror %s\n", groupID, targetMirror)
+		return nil
+	}
 
 	registry, _, err := getMirrorRegistry()
 	if err != nil {
@@ -587,7 +726,7 @@ func runFailover(cmd *cobra.Command, args []string) error {
 
 	group, ok := registry.Get(groupID)
 	if !ok {
-		return fmt.Errorf("mirror group not found: %s", groupID)
+		return clierrors.New(clierrors.KindNotFound, fmt.Sprintf("mirror group not found: %s", groupID))
 	}
 
 	// Verify target mirror exists
@@ -600,7 +739,7 @@ func runFailover(cmd *cobra.Command, args []string) error {
 		}
 	}
 	if !found {
-		return fmt.Errorf("mirror not found in group: %s", targetMirror)
+		return clierrors.New(clierrors.KindNotFound, fmt.Sprintf("mirror not found in group: %s", targetMirror))
 	}
 
 	// Note: In a real implementation, this would update the group's routing
@@ -613,7 +752,7 @@ func runFailover(cmd *cobra.Command, args []string) error {
 
 func runLatencyMatrix(cmd *cobra.Command, args []string) error {
 	groupFilter, _ := cmd.Flags().GetString("group")
-	jsonOutput, _ := cmd.Flags().GetBool("json")
+	outputFmt, _ := cmd.Flags().GetString("output")
 
 	registry, _, err := getMirrorRegistry()
 	if err != nil {
@@ -648,10 +787,20 @@ func runLatencyMatrix(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if jsonOutput {
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(entries)
+	format, err := output.ParseFormat(outputFmt)
+	if err != nil {
+		return err
+	}
+
+	switch format {
+	case output.FormatJSON:
+		return output.WriteJSON(os.Stdout, entries)
+	case output.FormatYAML:
+		return output.WriteYAML(os.Stdout, entries)
+	case output.FormatTable, output.FormatText:
+		// continue below
+	default:
+		return fmt.Errorf("unsupported output format: %s", outputFmt)
 	}
 
 	if len(entries) == 0 {
@@ -670,7 +819,7 @@ func runLatencyMatrix(cmd *cobra.Command, args []string) error {
 
 func runListConflicts(cmd *cobra.Command, args []string) error {
 	groupFilter, _ := cmd.Flags().GetString("group")
-	jsonOutput, _ := cmd.Flags().GetBool("json")
+	outputFmt, _ := cmd.Flags().GetString("output")
 
 	_, syncEngine, err := getMirrorRegistry()
 	if err != nil {
@@ -678,7 +827,7 @@ func runListConflicts(cmd *cobra.Command, args []string) error {
 	}
 
 	if syncEngine == nil {
-		return fmt.Errorf("sync engine not available")
+		return clierrors.New(clierrors.KindUnavailable, "sync engine not available")
 	}
 
 	conflicts := syncEngine.GetConflicts()
@@ -701,10 +850,20 @@ func runListConflicts(cmd *cobra.Command, args []string) error {
 		infos = append(infos, info)
 	}
 
-	if jsonOutput {
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(infos)
+	format, err := output.ParseFormat(outputFmt)
+	if err != nil {
+		return err
+	}
+
+	switch format {
+	case output.FormatJSON:
+		return output.WriteJSON(os.Stdout, infos)
+	case output.FormatYAML:
+		return output.WriteYAML(os.Stdout, infos)
+	case output.FormatTable, output.FormatText:
+		// continue below
+	default:
+		return fmt.Errorf("unsupported output format: %s", outputFmt)
 	}
 
 	if len(infos) == 0 {
@@ -730,6 +889,7 @@ func runListConflicts(cmd *cobra.Command, args []string) error {
 func runResolveConflict(cmd *cobra.Command, args []string) error {
 	conflictID := args[0]
 	strategy, _ := cmd.Flags().GetString("strategy")
+	dryRun, _ := cmd.Flags().GetBool("dry-run")
 
 	_, syncEngine, err := getMirrorRegistry()
 	if err != nil {
@@ -737,7 +897,7 @@ func runResolveConflict(cmd *cobra.Command, args []string) error {
 	}
 
 	if syncEngine == nil {
-		return fmt.Errorf("sync engine not available")
+		return clierrors.New(clierrors.KindUnavailable, "sync engine not available")
 	}
 
 	// Map strategy to resolution
@@ -748,7 +908,12 @@ func runResolveConflict(cmd *cobra.Command, args []string) error {
 	case "largest-wins", "target":
 		resolution = "target"
 	default:
-		return fmt.Errorf("invalid strategy: %s (valid: newest-wins, largest-wins, source, target)", strategy)
+		return clierrors.New(clierrors.KindInvalidArgument, fmt.Sprintf("invalid strategy: %s (valid: newest-wins, largest-wins, source, target)", strategy))
+	}
+
+	if dryRun {
+		fmt.Printf("Dry run: would resolve conflict %s using strategy %s\n", conflictID, strategy)
+		return nil
 	}
 
 	err = syncEngine.ResolveConflict(conflictID, resolution, "cli-user")
@@ -763,7 +928,7 @@ func runResolveConflict(cmd *cobra.Command, args []string) error {
 func runSyncHistory(cmd *cobra.Command, args []string) error {
 	limit, _ := cmd.Flags().GetInt("limit")
 	groupFilter, _ := cmd.Flags().GetString("group")
-	jsonOutput, _ := cmd.Flags().GetBool("json")
+	outputFmt, _ := cmd.Flags().GetString("output")
 
 	_, syncEngine, err := getMirrorRegistry()
 	if err != nil {
@@ -796,10 +961,20 @@ func runSyncHistory(cmd *cobra.Command, args []string) error {
 		infos = append(infos, info)
 	}
 
-	if jsonOutput {
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(infos)
+	format, err := output.ParseFormat(outputFmt)
+	if err != nil {
+		return err
+	}
+
+	switch format {
+	case output.FormatJSON:
+		return output.WriteJSON(os.Stdout, infos)
+	case output.FormatYAML:
+		return output.WriteYAML(os.Stdout, infos)
+	case output.FormatTable, output.FormatText:
+		// continue below
+	default:
+		return fmt.Errorf("unsupported output format: %s", outputFmt)
 	}
 
 	if len(infos) == 0 {

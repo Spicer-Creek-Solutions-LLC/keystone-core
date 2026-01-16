@@ -499,10 +499,10 @@ Summary:
 **Manual**:
 ```bash
 # Check for drift
-kscorectl state check web-server.yaml --target "role:web"
+kscorectl state check web-server.yaml
 
 # Fix drift
-kscorectl state apply web-server.yaml --target "role:web"
+kscorectl state apply web-server.yaml
 ```
 
 **Automatic** (via reactors):
@@ -627,10 +627,10 @@ vars/
 Debug:
 ```bash
 # Detailed output
-kscorectl state apply web.yaml --target "role:web" --verbose
+kscorectl state apply web.yaml
 
 # Dry run
-kscorectl state check web.yaml --target "role:web"
+kscorectl state check web.yaml
 ```
 
 Common issues:

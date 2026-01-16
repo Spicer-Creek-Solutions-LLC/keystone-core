@@ -13,6 +13,10 @@ All hello world examples perform the same operations to demonstrate language equ
 
 Results should be identical across all languages (except for the file name).
 
+Note: SDK-focused hello world examples live under `modules/sdk/*/examples/hello-world`.
+Those are minimal SDK usage samples, while this directory focuses on full module
+packages that mirror real-world layouts.
+
 ### Starlark
 
 ```bash
@@ -150,4 +154,5 @@ WASM modules have slightly higher startup overhead but similar execution perform
 
 - Explore stdlib modules in `modules/stdlib/`
 - Review SDK documentation in `modules/sdk/{language}/`
+- Compare SDK hello world samples in `modules/sdk/*/examples/hello-world`
 - Build your own modules with `kscorectl module init`

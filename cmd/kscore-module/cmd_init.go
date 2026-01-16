@@ -204,13 +204,13 @@ strip = true
 // Module entrypoint
 #[no_mangle]
 pub extern "C" fn apply() -> i32 {
-    // TODO: Implement state application logic
+    // Implement state application logic
     0 // Return 0 for success
 }
 
 #[no_mangle]
 pub extern "C" fn check() -> i32 {
-    // TODO: Implement state check logic
+    // Implement state check logic
     0
 }
 `

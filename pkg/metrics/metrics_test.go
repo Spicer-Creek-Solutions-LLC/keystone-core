@@ -1,11 +1,12 @@
 package metrics
 
 import (
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	"strings"
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestPrometheusCollectorCounter(t *testing.T) {
@@ -149,7 +150,12 @@ func TestTimer(t *testing.T) {
 
 	// Create and use timer
 	timer := NewTimer(collector, "test_operation_seconds", map[string]string{})
-	time.Sleep(10 * time.Millisecond)
+	start := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 1*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 10*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("Timer delay did not elapse: %v", err)
+	}
 	timer.ObserveDurationWithLabels(map[string]string{"status": "success"})
 
 	// Verify timer recorded
@@ -211,7 +217,7 @@ func TestAgentCollector(t *testing.T) {
 
 	// Record resource usage
 	agentCollector.RecordCPUUsage(agentID, 45.5)
-	agentCollector.RecordMemoryUsage(agentID, 1024*1024*512) // 512 MB
+	agentCollector.RecordMemoryUsage(agentID, 1024*1024*512)   // 512 MB
 	agentCollector.RecordDiskUsage(agentID, 1024*1024*1024*10) // 10 GB
 
 	// Record operations
@@ -411,9 +417,9 @@ func TestClusterCollector(t *testing.T) {
 	})
 
 	t.Run("SetMemberStatus", func(t *testing.T) {
-		clusterCollector.SetMemberStatus("member-1", 1.0)   // healthy
-		clusterCollector.SetMemberStatus("member-2", 0.5)   // degraded
-		clusterCollector.SetMemberStatus("member-3", 0.0)   // unhealthy
+		clusterCollector.SetMemberStatus("member-1", 1.0) // healthy
+		clusterCollector.SetMemberStatus("member-2", 0.5) // degraded
+		clusterCollector.SetMemberStatus("member-3", 0.0) // unhealthy
 	})
 
 	t.Run("SetIsLeader", func(t *testing.T) {

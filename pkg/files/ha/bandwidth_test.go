@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestBandwidthManager_NewBandwidthManager(t *testing.T) {
@@ -87,7 +89,13 @@ func TestBandwidthManager_PerAgentLimit(t *testing.T) {
 
 	// Try to acquire second transfer for agent-1 - should queue.
 	go func() {
-		time.Sleep(50 * time.Millisecond)
+		timer := time.NewTimer(50 * time.Millisecond)
+		defer timer.Stop()
+		select {
+		case <-ctx.Done():
+			return
+		case <-timer.C:
+		}
 		permit1.Release()
 	}()
 
@@ -116,7 +124,13 @@ func TestBandwidthManager_GlobalLimit(t *testing.T) {
 
 	// Try to acquire second transfer - should queue.
 	go func() {
-		time.Sleep(50 * time.Millisecond)
+		timer := time.NewTimer(50 * time.Millisecond)
+		defer timer.Stop()
+		select {
+		case <-ctx.Done():
+			return
+		case <-timer.C:
+		}
 		permit1.Release()
 	}()
 
@@ -160,7 +174,12 @@ func TestBandwidthManager_PriorityQueuing(t *testing.T) {
 	}()
 
 	// Give time for both to queue.
-	time.Sleep(50 * time.Millisecond)
+	start := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 5*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 50*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("queue wait did not elapse: %v", err)
+	}
 
 	// Release the blocking transfer.
 	permit.Release()
@@ -212,7 +231,12 @@ func TestTokenBucket_TakeMax(t *testing.T) {
 	}
 
 	// Wait for some tokens to refill.
-	time.Sleep(100 * time.Millisecond)
+	start := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 5*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 100*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("refill wait did not elapse: %v", err)
+	}
 
 	// Should be able to take some tokens now.
 	if !tb.TakeMax(ctx, 50) {
@@ -446,7 +470,12 @@ func TestBandwidthStats_Rate(t *testing.T) {
 	bm.RecordTransfer(1000)
 
 	// Wait a bit.
-	time.Sleep(50 * time.Millisecond)
+	start := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 5*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 50*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("rate wait did not elapse: %v", err)
+	}
 
 	bm.RecordTransfer(1000)
 
@@ -483,7 +512,12 @@ func TestBandwidthManager_QueueOverflow(t *testing.T) {
 	}
 
 	// Give time for goroutines to queue.
-	time.Sleep(50 * time.Millisecond)
+	start := time.Now()
+	if err := helpers.WaitForTimeout(2*time.Second, 5*time.Millisecond, func() (bool, error) {
+		return time.Since(start) >= 50*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("queue wait did not elapse: %v", err)
+	}
 
 	// Try to add one more - should get rate limited.
 	ctx2, cancel := context.WithTimeout(ctx, 10*time.Millisecond)

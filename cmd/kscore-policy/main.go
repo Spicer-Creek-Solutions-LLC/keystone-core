@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
+	"github.com/shawnbutts/keystone-core/pkg/cli/auditutil"
+	"github.com/shawnbutts/keystone-core/pkg/cli/output"
 	"github.com/shawnbutts/keystone-core/pkg/policy"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
@@ -43,6 +46,9 @@ Examples:
   kscorectl policy report --days 7`,
 	}
 
+	rootCmd.PersistentFlags().StringVar(&auditLevel, "audit-level", "all", "Audit logging level (all, errors, none)")
+	rootCmd.PersistentFlags().StringVar(&auditOutput, "audit-output", "auto", "Audit output backend (auto, syslog, journald, stderr, none)")
+
 	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(validateCmd)
@@ -67,7 +73,10 @@ func newVersionCmd() *cobra.Command {
 }
 
 func main() {
-	if err := newRootCmd().Execute(); err != nil {
+	rootCmd := newRootCmd()
+	auditHandler := auditutil.Attach(rootCmd, "kscore-policy", &auditLevel, &auditOutput)
+	if err := rootCmd.Execute(); err != nil {
+		auditHandler.LogFailure(err)
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
@@ -101,6 +110,8 @@ var (
 	listCategory string
 	listType     string
 	listOutput   string
+	auditLevel   string
+	auditOutput  string
 )
 
 var listCmd = &cobra.Command{
@@ -127,7 +138,7 @@ Examples:
 func init() {
 	listCmd.Flags().StringVar(&listCategory, "category", "", "Filter by category (security, compliance, operational, cost, custom)")
 	listCmd.Flags().StringVar(&listType, "type", "", "Filter by type (opa, cel)")
-	listCmd.Flags().StringVarP(&listOutput, "output", "o", "table", "Output format (table, json, yaml)")
+	listCmd.Flags().StringVarP(&listOutput, "output", "o", "table", "Output format (table, text, json, yaml)")
 }
 
 func listExecute(cmd *cobra.Command, args []string) error {
@@ -156,20 +167,22 @@ func listExecute(cmd *cobra.Command, args []string) error {
 		filtered = append(filtered, p)
 	}
 
-	// Output
-	switch listOutput {
-	case "json":
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(filtered)
-	case "yaml":
-		enc := yaml.NewEncoder(os.Stdout)
-		return enc.Encode(filtered)
-	default:
-		printPolicyTable(filtered)
+	format, err := output.ParseFormat(listOutput)
+	if err != nil {
+		return err
 	}
 
-	return nil
+	switch format {
+	case output.FormatJSON:
+		return output.WriteJSON(os.Stdout, filtered)
+	case output.FormatYAML:
+		return output.WriteYAML(os.Stdout, filtered)
+	case output.FormatTable, output.FormatText:
+		printPolicyTable(filtered)
+		return nil
+	default:
+		return fmt.Errorf("unsupported output format: %s", listOutput)
+	}
 }
 
 func printPolicyTable(policies []PolicyDefinition) {
@@ -323,13 +336,13 @@ func validateExecute(cmd *cobra.Command, args []string) error {
 // =============================================================================
 
 var (
-	checkPolicyID   string
-	checkInputFile  string
-	checkInputJSON  string
-	checkAction     string
-	checkUser       string
-	checkContext    string
-	checkOutputFmt  string
+	checkPolicyID  string
+	checkInputFile string
+	checkInputJSON string
+	checkAction    string
+	checkUser      string
+	checkContext   string
+	checkOutputFmt string
 )
 
 var checkCmd = &cobra.Command{
@@ -361,7 +374,7 @@ func init() {
 	checkCmd.Flags().StringVar(&checkAction, "action", "check", "Action being performed")
 	checkCmd.Flags().StringVar(&checkUser, "user", "", "User performing the action")
 	checkCmd.Flags().StringVar(&checkContext, "context", "", "Additional context as JSON")
-	checkCmd.Flags().StringVarP(&checkOutputFmt, "output", "o", "text", "Output format (text, json)")
+	checkCmd.Flags().StringVarP(&checkOutputFmt, "output", "o", "text", "Output format (text, json, yaml, table)")
 	checkCmd.MarkFlagRequired("policy")
 }
 
@@ -452,45 +465,81 @@ func checkExecute(cmd *cobra.Command, args []string) error {
 	}
 
 	// Output result
-	if checkOutputFmt == "json" {
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(result)
+	format, err := output.ParseFormat(checkOutputFmt)
+	if err != nil {
+		return err
 	}
 
-	// Text output
-	fmt.Printf("Policy: %s (%s)\n", result.PolicyName, result.PolicyID)
-	fmt.Printf("Type:   %s\n", targetPolicy.Type)
-	fmt.Println()
+	switch format {
+	case output.FormatJSON:
+		return output.WriteJSON(os.Stdout, result)
+	case output.FormatYAML:
+		return output.WriteYAML(os.Stdout, result)
+	case output.FormatTable:
+		status := "DENIED"
+		if result.Allowed {
+			status = "ALLOWED"
+		}
+		summary := buildKeyValueTable([][2]string{
+			{"POLICY", fmt.Sprintf("%s (%s)", result.PolicyName, result.PolicyID)},
+			{"TYPE", targetPolicy.Type},
+			{"RESULT", status},
+			{"MESSAGE", result.Message},
+			{"DURATION", result.Duration.String()},
+		})
+		if err := output.WriteTable(os.Stdout, summary); err != nil {
+			return err
+		}
 
-	if result.Allowed {
-		fmt.Println("Result: ✓ ALLOWED")
-	} else {
-		fmt.Println("Result: ✗ DENIED")
-	}
-
-	if result.Message != "" {
-		fmt.Printf("\nMessage: %s\n", result.Message)
-	}
-
-	if len(result.Violations) > 0 {
-		fmt.Printf("\nViolations (%d):\n", len(result.Violations))
-		for i, v := range result.Violations {
-			fmt.Printf("  %d. [%s] %s\n", i+1, v.Severity, v.Message)
-			if v.Remediation != "" {
-				fmt.Printf("     Remediation: %s\n", v.Remediation)
+		if len(result.Violations) > 0 {
+			fmt.Printf("\nViolations (%d):\n", len(result.Violations))
+			if err := output.WriteTable(os.Stdout, buildViolationsTable(result.Violations)); err != nil {
+				return err
 			}
 		}
-	}
 
-	if len(result.Warnings) > 0 {
-		fmt.Printf("\nWarnings (%d):\n", len(result.Warnings))
-		for _, w := range result.Warnings {
-			fmt.Printf("  - %s\n", w)
+		if len(result.Warnings) > 0 {
+			fmt.Printf("\nWarnings (%d):\n", len(result.Warnings))
+			if err := output.WriteTable(os.Stdout, buildWarningsTable(result.Warnings)); err != nil {
+				return err
+			}
 		}
-	}
+	case output.FormatText:
+		fmt.Printf("Policy: %s (%s)\n", result.PolicyName, result.PolicyID)
+		fmt.Printf("Type:   %s\n", targetPolicy.Type)
+		fmt.Println()
 
-	fmt.Printf("\nDuration: %s\n", result.Duration)
+		if result.Allowed {
+			fmt.Println("Result: ✓ ALLOWED")
+		} else {
+			fmt.Println("Result: ✗ DENIED")
+		}
+
+		if result.Message != "" {
+			fmt.Printf("\nMessage: %s\n", result.Message)
+		}
+
+		if len(result.Violations) > 0 {
+			fmt.Printf("\nViolations (%d):\n", len(result.Violations))
+			for i, v := range result.Violations {
+				fmt.Printf("  %d. [%s] %s\n", i+1, v.Severity, v.Message)
+				if v.Remediation != "" {
+					fmt.Printf("     Remediation: %s\n", v.Remediation)
+				}
+			}
+		}
+
+		if len(result.Warnings) > 0 {
+			fmt.Printf("\nWarnings (%d):\n", len(result.Warnings))
+			for _, w := range result.Warnings {
+				fmt.Printf("  - %s\n", w)
+			}
+		}
+
+		fmt.Printf("\nDuration: %s\n", result.Duration)
+	default:
+		return fmt.Errorf("unsupported output format: %s", checkOutputFmt)
+	}
 
 	if !result.Allowed {
 		os.Exit(1)
@@ -521,7 +570,7 @@ Examples:
 }
 
 func init() {
-	showCmd.Flags().StringVarP(&showOutput, "output", "o", "text", "Output format (text, json, yaml)")
+	showCmd.Flags().StringVarP(&showOutput, "output", "o", "text", "Output format (text, json, yaml, table)")
 }
 
 func showExecute(cmd *cobra.Command, args []string) error {
@@ -547,16 +596,38 @@ func showExecute(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("policy not found: %s", policyID)
 	}
 
-	// Output
-	switch showOutput {
-	case "json":
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(targetPolicy)
-	case "yaml":
-		enc := yaml.NewEncoder(os.Stdout)
-		return enc.Encode(targetPolicy)
-	default:
+	format, err := output.ParseFormat(showOutput)
+	if err != nil {
+		return err
+	}
+
+	switch format {
+	case output.FormatJSON:
+		return output.WriteJSON(os.Stdout, targetPolicy)
+	case output.FormatYAML:
+		return output.WriteYAML(os.Stdout, targetPolicy)
+	case output.FormatTable:
+		table := buildKeyValueTable([][2]string{
+			{"ID", targetPolicy.ID},
+			{"NAME", targetPolicy.Name},
+			{"DESCRIPTION", targetPolicy.Description},
+			{"TYPE", targetPolicy.Type},
+			{"CATEGORY", targetPolicy.Category},
+			{"SEVERITY", targetPolicy.Severity},
+			{"ENFORCEMENT", targetPolicy.EnforcementMode},
+			{"ENABLED", fmt.Sprintf("%t", targetPolicy.Enabled)},
+			{"TAGS", strings.Join(targetPolicy.Tags, ", ")},
+		})
+		if err := output.WriteTable(os.Stdout, table); err != nil {
+			return err
+		}
+		if targetPolicy.Code != "" {
+			fmt.Printf("\nCode:\n")
+			fmt.Println(strings.Repeat("-", 60))
+			fmt.Println(targetPolicy.Code)
+			fmt.Println(strings.Repeat("-", 60))
+		}
+	case output.FormatText:
 		fmt.Printf("ID:              %s\n", targetPolicy.ID)
 		fmt.Printf("Name:            %s\n", targetPolicy.Name)
 		fmt.Printf("Description:     %s\n", targetPolicy.Description)
@@ -572,6 +643,8 @@ func showExecute(cmd *cobra.Command, args []string) error {
 		fmt.Println(strings.Repeat("-", 60))
 		fmt.Println(targetPolicy.Code)
 		fmt.Println(strings.Repeat("-", 60))
+	default:
+		return fmt.Errorf("unsupported output format: %s", showOutput)
 	}
 
 	return nil
@@ -617,7 +690,7 @@ func init() {
 	auditCmd.Flags().StringVar(&auditResourceType, "resource-type", "", "Filter by resource type")
 	auditCmd.Flags().BoolVar(&auditDeniedOnly, "denied", false, "Show only denied evaluations")
 	auditCmd.Flags().IntVar(&auditLimit, "limit", 100, "Maximum entries to show")
-	auditCmd.Flags().StringVarP(&auditOutputFmt, "output", "o", "table", "Output format (table, json)")
+	auditCmd.Flags().StringVarP(&auditOutputFmt, "output", "o", "table", "Output format (table, text, json, yaml)")
 }
 
 func auditExecute(cmd *cobra.Command, args []string) error {
@@ -639,39 +712,54 @@ func auditExecute(cmd *cobra.Command, args []string) error {
 	// Get entries
 	entries := auditor.GetEntries(filter)
 
+	format, err := output.ParseFormat(auditOutputFmt)
+	if err != nil {
+		return err
+	}
+
 	if len(entries) == 0 {
-		fmt.Println("No audit entries found.")
-		fmt.Println("\nNote: This CLI reads from an in-memory store.")
-		fmt.Println("For production audit logs, use the control plane API.")
-		return nil
-	}
-
-	// Output
-	if auditOutputFmt == "json" {
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(entries)
-	}
-
-	// Table output
-	fmt.Printf("%-20s %-25s %-15s %-10s %-10s\n", "TIMESTAMP", "POLICY", "RESOURCE", "RESULT", "VIOLATIONS")
-	fmt.Println(strings.Repeat("-", 85))
-	for _, entry := range entries {
-		result := "ALLOWED"
-		if !entry.Allowed {
-			result = "DENIED"
+		switch format {
+		case output.FormatJSON:
+			return output.WriteJSON(os.Stdout, entries)
+		case output.FormatYAML:
+			return output.WriteYAML(os.Stdout, entries)
+		case output.FormatTable, output.FormatText:
+			fmt.Println("No audit entries found.")
+			fmt.Println("\nNote: This CLI reads from an in-memory store.")
+			fmt.Println("For production audit logs, use the control plane API.")
+			return nil
+		default:
+			return fmt.Errorf("unsupported output format: %s", auditOutputFmt)
 		}
-		fmt.Printf("%-20s %-25s %-15s %-10s %-10d\n",
-			entry.Timestamp.Format("2006-01-02 15:04:05"),
-			truncate(entry.PolicyID, 25),
-			truncate(entry.ResourceType, 15),
-			result,
-			len(entry.Violations),
-		)
 	}
 
-	fmt.Printf("\nTotal: %d entries\n", len(entries))
-	return nil
+	switch format {
+	case output.FormatJSON:
+		return output.WriteJSON(os.Stdout, entries)
+	case output.FormatYAML:
+		return output.WriteYAML(os.Stdout, entries)
+	case output.FormatTable, output.FormatText:
+		fmt.Printf("%-20s %-25s %-15s %-10s %-10s\n", "TIMESTAMP", "POLICY", "RESOURCE", "RESULT", "VIOLATIONS")
+		fmt.Println(strings.Repeat("-", 85))
+		for _, entry := range entries {
+			result := "ALLOWED"
+			if !entry.Allowed {
+				result = "DENIED"
+			}
+			fmt.Printf("%-20s %-25s %-15s %-10s %-10d\n",
+				entry.Timestamp.Format("2006-01-02 15:04:05"),
+				truncate(entry.PolicyID, 25),
+				truncate(entry.ResourceType, 15),
+				result,
+				len(entry.Violations),
+			)
+		}
+
+		fmt.Printf("\nTotal: %d entries\n", len(entries))
+		return nil
+	default:
+		return fmt.Errorf("unsupported output format: %s", auditOutputFmt)
+	}
 }
 
 // =============================================================================
@@ -702,7 +790,7 @@ Examples:
 
 func init() {
 	reportCmd.Flags().IntVar(&reportDays, "days", 7, "Number of days to include in report")
-	reportCmd.Flags().StringVarP(&reportOutputFmt, "output", "o", "text", "Output format (text, json)")
+	reportCmd.Flags().StringVarP(&reportOutputFmt, "output", "o", "text", "Output format (text, json, yaml, table)")
 }
 
 func reportExecute(cmd *cobra.Command, args []string) error {
@@ -720,48 +808,89 @@ func reportExecute(cmd *cobra.Command, args []string) error {
 	report := reporter.GenerateReport(period)
 
 	// Output
-	if reportOutputFmt == "json" {
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(report)
+	format, err := output.ParseFormat(reportOutputFmt)
+	if err != nil {
+		return err
 	}
 
-	// Text output
-	fmt.Println("=== Compliance Report ===")
-	fmt.Printf("Generated: %s\n", report.GeneratedAt.Format(time.RFC3339))
-	fmt.Printf("Period:    %s to %s\n",
-		report.Period.Start.Format("2006-01-02"),
-		report.Period.End.Format("2006-01-02"))
-	fmt.Println()
-
-	fmt.Println("Summary:")
-	fmt.Printf("  Total Policies:     %d\n", report.TotalPolicies)
-	fmt.Printf("  Compliant:          %d\n", report.CompliantPolicies)
-	fmt.Printf("  Violating:          %d\n", report.ViolatingPolicies)
-	fmt.Printf("  Compliance Rate:    %.1f%%\n", report.ComplianceRate)
-	fmt.Println()
-
-	if len(report.ViolationsBySeverity) > 0 {
-		fmt.Println("Violations by Severity:")
-		for severity, count := range report.ViolationsBySeverity {
-			fmt.Printf("  %-10s: %d\n", severity, count)
+	switch format {
+	case output.FormatJSON:
+		return output.WriteJSON(os.Stdout, report)
+	case output.FormatYAML:
+		return output.WriteYAML(os.Stdout, report)
+	case output.FormatTable:
+		summary := buildKeyValueTable([][2]string{
+			{"GENERATED", report.GeneratedAt.Format(time.RFC3339)},
+			{"PERIOD", fmt.Sprintf("%s to %s",
+				report.Period.Start.Format("2006-01-02"),
+				report.Period.End.Format("2006-01-02"))},
+			{"TOTAL POLICIES", fmt.Sprintf("%d", report.TotalPolicies)},
+			{"COMPLIANT", fmt.Sprintf("%d", report.CompliantPolicies)},
+			{"VIOLATING", fmt.Sprintf("%d", report.ViolatingPolicies)},
+			{"COMPLIANCE RATE", fmt.Sprintf("%.1f%%", report.ComplianceRate)},
+		})
+		if err := output.WriteTable(os.Stdout, summary); err != nil {
+			return err
 		}
+
+		if len(report.ViolationsBySeverity) > 0 {
+			fmt.Println("\nViolations by Severity:")
+			if err := output.WriteTable(os.Stdout, buildSeverityTable(report.ViolationsBySeverity)); err != nil {
+				return err
+			}
+		}
+
+		if len(report.TopViolations) > 0 {
+			fmt.Println("\nTop Violations:")
+			if err := output.WriteTable(os.Stdout, buildTopViolationsTable(report.TopViolations)); err != nil {
+				return err
+			}
+		}
+
+		if report.TotalPolicies == 0 {
+			fmt.Println("\nNote: No policy evaluation data found in the audit store.")
+			fmt.Println("For production compliance reports, use the control plane API.")
+		}
+		return nil
+	case output.FormatText:
+		fmt.Println("=== Compliance Report ===")
+		fmt.Printf("Generated: %s\n", report.GeneratedAt.Format(time.RFC3339))
+		fmt.Printf("Period:    %s to %s\n",
+			report.Period.Start.Format("2006-01-02"),
+			report.Period.End.Format("2006-01-02"))
 		fmt.Println()
-	}
 
-	if len(report.TopViolations) > 0 {
-		fmt.Println("Top Violations:")
-		for i, v := range report.TopViolations {
-			fmt.Printf("  %d. %s (%s) - %d violations\n", i+1, v.PolicyName, v.Severity, v.Count)
+		fmt.Println("Summary:")
+		fmt.Printf("  Total Policies:     %d\n", report.TotalPolicies)
+		fmt.Printf("  Compliant:          %d\n", report.CompliantPolicies)
+		fmt.Printf("  Violating:          %d\n", report.ViolatingPolicies)
+		fmt.Printf("  Compliance Rate:    %.1f%%\n", report.ComplianceRate)
+		fmt.Println()
+
+		if len(report.ViolationsBySeverity) > 0 {
+			fmt.Println("Violations by Severity:")
+			for severity, count := range report.ViolationsBySeverity {
+				fmt.Printf("  %-10s: %d\n", severity, count)
+			}
+			fmt.Println()
 		}
-	}
 
-	if report.TotalPolicies == 0 {
-		fmt.Println("\nNote: No policy evaluation data found in the audit store.")
-		fmt.Println("For production compliance reports, use the control plane API.")
-	}
+		if len(report.TopViolations) > 0 {
+			fmt.Println("Top Violations:")
+			for i, v := range report.TopViolations {
+				fmt.Printf("  %d. %s (%s) - %d violations\n", i+1, v.PolicyName, v.Severity, v.Count)
+			}
+		}
 
-	return nil
+		if report.TotalPolicies == 0 {
+			fmt.Println("\nNote: No policy evaluation data found in the audit store.")
+			fmt.Println("For production compliance reports, use the control plane API.")
+		}
+
+		return nil
+	default:
+		return fmt.Errorf("unsupported output format: %s", reportOutputFmt)
+	}
 }
 
 // =============================================================================
@@ -795,4 +924,81 @@ func truncate(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen-3] + "..."
+}
+
+func buildKeyValueTable(pairs [][2]string) *output.Table {
+	rows := make([][]string, 0, len(pairs))
+	for _, pair := range pairs {
+		if pair[1] == "" {
+			continue
+		}
+		rows = append(rows, []string{pair[0], pair[1]})
+	}
+
+	return &output.Table{
+		Headers: []string{"KEY", "VALUE"},
+		Rows:    rows,
+	}
+}
+
+func buildViolationsTable(violations []policy.Violation) *output.Table {
+	rows := make([][]string, 0, len(violations))
+	for _, v := range violations {
+		rows = append(rows, []string{
+			string(v.Severity),
+			v.Message,
+			v.Remediation,
+		})
+	}
+
+	return &output.Table{
+		Headers: []string{"SEVERITY", "MESSAGE", "REMEDIATION"},
+		Rows:    rows,
+	}
+}
+
+func buildWarningsTable(warnings []string) *output.Table {
+	rows := make([][]string, 0, len(warnings))
+	for _, warning := range warnings {
+		rows = append(rows, []string{warning})
+	}
+
+	return &output.Table{
+		Headers: []string{"WARNING"},
+		Rows:    rows,
+	}
+}
+
+func buildSeverityTable(severityCounts map[policy.Severity]int) *output.Table {
+	keys := make([]string, 0, len(severityCounts))
+	for severity := range severityCounts {
+		keys = append(keys, string(severity))
+	}
+	sort.Strings(keys)
+
+	rows := make([][]string, 0, len(keys))
+	for _, key := range keys {
+		rows = append(rows, []string{key, fmt.Sprintf("%d", severityCounts[policy.Severity(key)])})
+	}
+
+	return &output.Table{
+		Headers: []string{"SEVERITY", "COUNT"},
+		Rows:    rows,
+	}
+}
+
+func buildTopViolationsTable(violations []policy.ViolationSummary) *output.Table {
+	rows := make([][]string, 0, len(violations))
+	for _, v := range violations {
+		rows = append(rows, []string{
+			v.PolicyName,
+			string(v.Severity),
+			fmt.Sprintf("%d", v.Count),
+		})
+	}
+
+	return &output.Table{
+		Headers: []string{"POLICY", "SEVERITY", "COUNT"},
+		Rows:    rows,
+	}
 }

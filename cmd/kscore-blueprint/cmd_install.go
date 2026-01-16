@@ -5,8 +5,10 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -487,7 +489,17 @@ func removeExecute(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
-		// TODO: Check if any other blueprints depend on this one
+		dependents, err := findBlueprintDependents(blueprintPath, name)
+		if err != nil {
+			return fmt.Errorf("failed to check blueprint dependencies: %w", err)
+		}
+		if len(dependents) > 0 {
+			if removeForce {
+				fmt.Printf("Warning: %s is required by %s\n", name, strings.Join(dependents, ", "))
+			} else {
+				return fmt.Errorf("blueprint %s is required by %s (use --force to remove)", name, strings.Join(dependents, ", "))
+			}
+		}
 
 		// Remove
 		if err := os.RemoveAll(fullPath); err != nil {
@@ -501,6 +513,43 @@ func removeExecute(cmd *cobra.Command, args []string) error {
 }
 
 // Helper functions
+
+func findBlueprintDependents(baseDir, target string) ([]string, error) {
+	dependents := []string{}
+	err := filepath.WalkDir(baseDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || d.Name() != "blueprint.yaml" {
+			return nil
+		}
+
+		bp, err := blueprint.ParseManifestFile(path)
+		if err != nil {
+			return nil
+		}
+		if bp.Metadata.Name == target {
+			return nil
+		}
+
+		var deps []string
+		if bp.Dependencies != nil {
+			deps = append(deps, bp.Dependencies.Requires...)
+			deps = append(deps, bp.Dependencies.RequiresBefore...)
+		}
+		for _, dep := range deps {
+			depName, _ := parseReference(dep)
+			if depName == target {
+				dependents = append(dependents, bp.Metadata.Name)
+				break
+			}
+		}
+
+		return nil
+	})
+
+	return dependents, err
+}
 
 func getCurrentVersion(manifestPath string) (string, error) {
 	data, err := os.ReadFile(manifestPath)

@@ -7,7 +7,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"regexp"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -702,18 +704,41 @@ func (e *SyncEngine) matchesExcludePattern(path string) bool {
 
 // matchGlob performs simple glob matching.
 func matchGlob(pattern, path string) bool {
-	// Simple implementation - ** matches any path, * matches single segment
 	if pattern == "" {
 		return path == ""
 	}
-	if pattern == "**" {
-		return true
+	regexPattern := globToRegex(pattern)
+	re, err := regexp.Compile(regexPattern)
+	if err != nil {
+		return pattern == path
 	}
-	if pattern[0] == '*' && pattern[1:] == "" {
-		return true
+	return re.MatchString(path)
+}
+
+func globToRegex(pattern string) string {
+	var sb strings.Builder
+	sb.WriteString("^")
+	for i := 0; i < len(pattern); i++ {
+		ch := pattern[i]
+		switch ch {
+		case '*':
+			if i+1 < len(pattern) && pattern[i+1] == '*' {
+				sb.WriteString(".*")
+				i++
+			} else {
+				sb.WriteString(`[^/]*`)
+			}
+		case '?':
+			sb.WriteString(`[^/]`)
+		case '.', '+', '(', ')', '|', '^', '$', '{', '}', '[', ']', '\\':
+			sb.WriteByte('\\')
+			sb.WriteByte(ch)
+		default:
+			sb.WriteByte(ch)
+		}
 	}
-	// TODO: Implement proper glob matching
-	return pattern == path
+	sb.WriteString("$")
+	return sb.String()
 }
 
 // sortFilesByPriority sorts files with small files first.

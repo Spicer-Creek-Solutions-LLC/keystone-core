@@ -68,6 +68,7 @@ Keystone Core takes inspiration from **Salt Project** (formerly SaltStack) but r
 1. **[Overview](overview/)** - Detailed introduction and use cases
 2. **[Installation](installation/)** - Install Keystone Core on your system
 3. **[Quick Start](quick-start/)** - 5-minute deployment guide
-4. **[Architecture](architecture/)** - System architecture overview
+4. **[Hello World](hello-world/)** - Apply a minimal state file
+5. **[Architecture](architecture/)** - System architecture overview
 
 Ready to get started? Continue to the [Overview](overview/) or jump straight to [Installation](installation/).

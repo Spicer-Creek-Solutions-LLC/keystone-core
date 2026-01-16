@@ -2,7 +2,7 @@
        docs-container-build docs-pdf-container docs-pdf-book-container docs-all-container docs-all-container-fast \
        docs-validate docs-validate-build docs-validate-links docs-validate-examples docs-validate-godoc \
        docs-validate-drift docs-validate-sync docs-validate-all \
-       release release-snapshot release-dry-run lint \
+       release release-snapshot release-dry-run lint sdk-verify \
        e2e-build e2e-test e2e-up e2e-down e2e-logs e2e-clean e2e-full e2e-perf e2e-scenarios \
        e2e-ha e2e-ha-up e2e-ha-down e2e-ha-logs \
        e2e-ipv6 e2e-ipv6-up e2e-ipv6-down e2e-ipv6-logs \
@@ -75,6 +75,7 @@ help:
 	@echo ""
 	@echo "  test               - Run tests"
 	@echo "  lint               - Run linters"
+	@echo "  sdk-verify         - Build SDK examples (Go/Rust/C++)"
 	@echo "  clean              - Remove all build artifacts (build/)"
 	@echo "  deps               - Install/update dependencies"
 	@echo ""
@@ -466,6 +467,39 @@ lint:
 	else \
 		echo "golangci-lint not installed. Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; \
 		exit 1; \
+	fi
+
+# =============================================================================
+# SDK verification
+# =============================================================================
+
+sdk-verify:
+	@echo "Verifying SDK examples..."
+	@if command -v cargo >/dev/null 2>&1; then \
+		if command -v rustup >/dev/null 2>&1 && rustup target list --installed | grep -q wasm32-wasi; then \
+			echo "Building Rust SDK example..."; \
+			(cd modules/sdk/rust/examples/hello-world && cargo build --target wasm32-wasi --release); \
+		else \
+			echo "Skipping Rust SDK: install wasm32-wasi target (rustup target add wasm32-wasi)"; \
+		fi; \
+	else \
+		echo "Skipping Rust SDK: cargo not installed"; \
+	fi
+	@if command -v tinygo >/dev/null 2>&1; then \
+		echo "Building Go SDK example (TinyGo)..."; \
+		mkdir -p modules/sdk/go/examples/hello-world/build; \
+		(cd modules/sdk/go/examples/hello-world && tinygo build -o build/module.wasm -target wasm32-wasi .); \
+	else \
+		echo "Skipping Go SDK: tinygo not installed"; \
+	fi
+	@if [ -n "$$WASI_SDK_PATH" ] && [ -d "$$WASI_SDK_PATH" ] && command -v cmake >/dev/null 2>&1; then \
+		echo "Building C++ SDK example (WASI SDK)..."; \
+		mkdir -p modules/sdk/cpp/examples/hello-world/build; \
+		cmake -S modules/sdk/cpp/examples/hello-world -B modules/sdk/cpp/examples/hello-world/build \
+			-DCMAKE_TOOLCHAIN_FILE=$$WASI_SDK_PATH/share/cmake/wasi-sdk.cmake; \
+		cmake --build modules/sdk/cpp/examples/hello-world/build; \
+	else \
+		echo "Skipping C++ SDK: set WASI_SDK_PATH and install cmake"; \
 	fi
 
 # =============================================================================

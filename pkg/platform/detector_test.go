@@ -4,6 +4,8 @@ import (
 	"runtime"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 func TestDetectOS(t *testing.T) {
@@ -86,7 +88,15 @@ func TestDetectCaching(t *testing.T) {
 
 	// Wait for cache to expire
 	detector.cacheAge = 1 * time.Millisecond
-	time.Sleep(2 * time.Millisecond)
+	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		info, err := detector.Detect()
+		if err != nil {
+			return false, err
+		}
+		return info.DetectedAt != info1.DetectedAt, nil
+	}); err != nil {
+		t.Fatalf("expected cache to expire: %v", err)
+	}
 
 	// Third detection (cache expired)
 	info3, err := detector.Detect()

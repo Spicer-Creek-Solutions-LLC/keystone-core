@@ -15,18 +15,30 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
+	"github.com/shawnbutts/keystone-core/pkg/cli/auditutil"
 	"github.com/shawnbutts/keystone-core/pkg/files"
 	"github.com/shawnbutts/keystone-core/pkg/files/backend"
 )
 
 var (
-	cfgFile    string
-	natsURL    string
-	clusterID  string
-	instanceID string
+	cfgFile     string
+	natsURL     string
+	clusterID   string
+	instanceID  string
+	auditLevel  string
+	auditOutput string
 )
 
 func main() {
+	rootCmd := newRootCmd()
+	auditHandler := auditutil.Attach(rootCmd, "kscore-files", &auditLevel, &auditOutput)
+	if err := rootCmd.Execute(); err != nil {
+		auditHandler.LogFailure(err)
+		os.Exit(1)
+	}
+}
+
+func newRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "kscore-files",
 		Short: "File distribution server for Keystone Core",
@@ -40,6 +52,8 @@ files without requiring direct HTTP/S3 access from agents.`,
 	rootCmd.PersistentFlags().StringVar(&natsURL, "nats-url", "nats://localhost:4222", "NATS server URL")
 	rootCmd.PersistentFlags().StringVar(&clusterID, "cluster-id", "", "cluster ID")
 	rootCmd.PersistentFlags().StringVar(&instanceID, "instance-id", "", "server instance ID")
+	rootCmd.PersistentFlags().StringVar(&auditLevel, "audit-level", "all", "Audit logging level (all, errors, none)")
+	rootCmd.PersistentFlags().StringVar(&auditOutput, "audit-output", "auto", "Audit output backend (auto, syslog, journald, stderr, none)")
 
 	rootCmd.AddCommand(newServeCommand())
 	rootCmd.AddCommand(newFilesCmd())
@@ -49,9 +63,7 @@ files without requiring direct HTTP/S3 access from agents.`,
 	rootCmd.AddCommand(newMirrorsCmd())
 	rootCmd.AddCommand(newVersionCommand())
 
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
-	}
+	return rootCmd
 }
 
 // ServerConfig is the configuration for the file server.
