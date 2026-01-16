@@ -25,11 +25,11 @@ Keystone Core aims to be the operational layer between GitOps/IaC deployments an
 ---
 
 ```
-COMPLETED (Epics 1-25, 27)             PLANNED (Epics 26, 28-29)
+COMPLETED (Epics 1-27)                 PLANNED (Epics 28-29)
 ───────────────────────────────────────────────────────────────────────
-Epic 1: Core Infrastructure            Epic 26: NEEDSWORK Remediation
-Epic 2: Remote Execution               Epic 28: Standard Deployment Blueprints
-Epic 3: State Management               Epic 29: Bootstrap Testing Infrastructure
+Epic 1: Core Infrastructure            Epic 28: Standard Deployment Blueprints
+Epic 2: Remote Execution               Epic 29: Bootstrap Testing Infrastructure
+Epic 3: State Management
                                        
 
                                        Future Considerations:
@@ -55,6 +55,7 @@ Epic 22: File Distribution
 Epic 23: Self-Management
 Epic 24: Document Review
 Epic 25: Blueprints
+Epic 26: NEEDSWORK Remediation
 Epic 27: Agent Bootstrap Experience
 ```
 
@@ -622,29 +623,27 @@ Single-binary bootstrap experience for demo, production, and full-scale deployme
 
 ---
 
-## Planned Epics
+### Epic 26: NEEDSWORK Remediation ✅
 
-### Epic 26: NEEDSWORK Remediation
-
-**Status**: Planned | **Depends on**: All completed epics
+**Status**: Complete | **Depends on**: All completed epics
 
 Address all issues identified in the comprehensive project review (NEEDSWORK.md):
 
-- **Phase 1: Security** (2 weeks) - Credential exposure in tests, TLS validation gaps, rate limiting
-- **Phase 2: API Completeness** (4 weeks) - Registry server completeness, cluster operations, backup orchestration
-- **Phase 3: Testing** (4 weeks) - Integration test coverage, race condition tests, E2E test completion
-- **Phase 4: Documentation** (4 weeks) - Godoc coverage, internal docs, API reference completion
-- **Phase 5: Polish** (2 weeks) - Error messages, code cleanup, dependency updates
+- **Security**: Credential exposure fixes, TLS validation gaps, rate limiting
+- **API Completeness**: Registry server completeness, cluster operations, backup orchestration
+- **Testing**: Integration test coverage, race condition tests, E2E test completion
+- **Documentation**: Godoc coverage, internal docs, API reference completion
+- **Polish**: Error messages, code cleanup, dependency updates
 
-72 total issues to address:
-- **Critical** (8 issues): Security and data integrity
-- **High** (22 issues): Functionality gaps
-- **Medium** (29 issues): Documentation and testing
-- **Low** (13 issues): Polish and cleanup
-
-**Estimated**: 580 hours / 16 weeks
+**Key Achievements**:
+- All Critical/High/Medium/Low items resolved or explicitly deferred
+- CLI and audit logging standardized with output format parity
+- Test flakiness reduced with shared mocks and wait helpers
+- Documentation gaps closed across best practices and migrations
 
 ---
+
+## Planned Epics
 
 ### Epic 28: Standard Deployment Blueprints
 
@@ -812,8 +811,8 @@ For detailed information on support windows, upgrade paths, and compatibility gu
 
 | Version | Target | Scope |
 |---------|--------|-------|
-| v0.25.0 | Current | Epics 1-25, 27 complete (Core through bootstrap experience) |
-| v0.26.0 | Planned | NEEDSWORK Remediation (security, API, testing, documentation, polish) |
+| v0.25.0 | Current | Epics 1-27 complete (Core through bootstrap experience) |
+| v0.26.0 | Complete | NEEDSWORK Remediation (security, API, testing, documentation, polish) |
 | v0.27.0 | Complete | Agent Bootstrap Experience (single-binary TUI-guided setup) |
 | v0.28.0 | Planned | Standard Deployment Blueprints (14 official blueprints) |
 | v0.29.0 | Planned | Bootstrap Testing Infrastructure (Docker + VM validation) |
