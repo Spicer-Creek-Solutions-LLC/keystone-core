@@ -176,6 +176,12 @@ type ServerConfig struct {
 	// AddressFamily preference for outbound connections
 	// Options: prefer_ipv4, prefer_ipv6, ipv4_only, ipv6_only
 	AddressFamily string
+	// AllowInsecureNonLoopback explicitly allows listening on non-loopback
+	// addresses without TLS enabled. This is a security risk and should only
+	// be used in development/testing environments or when TLS termination
+	// is handled by a reverse proxy.
+	// WARNING: Setting this to true exposes the control plane to network attacks.
+	AllowInsecureNonLoopback bool
 }
 
 // NATSConfig contains NATS connection settings
@@ -345,8 +351,9 @@ type PolicyDefinition struct {
 
 // Default configuration values
 const (
-	DefaultServerListenAddr  = "0.0.0.0"
-	DefaultServerListenAddr6 = "::"
+	// DefaultServerListenAddr defaults to loopback for security (requires TLS for non-loopback)
+	DefaultServerListenAddr  = "127.0.0.1"
+	DefaultServerListenAddr6 = "::1"
 	DefaultGRPCPort          = 9090
 	DefaultHTTPPort          = 8080
 	DefaultAddressFamily     = "prefer_ipv4" // prefer_ipv4, prefer_ipv6, ipv4_only, ipv6_only
@@ -390,6 +397,35 @@ const (
 	DefaultSyslogNetwork        = "unix"
 	DefaultSyslogAddress        = "/dev/log"
 	DefaultSyslogFacility       = "daemon"
+)
+
+// Production scaling thresholds - beyond these values, users should migrate
+// from embedded defaults to external/production-grade infrastructure
+const (
+	// EmbeddedNATSMaxAgents is the recommended maximum number of agents
+	// for embedded NATS mode. Beyond this, use an external NATS cluster.
+	EmbeddedNATSMaxAgents = 100
+
+	// EmbeddedNATSMaxMemoryDefault is the default memory limit for embedded NATS (256MB)
+	EmbeddedNATSMaxMemoryDefault = 256 * 1024 * 1024
+
+	// EmbeddedNATSMaxConnectionsDefault is the default max connections for embedded NATS
+	EmbeddedNATSMaxConnectionsDefault = 1000
+
+	// JetStreamMaxStorageDefault is the default storage limit for JetStream (1GB)
+	JetStreamMaxStorageDefault = 1 * 1024 * 1024 * 1024
+
+	// SQLiteMaxAgents is the recommended maximum number of agents
+	// for SQLite storage. Beyond this, use PostgreSQL.
+	SQLiteMaxAgents = 100
+
+	// SQLiteMaxStateResources is the recommended maximum state resources
+	// for SQLite storage. Beyond this, use PostgreSQL.
+	SQLiteMaxStateResources = 10000
+
+	// SQLiteMaxEventsPerDay is the recommended maximum events per day
+	// for SQLite storage. Beyond this, use PostgreSQL.
+	SQLiteMaxEventsPerDay = 100000
 )
 
 // LoadConfig loads configuration from file and environment variables
@@ -567,6 +603,12 @@ func (c *Config) Validate() error {
 		if _, err := netutil.ParseAddress(addr); err != nil {
 			return fmt.Errorf("invalid server.listenaddrs[%d] %q: %w", i, addr, err)
 		}
+	}
+
+	// SECURITY: Validate TLS is enabled when listening on non-loopback addresses
+	// This prevents accidentally exposing the control plane without encryption
+	if err := validateTLSForNonLoopback(c); err != nil {
+		return err
 	}
 
 	// Validate agent advertise addresses if specified (can be just IP or host:port)
@@ -778,4 +820,184 @@ func parseAddressFamilyPreference(af string) netutil.AddressFamilyPreference {
 	default:
 		return netutil.PreferIPv4
 	}
+}
+
+// validateTLSForNonLoopback ensures TLS is enabled when listening on non-loopback addresses.
+// This is a critical security check to prevent accidentally exposing the control plane
+// without encryption on network interfaces.
+func validateTLSForNonLoopback(c *Config) error {
+	// If TLS is enabled, we're secure regardless of listen address
+	if c.TLS.Enabled {
+		return nil
+	}
+
+	// If explicitly allowing insecure non-loopback, skip the check
+	// (but this should be used with extreme caution)
+	if c.Server.AllowInsecureNonLoopback {
+		return nil
+	}
+
+	// Get effective listen addresses
+	listenAddrs := c.Server.GetEffectiveListenAddrs()
+
+	// Check each listen address
+	for _, addrStr := range listenAddrs {
+		addr, err := netutil.ParseAddress(addrStr)
+		if err != nil {
+			// Address parsing is validated elsewhere, skip here
+			continue
+		}
+
+		// If listening on loopback only, it's safe (local connections only)
+		if addr.IsLoopback() {
+			continue
+		}
+
+		// If listening on unspecified (0.0.0.0 or ::), it binds to ALL interfaces
+		// including network interfaces - this is NOT safe without TLS
+		if addr.IsUnspecified() {
+			return fmt.Errorf(
+				"SECURITY ERROR: server listening on all interfaces (%s) without TLS enabled. "+
+					"This exposes the control plane to network attacks. "+
+					"Either: (1) enable TLS with tls.enabled=true and configure certificates, "+
+					"(2) change listen address to loopback (127.0.0.1 or ::1), or "+
+					"(3) set server.allowinsecurenonloopback=true if TLS is terminated by a reverse proxy "+
+					"(NOT RECOMMENDED for direct exposure)",
+				addrStr,
+			)
+		}
+
+		// Non-loopback specific IP address - also not safe without TLS
+		return fmt.Errorf(
+			"SECURITY ERROR: server listening on non-loopback address (%s) without TLS enabled. "+
+				"This exposes the control plane to network attacks. "+
+				"Either: (1) enable TLS with tls.enabled=true and configure certificates, "+
+				"(2) change listen address to loopback (127.0.0.1 or ::1), or "+
+				"(3) set server.allowinsecurenonloopback=true if TLS is terminated by a reverse proxy "+
+				"(NOT RECOMMENDED for direct exposure)",
+			addrStr,
+		)
+	}
+
+	return nil
+}
+
+// ProductionWarning represents a warning about production readiness
+type ProductionWarning struct {
+	// Component is the subsystem (nats, storage, jetstream)
+	Component string
+	// Level is the severity (info, warning, critical)
+	Level string
+	// Message is the warning message
+	Message string
+	// Recommendation is what the user should do
+	Recommendation string
+}
+
+// ProductionWarnings returns warnings about embedded defaults that may not be
+// suitable for production deployments. These are not errors - the configuration
+// is valid - but users should be aware of scaling limitations.
+//
+// Call this after Validate() and log warnings during startup.
+func (c *Config) ProductionWarnings() []ProductionWarning {
+	var warnings []ProductionWarning
+
+	// Check NATS mode
+	if c.NATS.Mode == NATSModeEmbedded {
+		warnings = append(warnings, ProductionWarning{
+			Component: "nats",
+			Level:     "warning",
+			Message: fmt.Sprintf(
+				"Embedded NATS mode is recommended for <%d agents and development/testing. "+
+					"Current limits: MaxMemory=%dMB, MaxConnections=%d.",
+				EmbeddedNATSMaxAgents,
+				getEffectiveNATSMaxMemory(c)/(1024*1024),
+				getEffectiveNATSMaxConnections(c),
+			),
+			Recommendation: "For production deployments with >100 agents, configure an external NATS cluster " +
+				"with nats.mode=external and nats.url=nats://your-cluster:4222",
+		})
+
+		// Check if JetStream storage is at default
+		if c.NATS.JetStream.Enabled && c.NATS.JetStream.MaxStorage == 0 {
+			warnings = append(warnings, ProductionWarning{
+				Component: "jetstream",
+				Level:     "info",
+				Message: fmt.Sprintf(
+					"JetStream is using default storage limit of %dGB. "+
+						"Event storage may fill up under heavy load.",
+					JetStreamMaxStorageDefault/(1024*1024*1024),
+				),
+				Recommendation: "Set nats.jetstream.maxstorage to a value appropriate for your " +
+					"expected event volume. Consider external NATS for unlimited JetStream storage.",
+			})
+		}
+	}
+
+	// Check storage backend
+	if c.Storage.Backend == StorageBackendSQLite {
+		warnings = append(warnings, ProductionWarning{
+			Component: "storage",
+			Level:     "warning",
+			Message: fmt.Sprintf(
+				"SQLite storage is recommended for <%d agents and <%d state resources. "+
+					"SQLite works well for small deployments but has concurrency limitations.",
+				SQLiteMaxAgents,
+				SQLiteMaxStateResources,
+			),
+			Recommendation: "For production deployments with >100 agents, configure PostgreSQL " +
+				"with storage.backend=postgresql. Use 'kscore-migrate' to migrate existing data.",
+		})
+	}
+
+	// Check if running without TLS in a way that suggests production
+	// (non-loopback address or external NATS URL)
+	if !c.TLS.Enabled {
+		isProduction := false
+		reason := ""
+
+		// Check for external NATS (suggests production deployment)
+		if c.NATS.Mode == NATSModeExternal {
+			isProduction = true
+			reason = "external NATS cluster configured"
+		}
+
+		// Check for PostgreSQL (suggests production deployment)
+		if c.Storage.Backend == StorageBackendPostgreSQL {
+			isProduction = true
+			reason = "PostgreSQL storage configured"
+		}
+
+		if isProduction {
+			warnings = append(warnings, ProductionWarning{
+				Component: "tls",
+				Level:     "critical",
+				Message: fmt.Sprintf(
+					"TLS is disabled but configuration suggests production use (%s). "+
+						"All agent communication is unencrypted.",
+					reason,
+				),
+				Recommendation: "Enable TLS with tls.enabled=true and configure certificates. " +
+					"See documentation for certificate generation with 'kscore-identity ca'.",
+			})
+		}
+	}
+
+	return warnings
+}
+
+// getEffectiveNATSMaxMemory returns the effective max memory for embedded NATS
+func getEffectiveNATSMaxMemory(c *Config) int64 {
+	if c.NATS.Embedded.MaxMemory > 0 {
+		return c.NATS.Embedded.MaxMemory
+	}
+	return EmbeddedNATSMaxMemoryDefault
+}
+
+// getEffectiveNATSMaxConnections returns the effective max connections for embedded NATS
+func getEffectiveNATSMaxConnections(c *Config) int {
+	if c.NATS.Embedded.MaxConnections > 0 {
+		return c.NATS.Embedded.MaxConnections
+	}
+	return EmbeddedNATSMaxConnectionsDefault
 }

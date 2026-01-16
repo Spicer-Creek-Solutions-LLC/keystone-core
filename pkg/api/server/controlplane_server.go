@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"strconv"
 
@@ -12,6 +13,32 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/policy"
 	"github.com/shawnbutts/keystone-core/pkg/state"
 )
+
+// parsePageToken decodes a page token to get the offset
+// Returns 0 if the token is empty or invalid
+func parsePageToken(token string) int {
+	if token == "" {
+		return 0
+	}
+	decoded, err := base64.StdEncoding.DecodeString(token)
+	if err != nil {
+		return 0
+	}
+	offset, err := strconv.Atoi(string(decoded))
+	if err != nil || offset < 0 {
+		return 0
+	}
+	return offset
+}
+
+// encodePageToken creates a page token from an offset
+// Returns empty string if offset is 0 or negative
+func encodePageToken(offset int) string {
+	if offset <= 0 {
+		return ""
+	}
+	return base64.StdEncoding.EncodeToString([]byte(strconv.Itoa(offset)))
+}
 
 // ControlPlaneServer implements the ControlPlaneService
 type ControlPlaneServer struct {
@@ -45,14 +72,27 @@ func (s *ControlPlaneServer) GetPolicyEngine() *policy.PolicyEngine {
 
 // ListAgents lists all registered agents
 func (s *ControlPlaneServer) ListAgents(ctx context.Context, req *pb.ListAgentsRequest) (*pb.ListAgentsResponse, error) {
+	// Parse page token to get offset
+	offset := parsePageToken(req.PageToken)
+
+	// Default page size if not specified
+	pageSize := int(req.PageSize)
+	if pageSize <= 0 {
+		pageSize = 100 // Default page size
+	}
+
 	// In HA mode, query the database for a complete view of all agents
 	// across all control plane servers (they share the same database)
 	if s.store != nil {
 		filter := &state.AgentFilter{
-			Limit: int(req.PageSize),
+			Limit:  pageSize + 1, // Request one extra to detect if there's a next page
+			Offset: offset,
 		}
 		if req.Status != pb.AgentStatus_AGENT_STATUS_UNSPECIFIED {
 			filter.Status = &req.Status
+		}
+		if len(req.Labels) > 0 {
+			filter.Labels = req.Labels
 		}
 
 		agents, err := s.store.ListAgents(ctx, filter)
@@ -60,14 +100,26 @@ func (s *ControlPlaneServer) ListAgents(ctx context.Context, req *pb.ListAgentsR
 			return nil, fmt.Errorf("failed to list agents from store: %w", err)
 		}
 
+		// Determine if there's a next page
+		hasNextPage := len(agents) > pageSize
+		if hasNextPage {
+			agents = agents[:pageSize] // Trim to requested page size
+		}
+
 		pbAgents := make([]*pb.AgentInfo, 0, len(agents))
 		for _, agent := range agents {
 			pbAgents = append(pbAgents, convertAgentRecordToProto(agent))
 		}
 
+		var nextPageToken string
+		if hasNextPage {
+			nextPageToken = encodePageToken(offset + pageSize)
+		}
+
 		return &pb.ListAgentsResponse{
-			Agents:     pbAgents,
-			TotalCount: int32(len(pbAgents)),
+			Agents:        pbAgents,
+			NextPageToken: nextPageToken,
+			TotalCount:    int32(len(pbAgents)),
 		}, nil
 	}
 
@@ -92,16 +144,26 @@ func (s *ControlPlaneServer) ListAgents(ctx context.Context, req *pb.ListAgentsR
 		})
 	}
 
-	// Apply pagination
-	start := 0
-	end := len(filteredAgents)
-	if req.PageSize > 0 && int(req.PageSize) < end {
-		end = int(req.PageSize)
+	// Apply pagination with offset from page token
+	totalCount := len(filteredAgents)
+	start := offset
+	if start > totalCount {
+		start = totalCount
+	}
+	end := start + pageSize
+	if end > totalCount {
+		end = totalCount
+	}
+
+	var nextPageToken string
+	if end < totalCount {
+		nextPageToken = encodePageToken(end)
 	}
 
 	return &pb.ListAgentsResponse{
-		Agents:     filteredAgents[start:end],
-		TotalCount: int32(len(filteredAgents)),
+		Agents:        filteredAgents[start:end],
+		NextPageToken: nextPageToken,
+		TotalCount:    int32(totalCount),
 	}, nil
 }
 

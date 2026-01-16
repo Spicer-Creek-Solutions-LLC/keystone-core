@@ -88,8 +88,8 @@ func DefaultWebSocketConfig() *WebSocketConfig {
 		ReadBufferSize:   32 * 1024,  // 32KB
 		WriteBufferSize:  32 * 1024,  // 32KB
 		MaxMessageSize:   64 * 1024,  // 64KB
-		AllowedOrigins:   []string{}, // Empty = all origins
-		SameOrigin:       false,
+		AllowedOrigins:   []string{}, // Empty = all origins (only used if SameOrigin is false)
+		SameOrigin:       true,       // Security: enforce same-origin by default
 		AuthTimeout:      5 * time.Second,
 	}
 }
@@ -730,6 +730,7 @@ func DefaultWebSocketServerConfig() *WebSocketServerConfig {
 		Compression:      true,
 		HandshakeTimeout: 10 * time.Second,
 		AuthTimeout:      5 * time.Second,
+		SameOrigin:       true, // Security: enforce same-origin by default
 	}
 }
 

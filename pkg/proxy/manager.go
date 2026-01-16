@@ -32,6 +32,24 @@ type ManagerConfig struct {
 
 	// DeviceConfigPath is the path to device configuration file.
 	DeviceConfigPath string
+
+	// Registry is an optional custom device registry.
+	// If nil, an InMemoryDeviceRegistry will be used.
+	//
+	// For production deployments with persistence requirements, use SQLiteDeviceRegistry:
+	//   registry, _ := NewSQLiteDeviceRegistry(&SQLiteDeviceRegistryConfig{Path: "/data/devices.db"})
+	//   config.Registry = registry
+	//
+	// Limitations of InMemoryDeviceRegistry (default):
+	//   - All data is lost on proxy agent restart
+	//   - Cannot be shared across multiple proxy agent instances
+	//   - Suitable for: development, testing, single-instance deployments <100 devices
+	//
+	// Limitations of SQLiteDeviceRegistry:
+	//   - Slower for high-frequency updates due to disk I/O
+	//   - Requires filesystem access
+	//   - Suitable for: production, persistence required, >100 devices
+	Registry DeviceRegistry
 }
 
 // DefaultManagerConfig returns a ManagerConfig with sensible defaults.
@@ -47,7 +65,7 @@ func DefaultManagerConfig() *ManagerConfig {
 // Manager implements ProxyAgentManager for coordinating proxy operations.
 type Manager struct {
 	config   *ManagerConfig
-	registry *InMemoryDeviceRegistry
+	registry DeviceRegistry
 	executor ProxiedExecutor
 
 	state     atomic.Value // ProxyAgentState
@@ -71,6 +89,21 @@ type Manager struct {
 }
 
 // NewManager creates a new proxy agent manager.
+//
+// By default, an InMemoryDeviceRegistry is used which loses all data on restart.
+// For production deployments requiring persistence, provide a SQLiteDeviceRegistry
+// via config.Registry:
+//
+//	sqliteRegistry, err := NewSQLiteDeviceRegistry(&SQLiteDeviceRegistryConfig{
+//	    Path:    "/data/proxy-devices.db",
+//	    WALMode: true,
+//	})
+//	if err != nil {
+//	    return nil, err
+//	}
+//	config := DefaultManagerConfig()
+//	config.Registry = sqliteRegistry
+//	manager, err := NewManager(config)
 func NewManager(config *ManagerConfig) (*Manager, error) {
 	if config == nil {
 		config = DefaultManagerConfig()
@@ -80,9 +113,15 @@ func NewManager(config *ManagerConfig) (*Manager, error) {
 		return nil, fmt.Errorf("agent ID is required")
 	}
 
+	// Use provided registry or default to in-memory
+	registry := config.Registry
+	if registry == nil {
+		registry = NewInMemoryDeviceRegistry()
+	}
+
 	m := &Manager{
 		config:     config,
-		registry:   NewInMemoryDeviceRegistry(),
+		registry:   registry,
 		shutdownCh: make(chan struct{}),
 	}
 

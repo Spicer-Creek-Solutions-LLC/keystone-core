@@ -669,7 +669,7 @@ for _, trace := range result.Traces {
 
 ## Grafana Dashboards
 
-Keystone Core provides 6 pre-built Grafana dashboards:
+Keystone Core provides 10 pre-built Grafana dashboards:
 
 ### 1. Keystone Core Overview
 

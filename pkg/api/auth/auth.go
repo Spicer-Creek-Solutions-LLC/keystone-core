@@ -4,7 +4,9 @@ package auth
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"sync"
@@ -190,6 +192,11 @@ func (a *APIKeyAuthenticator) Authenticate(ctx context.Context, credentials stri
 	}
 
 	// Create principal
+	// Compute SHA256 hash of the key and use first 8 bytes (16 hex chars) for audit
+	// This allows correlation without exposing the raw key
+	keyHash := sha256.Sum256([]byte(matchedKey))
+	hashPrefix := hex.EncodeToString(keyHash[:8])
+
 	principal := &Principal{
 		ID:              fmt.Sprintf("apikey:%s", matchedEntry.config.Name),
 		Name:            matchedEntry.config.Name,
@@ -197,7 +204,7 @@ func (a *APIKeyAuthenticator) Authenticate(ctx context.Context, credentials stri
 		AuthMethod:      "apikey",
 		AuthenticatedAt: time.Now(),
 		Metadata: map[string]string{
-			"key_hash": fmt.Sprintf("%x", []byte(matchedKey[:8])), // Only store partial hash for audit
+			"key_hash_prefix": hashPrefix, // SHA256 hash prefix for audit correlation
 		},
 	}
 

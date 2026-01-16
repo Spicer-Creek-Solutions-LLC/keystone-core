@@ -22,7 +22,15 @@ type RBACAuthorizer struct {
 	bypassMethods map[string]bool
 }
 
-// NewRBACAuthorizer creates a new RBAC authorizer with default permissions
+// NewRBACAuthorizer creates a new RBAC authorizer with default permissions.
+//
+// RBAC Permission Design:
+//   - RoleReadonly: View/list operations that expose no sensitive data
+//   - RoleOperator: Execute commands, apply state, emit events - day-to-day operations
+//   - RoleAdmin: Destructive operations (delete), cluster management, backup/restore
+//
+// Agent endpoints use bypass (authenticated via mTLS/join tokens, not user RBAC).
+// Coordination endpoints use bypass (internal server-to-server, mTLS-only).
 func NewRBACAuthorizer(bypassMethods []string) *RBACAuthorizer {
 	auth := &RBACAuthorizer{
 		permissions:   make(map[string]Role),
@@ -34,26 +42,125 @@ func NewRBACAuthorizer(bypassMethods []string) *RBACAuthorizer {
 		auth.bypassMethods[method] = true
 	}
 
-	// Set default permissions for ControlPlaneService
-	// Admin-only operations
+	// =========================================================================
+	// AgentService - Agent-to-server communication (bypass RBAC, use agent auth)
+	// =========================================================================
+	// Agents authenticate via mTLS certificates or join tokens, not user roles.
+	// These methods are bypassed from RBAC but still require valid agent identity.
+	auth.AddBypassMethod("/kscore.v1.AgentService/Register")       // Agent registration with join token
+	auth.AddBypassMethod("/kscore.v1.AgentService/Heartbeat")      // Agent health reporting
+	auth.AddBypassMethod("/kscore.v1.AgentService/ExecuteCommand") // Agent receives commands to execute
+	auth.AddBypassMethod("/kscore.v1.AgentService/GetAgentInfo")   // Agent self-info retrieval
+
+	// =========================================================================
+	// ControlPlaneService - Primary API for operators and tools
+	// =========================================================================
+	// Server status: any authenticated user can check health
+	auth.SetPermission("/kscore.v1.ControlPlaneService/GetServerStatus", RoleReadonly)
+
+	// Agent information: view fleet status (no sensitive data)
+	auth.SetPermission("/kscore.v1.ControlPlaneService/ListAgents", RoleReadonly)
+	auth.SetPermission("/kscore.v1.ControlPlaneService/GetAgent", RoleReadonly)
+
+	// Command execution: operators can run commands on infrastructure
 	auth.SetPermission("/kscore.v1.ControlPlaneService/ExecuteCommand", RoleOperator)
 	auth.SetPermission("/kscore.v1.ControlPlaneService/BatchExecuteCommand", RoleOperator)
 
-	// Operator operations (also admin)
-	auth.SetPermission("/kscore.v1.ControlPlaneService/GetAgent", RoleReadonly)
-	auth.SetPermission("/kscore.v1.ControlPlaneService/ListAgents", RoleReadonly)
+	// Command status: view execution results (may contain command output)
 	auth.SetPermission("/kscore.v1.ControlPlaneService/GetCommandStatus", RoleReadonly)
 	auth.SetPermission("/kscore.v1.ControlPlaneService/ListCommands", RoleReadonly)
 	auth.SetPermission("/kscore.v1.ControlPlaneService/GetBatchJobStatus", RoleReadonly)
 	auth.SetPermission("/kscore.v1.ControlPlaneService/ListBatchJobs", RoleReadonly)
 
-	// Cluster operations
-	auth.SetPermission("/kscore.cluster.v1.ClusterService/GetStatus", RoleReadonly)
+	// =========================================================================
+	// StateService - Declarative state management
+	// =========================================================================
+	// Apply state: modifies infrastructure, requires operator role
+	auth.SetPermission("/kscore.v1.StateService/ApplyState", RoleOperator)
+
+	// Check/drift: read-only inspection of state compliance
+	auth.SetPermission("/kscore.v1.StateService/CheckState", RoleReadonly)
+	auth.SetPermission("/kscore.v1.StateService/DetectDrift", RoleReadonly)
+
+	// State history/status: view past state applications
+	auth.SetPermission("/kscore.v1.StateService/GetStateHistory", RoleReadonly)
+	auth.SetPermission("/kscore.v1.StateService/GetStateStatus", RoleReadonly)
+
+	// =========================================================================
+	// EventService - Event bus access
+	// =========================================================================
+	// Read events: any authenticated user can view events
+	auth.SetPermission("/kscore.v1.EventService/ListEvents", RoleReadonly)
+	auth.SetPermission("/kscore.v1.EventService/GetEvent", RoleReadonly)
+	auth.SetPermission("/kscore.v1.EventService/SubscribeEvents", RoleReadonly)
+	auth.SetPermission("/kscore.v1.EventService/GetEventTypes", RoleReadonly)
+	auth.SetPermission("/kscore.v1.EventService/GetEventStats", RoleReadonly)
+
+	// Emit events: operators can publish custom events
+	auth.SetPermission("/kscore.v1.EventService/EmitEvent", RoleOperator)
+
+	// =========================================================================
+	// PolicyService - Policy management and compliance
+	// =========================================================================
+	// Policy evaluation: read-only policy checks
+	auth.SetPermission("/kscore.v1.PolicyService/EvaluatePolicy", RoleReadonly)
+	auth.SetPermission("/kscore.v1.PolicyService/EvaluatePolicySet", RoleReadonly)
+
+	// Policy listing/viewing: any authenticated user can view policies
+	auth.SetPermission("/kscore.v1.PolicyService/ListPolicies", RoleReadonly)
+	auth.SetPermission("/kscore.v1.PolicyService/GetPolicy", RoleReadonly)
+	auth.SetPermission("/kscore.v1.PolicyService/ListPolicySets", RoleReadonly)
+	auth.SetPermission("/kscore.v1.PolicyService/GetPolicySet", RoleReadonly)
+
+	// Policy management: operators can create/update policies
+	auth.SetPermission("/kscore.v1.PolicyService/CreatePolicy", RoleOperator)
+	auth.SetPermission("/kscore.v1.PolicyService/UpdatePolicy", RoleOperator)
+
+	// Policy deletion: admin only (destructive, may affect compliance)
+	auth.SetPermission("/kscore.v1.PolicyService/DeletePolicy", RoleAdmin)
+
+	// Compliance reporting: any authenticated user can view compliance status
+	auth.SetPermission("/kscore.v1.PolicyService/ListViolations", RoleReadonly)
+	auth.SetPermission("/kscore.v1.PolicyService/GetComplianceReport", RoleReadonly)
+
+	// Audit log: operators can view policy evaluation history (may be sensitive)
+	auth.SetPermission("/kscore.v1.PolicyService/GetAuditLog", RoleOperator)
+
+	// =========================================================================
+	// ClusterService - Cluster management (HA deployments)
+	// =========================================================================
+	// Cluster status: any authenticated user can view cluster health
+	auth.SetPermission("/kscore.cluster.v1.ClusterService/GetClusterStatus", RoleReadonly)
+	auth.SetPermission("/kscore.cluster.v1.ClusterService/GetStatus", RoleReadonly) // Alias
 	auth.SetPermission("/kscore.cluster.v1.ClusterService/ListMembers", RoleReadonly)
 	auth.SetPermission("/kscore.cluster.v1.ClusterService/GetMember", RoleReadonly)
 	auth.SetPermission("/kscore.cluster.v1.ClusterService/GetLeader", RoleReadonly)
-	auth.SetPermission("/kscore.cluster.v1.ClusterService/Rebalance", RoleAdmin)
+
+	// Cluster watching: streaming cluster state changes
+	auth.SetPermission("/kscore.cluster.v1.ClusterService/WatchMembership", RoleReadonly)
+	auth.SetPermission("/kscore.cluster.v1.ClusterService/WatchLeadership", RoleReadonly)
+
+	// Cluster management: admin only (affects cluster availability)
+	auth.SetPermission("/kscore.cluster.v1.ClusterService/AddMember", RoleAdmin)
 	auth.SetPermission("/kscore.cluster.v1.ClusterService/RemoveMember", RoleAdmin)
+	auth.SetPermission("/kscore.cluster.v1.ClusterService/TransferLeader", RoleAdmin)
+	auth.SetPermission("/kscore.cluster.v1.ClusterService/Rebalance", RoleAdmin)
+
+	// Backup/restore: admin only (data-level operations)
+	auth.SetPermission("/kscore.cluster.v1.ClusterService/CreateBackup", RoleAdmin)
+	auth.SetPermission("/kscore.cluster.v1.ClusterService/RestoreBackup", RoleAdmin)
+
+	// =========================================================================
+	// CoordinationService - Internal server-to-server (bypass RBAC, mTLS-only)
+	// =========================================================================
+	// These methods are for control plane instances to coordinate with each other.
+	// They require mTLS authentication but bypass user RBAC entirely.
+	auth.AddBypassMethod("/kscore.cluster.v1.CoordinationService/ClusterHealth")
+	auth.AddBypassMethod("/kscore.cluster.v1.CoordinationService/GetLeader")
+	auth.AddBypassMethod("/kscore.cluster.v1.CoordinationService/NATSStatus")
+	auth.AddBypassMethod("/kscore.cluster.v1.CoordinationService/RecoveryCoordinate")
+	auth.AddBypassMethod("/kscore.cluster.v1.CoordinationService/Heartbeat")
+	auth.AddBypassMethod("/kscore.cluster.v1.CoordinationService/PropagateState")
 
 	return auth
 }

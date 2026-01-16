@@ -295,8 +295,13 @@ func (p *EmbeddedProvider) CreateJoinToken(ctx context.Context, opts *JoinTokenO
 		ttl = p.config.Attestation.JoinToken.MaxTTL
 	}
 
+	tokenValue, err := generateToken(p.config.Attestation.JoinToken.TokenLength)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate token: %w", err)
+	}
+
 	token := &JoinToken{
-		Token:     generateToken(p.config.Attestation.JoinToken.TokenLength),
+		Token:     tokenValue,
 		AgentID:   opts.AgentID,
 		ExpiresAt: time.Now().Add(ttl),
 		CreatedAt: time.Now(),

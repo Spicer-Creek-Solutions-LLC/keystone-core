@@ -731,6 +731,11 @@ Next steps:
 
 Resolve module dependencies and generate a lock file.
 
+> **Note**: Full registry-backed resolution is planned for a future release.
+> Currently, resolution works with existing lock files and cached dependencies.
+> Without a configured registry, you'll need to manually install dependencies
+> or use `--offline` mode with a valid lock file.
+
 ```bash
 kscorectl module resolve [path] [flags]
 ```
@@ -748,10 +753,15 @@ kscorectl module resolve [path] [flags]
 
 **Resolution Process**:
 1. Parses module.yaml for dependencies
-2. Queries registry for available versions
+2. Queries registry for available versions (when registry is configured)
 3. Resolves version constraints using MVS (Minimum Version Selection) algorithm
 4. Detects circular dependencies
 5. Generates module.lock with pinned versions and hashes
+
+**Current Limitations**:
+- Registry querying requires a configured module registry (not yet available)
+- Without a registry, resolution only works with existing lock files or cached modules
+- Use `--offline` with a manually created lock file as a workaround
 
 **Examples**:
 ```bash
@@ -2129,6 +2139,31 @@ kscorectl cluster remove server-3 --force
 
 Manage SPIFFE identities, join tokens, CA certificates, and trust federation.
 
+> **Note**: This CLI currently returns placeholder/demo data for testing purposes.
+> Full API integration is planned for a future release.
+
+### Global Flags
+
+These flags apply to all kscore-identity commands:
+
+- `--server string`: Control plane server address (default: localhost:9090)
+- `-o, --output string`: Output format: table, text, json, yaml (default: table)
+- `--audit-level string`: Audit logging level: all, errors, none (default: errors)
+- `--audit-output string`: Audit log destination (default: system-dependent)
+
+### identity version
+
+Display the kscore-identity version.
+
+```bash
+kscorectl identity version
+```
+
+**Output**:
+```
+kscore-identity version 0.1.0 (built: 2024-01-15)
+```
+
 ### identity status
 
 Display identity provider status.
@@ -2166,26 +2201,26 @@ kscorectl identity token create [flags]
 ```
 
 **Flags**:
-- `--path string`: SPIFFE path for agents using this token (default: /agent/default)
+- `--agent-id string`: Agent identifier for this token
 - `--ttl string`: Token time-to-live (default: 5m)
-- `--uses int`: Maximum number of uses, 0 = unlimited (default: 1)
+- `--label key=value`: Labels to attach to agents using this token (can be repeated)
 
 **Examples**:
 ```bash
-# Create a token for web servers
-kscorectl identity token create --path /agent/web --ttl 10m
+# Create a token for a specific agent
+kscorectl identity token create --agent-id web-server-1 --ttl 10m
 
-# Create a reusable token
-kscorectl identity token create --path /agent/batch --uses 0 --ttl 1h
+# Create a token with labels
+kscorectl identity token create --agent-id db-server-1 --ttl 1h \
+  --label environment=production --label role=database
 ```
 
 **Output**:
 ```
 Token created successfully!
 Token:    Rj2k9xLm3n4o5p6q7r8s9t0u1v2w3x4y5z
-Path:     /agent/web
+Agent ID: web-server-1
 TTL:      10m
-Max Uses: 1
 
 Configure agent with:
   identity:
@@ -2202,14 +2237,11 @@ List join tokens.
 kscorectl identity token list [flags]
 ```
 
-**Flags**:
-- `-o, --output string`: Output format (table, json)
-
 **Output**:
 ```
-TOKEN                  AGENT PATH     EXPIRES                  USES  STATUS
-abc123...              /agent/web     2024-01-15T12:00:00Z     0/1   valid
-def456...              /agent/db      2024-01-15T11:00:00Z     1/1   used
+TOKEN ID           AGENT ID         EXPIRES                  STATUS
+abc123def456...    web-server-1     2024-01-15T12:00:00Z     valid
+ghi789jkl012...    db-server-1      2024-01-15T11:00:00Z     used
 ```
 
 #### token show
@@ -2225,10 +2257,9 @@ kscorectl identity token show <token-id>
 Token Details
 =============
 Token ID:    abc123def456
-Agent Path:  /agent/web
+Agent ID:    web-server-1
 Created:     2024-01-15T10:00:00Z
 Expires:     2024-01-15T12:00:00Z
-Uses:        0/1
 Status:      valid
 Labels:
   environment: production
@@ -2323,11 +2354,11 @@ kscorectl identity ca restore [flags]
 ```
 
 **Flags**:
-- `--input string`: Backup file to restore (required)
+- `--backup string`: Backup file to restore (required)
 
 **Example**:
 ```bash
-kscorectl identity ca restore --input /var/backups/ca-backup.json
+kscorectl identity ca restore --backup /var/backups/ca-backup.json
 ```
 
 **Output**:
@@ -2384,27 +2415,28 @@ kscorectl identity federation add <trust-domain> [flags]
 ```
 
 **Flags**:
-- `--endpoint string`: Bundle endpoint URL
-- `--profile string`: Bundle endpoint profile (https_web, https_spiffe, spiffe_bundle_endpoint) (default: https_web)
+- `--bundle-endpoint string`: Bundle endpoint URL (required)
+- `--type string`: Federation type: bidirectional, unidirectional (default: bidirectional)
 - `--refresh-interval string`: Bundle refresh interval (default: 5m)
 
 **Examples**:
 ```bash
 # Add bidirectional federation
 kscorectl identity federation add partner.example.org \
-  --endpoint https://partner.example.org/.well-known/spiffe-bundle
+  --bundle-endpoint https://partner.example.org/.well-known/spiffe-bundle
 
-# Add with custom refresh interval
+# Add unidirectional federation with custom refresh interval
 kscorectl identity federation add vendor.example.com \
-  --endpoint https://vendor.example.com/.well-known/spiffe-bundle \
+  --bundle-endpoint https://vendor.example.com/.well-known/spiffe-bundle \
+  --type unidirectional \
   --refresh-interval 1h
 ```
 
 **Output**:
 ```
 Federation relationship added: partner.example.org
-Endpoint: https://partner.example.org/.well-known/spiffe-bundle
-Profile: https_web
+Bundle Endpoint: https://partner.example.org/.well-known/spiffe-bundle
+Type: bidirectional
 Refresh Interval: 5m
 
 To activate, run:
@@ -2541,8 +2573,7 @@ kscorectl identity bundle export [flags]
 ```
 
 **Flags**:
-- `--format string`: Export format (pem, jwks) (default: pem)
-- `-o, --output string`: Output file (default: stdout)
+- `--format string`: Export format: pem, jwks, spiffe (default: pem)
 
 **Examples**:
 ```bash
@@ -2552,8 +2583,8 @@ kscorectl identity bundle export --format pem
 # Export as JWKS (SPIFFE Bundle format)
 kscorectl identity bundle export --format jwks
 
-# Export to file
-kscorectl identity bundle export --format jwks -o bundle.json
+# Export as SPIFFE bundle
+kscorectl identity bundle export --format spiffe
 ```
 
 **Output (PEM)**:
@@ -2590,9 +2621,7 @@ kscorectl identity events [flags]
 ```
 
 **Flags**:
-- `--limit int`: Number of events to show (default: 10)
 - `-f, --follow`: Follow events in real-time
-- `-o, --output string`: Output format (table, json)
 
 **Output**:
 ```
@@ -2609,7 +2638,7 @@ TIME       TYPE                    DESCRIPTION
 **Bootstrap a new agent**:
 ```bash
 # Create a join token
-kscorectl identity token create --path /agent/web --ttl 10m
+kscorectl identity token create --agent-id web-server-1 --ttl 10m
 
 # Copy token to agent configuration
 # Start agent - it will use the token to register
@@ -2619,7 +2648,7 @@ kscorectl identity token create --path /agent/web --ttl 10m
 ```bash
 # Add federation relationship
 kscorectl identity federation add partner.example.org \
-  --endpoint https://partner.example.org/.well-known/spiffe-bundle
+  --bundle-endpoint https://partner.example.org/.well-known/spiffe-bundle
 
 # Verify bundle was fetched
 kscorectl identity federation show partner.example.org
@@ -2634,7 +2663,7 @@ kscorectl identity federation activate partner.example.org
 kscorectl identity ca backup --output /var/backups/ca-$(date +%Y%m%d).json
 
 # Restore (after disaster)
-kscorectl identity ca restore --input /var/backups/ca-20240115.json
+kscorectl identity ca restore --backup /var/backups/ca-20240115.json
 ```
 
 **Rotate CA**:

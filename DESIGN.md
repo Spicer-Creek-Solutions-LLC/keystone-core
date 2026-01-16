@@ -206,6 +206,35 @@ Keystone Core provides flexible storage options following the same zero-dependen
 - SQLite/PostgreSQL provide mature query optimization and ACID guarantees
 - This separation of concerns follows best practices: events in NATS, operational state in relational DB
 
+### Production Scaling Thresholds
+
+The embedded defaults are designed for quick setup and small deployments. When scaling beyond these thresholds, migrate to production-grade infrastructure:
+
+| Component | Embedded Default | Recommended Limit | Production Alternative |
+|-----------|------------------|-------------------|------------------------|
+| **NATS Mode** | Embedded | <100 agents | External NATS cluster |
+| **NATS Memory** | 256 MB | 256 MB | Configure based on agent count |
+| **NATS Connections** | 1,000 | 1,000 | External cluster (unlimited) |
+| **JetStream Storage** | 1 GB | 1 GB | External cluster storage |
+| **Storage Backend** | SQLite | <100 agents, <10k resources | PostgreSQL |
+| **Event Volume** | SQLite | <100k events/day | PostgreSQL |
+
+**Migration Paths:**
+- **SQLite → PostgreSQL**: Use `kscore-migrate run` for zero-downtime migration
+- **Embedded NATS → External**: Configure `nats.mode=external` and `nats.url`
+- **Single → HA**: Add etcd cluster and multiple control plane instances
+
+**Production Warnings:**
+The server emits warnings at startup when using embedded defaults. These can be reviewed via:
+- Server logs (look for "PRODUCTION WARNING" entries)
+- `Config.ProductionWarnings()` API in custom integrations
+
+Key warning triggers:
+1. Embedded NATS mode enabled (recommends external cluster for >100 agents)
+2. SQLite storage enabled (recommends PostgreSQL for >100 agents)
+3. TLS disabled with production configuration (external NATS or PostgreSQL)
+4. JetStream using default storage limits
+
 ## Feature Categories
 
 Keystone Core combines proven Salt Project-like capabilities with modern cloud-native features:
@@ -456,22 +485,33 @@ flowchart LR
 **Migration steps:**
 1. Deploy SPIRE server alongside control plane
 2. Deploy SPIRE agents alongside Keystone Core agents
-3. Update configuration: `security.mode: spire`
-4. Restart control plane (picks up SPIRE workload API)
-5. Agents auto-register with SPIRE-issued SVIDs
-6. Old manual TLS certificates expire naturally
+3. Update configuration: `identity.provider.type: spire`
+4. Configure SPIRE socket: `identity.provider.spire.agent_socket_path: /run/spire/agent/sockets/agent.sock`
+5. Restart control plane (picks up SPIRE workload API)
+6. Agents auto-register with SPIRE-issued SVIDs
+7. Old embedded CA certificates expire naturally
 
 **Zero-downtime migration:**
-- Control plane accepts both manual TLS and SPIRE connections during migration
+- Control plane uses SPIRE fallback to handle unavailability during migration
 - Agents migrate on rolling restart basis
-- Configuration flag: `security.allow_legacy_tls: true`
+- Configuration for graceful fallback:
+  ```yaml
+  identity:
+    provider:
+      type: spire
+      spire:
+        fallback:
+          enabled: true
+          fallback_provider: cached  # or "embedded" for full fallback
+          grace_period: 1h
+  ```
 
 ### Security Integration Points
 
 **1. Agent Authentication (Epic 1)**
 - Agents authenticate to control plane via mTLS
-- SPIRE mode: Agent identity proven via platform attestation
-- Manual mode: Agent uses static certificate
+- SPIRE mode (`identity.provider.type: spire`): Agent identity proven via platform attestation
+- Embedded mode (`identity.provider.type: embedded`): Agent uses embedded CA-issued certificate
 
 **2. Command Authorization (Epic 2)**
 - Commands authorized based on agent identity
@@ -495,18 +535,19 @@ flowchart LR
 ### Security Recommendations
 
 **Development/Testing:**
-- Use `manual` mode for speed and simplicity
-- Embedded NATS + SQLite + manual TLS = single binary, no dependencies
+- Use `embedded` identity provider for speed and simplicity
+- Embedded NATS + SQLite + embedded identity = single binary, no dependencies
+- Configuration: `identity.provider.type: embedded`
 
 **Production (<100 nodes):**
-- Consider `manual` mode if:
+- Consider `embedded` identity provider if:
   - No compliance requirements
   - Air-gapped environment
   - Simplified operations preferred
-- Implement certificate rotation automation
+- Implement CA certificate rotation via `identity.ca.rotate_signing_ca_before`
 
 **Production (100+ nodes, compliance required):**
-- Use `spire` mode for:
+- Use SPIRE identity provider (`identity.provider.type: spire`) for:
   - Zero-trust security posture
   - Automatic credential rotation
   - Compliance requirements (SOC2, PCI-DSS, HIPAA)
@@ -514,10 +555,10 @@ flowchart LR
   - Plugin system with privileged modules
 
 **Enterprise:**
-- SPIRE mode required
+- SPIRE identity provider required
 - External NATS cluster for HA
 - PostgreSQL with replication
-- Multi-region SPIRE federation
+- Multi-region SPIRE federation (via `identity.federation`)
 
 ## Success Metrics
 

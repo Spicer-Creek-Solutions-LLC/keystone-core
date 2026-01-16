@@ -229,7 +229,10 @@ func (l *StructuredLogger) shouldSample(level Level) bool {
 
 	// Use random sampling
 	b := make([]byte, 1)
-	rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		// If random generation fails, don't drop the log message
+		return true
+	}
 	threshold := uint8(sampling.Rate * math.MaxUint8)
 	return b[0] < threshold
 }

@@ -43,13 +43,13 @@ Modern infrastructure uses tools like Terraform and ArgoCD to *deploy* systems, 
 
 ## Current Status
 
-19 of 22 planned epics complete:
+Epics 1-29 complete (VM validation deferred to Epic 100):
 
 | Category | Status |
 |----------|--------|
 | Core Infrastructure | Complete |
 | Remote Execution | Complete |
-| State Management | Complete (84 cross-platform modules) |
+| State Management | Complete (94 cross-platform modules) |
 | Event System | Complete |
 | GitOps Integration | Complete |
 | Policy Engine (OPA/CEL) | Complete |
@@ -64,21 +64,22 @@ Modern infrastructure uses tools like Terraform and ArgoCD to *deploy* systems, 
 
 | Test Type | Count |
 |-----------|-------|
-| **Total Test Functions** | 3,818 |
-| Unit Tests (pkg/) | 3,479 |
-| CLI Tests (cmd/) | 183 |
-| E2E Tests | 135 |
-| Integration Tests | 17 |
-| Benchmark Functions | 45 |
-| Subtests (t.Run) | 839 |
-| Test Files | 242 |
+| **Total Test Functions** | 5,068 |
+| Unit Tests (pkg/) | 4,625 |
+| CLI Tests (cmd/) | 243 |
+| E2E Tests | 162 |
+| Bootstrap Tests (test/bootstrap) | 17 |
+| Benchmark Functions | 51 |
+| Subtests (t.Run) | 1,100 |
+| Test Files | 349 |
+
+Counts are derived from repository-wide `*_test.go` scans (e.g., `rg -o "^func\\s+Test"` and `rg -o "\\bt\\.Run\\("`).
 
 ## Remaining Roadmap
 
 ### Planned Epics
 
-- **Epic 21**: Proxy Agents - SSH/SNMP/WinRM adapters for unmanaged devices
-- **Epic 22**: File Distribution over NATS - Chunked file transfers with multiple backends
+- **Epic 100**: 0.1.0 Release Readiness - signing, version reset, docs audit, VM validation
 
 ### Future Considerations
 

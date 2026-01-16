@@ -143,9 +143,19 @@ func (b *DefaultBootstrapper) Bootstrap(ctx context.Context, opts BootstrapOptio
 	}
 
 	// Build result
-	result.ClusterID = b.generateClusterID()
+	clusterID, err := b.generateClusterID()
+	if err != nil {
+		b.updateStatus(PhaseFailed, err.Error(), 0)
+		return result, fmt.Errorf("failed to generate cluster ID: %w", err)
+	}
+	result.ClusterID = clusterID
 	result.APIEndpoint = b.getAPIEndpoint()
-	result.AdminToken = b.generateAdminToken()
+	adminToken, err := b.generateAdminToken()
+	if err != nil {
+		b.updateStatus(PhaseFailed, err.Error(), 0)
+		return result, fmt.Errorf("failed to generate admin token: %w", err)
+	}
+	result.AdminToken = adminToken
 	result.CAFingerprint = b.getCAFingerprint()
 	result.Components = b.getComponentStatuses(ctx)
 
@@ -385,17 +395,21 @@ func (b *DefaultBootstrapper) installAgents(ctx context.Context) error {
 }
 
 // generateClusterID generates a unique cluster identifier
-func (b *DefaultBootstrapper) generateClusterID() string {
+func (b *DefaultBootstrapper) generateClusterID() (string, error) {
 	bytes := make([]byte, 8)
-	rand.Read(bytes)
-	return fmt.Sprintf("%s-%s", b.config.Cluster.Name, hex.EncodeToString(bytes))
+	if _, err := rand.Read(bytes); err != nil {
+		return "", fmt.Errorf("failed to generate cluster ID: %w", err)
+	}
+	return fmt.Sprintf("%s-%s", b.config.Cluster.Name, hex.EncodeToString(bytes)), nil
 }
 
 // generateAdminToken generates an admin token for initial access
-func (b *DefaultBootstrapper) generateAdminToken() string {
+func (b *DefaultBootstrapper) generateAdminToken() (string, error) {
 	bytes := make([]byte, 32)
-	rand.Read(bytes)
-	return hex.EncodeToString(bytes)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", fmt.Errorf("failed to generate admin token: %w", err)
+	}
+	return hex.EncodeToString(bytes), nil
 }
 
 // getAPIEndpoint returns the API endpoint for the cluster

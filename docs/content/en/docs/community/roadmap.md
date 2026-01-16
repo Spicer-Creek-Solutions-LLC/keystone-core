@@ -25,10 +25,10 @@ Keystone Core aims to be the operational layer between GitOps/IaC deployments an
 ---
 
 ```
-COMPLETED (Epics 1-28)                 PLANNED (Epics 29, 100)
+COMPLETED (Epics 1-29)                 PLANNED (Epic 100)
 ───────────────────────────────────────────────────────────────────────
-Epic 1: Core Infrastructure            Epic 29: Bootstrap Testing Infrastructure
-Epic 2: Remote Execution               Epic 100: 0.1.0 Release Readiness
+Epic 1: Core Infrastructure            Epic 100: 0.1.0 Release Readiness
+Epic 2: Remote Execution
 Epic 3: State Management
                                        
 
@@ -58,6 +58,7 @@ Epic 25: Blueprints
 Epic 26: NEEDSWORK Remediation
 Epic 27: Agent Bootstrap Experience
 Epic 28: Standard Deployment Blueprints
+Epic 29: Bootstrap Testing Infrastructure
 ```
 
 ## Completed Milestones
@@ -194,7 +195,7 @@ Comprehensive monitoring and observability:
 - **Logging**: Structured logging with JSON/logfmt/text formatters
 - **Tracing**: OpenTelemetry integration
 - **TUI Monitor**: Real-time terminal dashboard (8 views)
-- **Grafana Dashboards**: 6 pre-built dashboards
+- **Grafana Dashboards**: 10 pre-built dashboards
 - **Health Checks**: Kubernetes-compatible probes
 - **Profiling**: pprof endpoints for performance analysis
 - **Query API**: Unified API for metrics, logs, traces
@@ -394,7 +395,7 @@ Enhanced telemetry transport and logging:
 
 ### Epic 16: Stdlib System Modules ✅
 
-**Status**: Complete (84 modules) | **Depends on**: Epic 3, 8
+**Status**: Complete (94 modules) | **Depends on**: Epic 3, 8
 
 Cross-platform system management modules inspired by Salt Project:
 
@@ -413,7 +414,7 @@ Cross-platform system management modules inspired by Salt Project:
 - **Config**: pip, npm, gem, ufw, alternatives, logrotate, sudoers, limits, modprobe, syslog, lineinfile, ini_file, archive
 
 **Key Achievements**:
-- 84 cross-platform modules
+- 94 cross-platform modules
 - Comprehensive test coverage
 - Example state files for common scenarios
 
@@ -644,7 +645,7 @@ Address all issues identified in the comprehensive project review (NEEDSWORK.md)
 
 ---
 
-## Planned Epics
+## Release Epics
 
 ### Epic 28: Standard Deployment Blueprints
 
@@ -665,19 +666,6 @@ Official blueprints for all deployment scenarios (implements Epic 25 blueprint r
 
 ---
 
-### Epic 100: 0.1.0 Release Readiness
-
-**Status**: Planned | **Depends on**: All completed epics
-
-Final polish and release readiness for the 0.1.0 project announcement:
-
-- Blueprint signing + registry verification for official catalog
-- Version string normalization (reset project references to 0.1.0)
-- Full audit of docs + examples for version consistency
-- Release checklist and announcement notes
-
----
-
 ### Epic 29: Bootstrap Testing Infrastructure
 
 **Status**: Complete | **Depends on**: Epic 27, 28
@@ -690,6 +678,19 @@ Comprehensive testing for the bootstrap experience:
 - **Cluster Tests**: Multi-node formation, join scenarios, failover
 - **Blueprint Tests**: All blueprints tested across platforms
 - **GitHub Actions**: Automated CI/CD with nightly full test runs
+
+---
+
+### Epic 100: 0.1.0 Release Readiness
+
+**Status**: Planned | **Depends on**: All completed epics
+
+Final polish and release readiness for the 0.1.0 project announcement:
+
+- Blueprint signing + registry verification for official catalog
+- Version string normalization (reset project references to 0.1.0)
+- Full audit of docs + examples for version consistency
+- Release checklist and announcement notes
 
 ---
 

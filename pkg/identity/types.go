@@ -399,8 +399,21 @@ const (
 
 // JoinToken represents a one-time token for agent registration.
 type JoinToken struct {
-	// Token is the token value.
+	// Token is the plaintext token value. Only populated when initially created
+	// and returned to the caller. Never stored or retrieved after creation.
+	// When listing tokens, this field will be empty.
 	Token string
+
+	// TokenHash is the salted SHA-256 hash of the token (hex encoded).
+	// This is what gets stored instead of the raw token.
+	TokenHash string
+
+	// Salt is the random salt used for hashing (hex encoded).
+	Salt string
+
+	// TokenPrefix is the first 8 characters of the token for identification
+	// purposes when listing tokens.
+	TokenPrefix string
 
 	// AgentID is the expected agent ID (optional).
 	AgentID string

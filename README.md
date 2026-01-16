@@ -23,14 +23,14 @@ Keystone Core is a cloud-native runtime infrastructure control plane that provid
 
 | Status         | Description |
 |----------------|-------------|
-| **Epics 1-28** | COMPLETE |
+| **Epics 1-29** | COMPLETE |
 | **Epic 100** | PLANNED |
 
 ### Completed Capabilities
 
 - **Core Infrastructure** - NATS messaging (embedded/external/leaf/supercluster), SQLite/PostgreSQL storage
 - **Remote Execution** - Cross-platform command execution with flexible targeting and batch operations
-- **State Management** - Declarative configuration with 84 modules, drift detection, and remediation
+- **State Management** - Declarative configuration with 94 modules, drift detection, and remediation
 - **Event-Driven Automation** - Event bus, filtering, routing, reactors, external integration (Kafka, CloudEvents)
 - **GitOps Integration** - ArgoCD/Flux webhooks, deployment verification, rollback automation, promotion pipelines
 - **Policy Enforcement** - OPA (Rego) and CEL policy engines, auditing, and compliance reporting
@@ -47,7 +47,7 @@ Keystone Core is a cloud-native runtime infrastructure control plane that provid
 - **File Distribution** - NATS-based file server, multiple backends (S3/GCS/Azure/Git), mirror groups, proxy caching
 - **Self-Management** - Bootstrap from scratch, backup/restore, rolling/canary upgrades, self-management states, operational runbooks
 - **Document Review** - Documentation validation, example testing, gap analysis
-- **Blueprints** - Pre-packaged, reusable state collections (design complete)
+- **Blueprints** - Pre-packaged, reusable state collections with standard catalog
 - **Documentation** - Hugo + Docsy site with comprehensive documentation
 
 ## Frequently Asked Questions (FAQ)
@@ -143,6 +143,9 @@ make build
 | `kscore-migrate`           | Database migration (SQLite → PostgreSQL)       |
 | `kscore-registry`          | Module registry server                         |
 | `kscore-telemetry-gateway` | Telemetry aggregation for isolated agents      |
+| `kscore-blueprint`         | Blueprint management (init, install, publish)  |
+| `kscore-bootstrap`         | Cluster bootstrap and setup                    |
+| `kscore-files`             | File distribution management                   |
 
 ## Architecture
 
@@ -174,7 +177,7 @@ flowchart TB
 - Streaming output with job tracking
 
 ### State Management
-- 84 built-in modules across 14 categories (file, package, service, user, network, firewall, storage, containers, databases, web servers, certificates, and more)
+- 94 built-in modules across 14 categories (file, package, service, user, network, firewall, storage, containers, databases, web servers, certificates, and more)
 - Dependency resolution with requisites (`require`, `watch`, `prereq`, `onchanges`)
 - Template rendering with vars and facts
 - Drift detection with severity levels
@@ -273,7 +276,7 @@ keystone-core/
 │   ├── agent/                # Agent implementation
 │   ├── controlplane/         # Control plane services
 │   ├── state/                # SQLite/PostgreSQL storage
-│   ├── statemgmt/            # 84 state modules, drift detection
+│   ├── statemgmt/            # 94 state modules, drift detection
 │   ├── events/               # Event bus, reactors, storage
 │   ├── policy/               # OPA/CEL engines, enforcement
 │   ├── gitops/               # Webhooks, verification, rollback

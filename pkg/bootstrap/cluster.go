@@ -597,17 +597,21 @@ func (cf *ClusterFormation) Status() *ClusterFormationStatus {
 }
 
 // GenerateClusterID generates a unique cluster ID
-func GenerateClusterID() string {
+func GenerateClusterID() (string, error) {
 	b := make([]byte, 8)
-	rand.Read(b)
-	return hex.EncodeToString(b)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("failed to generate cluster ID: %w", err)
+	}
+	return hex.EncodeToString(b), nil
 }
 
 // GenerateAdminToken generates a secure admin token
-func GenerateAdminToken() string {
+func GenerateAdminToken() (string, error) {
 	b := make([]byte, 32)
-	rand.Read(b)
-	return hex.EncodeToString(b)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("failed to generate admin token: %w", err)
+	}
+	return hex.EncodeToString(b), nil
 }
 
 // GetCAFingerprint returns the SHA256 fingerprint of the CA certificate

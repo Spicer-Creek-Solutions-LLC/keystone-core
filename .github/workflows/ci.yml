@@ -119,13 +119,13 @@ jobs:
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck ./...
-        continue-on-error: true
+        # Blocking: update dependencies or document accepted risks in security.md
 
       - name: Run gosec
         uses: securego/gosec@master
         with:
-          args: '-exclude-dir=test -exclude-dir=modules ./...'
-        continue-on-error: true
+          args: '-conf .gosec.yaml -exclude-dir=test -exclude-dir=modules ./...'
+        # Blocking: use nosec annotations or .gosec.yaml for explicit waivers
 
   proto:
     name: Protobuf Check

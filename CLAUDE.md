@@ -93,7 +93,7 @@ This is the **design documentation repository** for Keystone Core, a cloud-nativ
 
 ## Project Status
 
-This repository contains working implementations of **Epics 1-11**. The project has transitioned from design-only to a working implementation with:
+This repository contains working implementations of **Epics 1-29**. The project has transitioned from design-only to a working implementation with:
 
 - Full NATS integration (embedded, external, and leaf modes)
 - Working agent system with registration, heartbeat, and command execution
@@ -108,9 +108,13 @@ This repository contains working implementations of **Epics 1-11**. The project 
 - Telemetry gateway for aggregating metrics, logs, and traces from isolated agents (Epic 19 complete)
 - Proxy agents for managing unmanaged devices via SSH, SNMP, REST, WinRM (Epic 21 complete)
 - File distribution over NATS with multiple backends, mirror groups, and geographic routing (Epic 22 complete)
+- Self-management workflows: bootstrap, backup/restore, upgrades, runbooks (Epic 23 complete)
+- Standard deployment blueprints catalog (Epic 28 complete)
+- Single-binary bootstrap experience (Epic 27 complete)
+- Bootstrap testing infrastructure for docker-based validation (Epic 29 complete)
 - Comprehensive test suite (>79% coverage across all core packages)
 
-**Current Status**: Epic 1-22 COMPLETE ✅ (File Distribution)
+**Current Status**: Epic 1-29 COMPLETE ✅ (VM validation deferred to Epic 100)
 
 ### ⚠️ Known Implementation Gaps
 
@@ -5719,7 +5723,7 @@ Implementation order:
 25. **Epic 25** (Blueprints) - ✅ COMPLETE (All 9 phases) - Depends on Epic 3, 4, 9, 22 (pre-packaged state collections, parameter system, dependency ordering, registry/CLI, rollback, testing framework, air-gapped support, documentation & examples)
 26. **Epic 26** (NEEDSWORK Remediation) - ✅ COMPLETE (All phases) - Depends on all completed epics (security fixes, API completeness, testing improvements, documentation updates, code quality)
 27. **Epic 27** (Agent Bootstrap Experience) - ✅ COMPLETE (All 6 phases) - Depends on Epic 23, 25 (single-binary TUI-guided bootstrap, CLI/envvar support, deployment modes, package repo setup)
-28. **Epic 28** (Standard Deployment Blueprints) - NOT STARTED - Depends on Epic 25, 27 (14 official blueprints for demo/production/enterprise deployments, monitoring, security, integrations)
+28. **Epic 28** (Standard Deployment Blueprints) - ✅ COMPLETE - Depends on Epic 25, 27 (14 official blueprints for demo/production/enterprise deployments, monitoring, security, integrations)
 29. **Epic 29** (Bootstrap Testing Infrastructure) - ✅ COMPLETE - Depends on Epic 27, 28 (Docker-based CI tests, platform matrix testing, multi-node cluster tests; VM validation deferred to Epic 100)
 
 ### Future Epics (Not Yet Planned)

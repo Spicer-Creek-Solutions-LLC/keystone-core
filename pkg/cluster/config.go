@@ -738,3 +738,234 @@ func CanTolerateFailures(memberCount int) int {
 	}
 	return (memberCount - 1) / 2
 }
+
+// HARecommendation represents a recommendation for HA deployments.
+type HARecommendation struct {
+	// Component is the subsystem (cluster, etcd, nats, storage, tls)
+	Component string `json:"component"`
+	// Level is the severity: critical (must fix), warning (should fix), info (best practice)
+	Level string `json:"level"`
+	// Issue describes the problem
+	Issue string `json:"issue"`
+	// Recommendation is what the user should do
+	Recommendation string `json:"recommendation"`
+	// AffectsAvailability indicates if this affects fault tolerance
+	AffectsAvailability bool `json:"affects_availability"`
+}
+
+// HARecommendations returns recommendations for improving HA configuration.
+// These are checked at runtime when cluster.enabled=true.
+//
+// Level meanings:
+//   - critical: Configuration prevents proper HA operation
+//   - warning: Configuration degrades HA capabilities
+//   - info: Best practice that improves HA
+//
+// Call this after Validate() passes and log recommendations during startup.
+func (c *Config) HARecommendations() []HARecommendation {
+	var recs []HARecommendation
+
+	if !c.Enabled {
+		return recs // No HA checks needed for standalone mode
+	}
+
+	// Check for even number of cluster members (from InitialCluster)
+	if c.Etcd != nil && c.Etcd.Embedded != nil && c.Etcd.Embedded.InitialCluster != "" {
+		memberCount := countClusterMembers(c.Etcd.Embedded.InitialCluster)
+		if memberCount > 0 {
+			// Even number check
+			if memberCount%2 == 0 {
+				recs = append(recs, HARecommendation{
+					Component:           "cluster",
+					Level:               "warning",
+					Issue:               fmt.Sprintf("Cluster has %d members (even number). Odd cluster sizes (3, 5, 7) provide better fault tolerance.", memberCount),
+					Recommendation:      fmt.Sprintf("Add one more member to have %d nodes. With %d nodes, you can tolerate %d failures. With %d nodes, you could tolerate %d failures.", memberCount+1, memberCount, CanTolerateFailures(memberCount), memberCount+1, CanTolerateFailures(memberCount+1)),
+					AffectsAvailability: true,
+				})
+			}
+
+			// Minimum cluster size check
+			if memberCount == 1 {
+				recs = append(recs, HARecommendation{
+					Component:           "cluster",
+					Level:               "critical",
+					Issue:               "Single-node cluster provides no fault tolerance. Any node failure results in complete outage.",
+					Recommendation:      "Add at least 2 more members to form a 3-node cluster that can tolerate 1 failure.",
+					AffectsAvailability: true,
+				})
+			} else if memberCount == 2 {
+				recs = append(recs, HARecommendation{
+					Component:           "cluster",
+					Level:               "critical",
+					Issue:               "2-node cluster provides no fault tolerance (requires majority for quorum). Both nodes must be healthy for the cluster to operate.",
+					Recommendation:      "Add 1 more member to form a 3-node cluster. A 3-node cluster can tolerate 1 failure.",
+					AffectsAvailability: true,
+				})
+			}
+		}
+	}
+
+	// Check heartbeat timeout relationship
+	if c.HeartbeatTimeout < c.HeartbeatInterval*3 {
+		recs = append(recs, HARecommendation{
+			Component:           "cluster",
+			Level:               "warning",
+			Issue:               fmt.Sprintf("Heartbeat timeout (%v) is less than 3x heartbeat interval (%v). This may cause unnecessary leader elections during brief network hiccups.", c.HeartbeatTimeout, c.HeartbeatInterval),
+			Recommendation:      fmt.Sprintf("Set heartbeat_timeout to at least %v (3x heartbeat_interval) or increase to 6x for unstable networks.", c.HeartbeatInterval*3),
+			AffectsAvailability: true,
+		})
+	}
+
+	// Check election timeout relationship
+	if c.ElectionTimeout < c.HeartbeatTimeout {
+		recs = append(recs, HARecommendation{
+			Component:           "cluster",
+			Level:               "warning",
+			Issue:               fmt.Sprintf("Election timeout (%v) is shorter than heartbeat timeout (%v). This can cause premature leader elections.", c.ElectionTimeout, c.HeartbeatTimeout),
+			Recommendation:      fmt.Sprintf("Set election_timeout to at least %v (same as heartbeat_timeout) or higher for stable leader elections.", c.HeartbeatTimeout),
+			AffectsAvailability: true,
+		})
+	}
+
+	// Check for embedded etcd in HA mode
+	if c.Etcd != nil && c.Etcd.Mode == EtcdModeEmbedded {
+		memberCount := 0
+		if c.Etcd.Embedded != nil && c.Etcd.Embedded.InitialCluster != "" {
+			memberCount = countClusterMembers(c.Etcd.Embedded.InitialCluster)
+		}
+		if memberCount <= 1 {
+			// Single embedded etcd with cluster enabled
+			recs = append(recs, HARecommendation{
+				Component:           "etcd",
+				Level:               "info",
+				Issue:               "Using embedded etcd in single-node mode. For production HA, consider multi-node embedded etcd or external etcd cluster.",
+				Recommendation:      "Configure initial_cluster with multiple members for embedded multi-node etcd, or use etcd.mode=external with a dedicated etcd cluster.",
+				AffectsAvailability: false,
+			})
+		}
+	}
+
+	// Check TLS for multi-node cluster
+	if c.Etcd != nil && c.Etcd.Mode == EtcdModeEmbedded {
+		memberCount := 0
+		if c.Etcd.Embedded != nil && c.Etcd.Embedded.InitialCluster != "" {
+			memberCount = countClusterMembers(c.Etcd.Embedded.InitialCluster)
+		}
+		if memberCount > 1 {
+			// Multi-node cluster
+			tlsEnabled := c.Etcd.Embedded != nil && c.Etcd.Embedded.TLS != nil && c.Etcd.Embedded.TLS.Enabled
+			if !tlsEnabled {
+				recs = append(recs, HARecommendation{
+					Component:           "tls",
+					Level:               "critical",
+					Issue:               "Multi-node cluster without TLS. Cluster communication (etcd peer traffic, Raft consensus) is unencrypted.",
+					Recommendation:      "Enable TLS with cluster.etcd.embedded.tls.enabled=true. For production, configure proper certificates. For testing, use auto_tls=true.",
+					AffectsAvailability: false, // Doesn't affect availability but is a security issue
+				})
+			}
+
+			// Check for peer cert auth in multi-node
+			if tlsEnabled && c.Etcd.Embedded.TLS != nil && !c.Etcd.Embedded.TLS.PeerCertAuth {
+				recs = append(recs, HARecommendation{
+					Component:           "tls",
+					Level:               "warning",
+					Issue:               "Peer certificate authentication is disabled. Any node with TLS client cert can join the cluster.",
+					Recommendation:      "Enable cluster.etcd.embedded.tls.peer_cert_auth=true to require mutual TLS between cluster members.",
+					AffectsAvailability: false,
+				})
+			}
+		}
+	}
+
+	// Check quorum configuration
+	if c.QuorumSize > 0 {
+		memberCount := 0
+		if c.Etcd != nil && c.Etcd.Embedded != nil && c.Etcd.Embedded.InitialCluster != "" {
+			memberCount = countClusterMembers(c.Etcd.Embedded.InitialCluster)
+		}
+		if memberCount > 0 {
+			expectedQuorum := CalculateQuorumSize(memberCount)
+			if c.QuorumSize != expectedQuorum {
+				recs = append(recs, HARecommendation{
+					Component:           "cluster",
+					Level:               "warning",
+					Issue:               fmt.Sprintf("Custom quorum_size=%d differs from calculated value %d (N/2+1 for %d members).", c.QuorumSize, expectedQuorum, memberCount),
+					Recommendation:      fmt.Sprintf("Set quorum_size=0 for automatic calculation, or ensure custom value is intentional. Non-standard quorum may affect fault tolerance."),
+					AffectsAvailability: true,
+				})
+			}
+		}
+	}
+
+	return recs
+}
+
+// countClusterMembers counts members in an initial cluster string.
+// Format: "name1=url1,name2=url2,..."
+func countClusterMembers(initialCluster string) int {
+	if initialCluster == "" {
+		return 0
+	}
+	// Split by comma to get each member entry
+	members := strings.Split(initialCluster, ",")
+	count := 0
+	for _, m := range members {
+		m = strings.TrimSpace(m)
+		if m != "" && strings.Contains(m, "=") {
+			count++
+		}
+	}
+	return count
+}
+
+// ValidateHARequirements returns an error if the configuration cannot
+// support HA operation. This is stricter than Validate() and should be
+// called when strict HA mode is required.
+//
+// Returns nil if configuration meets minimum HA requirements.
+func (c *Config) ValidateHARequirements() error {
+	if !c.Enabled {
+		return fmt.Errorf("cluster: clustering is not enabled (cluster.enabled=false)")
+	}
+
+	if c.Etcd == nil {
+		return fmt.Errorf("cluster: etcd configuration is required for HA")
+	}
+
+	// Check minimum cluster size for HA
+	if c.Etcd.Mode == EtcdModeEmbedded {
+		if c.Etcd.Embedded == nil || c.Etcd.Embedded.InitialCluster == "" {
+			return fmt.Errorf("cluster: initial_cluster must be configured for HA (embedded etcd mode)")
+		}
+		memberCount := countClusterMembers(c.Etcd.Embedded.InitialCluster)
+		if memberCount < 3 {
+			return fmt.Errorf("cluster: minimum 3 members required for HA (found %d). 2-node clusters cannot maintain quorum if one node fails", memberCount)
+		}
+	} else if c.Etcd.Mode == EtcdModeExternal {
+		if len(c.Etcd.Endpoints) < 3 {
+			return fmt.Errorf("cluster: minimum 3 etcd endpoints recommended for HA (found %d)", len(c.Etcd.Endpoints))
+		}
+	}
+
+	return nil
+}
+
+// IsOddClusterSize returns true if the cluster has an odd number of members.
+// Odd-sized clusters have better fault tolerance characteristics.
+func IsOddClusterSize(memberCount int) bool {
+	return memberCount > 0 && memberCount%2 == 1
+}
+
+// RecommendedClusterSize returns the recommended cluster size for a given
+// desired fault tolerance level.
+//
+// Examples:
+//   - tolerateFailures=1 -> 3 nodes
+//   - tolerateFailures=2 -> 5 nodes
+//   - tolerateFailures=3 -> 7 nodes
+func RecommendedClusterSize(tolerateFailures int) int {
+	if tolerateFailures <= 0 {
+		return 1
+	}
+	return (tolerateFailures * 2) + 1
+}

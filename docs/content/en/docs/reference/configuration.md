@@ -311,49 +311,96 @@ cluster:
 # SPIFFE identity settings
 identity:
   enabled: true
-  mode: "embedded"                    # embedded, spire, cloud, mesh
+  trust_domain: "kscore.local"        # SPIFFE trust domain
 
-  # Embedded identity provider
-  embedded:
-    trust_domain: "kscore.local"
-    ca:
-      algorithm: "ecdsa-p256"         # ecdsa-p256, ecdsa-p384, rsa-2048
-      lifetime: "8760h"               # 1 year
-    svid:
-      default_ttl: "1h"
-      max_ttl: "24h"
-      renewal_threshold: 0.5          # Renew at 50% of TTL
+  # Identity provider configuration
+  provider:
+    type: "embedded"                  # embedded, spire, aws, gcp, azure, istio, consul, linkerd
 
-  # SPIRE Workload API
-  spire:
-    socket_path: "/run/spire/agent/socket/agent.sock"
-    timeout: "30s"
+    # SPIRE Workload API (when type: spire)
+    spire:
+      agent_socket_path: "/run/spire/agent/sockets/agent.sock"
+      server_address: ""              # SPIRE server address for admin operations
+      trust_domain: ""                # Must match SPIRE server trust domain
 
-  # Cloud identity (AWS, GCP, Azure)
-  cloud:
-    provider: "aws"                   # aws, gcp, azure
+    # AWS identity provider (when type: aws)
     aws:
-      region: "us-east-1"
-    gcp:
-      project_id: "my-project"
-    azure:
-      tenant_id: ""
-      client_id: ""
+      region: ""                      # AWS region (auto-detected if empty)
+      role_arn: ""                    # IAM role ARN for IRSA
+      use_imdsv2: true                # Require IMDSv2 for instance identity
 
-  # Service mesh identity (Istio, Linkerd, Consul)
-  mesh:
-    provider: "istio"                 # istio, linkerd, consul
-    istio:
-      cert_dir: "/etc/certs"
-    consul:
-      datacenter: "dc1"
-      service_name: "kscore"
+    # GCP identity provider (when type: gcp)
+    gcp:
+      project_id: ""                  # GCP project ID (auto-detected if empty)
+      service_account_email: ""       # Service account to impersonate
+
+    # Azure identity provider (when type: azure)
+    azure:
+      tenant_id: ""                   # Azure AD tenant ID
+      client_id: ""                   # Managed identity client ID
+
+  # SVID (X.509 certificate) configuration
+  svid:
+    default_ttl: "1h"                 # Default SVID TTL
+    max_ttl: "24h"                    # Maximum allowed SVID TTL
+    rotation_interval: "30s"          # How often to check for rotation
+    grace_period: "10m"               # Keep serving with expired SVID
+
+  # Attestation configuration
+  attestation:
+    allowed_attestors:                # Enabled attestors
+      - "join_token"
+    allow_none: false                 # Allow "none" attestor (dev only)
+
+    # Join token attestor
+    join_token:
+      enabled: true
+      default_ttl: "5m"               # Default token TTL
+      max_ttl: "24h"                  # Maximum token TTL
+      token_length: 32                # Length of generated tokens
+      one_time_use: true              # Single-use tokens
+      cleanup_interval: "1h"          # Cleanup expired tokens interval
+
+    # AWS attestor (for embedded provider)
+    aws:
+      enabled: false
+      allowed_account_ids: []         # Restrict by AWS account IDs
+      allowed_regions: []             # Restrict by regions
+      allowed_instance_tags: {}       # Restrict by instance tags
+
+    # GCP attestor (for embedded provider)
+    gcp:
+      enabled: false
+      allowed_project_ids: []         # Restrict by project IDs
+      allowed_zones: []               # Restrict by zones
+      allowed_service_accounts: []    # Restrict by service accounts
+
+    # Azure attestor (for embedded provider)
+    azure:
+      enabled: false
+      allowed_subscription_ids: []    # Restrict by subscription IDs
+      allowed_resource_groups: []     # Restrict by resource groups
+
+  # CA configuration (for embedded provider)
+  ca:
+    key_type: "ecdsa-p256"            # ecdsa-p256, ecdsa-p384, rsa-2048, rsa-4096
+    root_ca_ttl: "87600h"             # Root CA TTL (10 years)
+    signing_ca_ttl: "8760h"           # Signing CA TTL (1 year)
+    rotate_signing_ca_before: "720h"  # Rotate signing CA 30 days before expiry
+    storage_path: "data/identity/ca"  # CA key storage path
+    encryption_key: ""                # Encrypt CA keys at rest (recommended)
 
   # Trust federation
   federation:
-    enabled: true
-    bundle_refresh_interval: "1h"
-    federated_domains: []
+    enabled: false
+    bundle_endpoint: ""               # Expose trust bundle at this endpoint
+    refresh_interval: "1h"            # Refresh external bundles interval
+    trusted_domains:                  # External trust domains
+      - domain: "partner.example.com"
+        bundle_endpoint: "https://partner.example.com/.well-known/spiffe/bundle"
+        policy:
+          allowed_paths: ["/ns/*"]    # Allowed SPIFFE paths
+          denied_paths: []            # Denied SPIFFE paths
 ```
 
 ## Telemetry Gateway Configuration

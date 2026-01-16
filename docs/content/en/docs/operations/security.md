@@ -426,6 +426,315 @@ storage:
     sslrootcert: "/etc/kscore/certs/ca.crt"
 ```
 
+## Webhook Security
+
+Webhooks are an external ingress point for GitOps events (ArgoCD, Flux, GitHub, GitLab). Securing webhook endpoints is critical to prevent unauthorized event injection and denial of service attacks.
+
+### Trust Boundaries
+
+Webhooks cross the **TB1: External Network → Control Plane API** trust boundary defined in the [Threat Model](/docs/concepts/threat-model/). Key security considerations:
+
+| Threat | Risk | Mitigation |
+|--------|------|------------|
+| **Spoofing** | Attacker sends fake deployment events | HMAC signature verification |
+| **Tampering** | Attacker modifies webhook payload in transit | TLS encryption, signature verification |
+| **Information Disclosure** | Webhook payloads contain sensitive data | TLS encryption, audit logging |
+| **Denial of Service** | Flood of webhook requests | Rate limiting, IP allowlisting |
+| **Injection** | Malicious payloads trigger unintended actions | Input validation, event sanitization |
+
+### Webhook Authentication
+
+Keystone Core supports three authentication methods for webhooks:
+
+#### HMAC Signature Verification (Recommended)
+
+HMAC-SHA256 signature verification ensures webhooks originate from trusted sources:
+
+```yaml
+# server.yaml
+webhooks:
+  enabled: true
+  addr: ":8080"
+  path: "/webhooks"
+  auth:
+    type: hmac
+    secret: "${WEBHOOK_SECRET}"  # Shared secret with webhook source
+```
+
+**How it works:**
+1. Webhook source computes HMAC-SHA256 of request body using shared secret
+2. Signature sent in `X-Hub-Signature-256` header (GitHub format)
+3. Keystone Core verifies signature before processing
+
+**Configuring webhook sources:**
+
+| Source | Configuration |
+|--------|---------------|
+| **GitHub** | Repository Settings → Webhooks → Secret |
+| **GitLab** | Project Settings → Webhooks → Secret Token |
+| **ArgoCD** | ArgoCD notifications → Webhook secret |
+| **Flux** | Notification Controller → Receiver secret |
+
+**Generate a secure secret:**
+```bash
+# Generate 256-bit secret
+openssl rand -base64 32
+
+# Store in environment (never commit to git)
+export WEBHOOK_SECRET="$(openssl rand -base64 32)"
+```
+
+#### Bearer Token Authentication
+
+Simple token-based authentication for internal services:
+
+```yaml
+# server.yaml
+webhooks:
+  auth:
+    type: bearer
+    token: "${WEBHOOK_TOKEN}"
+```
+
+**Usage:**
+```bash
+# Webhook source includes Authorization header
+curl -X POST \
+  -H "Authorization: Bearer ${WEBHOOK_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"event": "deployment"}' \
+  https://kscore.example.com/webhooks
+```
+
+#### No Authentication (Development Only)
+
+**⚠️ WARNING:** Never use in production.
+
+```yaml
+# server.yaml (development only)
+webhooks:
+  auth:
+    type: none
+```
+
+### Rate Limiting
+
+Protect webhook endpoints from denial of service attacks:
+
+```yaml
+# server.yaml
+webhooks:
+  rate_limiting:
+    enabled: true
+    requests_per_minute: 60    # Max 60 webhooks per minute per source
+    burst: 10                  # Allow burst of 10 requests
+```
+
+**Per-source rate limiting:**
+```yaml
+webhooks:
+  rate_limiting:
+    enabled: true
+    by_source: true            # Rate limit per source IP
+    requests_per_minute: 100
+    burst: 20
+```
+
+**Response when rate limited:**
+- HTTP 429 Too Many Requests
+- `Retry-After` header indicates when to retry
+
+### IP Allowlisting
+
+Restrict webhook sources to known IP ranges:
+
+```yaml
+# server.yaml
+webhooks:
+  allowed_ips:
+    # GitHub webhook IPs (check GitHub docs for current ranges)
+    - "192.30.252.0/22"
+    - "185.199.108.0/22"
+    - "140.82.112.0/20"
+    - "143.55.64.0/20"
+    # GitLab.com webhook IPs
+    - "35.231.145.151/32"
+    - "34.74.90.64/28"
+    # Internal services
+    - "10.0.0.0/8"
+```
+
+**Dynamic IP lookup for cloud services:**
+```bash
+# GitHub webhook IPs (updated regularly)
+curl -s https://api.github.com/meta | jq '.hooks[]'
+
+# Store in config management, update weekly
+```
+
+### TLS Configuration
+
+**Always use HTTPS for webhook endpoints:**
+
+```yaml
+# server.yaml
+webhooks:
+  enabled: true
+  addr: ":8443"                # HTTPS port
+  tls:
+    enabled: true
+    cert_file: /etc/kscore/certs/webhook.crt
+    key_file: /etc/kscore/certs/webhook.key
+    min_version: "TLS1.2"
+```
+
+**Let's Encrypt with automatic renewal:**
+```bash
+certbot certonly --standalone -d webhooks.kscore.example.com
+```
+
+### Event Ingress Security
+
+Control which event types are processed:
+
+```yaml
+# server.yaml
+webhooks:
+  handlers:
+    - argocd    # Accept ArgoCD webhooks
+    - flux      # Accept Flux webhooks
+    - github    # Accept GitHub webhooks
+    # - gitlab  # Disabled: not needed
+```
+
+**Event validation:**
+- All webhook payloads validated against expected schema
+- Unknown event types logged but not processed
+- Payload size limited (default: 1MB)
+
+```yaml
+webhooks:
+  max_payload_size: "1MB"      # Reject oversized payloads
+  validate_schema: true        # Reject malformed payloads
+```
+
+### Audit Logging
+
+Track all webhook activity for security monitoring:
+
+```yaml
+# server.yaml
+webhooks:
+  audit:
+    enabled: true
+    log_payloads: false        # Don't log payload contents (may contain secrets)
+    log_headers: true          # Log request headers
+```
+
+**Audit log entries include:**
+- Timestamp
+- Source IP
+- Webhook type (argocd, flux, github, gitlab)
+- Event type
+- Authentication result
+- Processing result
+
+**Query webhook audit logs:**
+```bash
+kscorectl audit query \
+  --type "gitops.webhook.*" \
+  --since 24h \
+  --result failed
+```
+
+### Monitoring and Alerting
+
+**Prometheus metrics:**
+```yaml
+# Alert on webhook authentication failures
+- alert: WebhookAuthFailures
+  expr: rate(kscore_webhook_auth_failures_total[5m]) > 1
+  for: 5m
+  labels:
+    severity: warning
+  annotations:
+    summary: "High rate of webhook authentication failures"
+```
+
+**Key metrics:**
+| Metric | Description |
+|--------|-------------|
+| `kscore_webhook_requests_total` | Total webhook requests by type and status |
+| `kscore_webhook_auth_failures_total` | Authentication failures by type |
+| `kscore_webhook_processing_duration_seconds` | Webhook processing latency |
+| `kscore_webhook_rate_limited_total` | Requests rejected due to rate limiting |
+
+### Production Checklist
+
+Before exposing webhooks to the internet:
+
+- [ ] **HMAC authentication enabled** with strong secret (256+ bits)
+- [ ] **TLS enabled** with valid certificate (not self-signed)
+- [ ] **Rate limiting enabled** with appropriate limits
+- [ ] **IP allowlisting configured** for known webhook sources
+- [ ] **Audit logging enabled** for security monitoring
+- [ ] **Alerting configured** for authentication failures
+- [ ] **Firewall rules** restrict webhook port to necessary sources
+- [ ] **Secret rotation plan** documented and tested
+- [ ] **Separate endpoint** for webhooks (not on admin API port)
+
+### Example: Secure GitHub Webhook Configuration
+
+**1. Generate secret:**
+```bash
+export GITHUB_WEBHOOK_SECRET="$(openssl rand -base64 32)"
+```
+
+**2. Configure Keystone Core:**
+```yaml
+# server.yaml
+webhooks:
+  enabled: true
+  addr: ":8443"
+  path: "/github/webhooks"
+  tls:
+    enabled: true
+    cert_file: /etc/kscore/certs/webhook.crt
+    key_file: /etc/kscore/certs/webhook.key
+  auth:
+    type: hmac
+    secret: "${GITHUB_WEBHOOK_SECRET}"
+  handlers:
+    - github
+  allowed_ips:
+    - "192.30.252.0/22"
+    - "185.199.108.0/22"
+    - "140.82.112.0/20"
+    - "143.55.64.0/20"
+  rate_limiting:
+    enabled: true
+    requests_per_minute: 60
+    burst: 10
+  audit:
+    enabled: true
+```
+
+**3. Configure GitHub repository:**
+- Repository Settings → Webhooks → Add webhook
+- Payload URL: `https://webhooks.kscore.example.com/github/webhooks`
+- Content type: `application/json`
+- Secret: `${GITHUB_WEBHOOK_SECRET}` value
+- Events: Select specific events (deployment, push)
+
+**4. Verify webhook delivery:**
+```bash
+# Check webhook stats
+curl -s https://kscore.example.com/stats | jq '.webhooks'
+
+# Check recent webhook events
+kscorectl audit query --type "gitops.github.*" --since 1h
+```
+
 ## RBAC (Role-Based Access Control)
 
 Define fine-grained access control policies.
@@ -818,6 +1127,132 @@ gpg --encrypt --recipient compliance@example.com audit.log
 aws s3 cp audit.log.gpg s3://compliance-logs/kscore/
 ```
 
+### Policy Audit (Persistent Store)
+
+Policy evaluations are audited separately with support for persistent storage, configurable retention, and automatic sensitive data redaction.
+
+**Persistent SQLite Audit Store:**
+```yaml
+# server.yaml
+policy:
+  audit:
+    # Use persistent SQLite storage (recommended for production)
+    store: sqlite
+    path: /var/lib/kscore/policy-audit.db
+
+    # Retention policy
+    retention:
+      max_age: 90d      # Keep entries for 90 days
+      max_count: 100000 # Maximum 100k entries
+      interval: 1h      # Run retention cleanup hourly
+
+    # Sensitive data redaction
+    redaction:
+      # Redact metadata keys containing these strings (case-insensitive)
+      metadata_keys:
+        - password
+        - secret
+        - token
+        - key
+        - credential
+        - api_key
+        - authorization
+
+      # Regex patterns to redact anywhere in values
+      patterns:
+        - 'AKIA[0-9A-Z]{16}'                    # AWS access keys
+        - 'eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+' # JWT tokens
+
+      # Partially redact user identifiers (shows first 2 chars)
+      redact_user: true
+```
+
+**Policy Audit Entry Format:**
+```json
+{
+  "id": "audit-1705312345678",
+  "timestamp": "2024-01-15T10:30:45Z",
+  "policy_id": "require-labels",
+  "policy_name": "Require Labels",
+  "policy_type": "opa",
+  "resource_type": "deployment",
+  "allowed": false,
+  "duration_ns": 1500000,
+  "enforcement_mode": "enforce",
+  "user": "al***",
+  "action": "create",
+  "violations": [
+    {
+      "rule": "require-owner-label",
+      "message": "Deployment missing required label: owner",
+      "severity": "high",
+      "path": "metadata.labels"
+    }
+  ],
+  "metadata": {
+    "namespace": "production",
+    "api_key": "[REDACTED]"
+  }
+}
+```
+
+**Query Policy Audit:**
+```bash
+# List policy evaluations
+kscorectl policy audit list --limit 100
+
+# Filter by policy
+kscorectl policy audit list --policy-id require-labels
+
+# Filter by result
+kscorectl policy audit list --denied --since 24h
+
+# Get summary
+kscorectl policy audit summary --since 7d
+```
+
+**Retention Policy Options:**
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `max_age` | 90d | Delete entries older than this |
+| `max_count` | 100000 | Keep only this many entries (newest) |
+| `interval` | 1h | How often to run retention cleanup |
+| `min_severity` | - | Keep only entries with violations at or above this severity |
+
+**Redaction Configuration:**
+
+Redaction automatically sanitizes sensitive data before storing audit entries:
+
+1. **Metadata Key Redaction**: Any metadata key containing configured strings (e.g., `password`, `token`) has its value replaced with `[REDACTED]`.
+
+2. **Pattern Redaction**: Regex patterns match sensitive data anywhere in string values (e.g., AWS keys, JWT tokens).
+
+3. **User Redaction**: When enabled, user identifiers are partially masked (e.g., `administrator` → `ad***`).
+
+**Example Redaction:**
+```yaml
+# Original audit entry metadata
+metadata:
+  db_password: "supersecret123"
+  aws_access_key: "AKIAIOSFODNN7EXAMPLE"
+  api_token: "sk_live_abc123"
+  environment: "production"
+
+# After redaction
+metadata:
+  db_password: "[REDACTED]"
+  aws_access_key: "[REDACTED]"
+  api_token: "[REDACTED]"
+  environment: "production"
+```
+
+**Best Practices:**
+- Use persistent storage (`sqlite`) for production deployments
+- Set retention to meet compliance requirements (SOC 2: 1 year, HIPAA: 6 years)
+- Enable `redact_user` if user identifiers are considered sensitive
+- Add organization-specific patterns to redact internal credentials
+
 ## Compliance
 
 ### SOC 2 Compliance
@@ -1147,8 +1582,110 @@ tail -f /var/ossec/logs/alerts/alerts.log
 trufflehog filesystem /etc/kscore
 ```
 
+## Vulnerability Management
+
+### CI Security Scanning
+
+Keystone Core uses automated security scanning in CI that **blocks** merges when vulnerabilities are detected:
+
+| Tool | Purpose | Configuration |
+|------|---------|---------------|
+| **govulncheck** | Go vulnerability database | Update dependencies to fix |
+| **gosec** | Static security analysis | `.gosec.yaml` for waivers |
+
+**Security scans are blocking by default.** Failed scans prevent CI from passing.
+
+### Handling Vulnerability Findings
+
+**Option 1: Fix the Vulnerability (Preferred)**
+```bash
+# Update vulnerable dependency
+go get -u github.com/vulnerable/package@latest
+go mod tidy
+
+# Verify vulnerability is fixed
+govulncheck ./...
+```
+
+**Option 2: Inline Waiver with Nosec**
+
+For gosec findings where the code is safe despite the warning:
+```go
+// #nosec G104 -- error intentionally ignored for cleanup operations
+// Justification: File removal errors cannot be meaningfully handled during shutdown
+_ = os.Remove(tempFile)
+```
+
+**Nosec annotation requirements:**
+- Include the rule ID (e.g., `G104`)
+- Provide justification comment
+- Document why the code is safe
+
+**Option 3: Global Waiver in .gosec.yaml**
+
+For patterns that are safe across the codebase:
+```yaml
+# .gosec.yaml
+# G104: Errors unhandled - excluded for logging cleanup
+# Justification: Logger Close() errors cannot be recovered
+# Tracked: KSCORE-1234
+# Review: 2025-06-01
+rules:
+  - G104
+```
+
+**Waiver requirements:**
+- Justification for why the code is safe
+- Tracking reference (issue/ticket)
+- Review date for periodic reassessment
+
+### Accepted Vulnerability Process
+
+1. **Document the risk** in this security guide
+2. **Create a tracking issue** for remediation
+3. **Set a review date** (max 90 days)
+4. **Get security team approval** before merging waiver
+
+### Common Gosec Rules
+
+| Rule | Description | Common Fix |
+|------|-------------|------------|
+| G101 | Hardcoded credentials | Use secrets manager |
+| G104 | Errors not checked | Handle or explicitly ignore |
+| G107 | URL from taint input | Validate/sanitize URLs |
+| G201-G203 | SQL injection | Use parameterized queries |
+| G204 | Command injection | Avoid shell, use exec.Command |
+| G301-G307 | File permissions | Use restrictive permissions |
+| G401-G406 | Weak crypto | Use modern algorithms |
+
+### Dependency Vulnerability Response
+
+When govulncheck reports a vulnerability:
+
+1. **Check if the vulnerable code path is used:**
+   ```bash
+   govulncheck -show verbose ./...
+   ```
+
+2. **Update the dependency if available:**
+   ```bash
+   go get -u github.com/package@latest
+   ```
+
+3. **If no fix available, document in security.md:**
+   ```markdown
+   ### Accepted Vulnerabilities
+
+   | CVE | Package | Severity | Justification | Review Date |
+   |-----|---------|----------|---------------|-------------|
+   | CVE-2024-XXXX | example/pkg | Medium | Vulnerable code path not used | 2025-06-01 |
+   ```
+
+4. **Monitor for upstream fixes** via GitHub security advisories
+
 ## See Also
 
+- [Threat Model](/docs/concepts/threat-model/) - Security threat model and STRIDE analysis
 - [Deployment Guide](deployment/) - Secure deployment patterns
 - [Monitoring Guide](monitoring/) - Security monitoring
 - [Maintenance Guide](maintenance/) - Secure backup procedures

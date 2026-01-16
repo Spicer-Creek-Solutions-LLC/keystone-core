@@ -557,7 +557,12 @@ func (m *CAModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateRes
 		}
 
 		// Generate serial number
-		serialNumber, _ := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+		serialNumber, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+		if err != nil {
+			result.Success = false
+			result.Error = fmt.Errorf("failed to generate serial number: %w", err)
+			return result, nil
+		}
 
 		// Build CA certificate
 		notBefore := time.Now()
@@ -728,7 +733,10 @@ func (m *CAModule) SignCertificate(caPath string, csrPEM []byte, validityDays in
 	}
 
 	// Generate serial number
-	serialNumber, _ := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+	serialNumber, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate serial number: %w", err)
+	}
 
 	// Create certificate
 	notBefore := time.Now()

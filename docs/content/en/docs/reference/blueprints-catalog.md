@@ -52,8 +52,8 @@ optionally tests.
 ## Registry Publishing
 
 Blueprints are versioned with SemVer and will be published to the official registry once
-Epic 28 publishing infrastructure is complete. For now, use `kscorectl blueprint apply` with
-local blueprint paths.
+Epic 28 publishing infrastructure is complete. For now, use `kscore-agent bootstrap --apply-blueprint`
+with `--blueprints-dir` pointing at the local blueprint paths.
 
 Registry metadata manifests (JSON) live under `examples/blueprints/kscore/registry/` and
 include placeholders for checksums/signatures until publish time.

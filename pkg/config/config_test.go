@@ -504,7 +504,7 @@ func TestConfig_Validate_InvalidAddressFamily(t *testing.T) {
 }
 
 func TestConfig_Validate_ListenAddrs(t *testing.T) {
-	// Valid addresses
+	// Valid addresses (TLS enabled to allow non-loopback - this test is about address format)
 	cfg := &Config{
 		Server: ServerConfig{
 			GRPCPort:    9090,
@@ -516,6 +516,9 @@ func TestConfig_Validate_ListenAddrs(t *testing.T) {
 		},
 		Storage: StorageConfig{
 			Backend: StorageBackendSQLite,
+		},
+		TLS: TLSConfig{
+			Enabled: true, // Required for non-loopback addresses
 		},
 	}
 
@@ -556,5 +559,339 @@ func TestConfig_Validate_AdvertiseAddrs(t *testing.T) {
 	cfg.Agent.AdvertiseAddrs = []string{"192.168.1.100", "[2001:db8::1"}
 	if err := cfg.Validate(); err == nil {
 		t.Error("Expected validation error for malformed advertise address")
+	}
+}
+
+func TestConfig_Validate_TLSForNonLoopback(t *testing.T) {
+	// Base config helper
+	baseConfig := func() *Config {
+		return &Config{
+			Server: ServerConfig{
+				GRPCPort: 9090,
+				HTTPPort: 8080,
+			},
+			NATS: NATSConfig{
+				Mode: NATSModeEmbedded,
+			},
+			Storage: StorageConfig{
+				Backend: StorageBackendSQLite,
+			},
+			TLS: TLSConfig{
+				Enabled: false,
+			},
+		}
+	}
+
+	tests := []struct {
+		name        string
+		listenAddr  string
+		tlsEnabled  bool
+		allowInsec  bool
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name:       "TLS enabled with any address - should pass",
+			listenAddr: "0.0.0.0",
+			tlsEnabled: true,
+			wantErr:    false,
+		},
+		{
+			name:       "loopback IPv4 without TLS - should pass",
+			listenAddr: "127.0.0.1",
+			tlsEnabled: false,
+			wantErr:    false,
+		},
+		{
+			name:       "loopback IPv6 without TLS - should pass",
+			listenAddr: "::1",
+			tlsEnabled: false,
+			wantErr:    false,
+		},
+		{
+			name:        "unspecified IPv4 without TLS - should fail",
+			listenAddr:  "0.0.0.0",
+			tlsEnabled:  false,
+			wantErr:     true,
+			errContains: "SECURITY ERROR",
+		},
+		{
+			name:        "unspecified IPv6 without TLS - should fail",
+			listenAddr:  "::",
+			tlsEnabled:  false,
+			wantErr:     true,
+			errContains: "SECURITY ERROR",
+		},
+		{
+			name:        "non-loopback IPv4 without TLS - should fail",
+			listenAddr:  "192.168.1.100",
+			tlsEnabled:  false,
+			wantErr:     true,
+			errContains: "SECURITY ERROR",
+		},
+		{
+			name:        "non-loopback IPv6 without TLS - should fail",
+			listenAddr:  "2001:db8::1",
+			tlsEnabled:  false,
+			wantErr:     true,
+			errContains: "SECURITY ERROR",
+		},
+		{
+			name:       "AllowInsecureNonLoopback bypasses check",
+			listenAddr: "0.0.0.0",
+			tlsEnabled: false,
+			allowInsec: true,
+			wantErr:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := baseConfig()
+			cfg.Server.ListenAddr = tt.listenAddr
+			cfg.TLS.Enabled = tt.tlsEnabled
+			cfg.Server.AllowInsecureNonLoopback = tt.allowInsec
+
+			err := cfg.Validate()
+
+			if tt.wantErr {
+				if err == nil {
+					t.Error("Expected validation error but got none")
+				} else if tt.errContains != "" && !contains(err.Error(), tt.errContains) {
+					t.Errorf("Error should contain %q, got: %v", tt.errContains, err)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected validation error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestConfig_Validate_TLSForNonLoopback_MultipleAddrs(t *testing.T) {
+	cfg := &Config{
+		Server: ServerConfig{
+			GRPCPort: 9090,
+			HTTPPort: 8080,
+			// Multiple addresses - one loopback, one non-loopback
+			ListenAddrs: []string{"127.0.0.1", "192.168.1.100"},
+		},
+		NATS: NATSConfig{
+			Mode: NATSModeEmbedded,
+		},
+		Storage: StorageConfig{
+			Backend: StorageBackendSQLite,
+		},
+		TLS: TLSConfig{
+			Enabled: false,
+		},
+	}
+
+	// Should fail because one address is non-loopback
+	if err := cfg.Validate(); err == nil {
+		t.Error("Expected validation error for mixed loopback/non-loopback addresses without TLS")
+	}
+
+	// Enable TLS - should pass
+	cfg.TLS.Enabled = true
+	if err := cfg.Validate(); err != nil {
+		t.Errorf("Unexpected error with TLS enabled: %v", err)
+	}
+}
+
+// Helper to check if string contains substring
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))
+}
+
+func containsHelper(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
+// Tests for ProductionWarnings
+
+func TestConfig_ProductionWarnings_EmbeddedNATS(t *testing.T) {
+	cfg := &Config{
+		NATS: NATSConfig{
+			Mode: NATSModeEmbedded,
+		},
+		Storage: StorageConfig{
+			Backend: StorageBackendPostgreSQL,
+		},
+		TLS: TLSConfig{
+			Enabled: true,
+		},
+	}
+
+	warnings := cfg.ProductionWarnings()
+
+	// Should have warning for embedded NATS
+	found := false
+	for _, w := range warnings {
+		if w.Component == "nats" && w.Level == "warning" {
+			found = true
+			if !contains(w.Message, "Embedded NATS mode") {
+				t.Errorf("NATS warning should mention embedded mode, got: %s", w.Message)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Error("Expected warning for embedded NATS mode")
+	}
+}
+
+func TestConfig_ProductionWarnings_SQLite(t *testing.T) {
+	cfg := &Config{
+		NATS: NATSConfig{
+			Mode: NATSModeExternal,
+			URL:  "nats://localhost:4222",
+		},
+		Storage: StorageConfig{
+			Backend: StorageBackendSQLite,
+		},
+		TLS: TLSConfig{
+			Enabled: true,
+		},
+	}
+
+	warnings := cfg.ProductionWarnings()
+
+	// Should have warning for SQLite
+	found := false
+	for _, w := range warnings {
+		if w.Component == "storage" && w.Level == "warning" {
+			found = true
+			if !contains(w.Message, "SQLite") {
+				t.Errorf("Storage warning should mention SQLite, got: %s", w.Message)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Error("Expected warning for SQLite storage")
+	}
+}
+
+func TestConfig_ProductionWarnings_TLSDisabledWithProduction(t *testing.T) {
+	cfg := &Config{
+		NATS: NATSConfig{
+			Mode: NATSModeExternal,
+			URL:  "nats://localhost:4222",
+		},
+		Storage: StorageConfig{
+			Backend: StorageBackendPostgreSQL,
+		},
+		TLS: TLSConfig{
+			Enabled: false,
+		},
+	}
+
+	warnings := cfg.ProductionWarnings()
+
+	// Should have critical warning for TLS disabled with production config
+	found := false
+	for _, w := range warnings {
+		if w.Component == "tls" && w.Level == "critical" {
+			found = true
+			if !contains(w.Message, "TLS is disabled") {
+				t.Errorf("TLS warning should mention disabled, got: %s", w.Message)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Error("Expected critical warning for TLS disabled with production config")
+	}
+}
+
+func TestConfig_ProductionWarnings_NoWarningsForProduction(t *testing.T) {
+	cfg := &Config{
+		NATS: NATSConfig{
+			Mode: NATSModeExternal,
+			URL:  "nats://localhost:4222",
+		},
+		Storage: StorageConfig{
+			Backend: StorageBackendPostgreSQL,
+		},
+		TLS: TLSConfig{
+			Enabled: true,
+		},
+	}
+
+	warnings := cfg.ProductionWarnings()
+
+	// Production config should have no warnings
+	if len(warnings) != 0 {
+		t.Errorf("Expected no warnings for production config, got %d: %+v", len(warnings), warnings)
+	}
+}
+
+func TestConfig_ProductionWarnings_JetStreamDefault(t *testing.T) {
+	cfg := &Config{
+		NATS: NATSConfig{
+			Mode: NATSModeEmbedded,
+			JetStream: JetStreamConfig{
+				Enabled:    true,
+				MaxStorage: 0, // Default/unset
+			},
+		},
+		Storage: StorageConfig{
+			Backend: StorageBackendPostgreSQL,
+		},
+		TLS: TLSConfig{
+			Enabled: true,
+		},
+	}
+
+	warnings := cfg.ProductionWarnings()
+
+	// Should have info warning for JetStream default storage
+	found := false
+	for _, w := range warnings {
+		if w.Component == "jetstream" && w.Level == "info" {
+			found = true
+			if !contains(w.Message, "default storage limit") {
+				t.Errorf("JetStream warning should mention default storage limit, got: %s", w.Message)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Error("Expected info warning for JetStream default storage limit")
+	}
+}
+
+func TestGetEffectiveNATSMaxMemory(t *testing.T) {
+	// Test default value
+	cfg := &Config{}
+	if m := getEffectiveNATSMaxMemory(cfg); m != EmbeddedNATSMaxMemoryDefault {
+		t.Errorf("Expected default memory %d, got %d", EmbeddedNATSMaxMemoryDefault, m)
+	}
+
+	// Test custom value
+	cfg.NATS.Embedded.MaxMemory = 512 * 1024 * 1024
+	if m := getEffectiveNATSMaxMemory(cfg); m != 512*1024*1024 {
+		t.Errorf("Expected custom memory %d, got %d", 512*1024*1024, m)
+	}
+}
+
+func TestGetEffectiveNATSMaxConnections(t *testing.T) {
+	// Test default value
+	cfg := &Config{}
+	if c := getEffectiveNATSMaxConnections(cfg); c != EmbeddedNATSMaxConnectionsDefault {
+		t.Errorf("Expected default connections %d, got %d", EmbeddedNATSMaxConnectionsDefault, c)
+	}
+
+	// Test custom value
+	cfg.NATS.Embedded.MaxConnections = 5000
+	if c := getEffectiveNATSMaxConnections(cfg); c != 5000 {
+		t.Errorf("Expected custom connections %d, got %d", 5000, c)
 	}
 }

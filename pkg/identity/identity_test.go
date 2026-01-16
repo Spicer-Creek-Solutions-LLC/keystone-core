@@ -413,8 +413,20 @@ func TestJoinTokenStore(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to get token: %v", err)
 		}
-		if token.Token != "test-token-1" {
-			t.Errorf("expected token test-token-1, got %s", token.Token)
+		// Token field should be empty after retrieval (security: tokens are stored as hashes)
+		if token.Token != "" {
+			t.Errorf("expected token field to be empty (redacted), got %s", token.Token)
+		}
+		// TokenHash and Salt should be populated
+		if token.TokenHash == "" {
+			t.Error("expected TokenHash to be populated")
+		}
+		if token.Salt == "" {
+			t.Error("expected Salt to be populated")
+		}
+		// TokenPrefix should show first 8 chars
+		if token.TokenPrefix == "" {
+			t.Error("expected TokenPrefix to be populated")
 		}
 		if !token.IsValid() {
 			t.Error("expected token to be valid")
@@ -453,6 +465,15 @@ func TestJoinTokenStore(t *testing.T) {
 		}
 		if len(tokens) != 2 {
 			t.Errorf("expected 2 tokens, got %d", len(tokens))
+		}
+		// Verify tokens are redacted in listings (security)
+		for _, tok := range tokens {
+			if tok.Token != "" {
+				t.Errorf("expected Token field to be empty in listing, got %s", tok.Token)
+			}
+			if tok.TokenPrefix == "" {
+				t.Error("expected TokenPrefix to be populated for identification")
+			}
 		}
 	})
 

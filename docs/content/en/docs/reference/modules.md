@@ -7,7 +7,7 @@ description: >
 
 ## Overview
 
-Keystone Core includes 84 built-in state modules for declarative configuration management. All modules are idempotent and cross-platform where applicable.
+Keystone Core includes 94 built-in state modules for declarative configuration management. All modules are idempotent and cross-platform where applicable.
 
 **Core Modules**:
 - [file](#file-module) - Manage files and directories
@@ -24,6 +24,7 @@ Keystone Core includes 84 built-in state modules for declarative configuration m
 - [iptables](#iptables-module) - Linux iptables rules
 - [nftables](#nftables-module) - Linux nftables rules
 - [firewalld](#firewalld-module) - Linux firewalld zones and rules
+- [ufw](#ufw-module) - Ubuntu Uncomplicated Firewall
 
 **Scheduled Task Modules**:
 - [cron](#cron-module) - Linux cron jobs
@@ -59,6 +60,7 @@ Keystone Core includes 84 built-in state modules for declarative configuration m
 - [hosts](#hosts-module) - Manage /etc/hosts entries
 - [sysctl](#sysctl-module) - Manage kernel parameters
 - [kernel_module](#kernel_module-module) - Manage kernel modules
+- [alternatives](#alternatives-module) - Manage system alternatives (update-alternatives)
 
 **Container Modules**:
 - [docker_container](#docker_container-module) - Manage Docker containers
@@ -98,6 +100,11 @@ Keystone Core includes 84 built-in state modules for declarative configuration m
 - [ca](#ca-module) - Manage Certificate Authority operations
 - [acme](#acme-module) - Manage ACME/Let's Encrypt certificates
 
+**Language Package Modules**:
+- [pip](#pip-module) - Manage Python packages with pip
+- [npm](#npm-module) - Manage Node.js packages with npm
+- [gem](#gem-module) - Manage Ruby gems
+
 **Kubernetes Modules**:
 - [k8s_namespace](#k8s_namespace-module) - Manage Kubernetes namespaces
 - [k8s_deployment](#k8s_deployment-module) - Manage Kubernetes deployments
@@ -126,6 +133,8 @@ Keystone Core includes 84 built-in state modules for declarative configuration m
 - [win_feature](#win_feature-module) - Manage Windows features
 - [win_registry](#win_registry-module) - Manage Windows registry
 - [win_service](#win_service-module) - Manage Windows services
+- [win_firewall](#win_firewall-module) - Manage Windows Firewall rules
+- [win_package](#win_package-module) - Manage Windows packages (Chocolatey, winget, MSI, EXE)
 
 ## Module Structure
 
@@ -9219,6 +9228,201 @@ remove_service:
   module: win_service
   state: absent
   name: OldService
+```
+
+---
+
+## win_firewall Module {#win_firewall-module}
+
+Manage Windows Firewall rules using PowerShell.
+
+### States
+
+| State | Description |
+|-------|-------------|
+| `present` | Firewall rule exists with specified configuration |
+| `absent` | Firewall rule is removed |
+| `enabled` | Firewall rule is enabled |
+| `disabled` | Firewall rule is disabled |
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `name` | string | yes | - | Firewall rule name (internal identifier) |
+| `display_name` | string | no | name | Human-readable rule name |
+| `description` | string | no | - | Rule description |
+| `direction` | string | no | Inbound | Traffic direction: Inbound, Outbound |
+| `action` | string | no | Allow | Rule action: Allow, Block |
+| `protocol` | string | no | - | Protocol: TCP, UDP, ICMPv4, ICMPv6, Any |
+| `local_port` | string | no | - | Local port(s): single port, range (80-443), or comma-separated |
+| `remote_port` | string | no | - | Remote port(s) |
+| `program` | string | no | - | Path to program to match |
+| `profile` | string | no | Any | Profile: Domain, Private, Public, Any |
+
+### Platform Support
+
+| Platform | Support |
+|----------|---------|
+| Linux | ❌ Not supported |
+| macOS | ❌ Not supported |
+| Windows | ✅ Full |
+
+### Example
+
+```yaml
+allow_http:
+  module: win_firewall
+  state: present
+  name: Allow-HTTP
+  display_name: Allow HTTP Traffic
+  description: Allow inbound HTTP traffic on port 80
+  direction: Inbound
+  action: Allow
+  protocol: TCP
+  local_port: "80"
+
+allow_https:
+  module: win_firewall
+  state: present
+  name: Allow-HTTPS
+  display_name: Allow HTTPS Traffic
+  direction: Inbound
+  action: Allow
+  protocol: TCP
+  local_port: "443"
+
+allow_app:
+  module: win_firewall
+  state: enabled
+  name: MyApp-Firewall
+  display_name: MyApp Network Access
+  program: C:\MyApp\myapp.exe
+  direction: Outbound
+  action: Allow
+
+block_telemetry:
+  module: win_firewall
+  state: present
+  name: Block-Telemetry
+  direction: Outbound
+  action: Block
+  protocol: TCP
+  remote_port: "443"
+  program: C:\Windows\System32\CompatTelRunner.exe
+
+disable_rule:
+  module: win_firewall
+  state: disabled
+  name: Allow-HTTP
+
+remove_rule:
+  module: win_firewall
+  state: absent
+  name: Old-Firewall-Rule
+```
+
+---
+
+## win_package Module {#win_package-module}
+
+Manage Windows packages using Chocolatey, winget, MSI, or EXE installers.
+
+### States
+
+| State | Description |
+|-------|-------------|
+| `installed` | Package is installed (specific version if specified) |
+| `removed` | Package is uninstalled |
+| `latest` | Package is installed and updated to latest version |
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `name` | string | yes | - | Package name or identifier |
+| `source` | string | no | auto | Package source: chocolatey, winget, msi, exe, auto |
+| `version` | string | no | - | Specific version to install |
+| `installer` | string | no* | - | Path to MSI/EXE installer file |
+| `force` | bool | no | false | Force reinstall even if present |
+| `allow_downgrade` | bool | no | false | Allow downgrade to older version (Chocolatey) |
+| `install_args` | string | no | - | Additional installer arguments |
+| `package_params` | string | no | - | Package-specific parameters (Chocolatey) |
+| `remove_dependencies` | bool | no | false | Remove dependencies on uninstall (Chocolatey) |
+| `uninstall_args` | string | no | - | Additional uninstaller arguments |
+| `log_file` | string | no | - | Log file path for MSI installations |
+
+*`installer` is required when `source` is `msi` or `exe`.
+
+### Package Sources
+
+| Source | Description |
+|--------|-------------|
+| `auto` | Auto-detect (tries Chocolatey, then winget) |
+| `chocolatey` | Chocolatey package manager |
+| `winget` | Windows Package Manager (winget) |
+| `msi` | Windows Installer (MSI) file |
+| `exe` | Executable installer |
+
+### Platform Support
+
+| Platform | Support |
+|----------|---------|
+| Linux | ❌ Not supported |
+| macOS | ❌ Not supported |
+| Windows | ✅ Full |
+
+### Example
+
+```yaml
+install_7zip:
+  module: win_package
+  state: installed
+  name: 7zip
+  source: chocolatey
+
+install_vscode:
+  module: win_package
+  state: installed
+  name: Microsoft.VisualStudioCode
+  source: winget
+
+install_specific_version:
+  module: win_package
+  state: installed
+  name: nodejs
+  source: chocolatey
+  version: "18.17.0"
+
+install_msi:
+  module: win_package
+  state: installed
+  name: MyApplication
+  source: msi
+  installer: C:\Installers\myapp.msi
+  install_args: INSTALLDIR=C:\MyApp ADDLOCAL=ALL
+  log_file: C:\Logs\myapp-install.log
+
+install_exe:
+  module: win_package
+  state: installed
+  name: MyTool
+  source: exe
+  installer: C:\Installers\mytool-setup.exe
+  install_args: /S /D=C:\MyTool
+
+update_to_latest:
+  module: win_package
+  state: latest
+  name: git
+  source: chocolatey
+
+remove_package:
+  module: win_package
+  state: removed
+  name: old-software
+  source: chocolatey
+  remove_dependencies: true
 ```
 
 ---

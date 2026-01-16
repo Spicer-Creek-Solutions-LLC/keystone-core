@@ -260,6 +260,30 @@ type DeviceRegistry interface {
 
 	// Count returns the total number of registered devices.
 	Count(ctx context.Context) (int, error)
+
+	// GetStats returns statistics about registered devices.
+	GetStats(ctx context.Context) (*RegistryStats, error)
+
+	// GetOnlineDevices returns all devices that are currently online.
+	GetOnlineDevices(ctx context.Context) ([]*ProxiedDevice, error)
+
+	// GetOfflineDevices returns all devices that are currently offline or unreachable.
+	GetOfflineDevices(ctx context.Context) ([]*ProxiedDevice, error)
+
+	// GetStaleDevices returns devices that haven't been seen for longer than the threshold.
+	GetStaleDevices(ctx context.Context, threshold time.Duration) ([]*ProxiedDevice, error)
+
+	// GetDevicesByStatus returns devices grouped by status.
+	GetDevicesByStatus(ctx context.Context) (map[DeviceStatus][]*ProxiedDevice, error)
+
+	// Clear removes all devices from the registry.
+	Clear(ctx context.Context) error
+
+	// AddObserver adds an observer to be notified of device changes.
+	AddObserver(observer DeviceObserver)
+
+	// RemoveObserver removes an observer.
+	RemoveObserver(observer DeviceObserver)
 }
 
 // ProxiedExecuteRequest represents a command execution request for a proxied device.

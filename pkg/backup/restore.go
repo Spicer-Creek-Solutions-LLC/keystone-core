@@ -80,7 +80,11 @@ func (rm *RestoreManager) Restore(ctx context.Context, backupName string) (*Rest
 	}
 
 	// Generate restore ID
-	restoreID := generateBackupID() // reuse the backup ID generator
+	restoreID, err := generateBackupID() // reuse the backup ID generator
+	if err != nil {
+		rm.mu.Unlock()
+		return nil, fmt.Errorf("failed to generate restore ID: %w", err)
+	}
 
 	info := &RestoreInfo{
 		ID:         restoreID,

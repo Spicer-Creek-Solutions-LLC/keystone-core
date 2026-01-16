@@ -405,6 +405,178 @@ Keystone Core uses Raft consensus to prevent split-brain:
 - Minority partition becomes read-only
 - Automatic healing when partition resolves
 
+## Failover Drills
+
+Regular failover drills validate your cluster's ability to recover from failures. Running drills builds confidence in your HA configuration and helps identify issues before they cause outages.
+
+### Why Run Failover Drills
+
+- **Validate recovery procedures** before you need them in an emergency
+- **Identify configuration issues** that may prevent successful failover
+- **Train operations staff** on recovery procedures
+- **Verify monitoring and alerting** detects failures correctly
+- **Measure recovery time** to set realistic RTO expectations
+
+### HA Configuration Recommendations
+
+Before running drills, verify your HA configuration meets best practices:
+
+```bash
+# Check HA recommendations
+kscorectl cluster ha-check
+
+# Output:
+# HA Configuration Check
+# ======================
+# ✓ Cluster has odd number of members (3) - optimal for quorum
+# ✓ Election timeout (15s) is >= 3x heartbeat interval (5s)
+# ✓ TLS enabled for cluster communication
+# ✓ Peer certificate authentication enabled
+#
+# Recommendations:
+#   (none)
+```
+
+**Critical HA recommendations:**
+- Use **odd cluster sizes** (3, 5, 7) for clear quorum decisions
+- Minimum **3 nodes** for any fault tolerance
+- **Election timeout ≥ 3× heartbeat interval** to prevent election storms
+- **TLS and peer certificate authentication** for multi-node clusters
+
+### Running a Controlled Failover Drill
+
+**Schedule the drill** during a maintenance window with the team prepared.
+
+#### Step 1: Verify Pre-Drill Health
+
+```bash
+# Confirm cluster is fully healthy
+kscorectl cluster status
+kscorectl cluster health
+
+# Record current state
+kscorectl cluster leader
+kscorectl cluster members --output yaml > /tmp/pre-drill-members.yaml
+```
+
+#### Step 2: Simulate Leader Failure
+
+**Option A: Graceful stepdown (safest)**
+```bash
+# Step down current leader, triggering election
+kscorectl cluster stepdown
+
+# Wait for new leader election
+sleep 10
+kscorectl cluster leader
+```
+
+**Option B: Process kill (tests detection)**
+```bash
+# On leader node
+kill -9 $(pgrep kscore-server)
+
+# On another node, watch for failover
+watch -n1 'kscorectl cluster status'
+```
+
+**Option C: Network partition (tests split-brain prevention)**
+```bash
+# On leader node, block cluster traffic
+iptables -A INPUT -p tcp --dport 2380 -j DROP
+iptables -A OUTPUT -p tcp --dport 2380 -j DROP
+
+# Monitor from other nodes
+kscorectl cluster status
+
+# After drill, restore network
+iptables -D INPUT -p tcp --dport 2380 -j DROP
+iptables -D OUTPUT -p tcp --dport 2380 -j DROP
+```
+
+#### Step 3: Monitor During Drill
+
+During failover, observe:
+
+```bash
+# Watch cluster status (updates every second)
+watch -n1 'kscorectl cluster status'
+
+# Monitor metrics
+curl -s localhost:9090/metrics | grep kscore_cluster
+
+# Check logs on all nodes
+journalctl -u kscore-server -f
+```
+
+**Key metrics to watch:**
+- `kscore_cluster_leader_changes_total` - should increment by 1
+- `kscore_cluster_has_quorum` - should remain 1
+- `kscore_cluster_leader_election_duration_seconds` - measure recovery time
+
+#### Step 4: Verify Recovery
+
+```bash
+# Confirm new leader elected
+kscorectl cluster leader
+
+# Verify all operations work
+kscorectl cluster status
+kscorectl exec run --target '*' 'hostname'
+
+# Restart failed member
+systemctl start kscore-server
+
+# Confirm member rejoins
+kscorectl cluster members
+```
+
+#### Step 5: Document Results
+
+Record the drill results:
+- **Failover time**: How long until new leader was elected?
+- **Service impact**: Did any agent operations fail?
+- **Alerting**: Did monitoring detect the failure?
+- **Recovery**: Did the failed member rejoin cleanly?
+
+### Success Criteria
+
+A successful failover drill should show:
+
+| Metric | Target | Critical |
+|--------|--------|----------|
+| Leader election time | < 15 seconds | < 30 seconds |
+| Quorum maintained | Always | Always |
+| Agent reconnection | < 30 seconds | < 60 seconds |
+| No data loss | Yes | Yes |
+| Alerts fired | Yes | Yes |
+
+### Recommended Drill Schedule
+
+| Environment | Frequency | Type |
+|-------------|-----------|------|
+| Development | Weekly | Graceful stepdown |
+| Staging | Bi-weekly | Process kill |
+| Production | Monthly | Graceful stepdown |
+| Production | Quarterly | Network partition |
+
+### Common Issues During Drills
+
+**Election takes too long:**
+- Check network latency between nodes
+- Verify election timeout is at least 3× heartbeat interval
+- Check for resource contention
+
+**Quorum lost during drill:**
+- Verify you have enough members (need majority)
+- Check if multiple members failed simultaneously
+- Review network configuration
+
+**Member won't rejoin:**
+- Check for data directory corruption
+- Verify TLS certificates are valid
+- Review etcd logs for errors
+
 ## See Also
 
 - [Clustering Concepts](/docs/concepts/control-plane/#high-availability)

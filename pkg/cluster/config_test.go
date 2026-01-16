@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -1137,4 +1138,380 @@ func TestEtcdEmbeddedConfigValidate_WithTLS(t *testing.T) {
 	err := config.Validate()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "client_cert_file is required")
+}
+
+// Tests for HA recommendation functions
+
+func TestCountClusterMembers(t *testing.T) {
+	tests := []struct {
+		name           string
+		initialCluster string
+		expected       int
+	}{
+		{
+			name:           "empty",
+			initialCluster: "",
+			expected:       0,
+		},
+		{
+			name:           "single node",
+			initialCluster: "kscore-1=http://192.168.1.10:2380",
+			expected:       1,
+		},
+		{
+			name:           "three nodes",
+			initialCluster: "kscore-1=http://192.168.1.10:2380,kscore-2=http://192.168.1.11:2380,kscore-3=http://192.168.1.12:2380",
+			expected:       3,
+		},
+		{
+			name:           "five nodes with spaces",
+			initialCluster: "node1=http://10.0.0.1:2380, node2=http://10.0.0.2:2380, node3=http://10.0.0.3:2380, node4=http://10.0.0.4:2380, node5=http://10.0.0.5:2380",
+			expected:       5,
+		},
+		{
+			name:           "malformed entry ignored",
+			initialCluster: "kscore-1=http://host1:2380,badentry,kscore-2=http://host2:2380",
+			expected:       2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			count := countClusterMembers(tt.initialCluster)
+			assert.Equal(t, tt.expected, count)
+		})
+	}
+}
+
+func TestIsOddClusterSize(t *testing.T) {
+	tests := []struct {
+		count    int
+		expected bool
+	}{
+		{0, false},
+		{1, true},
+		{2, false},
+		{3, true},
+		{4, false},
+		{5, true},
+		{6, false},
+		{7, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(rune('0'+tt.count)), func(t *testing.T) {
+			assert.Equal(t, tt.expected, IsOddClusterSize(tt.count))
+		})
+	}
+}
+
+func TestRecommendedClusterSize(t *testing.T) {
+	tests := []struct {
+		tolerateFailures int
+		expected         int
+	}{
+		{0, 1},
+		{1, 3},
+		{2, 5},
+		{3, 7},
+		{4, 9},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(rune('0'+tt.tolerateFailures)), func(t *testing.T) {
+			assert.Equal(t, tt.expected, RecommendedClusterSize(tt.tolerateFailures))
+		})
+	}
+}
+
+func TestHARecommendations_Disabled(t *testing.T) {
+	cfg := &Config{Enabled: false}
+	recs := cfg.HARecommendations()
+	assert.Empty(t, recs)
+}
+
+func TestHARecommendations_SingleNode(t *testing.T) {
+	cfg := &Config{
+		Enabled:           true,
+		ClusterName:       "test",
+		HeartbeatInterval: 5 * time.Second,
+		HeartbeatTimeout:  30 * time.Second,
+		ElectionTimeout:   15 * time.Second,
+		Etcd: &EtcdConfig{
+			Mode: EtcdModeEmbedded,
+			Embedded: &EtcdEmbeddedConfig{
+				InitialCluster: "kscore-1=http://192.168.1.10:2380",
+			},
+		},
+	}
+
+	recs := cfg.HARecommendations()
+
+	// Should have critical recommendation about single node
+	var foundSingleNode bool
+	for _, r := range recs {
+		if r.Level == "critical" && r.Component == "cluster" {
+			foundSingleNode = true
+			assert.Contains(t, r.Issue, "no fault tolerance")
+		}
+	}
+	assert.True(t, foundSingleNode, "Should have critical recommendation for single-node cluster")
+}
+
+func TestHARecommendations_TwoNode(t *testing.T) {
+	cfg := &Config{
+		Enabled:           true,
+		ClusterName:       "test",
+		HeartbeatInterval: 5 * time.Second,
+		HeartbeatTimeout:  30 * time.Second,
+		ElectionTimeout:   15 * time.Second,
+		Etcd: &EtcdConfig{
+			Mode: EtcdModeEmbedded,
+			Embedded: &EtcdEmbeddedConfig{
+				InitialCluster: "kscore-1=http://192.168.1.10:2380,kscore-2=http://192.168.1.11:2380",
+			},
+		},
+	}
+
+	recs := cfg.HARecommendations()
+
+	// Should have critical recommendation about 2 nodes and warning about even number
+	var foundTwoNode, foundEven bool
+	for _, r := range recs {
+		if r.Level == "critical" && r.Component == "cluster" && strings.Contains(r.Issue, "2-node") {
+			foundTwoNode = true
+		}
+		if r.Level == "warning" && r.Component == "cluster" && strings.Contains(r.Issue, "even number") {
+			foundEven = true
+		}
+	}
+	assert.True(t, foundTwoNode, "Should have critical recommendation for 2-node cluster")
+	assert.True(t, foundEven, "Should have warning for even cluster size")
+}
+
+func TestHARecommendations_ThreeNode(t *testing.T) {
+	cfg := &Config{
+		Enabled:           true,
+		ClusterName:       "test",
+		HeartbeatInterval: 5 * time.Second,
+		HeartbeatTimeout:  30 * time.Second,
+		ElectionTimeout:   15 * time.Second,
+		Etcd: &EtcdConfig{
+			Mode: EtcdModeEmbedded,
+			Embedded: &EtcdEmbeddedConfig{
+				InitialCluster: "kscore-1=http://192.168.1.10:2380,kscore-2=http://192.168.1.11:2380,kscore-3=http://192.168.1.12:2380",
+			},
+		},
+	}
+
+	recs := cfg.HARecommendations()
+
+	// Should NOT have critical about cluster size (3 is valid)
+	for _, r := range recs {
+		if r.Level == "critical" && r.Component == "cluster" {
+			if strings.Contains(r.Issue, "no fault tolerance") || strings.Contains(r.Issue, "2-node") {
+				t.Errorf("Should not have critical cluster size recommendation for 3-node cluster")
+			}
+		}
+	}
+}
+
+func TestHARecommendations_FourNode_EvenWarning(t *testing.T) {
+	cfg := &Config{
+		Enabled:           true,
+		ClusterName:       "test",
+		HeartbeatInterval: 5 * time.Second,
+		HeartbeatTimeout:  30 * time.Second,
+		ElectionTimeout:   15 * time.Second,
+		Etcd: &EtcdConfig{
+			Mode: EtcdModeEmbedded,
+			Embedded: &EtcdEmbeddedConfig{
+				InitialCluster: "kscore-1=http://h1:2380,kscore-2=http://h2:2380,kscore-3=http://h3:2380,kscore-4=http://h4:2380",
+			},
+		},
+	}
+
+	recs := cfg.HARecommendations()
+
+	// Should have warning about even number
+	var foundEven bool
+	for _, r := range recs {
+		if r.Level == "warning" && r.Component == "cluster" && strings.Contains(r.Issue, "even number") {
+			foundEven = true
+		}
+	}
+	assert.True(t, foundEven, "Should have warning for 4-node (even) cluster")
+}
+
+func TestHARecommendations_HeartbeatTimeout(t *testing.T) {
+	cfg := &Config{
+		Enabled:           true,
+		ClusterName:       "test",
+		HeartbeatInterval: 5 * time.Second,
+		HeartbeatTimeout:  10 * time.Second, // Less than 3x interval (15s)
+		ElectionTimeout:   15 * time.Second,
+		Etcd: &EtcdConfig{
+			Mode:     EtcdModeEmbedded,
+			Embedded: &EtcdEmbeddedConfig{},
+		},
+	}
+
+	recs := cfg.HARecommendations()
+
+	var foundHeartbeatRec bool
+	for _, r := range recs {
+		if r.Component == "cluster" && strings.Contains(r.Issue, "Heartbeat timeout") {
+			foundHeartbeatRec = true
+			assert.Equal(t, "warning", r.Level)
+		}
+	}
+	assert.True(t, foundHeartbeatRec, "Should have warning about heartbeat timeout")
+}
+
+func TestHARecommendations_ElectionTimeout(t *testing.T) {
+	cfg := &Config{
+		Enabled:           true,
+		ClusterName:       "test",
+		HeartbeatInterval: 5 * time.Second,
+		HeartbeatTimeout:  30 * time.Second,
+		ElectionTimeout:   10 * time.Second, // Less than heartbeat timeout
+		Etcd: &EtcdConfig{
+			Mode:     EtcdModeEmbedded,
+			Embedded: &EtcdEmbeddedConfig{},
+		},
+	}
+
+	recs := cfg.HARecommendations()
+
+	var foundElectionRec bool
+	for _, r := range recs {
+		if r.Component == "cluster" && strings.Contains(r.Issue, "Election timeout") {
+			foundElectionRec = true
+			assert.Equal(t, "warning", r.Level)
+		}
+	}
+	assert.True(t, foundElectionRec, "Should have warning about election timeout")
+}
+
+func TestHARecommendations_MultiNodeNoTLS(t *testing.T) {
+	cfg := &Config{
+		Enabled:           true,
+		ClusterName:       "test",
+		HeartbeatInterval: 5 * time.Second,
+		HeartbeatTimeout:  30 * time.Second,
+		ElectionTimeout:   15 * time.Second,
+		Etcd: &EtcdConfig{
+			Mode: EtcdModeEmbedded,
+			Embedded: &EtcdEmbeddedConfig{
+				InitialCluster: "kscore-1=http://h1:2380,kscore-2=http://h2:2380,kscore-3=http://h3:2380",
+				TLS:            nil, // No TLS
+			},
+		},
+	}
+
+	recs := cfg.HARecommendations()
+
+	var foundTLSRec bool
+	for _, r := range recs {
+		if r.Component == "tls" && strings.Contains(r.Issue, "Multi-node cluster without TLS") {
+			foundTLSRec = true
+			assert.Equal(t, "critical", r.Level)
+		}
+	}
+	assert.True(t, foundTLSRec, "Should have critical recommendation about TLS for multi-node cluster")
+}
+
+func TestValidateHARequirements(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  *Config
+		wantErr string
+	}{
+		{
+			name:    "disabled clustering",
+			config:  &Config{Enabled: false},
+			wantErr: "clustering is not enabled",
+		},
+		{
+			name: "missing etcd",
+			config: &Config{
+				Enabled: true,
+				Etcd:    nil,
+			},
+			wantErr: "etcd configuration is required",
+		},
+		{
+			name: "single node embedded",
+			config: &Config{
+				Enabled: true,
+				Etcd: &EtcdConfig{
+					Mode: EtcdModeEmbedded,
+					Embedded: &EtcdEmbeddedConfig{
+						InitialCluster: "kscore-1=http://192.168.1.10:2380",
+					},
+				},
+			},
+			wantErr: "minimum 3 members required",
+		},
+		{
+			name: "two node embedded",
+			config: &Config{
+				Enabled: true,
+				Etcd: &EtcdConfig{
+					Mode: EtcdModeEmbedded,
+					Embedded: &EtcdEmbeddedConfig{
+						InitialCluster: "kscore-1=http://h1:2380,kscore-2=http://h2:2380",
+					},
+				},
+			},
+			wantErr: "minimum 3 members required",
+		},
+		{
+			name: "three node embedded - valid",
+			config: &Config{
+				Enabled: true,
+				Etcd: &EtcdConfig{
+					Mode: EtcdModeEmbedded,
+					Embedded: &EtcdEmbeddedConfig{
+						InitialCluster: "kscore-1=http://h1:2380,kscore-2=http://h2:2380,kscore-3=http://h3:2380",
+					},
+				},
+			},
+			wantErr: "",
+		},
+		{
+			name: "external etcd - too few endpoints",
+			config: &Config{
+				Enabled: true,
+				Etcd: &EtcdConfig{
+					Mode:      EtcdModeExternal,
+					Endpoints: []string{"localhost:2379"},
+				},
+			},
+			wantErr: "minimum 3 etcd endpoints",
+		},
+		{
+			name: "external etcd - valid",
+			config: &Config{
+				Enabled: true,
+				Etcd: &EtcdConfig{
+					Mode:      EtcdModeExternal,
+					Endpoints: []string{"host1:2379", "host2:2379", "host3:2379"},
+				},
+			},
+			wantErr: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.config.ValidateHARequirements()
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
 }

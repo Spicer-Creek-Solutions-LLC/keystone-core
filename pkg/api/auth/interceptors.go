@@ -212,30 +212,43 @@ func authenticate(ctx context.Context, cfg *InterceptorConfig) (*Principal, erro
 		}
 	}
 
-	// Extract metadata
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return nil, status.Errorf(codes.Unauthenticated, "no metadata provided")
+	// Check if we have any mTLS authenticators (they don't need metadata credentials)
+	hasMTLSAuth := false
+	for _, auth := range cfg.Authenticators {
+		if auth.Name() == "mtls" {
+			hasMTLSAuth = true
+			break
+		}
 	}
+
+	// Extract metadata (may be empty for mTLS-only deployments)
+	md, ok := metadata.FromIncomingContext(ctx)
 
 	// Try to get credentials from metadata
 	credentials := ""
-	if values := md.Get(cfg.MetadataKey); len(values) > 0 {
-		credentials = values[0]
-	}
+	if ok {
+		if values := md.Get(cfg.MetadataKey); len(values) > 0 {
+			credentials = values[0]
+		}
 
-	// Also check for Authorization header (Bearer token format)
-	if credentials == "" {
-		if values := md.Get("authorization"); len(values) > 0 {
-			auth := values[0]
-			if strings.HasPrefix(strings.ToLower(auth), "bearer ") {
-				credentials = strings.TrimPrefix(auth, "Bearer ")
-				credentials = strings.TrimPrefix(credentials, "bearer ")
+		// Also check for Authorization header (Bearer token format)
+		if credentials == "" {
+			if values := md.Get("authorization"); len(values) > 0 {
+				auth := values[0]
+				if strings.HasPrefix(strings.ToLower(auth), "bearer ") {
+					credentials = strings.TrimPrefix(auth, "Bearer ")
+					credentials = strings.TrimPrefix(credentials, "bearer ")
+				}
 			}
 		}
 	}
 
-	if credentials == "" {
+	// For non-mTLS configurations, require credentials from metadata
+	// mTLS authenticators extract credentials from TLS peer info, not metadata
+	if credentials == "" && !hasMTLSAuth {
+		if !ok {
+			return nil, status.Errorf(codes.Unauthenticated, "no metadata provided")
+		}
 		return nil, status.Errorf(codes.Unauthenticated, "no credentials provided")
 	}
 

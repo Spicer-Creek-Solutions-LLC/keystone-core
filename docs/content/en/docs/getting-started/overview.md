@@ -147,7 +147,7 @@ Built-in monitoring and troubleshooting tools.
 - **Structured logging**: JSON, logfmt, text formats
 - **Distributed tracing**: OpenTelemetry integration
 - **Real-time TUI monitor**: Terminal-based dashboard
-- **Grafana dashboards**: 6 pre-built dashboards
+- **Grafana dashboards**: 10 pre-built dashboards
 
 ## Architecture Overview
 

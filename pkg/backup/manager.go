@@ -82,7 +82,11 @@ func (bm *BackupManager) Backup(ctx context.Context) (*BackupInfo, error) {
 	}
 
 	// Generate backup ID
-	backupID := generateBackupID()
+	backupID, err := generateBackupID()
+	if err != nil {
+		bm.mu.Unlock()
+		return nil, fmt.Errorf("failed to generate backup ID: %w", err)
+	}
 	backupName := fmt.Sprintf("kscore-backup-%s", time.Now().Format("20060102-150405"))
 
 	info := &BackupInfo{
@@ -445,10 +449,12 @@ func (bm *BackupManager) DeleteBackup(ctx context.Context, id string) error {
 }
 
 // generateBackupID generates a unique backup ID
-func generateBackupID() string {
+func generateBackupID() (string, error) {
 	bytes := make([]byte, 8)
-	rand.Read(bytes)
-	return hex.EncodeToString(bytes)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", fmt.Errorf("failed to generate backup ID: %w", err)
+	}
+	return hex.EncodeToString(bytes), nil
 }
 
 // noopLogger is a no-op logger implementation
