@@ -680,7 +680,7 @@ Final polish and release readiness for the 0.1.0 project announcement:
 
 ### Epic 29: Bootstrap Testing Infrastructure
 
-**Status**: Planned | **Depends on**: Epic 27, 28
+**Status**: Complete | **Depends on**: Epic 27, 28
 
 Comprehensive testing for the bootstrap experience:
 
@@ -831,7 +831,7 @@ For detailed information on support windows, upgrade paths, and compatibility gu
 | v0.26.0 | Complete | NEEDSWORK Remediation (security, API, testing, documentation, polish) |
 | v0.27.0 | Complete | Agent Bootstrap Experience (single-binary TUI-guided setup) |
 | v0.28.0 | Complete | Standard Deployment Blueprints (14 official blueprints) |
-| v0.29.0 | Planned | Bootstrap Testing Infrastructure (Docker + VM validation) |
+| v0.29.0 | Complete | Bootstrap Testing Infrastructure (Docker + VM validation) |
 | v0.100.0 | Planned | 0.1.0 Release Readiness (signing, version reset, docs audit) |
 | v1.0.0 | Future | Stable release after comprehensive testing and hardening |
 
