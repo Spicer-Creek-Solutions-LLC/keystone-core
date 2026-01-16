@@ -1,0 +1,8 @@
+ARG BASE_IMAGE=rockylinux:9
+FROM ${BASE_IMAGE}
+
+RUN dnf -y install systemd curl-minimal ca-certificates && \
+    dnf clean all
+
+VOLUME ["/sys/fs/cgroup"]
+CMD ["/usr/sbin/init"]

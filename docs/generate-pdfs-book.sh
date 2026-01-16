@@ -209,6 +209,27 @@ while (<>) {
     # Remove variation selectors (invisible Unicode modifiers)
     s/\x{FE0F}//g;
 
+    # Escape backslashes in Windows paths (registry, file paths)
+    # This handles paths like HKLM:\SOFTWARE, C:\Program Files, etc.
+    # Process multiple passes to catch all backslashes in paths like \Dir1\Dir2\Dir3
+
+    # First pass: common Windows system directories
+    s/\\(SOFTWARE|SYSTEM|Program Files|Windows|Users|Documents|AppData|ProgramData|Temp|Microsoft|CurrentControlSet|Control|Session Manager|Environment|Policies|Scripts|drivers|etc|kscore|KeystoneCore|System32)/\\textbackslash{}$1/g;
+
+    # Second pass: Windows paths - backslash followed by capital letter word
+    # BUT only after another \textbackslash{} (meaning we're in a path context)
+    # This catches the second+ segments like SOFTWARE\MyApp after SOFTWARE was already converted
+    # The pattern includes the leading backslash of the \textbackslash{} command
+    s/(\\textbackslash\{\}[A-Za-z0-9_-]+)\\([A-Z][A-Za-z0-9_-]*)/$1\\textbackslash{}$2/g;
+
+    # Third pass: common lowercase path components
+    # Catches paths like \ca.crt, \agent.yaml, \bin\, \logs\
+    s/\\(ca|cert|key|agent|bin|logs|config|apps|data|crt|yaml|exe|msi|ps1|myapp)/\\textbackslash{}$1/g;
+
+    # Fourth pass: Windows paths after colon (C:\path, HKLM:\path)
+    # Only match backslash after a colon to avoid breaking LaTeX commands
+    s/:\\([a-zA-Z])/:\\textbackslash{}$1/g;
+
     print;
 }
 PERL_SCRIPT
@@ -359,7 +380,15 @@ generate_combined_markdown() {
 
     log_info "Combining markdown for $title..."
 
-    # Start with frontmatter
+    # Copy logo to output directory for LaTeX to find
+    local logo_path=""
+    if [ -f "$SCRIPT_DIR/assets/icons/logo.png" ]; then
+        mkdir -p "$OUTPUT_DIR"
+        cp "$SCRIPT_DIR/assets/icons/logo.png" "$OUTPUT_DIR/logo.png"
+        logo_path="$OUTPUT_DIR/logo.png"
+    fi
+
+    # Start with frontmatter and cover page
     cat > "$output_file" << EOF
 ---
 title: "Keystone Core - ${title}"
@@ -376,11 +405,42 @@ linkcolor: blue
 urlcolor: blue
 header-includes:
   - \usepackage{fancyhdr}
+  - \usepackage{graphicx}
   - \pagestyle{fancy}
   - \fancyhead[L]{Keystone Core}
   - \fancyhead[R]{${title}}
   - \fancyfoot[C]{\thepage}
 ---
+
+\begin{titlepage}
+\centering
+\vspace*{2cm}
+EOF
+
+    # Add logo if available
+    if [ -n "$logo_path" ] && [ -f "$logo_path" ]; then
+        cat >> "$output_file" << EOF
+\includegraphics[width=0.35\textwidth]{${logo_path}}
+\vspace{1.5cm}
+EOF
+    fi
+
+    cat >> "$output_file" << EOF
+
+{\Huge\bfseries Keystone Core\par}
+\vspace{0.5cm}
+{\Large Cloud-Native Runtime Infrastructure Control Plane\par}
+\vspace{2cm}
+{\LARGE\bfseries ${title}\par}
+\vspace{2cm}
+{\large\itshape GitOps deploys it. We keep it running.\par}
+\vspace{3cm}
+{\large $(date '+%B %Y')\par}
+\vfill
+{\small Keystone Core Team\par}
+\end{titlepage}
+
+\newpage
 
 EOF
 
@@ -497,6 +557,16 @@ main() {
     complete_md="$OUTPUT_DIR/complete.md"
     complete_pdf="$OUTPUT_DIR/keystone-core-complete-book.pdf"
 
+    # Copy logo to output directory for LaTeX to find
+    LOGO_PATH=""
+    if [ -f "$SCRIPT_DIR/assets/icons/logo.png" ]; then
+        cp "$SCRIPT_DIR/assets/icons/logo.png" "$OUTPUT_DIR/logo.png"
+        LOGO_PATH="$OUTPUT_DIR/logo.png"
+    elif [ -f "$SCRIPT_DIR/static/images/logo.svg" ]; then
+        # SVG needs conversion, skip logo if only SVG available
+        log_warn "  Only SVG logo available, skipping cover logo"
+    fi
+
     cat > "$complete_md" << EOF
 ---
 title: "Keystone Core"
@@ -514,11 +584,43 @@ linkcolor: blue
 urlcolor: blue
 header-includes:
   - \usepackage{fancyhdr}
+  - \usepackage{graphicx}
+  - \usepackage{titling}
   - \pagestyle{fancy}
   - \fancyhead[L]{Keystone Core}
   - \fancyhead[R]{\leftmark}
   - \fancyfoot[C]{\thepage}
 ---
+
+\begin{titlepage}
+\centering
+\vspace*{2cm}
+EOF
+
+    # Add logo if available
+    if [ -n "$LOGO_PATH" ] && [ -f "$LOGO_PATH" ]; then
+        cat >> "$complete_md" << EOF
+\includegraphics[width=0.4\textwidth]{${LOGO_PATH}}
+\vspace{1.5cm}
+EOF
+    fi
+
+    cat >> "$complete_md" << EOF
+
+{\Huge\bfseries Keystone Core\par}
+\vspace{0.5cm}
+{\Large Cloud-Native Runtime Infrastructure Control Plane\par}
+\vspace{2cm}
+{\large\itshape GitOps deploys it. We keep it running.\par}
+\vspace{3cm}
+{\large Complete Documentation\par}
+\vspace{1cm}
+{\large $(date '+%B %Y')\par}
+\vfill
+{\small Keystone Core Team\par}
+\end{titlepage}
+
+\newpage
 
 EOF
 
@@ -558,6 +660,7 @@ EOF
     # Cleanup
     rm -f "$complete_md" "$complete_md_sanitized" "$complete_md_links" "$complete_md_processed"
     rm -rf "$OUTPUT_DIR/mermaid-diagrams"
+    rm -f "$OUTPUT_DIR/logo.png"  # Cleanup copied logo
 
     echo ""
     log_success "=== PDF Book Generation Complete ==="

@@ -1,0 +1,82 @@
+name: Bootstrap Tests
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  docker-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform:
+          - ubuntu-22.04
+          - debian-12
+          - rocky-9
+          - alpine-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      - name: Build agent binary
+        run: make agent
+
+      - name: Build test image
+        run: |
+          case "${{ matrix.platform }}" in
+            ubuntu-22.04) dockerfile="Dockerfile.ubuntu" ;;
+            debian-12) dockerfile="Dockerfile.debian" ;;
+            rocky-9) dockerfile="Dockerfile.rhel" ;;
+            alpine-latest) dockerfile="Dockerfile.alpine" ;;
+            *) echo "unknown platform ${{ matrix.platform }}" && exit 1 ;;
+          esac
+          docker build \
+            -t kscore-bootstrap:${{ matrix.platform }} \
+            -f test/bootstrap/containers/${dockerfile} \
+            test/bootstrap/containers
+
+      - name: Run bootstrap tests
+        env:
+          KSCORE_BOOTSTRAP_TESTS: "1"
+          KSCORE_TEST_PLATFORM: ${{ matrix.platform }}
+          KSCORE_SKIP_BUILD: "1"
+        run: |
+          mkdir -p test/bootstrap/reports
+          go test -json ./test/bootstrap/scenarios ./test/bootstrap/platforms \
+            -timeout 30m > test/bootstrap/reports/bootstrap-${{ matrix.platform }}.json
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bootstrap-reports-${{ matrix.platform }}
+          path: test/bootstrap/reports/
+
+  vm-tests:
+    runs-on: self-hosted
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      - name: Build agent binary
+        run: make agent
+
+      - name: Run VM bootstrap tests
+        env:
+          KSCORE_VM_TESTS: "1"
+          KSCORE_VM_CONFIG: ${{ secrets.KSCORE_VM_CONFIG }}
+        run: |
+          echo "$KSCORE_VM_CONFIG" > test/bootstrap/vm/config.yaml
+          go test ./test/bootstrap/vm/... -timeout 2h

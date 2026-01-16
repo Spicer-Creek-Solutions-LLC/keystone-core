@@ -87,7 +87,7 @@ states:
       maxretry = {{ .fail2ban_maxretry }}
       bantime = {{ .fail2ban_bantime }}
     mode: "0644"
-    only_if: "{{ eq .os_family \"rhel\" }}"
+    only_if: '{{ eq .os_family "rhel" }}'
     require:
       - fail2ban_config_dir
 

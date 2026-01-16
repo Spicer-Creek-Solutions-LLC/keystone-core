@@ -15,7 +15,7 @@ states:
       mkdir -p /etc/apt/keyrings/ && \
       wget -q -O - https://apt.grafana.com/gpg.key | gpg --dearmor > /etc/apt/keyrings/grafana.gpg
     creates: /etc/apt/keyrings/grafana.gpg
-    only_if: "{{ eq .os_family \"debian\" }}"
+    only_if: '{{ eq .os_family "debian" }}'
 
   # Debian: Add Grafana APT repository
   grafana_repo_debian:
@@ -24,7 +24,7 @@ states:
     name: /etc/apt/sources.list.d/grafana.list
     contents: |
       deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com stable main
-    only_if: "{{ eq .os_family \"debian\" }}"
+    only_if: '{{ eq .os_family "debian" }}'
     require:
       - grafana_repo_key_debian
 
@@ -33,7 +33,7 @@ states:
     module: cmd
     state: run
     name: apt-get update
-    only_if: "{{ eq .os_family \"debian\" }}"
+    only_if: '{{ eq .os_family "debian" }}'
     require:
       - grafana_repo_debian
 
@@ -52,14 +52,14 @@ states:
       gpgkey=https://rpm.grafana.com/gpg.key
       sslverify=1
       sslcacert=/etc/pki/tls/certs/ca-bundle.crt
-    only_if: "{{ eq .os_family \"rhel\" }}"
+    only_if: '{{ eq .os_family "rhel" }}'
 
   # Install Grafana package (Debian)
   grafana_package_debian:
     module: package
     state: installed
     name: grafana
-    only_if: "{{ eq .os_family \"debian\" }}"
+    only_if: '{{ eq .os_family "debian" }}'
     require:
       - grafana_apt_update
 
@@ -68,7 +68,7 @@ states:
     module: package
     state: installed
     name: grafana
-    only_if: "{{ eq .os_family \"rhel\" }}"
+    only_if: '{{ eq .os_family "rhel" }}'
     require:
       - grafana_repo_rhel
 

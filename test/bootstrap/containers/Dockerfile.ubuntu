@@ -1,0 +1,13 @@
+ARG VERSION=22.04
+FROM ubuntu:${VERSION}
+
+RUN apt-get update && apt-get install -y \
+    systemd systemd-sysv \
+    curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN cd /lib/systemd/system/sysinit.target.wants/ && \
+    ls | grep -v systemd-tmpfiles-setup | xargs rm -f
+
+VOLUME ["/sys/fs/cgroup"]
+CMD ["/lib/systemd/systemd"]

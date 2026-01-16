@@ -1,0 +1,49 @@
+vm_provider: ssh
+
+ssh:
+  clean_nodes: false
+  nodes:
+    - name: cp1
+      host: 192.168.1.100
+      port: 22
+      user: root
+      key_file: ~/.ssh/id_rsa
+      os: ubuntu-22.04
+      role: control-plane
+    - name: agent1
+      host: 192.168.1.110
+      port: 22
+      user: root
+      key_file: ~/.ssh/id_rsa
+      os: rocky-9
+      role: agent
+  postgres:
+    host: 192.168.1.200
+    port: 5432
+    user: keystone
+    password: secret
+    database: keystone_test
+
+vagrant:
+  box_prefix: "generic/"
+  boxes:
+    - name: cp1
+      box: ubuntu2204
+      memory: 2048
+      cpus: 2
+      role: control-plane
+    - name: agent1
+      box: rocky9
+      memory: 1024
+      cpus: 1
+      role: agent
+
+cloud:
+  region: us-west-2
+  instance_type: t3.medium
+  key_name: keystone-test
+  security_group: sg-xxx
+  subnet: subnet-xxx
+  ami_map:
+    ubuntu-22.04: ami-xxx
+    rocky-9: ami-xxx

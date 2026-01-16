@@ -72,4 +72,4 @@ states:
     module: package
     state: installed
     name: ca-certificates
-    only_if: "{{ eq .os_family \"debian\" }}"
+    only_if: '{{ eq .os_family "debian" }}'

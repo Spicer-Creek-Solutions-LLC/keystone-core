@@ -43,9 +43,9 @@ docker compose ps
 # RIGHT - tail limited logs AFTER containers are running
 docker logs --tail 50 container_name
 
-# RIGHT - short timeouts with explicit limits
-timeout 30 docker compose up -d
-timeout 60 go test -v ./pkg/specific/...
+# RIGHT - bounded timeouts with explicit limits
+timeout 300 docker compose up -d
+timeout 300 go test -v ./pkg/specific/...
 
 # RIGHT - one container operation at a time, sequentially
 ```
@@ -55,7 +55,7 @@ timeout 60 go test -v ./pkg/specific/...
 1. **NEVER use `run_in_background: true`** for any Docker/Podman command
 2. **NEVER stream logs** (`-f` or `--follow`) - use `--tail N` after the fact
 3. **NEVER run `docker compose up` without `-d`** (detached mode)
-4. **ALWAYS use timeouts** of 30-60 seconds maximum
+4. **ALWAYS use timeouts** of 300 seconds maximum
 5. **ALWAYS clean up** with `docker compose down` when done
 6. **ONE container command per message** - never parallelize
 
@@ -64,7 +64,7 @@ timeout 60 go test -v ./pkg/specific/...
 1. **NEVER use `run_in_background: true`** for test commands
 2. **Run ONE test package at a time** - not entire test suites
 3. **Use `-v` only when debugging specific failures**
-4. **Wrap with `timeout`**: `timeout 60 go test ./pkg/foo/...`
+4. **Wrap with `timeout`**: `timeout 300 go test ./pkg/foo/...`
 
 ### Why This Matters
 

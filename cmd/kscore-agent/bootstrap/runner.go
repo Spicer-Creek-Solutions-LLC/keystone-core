@@ -138,6 +138,12 @@ func (r *Runner) Run(ctx context.Context) error {
 
 	var completed []Phase
 	for i, phase := range r.phases {
+		if state.DryRun && phase.Name == PhaseVerify {
+			if state.Verbose {
+				fmt.Fprintln(state.Output, "verification skipped in dry-run mode")
+			}
+			continue
+		}
 		state.Progress.Completed = i + 1
 		state.Progress.Phase = phase.Name
 		formatPhase(state.Output, state.Progress, state.JSONOutput)

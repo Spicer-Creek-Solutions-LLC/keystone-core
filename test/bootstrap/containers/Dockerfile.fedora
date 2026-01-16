@@ -1,0 +1,8 @@
+ARG VERSION=40
+FROM fedora:${VERSION}
+
+RUN dnf -y install systemd curl ca-certificates && \
+    dnf clean all
+
+VOLUME ["/sys/fs/cgroup"]
+CMD ["/usr/sbin/init"]

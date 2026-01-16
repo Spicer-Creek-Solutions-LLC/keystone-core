@@ -16,7 +16,7 @@ states:
     module: package
     state: installed
     name: ufw
-    only_if: "{{ eq .os_family \"debian\" }}"
+    only_if: '{{ eq .os_family "debian" }}'
 
   # Set default incoming policy
   ufw_default_incoming:
@@ -24,7 +24,7 @@ states:
     state: run
     name: "ufw default {{ .firewall_default_policy }} incoming"
     unless: "ufw status verbose | grep -q 'Default: {{ .firewall_default_policy }} (incoming)'"
-    only_if: "{{ eq .os_family \"debian\" }}"
+    only_if: '{{ eq .os_family "debian" }}'
     require:
       - ufw_package
 
@@ -34,7 +34,7 @@ states:
     state: run
     name: "ufw default allow outgoing"
     unless: "ufw status verbose | grep -q 'Default: allow (outgoing)'"
-    only_if: "{{ eq .os_family \"debian\" }}"
+    only_if: '{{ eq .os_family "debian" }}'
     require:
       - ufw_package
 
@@ -44,7 +44,7 @@ states:
     state: run
     name: "ufw allow {{ .ssh_port }}/tcp"
     unless: "ufw status | grep -qE '^{{ .ssh_port }}/tcp'"
-    only_if: "{{ eq .os_family \"debian\" }}"
+    only_if: '{{ eq .os_family "debian" }}'
     require:
       - ufw_default_incoming
 
@@ -54,7 +54,7 @@ states:
     state: run
     name: "ufw --force enable"
     unless: "ufw status | grep -q 'Status: active'"
-    only_if: "{{ eq .os_family \"debian\" }}"
+    only_if: '{{ eq .os_family "debian" }}'
     require:
       - ufw_default_incoming
       - ufw_default_outgoing
@@ -69,7 +69,7 @@ states:
     module: package
     state: installed
     name: firewalld
-    only_if: "{{ eq .os_family \"rhel\" }}"
+    only_if: '{{ eq .os_family "rhel" }}'
 
   # Start firewalld service
   firewalld_service:
@@ -77,7 +77,7 @@ states:
     state: running
     name: firewalld
     enable: true
-    only_if: "{{ eq .os_family \"rhel\" }}"
+    only_if: '{{ eq .os_family "rhel" }}'
     require:
       - firewalld_package
 
@@ -87,7 +87,7 @@ states:
     state: run
     name: firewall-cmd --set-default-zone=drop
     unless: firewall-cmd --get-default-zone | grep -q drop
-    only_if: "{{ and (eq .os_family \"rhel\") (eq .firewall_default_policy \"deny\") }}"
+    only_if: '{{ and (eq .os_family "rhel") (eq .firewall_default_policy "deny") }}'
     require:
       - firewalld_service
 
@@ -97,7 +97,7 @@ states:
     state: run
     name: firewall-cmd --set-default-zone=public
     unless: firewall-cmd --get-default-zone | grep -q public
-    only_if: "{{ and (eq .os_family \"rhel\") (ne .firewall_default_policy \"deny\") }}"
+    only_if: '{{ and (eq .os_family "rhel") (ne .firewall_default_policy "deny") }}'
     require:
       - firewalld_service
 
@@ -107,6 +107,6 @@ states:
     state: run
     name: firewall-cmd --permanent --add-port={{ .ssh_port }}/tcp && firewall-cmd --reload
     unless: firewall-cmd --list-ports | grep -q "{{ .ssh_port }}/tcp"
-    only_if: "{{ eq .os_family \"rhel\" }}"
+    only_if: '{{ eq .os_family "rhel" }}'
     require:
       - firewalld_service

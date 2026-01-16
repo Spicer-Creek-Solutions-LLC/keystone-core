@@ -1,0 +1,56 @@
+test:
+  timeout: 30m
+  parallel: 4
+  retry_failed: 2
+
+docker:
+  registry: ""
+  cache_from: false
+
+platforms:
+  - name: ubuntu-22.04
+    image: Dockerfile.ubuntu
+    args:
+      VERSION: "22.04"
+    enabled: true
+  - name: debian-12
+    image: Dockerfile.debian
+    args:
+      VERSION: "12"
+    enabled: true
+  - name: rhel-9
+    image: Dockerfile.rhel
+    args:
+      BASE_IMAGE: "registry.access.redhat.com/ubi9/ubi"
+    enabled: true
+  - name: rocky-9
+    image: Dockerfile.rhel
+    args:
+      BASE_IMAGE: "rockylinux:9"
+    enabled: true
+  - name: fedora-latest
+    image: Dockerfile.fedora
+    args:
+      VERSION: "40"
+    enabled: true
+  - name: alpine-latest
+    image: Dockerfile.alpine
+    args:
+      VERSION: "3.20"
+    enabled: true
+
+scenarios:
+  - name: demo
+    enabled: true
+    timeout: 10m
+  - name: production-single
+    enabled: true
+    timeout: 15m
+  - name: production-cluster
+    enabled: true
+    timeout: 20m
+    nodes: 3
+  - name: enterprise
+    enabled: true
+    timeout: 30m
+    nodes: 5
