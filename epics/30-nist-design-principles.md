@@ -2,7 +2,7 @@
 
 ## Overview
 
-This epic establishes internal project policies, design philosophies, contributor expectations, and architectural guardrails inspired by NIST 800-53 control families. The goal is to embed security-conscious thinking into the development process itself—not to achieve formal compliance, but to ensure that security considerations are systematic, documented, and consistently applied.
+This epic establishes internal project policies, design philosophies, contributor expectations, and architectural guardrails inspired by NIST 800-53 control families. The goal is to embed security-conscious thinking into the development process itself—not to make Keystone Core 100% NIST 800-53 compliant, but to align with NIST 800-53 principles so the project is easier to adopt in NIST 800-53-compliant environments.
 
 **Epic Type**: Documentation, Policy, Contributor Guidance
 
