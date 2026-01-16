@@ -1,0 +1,26 @@
+{
+  "name": "kscore/postgres-ha",
+  "version": "0.1.0",
+  "description": "PostgreSQL HA blueprint for Keystone Core storage.",
+  "registry": "https://registry.keystonecore.io",
+  "package_url": "https://registry.keystonecore.io/blueprints/kscore/postgres-ha/0.1.0",
+  "docs_url": "https://registry.keystonecore.io/blueprints/kscore/postgres-ha",
+  "source_path": "examples/blueprints/kscore/postgres-ha",
+  "categories": [
+    "infrastructure",
+    "database"
+  ],
+  "keywords": [
+    "postgres",
+    "database",
+    "ha"
+  ],
+  "compatibility": {
+    "os": [
+      "linux"
+    ]
+  },
+  "checksum": "f20243e4c3dad1074edec7afa7727ed5f6c0d4cbca7ebc466f092ed0b34cf48f",
+  "signature": "pending",
+  "status": "draft"
+}

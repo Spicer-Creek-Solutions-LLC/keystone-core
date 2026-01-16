@@ -1,0 +1,24 @@
+{
+  "name": "kscore/metrics-only",
+  "version": "0.1.0",
+  "description": "Lightweight Prometheus-only metrics blueprint.",
+  "registry": "https://registry.keystonecore.io",
+  "package_url": "https://registry.keystonecore.io/blueprints/kscore/metrics-only/0.1.0",
+  "docs_url": "https://registry.keystonecore.io/blueprints/kscore/metrics-only",
+  "source_path": "examples/blueprints/kscore/metrics-only",
+  "categories": [
+    "observability"
+  ],
+  "keywords": [
+    "metrics",
+    "prometheus"
+  ],
+  "compatibility": {
+    "os": [
+      "linux"
+    ]
+  },
+  "checksum": "1fde928031a1fd204e95a8dabaa2eddf9871bb27074c5d4fc2feb80ae43c584f",
+  "signature": "pending",
+  "status": "draft"
+}

@@ -1,0 +1,26 @@
+{
+  "name": "kscore/demo",
+  "version": "0.1.0",
+  "description": "Demo blueprint for a single-node Keystone Core environment.",
+  "registry": "https://registry.keystonecore.io",
+  "package_url": "https://registry.keystonecore.io/blueprints/kscore/demo/0.1.0",
+  "docs_url": "https://registry.keystonecore.io/blueprints/kscore/demo",
+  "source_path": "examples/blueprints/kscore/demo",
+  "categories": [
+    "core",
+    "demo"
+  ],
+  "keywords": [
+    "demo",
+    "lab",
+    "bootstrap"
+  ],
+  "compatibility": {
+    "os": [
+      "linux"
+    ]
+  },
+  "checksum": "f0eb9ca82d72cfa0185e2de2be99f1b457833417ab5fa214befb561048db70eb",
+  "signature": "pending",
+  "status": "draft"
+}

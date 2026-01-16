@@ -1,0 +1,26 @@
+{
+  "name": "kscore/proxy-agents",
+  "version": "0.1.0",
+  "description": "Proxy agents blueprint for unmanaged device integrations.",
+  "registry": "https://registry.keystonecore.io",
+  "package_url": "https://registry.keystonecore.io/blueprints/kscore/proxy-agents/0.1.0",
+  "docs_url": "https://registry.keystonecore.io/blueprints/kscore/proxy-agents",
+  "source_path": "examples/blueprints/kscore/proxy-agents",
+  "categories": [
+    "integrations"
+  ],
+  "keywords": [
+    "proxy",
+    "ssh",
+    "snmp",
+    "winrm"
+  ],
+  "compatibility": {
+    "os": [
+      "linux"
+    ]
+  },
+  "checksum": "a2033447377557684a5808a67f21a0232929a36a8c20e38541294d0af164148c",
+  "signature": "pending",
+  "status": "draft"
+}

@@ -15,4 +15,11 @@ include:
 
 ## Parameters
 
-See `blueprint.yaml` for parameter definitions.
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `backends` | array | [local] | Storage backends |
+| `s3_bucket` | string |  | S3 bucket name |
+| `s3_region` | string |  | S3 region |
+| `gcs_bucket` | string |  | GCS bucket name |
+| `azure_container` | string |  | Azure container name |
+| `mirror_groups` | array | [] | Mirror group configurations |

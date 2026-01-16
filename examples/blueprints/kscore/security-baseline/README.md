@@ -37,6 +37,7 @@ include:
 | `ssh_client_alive_count_max` | integer | 2 | Client alive count max |
 | `ssh_allowed_users` | array | [] | Users allowed SSH access |
 | `ssh_allowed_groups` | array | [] | Groups allowed SSH access |
+| `os_family` | string | debian | OS family for package selection |
 
 ### Firewall Configuration
 
@@ -55,6 +56,29 @@ include:
 | `password_min_days` | integer | 7 | Password min age |
 | `password_warn_days` | integer | 14 | Password warning days |
 | `umask` | string | 027 | Default umask |
+
+### Audit Logging
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `audit_max_log_file` | integer | 50 | Max audit log size in MB |
+| `audit_num_logs` | integer | 10 | Number of audit log files |
+
+### Automatic Updates
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `updates_auto_reboot` | boolean | false | Enable auto reboots |
+| `updates_reboot_time` | string | 02:00 | Reboot time |
+| `hostname` | string | localhost | Hostname for notifications |
+
+### Fail2ban
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `fail2ban_bantime` | integer | 3600 | Ban time in seconds |
+| `fail2ban_findtime` | integer | 600 | Find time in seconds |
+| `fail2ban_maxretry` | integer | 5 | Max retry count |
 
 ### Feature Flags
 

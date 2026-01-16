@@ -1,0 +1,25 @@
+{
+  "name": "kscore/gitops-integration",
+  "version": "0.1.0",
+  "description": "GitOps integration blueprint for ArgoCD and Flux.",
+  "registry": "https://registry.keystonecore.io",
+  "package_url": "https://registry.keystonecore.io/blueprints/kscore/gitops-integration/0.1.0",
+  "docs_url": "https://registry.keystonecore.io/blueprints/kscore/gitops-integration",
+  "source_path": "examples/blueprints/kscore/gitops-integration",
+  "categories": [
+    "integrations"
+  ],
+  "keywords": [
+    "gitops",
+    "argocd",
+    "flux"
+  ],
+  "compatibility": {
+    "os": [
+      "linux"
+    ]
+  },
+  "checksum": "e153a4099f85af6e6a872edb410d00c35bd6bfa85395603752b4da1d141456f8",
+  "signature": "pending",
+  "status": "draft"
+}

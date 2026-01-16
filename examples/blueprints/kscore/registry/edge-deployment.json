@@ -1,0 +1,26 @@
+{
+  "name": "kscore/edge-deployment",
+  "version": "0.1.0",
+  "description": "Edge deployment blueprint for lightweight Keystone Core nodes.",
+  "registry": "https://registry.keystonecore.io",
+  "package_url": "https://registry.keystonecore.io/blueprints/kscore/edge-deployment/0.1.0",
+  "docs_url": "https://registry.keystonecore.io/blueprints/kscore/edge-deployment",
+  "source_path": "examples/blueprints/kscore/edge-deployment",
+  "categories": [
+    "platform",
+    "edge"
+  ],
+  "keywords": [
+    "edge",
+    "iot",
+    "offline"
+  ],
+  "compatibility": {
+    "os": [
+      "linux"
+    ]
+  },
+  "checksum": "060fc4ca9b2c865eb5ec26ddcbb649678e6b85afa0831d07e1c992d9310ec19a",
+  "signature": "pending",
+  "status": "draft"
+}

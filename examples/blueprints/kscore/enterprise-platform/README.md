@@ -35,4 +35,15 @@ Defaults are enterprise-friendly, but you can toggle them:
 
 ## Parameters
 
+Key parameters:
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `cluster_name` | string | Cluster identifier |
+| `control_plane_nodes` | array | Control plane node addresses |
+| `regions` | array | Region identifiers |
+| `postgres_host` | string | PostgreSQL host |
+| `postgres_password` | string | PostgreSQL password |
+| `identity_provider` | string | Identity provider |
+
 See `blueprint.yaml` for the full parameter list.

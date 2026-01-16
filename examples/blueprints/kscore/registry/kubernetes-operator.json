@@ -1,0 +1,26 @@
+{
+  "name": "kscore/kubernetes-operator",
+  "version": "0.1.0",
+  "description": "Kubernetes operator blueprint for Keystone Core.",
+  "registry": "https://registry.keystonecore.io",
+  "package_url": "https://registry.keystonecore.io/blueprints/kscore/kubernetes-operator/0.1.0",
+  "docs_url": "https://registry.keystonecore.io/blueprints/kscore/kubernetes-operator",
+  "source_path": "examples/blueprints/kscore/kubernetes-operator",
+  "categories": [
+    "platform",
+    "kubernetes"
+  ],
+  "keywords": [
+    "kubernetes",
+    "operator",
+    "rbac"
+  ],
+  "compatibility": {
+    "os": [
+      "linux"
+    ]
+  },
+  "checksum": "7ed8b33f5894dd08bd94a9544038a556b278b1921b61431be034b1e375e76ae8",
+  "signature": "pending",
+  "status": "draft"
+}

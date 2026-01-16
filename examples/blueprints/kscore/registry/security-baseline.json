@@ -1,0 +1,29 @@
+{
+  "name": "kscore/security-baseline",
+  "version": "1.0.0",
+  "description": "Security hardening blueprint implementing industry best practices.",
+  "registry": "https://registry.keystonecore.io",
+  "package_url": "https://registry.keystonecore.io/blueprints/kscore/security-baseline/1.0.0",
+  "docs_url": "https://registry.keystonecore.io/blueprints/kscore/security-baseline",
+  "source_path": "examples/blueprints/kscore/security-baseline",
+  "categories": [
+    "security",
+    "compliance"
+  ],
+  "keywords": [
+    "security",
+    "hardening",
+    "compliance",
+    "ssh",
+    "firewall",
+    "audit"
+  ],
+  "compatibility": {
+    "os": [
+      "linux"
+    ]
+  },
+  "checksum": "8621eac8838005eadfaa92e0e077a0512f7353e028b6f09903579ced40c1fb37",
+  "signature": "pending",
+  "status": "draft"
+}

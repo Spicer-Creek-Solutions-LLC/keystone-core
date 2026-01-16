@@ -1,0 +1,26 @@
+{
+  "name": "kscore/nats-cluster",
+  "version": "0.1.0",
+  "description": "NATS cluster blueprint for Keystone Core deployments.",
+  "registry": "https://registry.keystonecore.io",
+  "package_url": "https://registry.keystonecore.io/blueprints/kscore/nats-cluster/0.1.0",
+  "docs_url": "https://registry.keystonecore.io/blueprints/kscore/nats-cluster",
+  "source_path": "examples/blueprints/kscore/nats-cluster",
+  "categories": [
+    "infrastructure",
+    "messaging"
+  ],
+  "keywords": [
+    "nats",
+    "messaging",
+    "cluster"
+  ],
+  "compatibility": {
+    "os": [
+      "linux"
+    ]
+  },
+  "checksum": "a055ac04d12f8100e33cebbcb9536592721b6cf92c4b3482b72944054847a60e",
+  "signature": "pending",
+  "status": "draft"
+}

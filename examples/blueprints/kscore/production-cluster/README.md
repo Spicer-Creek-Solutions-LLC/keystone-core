@@ -29,4 +29,14 @@ Enable optional components via blueprint features:
 
 ## Parameters
 
+Key parameters:
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `cluster_name` | string | Cluster identifier |
+| `control_plane_nodes` | array | Control plane node addresses |
+| `postgres_host` | string | PostgreSQL host |
+| `postgres_password` | string | PostgreSQL password |
+| `nats_mode` | string | NATS deployment mode |
+
 See `blueprint.yaml` for the full parameter list.

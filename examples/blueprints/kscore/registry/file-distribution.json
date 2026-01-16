@@ -1,0 +1,26 @@
+{
+  "name": "kscore/file-distribution",
+  "version": "0.1.0",
+  "description": "File distribution server blueprint for Keystone Core.",
+  "registry": "https://registry.keystonecore.io",
+  "package_url": "https://registry.keystonecore.io/blueprints/kscore/file-distribution/0.1.0",
+  "docs_url": "https://registry.keystonecore.io/blueprints/kscore/file-distribution",
+  "source_path": "examples/blueprints/kscore/file-distribution",
+  "categories": [
+    "integrations",
+    "storage"
+  ],
+  "keywords": [
+    "file-distribution",
+    "storage",
+    "nats"
+  ],
+  "compatibility": {
+    "os": [
+      "linux"
+    ]
+  },
+  "checksum": "e02240be203a27b918f2dcbb4295b008cfb9b7fb78b800335fd2765d43a3bb34",
+  "signature": "pending",
+  "status": "draft"
+}

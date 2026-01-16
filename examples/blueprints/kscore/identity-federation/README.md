@@ -16,4 +16,8 @@ include:
 
 ## Parameters
 
-See `blueprint.yaml` for parameter definitions.
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `local_domain` | string | (required) | Local trust domain |
+| `federated_domains` | array | [] | Federated trust domains |
+| `federation_policy` | string | verify | Federation policy |

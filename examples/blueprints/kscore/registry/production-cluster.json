@@ -1,0 +1,26 @@
+{
+  "name": "kscore/production-cluster",
+  "version": "0.1.0",
+  "description": "Production-ready HA cluster blueprint for Keystone Core.",
+  "registry": "https://registry.keystonecore.io",
+  "package_url": "https://registry.keystonecore.io/blueprints/kscore/production-cluster/0.1.0",
+  "docs_url": "https://registry.keystonecore.io/blueprints/kscore/production-cluster",
+  "source_path": "examples/blueprints/kscore/production-cluster",
+  "categories": [
+    "core",
+    "production"
+  ],
+  "keywords": [
+    "production",
+    "ha",
+    "cluster"
+  ],
+  "compatibility": {
+    "os": [
+      "linux"
+    ]
+  },
+  "checksum": "4c045754b3c5e58e36163685fc642ef48208ff5cec8b9da4f0aa9a3ff25f1ce6",
+  "signature": "pending",
+  "status": "draft"
+}

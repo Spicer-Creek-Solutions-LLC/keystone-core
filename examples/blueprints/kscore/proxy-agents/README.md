@@ -16,4 +16,9 @@ include:
 
 ## Parameters
 
-See `blueprint.yaml` for parameter definitions.
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `credential_backend` | string | file | Credential backend |
+| `vault_address` | string |  | Vault server address |
+| `discovery_enabled` | boolean | false | Enable device discovery |
+| `discovery_subnets` | array | [] | Subnets to scan |

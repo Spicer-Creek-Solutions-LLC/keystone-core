@@ -1,0 +1,26 @@
+{
+  "name": "kscore/enterprise-platform",
+  "version": "0.1.0",
+  "description": "Enterprise multi-region platform blueprint for Keystone Core.",
+  "registry": "https://registry.keystonecore.io",
+  "package_url": "https://registry.keystonecore.io/blueprints/kscore/enterprise-platform/0.1.0",
+  "docs_url": "https://registry.keystonecore.io/blueprints/kscore/enterprise-platform",
+  "source_path": "examples/blueprints/kscore/enterprise-platform",
+  "categories": [
+    "core",
+    "enterprise"
+  ],
+  "keywords": [
+    "enterprise",
+    "multi-region",
+    "compliance"
+  ],
+  "compatibility": {
+    "os": [
+      "linux"
+    ]
+  },
+  "checksum": "fe9b974625532b2ee4d478a32ecd4447fc8856b09b3519f76a256b339d687daa",
+  "signature": "pending",
+  "status": "draft"
+}

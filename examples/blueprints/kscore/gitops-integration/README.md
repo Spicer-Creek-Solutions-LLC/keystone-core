@@ -16,4 +16,10 @@ include:
 
 ## Parameters
 
-See `blueprint.yaml` for parameter definitions.
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `argocd_enabled` | boolean | true | Enable ArgoCD integration |
+| `flux_enabled` | boolean | true | Enable Flux integration |
+| `verification_enabled` | boolean | true | Enable deployment verification |
+| `rollback_enabled` | boolean | true | Enable automatic rollback |
+| `git_repos` | array | [] | Git repositories to sync |

@@ -1,0 +1,26 @@
+{
+  "name": "kscore/identity-federation",
+  "version": "0.1.0",
+  "description": "Identity federation blueprint for Keystone Core trust domains.",
+  "registry": "https://registry.keystonecore.io",
+  "package_url": "https://registry.keystonecore.io/blueprints/kscore/identity-federation/0.1.0",
+  "docs_url": "https://registry.keystonecore.io/blueprints/kscore/identity-federation",
+  "source_path": "examples/blueprints/kscore/identity-federation",
+  "categories": [
+    "security",
+    "identity"
+  ],
+  "keywords": [
+    "identity",
+    "spiffe",
+    "federation"
+  ],
+  "compatibility": {
+    "os": [
+      "linux"
+    ]
+  },
+  "checksum": "d1de762292b7ad412614f7a5eb3223837c4913adf9fdf6de95d86a63de6c3713",
+  "signature": "pending",
+  "status": "draft"
+}

@@ -31,6 +31,9 @@ include:
 | `prometheus_storage_path` | string | /var/lib/prometheus | Data directory |
 | `prometheus_port` | integer | 9090 | Web UI port |
 | `prometheus_scrape_interval` | string | 15s | Default scrape interval |
+| `alertmanager_enabled` | boolean | true | Include Alertmanager targets in Prometheus config |
+| `node_exporter_enabled` | boolean | true | Include Node Exporter targets in Prometheus config |
+| `os_family` | string | debian | OS family for package selection |
 
 ### Grafana
 
@@ -41,6 +44,8 @@ include:
 | `grafana_admin_user` | string | admin | Admin username |
 | `grafana_admin_password` | string | **required** | Admin password |
 | `grafana_domain` | string | localhost | Server domain |
+| `grafana_root_url` | string | %(protocol)s://%(domain)s:%(http_port)s/ | Root URL |
+| `grafana_secret_key` | string | (generated) | Secret key for signing |
 
 ### Node Exporter
 
