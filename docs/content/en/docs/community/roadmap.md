@@ -685,7 +685,7 @@ Final polish and release readiness for the 0.1.0 project announcement:
 Comprehensive testing for the bootstrap experience:
 
 - **Docker-Based Tests**: CI/CD integration, all bootstrap scenarios
-- **VM-Based Tests**: Real VM validation with user-provided IPs/credentials
+- **VM-Based Tests**: Deferred to Epic 100 (0.1.0 release readiness)
 - **Platform Matrix**: Ubuntu, Debian, RHEL, Rocky, Fedora, Alpine
 - **Cluster Tests**: Multi-node formation, join scenarios, failover
 - **Blueprint Tests**: All blueprints tested across platforms
@@ -831,8 +831,8 @@ For detailed information on support windows, upgrade paths, and compatibility gu
 | v0.26.0 | Complete | NEEDSWORK Remediation (security, API, testing, documentation, polish) |
 | v0.27.0 | Complete | Agent Bootstrap Experience (single-binary TUI-guided setup) |
 | v0.28.0 | Complete | Standard Deployment Blueprints (14 official blueprints) |
-| v0.29.0 | Complete | Bootstrap Testing Infrastructure (Docker + VM validation) |
-| v0.100.0 | Planned | 0.1.0 Release Readiness (signing, version reset, docs audit) |
+| v0.29.0 | Complete | Bootstrap Testing Infrastructure (Docker-based coverage) |
+| v0.100.0 | Planned | 0.1.0 Release Readiness (signing, version reset, docs audit, VM validation) |
 | v1.0.0 | Future | Stable release after comprehensive testing and hardening |
 
 ### Release Cadence

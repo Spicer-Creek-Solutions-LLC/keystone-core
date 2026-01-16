@@ -17,6 +17,7 @@ jobs:
           - debian-12
           - rocky-9
           - alpine-latest
+          - fedora-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -35,6 +36,7 @@ jobs:
             debian-12) dockerfile="Dockerfile.debian" ;;
             rocky-9) dockerfile="Dockerfile.rhel" ;;
             alpine-latest) dockerfile="Dockerfile.alpine" ;;
+            fedora-latest) dockerfile="Dockerfile.fedora" ;;
             *) echo "unknown platform ${{ matrix.platform }}" && exit 1 ;;
           esac
           docker build \
@@ -49,7 +51,7 @@ jobs:
           KSCORE_SKIP_BUILD: "1"
         run: |
           mkdir -p test/bootstrap/reports
-          go test -json ./test/bootstrap/scenarios ./test/bootstrap/platforms \
+          timeout 300 go test -json ./test/bootstrap/scenarios ./test/bootstrap/platforms \
             -timeout 30m > test/bootstrap/reports/bootstrap-${{ matrix.platform }}.json
 
       - name: Upload reports

@@ -2,20 +2,18 @@
 
 ## Overview
 
-Create a comprehensive testing infrastructure that validates the entire bootstrap experience across multiple deployment scenarios, platforms, and configurations. This includes both containerized tests for CI/CD and real VM-based tests for production validation.
+Create a comprehensive testing infrastructure that validates the bootstrap experience across multiple deployment scenarios, platforms, and configurations. This epic focuses on containerized CI coverage; VM-based validation is deferred to Epic 100.
 
 **Goal**: Ensure the bootstrap experience works reliably across all supported platforms and deployment modes through automated testing.
 
 ## Success Criteria
 
 1. Docker-based tests cover all bootstrap scenarios in CI/CD
-2. VM-based tests validate real-world deployments
-3. Test configuration supports external VM provisioning (user-provided IPs, credentials)
-4. Multi-platform matrix testing (Ubuntu, Debian, RHEL, Rocky, Fedora, Alpine)
-5. All deployment modes tested (demo, production, enterprise)
-6. Blueprint application testing
-7. Upgrade and rollback testing
-8. Performance benchmarks for bootstrap times
+2. Multi-platform matrix testing (Ubuntu, Debian, RHEL, Rocky, Fedora, Alpine)
+3. All deployment modes tested (demo, production, enterprise)
+4. Blueprint application testing
+5. Upgrade and rollback testing
+6. Performance benchmarks for bootstrap times
 
 ## User Stories
 
@@ -30,16 +28,8 @@ Create a comprehensive testing infrastructure that validates the entire bootstra
 - Coverage of all bootstrap modes
 - Clear failure reporting
 
-### US29.2: VM-Based Validation
-**As a** release engineer
-**I want to** validate bootstrap on real VMs before release
-**So that** I'm confident the release works in production environments
-
-**Acceptance Criteria**:
-- Test framework accepts external VM configuration
-- Tests provision clean VMs or use provided VMs
-- Full deployment scenarios validated
-- Detailed test reports generated
+### US29.2: VM-Based Validation (Deferred)
+**Moved to Epic 100** as part of 0.1.0 release readiness. VM-based validation and provider integration are out of scope for Epic 29.
 
 ### US29.3: Platform Matrix Testing
 **As a** maintainer
@@ -386,7 +376,7 @@ func TestBootstrapJoinAsAgent(t *testing.T) {
 }
 ```
 
-### Phase 4: VM-Based Test Infrastructure (Weeks 9-12)
+### Phase 4: VM-Based Test Infrastructure (Weeks 9-12) — Deferred to Epic 100
 
 #### T4.1: VM Configuration System
 ```yaml
@@ -805,7 +795,7 @@ jobs:
           go test -v ./test/bootstrap/scenarios/cluster_test.go \
             -timeout 45m
 
-  # VM tests run on self-hosted runners with VM access
+  # VM tests run on self-hosted runners with VM access (moved to Epic 100)
   vm-tests:
     runs-on: self-hosted
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -907,7 +897,7 @@ This epic IS the testing strategy. Meta-testing includes:
 ## Definition of Done
 
 - [ ] Docker-based test framework implemented
-- [ ] VM-based test framework with SSH provider
+- [ ] VM-based test framework with SSH provider (moved to Epic 100)
 - [ ] Test images for all supported platforms
 - [ ] Demo mode test suite passing
 - [ ] Production mode test suite passing
@@ -915,6 +905,11 @@ This epic IS the testing strategy. Meta-testing includes:
 - [ ] Blueprint application tests passing
 - [ ] Platform matrix tests passing (all distributions)
 - [ ] GitHub Actions workflow configured
-- [ ] VM test configuration documented
+- [ ] VM test configuration documented (moved to Epic 100)
+
+## Deferred to Epic 100
+
+The following items are moved to Epic 100 (0.1.0 Release Readiness):
+- VM-based validation (SSH provider, VM scenarios, and self-hosted CI job)
 - [ ] Test documentation complete
 - [ ] Code review approved

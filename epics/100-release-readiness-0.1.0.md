@@ -9,9 +9,10 @@ Prepare Keystone Core for the 0.1.0 project announcement by completing final rel
 ## Success Criteria
 
 1. Blueprint catalog signing and registry verification complete
-2. All version references in code, docs, and examples normalized to 0.1.0
-3. Final release checklist and announcement notes prepared
-4. No lingering draft/placeholder content in official documentation
+2. VM-based bootstrap validation completed on real hosts
+3. All version references in code, docs, and examples normalized to 0.1.0
+4. Final release checklist and announcement notes prepared
+5. No lingering draft/placeholder content in official documentation
 
 ## Scope
 
@@ -29,6 +30,11 @@ Prepare Keystone Core for the 0.1.0 project announcement by completing final rel
 - Update release notes and compatibility docs
 - Validate examples against 0.1.0 references
 - Remove or flag outdated references (0.10.x, 1.x, etc.)
+
+### VM-Based Bootstrap Validation (from Epic 29)
+- Run bootstrap scenarios against real VMs (control-plane + agent)
+- Validate join flows, blueprint application, and basic health checks
+- Record results and document known limitations
 
 ### Release Checklist
 - Final QA checklist (tests, packaging, registry availability)
@@ -50,9 +56,15 @@ Prepare Keystone Core for the 0.1.0 project announcement by completing final rel
 - Update release notes and compatibility docs
 - Draft announcement and checklist
 
+### Phase 4: VM Bootstrap Validation
+- Configure VM test inventory
+- Run VM scenarios and capture results
+- Document VM findings
+
 ## Definition of Done
 
 - [ ] Blueprint registry signing complete
 - [ ] Version references normalized to 0.1.0
 - [ ] Documentation audit complete
+- [ ] VM bootstrap validation complete
 - [ ] Release checklist approved
