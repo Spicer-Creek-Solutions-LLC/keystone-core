@@ -6,7 +6,7 @@ Create a comprehensive set of official blueprints that enable users to deploy co
 
 **Goal**: Provide battle-tested, well-documented blueprints that work out-of-the-box with `kscore-agent bootstrap` for any deployment scenario.
 
-**Status**: In Progress (Implementation + docs complete, publishing/testing pending)
+**Status**: Complete (publishing/testing pending)
 
 ## Success Criteria
 
@@ -578,3 +578,7 @@ Lightweight edge deployment configuration.
 - [ ] Integration tests passing
 - [ ] Cross-platform testing complete
 - [ ] Code review approved
+
+## Deferred Work
+
+- Blueprint signing and registry verification are deferred to Epic 100 as part of the 0.1.0 release readiness pass.

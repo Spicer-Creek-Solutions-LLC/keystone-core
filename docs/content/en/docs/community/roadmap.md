@@ -25,10 +25,10 @@ Keystone Core aims to be the operational layer between GitOps/IaC deployments an
 ---
 
 ```
-COMPLETED (Epics 1-27)                 IN PROGRESS (Epic 28) / PLANNED (Epic 29)
+COMPLETED (Epics 1-28)                 PLANNED (Epics 29, 100)
 ───────────────────────────────────────────────────────────────────────
-Epic 1: Core Infrastructure            Epic 28: Standard Deployment Blueprints
-Epic 2: Remote Execution               Epic 29: Bootstrap Testing Infrastructure
+Epic 1: Core Infrastructure            Epic 29: Bootstrap Testing Infrastructure
+Epic 2: Remote Execution               Epic 100: 0.1.0 Release Readiness
 Epic 3: State Management
                                        
 
@@ -57,6 +57,7 @@ Epic 24: Document Review
 Epic 25: Blueprints
 Epic 26: NEEDSWORK Remediation
 Epic 27: Agent Bootstrap Experience
+Epic 28: Standard Deployment Blueprints
 ```
 
 ## Completed Milestones
@@ -647,7 +648,7 @@ Address all issues identified in the comprehensive project review (NEEDSWORK.md)
 
 ### Epic 28: Standard Deployment Blueprints
 
-**Status**: In Progress | **Depends on**: Epic 25, 27
+**Status**: Complete | **Depends on**: Epic 25, 27
 
 Official blueprints for all deployment scenarios (implements Epic 25 blueprint runtime):
 
@@ -660,7 +661,20 @@ Official blueprints for all deployment scenarios (implements Epic 25 blueprint r
 
 14 total blueprints with full documentation and parameter validation.
 
-**Status Update**: Implementation and documentation complete; publishing and integration testing pending.
+**Status Update**: Implementation complete; publishing/testing deferred to Epic 100.
+
+---
+
+### Epic 100: 0.1.0 Release Readiness
+
+**Status**: Planned | **Depends on**: All completed epics
+
+Final polish and release readiness for the 0.1.0 project announcement:
+
+- Blueprint signing + registry verification for official catalog
+- Version string normalization (reset project references to 0.1.0)
+- Full audit of docs + examples for version consistency
+- Release checklist and announcement notes
 
 ---
 
@@ -816,8 +830,9 @@ For detailed information on support windows, upgrade paths, and compatibility gu
 | v0.25.0 | Current | Epics 1-27 complete (Core through bootstrap experience) |
 | v0.26.0 | Complete | NEEDSWORK Remediation (security, API, testing, documentation, polish) |
 | v0.27.0 | Complete | Agent Bootstrap Experience (single-binary TUI-guided setup) |
-| v0.28.0 | In Progress | Standard Deployment Blueprints (14 official blueprints) |
+| v0.28.0 | Complete | Standard Deployment Blueprints (14 official blueprints) |
 | v0.29.0 | Planned | Bootstrap Testing Infrastructure (Docker + VM validation) |
+| v0.100.0 | Planned | 0.1.0 Release Readiness (signing, version reset, docs audit) |
 | v1.0.0 | Future | Stable release after comprehensive testing and hardening |
 
 ### Release Cadence
