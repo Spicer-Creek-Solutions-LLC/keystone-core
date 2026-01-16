@@ -23,7 +23,7 @@ Keystone Core is a cloud-native runtime infrastructure control plane that provid
 
 | Status         | Description |
 |----------------|-------------|
-| **Epics 1-25** | COMPLETE    |
+| **Epics 1-25, 27** | COMPLETE |
 
 ### Completed Capabilities
 
@@ -373,7 +373,7 @@ hugo         # Build to docs/public/
 | 24    | Complete | Documentation review, validation, example testing, gap analysis                                                    |
 | 25    | Complete | Blueprints - pre-packaged, reusable state collections (design)                                                     |
 | 26    | Planned  | NEEDSWORK remediation - security, API, testing, documentation, code quality improvements                           |
-| 27    | Planned  | Agent bootstrap experience - single-binary TUI-guided bootstrap for all deployment modes                           |
+| 27    | Complete | Agent bootstrap experience - single-binary TUI-guided bootstrap for all deployment modes                           |
 | 28    | Planned  | Standard deployment blueprints - 14 official blueprints for demo/production/enterprise                             |
 | 29    | Planned  | Bootstrap testing infrastructure - Docker and VM-based validation across platforms                                 |
 

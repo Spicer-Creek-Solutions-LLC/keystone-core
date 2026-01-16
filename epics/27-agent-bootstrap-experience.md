@@ -6,6 +6,8 @@ Transform the Keystone Core getting started experience from a multi-step manual 
 
 **Goal**: Download one binary (`kscore-agent`), run `kscore-agent bootstrap`, answer a few questions, and have a working Keystone Core deployment.
 
+**Status**: Complete
+
 ## Success Criteria
 
 1. Single binary bootstrap - no pre-requisites beyond the agent binary
@@ -412,13 +414,13 @@ kscore-agent bootstrap --non-interactive
 
 ## Definition of Done
 
-- [ ] `kscore-agent bootstrap` command implemented
-- [ ] Interactive TUI with all deployment modes
-- [ ] All CLI flags and environment variables working
-- [ ] Package repository configuration for major distros
-- [ ] Certificate generation and distribution
-- [ ] Service installation and configuration
-- [ ] Health verification after bootstrap
-- [ ] Documentation complete
-- [ ] Unit and integration tests passing
-- [ ] Code review approved
+- [x] `kscore-agent bootstrap` command implemented
+- [x] Interactive TUI with all deployment modes
+- [x] All CLI flags and environment variables working
+- [x] Package repository configuration for major distros
+- [x] Certificate generation and distribution
+- [x] Service installation and configuration
+- [x] Health verification after bootstrap
+- [x] Documentation complete
+- [x] Unit and integration tests passing
+- [x] Code review approved

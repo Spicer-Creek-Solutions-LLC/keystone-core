@@ -25,12 +25,12 @@ Keystone Core aims to be the operational layer between GitOps/IaC deployments an
 ---
 
 ```
-COMPLETED (Epics 1-25)                 PLANNED (Epics 26-29)
+COMPLETED (Epics 1-25, 27)             PLANNED (Epics 26, 28-29)
 ───────────────────────────────────────────────────────────────────────
 Epic 1: Core Infrastructure            Epic 26: NEEDSWORK Remediation
-Epic 2: Remote Execution               Epic 27: Agent Bootstrap Experience
-Epic 3: State Management               Epic 28: Standard Deployment Blueprints
-                                       Epic 29: Bootstrap Testing Infrastructure
+Epic 2: Remote Execution               Epic 28: Standard Deployment Blueprints
+Epic 3: State Management               Epic 29: Bootstrap Testing Infrastructure
+                                       
 
                                        Future Considerations:
 Epic 4: Event System                     - Multi-Tenancy & Namespace Isolation
@@ -55,6 +55,7 @@ Epic 22: File Distribution
 Epic 23: Self-Management
 Epic 24: Document Review
 Epic 25: Blueprints
+Epic 27: Agent Bootstrap Experience
 ```
 
 ## Completed Milestones
@@ -599,6 +600,28 @@ Pre-packaged, reusable state collections (similar to Salt Formulas, Ansible Role
 
 ---
 
+### Epic 27: Agent Bootstrap Experience ✅
+
+**Status**: Complete | **Depends on**: Epic 23, 25
+
+Single-binary bootstrap experience for demo, production, and full-scale deployments:
+
+- **Interactive TUI**: Bubble Tea wizard with mode selection, config screens, and progress
+- **CLI/Env/Config**: Full flag + environment variable parity with YAML config support
+- **Install Engine**: Package repo setup, version pinning, rollback tracking, service setup
+- **Certificates**: Self-signed CA, CSR generation, renewal scaffolding
+- **Storage**: SQLite bootstrap, PostgreSQL validation, migration hook
+- **NATS**: Embedded, external, cluster, and leaf configuration
+- **Blueprints**: Parameterized hooks, verification, rendered state export
+- **Verification**: Service, API, NATS/Postgres connectivity and diagnostics capture
+
+**Key Achievements**:
+- Single command `kscore-agent bootstrap` for end-to-end setup
+- Automated validation and rollback for safer installs
+- Diagnostics bundle for troubleshooting failed runs
+
+---
+
 ## Planned Epics
 
 ### Epic 26: NEEDSWORK Remediation
@@ -620,21 +643,6 @@ Address all issues identified in the comprehensive project review (NEEDSWORK.md)
 - **Low** (13 issues): Polish and cleanup
 
 **Estimated**: 580 hours / 16 weeks
-
----
-
-### Epic 27: Agent Bootstrap Experience
-
-**Status**: Planned | **Depends on**: Epic 23, 25
-
-Transform getting started from multi-step manual process to single-binary TUI-guided bootstrap:
-
-- **Single Binary Bootstrap**: Download agent, run `kscore-agent bootstrap`, answer questions, done
-- **Interactive TUI**: Bubble Tea-based wizard with deployment mode selection
-- **CLI/Envvar Support**: All options available via flags and environment variables
-- **Deployment Modes**: Demo (5-min), Production HA, Full-scale Enterprise
-- **Package Repository Setup**: Automatic apt/dnf/yum/apk repository configuration
-- **Cluster Formation**: Multi-node setup with certificate generation and distribution
 
 ---
 
@@ -804,9 +812,9 @@ For detailed information on support windows, upgrade paths, and compatibility gu
 
 | Version | Target | Scope |
 |---------|--------|-------|
-| v0.25.0 | Current | Epics 1-25 complete (Core through Blueprints design) |
+| v0.25.0 | Current | Epics 1-25, 27 complete (Core through bootstrap experience) |
 | v0.26.0 | Planned | NEEDSWORK Remediation (security, API, testing, documentation, polish) |
-| v0.27.0 | Planned | Agent Bootstrap Experience (single-binary TUI-guided setup) |
+| v0.27.0 | Complete | Agent Bootstrap Experience (single-binary TUI-guided setup) |
 | v0.28.0 | Planned | Standard Deployment Blueprints (14 official blueprints) |
 | v0.29.0 | Planned | Bootstrap Testing Infrastructure (Docker + VM validation) |
 | v1.0.0 | Future | Stable release after comprehensive testing and hardening |
