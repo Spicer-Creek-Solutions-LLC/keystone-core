@@ -249,7 +249,7 @@ These gaps should be addressed before production use.
     ├── 26-needswork-remediation.md       # NEEDSWORK.md issue remediation
     ├── 27-agent-bootstrap-experience.md  # Single-binary TUI-guided bootstrap
     ├── 28-standard-deployment-blueprints.md  # Official deployment blueprints
-    └── 29-bootstrap-testing-infrastructure.md  # Docker and VM-based bootstrap tests
+    └── 29-bootstrap-testing-infrastructure.md  # Docker-based bootstrap tests (VM deferred to Epic 100)
 ```
 
 ## Architecture Overview

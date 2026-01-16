@@ -376,8 +376,8 @@ hugo         # Build to docs/public/
 | 26    | Complete | NEEDSWORK remediation - security, API, testing, documentation, code quality improvements                           |
 | 27    | Complete | Agent bootstrap experience - single-binary TUI-guided bootstrap for all deployment modes                           |
 | 28    | Complete | Standard deployment blueprints - 14 official blueprints for demo/production/enterprise                             |
-| 29    | Planned  | Bootstrap testing infrastructure - Docker and VM-based validation across platforms                                 |
-| 100   | Planned  | 0.1.0 release readiness - signing, version reset, docs audit                                                       |
+| 29    | Complete | Bootstrap testing infrastructure - Docker-based validation across platforms (VM tests deferred to Epic 100)        |
+| 100   | Planned  | 0.1.0 release readiness - signing, version reset, docs audit, VM validation                                         |
 
 See `epics/` directory for detailed implementation plans.
 
