@@ -83,3 +83,4 @@ CHECKPOINT.md
 SESSION-SUMMARY*.md
 *_TEST_RESULTS.md
 *_SESSION*.md
+.claude-session-context.md

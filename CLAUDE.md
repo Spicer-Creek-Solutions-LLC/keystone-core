@@ -253,7 +253,8 @@ These gaps should be addressed before production use.
     ├── 26-needswork-remediation.md       # NEEDSWORK.md issue remediation
     ├── 27-agent-bootstrap-experience.md  # Single-binary TUI-guided bootstrap
     ├── 28-standard-deployment-blueprints.md  # Official deployment blueprints
-    └── 29-bootstrap-testing-infrastructure.md  # Docker-based bootstrap tests (VM deferred to Epic 100)
+    ├── 29-bootstrap-testing-infrastructure.md  # Docker-based bootstrap tests (VM deferred to Epic 100)
+    └── 30-nist-design-principles.md              # NIST 800-53-inspired design principles (documentation only)
 ```
 
 ## Architecture Overview
@@ -5725,6 +5726,7 @@ Implementation order:
 27. **Epic 27** (Agent Bootstrap Experience) - ✅ COMPLETE (All 6 phases) - Depends on Epic 23, 25 (single-binary TUI-guided bootstrap, CLI/envvar support, deployment modes, package repo setup)
 28. **Epic 28** (Standard Deployment Blueprints) - ✅ COMPLETE - Depends on Epic 25, 27 (14 official blueprints for demo/production/enterprise deployments, monitoring, security, integrations)
 29. **Epic 29** (Bootstrap Testing Infrastructure) - ✅ COMPLETE - Depends on Epic 27, 28 (Docker-based CI tests, platform matrix testing, multi-node cluster tests; VM validation deferred to Epic 100)
+30. **Epic 30** (NIST Design Principles) - NOT STARTED - Depends on Epic 26 (NIST 800-53-inspired design principles, contributor guidelines, trust boundaries, crypto standards, audit taxonomy - documentation only, no implementation)
 
 ### Future Epics (Not Yet Planned)
 
