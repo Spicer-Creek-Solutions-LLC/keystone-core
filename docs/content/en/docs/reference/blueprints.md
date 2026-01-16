@@ -35,6 +35,10 @@ Standard parameters use consistent naming across blueprints:
 
 Secrets should be declared with `sensitive: true` and `source: secret`.
 
+## Catalog Reference
+
+See [Blueprint Catalog](/docs/reference/blueprints-catalog/) for the official blueprint list and usage notes.
+
 ## Blueprint Manifest (blueprint.yaml)
 
 The blueprint manifest defines metadata, parameters, dependencies, and entry points.

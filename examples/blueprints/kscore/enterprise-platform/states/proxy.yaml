@@ -1,0 +1,7 @@
+metadata:
+  name: enterprise-proxy
+  description: Proxy agent setup
+  version: "0.1"
+
+include:
+  - blueprint: blueprints/kscore/proxy-agents@0.1.0

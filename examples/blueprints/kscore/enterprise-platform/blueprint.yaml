@@ -21,13 +21,71 @@ compatibility:
     - os: linux
 
 entrypoints:
-  default: states/main.yaml
+  default: states/core.yaml
+
+features:
+  identity_federation:
+    default: true
+    description: Configure SPIFFE identity federation
+    enables:
+      - states/identity.yaml
+
+  monitoring:
+    default: true
+    description: Deploy the monitoring stack
+    enables:
+      - states/monitoring.yaml
+
+  security:
+    default: true
+    description: Apply security baseline hardening
+    enables:
+      - states/security.yaml
+
+  gitops:
+    default: false
+    description: Configure GitOps integrations
+    enables:
+      - states/gitops.yaml
+
+  proxy_agents:
+    default: false
+    description: Configure proxy agents
+    enables:
+      - states/proxy.yaml
+
+  file_distribution:
+    default: false
+    description: Configure file distribution services
+    enables:
+      - states/file-distribution.yaml
+
+  nats_cluster:
+    default: true
+    description: Provision a managed NATS cluster
+    enables:
+      - states/nats.yaml
+
+  postgres_ha:
+    default: true
+    description: Provision PostgreSQL HA resources
+    enables:
+      - states/postgres.yaml
 
 parameters:
   cluster_name:
     type: string
     default: keystone
     description: Cluster identifier
+
+  node_role:
+    type: string
+    default: control-plane
+    enum:
+      - control-plane
+      - agent
+      - both
+    description: Node role for this host
 
   control_plane_nodes:
     type: array
@@ -56,6 +114,11 @@ parameters:
     type: string
     required: true
     description: PostgreSQL host
+
+  postgres_replicas:
+    type: array
+    default: []
+    description: PostgreSQL replica hosts
 
   postgres_port:
     type: integer
@@ -118,6 +181,20 @@ parameters:
     type: array
     default: []
     description: Federated trust domains
+
+  local_domain:
+    type: string
+    default: keystone.local
+    description: Local trust domain
+
+  federation_policy:
+    type: string
+    default: verify
+    enum:
+      - trust
+      - verify
+      - strict
+    description: Federation policy
 
   ldap_enabled:
     type: boolean

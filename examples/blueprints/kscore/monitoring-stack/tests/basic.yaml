@@ -1,0 +1,20 @@
+name: monitoring stack blueprint
+
+defaults:
+  dry_run: true
+  parameters:
+    prometheus_version: 2.48.0
+    grafana_admin_password: demo-pass
+    data_dir: /var/lib/monitoring
+    config_dir: /etc/monitoring
+    alertmanager_enabled: true
+    node_exporter_enabled: true
+
+tests:
+  - name: renders prometheus config
+    assertions:
+      - type: state_applied
+        target: prometheus_config
+      - type: file_contains
+        target: /etc/monitoring/prometheus/prometheus.yml
+        pattern: "scrape_interval"

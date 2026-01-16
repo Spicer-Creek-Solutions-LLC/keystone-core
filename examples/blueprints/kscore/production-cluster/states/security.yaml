@@ -1,0 +1,7 @@
+metadata:
+  name: production-security
+  description: Security baseline hardening
+  version: "0.1"
+
+include:
+  - blueprint: blueprints/kscore/security-baseline@1.0.0

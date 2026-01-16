@@ -1,0 +1,22 @@
+name: production cluster blueprint
+
+defaults:
+  dry_run: true
+  parameters:
+    cluster_name: keystone-prod
+    node_role: control-plane
+    control_plane_nodes:
+      - cp1.example.com
+      - cp2.example.com
+      - cp3.example.com
+    postgres_host: db.example.com
+    postgres_password: demo-pass
+
+tests:
+  - name: renders core config
+    assertions:
+      - type: state_applied
+        target: production_config_file
+      - type: file_contains
+        target: /etc/kscore/kscore.yaml
+        pattern: "cluster:\n        name: \"keystone-prod\""

@@ -1,18 +1,33 @@
 metadata:
   name: identity-federation-main
-  description: Placeholder state for the identity-federation blueprint scaffold
+  description: Identity federation configuration for Keystone Core
   version: "0.1"
 
 states:
-  identity-federation_blueprint_dir:
+  identity_federation_config_dir:
     module: file
     state: directory
-    name: /var/lib/kscore/blueprints
+    name: /etc/kscore
 
-  identity-federation_blueprint_placeholder:
+  identity_federation_config:
     module: file
     state: managed
-    name: /var/lib/kscore/blueprints/identity-federation.txt
-    contents: "Placeholder for kscore/identity-federation blueprint."
+    name: /etc/kscore/identity-federation.yaml
+    contents: |
+      identity:
+        local_domain: "{{ .local_domain }}"
+        federated_domains:
+{{- range .federated_domains }}
+          - "{{ . }}"
+{{- end }}
+        federation_policy: "{{ .federation_policy }}"
     require:
-      - identity-federation_blueprint_dir
+      - identity_federation_config_dir
+
+  identity_federation_service:
+    module: service
+    state: running
+    name: kscore-server
+    enable: true
+    watch:
+      - identity_federation_config

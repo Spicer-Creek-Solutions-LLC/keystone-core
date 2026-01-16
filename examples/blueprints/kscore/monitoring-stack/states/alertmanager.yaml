@@ -6,18 +6,14 @@ metadata:
   description: Prometheus Alertmanager for alert handling
   version: "1.0"
 
-vars:
-  alertmanager_archive: "alertmanager-{{ .Params.alertmanager_version }}.linux-amd64"
-  alertmanager_url: "https://github.com/prometheus/alertmanager/releases/download/v{{ .Params.alertmanager_version }}/alertmanager-{{ .Params.alertmanager_version }}.linux-amd64.tar.gz"
-
 states:
   # Download Alertmanager
   alertmanager_download:
     module: cmd
     state: run
-    name: "curl -L -o /tmp/{{ .Vars.alertmanager_archive }}.tar.gz {{ .Vars.alertmanager_url }}"
-    creates: /tmp/{{ .Vars.alertmanager_archive }}.tar.gz
-    unless: "test -f /usr/local/bin/alertmanager && /usr/local/bin/alertmanager --version 2>&1 | grep -q {{ .Params.alertmanager_version }}"
+    name: "curl -L -o /tmp/alertmanager-{{ .alertmanager_version }}.linux-amd64.tar.gz https://github.com/prometheus/alertmanager/releases/download/v{{ .alertmanager_version }}/alertmanager-{{ .alertmanager_version }}.linux-amd64.tar.gz"
+    creates: /tmp/alertmanager-{{ .alertmanager_version }}.linux-amd64.tar.gz
+    unless: "test -f /usr/local/bin/alertmanager && /usr/local/bin/alertmanager --version 2>&1 | grep -q {{ .alertmanager_version }}"
     require:
       - install_curl
       - install_tar
@@ -28,12 +24,12 @@ states:
     state: run
     name: |
       cd /tmp && \
-      tar xzf {{ .Vars.alertmanager_archive }}.tar.gz && \
-      cp {{ .Vars.alertmanager_archive }}/alertmanager /usr/local/bin/ && \
-      cp {{ .Vars.alertmanager_archive }}/amtool /usr/local/bin/ && \
+      tar xzf alertmanager-{{ .alertmanager_version }}.linux-amd64.tar.gz && \
+      cp alertmanager-{{ .alertmanager_version }}.linux-amd64/alertmanager /usr/local/bin/ && \
+      cp alertmanager-{{ .alertmanager_version }}.linux-amd64/amtool /usr/local/bin/ && \
       chmod +x /usr/local/bin/alertmanager /usr/local/bin/amtool && \
-      rm -rf /tmp/{{ .Vars.alertmanager_archive }}*
-    unless: "test -f /usr/local/bin/alertmanager && /usr/local/bin/alertmanager --version 2>&1 | grep -q {{ .Params.alertmanager_version }}"
+      rm -rf /tmp/alertmanager-{{ .alertmanager_version }}.linux-amd64*
+    unless: "test -f /usr/local/bin/alertmanager && /usr/local/bin/alertmanager --version 2>&1 | grep -q {{ .alertmanager_version }}"
     require:
       - alertmanager_download
 
@@ -41,7 +37,7 @@ states:
   alertmanager_data_dir:
     module: file
     state: directory
-    name: "{{ .Params.data_dir }}/alertmanager"
+    name: "{{ .data_dir }}/alertmanager"
     user: prometheus
     group: prometheus
     mode: "0755"
@@ -53,7 +49,7 @@ states:
   alertmanager_config_dir:
     module: file
     state: directory
-    name: "{{ .Params.config_dir }}/alertmanager"
+    name: "{{ .config_dir }}/alertmanager"
     user: root
     group: prometheus
     mode: "0755"
@@ -64,7 +60,7 @@ states:
   alertmanager_templates_dir:
     module: file
     state: directory
-    name: "{{ .Params.config_dir }}/alertmanager/templates"
+    name: "{{ .config_dir }}/alertmanager/templates"
     user: root
     group: prometheus
     mode: "0755"
@@ -75,7 +71,7 @@ states:
   alertmanager_config:
     module: file
     state: present
-    name: "{{ .Params.config_dir }}/alertmanager/alertmanager.yml"
+    name: "{{ .config_dir }}/alertmanager/alertmanager.yml"
     contents: |
       # Keystone Core Monitoring Stack - Alertmanager Configuration
 
@@ -178,9 +174,9 @@ states:
       Group=prometheus
       ExecReload=/bin/kill -HUP $MAINPID
       ExecStart=/usr/local/bin/alertmanager \
-        --config.file={{ .Params.config_dir }}/alertmanager/alertmanager.yml \
-        --storage.path={{ .Params.data_dir }}/alertmanager \
-        --web.listen-address=0.0.0.0:{{ .Params.alertmanager_port }} \
+        --config.file={{ .config_dir }}/alertmanager/alertmanager.yml \
+        --storage.path={{ .data_dir }}/alertmanager \
+        --web.listen-address=0.0.0.0:{{ .alertmanager_port }} \
         --cluster.listen-address=
 
       SyslogIdentifier=alertmanager

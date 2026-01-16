@@ -33,7 +33,7 @@ states:
       # Do not edit manually - changes will be overwritten
 
       # Network
-      Port {{ .Params.ssh_port }}
+      Port {{ .ssh_port }}
       AddressFamily any
       ListenAddress 0.0.0.0
       ListenAddress ::
@@ -55,15 +55,15 @@ states:
 
       # Authentication
       LoginGraceTime 60
-      PermitRootLogin {{ .Params.ssh_permit_root_login }}
+      PermitRootLogin {{ .ssh_permit_root_login }}
       StrictModes yes
-      MaxAuthTries {{ .Params.ssh_max_auth_tries }}
+      MaxAuthTries {{ .ssh_max_auth_tries }}
       MaxSessions 10
 
       PubkeyAuthentication yes
       AuthorizedKeysFile .ssh/authorized_keys
 
-      PasswordAuthentication {{ .Params.ssh_password_authentication }}
+      PasswordAuthentication {{ .ssh_password_authentication }}
       PermitEmptyPasswords no
       ChallengeResponseAuthentication no
 
@@ -77,8 +77,8 @@ states:
       PrintMotd no
       PrintLastLog yes
       TCPKeepAlive yes
-      ClientAliveInterval {{ .Params.ssh_client_alive_interval }}
-      ClientAliveCountMax {{ .Params.ssh_client_alive_count_max }}
+      ClientAliveInterval {{ .ssh_client_alive_interval }}
+      ClientAliveCountMax {{ .ssh_client_alive_count_max }}
       UseDNS no
       PermitUserEnvironment no
       Compression delayed
@@ -90,14 +90,14 @@ states:
       # Subsystem
       Subsystem sftp /usr/lib/openssh/sftp-server -f AUTHPRIV -l INFO
 
-      {{ if .Params.ssh_allowed_users }}
+      {{ if .ssh_allowed_users }}
       # Allowed users
-      AllowUsers {{ range $i, $user := .Params.ssh_allowed_users }}{{ if $i }} {{ end }}{{ $user }}{{ end }}
+      AllowUsers {{ range $i, $user := .ssh_allowed_users }}{{ if $i }} {{ end }}{{ $user }}{{ end }}
       {{ end }}
 
-      {{ if .Params.ssh_allowed_groups }}
+      {{ if .ssh_allowed_groups }}
       # Allowed groups
-      AllowGroups {{ range $i, $group := .Params.ssh_allowed_groups }}{{ if $i }} {{ end }}{{ $group }}{{ end }}
+      AllowGroups {{ range $i, $group := .ssh_allowed_groups }}{{ if $i }} {{ end }}{{ $group }}{{ end }}
       {{ end }}
 
       # Deny root from all sources except localhost

@@ -1,0 +1,19 @@
+name: security baseline blueprint
+
+defaults:
+  dry_run: true
+  parameters:
+    os_family: debian
+    ssh_port: 2222
+    firewall_default_policy: deny
+    audit_max_log_file: 50
+    audit_num_logs: 10
+
+tests:
+  - name: writes audit config
+    assertions:
+      - type: state_applied
+        target: auditd_config
+      - type: file_contains
+        target: /etc/audit/auditd.conf
+        pattern: "max_log_file = 50"

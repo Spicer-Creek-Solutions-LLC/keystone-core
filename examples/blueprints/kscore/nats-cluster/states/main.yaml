@@ -1,18 +1,57 @@
 metadata:
   name: nats-cluster-main
-  description: Placeholder state for the nats-cluster blueprint scaffold
+  description: NATS cluster configuration and service management
   version: "0.1"
 
 states:
-  nats-cluster_blueprint_dir:
+  nats_config_dir:
     module: file
     state: directory
-    name: /var/lib/kscore/blueprints
+    name: /etc/nats
 
-  nats-cluster_blueprint_placeholder:
+  nats_data_dir:
+    module: file
+    state: directory
+    name: "{{ .storage_dir }}"
+
+  nats_config_file:
     module: file
     state: managed
-    name: /var/lib/kscore/blueprints/nats-cluster.txt
-    contents: "Placeholder for kscore/nats-cluster blueprint."
+    name: /etc/nats/nats-server.conf
+    contents: |
+      port: {{ .client_port }}
+      server_name: "{{ .cluster_name }}"
+      http: {{ .monitor_port }}
+
+      jetstream: {{ .jetstream_enabled }}
+      {{- if .jetstream_enabled }}
+      jetstream:
+        store_dir: "{{ .storage_dir }}"
+        max_mem_store: "{{ .max_memory }}"
+        max_file_store: "{{ .max_storage }}"
+      {{- end }}
+
+      cluster:
+        name: "{{ .cluster_name }}"
+        listen: "0.0.0.0:{{ .cluster_port }}"
+        routes:
+{{- range .nodes }}
+          - "nats://{{ . }}:{{ $.cluster_port }}"
+{{- end }}
     require:
-      - nats-cluster_blueprint_dir
+      - nats_config_dir
+      - nats_data_dir
+
+  nats_package:
+    module: package
+    state: installed
+    name: "{{ .package_name }}"
+
+  nats_service:
+    module: service
+    state: running
+    name: "{{ .service_name }}"
+    enable: true
+    require:
+      - nats_package
+      - nats_config_file

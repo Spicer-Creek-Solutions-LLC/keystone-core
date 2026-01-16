@@ -1,0 +1,7 @@
+metadata:
+  name: production-monitoring
+  description: Monitoring stack integration
+  version: "0.1"
+
+include:
+  - blueprint: blueprints/kscore/monitoring-stack@1.0.0

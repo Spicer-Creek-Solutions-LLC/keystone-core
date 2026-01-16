@@ -6,18 +6,14 @@ metadata:
   description: Prometheus Node Exporter for system metrics
   version: "1.0"
 
-vars:
-  node_exporter_archive: "node_exporter-{{ .Params.node_exporter_version }}.linux-amd64"
-  node_exporter_url: "https://github.com/prometheus/node_exporter/releases/download/v{{ .Params.node_exporter_version }}/node_exporter-{{ .Params.node_exporter_version }}.linux-amd64.tar.gz"
-
 states:
   # Download Node Exporter
   node_exporter_download:
     module: cmd
     state: run
-    name: "curl -L -o /tmp/{{ .Vars.node_exporter_archive }}.tar.gz {{ .Vars.node_exporter_url }}"
-    creates: /tmp/{{ .Vars.node_exporter_archive }}.tar.gz
-    unless: "test -f /usr/local/bin/node_exporter && /usr/local/bin/node_exporter --version 2>&1 | grep -q {{ .Params.node_exporter_version }}"
+    name: "curl -L -o /tmp/node_exporter-{{ .node_exporter_version }}.linux-amd64.tar.gz https://github.com/prometheus/node_exporter/releases/download/v{{ .node_exporter_version }}/node_exporter-{{ .node_exporter_version }}.linux-amd64.tar.gz"
+    creates: /tmp/node_exporter-{{ .node_exporter_version }}.linux-amd64.tar.gz
+    unless: "test -f /usr/local/bin/node_exporter && /usr/local/bin/node_exporter --version 2>&1 | grep -q {{ .node_exporter_version }}"
     require:
       - install_curl
       - install_tar
@@ -28,11 +24,11 @@ states:
     state: run
     name: |
       cd /tmp && \
-      tar xzf {{ .Vars.node_exporter_archive }}.tar.gz && \
-      cp {{ .Vars.node_exporter_archive }}/node_exporter /usr/local/bin/ && \
+      tar xzf node_exporter-{{ .node_exporter_version }}.linux-amd64.tar.gz && \
+      cp node_exporter-{{ .node_exporter_version }}.linux-amd64/node_exporter /usr/local/bin/ && \
       chmod +x /usr/local/bin/node_exporter && \
-      rm -rf /tmp/{{ .Vars.node_exporter_archive }}*
-    unless: "test -f /usr/local/bin/node_exporter && /usr/local/bin/node_exporter --version 2>&1 | grep -q {{ .Params.node_exporter_version }}"
+      rm -rf /tmp/node_exporter-{{ .node_exporter_version }}.linux-amd64*
+    unless: "test -f /usr/local/bin/node_exporter && /usr/local/bin/node_exporter --version 2>&1 | grep -q {{ .node_exporter_version }}"
     require:
       - node_exporter_download
 
@@ -65,7 +61,7 @@ states:
       User=prometheus
       Group=prometheus
       ExecStart=/usr/local/bin/node_exporter \
-        --web.listen-address=0.0.0.0:{{ .Params.node_exporter_port }} \
+        --web.listen-address=0.0.0.0:{{ .node_exporter_port }} \
         --collector.cpu \
         --collector.diskstats \
         --collector.filesystem \

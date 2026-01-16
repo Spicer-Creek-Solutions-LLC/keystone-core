@@ -3,22 +3,13 @@
 
 metadata:
   name: security-main
-  description: Security baseline entry point with conditional components
+  description: Security baseline entry point
   version: "1.0"
 
-# All components are conditionally included based on features
-include_if:
-  - path: states/system.yaml
-    condition: "{{ .Features.system_hardening }}"
-  - path: states/ssh.yaml
-    condition: "{{ .Features.ssh_hardening }}"
-  - path: states/kernel.yaml
-    condition: "{{ .Features.kernel_hardening }}"
-  - path: states/firewall.yaml
-    condition: "{{ .Features.firewall }}"
-  - path: states/audit.yaml
-    condition: "{{ .Features.audit_logging }}"
-  - path: states/fail2ban.yaml
-    condition: "{{ .Features.fail2ban }}"
-  - path: states/updates.yaml
-    condition: "{{ .Features.automatic_updates }}"
+states:
+  security_baseline_marker:
+    module: file
+    state: managed
+    name: /etc/kscore/security-baseline.enabled
+    contents: "Keystone Core security baseline applied."
+    mode: "0644"

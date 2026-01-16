@@ -888,3 +888,4 @@ Security hardening for Linux servers following industry best practices.
 - [Modules](/docs/concepts/modules/) - Code-based extensions
 - [Policy](/docs/concepts/policy/) - Policy enforcement for blueprints
 - [Blueprint Reference](/docs/reference/blueprints/) - Complete API reference
+- [Blueprint Catalog](/docs/reference/blueprints-catalog/) - Official blueprint list

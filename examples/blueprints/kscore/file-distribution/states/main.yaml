@@ -1,18 +1,39 @@
 metadata:
   name: file-distribution-main
-  description: Placeholder state for the file-distribution blueprint scaffold
+  description: File distribution configuration for Keystone Core
   version: "0.1"
 
 states:
-  file-distribution_blueprint_dir:
+  file_distribution_config_dir:
     module: file
     state: directory
-    name: /var/lib/kscore/blueprints
+    name: /etc/kscore
 
-  file-distribution_blueprint_placeholder:
+  file_distribution_config_file:
     module: file
     state: managed
-    name: /var/lib/kscore/blueprints/file-distribution.txt
-    contents: "Placeholder for kscore/file-distribution blueprint."
+    name: /etc/kscore/file-distribution.yaml
+    contents: |
+      file_distribution:
+        backends:
+{{- range .backends }}
+          - "{{ . }}"
+{{- end }}
+        s3_bucket: "{{ .s3_bucket }}"
+        s3_region: "{{ .s3_region }}"
+        gcs_bucket: "{{ .gcs_bucket }}"
+        azure_container: "{{ .azure_container }}"
+        mirror_groups:
+{{- range .mirror_groups }}
+          - {{ . | toYaml | nindent 12 }}
+{{- end }}
     require:
-      - file-distribution_blueprint_dir
+      - file_distribution_config_dir
+
+  file_distribution_service:
+    module: service
+    state: running
+    name: kscore-server
+    enable: true
+    watch:
+      - file_distribution_config_file

@@ -80,6 +80,11 @@ parameters:
     sensitive: true
     description: Grafana admin password
 
+  grafana_secret_key:
+    type: string
+    sensitive: true
+    description: Grafana secret key for signing
+
   grafana_domain:
     type: string
     default: "localhost"
@@ -123,6 +128,24 @@ parameters:
     type: integer
     default: 9093
     description: Alertmanager web UI port
+
+  alertmanager_enabled:
+    type: boolean
+    default: true
+    description: Include Alertmanager targets in Prometheus config
+
+  node_exporter_enabled:
+    type: boolean
+    default: true
+    description: Include Node Exporter scrape targets in Prometheus config
+
+  os_family:
+    type: string
+    default: debian
+    enum:
+      - debian
+      - rhel
+    description: OS family for package selection
 
   install_method:
     type: string

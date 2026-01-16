@@ -1,18 +1,35 @@
 metadata:
   name: gitops-integration-main
-  description: Placeholder state for the gitops-integration blueprint scaffold
+  description: GitOps integration configuration
   version: "0.1"
 
 states:
-  gitops-integration_blueprint_dir:
+  gitops_config_dir:
     module: file
     state: directory
-    name: /var/lib/kscore/blueprints
+    name: /etc/kscore
 
-  gitops-integration_blueprint_placeholder:
+  gitops_config_file:
     module: file
     state: managed
-    name: /var/lib/kscore/blueprints/gitops-integration.txt
-    contents: "Placeholder for kscore/gitops-integration blueprint."
+    name: /etc/kscore/gitops.yaml
+    contents: |
+      gitops:
+        argocd_enabled: {{ .argocd_enabled }}
+        flux_enabled: {{ .flux_enabled }}
+        verification_enabled: {{ .verification_enabled }}
+        rollback_enabled: {{ .rollback_enabled }}
+        repositories:
+{{- range .git_repos }}
+          - "{{ . }}"
+{{- end }}
     require:
-      - gitops-integration_blueprint_dir
+      - gitops_config_dir
+
+  gitops_service:
+    module: service
+    state: running
+    name: kscore-server
+    enable: true
+    watch:
+      - gitops_config_file

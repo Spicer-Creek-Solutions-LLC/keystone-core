@@ -1,0 +1,7 @@
+metadata:
+  name: enterprise-file-distribution
+  description: File distribution services
+  version: "0.1"
+
+include:
+  - blueprint: blueprints/kscore/file-distribution@0.1.0

@@ -1,0 +1,16 @@
+metadata:
+  name: production-postgres
+  description: Managed PostgreSQL HA provisioning
+  version: "0.1"
+
+include:
+  - blueprint: blueprints/kscore/postgres-ha@0.1.0
+    params:
+      primary_host: "{{ .postgres_host }}"
+      replica_hosts:
+{{- range .postgres_replicas }}
+        - "{{ . }}"
+{{- end }}
+      database: "{{ .postgres_database }}"
+      user: "{{ .postgres_user }}"
+      password: "{{ .postgres_password }}"

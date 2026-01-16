@@ -6,18 +6,14 @@ metadata:
   description: Prometheus server installation and configuration
   version: "1.0"
 
-vars:
-  prometheus_archive: "prometheus-{{ .Params.prometheus_version }}.linux-amd64"
-  prometheus_url: "https://github.com/prometheus/prometheus/releases/download/v{{ .Params.prometheus_version }}/prometheus-{{ .Params.prometheus_version }}.linux-amd64.tar.gz"
-
 states:
   # Download Prometheus
   prometheus_download:
     module: cmd
     state: run
-    name: "curl -L -o /tmp/{{ .Vars.prometheus_archive }}.tar.gz {{ .Vars.prometheus_url }}"
-    creates: /tmp/{{ .Vars.prometheus_archive }}.tar.gz
-    unless: "test -f /usr/local/bin/prometheus && /usr/local/bin/prometheus --version 2>&1 | grep -q {{ .Params.prometheus_version }}"
+    name: "curl -L -o /tmp/prometheus-{{ .prometheus_version }}.linux-amd64.tar.gz https://github.com/prometheus/prometheus/releases/download/v{{ .prometheus_version }}/prometheus-{{ .prometheus_version }}.linux-amd64.tar.gz"
+    creates: /tmp/prometheus-{{ .prometheus_version }}.linux-amd64.tar.gz
+    unless: "test -f /usr/local/bin/prometheus && /usr/local/bin/prometheus --version 2>&1 | grep -q {{ .prometheus_version }}"
     require:
       - install_curl
       - install_tar
@@ -28,12 +24,12 @@ states:
     state: run
     name: |
       cd /tmp && \
-      tar xzf {{ .Vars.prometheus_archive }}.tar.gz && \
-      cp {{ .Vars.prometheus_archive }}/prometheus /usr/local/bin/ && \
-      cp {{ .Vars.prometheus_archive }}/promtool /usr/local/bin/ && \
+      tar xzf prometheus-{{ .prometheus_version }}.linux-amd64.tar.gz && \
+      cp prometheus-{{ .prometheus_version }}.linux-amd64/prometheus /usr/local/bin/ && \
+      cp prometheus-{{ .prometheus_version }}.linux-amd64/promtool /usr/local/bin/ && \
       chmod +x /usr/local/bin/prometheus /usr/local/bin/promtool && \
-      rm -rf /tmp/{{ .Vars.prometheus_archive }}*
-    unless: "test -f /usr/local/bin/prometheus && /usr/local/bin/prometheus --version 2>&1 | grep -q {{ .Params.prometheus_version }}"
+      rm -rf /tmp/prometheus-{{ .prometheus_version }}.linux-amd64*
+    unless: "test -f /usr/local/bin/prometheus && /usr/local/bin/prometheus --version 2>&1 | grep -q {{ .prometheus_version }}"
     require:
       - prometheus_download
 
@@ -41,7 +37,7 @@ states:
   prometheus_data_dir:
     module: file
     state: directory
-    name: "{{ .Params.prometheus_storage_path }}"
+    name: "{{ .prometheus_storage_path }}"
     user: prometheus
     group: prometheus
     mode: "0755"
@@ -53,7 +49,7 @@ states:
   prometheus_config_dir:
     module: file
     state: directory
-    name: "{{ .Params.config_dir }}/prometheus"
+    name: "{{ .config_dir }}/prometheus"
     user: root
     group: prometheus
     mode: "0755"
@@ -64,7 +60,7 @@ states:
   prometheus_rules_dir:
     module: file
     state: directory
-    name: "{{ .Params.config_dir }}/prometheus/rules"
+    name: "{{ .config_dir }}/prometheus/rules"
     user: root
     group: prometheus
     mode: "0755"
@@ -75,7 +71,7 @@ states:
   prometheus_targets_dir:
     module: file
     state: directory
-    name: "{{ .Params.config_dir }}/prometheus/targets"
+    name: "{{ .config_dir }}/prometheus/targets"
     user: root
     group: prometheus
     mode: "0755"
@@ -86,44 +82,44 @@ states:
   prometheus_config:
     module: file
     state: present
-    name: "{{ .Params.config_dir }}/prometheus/prometheus.yml"
+    name: "{{ .config_dir }}/prometheus/prometheus.yml"
     contents: |
       # Keystone Core Monitoring Stack - Prometheus Configuration
 
       global:
-        scrape_interval: {{ .Params.prometheus_scrape_interval }}
-        evaluation_interval: {{ .Params.prometheus_scrape_interval }}
+        scrape_interval: {{ .prometheus_scrape_interval }}
+        evaluation_interval: {{ .prometheus_scrape_interval }}
         external_labels:
           monitor: 'kscore-monitoring'
 
-      {{ if .Features.alertmanager }}
+      {{ if .alertmanager_enabled }}
       # Alertmanager configuration
       alerting:
         alertmanagers:
           - static_configs:
               - targets:
-                - localhost:{{ .Params.alertmanager_port }}
+                - localhost:{{ .alertmanager_port }}
       {{ end }}
 
       # Load rules once and periodically evaluate them
       rule_files:
-        - {{ .Params.config_dir }}/prometheus/rules/*.rules.yml
+        - {{ .config_dir }}/prometheus/rules/*.rules.yml
 
       # Scrape configurations
       scrape_configs:
         # Prometheus self-monitoring
         - job_name: 'prometheus'
           static_configs:
-            - targets: ['localhost:{{ .Params.prometheus_port }}']
+            - targets: ['localhost:{{ .prometheus_port }}']
           relabel_configs:
             - target_label: instance
               replacement: 'prometheus'
 
-        {{ if .Features.node_exporter }}
+        {{ if .node_exporter_enabled }}
         # Node Exporter - local system metrics
         - job_name: 'node'
           static_configs:
-            - targets: ['localhost:{{ .Params.node_exporter_port }}']
+            - targets: ['localhost:{{ .node_exporter_port }}']
           relabel_configs:
             - target_label: instance
               replacement: 'localhost'
@@ -133,8 +129,8 @@ states:
         - job_name: 'kscore-agents'
           file_sd_configs:
             - files:
-                - {{ .Params.config_dir }}/prometheus/targets/*.yml
-                - {{ .Params.config_dir }}/prometheus/targets/*.json
+                - {{ .config_dir }}/prometheus/targets/*.yml
+                - {{ .config_dir }}/prometheus/targets/*.json
               refresh_interval: 30s
 
         # Keystone Core server metrics (if available)
@@ -167,12 +163,12 @@ states:
       Group=prometheus
       ExecReload=/bin/kill -HUP $MAINPID
       ExecStart=/usr/local/bin/prometheus \
-        --config.file={{ .Params.config_dir }}/prometheus/prometheus.yml \
-        --storage.tsdb.path={{ .Params.prometheus_storage_path }} \
-        --storage.tsdb.retention.time={{ .Params.prometheus_retention }} \
+        --config.file={{ .config_dir }}/prometheus/prometheus.yml \
+        --storage.tsdb.path={{ .prometheus_storage_path }} \
+        --storage.tsdb.retention.time={{ .prometheus_retention }} \
         --web.console.templates=/usr/local/bin/consoles \
         --web.console.libraries=/usr/local/bin/console_libraries \
-        --web.listen-address=0.0.0.0:{{ .Params.prometheus_port }} \
+        --web.listen-address=0.0.0.0:{{ .prometheus_port }} \
         --web.enable-lifecycle \
         --web.enable-admin-api
 

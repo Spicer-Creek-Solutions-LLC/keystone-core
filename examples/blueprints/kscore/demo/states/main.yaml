@@ -1,18 +1,61 @@
 metadata:
   name: demo-main
-  description: Placeholder state for the demo blueprint scaffold
+  description: Demo single-node Keystone Core deployment
   version: "0.1"
 
 states:
-  demo_blueprint_dir:
+  demo_config_dir:
     module: file
     state: directory
-    name: /var/lib/kscore/blueprints
+    name: /etc/kscore
 
-  demo_blueprint_placeholder:
+  demo_config_file:
     module: file
     state: managed
-    name: /var/lib/kscore/blueprints/demo.txt
-    contents: "Placeholder for kscore/demo blueprint."
+    name: /etc/kscore/kscore.yaml
+    contents: |
+      cluster:
+        name: demo
+      node:
+        role: both
+        hostname: "{{ .hostname }}"
+      storage:
+        backend: sqlite
+      nats:
+        mode: embedded
+      api:
+        admin_password: "{{ .admin_password }}"
+      examples:
+        enabled: {{ .enable_examples }}
+      dashboards:
+        enabled: {{ .enable_dashboards }}
     require:
-      - demo_blueprint_dir
+      - demo_config_dir
+
+  demo_packages:
+    module: package
+    state: installed
+    name: kscore-server
+
+  demo_agent_package:
+    module: package
+    state: installed
+    name: kscore-agent
+
+  demo_server_service:
+    module: service
+    state: running
+    name: kscore-server
+    enable: true
+    require:
+      - demo_packages
+      - demo_config_file
+
+  demo_agent_service:
+    module: service
+    state: running
+    name: kscore-agent
+    enable: true
+    require:
+      - demo_agent_package
+      - demo_config_file

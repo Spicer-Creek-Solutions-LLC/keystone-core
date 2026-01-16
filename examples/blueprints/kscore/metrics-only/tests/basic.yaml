@@ -1,0 +1,17 @@
+name: metrics-only blueprint
+
+defaults:
+  dry_run: true
+  parameters:
+    retention: 7d
+    prometheus_version: 2.48.0
+    storage_path: /var/lib/prometheus
+
+tests:
+  - name: renders metrics config
+    assertions:
+      - type: state_applied
+        target: metrics_config_file
+      - type: file_contains
+        target: /etc/kscore/metrics/prometheus.yaml
+        pattern: "retention: \"7d\""

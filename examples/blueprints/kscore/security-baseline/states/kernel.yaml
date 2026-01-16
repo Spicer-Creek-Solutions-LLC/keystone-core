@@ -20,7 +20,7 @@ states:
       # Network Security
       ###################
 
-      {{ if .Params.sysctl_disable_ip_forward }}
+      {{ if .sysctl_disable_ip_forward }}
       # IP Forwarding disabled
       net.ipv4.ip_forward = 0
       net.ipv6.conf.all.forwarding = 0
@@ -68,7 +68,7 @@ states:
       # TIME-WAIT assassination hazards
       net.ipv4.tcp_rfc1337 = 1
 
-      {{ if .Params.sysctl_disable_ipv6 }}
+      {{ if .sysctl_disable_ipv6 }}
       ###################
       # IPv6 Disabled
       ###################

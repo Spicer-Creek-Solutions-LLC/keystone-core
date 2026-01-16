@@ -1,13 +1,17 @@
 # identity-federation Blueprint
 
-Scaffold for the kscore/identity-federation blueprint.
+Configure SPIFFE identity federation for Keystone Core.
 
 ## Quick Start
 
 ```yaml
 include:
   - blueprint: blueprints/kscore/identity-federation@0.1.0
-    params: {}
+    params:
+      local_domain: kscore.local
+      federated_domains:
+        - prod.keystone
+        - staging.keystone
 ```
 
 ## Parameters

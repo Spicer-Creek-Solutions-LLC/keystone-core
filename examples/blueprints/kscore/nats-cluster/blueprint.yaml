@@ -53,3 +53,28 @@ parameters:
     type: string
     default: 10Gi
     description: JetStream storage limit
+
+  client_port:
+    type: integer
+    default: 4222
+    description: Client port
+
+  cluster_port:
+    type: integer
+    default: 6222
+    description: Cluster port
+
+  monitor_port:
+    type: integer
+    default: 8222
+    description: Monitoring port
+
+  package_name:
+    type: string
+    default: nats-server
+    description: Package name to install
+
+  service_name:
+    type: string
+    default: nats-server
+    description: Service name to manage

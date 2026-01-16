@@ -33,13 +33,13 @@ states:
 
       [DEFAULT]
       # Ban time (in seconds) - default 10 minutes
-      bantime = {{ .Params.fail2ban_bantime }}
+      bantime = {{ .fail2ban_bantime }}
 
       # Find time window (in seconds) - default 10 minutes
-      findtime = {{ .Params.fail2ban_findtime }}
+      findtime = {{ .fail2ban_findtime }}
 
       # Number of failures before ban
-      maxretry = {{ .Params.fail2ban_maxretry }}
+      maxretry = {{ .fail2ban_maxretry }}
 
       # Action to take
       banaction = iptables-multiport
@@ -61,11 +61,11 @@ states:
 
       [sshd]
       enabled = true
-      port = {{ .Params.ssh_port }}
+      port = {{ .ssh_port }}
       filter = sshd
       logpath = /var/log/auth.log
-      maxretry = {{ .Params.fail2ban_maxretry }}
-      bantime = {{ .Params.fail2ban_bantime }}
+      maxretry = {{ .fail2ban_maxretry }}
+      bantime = {{ .fail2ban_bantime }}
     mode: "0644"
     require:
       - fail2ban_config_dir
@@ -81,13 +81,13 @@ states:
 
       [sshd]
       enabled = true
-      port = {{ .Params.ssh_port }}
+      port = {{ .ssh_port }}
       filter = sshd
       logpath = /var/log/secure
-      maxretry = {{ .Params.fail2ban_maxretry }}
-      bantime = {{ .Params.fail2ban_bantime }}
+      maxretry = {{ .fail2ban_maxretry }}
+      bantime = {{ .fail2ban_bantime }}
     mode: "0644"
-    only_if: "{{ eq .Params.os_family \"rhel\" }}"
+    only_if: "{{ eq .os_family \"rhel\" }}"
     require:
       - fail2ban_config_dir
 

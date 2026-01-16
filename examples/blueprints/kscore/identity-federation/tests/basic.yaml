@@ -1,0 +1,18 @@
+name: identity federation blueprint
+
+defaults:
+  dry_run: true
+  parameters:
+    local_domain: kscore.local
+    federated_domains:
+      - prod.keystone
+    federation_policy: verify
+
+tests:
+  - name: writes federation config
+    assertions:
+      - type: state_applied
+        target: identity_federation_config
+      - type: file_contains
+        target: /etc/kscore/identity-federation.yaml
+        pattern: "local_domain: \"kscore.local\""

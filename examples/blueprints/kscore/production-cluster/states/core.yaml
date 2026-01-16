@@ -1,0 +1,79 @@
+metadata:
+  name: production-core
+  description: Core Keystone Core services for production clusters
+  version: "0.1"
+
+states:
+  production_config_dir:
+    module: file
+    state: directory
+    name: /etc/kscore
+
+  production_config_file:
+    module: file
+    state: managed
+    name: /etc/kscore/kscore.yaml
+    contents: |
+      cluster:
+        name: "{{ .cluster_name }}"
+        control_plane_nodes:
+{{- range .control_plane_nodes }}
+          - "{{ . }}"
+{{- end }}
+      node:
+        role: "{{ .node_role }}"
+      storage:
+        backend: postgres
+        host: "{{ .postgres_host }}"
+        port: {{ .postgres_port }}
+        database: "{{ .postgres_database }}"
+        user: "{{ .postgres_user }}"
+        password: "{{ .postgres_password }}"
+      nats:
+        mode: "{{ .nats_mode }}"
+{{- if .nats_urls }}
+        urls:
+{{- range .nats_urls }}
+          - "{{ . }}"
+{{- end }}
+{{- else }}
+        urls: []
+{{- end }}
+      tls:
+        mode: "{{ .tls_mode }}"
+        cert: "{{ .tls_cert }}"
+        key: "{{ .tls_key }}"
+        ca: "{{ .ca_cert }}"
+      backups:
+        enabled: {{ .backup_enabled }}
+        destination: "{{ .backup_destination }}"
+    require:
+      - production_config_dir
+
+  production_server_package:
+    module: package
+    state: installed
+    name: kscore-server
+
+  production_agent_package:
+    module: package
+    state: installed
+    name: kscore-agent
+
+  production_server_service:
+    module: service
+    state: running
+    name: kscore-server
+    enable: true
+    require:
+      - production_server_package
+      - production_config_file
+
+  production_agent_service:
+    module: service
+    state: running
+    name: kscore-agent
+    enable: true
+    require:
+      - production_agent_package
+      - production_config_file

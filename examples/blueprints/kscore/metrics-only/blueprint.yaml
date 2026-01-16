@@ -35,3 +35,18 @@ parameters:
     type: string
     default: 15s
     description: Scrape interval
+
+  prometheus_version:
+    type: string
+    default: 2.48.0
+    description: Prometheus version to install
+
+  prometheus_port:
+    type: integer
+    default: 9090
+    description: Prometheus web UI port
+
+  storage_path:
+    type: string
+    default: /var/lib/prometheus
+    description: Prometheus storage directory

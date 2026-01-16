@@ -1,0 +1,94 @@
+metadata:
+  name: enterprise-core
+  description: Core Keystone Core services for enterprise deployments
+  version: "0.1"
+
+states:
+  enterprise_config_dir:
+    module: file
+    state: directory
+    name: /etc/kscore
+
+  enterprise_config_file:
+    module: file
+    state: managed
+    name: /etc/kscore/kscore.yaml
+    contents: |
+      cluster:
+        name: "{{ .cluster_name }}"
+        control_plane_nodes:
+{{- range .control_plane_nodes }}
+          - "{{ . }}"
+{{- end }}
+        regions:
+{{- range .regions }}
+          - "{{ . }}"
+{{- end }}
+      node:
+        role: "{{ .node_role }}"
+      storage:
+        backend: postgres
+        host: "{{ .postgres_host }}"
+        port: {{ .postgres_port }}
+        database: "{{ .postgres_database }}"
+        user: "{{ .postgres_user }}"
+        password: "{{ .postgres_password }}"
+      nats:
+        mode: "{{ .nats_mode }}"
+{{- if .nats_urls }}
+        urls:
+{{- range .nats_urls }}
+          - "{{ . }}"
+{{- end }}
+{{- else }}
+        urls: []
+{{- end }}
+      tls:
+        mode: "{{ .tls_mode }}"
+        cert: "{{ .tls_cert }}"
+        key: "{{ .tls_key }}"
+        ca: "{{ .ca_cert }}"
+      identity:
+        provider: "{{ .identity_provider }}"
+        spire_server: "{{ .spire_server }}"
+        federation_domains:
+{{- range .federation_domains }}
+          - "{{ . }}"
+{{- end }}
+      audit:
+        destination: "{{ .audit_destination }}"
+      compliance:
+        frameworks:
+{{- range .compliance_frameworks }}
+          - "{{ . }}"
+{{- end }}
+    require:
+      - enterprise_config_dir
+
+  enterprise_server_package:
+    module: package
+    state: installed
+    name: kscore-server
+
+  enterprise_agent_package:
+    module: package
+    state: installed
+    name: kscore-agent
+
+  enterprise_server_service:
+    module: service
+    state: running
+    name: kscore-server
+    enable: true
+    require:
+      - enterprise_server_package
+      - enterprise_config_file
+
+  enterprise_agent_service:
+    module: service
+    state: running
+    name: kscore-agent
+    enable: true
+    require:
+      - enterprise_agent_package
+      - enterprise_config_file

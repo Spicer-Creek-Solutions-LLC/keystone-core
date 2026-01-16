@@ -16,14 +16,14 @@ states:
     module: package
     state: installed
     name: unattended-upgrades
-    only_if: "{{ eq .Params.os_family \"debian\" }}"
+    only_if: "{{ eq .os_family \"debian\" }}"
 
   # Install apt-listchanges for notification support
   apt_listchanges_package:
     module: package
     state: installed
     name: apt-listchanges
-    only_if: "{{ eq .Params.os_family \"debian\" }}"
+    only_if: "{{ eq .os_family \"debian\" }}"
 
   # Configure unattended-upgrades
   unattended_upgrades_config:
@@ -62,16 +62,16 @@ states:
       Unattended-Upgrade::Remove-Unused-Dependencies "true";
 
       // Automatically reboot if required
-      Unattended-Upgrade::Automatic-Reboot "{{ .Params.updates_auto_reboot }}";
+      Unattended-Upgrade::Automatic-Reboot "{{ .updates_auto_reboot }}";
 
       // Automatic reboot time
-      Unattended-Upgrade::Automatic-Reboot-Time "{{ .Params.updates_reboot_time }}";
+      Unattended-Upgrade::Automatic-Reboot-Time "{{ .updates_reboot_time }}";
 
       // Enable logging to syslog
       Unattended-Upgrade::SyslogEnable "true";
       Unattended-Upgrade::SyslogFacility "daemon";
     mode: "0644"
-    only_if: "{{ eq .Params.os_family \"debian\" }}"
+    only_if: "{{ eq .os_family \"debian\" }}"
     require:
       - unattended_upgrades_package
 
@@ -89,7 +89,7 @@ states:
       APT::Periodic::Download-Upgradeable-Packages "1";
       APT::Periodic::AutocleanInterval "7";
     mode: "0644"
-    only_if: "{{ eq .Params.os_family \"debian\" }}"
+    only_if: "{{ eq .os_family \"debian\" }}"
     require:
       - unattended_upgrades_package
 
@@ -99,7 +99,7 @@ states:
     state: running
     name: unattended-upgrades
     enable: true
-    only_if: "{{ eq .Params.os_family \"debian\" }}"
+    only_if: "{{ eq .os_family \"debian\" }}"
     require:
       - unattended_upgrades_config
 
@@ -112,7 +112,7 @@ states:
     module: package
     state: installed
     name: dnf-automatic
-    only_if: "{{ eq .Params.os_family \"rhel\" }}"
+    only_if: "{{ eq .os_family \"rhel\" }}"
 
   # Configure dnf-automatic
   dnf_automatic_config:
@@ -139,7 +139,7 @@ states:
 
       [emitters]
       # Name to use for this system in messages
-      system_name = {{ .Params.hostname }}
+      system_name = {{ .hostname }}
 
       # How to send messages
       emit_via = stdio
@@ -171,7 +171,7 @@ states:
       # Use this to filter DNF core messages
       debuglevel = 1
     mode: "0644"
-    only_if: "{{ eq .Params.os_family \"rhel\" }}"
+    only_if: "{{ eq .os_family \"rhel\" }}"
     require:
       - dnf_automatic_package
 
@@ -181,6 +181,6 @@ states:
     state: running
     name: dnf-automatic.timer
     enable: true
-    only_if: "{{ eq .Params.os_family \"rhel\" }}"
+    only_if: "{{ eq .os_family \"rhel\" }}"
     require:
       - dnf_automatic_config

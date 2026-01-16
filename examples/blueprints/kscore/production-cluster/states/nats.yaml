@@ -1,0 +1,13 @@
+metadata:
+  name: production-nats
+  description: Managed NATS cluster provisioning
+  version: "0.1"
+
+include:
+  - blueprint: blueprints/kscore/nats-cluster@0.1.0
+    params:
+      nodes:
+{{- range .control_plane_nodes }}
+        - "{{ . }}"
+{{- end }}
+      cluster_name: "{{ .cluster_name }}-nats"

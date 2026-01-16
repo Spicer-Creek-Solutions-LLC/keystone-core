@@ -12,14 +12,14 @@ states:
     module: package
     state: installed
     name: auditd
-    only_if: "{{ eq .Params.os_family \"debian\" }}"
+    only_if: "{{ eq .os_family \"debian\" }}"
 
   # Install auditd (RHEL)
   auditd_package_rhel:
     module: package
     state: installed
     name: audit
-    only_if: "{{ eq .Params.os_family \"rhel\" }}"
+    only_if: "{{ eq .os_family \"rhel\" }}"
 
   # Deploy auditd configuration
   auditd_config:
@@ -41,8 +41,8 @@ states:
       freq = 50
 
       # Log file rotation
-      max_log_file = {{ .Params.audit_max_log_file }}
-      num_logs = {{ .Params.audit_num_logs }}
+      max_log_file = {{ .audit_max_log_file }}
+      num_logs = {{ .audit_num_logs }}
       max_log_file_action = ROTATE
 
       # Space settings

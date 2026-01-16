@@ -1,13 +1,16 @@
 # file-distribution Blueprint
 
-Scaffold for the kscore/file-distribution blueprint.
+Configure file distribution services for Keystone Core.
 
 ## Quick Start
 
 ```yaml
 include:
   - blueprint: blueprints/kscore/file-distribution@0.1.0
-    params: {}
+    params:
+      backends:
+        - local
+      s3_bucket: keystone-artifacts
 ```
 
 ## Parameters

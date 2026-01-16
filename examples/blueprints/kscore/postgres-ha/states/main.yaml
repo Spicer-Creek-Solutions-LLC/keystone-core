@@ -1,18 +1,67 @@
 metadata:
   name: postgres-ha-main
-  description: Placeholder state for the postgres-ha blueprint scaffold
+  description: PostgreSQL HA provisioning and service management
   version: "0.1"
 
 states:
-  postgres-ha_blueprint_dir:
+  postgres_config_dir:
     module: file
     state: directory
-    name: /var/lib/kscore/blueprints
+    name: /etc/kscore
 
-  postgres-ha_blueprint_placeholder:
+  postgres_config_file:
     module: file
     state: managed
-    name: /var/lib/kscore/blueprints/postgres-ha.txt
-    contents: "Placeholder for kscore/postgres-ha blueprint."
+    name: /etc/kscore/postgres-ha.yaml
+    contents: |
+      postgres:
+        primary_host: "{{ .primary_host }}"
+        replica_hosts:
+{{- range .replica_hosts }}
+          - "{{ . }}"
+{{- end }}
+        database: "{{ .database }}"
+        user: "{{ .user }}"
+        password: "{{ .password }}"
+        enable_pgbouncer: {{ .enable_pgbouncer }}
+        backup_enabled: {{ .backup_enabled }}
     require:
-      - postgres-ha_blueprint_dir
+      - postgres_config_dir
+
+  postgres_package:
+    module: package
+    state: installed
+    name: "{{ .package_name }}"
+
+  postgres_service:
+    module: service
+    state: running
+    name: "{{ .service_name }}"
+    enable: true
+    require:
+      - postgres_package
+      - postgres_config_file
+
+  postgres_role:
+    module: postgres_user
+    state: present
+    name: "{{ .user }}"
+    host: "{{ .primary_host }}"
+    port: {{ .port }}
+    user: "{{ .admin_user }}"
+    password: "{{ .admin_password }}"
+    role_password: "{{ .password }}"
+    login: true
+    createdb: true
+
+  postgres_database:
+    module: postgres_database
+    state: present
+    name: "{{ .database }}"
+    host: "{{ .primary_host }}"
+    port: {{ .port }}
+    user: "{{ .admin_user }}"
+    password: "{{ .admin_password }}"
+    owner: "{{ .user }}"
+    require:
+      - postgres_role

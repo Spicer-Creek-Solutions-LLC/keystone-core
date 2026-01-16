@@ -1,0 +1,18 @@
+name: demo blueprint basic
+
+defaults:
+  dry_run: true
+  parameters:
+    hostname: demo.local
+    admin_password: demo-pass
+    enable_examples: true
+    enable_dashboards: true
+
+tests:
+  - name: renders demo config
+    assertions:
+      - type: state_applied
+        target: demo_config_file
+      - type: file_contains
+        target: /etc/kscore/kscore.yaml
+        pattern: "cluster:\n        name: demo"

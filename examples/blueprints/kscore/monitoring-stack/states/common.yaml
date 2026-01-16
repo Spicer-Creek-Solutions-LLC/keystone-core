@@ -21,7 +21,7 @@ states:
     name: prometheus
     system: true
     shell: /usr/sbin/nologin
-    home: "{{ .Params.data_dir }}"
+    home: "{{ .data_dir }}"
     createhome: false
     require:
       - monitoring_group
@@ -30,7 +30,7 @@ states:
   monitoring_data_dir:
     module: file
     state: directory
-    name: "{{ .Params.data_dir }}"
+    name: "{{ .data_dir }}"
     user: prometheus
     group: prometheus
     mode: "0755"
@@ -41,7 +41,7 @@ states:
   monitoring_config_dir:
     module: file
     state: directory
-    name: "{{ .Params.config_dir }}"
+    name: "{{ .config_dir }}"
     user: root
     group: prometheus
     mode: "0755"
@@ -72,4 +72,4 @@ states:
     module: package
     state: installed
     name: ca-certificates
-    only_if: "{{ eq .Params.os_family \"debian\" }}"
+    only_if: "{{ eq .os_family \"debian\" }}"

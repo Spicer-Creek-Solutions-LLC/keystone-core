@@ -1,0 +1,7 @@
+metadata:
+  name: production-gitops
+  description: GitOps integration setup
+  version: "0.1"
+
+include:
+  - blueprint: blueprints/kscore/gitops-integration@0.1.0

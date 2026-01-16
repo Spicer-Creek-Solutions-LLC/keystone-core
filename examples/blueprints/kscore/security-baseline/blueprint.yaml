@@ -82,6 +82,14 @@ parameters:
     default: []
     description: List of groups allowed SSH access
 
+  os_family:
+    type: string
+    default: debian
+    enum:
+      - debian
+      - rhel
+    description: OS family for package selection
+
   firewall_default_policy:
     type: string
     default: deny
@@ -146,12 +154,17 @@ parameters:
     default: true
     description: Require special characters in passwords
 
+  umask:
+    type: string
+    default: "027"
+    description: Default system umask
+
   audit_enabled:
     type: boolean
     default: true
     description: Enable audit logging
 
-  audit_log_size:
+  audit_max_log_file:
     type: integer
     default: 50
     description: Maximum audit log size in MB
@@ -160,6 +173,36 @@ parameters:
     type: integer
     default: 10
     description: Number of audit log files to keep
+
+  hostname:
+    type: string
+    default: localhost
+    description: Hostname for update notifications
+
+  updates_auto_reboot:
+    type: boolean
+    default: false
+    description: Enable automatic reboots after updates
+
+  updates_reboot_time:
+    type: string
+    default: "02:00"
+    description: Reboot time for unattended upgrades
+
+  fail2ban_bantime:
+    type: integer
+    default: 3600
+    description: Fail2ban ban time in seconds
+
+  fail2ban_findtime:
+    type: integer
+    default: 600
+    description: Fail2ban find time in seconds
+
+  fail2ban_maxretry:
+    type: integer
+    default: 5
+    description: Fail2ban max retry count
 
   sysctl_disable_ipv6:
     type: boolean

@@ -59,3 +59,28 @@ parameters:
     type: boolean
     default: true
     description: Enable WAL archiving
+
+  admin_user:
+    type: string
+    default: postgres
+    description: Admin user for provisioning
+
+  admin_password:
+    type: string
+    sensitive: true
+    description: Admin password for provisioning
+
+  port:
+    type: integer
+    default: 5432
+    description: PostgreSQL port
+
+  package_name:
+    type: string
+    default: postgresql
+    description: Package name to install
+
+  service_name:
+    type: string
+    default: postgresql
+    description: Service name to manage

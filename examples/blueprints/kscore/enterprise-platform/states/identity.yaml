@@ -1,0 +1,14 @@
+metadata:
+  name: enterprise-identity
+  description: SPIFFE identity federation
+  version: "0.1"
+
+include:
+  - blueprint: blueprints/kscore/identity-federation@0.1.0
+    params:
+      local_domain: "{{ .local_domain }}"
+      federated_domains:
+{{- range .federation_domains }}
+        - "{{ . }}"
+{{- end }}
+      federation_policy: "{{ .federation_policy }}"

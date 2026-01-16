@@ -1,18 +1,82 @@
 metadata:
   name: metrics-only-main
-  description: Placeholder state for the metrics-only blueprint scaffold
+  description: Lightweight Prometheus-only metrics deployment
   version: "0.1"
 
 states:
-  metrics-only_blueprint_dir:
+  metrics_config_dir:
     module: file
     state: directory
-    name: /var/lib/kscore/blueprints
+    name: /etc/kscore/metrics
 
-  metrics-only_blueprint_placeholder:
+  metrics_config_file:
     module: file
     state: managed
-    name: /var/lib/kscore/blueprints/metrics-only.txt
-    contents: "Placeholder for kscore/metrics-only blueprint."
+    name: /etc/kscore/metrics/prometheus.yaml
+    contents: |
+      prometheus:
+        retention: "{{ .retention }}"
+        scrape_interval: "{{ .scrape_interval }}"
+        remote_write_url: "{{ .remote_write_url }}"
     require:
-      - metrics-only_blueprint_dir
+      - metrics_config_dir
+
+  metrics_prometheus_download:
+    module: cmd
+    state: run
+    name: "curl -L -o /tmp/prometheus-{{ .prometheus_version }}.linux-amd64.tar.gz https://github.com/prometheus/prometheus/releases/download/v{{ .prometheus_version }}/prometheus-{{ .prometheus_version }}.linux-amd64.tar.gz"
+    creates: /tmp/prometheus-{{ .prometheus_version }}.linux-amd64.tar.gz
+
+  metrics_prometheus_extract:
+    module: cmd
+    state: run
+    name: |
+      cd /tmp && \
+      tar xzf prometheus-{{ .prometheus_version }}.linux-amd64.tar.gz && \
+      cp prometheus-{{ .prometheus_version }}.linux-amd64/prometheus /usr/local/bin/ && \
+      cp prometheus-{{ .prometheus_version }}.linux-amd64/promtool /usr/local/bin/ && \
+      chmod +x /usr/local/bin/prometheus /usr/local/bin/promtool && \
+      rm -rf /tmp/prometheus-{{ .prometheus_version }}.linux-amd64*
+    require:
+      - metrics_prometheus_download
+
+  metrics_prometheus_service_file:
+    module: file
+    state: present
+    name: /etc/systemd/system/kscore-metrics.service
+    contents: |
+      [Unit]
+      Description=Keystone Core Metrics (Prometheus)
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=simple
+      ExecStart=/usr/local/bin/prometheus \
+        --config.file=/etc/kscore/metrics/prometheus.yaml \
+        --storage.tsdb.path={{ .storage_path }} \
+        --storage.tsdb.retention.time={{ .retention }} \
+        --web.listen-address=0.0.0.0:{{ .prometheus_port }}
+      Restart=always
+      RestartSec=5
+
+      [Install]
+      WantedBy=multi-user.target
+    mode: "0644"
+
+  metrics_systemd_reload:
+    module: cmd
+    state: run
+    name: systemctl daemon-reload
+    require:
+      - metrics_prometheus_service_file
+
+  metrics_service:
+    module: service
+    state: running
+    name: kscore-metrics
+    enable: true
+    require:
+      - metrics_prometheus_extract
+      - metrics_systemd_reload
+      - metrics_config_file
