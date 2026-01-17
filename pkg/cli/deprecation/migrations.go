@@ -117,13 +117,15 @@ func FederationDeprecations() map[string]*Info {
 	}
 
 	return map[string]*Info{
-		"list":     {DeprecatedIn: base.DeprecatedIn, RemoveIn: base.RemoveIn, Replacement: "kscore-federation list", MigrationGuide: base.MigrationGuide, Message: base.Message},
-		"add":      {DeprecatedIn: base.DeprecatedIn, RemoveIn: base.RemoveIn, Replacement: "kscore-federation add", MigrationGuide: base.MigrationGuide, Message: base.Message},
-		"show":     {DeprecatedIn: base.DeprecatedIn, RemoveIn: base.RemoveIn, Replacement: "kscore-federation show", MigrationGuide: base.MigrationGuide, Message: base.Message},
-		"suspend":  {DeprecatedIn: base.DeprecatedIn, RemoveIn: base.RemoveIn, Replacement: "kscore-federation suspend", MigrationGuide: base.MigrationGuide, Message: base.Message},
-		"activate": {DeprecatedIn: base.DeprecatedIn, RemoveIn: base.RemoveIn, Replacement: "kscore-federation activate", MigrationGuide: base.MigrationGuide, Message: base.Message},
-		"remove":   {DeprecatedIn: base.DeprecatedIn, RemoveIn: base.RemoveIn, Replacement: "kscore-federation remove", MigrationGuide: base.MigrationGuide, Message: base.Message},
-		"refresh":  {DeprecatedIn: base.DeprecatedIn, RemoveIn: base.RemoveIn, Replacement: "kscore-federation refresh", MigrationGuide: base.MigrationGuide, Message: base.Message},
+		"federation": {DeprecatedIn: base.DeprecatedIn, RemoveIn: base.RemoveIn, Replacement: "kscore-federation", MigrationGuide: base.MigrationGuide, Message: base.Message},
+		"bundle":     {DeprecatedIn: base.DeprecatedIn, RemoveIn: base.RemoveIn, Replacement: "kscore-federation bundle", MigrationGuide: base.MigrationGuide, Message: base.Message},
+		"list":       {DeprecatedIn: base.DeprecatedIn, RemoveIn: base.RemoveIn, Replacement: "kscore-federation list", MigrationGuide: base.MigrationGuide, Message: base.Message},
+		"add":        {DeprecatedIn: base.DeprecatedIn, RemoveIn: base.RemoveIn, Replacement: "kscore-federation add", MigrationGuide: base.MigrationGuide, Message: base.Message},
+		"show":       {DeprecatedIn: base.DeprecatedIn, RemoveIn: base.RemoveIn, Replacement: "kscore-federation show", MigrationGuide: base.MigrationGuide, Message: base.Message},
+		"suspend":    {DeprecatedIn: base.DeprecatedIn, RemoveIn: base.RemoveIn, Replacement: "kscore-federation suspend", MigrationGuide: base.MigrationGuide, Message: base.Message},
+		"activate":   {DeprecatedIn: base.DeprecatedIn, RemoveIn: base.RemoveIn, Replacement: "kscore-federation activate", MigrationGuide: base.MigrationGuide, Message: base.Message},
+		"remove":     {DeprecatedIn: base.DeprecatedIn, RemoveIn: base.RemoveIn, Replacement: "kscore-federation remove", MigrationGuide: base.MigrationGuide, Message: base.Message},
+		"refresh":    {DeprecatedIn: base.DeprecatedIn, RemoveIn: base.RemoveIn, Replacement: "kscore-federation refresh", MigrationGuide: base.MigrationGuide, Message: base.Message},
 	}
 }
 

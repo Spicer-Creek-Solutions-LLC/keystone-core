@@ -102,7 +102,7 @@ func TestReactorEngine_AddReactor_Validation(t *testing.T) {
 func TestReactorEngine_ProcessEvent(t *testing.T) {
 	engine := NewReactorEngine()
 
-	executed := false
+	var executed atomic.Bool
 	reactor := &Reactor{
 		ID:   "test-reactor",
 		Name: "Test Reactor",
@@ -113,7 +113,7 @@ func TestReactorEngine_ProcessEvent(t *testing.T) {
 		},
 		Actions: []Action{
 			NewFunctionAction("test", func(ctx context.Context, event *Event) error {
-				executed = true
+				executed.Store(true)
 				return nil
 			}),
 		},
@@ -128,12 +128,12 @@ func TestReactorEngine_ProcessEvent(t *testing.T) {
 
 	// Wait for async execution
 	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
-		return executed, nil
+		return executed.Load(), nil
 	}); err != nil {
 		t.Fatalf("Reactor action was not executed: %v", err)
 	}
 
-	if !executed {
+	if !executed.Load() {
 		t.Error("Reactor action was not executed")
 	}
 }
@@ -141,7 +141,7 @@ func TestReactorEngine_ProcessEvent(t *testing.T) {
 func TestReactorEngine_ProcessEvent_NoMatch(t *testing.T) {
 	engine := NewReactorEngine()
 
-	executed := false
+	var executed atomic.Bool
 	reactor := &Reactor{
 		ID:   "test-reactor",
 		Name: "Test Reactor",
@@ -152,7 +152,7 @@ func TestReactorEngine_ProcessEvent_NoMatch(t *testing.T) {
 		},
 		Actions: []Action{
 			NewFunctionAction("test", func(ctx context.Context, event *Event) error {
-				executed = true
+				executed.Store(true)
 				return nil
 			}),
 		},
@@ -166,7 +166,7 @@ func TestReactorEngine_ProcessEvent_NoMatch(t *testing.T) {
 	engine.ProcessEvent(event)
 
 	err := helpers.WaitForTimeout(200*time.Millisecond, 10*time.Millisecond, func() (bool, error) {
-		return executed, nil
+		return executed.Load(), nil
 	})
 	if err == nil {
 		t.Error("Reactor action should not have been executed")
@@ -176,7 +176,7 @@ func TestReactorEngine_ProcessEvent_NoMatch(t *testing.T) {
 func TestReactorEngine_DisableReactor(t *testing.T) {
 	engine := NewReactorEngine()
 
-	executed := false
+	var executed atomic.Bool
 	reactor := &Reactor{
 		ID:   "test-reactor",
 		Name: "Test Reactor",
@@ -187,7 +187,7 @@ func TestReactorEngine_DisableReactor(t *testing.T) {
 		},
 		Actions: []Action{
 			NewFunctionAction("test", func(ctx context.Context, event *Event) error {
-				executed = true
+				executed.Store(true)
 				return nil
 			}),
 		},
@@ -202,7 +202,7 @@ func TestReactorEngine_DisableReactor(t *testing.T) {
 	engine.ProcessEvent(event)
 
 	err := helpers.WaitForTimeout(200*time.Millisecond, 10*time.Millisecond, func() (bool, error) {
-		return executed, nil
+		return executed.Load(), nil
 	})
 	if err == nil {
 		t.Error("Disabled reactor should not execute")
@@ -213,7 +213,7 @@ func TestReactorEngine_DisableReactor(t *testing.T) {
 	engine.ProcessEvent(event)
 
 	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
-		return executed, nil
+		return executed.Load(), nil
 	}); err != nil {
 		t.Fatalf("Re-enabled reactor should execute: %v", err)
 	}
@@ -585,7 +585,7 @@ func TestReactorEngine_OnError_Stop(t *testing.T) {
 func TestReactorEngine_Conditions_OnlyIf(t *testing.T) {
 	engine := NewReactorEngine()
 
-	executed := false
+	var executed atomic.Bool
 	filter, _ := ParseFilterExpression(`severity >= "error"`)
 
 	reactor := &Reactor{
@@ -598,7 +598,7 @@ func TestReactorEngine_Conditions_OnlyIf(t *testing.T) {
 		},
 		Actions: []Action{
 			NewFunctionAction("test", func(ctx context.Context, event *Event) error {
-				executed = true
+				executed.Store(true)
 				return nil
 			}),
 		},
@@ -614,7 +614,9 @@ func TestReactorEngine_Conditions_OnlyIf(t *testing.T) {
 	event1 := NewEvent(EventType("test")).Source("/test").Severity(SeverityInfo).Build()
 	engine.ProcessEvent(event1)
 
-	if executed {
+	// Wait a bit to ensure the event was processed
+	time.Sleep(100 * time.Millisecond)
+	if executed.Load() {
 		t.Error("Reactor should not execute when OnlyIf condition fails")
 	}
 
@@ -623,7 +625,7 @@ func TestReactorEngine_Conditions_OnlyIf(t *testing.T) {
 	engine.ProcessEvent(event2)
 
 	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
-		return executed, nil
+		return executed.Load(), nil
 	}); err != nil {
 		t.Fatalf("Reactor should execute when OnlyIf condition passes: %v", err)
 	}
@@ -632,7 +634,7 @@ func TestReactorEngine_Conditions_OnlyIf(t *testing.T) {
 func TestReactorEngine_Conditions_Unless(t *testing.T) {
 	engine := NewReactorEngine()
 
-	executed := false
+	var executed atomic.Bool
 	filter, _ := ParseFilterExpression(`tags.env == "test"`)
 
 	reactor := &Reactor{
@@ -645,7 +647,7 @@ func TestReactorEngine_Conditions_Unless(t *testing.T) {
 		},
 		Actions: []Action{
 			NewFunctionAction("test", func(ctx context.Context, event *Event) error {
-				executed = true
+				executed.Store(true)
 				return nil
 			}),
 		},
@@ -661,17 +663,19 @@ func TestReactorEngine_Conditions_Unless(t *testing.T) {
 	event1 := NewEvent(EventType("test")).Source("/test").Tag("env", "test").Build()
 	engine.ProcessEvent(event1)
 
-	if executed {
+	// Wait a bit to ensure the event was processed
+	time.Sleep(100 * time.Millisecond)
+	if executed.Load() {
 		t.Error("Reactor should not execute when Unless condition is true")
 	}
 
 	// Event with prod env - should execute
-	executed = false
+	executed.Store(false)
 	event2 := NewEvent(EventType("test")).Source("/test").Tag("env", "prod").Build()
 	engine.ProcessEvent(event2)
 
 	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
-		return executed, nil
+		return executed.Load(), nil
 	}); err != nil {
 		t.Fatalf("Reactor should execute when Unless condition is false: %v", err)
 	}

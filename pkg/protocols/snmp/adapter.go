@@ -4,6 +4,7 @@ package snmp
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -12,6 +13,12 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/credentials"
 	"github.com/shawnbutts/keystone-core/pkg/protocols"
 	"github.com/shawnbutts/keystone-core/pkg/proxy"
+)
+
+var (
+	// Sync.Once to ensure deprecation warnings are only logged once per algorithm
+	md5DeprecationOnce sync.Once
+	desDeprecationOnce sync.Once
 )
 
 // SNMPVersion represents the SNMP protocol version.
@@ -229,6 +236,9 @@ func (a *Adapter) getMsgFlags(cred *credentials.SNMPv3Credential) gosnmp.SnmpV3M
 func (a *Adapter) getAuthProtocol(proto string) gosnmp.SnmpV3AuthProtocol {
 	switch proto {
 	case "MD5":
+		md5DeprecationOnce.Do(func() {
+			log.Printf("WARNING: MD5 authentication is cryptographically weak and deprecated. Consider using SHA-256 or stronger.")
+		})
 		return gosnmp.MD5
 	case "SHA":
 		return gosnmp.SHA
@@ -249,6 +259,9 @@ func (a *Adapter) getAuthProtocol(proto string) gosnmp.SnmpV3AuthProtocol {
 func (a *Adapter) getPrivProtocol(proto string) gosnmp.SnmpV3PrivProtocol {
 	switch proto {
 	case "DES":
+		desDeprecationOnce.Do(func() {
+			log.Printf("WARNING: DES encryption is cryptographically weak and deprecated. Consider using AES-128 or stronger.")
+		})
 		return gosnmp.DES
 	case "AES":
 		return gosnmp.AES

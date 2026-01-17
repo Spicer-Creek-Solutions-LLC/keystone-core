@@ -118,18 +118,20 @@ func (m *HealthMonitor) Start() error {
 		return fmt.Errorf("health monitor already running")
 	}
 	m.running = true
+	stopCh := m.stopCh // Capture before unlocking to avoid race
+	checkInterval := m.checkInterval
 	m.mu.Unlock()
 
 	// Run initial check
 	m.RunChecks()
 
 	go func() {
-		ticker := time.NewTicker(m.checkInterval)
+		ticker := time.NewTicker(checkInterval)
 		defer ticker.Stop()
 
 		for {
 			select {
-			case <-m.stopCh:
+			case <-stopCh:
 				return
 			case <-ticker.C:
 				m.RunChecks()

@@ -483,7 +483,16 @@ func (m *MirrorServer) Start() error {
 		return fmt.Errorf("listen_addr is required")
 	}
 
-	return http.ListenAndServe(m.config.ListenAddr, m.Handler())
+	// Configure server with timeouts to prevent Slowloris attacks
+	server := &http.Server{
+		Addr:         m.config.ListenAddr,
+		Handler:      m.Handler(),
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 60 * time.Second, // Allow longer for bundle downloads
+		IdleTimeout:  120 * time.Second,
+	}
+
+	return server.ListenAndServe()
 }
 
 // MirrorClient connects to a mirror server

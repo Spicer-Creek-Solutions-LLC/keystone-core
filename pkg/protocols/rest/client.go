@@ -6,10 +6,17 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"sync"
 	"time"
+)
+
+var (
+	insecureTLSWarningOnce sync.Once
 )
 
 // ClientConfig contains HTTP client configuration.
@@ -109,8 +116,21 @@ func NewClient(config *ClientConfig) *Client {
 
 	// Configure TLS
 	if !config.ValidateSSL {
-		transport.TLSClientConfig = &tls.Config{
-			InsecureSkipVerify: true,
+		// Require explicit environment variable to disable SSL validation
+		// This prevents accidental disabling of certificate verification
+		if os.Getenv("KSCORE_ALLOW_INSECURE_TLS") != "1" {
+			insecureTLSWarningOnce.Do(func() {
+				log.Printf("WARNING: ValidateSSL=false ignored. Set KSCORE_ALLOW_INSECURE_TLS=1 to allow insecure TLS connections.")
+			})
+			// Keep SSL validation enabled (don't set InsecureSkipVerify)
+		} else {
+			insecureTLSWarningOnce.Do(func() {
+				log.Printf("WARNING: TLS certificate verification is disabled. This is insecure and should only be used for testing.")
+			})
+			transport.TLSClientConfig = &tls.Config{
+				MinVersion:         tls.VersionTLS12,
+				InsecureSkipVerify: true, // #nosec G402 -- gated by KSCORE_ALLOW_INSECURE_TLS env var
+			}
 		}
 	}
 

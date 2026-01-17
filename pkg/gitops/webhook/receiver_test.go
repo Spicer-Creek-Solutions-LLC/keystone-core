@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -14,13 +15,31 @@ import (
 
 // MockEventProcessor for testing
 type MockEventProcessor struct {
+	mu           sync.Mutex
 	events       []*WebhookEvent
 	processError error
 }
 
 func (m *MockEventProcessor) ProcessEvent(ctx context.Context, event *WebhookEvent) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.events = append(m.events, event)
 	return m.processError
+}
+
+func (m *MockEventProcessor) GetEvents() []*WebhookEvent {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	// Return a copy of the slice
+	events := make([]*WebhookEvent, len(m.events))
+	copy(events, m.events)
+	return events
+}
+
+func (m *MockEventProcessor) EventCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.events)
 }
 
 func TestReceiverArgoCD(t *testing.T) {
@@ -72,16 +91,17 @@ func TestReceiverArgoCD(t *testing.T) {
 	}
 
 	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
-		return len(processor.events) == 1, nil
+		return processor.EventCount() == 1, nil
 	}); err != nil {
-		t.Fatalf("processor received %d events, want 1: %v", len(processor.events), err)
+		t.Fatalf("processor received %d events, want 1: %v", processor.EventCount(), err)
 	}
 
-	if len(processor.events) != 1 {
-		t.Fatalf("processor received %d events, want 1", len(processor.events))
+	events := processor.GetEvents()
+	if len(events) != 1 {
+		t.Fatalf("processor received %d events, want 1", len(events))
 	}
 
-	event := processor.events[0]
+	event := events[0]
 	if event.Type != WebhookTypeArgoCD {
 		t.Errorf("event.Type = %v, want %v", event.Type, WebhookTypeArgoCD)
 	}
@@ -123,16 +143,17 @@ func TestReceiverFlux(t *testing.T) {
 	}
 
 	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
-		return len(processor.events) == 1, nil
+		return processor.EventCount() == 1, nil
 	}); err != nil {
-		t.Fatalf("processor received %d events, want 1: %v", len(processor.events), err)
+		t.Fatalf("processor received %d events, want 1: %v", processor.EventCount(), err)
 	}
 
-	if len(processor.events) != 1 {
-		t.Fatalf("processor received %d events, want 1", len(processor.events))
+	events := processor.GetEvents()
+	if len(events) != 1 {
+		t.Fatalf("processor received %d events, want 1", len(events))
 	}
 
-	event := processor.events[0]
+	event := events[0]
 	if event.Type != WebhookTypeFlux {
 		t.Errorf("event.Type = %v, want %v", event.Type, WebhookTypeFlux)
 	}

@@ -127,6 +127,129 @@ jobs:
           args: '-conf .gosec.yaml -exclude-dir=test -exclude-dir=modules ./...'
         # Blocking: use nosec annotations or .gosec.yaml for explicit waivers
 
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Detects secrets, API keys, and credentials in code and git history
+
+      - name: Run trivy filesystem scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+        # Scans filesystem for vulnerabilities in dependencies and configs
+
+      - name: Run nancy (Sonatype OSS Index)
+        run: |
+          go install github.com/sonatype-nexus-community/nancy@latest
+          go list -json -deps ./... | nancy sleuth
+        # Cross-references dependencies against Sonatype OSS Index
+
+  license-check:
+    name: License Compliance
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install go-licenses
+        run: go install github.com/google/go-licenses@latest
+
+      - name: Check licenses
+        run: |
+          go-licenses check ./... --disallowed_types=forbidden,restricted,reciprocal,permissive,unknown 2>&1 || true
+          # Report mode - list all licenses for review
+          go-licenses report ./... --template='{{range .}}{{.Name}}: {{.LicenseName}}{{"\n"}}{{end}}' > licenses.txt
+          echo "=== Dependency Licenses ==="
+          cat licenses.txt
+        # Checks dependency licenses for compliance issues
+
+  semgrep:
+    name: Semgrep SAST
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run semgrep
+        run: semgrep scan --config auto --config p/golang --error --json > semgrep-results.json || true
+        # Uses auto-detection plus Go-specific rules
+
+      - name: Display results
+        run: |
+          if [ -f semgrep-results.json ]; then
+            cat semgrep-results.json | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          for r in data.get('results', []):
+              print(f\"{r.get('path')}:{r.get('start', {}).get('line')}: {r.get('check_id')}\")
+              print(f\"  {r.get('extra', {}).get('message', 'No message')}\")
+          "
+          fi
+        # Formats and displays semgrep findings
+
+  sbom:
+    name: SBOM Generation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install syft
+        uses: anchore/sbom-action/download-syft@v0
+
+      - name: Generate SBOM (CycloneDX)
+        run: syft . -o cyclonedx-json=sbom-cyclonedx.json
+
+      - name: Generate SBOM (SPDX)
+        run: syft . -o spdx-json=sbom-spdx.json
+
+      - name: Upload SBOMs
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: |
+            sbom-cyclonedx.json
+            sbom-spdx.json
+          retention-days: 30
+        # Generates Software Bill of Materials for supply chain transparency
+
+  fuzz:
+    name: Fuzz Testing
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run fuzz tests
+        run: |
+          # Run each fuzz test for a short duration in CI
+          # Longer fuzzing should be done locally or in dedicated fuzzing infrastructure
+          for fuzztest in $(go test -list 'Fuzz.*' ./pkg/security/... 2>/dev/null | grep '^Fuzz'); do
+            echo "Running $fuzztest for 30 seconds..."
+            go test -fuzz="^${fuzztest}$" -fuzztime=30s ./pkg/security/... || true
+          done
+        # Runs Go native fuzz tests to find edge cases and crashes
+
   proto:
     name: Protobuf Check
     runs-on: ubuntu-latest

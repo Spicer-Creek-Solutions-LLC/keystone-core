@@ -2,17 +2,20 @@ package verification
 
 import (
 	"context"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
 
 // MockVerifier for testing
 type MockVerifier struct {
+	mu      sync.Mutex
 	vtype   VerificationType
 	result  *VerificationResult
 	delay   time.Duration
-	failN   int
-	callNum int
+	failN   int32
+	callNum int32
 }
 
 func (m *MockVerifier) Type() VerificationType {
@@ -26,10 +29,11 @@ func (m *MockVerifier) Verify(step *VerificationStep) (*VerificationResult, erro
 		timer.Stop()
 	}
 
-	m.callNum++
+	callNum := atomic.AddInt32(&m.callNum, 1)
 
 	// Fail first N attempts
-	if m.callNum <= m.failN {
+	failN := atomic.LoadInt32(&m.failN)
+	if callNum <= failN {
 		return &VerificationResult{
 			StepName:  step.Name,
 			Success:   false,
@@ -38,11 +42,15 @@ func (m *MockVerifier) Verify(step *VerificationStep) (*VerificationResult, erro
 		}, nil
 	}
 
-	if m.result != nil {
-		result := *m.result
-		result.StepName = step.Name
-		result.Timestamp = time.Now()
-		return &result, nil
+	m.mu.Lock()
+	result := m.result
+	m.mu.Unlock()
+
+	if result != nil {
+		resultCopy := *result
+		resultCopy.StepName = step.Name
+		resultCopy.Timestamp = time.Now()
+		return &resultCopy, nil
 	}
 
 	return &VerificationResult{

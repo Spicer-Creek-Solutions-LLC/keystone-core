@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -138,7 +139,7 @@ func (m *progressModel) handleLogLine(line string) {
 			return
 		case "error":
 			if payload.err != "" {
-				m.err = fmt.Errorf(payload.err)
+				m.err = errors.New(payload.err)
 			}
 			return
 		case "complete":

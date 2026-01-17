@@ -3,6 +3,7 @@ package ha
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -11,15 +12,30 @@ import (
 
 // mockHealthChecker is a mock health checker for testing.
 type mockHealthChecker struct {
+	mu      sync.RWMutex
 	healthy bool
 	err     error
 }
 
 func (m *mockHealthChecker) Check(ctx context.Context) error {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	if !m.healthy {
 		return m.err
 	}
 	return nil
+}
+
+func (m *mockHealthChecker) SetHealthy(healthy bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.healthy = healthy
+}
+
+func (m *mockHealthChecker) SetError(err error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.err = err
 }
 
 func TestInstanceManager_NewInstanceManager(t *testing.T) {
@@ -31,16 +47,16 @@ func TestInstanceManager_NewInstanceManager(t *testing.T) {
 
 	manager := NewInstanceManager(config)
 
-	if manager.info.ID != "test-1" {
-		t.Errorf("expected ID 'test-1', got '%s'", manager.info.ID)
+	if manager.GetInfo().ID != "test-1" {
+		t.Errorf("expected ID 'test-1', got '%s'", manager.GetInfo().ID)
 	}
 
-	if manager.info.Hostname != "localhost" {
-		t.Errorf("expected hostname 'localhost', got '%s'", manager.info.Hostname)
+	if manager.GetInfo().Hostname != "localhost" {
+		t.Errorf("expected hostname 'localhost', got '%s'", manager.GetInfo().Hostname)
 	}
 
-	if manager.info.State != InstanceStateStarting {
-		t.Errorf("expected state Starting, got '%s'", manager.info.State)
+	if manager.GetInfo().State != InstanceStateStarting {
+		t.Errorf("expected state Starting, got '%s'", manager.GetInfo().State)
 	}
 }
 
@@ -61,8 +77,8 @@ func TestInstanceManager_StartStop(t *testing.T) {
 		t.Fatalf("Start() error: %v", err)
 	}
 
-	if manager.info.State != InstanceStateReady {
-		t.Errorf("expected state Ready after start, got '%s'", manager.info.State)
+	if manager.GetInfo().State != InstanceStateReady {
+		t.Errorf("expected state Ready after start, got '%s'", manager.GetInfo().State)
 	}
 
 	// Stop the manager.
@@ -70,8 +86,8 @@ func TestInstanceManager_StartStop(t *testing.T) {
 		t.Fatalf("Stop() error: %v", err)
 	}
 
-	if manager.info.State != InstanceStateStopped {
-		t.Errorf("expected state Stopped after stop, got '%s'", manager.info.State)
+	if manager.GetInfo().State != InstanceStateStopped {
+		t.Errorf("expected state Stopped after stop, got '%s'", manager.GetInfo().State)
 	}
 }
 
@@ -96,40 +112,40 @@ func TestInstanceManager_WithHealthChecker(t *testing.T) {
 	defer manager.Stop(ctx)
 
 	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
-		return manager.info.State == InstanceStateReady, nil
+		return manager.GetInfo().State == InstanceStateReady, nil
 	}); err != nil {
 		t.Fatalf("expected state Ready with healthy checker: %v", err)
 	}
 
-	if manager.info.State != InstanceStateReady {
-		t.Errorf("expected state Ready with healthy checker, got '%s'", manager.info.State)
+	if manager.GetInfo().State != InstanceStateReady {
+		t.Errorf("expected state Ready with healthy checker, got '%s'", manager.GetInfo().State)
 	}
 
 	// Make the health check fail.
-	healthChecker.healthy = false
-	healthChecker.err = errors.New("unhealthy")
+	healthChecker.SetHealthy(false)
+	healthChecker.SetError(errors.New("unhealthy"))
 
 	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
-		return manager.info.State == InstanceStateUnhealthy, nil
+		return manager.GetInfo().State == InstanceStateUnhealthy, nil
 	}); err != nil {
 		t.Fatalf("expected state Unhealthy with failing checker: %v", err)
 	}
 
-	if manager.info.State != InstanceStateUnhealthy {
-		t.Errorf("expected state Unhealthy with failing checker, got '%s'", manager.info.State)
+	if manager.GetInfo().State != InstanceStateUnhealthy {
+		t.Errorf("expected state Unhealthy with failing checker, got '%s'", manager.GetInfo().State)
 	}
 
 	// Make the health check pass again.
-	healthChecker.healthy = true
+	healthChecker.SetHealthy(true)
 
 	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
-		return manager.info.State == InstanceStateReady, nil
+		return manager.GetInfo().State == InstanceStateReady, nil
 	}); err != nil {
 		t.Fatalf("expected state Ready after recovery: %v", err)
 	}
 
-	if manager.info.State != InstanceStateReady {
-		t.Errorf("expected state Ready after recovery, got '%s'", manager.info.State)
+	if manager.GetInfo().State != InstanceStateReady {
+		t.Errorf("expected state Ready after recovery, got '%s'", manager.GetInfo().State)
 	}
 }
 
@@ -146,33 +162,33 @@ func TestInstanceManager_MetricsRecording(t *testing.T) {
 	manager.RecordTransfer(1024)
 	manager.RecordTransfer(2048)
 
-	if manager.info.Metrics.TransfersTotal != 2 {
-		t.Errorf("expected 2 total transfers, got %d", manager.info.Metrics.TransfersTotal)
+	if manager.GetInfo().Metrics.TransfersTotal != 2 {
+		t.Errorf("expected 2 total transfers, got %d", manager.GetInfo().Metrics.TransfersTotal)
 	}
 
-	if manager.info.Metrics.BytesTransferred != 3072 {
-		t.Errorf("expected 3072 bytes transferred, got %d", manager.info.Metrics.BytesTransferred)
+	if manager.GetInfo().Metrics.BytesTransferred != 3072 {
+		t.Errorf("expected 3072 bytes transferred, got %d", manager.GetInfo().Metrics.BytesTransferred)
 	}
 
 	// Record an error.
 	manager.RecordError()
 
-	if manager.info.Metrics.ErrorsTotal != 1 {
-		t.Errorf("expected 1 error, got %d", manager.info.Metrics.ErrorsTotal)
+	if manager.GetInfo().Metrics.ErrorsTotal != 1 {
+		t.Errorf("expected 1 error, got %d", manager.GetInfo().Metrics.ErrorsTotal)
 	}
 
 	// Test active transfers.
 	manager.IncrementActiveTransfers()
 	manager.IncrementActiveTransfers()
 
-	if manager.info.Metrics.TransfersActive != 2 {
-		t.Errorf("expected 2 active transfers, got %d", manager.info.Metrics.TransfersActive)
+	if manager.GetInfo().Metrics.TransfersActive != 2 {
+		t.Errorf("expected 2 active transfers, got %d", manager.GetInfo().Metrics.TransfersActive)
 	}
 
 	manager.DecrementActiveTransfers()
 
-	if manager.info.Metrics.TransfersActive != 1 {
-		t.Errorf("expected 1 active transfer, got %d", manager.info.Metrics.TransfersActive)
+	if manager.GetInfo().Metrics.TransfersActive != 1 {
+		t.Errorf("expected 1 active transfer, got %d", manager.GetInfo().Metrics.TransfersActive)
 	}
 }
 

@@ -1,0 +1,103 @@
+# golangci-lint configuration
+# https://golangci-lint.run/usage/configuration/
+
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+  skip-dirs:
+    - test
+    - modules
+    - docs
+
+linters:
+  enable:
+    # Default linters
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+
+    # Additional security and quality linters
+    - bodyclose      # Check HTTP response body is closed
+    - contextcheck   # Check context.Context is passed properly
+    - durationcheck  # Check for multiplication of durations
+    - errname        # Check error names follow Go conventions
+    - errorlint      # Find code that may cause issues with Go 1.13 error wrapping
+    - exhaustive     # Check exhaustiveness of enum switch statements
+    - exportloopref  # Check for pointers to enclosing loop variables
+    - gocritic       # Highly extensible Go source code linter
+    - goimports      # Check import statements are formatted
+    - gosec          # Security-oriented linter
+    - makezero       # Find slice declarations with non-zero initial length
+    - nilerr         # Find code that returns nil even if it checks error is not nil
+    - noctx          # Find HTTP requests without context.Context
+    - prealloc       # Find slice declarations that could be preallocated
+    - predeclared    # Find shadowed predeclared identifiers
+    - reassign       # Check that package variables are not reassigned
+    - revive         # Fast, configurable, extensible linter
+    - rowserrcheck   # Check sql.Rows.Err is checked
+    - sqlclosecheck  # Check that sql.Rows and sql.Stmt are closed
+    - unconvert      # Remove unnecessary type conversions
+    - wastedassign   # Find wasted assignment statements
+
+linters-settings:
+  gosec:
+    excludes:
+      - G104  # Handled by errcheck
+    config:
+      global:
+        audit: false
+
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+    disabled-checks:
+      - hugeParam  # Too noisy for struct parameters
+
+  revive:
+    rules:
+      - name: blank-imports
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: exported
+      - name: if-return
+      - name: increment-decrement
+      - name: var-naming
+      - name: var-declaration
+      - name: package-comments
+      - name: range
+      - name: receiver-naming
+      - name: time-naming
+      - name: unexported-return
+      - name: indent-error-flow
+      - name: errorf
+
+  staticcheck:
+    checks:
+      - all
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+  exclude-rules:
+    # Test files can have longer functions and magic numbers
+    - path: _test\.go
+      linters:
+        - gocritic
+        - gosec
+        - errcheck
+
+    # Allow longer lines in generated files
+    - path: \.pb\.go
+      linters:
+        - all

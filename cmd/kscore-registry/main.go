@@ -44,6 +44,9 @@ type Config struct {
 
 	// EnableCORS enables CORS headers
 	EnableCORS bool
+
+	// CORSOrigins is a comma-separated list of allowed origins (default: none, requires explicit config)
+	CORSOrigins string
 }
 
 // Server is the module registry HTTP server
@@ -102,9 +105,14 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 // handleRegistry routes requests to the appropriate handler
 func (s *Server) handleRegistry(w http.ResponseWriter, r *http.Request) {
 	if s.config.EnableCORS {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
+		// Use configured origins, or reject if none configured
+		origin := r.Header.Get("Origin")
+		if origin != "" && s.isAllowedOrigin(origin) {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
+			w.Header().Set("Vary", "Origin")
+		}
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusOK)
 			return
@@ -594,6 +602,25 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mux.ServeHTTP(w, r)
 }
 
+// isAllowedOrigin checks if the origin is in the allowed list
+func (s *Server) isAllowedOrigin(origin string) bool {
+	if s.config.CORSOrigins == "" {
+		return false // No origins configured = no CORS allowed
+	}
+	allowedOrigins := strings.Split(s.config.CORSOrigins, ",")
+	for _, allowed := range allowedOrigins {
+		allowed = strings.TrimSpace(allowed)
+		if allowed == "*" {
+			// Explicitly configured wildcard (user accepts the risk)
+			return true
+		}
+		if allowed == origin {
+			return true
+		}
+	}
+	return false
+}
+
 func main() {
 	var config Config
 
@@ -619,7 +646,8 @@ It provides a Go-mod style API for module discovery and distribution:
 	rootCmd.Flags().StringVar(&config.APIKey, "api-key", "", "API key for write operations (or KSCORE_REGISTRY_API_KEY env)")
 	rootCmd.Flags().BoolVar(&config.ReadOnly, "readonly", false, "Disable write operations")
 	rootCmd.Flags().Int64Var(&config.MaxUploadSize, "max-upload-size", 100<<20, "Maximum upload size in bytes (default 100MB)")
-	rootCmd.Flags().BoolVar(&config.EnableCORS, "cors", false, "Enable CORS headers")
+	rootCmd.Flags().BoolVar(&config.EnableCORS, "cors", false, "Enable CORS headers (requires --cors-origins)")
+	rootCmd.Flags().StringVar(&config.CORSOrigins, "cors-origins", "", "Comma-separated list of allowed CORS origins (e.g., 'https://example.com,https://app.example.com')")
 
 	versionCmd := &cobra.Command{
 		Use:   "version",
@@ -641,12 +669,18 @@ func runServer(config Config) error {
 		config.APIKey = os.Getenv("KSCORE_REGISTRY_API_KEY")
 	}
 
+	// Warn if CORS is enabled without configured origins
+	if config.EnableCORS && config.CORSOrigins == "" {
+		log.Printf("WARNING: CORS enabled but no origins configured. CORS requests will be rejected.")
+		log.Printf("  Use --cors-origins to specify allowed origins.")
+	}
+
 	// Create data directory
 	if err := os.MkdirAll(config.DataDir, 0755); err != nil {
 		return fmt.Errorf("failed to create data directory: %w", err)
 	}
 
-	server := NewServer(config)
+	handler := NewServer(config)
 
 	log.Printf("Starting kscore-registry on %s", config.ListenAddr)
 	log.Printf("  Data directory: %s", config.DataDir)
@@ -658,5 +692,14 @@ func runServer(config Config) error {
 		log.Printf("  Mode: open write (no authentication)")
 	}
 
-	return http.ListenAndServe(config.ListenAddr, server)
+	// Configure server with timeouts to prevent Slowloris attacks
+	server := &http.Server{
+		Addr:         config.ListenAddr,
+		Handler:      handler,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 120 * time.Second, // Allow longer for module downloads
+		IdleTimeout:  120 * time.Second,
+	}
+
+	return server.ListenAndServe()
 }

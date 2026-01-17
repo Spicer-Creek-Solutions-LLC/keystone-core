@@ -144,7 +144,8 @@ func (c *EtcdClient) buildTLSConfig() (*tls.Config, error) {
 	}
 
 	tlsConfig := &tls.Config{
-		InsecureSkipVerify: c.config.TLS.InsecureSkipVerify,
+		MinVersion:         tls.VersionTLS12,
+		InsecureSkipVerify: c.config.TLS.InsecureSkipVerify, // #nosec G402 -- user-configured, logged security warning above
 		ServerName:         c.config.TLS.ServerName,
 	}
 

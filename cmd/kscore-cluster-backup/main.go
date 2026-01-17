@@ -501,7 +501,7 @@ func newBackupClient(ctx context.Context) (*BackupClient, error) {
 		Timeout: 30 * time.Second,
 	}
 
-	baseURL := fmt.Sprintf("http://%s/api/v1/cluster", serverAddr)
+	baseURL := fmt.Sprintf("%s://%s/api/v1/cluster", getAPIScheme(serverAddr), serverAddr)
 
 	return &BackupClient{
 		httpClient: httpClient,
@@ -561,6 +561,16 @@ func (c *BackupClient) Restore(ctx context.Context, data []byte) error {
 // ============================================================================
 // Helpers
 // ============================================================================
+
+// getAPIScheme returns "https" by default, "http" only for localhost addresses.
+// This ensures production deployments use TLS while allowing HTTP for local development.
+func getAPIScheme(addr string) string {
+	host := strings.Split(addr, ":")[0]
+	if host == "localhost" || host == "127.0.0.1" || host == "::1" {
+		return "http"
+	}
+	return "https"
+}
 
 func formatBytes(bytes int64) string {
 	const unit = 1024

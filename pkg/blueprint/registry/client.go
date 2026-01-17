@@ -56,7 +56,8 @@ func NewHTTPClient(config *RegistryConfig) (*HTTPClient, error) {
 	// Create HTTP client
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: config.InsecureSkipVerify,
+			MinVersion:         tls.VersionTLS12,
+			InsecureSkipVerify: config.InsecureSkipVerify, // #nosec G402 -- user-configured for development/testing
 		},
 	}
 

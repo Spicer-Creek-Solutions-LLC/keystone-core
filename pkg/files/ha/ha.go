@@ -71,7 +71,7 @@ type InstanceManager struct {
 	// instances is the map of known instances.
 	instances map[string]*InstanceInfo
 
-	// mu protects the instances map.
+	// mu protects the instances map and info fields.
 	mu sync.RWMutex
 
 	// healthInterval is how often to report health.
@@ -202,7 +202,11 @@ func (m *InstanceManager) Stop(ctx context.Context) error {
 
 // GetInfo returns information about this instance.
 func (m *InstanceManager) GetInfo() *InstanceInfo {
-	return m.info
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	// Return a copy to prevent races
+	infoCopy := *m.info
+	return &infoCopy
 }
 
 // GetInstances returns all known instances.
@@ -253,20 +257,29 @@ func (m *InstanceManager) reportHealth() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		if err := m.healthChecker.Check(ctx); err != nil {
+		err := m.healthChecker.Check(ctx)
+
+		m.mu.Lock()
+		if err != nil {
 			m.info.State = InstanceStateUnhealthy
 		} else if m.info.State == InstanceStateUnhealthy {
 			m.info.State = InstanceStateReady
 		}
+		m.mu.Unlock()
 	}
 
 	// Update last heartbeat.
+	m.mu.Lock()
 	m.info.LastHeartbeat = time.Now()
+	m.mu.Unlock()
 
 	// Publish health report if NATS is available.
 	if m.nc != nil {
 		// In a real implementation, we would serialize and publish the info.
-		_ = m.nc.Publish(m.healthSubject, []byte(m.info.ID))
+		m.mu.RLock()
+		infoID := m.info.ID
+		m.mu.RUnlock()
+		_ = m.nc.Publish(m.healthSubject, []byte(infoID))
 	}
 }
 

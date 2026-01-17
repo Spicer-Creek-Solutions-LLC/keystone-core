@@ -305,7 +305,9 @@ func (c *GatewayTLSConfig) ToTLSConfig() (*tls.Config, error) {
 		return nil, nil
 	}
 
-	tlsConfig := &tls.Config{}
+	tlsConfig := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+	}
 
 	// InsecureSkipVerify - blocked by default unless KSCORE_ALLOW_INSECURE_TLS=1 is set
 	if c.InsecureSkipVerify {

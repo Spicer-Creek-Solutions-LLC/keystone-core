@@ -2,6 +2,7 @@ package upgrade
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 )
@@ -937,6 +938,7 @@ func TestUpgradePlan(t *testing.T) {
 // =============================================================================
 
 type mockNodeManager struct {
+	mu            sync.Mutex
 	nodes         []NodeInfo
 	healthMap     map[string]HealthStatus
 	drainCalled   map[string]bool
@@ -965,6 +967,8 @@ func (m *mockNodeManager) GetNodes(ctx context.Context, component ComponentType)
 }
 
 func (m *mockNodeManager) DrainNode(ctx context.Context, nodeID string, timeout time.Duration) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.drainCalled[nodeID] = true
 	return nil
 }
@@ -974,6 +978,8 @@ func (m *mockNodeManager) UncordonNode(ctx context.Context, nodeID string) error
 }
 
 func (m *mockNodeManager) UpgradeNode(ctx context.Context, nodeID, version string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.upgradedNodes[nodeID] = version
 	// Update the version
 	v, _ := ParseVersion(version)
@@ -982,6 +988,8 @@ func (m *mockNodeManager) UpgradeNode(ctx context.Context, nodeID, version strin
 }
 
 func (m *mockNodeManager) GetNodeHealth(ctx context.Context, nodeID string) (HealthStatus, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if status, ok := m.healthMap[nodeID]; ok {
 		return status, nil
 	}
@@ -989,6 +997,8 @@ func (m *mockNodeManager) GetNodeHealth(ctx context.Context, nodeID string) (Hea
 }
 
 func (m *mockNodeManager) GetNodeVersion(ctx context.Context, nodeID string) (Version, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if v, ok := m.versionMap[nodeID]; ok {
 		return v, nil
 	}

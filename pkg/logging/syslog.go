@@ -279,10 +279,11 @@ func (s *SyslogOutput) connect() error {
 // buildTLSConfig builds TLS configuration
 func (s *SyslogOutput) buildTLSConfig() (*tls.Config, error) {
 	if s.config.TLS == nil {
-		return &tls.Config{}, nil
+		return &tls.Config{MinVersion: tls.VersionTLS12}, nil
 	}
 
 	tlsConfig := &tls.Config{
+		MinVersion: tls.VersionTLS12,
 		ServerName: s.config.TLS.ServerName,
 	}
 

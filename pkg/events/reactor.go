@@ -163,6 +163,9 @@ type ReactorExecutionMetrics struct {
 	// Total debounced events
 	Debounced uint64
 
+	// Mutex for protecting time.Time and string fields
+	mu sync.RWMutex
+
 	// Last execution time
 	LastExecution time.Time
 
@@ -535,13 +538,17 @@ func (e *ReactorEngine) executeActions(reactor *Reactor, event *Event, exec *rea
 	} else {
 		atomic.AddUint64(&metrics.Failed, 1)
 		atomic.AddUint64(&e.metrics.ExecutionsFailed, 1)
+		metrics.mu.Lock()
 		metrics.LastError = time.Now()
 		if lastErr != nil {
 			metrics.LastErrorMsg = lastErr.Error()
 		}
+		metrics.mu.Unlock()
 	}
 
+	metrics.mu.Lock()
 	metrics.LastExecution = time.Now()
+	metrics.mu.Unlock()
 
 	// Update average duration
 	atomic.AddUint64(&metrics.totalDurationMs, uint64(duration.Milliseconds()))
@@ -702,6 +709,12 @@ func (e *ReactorEngine) GetMetrics() *ReactorMetrics {
 
 	// Copy reactor metrics
 	for id, metrics := range e.metrics.reactorMetrics {
+		metrics.mu.RLock()
+		lastExec := metrics.LastExecution
+		lastErr := metrics.LastError
+		lastErrMsg := metrics.LastErrorMsg
+		metrics.mu.RUnlock()
+
 		snapshot.reactorMetrics[id] = &ReactorExecutionMetrics{
 			EventsMatched:   atomic.LoadUint64(&metrics.EventsMatched),
 			Triggered:       atomic.LoadUint64(&metrics.Triggered),
@@ -709,9 +722,9 @@ func (e *ReactorEngine) GetMetrics() *ReactorMetrics {
 			Failed:          atomic.LoadUint64(&metrics.Failed),
 			Throttled:       atomic.LoadUint64(&metrics.Throttled),
 			Debounced:       atomic.LoadUint64(&metrics.Debounced),
-			LastExecution:   metrics.LastExecution,
-			LastError:       metrics.LastError,
-			LastErrorMsg:    metrics.LastErrorMsg,
+			LastExecution:   lastExec,
+			LastError:       lastErr,
+			LastErrorMsg:    lastErrMsg,
 			AvgDurationMs:   atomic.LoadUint64(&metrics.AvgDurationMs),
 			totalDurationMs: atomic.LoadUint64(&metrics.totalDurationMs),
 			executionCount:  atomic.LoadUint64(&metrics.executionCount),
@@ -731,6 +744,12 @@ func (e *ReactorEngine) GetReactorMetrics(id string) (*ReactorExecutionMetrics, 
 		return nil, fmt.Errorf("no metrics for reactor %s", id)
 	}
 
+	metrics.mu.RLock()
+	lastExec := metrics.LastExecution
+	lastErr := metrics.LastError
+	lastErrMsg := metrics.LastErrorMsg
+	metrics.mu.RUnlock()
+
 	return &ReactorExecutionMetrics{
 		EventsMatched:   atomic.LoadUint64(&metrics.EventsMatched),
 		Triggered:       atomic.LoadUint64(&metrics.Triggered),
@@ -738,9 +757,9 @@ func (e *ReactorEngine) GetReactorMetrics(id string) (*ReactorExecutionMetrics, 
 		Failed:          atomic.LoadUint64(&metrics.Failed),
 		Throttled:       atomic.LoadUint64(&metrics.Throttled),
 		Debounced:       atomic.LoadUint64(&metrics.Debounced),
-		LastExecution:   metrics.LastExecution,
-		LastError:       metrics.LastError,
-		LastErrorMsg:    metrics.LastErrorMsg,
+		LastExecution:   lastExec,
+		LastError:       lastErr,
+		LastErrorMsg:    lastErrMsg,
 		AvgDurationMs:   atomic.LoadUint64(&metrics.AvgDurationMs),
 		totalDurationMs: atomic.LoadUint64(&metrics.totalDurationMs),
 		executionCount:  atomic.LoadUint64(&metrics.executionCount),

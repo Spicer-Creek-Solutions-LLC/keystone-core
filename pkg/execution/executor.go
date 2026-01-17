@@ -219,23 +219,20 @@ func (e *Executor) executeOnce(ctx context.Context, req *ExecuteRequest, outputH
 		return result, fmt.Errorf("failed to create stderr pipe: %w", err)
 	}
 
-	// Track the running command
+	// Start the command
+	if err := cmd.Start(); err != nil {
+		result.Error = err
+		result.EndTime = time.Now()
+		return result, fmt.Errorf("failed to start command: %w", err)
+	}
+
+	// Track the running command (after Start so cmd.Process is set)
 	e.mu.Lock()
 	e.runningCommands[req.CommandID] = &runningCommand{
 		cmd:    cmd,
 		cancel: cancel,
 	}
 	e.mu.Unlock()
-
-	// Start the command
-	if err := cmd.Start(); err != nil {
-		e.mu.Lock()
-		delete(e.runningCommands, req.CommandID)
-		e.mu.Unlock()
-		result.Error = err
-		result.EndTime = time.Now()
-		return result, fmt.Errorf("failed to start command: %w", err)
-	}
 
 	// Stream output
 	var wg sync.WaitGroup

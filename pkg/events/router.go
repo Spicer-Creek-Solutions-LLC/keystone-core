@@ -79,6 +79,9 @@ type RuleMetrics struct {
 	// Total handler errors
 	Errors uint64
 
+	// Mutex for protecting time.Time and string fields
+	mu sync.RWMutex
+
 	// Last match time
 	LastMatch time.Time
 
@@ -242,14 +245,18 @@ func (r *Router) Route(event *Event) error {
 		matched = true
 		atomic.AddUint64(&ruleMetrics.Matched, 1)
 		atomic.AddUint64(&r.metrics.TotalRoutings, 1)
+		ruleMetrics.mu.Lock()
 		ruleMetrics.LastMatch = time.Now()
+		ruleMetrics.mu.Unlock()
 
 		// Invoke handler
 		if err := rule.Handler(event); err != nil {
 			atomic.AddUint64(&ruleMetrics.Errors, 1)
 			atomic.AddUint64(&r.metrics.RoutingErrors, 1)
+			ruleMetrics.mu.Lock()
 			ruleMetrics.LastError = time.Now()
 			ruleMetrics.LastErrorMsg = err.Error()
+			ruleMetrics.mu.Unlock()
 			lastErr = fmt.Errorf("rule %s: %w", rule.ID, err)
 		} else {
 			atomic.AddUint64(&ruleMetrics.Handled, 1)
@@ -322,14 +329,20 @@ func (r *Router) GetMetrics() *RouterMetrics {
 
 	// Copy rule metrics
 	for id, metrics := range r.metrics.ruleMetrics {
+		metrics.mu.RLock()
+		lastMatch := metrics.LastMatch
+		lastErr := metrics.LastError
+		lastErrMsg := metrics.LastErrorMsg
+		metrics.mu.RUnlock()
+
 		snapshot.ruleMetrics[id] = &RuleMetrics{
 			Evaluated:    atomic.LoadUint64(&metrics.Evaluated),
 			Matched:      atomic.LoadUint64(&metrics.Matched),
 			Handled:      atomic.LoadUint64(&metrics.Handled),
 			Errors:       atomic.LoadUint64(&metrics.Errors),
-			LastMatch:    metrics.LastMatch,
-			LastError:    metrics.LastError,
-			LastErrorMsg: metrics.LastErrorMsg,
+			LastMatch:    lastMatch,
+			LastError:    lastErr,
+			LastErrorMsg: lastErrMsg,
 		}
 	}
 
@@ -346,15 +359,21 @@ func (r *Router) GetRuleMetrics(id string) (*RuleMetrics, error) {
 		return nil, fmt.Errorf("no metrics for rule %s", id)
 	}
 
+	metrics.mu.RLock()
+	lastMatch := metrics.LastMatch
+	lastErr := metrics.LastError
+	lastErrMsg := metrics.LastErrorMsg
+	metrics.mu.RUnlock()
+
 	// Return a copy
 	return &RuleMetrics{
 		Evaluated:    atomic.LoadUint64(&metrics.Evaluated),
 		Matched:      atomic.LoadUint64(&metrics.Matched),
 		Handled:      atomic.LoadUint64(&metrics.Handled),
 		Errors:       atomic.LoadUint64(&metrics.Errors),
-		LastMatch:    metrics.LastMatch,
-		LastError:    metrics.LastError,
-		LastErrorMsg: metrics.LastErrorMsg,
+		LastMatch:    lastMatch,
+		LastError:    lastErr,
+		LastErrorMsg: lastErrMsg,
 	}, nil
 }
 
@@ -374,9 +393,11 @@ func (r *Router) ResetMetrics() {
 		atomic.StoreUint64(&metrics.Matched, 0)
 		atomic.StoreUint64(&metrics.Handled, 0)
 		atomic.StoreUint64(&metrics.Errors, 0)
+		metrics.mu.Lock()
 		metrics.LastMatch = time.Time{}
 		metrics.LastError = time.Time{}
 		metrics.LastErrorMsg = ""
+		metrics.mu.Unlock()
 	}
 }
 

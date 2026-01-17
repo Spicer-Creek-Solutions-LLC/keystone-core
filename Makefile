@@ -3,6 +3,8 @@
        docs-validate docs-validate-build docs-validate-links docs-validate-examples docs-validate-godoc \
        docs-validate-drift docs-validate-sync docs-validate-all \
        release release-snapshot release-dry-run lint sdk-verify \
+       security security-secrets security-vulns security-sast security-licenses security-sbom security-fuzz \
+       security-install-tools \
        e2e-build e2e-test e2e-up e2e-down e2e-logs e2e-clean e2e-full e2e-perf e2e-scenarios \
        e2e-ha e2e-ha-up e2e-ha-down e2e-ha-logs \
        e2e-ipv6 e2e-ipv6-up e2e-ipv6-down e2e-ipv6-logs \
@@ -85,6 +87,16 @@ help:
 	@echo "  sdk-verify         - Build SDK examples (Go/Rust/C++)"
 	@echo "  clean              - Remove all build artifacts (build/)"
 	@echo "  deps               - Install/update dependencies"
+	@echo ""
+	@echo "Security scanning targets:"
+	@echo "  security           - Run all security checks"
+	@echo "  security-secrets   - Detect secrets with gitleaks"
+	@echo "  security-vulns     - Check vulnerabilities (govulncheck + nancy)"
+	@echo "  security-sast      - Static analysis (gosec + semgrep)"
+	@echo "  security-licenses  - Check dependency licenses"
+	@echo "  security-sbom      - Generate SBOM (CycloneDX + SPDX)"
+	@echo "  security-fuzz      - Run fuzz tests"
+	@echo "  security-install-tools - Install security scanning tools"
 	@echo ""
 	@echo "Release targets (requires goreleaser):"
 	@echo "  release            - Create a release (requires GITHUB_TOKEN)"
@@ -475,6 +487,135 @@ lint:
 		echo "golangci-lint not installed. Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; \
 		exit 1; \
 	fi
+
+# =============================================================================
+# Security Scanning
+# =============================================================================
+
+security-install-tools:
+	@echo "Installing security scanning tools..."
+	go install golang.org/x/vuln/cmd/govulncheck@latest
+	go install github.com/securego/gosec/v2/cmd/gosec@latest
+	go install github.com/sonatype-nexus-community/nancy@latest
+	go install github.com/google/go-licenses@latest
+	@echo ""
+	@echo "Tools that require manual installation:"
+	@echo "  gitleaks: https://github.com/gitleaks/gitleaks#installing"
+	@echo "  trivy: https://aquasecurity.github.io/trivy/latest/getting-started/installation/"
+	@echo "  syft: https://github.com/anchore/syft#installation"
+	@echo "  semgrep: pip install semgrep (or see https://semgrep.dev/docs/getting-started/)"
+	@echo ""
+	@echo "Go-based tools installed successfully"
+
+security: security-secrets security-vulns security-sast security-licenses
+	@echo ""
+	@echo "=== All security checks complete ==="
+
+security-secrets:
+	@echo "=== Running secret detection (gitleaks) ==="
+	@if command -v gitleaks >/dev/null 2>&1; then \
+		gitleaks detect --source . --config .gitleaks.toml --verbose; \
+	else \
+		echo "gitleaks not installed. Run: go install github.com/zricethezav/gitleaks/v8@latest"; \
+		exit 1; \
+	fi
+
+security-vulns:
+	@echo "=== Running vulnerability checks ==="
+	@echo ""
+	@echo "--- govulncheck ---"
+	@# Known unfixable k8s.io/kubernetes vulnerabilities (documented in SECURITY.md):
+	@# - GO-2025-3547: Race condition in kube-apiserver
+	@# - GO-2025-3521: GitRepo Volume local repository access
+	@if command -v govulncheck >/dev/null 2>&1; then \
+		govulncheck ./... 2>&1 | tee /tmp/govulncheck.out; \
+		if grep -q "No vulnerabilities found" /tmp/govulncheck.out; then \
+			echo "No vulnerabilities found"; \
+		else \
+			NEW_VULNS=$$(grep -oE "GO-[0-9]{4}-[0-9]+" /tmp/govulncheck.out | sort -u | grep -v -E "(GO-2025-3547|GO-2025-3521)" | wc -l); \
+			if [ "$$NEW_VULNS" -eq 0 ]; then \
+				echo ""; \
+				echo "WARNING: Only known unfixable k8s.io/kubernetes vulnerabilities found - documented in SECURITY.md"; \
+			else \
+				echo ""; \
+				echo "ERROR: New vulnerabilities found that need attention"; \
+				exit 1; \
+			fi; \
+		fi; \
+	else \
+		echo "govulncheck not installed. Run: go install golang.org/x/vuln/cmd/govulncheck@latest"; \
+	fi
+	@echo ""
+	@echo "--- nancy (Sonatype OSS Index) ---"
+	@if command -v nancy >/dev/null 2>&1; then \
+		go list -json -deps ./... | nancy sleuth 2>&1 || echo "nancy check skipped (requires OSS Index API token for full results)"; \
+	else \
+		echo "nancy not installed. Run: go install github.com/sonatype-nexus-community/nancy@latest"; \
+	fi
+	@echo ""
+	@echo "--- trivy filesystem scan ---"
+	@if command -v trivy >/dev/null 2>&1; then \
+		trivy fs --severity HIGH,CRITICAL .; \
+	else \
+		echo "trivy not installed. See: https://aquasecurity.github.io/trivy/latest/getting-started/installation/"; \
+	fi
+
+security-sast:
+	@echo "=== Running static analysis ==="
+	@echo ""
+	@echo "--- gosec ---"
+	@# Only fail on HIGH severity issues; MEDIUM/LOW reported but non-blocking
+	@# Exclusions:
+	@#   G115: Integer overflow false positives (bounded gRPC int32 conversions)
+	@#   G404: Weak random is acceptable for non-crypto uses (jitter)
+	@#   G101: False positives on variable names containing "key", "token", etc.
+	@if command -v gosec >/dev/null 2>&1; then \
+		gosec -severity high -exclude=G115,G404,G101 -exclude-dir=test -exclude-dir=modules ./...; \
+	else \
+		echo "gosec not installed. Run: go install github.com/securego/gosec/v2/cmd/gosec@latest"; \
+	fi
+	@echo ""
+	@echo "--- semgrep ---"
+	@if command -v semgrep >/dev/null 2>&1; then \
+		semgrep scan --config auto --config p/golang --error; \
+	else \
+		echo "semgrep not installed. Run: pip install semgrep"; \
+	fi
+
+security-licenses:
+	@echo "=== Checking dependency licenses ==="
+	@if command -v go-licenses >/dev/null 2>&1; then \
+		go-licenses check ./... 2>&1 || true; \
+		echo ""; \
+		echo "License report:"; \
+		go-licenses report ./... --template='{{range .}}{{.Name}}: {{.LicenseName}}{{"\n"}}{{end}}' 2>/dev/null | head -50; \
+	else \
+		echo "go-licenses not installed. Run: go install github.com/google/go-licenses@latest"; \
+	fi
+
+security-sbom:
+	@echo "=== Generating SBOM ==="
+	@mkdir -p build
+	@if command -v syft >/dev/null 2>&1; then \
+		echo "Generating CycloneDX SBOM..."; \
+		syft . -o cyclonedx-json=build/sbom-cyclonedx.json; \
+		echo "Generating SPDX SBOM..."; \
+		syft . -o spdx-json=build/sbom-spdx.json; \
+		echo ""; \
+		echo "SBOMs generated:"; \
+		ls -la build/sbom-*.json; \
+	else \
+		echo "syft not installed. See: https://github.com/anchore/syft#installation"; \
+	fi
+
+security-fuzz:
+	@echo "=== Running fuzz tests ==="
+	@echo "Note: Running for 30 seconds per test. For thorough testing, run longer locally."
+	@for fuzztest in $$(go test -list 'Fuzz.*' ./pkg/security/... 2>/dev/null | grep '^Fuzz'); do \
+		echo "Running $$fuzztest for 30 seconds..."; \
+		go test -fuzz="^$${fuzztest}$$" -fuzztime=30s ./pkg/security/... || true; \
+	done
+	@echo "Fuzz testing complete"
 
 # =============================================================================
 # SDK verification

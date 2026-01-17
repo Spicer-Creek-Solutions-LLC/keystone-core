@@ -566,30 +566,32 @@ func (cm *ConnectionManager) checkAgentHealth() {
 func (cm *ConnectionManager) GetAgent(agentID string) (*AgentInfo, error) {
 	cm.mu.RLock()
 	info, exists := cm.agents[agentID]
+	if exists {
+		// Return a copy while holding the lock
+		infoCopy := *info
+		cm.mu.RUnlock()
+		return &infoCopy, nil
+	}
 	cm.mu.RUnlock()
 
-	if !exists {
-		// Try to find agent in database (for HA clusters where agent registered with another server)
-		if cm.stateStore != nil {
-			if err := cm.tryLoadAgentFromStore(agentID); err == nil {
-				// Agent loaded from database, try again
-				cm.mu.RLock()
-				info, exists = cm.agents[agentID]
+	// Try to find agent in database (for HA clusters where agent registered with another server)
+	if cm.stateStore != nil {
+		if err := cm.tryLoadAgentFromStore(agentID); err == nil {
+			// Agent loaded from database, try again
+			cm.mu.RLock()
+			info, exists = cm.agents[agentID]
+			if exists {
+				// Return a copy while holding the lock
+				infoCopy := *info
 				cm.mu.RUnlock()
-				if !exists {
-					return nil, fmt.Errorf("agent %s not found", agentID)
-				}
-			} else {
-				return nil, fmt.Errorf("agent %s not found", agentID)
+				return &infoCopy, nil
 			}
-		} else {
+			cm.mu.RUnlock()
 			return nil, fmt.Errorf("agent %s not found", agentID)
 		}
+		return nil, fmt.Errorf("agent %s not found", agentID)
 	}
-
-	// Return a copy
-	infoCopy := *info
-	return &infoCopy, nil
+	return nil, fmt.Errorf("agent %s not found", agentID)
 }
 
 // ListAgents returns all registered agents

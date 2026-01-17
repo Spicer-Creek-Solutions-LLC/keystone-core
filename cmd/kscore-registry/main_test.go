@@ -539,12 +539,14 @@ func TestServer_CORS(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	server := NewServer(Config{
-		DataDir:    tmpDir,
-		EnableCORS: true,
+		DataDir:     tmpDir,
+		EnableCORS:  true,
+		CORSOrigins: "https://example.com",
 	})
 
-	// Test OPTIONS preflight
+	// Test OPTIONS preflight with Origin header
 	req := httptest.NewRequest("OPTIONS", "/test/mod/@v/list", nil)
+	req.Header.Set("Origin", "https://example.com")
 	rec := httptest.NewRecorder()
 
 	server.ServeHTTP(rec, req)
@@ -553,8 +555,8 @@ func TestServer_CORS(t *testing.T) {
 		t.Errorf("CORS preflight returned %d, want %d", rec.Code, http.StatusOK)
 	}
 
-	if rec.Header().Get("Access-Control-Allow-Origin") != "*" {
-		t.Error("CORS header not set")
+	if rec.Header().Get("Access-Control-Allow-Origin") != "https://example.com" {
+		t.Errorf("CORS header not set correctly, got %q", rec.Header().Get("Access-Control-Allow-Origin"))
 	}
 }
 

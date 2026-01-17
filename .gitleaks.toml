@@ -1,0 +1,40 @@
+# Gitleaks Configuration
+# https://github.com/gitleaks/gitleaks#configuration
+
+title = "Keystone Core Gitleaks Config"
+
+# Paths to ignore (documentation and test files with example secrets)
+[allowlist]
+description = "Allowlist for false positives"
+
+paths = [
+    # Documentation contains example API keys and tokens
+    '''docs/content/.*\.md$''',
+    '''epics/.*\.md$''',
+    # Test files may contain test credentials
+    '''.*_test\.go$''',
+    # Example blueprints contain placeholder secrets
+    '''examples/blueprints/.*''',
+    # Template files with placeholder values
+    '''.*\.j2$''',
+]
+
+# Specific patterns that are known false positives
+regexes = [
+    # Example/placeholder API keys used in documentation
+    '''(?i)(abc123|xyz789|abc123xyz789|def456)''',
+    # Truncated example tokens (ending with ...)
+    '''eyJhbGciOiJIUzI1NiIs\.\.\.''',
+    # Example SNMP community strings
+    '''community:\s*["']?(public|private)["']?''',
+]
+
+# Commits to ignore (if needed for historical commits with example data)
+# commits = []
+
+# Additional rules configuration
+[[rules]]
+id = "example-token-pattern"
+description = "Ignore obvious example tokens"
+regex = '''(?i)(example|test|demo|sample|placeholder|fake|dummy)[-_]?(token|key|secret|password)'''
+allowlist = { regexes = ['''.*'''] }

@@ -3,6 +3,7 @@ package health
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -255,10 +256,13 @@ func TestCircuitBreakerExecuteFailure(t *testing.T) {
 func TestCircuitBreakerOnStateChange(t *testing.T) {
 	cb := NewCircuitBreaker(nil)
 
+	var mu sync.Mutex
 	var fromState, toState CircuitState
 	called := false
 
 	cb.OnStateChange(func(from, to CircuitState) {
+		mu.Lock()
+		defer mu.Unlock()
 		fromState = from
 		toState = to
 		called = true
@@ -270,21 +274,29 @@ func TestCircuitBreakerOnStateChange(t *testing.T) {
 	}
 
 	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		mu.Lock()
+		defer mu.Unlock()
 		return called, nil
 	}); err != nil {
 		t.Fatalf("OnStateChange callback was not called: %v", err)
 	}
 
-	if !called {
+	mu.Lock()
+	wasCalled := called
+	actualFromState := fromState
+	actualToState := toState
+	mu.Unlock()
+
+	if !wasCalled {
 		t.Error("OnStateChange callback was not called")
 	}
 
-	if fromState != StateClosed {
-		t.Errorf("Expected fromState %s, got %s", StateClosed, fromState)
+	if actualFromState != StateClosed {
+		t.Errorf("Expected fromState %s, got %s", StateClosed, actualFromState)
 	}
 
-	if toState != StateOpen {
-		t.Errorf("Expected toState %s, got %s", StateOpen, toState)
+	if actualToState != StateOpen {
+		t.Errorf("Expected toState %s, got %s", StateOpen, actualToState)
 	}
 }
 

@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"sync"
 	"testing"
 	"time"
 
@@ -115,10 +116,13 @@ func TestLeaderElector_Observers(t *testing.T) {
 		t.Fatalf("Failed to create leader elector: %v", err)
 	}
 
+	var mu sync.Mutex
 	called := false
 	var receivedEvent LeadershipEvent
 
 	observer := func(event LeadershipEvent) {
+		mu.Lock()
+		defer mu.Unlock()
 		called = true
 		receivedEvent = event
 	}
@@ -135,21 +139,29 @@ func TestLeaderElector_Observers(t *testing.T) {
 	le.notifyObservers(testEvent)
 
 	if err := helpers.WaitForTimeout(2*time.Second, 10*time.Millisecond, func() (bool, error) {
+		mu.Lock()
+		defer mu.Unlock()
 		return called, nil
 	}); err != nil {
 		t.Fatalf("Observer was not called: %v", err)
 	}
 
-	if !called {
+	mu.Lock()
+	wasCalled := called
+	eventType := receivedEvent.Type
+	leaderID := receivedEvent.LeaderID
+	mu.Unlock()
+
+	if !wasCalled {
 		t.Error("Observer was not called")
 	}
 
-	if receivedEvent.Type != LeadershipEventElected {
-		t.Errorf("Event type = %v, want %v", receivedEvent.Type, LeadershipEventElected)
+	if eventType != LeadershipEventElected {
+		t.Errorf("Event type = %v, want %v", eventType, LeadershipEventElected)
 	}
 
-	if receivedEvent.LeaderID != "member-1" {
-		t.Errorf("LeaderID = %v, want member-1", receivedEvent.LeaderID)
+	if leaderID != "member-1" {
+		t.Errorf("LeaderID = %v, want member-1", leaderID)
 	}
 }
 

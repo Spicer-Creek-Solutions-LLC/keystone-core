@@ -27,7 +27,7 @@ func newClusterClient(ctx context.Context) (*ClusterClient, error) {
 		Timeout: 30 * time.Second,
 	}
 
-	baseURL := fmt.Sprintf("http://%s/api/v1/cluster", serverAddr)
+	baseURL := fmt.Sprintf("%s://%s/api/v1/cluster", getAPIScheme(serverAddr), serverAddr)
 
 	return &ClusterClient{
 		httpClient: httpClient,
@@ -280,4 +280,14 @@ func (c *ClusterClient) Restore(ctx context.Context, data []byte) error {
 	}
 
 	return nil
+}
+
+// getAPIScheme returns "https" by default, "http" only for localhost addresses.
+// This ensures production deployments use TLS while allowing HTTP for local development.
+func getAPIScheme(addr string) string {
+	host := strings.Split(addr, ":")[0]
+	if host == "localhost" || host == "127.0.0.1" || host == "::1" {
+		return "http"
+	}
+	return "https"
 }

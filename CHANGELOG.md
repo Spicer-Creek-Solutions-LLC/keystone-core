@@ -45,6 +45,62 @@ Restructured CLI commands to improve user experience by splitting oversized comm
 
 - **Backward Compatibility**: All original commands retained with deprecation warnings pointing to new focused commands
 
+### Security Hardening
+
+Comprehensive security review and hardening based on code audit.
+
+- **HTTP Server Timeouts** - Added read/write/idle timeouts to prevent Slowloris attacks
+  - `pkg/blueprint/mirror.go` - Mirror server with 15s read, 60s write, 120s idle
+  - `cmd/kscore-registry/main.go` - Registry server with 30s read, 120s write, 120s idle
+
+- **TLS Verification Gating** - Standardized insecure TLS handling
+  - `pkg/protocols/rest/client.go` - Requires `KSCORE_ALLOW_INSECURE_TLS=1` to disable certificate verification
+  - Logs warning when insecure mode is enabled or blocked
+
+- **HTTPS by Default** - CLI clients default to HTTPS for production
+  - `cmd/kscore-cluster-backup/main.go` - HTTPS for non-localhost connections
+  - `cmd/kscore-cluster/client.go` - HTTPS for non-localhost connections
+  - HTTP only allowed for localhost/127.0.0.1/::1
+
+- **CORS Hardening** - Replaced wildcard CORS with configurable origins
+  - `cmd/kscore-registry/main.go` - New `--cors-origins` flag
+  - Origins must be explicitly configured; wildcard no longer default
+
+- **Path Traversal Prevention** - New path validation utilities
+  - `pkg/security/path.go` - ValidatePath, ValidateFilename, SanitizePathComponent
+  - Prevents directory escape attacks from user-supplied paths
+
+- **Weak Algorithm Warnings** - Deprecation notices for insecure SNMP algorithms
+  - `pkg/protocols/snmp/adapter.go` - Logs warnings when MD5 or DES are used
+  - Recommends SHA-256+ for authentication, AES-128+ for encryption
+
+- **Security Documentation** - Created SECURITY.md
+  - Security architecture and assumptions
+  - Best practices for operators
+  - Vulnerability reporting process
+
+### Security Scanning Tools
+
+Enhanced CI pipeline with comprehensive security scanning and added Makefile targets for local development.
+
+- **Secret Detection** - gitleaks for finding secrets in code and git history
+- **Vulnerability Scanning** - trivy filesystem scanner for dependencies and configs
+- **Dependency Analysis** - nancy for Sonatype OSS Index cross-reference
+- **License Compliance** - go-licenses for dependency license checking
+- **SAST** - semgrep with Go-specific rule packs
+- **SBOM Generation** - syft for CycloneDX and SPDX format SBOMs
+- **Static Analysis** - Comprehensive golangci-lint configuration with staticcheck
+- **Fuzz Testing** - Go native fuzzing for path validation functions
+
+New Makefile targets for local security scanning:
+- `make security` - Run all security checks
+- `make security-secrets` - Run gitleaks secret detection
+- `make security-vulns` - Run govulncheck and nancy
+- `make security-sast` - Run gosec and semgrep
+- `make security-licenses` - Check dependency licenses
+- `make security-sbom` - Generate SBOM files
+- `make security-fuzz` - Run fuzz tests
+
 ### Epic 31: NIST 800-53 Design Principles (Planned)
 
 Internal project policies and architectural guardrails inspired by NIST 800-53 control families.

@@ -793,7 +793,7 @@ func (m *LeafNodeManager) configureLeafTLS(opts *server.Options) error {
 	opts.LeafNode.TLSConfig = &tls.Config{
 		Certificates:       []tls.Certificate{cert},
 		MinVersion:         tls.VersionTLS12,
-		InsecureSkipVerify: tlsConfig.InsecureSkipVerify,
+		InsecureSkipVerify: tlsConfig.InsecureSkipVerify, // #nosec G402 -- user-configured TLS option
 	}
 
 	return nil
@@ -821,7 +821,7 @@ func (m *LeafNodeManager) buildTLSConfig(config *LeafTLSConfig) (*tls.Config, er
 
 	tlsConfig := &tls.Config{
 		MinVersion:         tls.VersionTLS12,
-		InsecureSkipVerify: config.InsecureSkipVerify,
+		InsecureSkipVerify: config.InsecureSkipVerify, // #nosec G402 -- user-configured TLS option
 	}
 
 	if config.CertFile != "" && config.KeyFile != "" {

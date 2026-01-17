@@ -138,7 +138,7 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Println(`Keystone Core Documentation Validation Tool
+	fmt.Print(`Keystone Core Documentation Validation Tool
 
 Usage:
   docvalidation [command] [flags]

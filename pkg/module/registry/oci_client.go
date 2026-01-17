@@ -33,7 +33,7 @@ func NewOCIClient(config *OCIRegistryConfig) (*OCIClient, error) {
 				"Set KSCORE_ALLOW_INSECURE_TLS=1 to override for development/testing only")
 		}
 		log.Printf("WARNING: OCI registry client InsecureSkipVerify is enabled - this allows man-in-the-middle attacks")
-		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+		transport.TLSClientConfig = &tls.Config{MinVersion: tls.VersionTLS12, InsecureSkipVerify: true} // #nosec G402 -- gated by KSCORE_ALLOW_INSECURE_TLS
 	}
 
 	client := &http.Client{
