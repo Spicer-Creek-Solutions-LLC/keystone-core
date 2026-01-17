@@ -9,6 +9,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 All development to date. No releases have been made yet.
 
+### Epic 29: Bootstrap Testing Infrastructure
+
+- Docker-based bootstrap validation suite
+- Scripted bootstrap smoke tests and fixtures
+- Test harness for agent and server startup paths
+
+### Epic 28: Standard Deployment Blueprints
+
+- Official blueprints catalog for common deployments
+- Production and edge deployment templates
+- Documented configuration variants and sizing guidance
+
+### Epic 27: Agent Bootstrap Experience
+
+- Single-binary, guided bootstrap flow
+- Interactive TUI for initial configuration
+- Safe defaults for embedded NATS and SQLite
+
+### Epic 26: NEEDSWORK Remediation
+
+- Resolved NEEDSWORK items across modules and docs
+- Filled implementation gaps flagged in design reviews
+- Updated docs to match implementation behavior
+
+### Epic 25: Blueprints
+
+- Reusable state collections for common services
+- Parameterized blueprint templates
+- Blueprint packaging and versioning
+
+### Epic 24: Document Review
+
+- Documentation review pass for accuracy and consistency
+- Updated cross-references and examples
+- Standardized terminology across epics
+
+### Epic 23: Self-Management
+
+- Bootstrap, backup, and restore workflows
+- Upgrade orchestration and rollback guidance
+- Runbook documentation and operational procedures
+
+### Epic 22: File Distribution
+
+- File distribution over NATS with multiple backends
+- Mirror groups and geographic routing
+- Integrity verification and resumable transfers
+
 ### Epic 21: Proxy Agents
 
 Enable Keystone Core to manage devices that cannot run the native agent software through proxy agents.
