@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/shawnbutts/keystone-core/pkg/cli/auditutil"
+	"github.com/shawnbutts/keystone-core/pkg/cli/deprecation"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
@@ -47,7 +48,7 @@ Usage via kscorectl:
 	rootCmd.PersistentFlags().StringVar(&auditLevel, "audit-level", "all", "Audit logging level (all, errors, none)")
 	rootCmd.PersistentFlags().StringVar(&auditOutput, "audit-output", "auto", "Audit output backend (auto, syslog, journald, stderr, none)")
 
-	// Add subcommands
+	// Add core subcommands
 	rootCmd.AddCommand(
 		newStatusCommand(),
 		newMembersCommand(),
@@ -56,10 +57,19 @@ Usage via kscorectl:
 		newRemoveCommand(),
 		newTransferLeaderCommand(),
 		newRebalanceCommand(),
-		newBackupCommand(),
-		newRestoreCommand(),
 		newVersionCmd(),
 	)
+
+	// Add deprecated commands (moving to kscore-cluster-backup)
+	backupCmd := newBackupCommand()
+	restoreCmd := newRestoreCommand()
+	rootCmd.AddCommand(backupCmd)
+	rootCmd.AddCommand(restoreCmd)
+
+	// Apply deprecation warnings
+	backupDeprecations := deprecation.ClusterBackupDeprecations()
+	deprecation.DeprecateCommand(backupCmd, backupDeprecations["backup"])
+	deprecation.DeprecateCommand(restoreCmd, backupDeprecations["restore"])
 
 	return rootCmd
 }

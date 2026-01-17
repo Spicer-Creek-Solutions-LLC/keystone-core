@@ -1,4 +1,4 @@
-# Epic 30: NIST 800-53–Inspired Design Principles
+# Epic 31: NIST 800-53–Inspired Design Principles
 
 ## Overview
 

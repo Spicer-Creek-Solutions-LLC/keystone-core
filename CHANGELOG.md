@@ -9,6 +9,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 All development to date. No releases have been made yet.
 
+### Epic 30: CLI UX Restructuring
+
+Restructured CLI commands to improve user experience by splitting oversized commands into focused, purpose-specific tools.
+
+- **Deprecation Framework** (`pkg/cli/deprecation/`)
+  - Structured deprecation warnings with version info and migration paths
+  - Configurable suppression via environment variables
+  - Preset migrations for all Epic 30 command splits
+
+- **Blueprint Split**: `kscore-blueprint` (17 subcommands) → 3 focused commands
+  - `kscore-blueprint` - Core lifecycle (reduced to 8 subcommands)
+  - `kscore-blueprint-publish` - Publication workflow (publish, sign, verify, versions, docs)
+  - `kscore-blueprint-state` - State management (snapshot, rollback, diff)
+
+- **Federation Extraction**: `kscore-federation` from `kscore-identity`
+  - Commands: list, add, show, suspend, activate, remove, refresh
+  - Bundle management: show, export (pem, jwks, spiffe formats)
+
+- **Backup Extraction**: `kscore-cluster-backup` from `kscore-cluster`
+  - Commands: backup, restore, list, verify
+  - Schedule management: list, add, remove
+
+- **Storage Extraction**: `kscore-files-storage` from `kscore-files`
+  - Backend commands: list, status, sync, enable, disable, health
+  - Mirrors commands: list, show, sync, health, conflicts
+
+- **Audit Extraction**: `kscore-audit` from `kscore-policy`
+  - Commands: log, report, export, stats
+  - Export formats: JSON, CSV, YAML
+
+- **Webhook Elevation**: `kscore-webhook` from `kscore-gitops`
+  - Commands: list, show, test, history
+  - Secrets management: list, rotate
+
+- **Backward Compatibility**: All original commands retained with deprecation warnings pointing to new focused commands
+
+### Epic 31: NIST 800-53 Design Principles (Planned)
+
+Internal project policies and architectural guardrails inspired by NIST 800-53 control families.
+
+- 8 design principles: Least Privilege, Defense in Depth, Fail Secure, Explicit Over Implicit, Auditability, Cryptographic Agility, Reproducible Builds, Trust Boundary Enforcement
+- SECURITY-DESIGN.md with comprehensive security documentation
+- GLOSSARY.md for standard terminology
+- Contributor security guidelines
+- Trust boundary map and threat model documentation
+- Cryptographic standards document
+- Audit event taxonomy
+
 ### Epic 29: Bootstrap Testing Infrastructure
 
 - Docker-based bootstrap validation suite

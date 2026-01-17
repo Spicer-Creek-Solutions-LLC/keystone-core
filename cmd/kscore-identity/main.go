@@ -17,6 +17,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/shawnbutts/keystone-core/pkg/cli/auditutil"
+	"github.com/shawnbutts/keystone-core/pkg/cli/deprecation"
 	"github.com/shawnbutts/keystone-core/pkg/identity"
 	"github.com/shawnbutts/keystone-core/pkg/identity/federation"
 )
@@ -63,9 +64,18 @@ This plugin is typically invoked via kscorectl:
 	rootCmd.AddCommand(newStatusCmd())
 	rootCmd.AddCommand(newTokenCmd())
 	rootCmd.AddCommand(newCACmd())
-	rootCmd.AddCommand(newFederationCmd())
-	rootCmd.AddCommand(newBundleCmd())
+
+	// Add deprecated commands (moving to kscore-federation)
+	fedCmd := newFederationCmd()
+	bundleCmd := newBundleCmd()
+	rootCmd.AddCommand(fedCmd)
+	rootCmd.AddCommand(bundleCmd)
 	rootCmd.AddCommand(newEventsCmd())
+
+	// Apply deprecation warnings to commands moving to kscore-federation
+	federationDeprecations := deprecation.FederationDeprecations()
+	deprecation.DeprecateCommand(fedCmd, federationDeprecations["federation"])
+	deprecation.DeprecateCommand(bundleCmd, federationDeprecations["bundle"])
 
 	return rootCmd
 }

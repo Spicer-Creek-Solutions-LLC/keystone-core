@@ -39,7 +39,14 @@ BINARIES := \
 	kscore-migrate:kscore-migrate \
 	kscore-module:kscore-module \
 	kscore-identity:kscore-identity \
-	kscore-telemetry-gateway:kscore-telemetry-gateway
+	kscore-telemetry-gateway:kscore-telemetry-gateway \
+	kscore-blueprint-publish:kscore-blueprint-publish \
+	kscore-blueprint-state:kscore-blueprint-state \
+	kscore-federation:kscore-federation \
+	kscore-cluster-backup:kscore-cluster-backup \
+	kscore-files-storage:kscore-files-storage \
+	kscore-audit:kscore-audit \
+	kscore-webhook:kscore-webhook
 
 # Extract just the binary names for .PHONY
 BINARY_NAMES := $(foreach b,$(BINARIES),$(firstword $(subst :, ,$(b))))

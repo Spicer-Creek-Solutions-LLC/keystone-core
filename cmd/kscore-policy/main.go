@@ -14,6 +14,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/shawnbutts/keystone-core/pkg/cli/auditutil"
+	"github.com/shawnbutts/keystone-core/pkg/cli/deprecation"
 	"github.com/shawnbutts/keystone-core/pkg/cli/output"
 	"github.com/shawnbutts/keystone-core/pkg/policy"
 	"github.com/shawnbutts/keystone-core/pkg/version"
@@ -54,8 +55,15 @@ Examples:
 	rootCmd.AddCommand(validateCmd)
 	rootCmd.AddCommand(checkCmd)
 	rootCmd.AddCommand(showCmd)
+
+	// Add deprecated commands (moving to kscore-audit)
 	rootCmd.AddCommand(auditCmd)
 	rootCmd.AddCommand(reportCmd)
+
+	// Apply deprecation warnings
+	auditDeprecations := deprecation.AuditDeprecations()
+	deprecation.DeprecateCommand(auditCmd, auditDeprecations["audit"])
+	deprecation.DeprecateCommand(reportCmd, auditDeprecations["report"])
 
 	return rootCmd
 }

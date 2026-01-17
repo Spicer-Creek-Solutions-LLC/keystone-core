@@ -114,7 +114,15 @@ This repository contains working implementations of **Epics 1-29**. The project 
 - Bootstrap testing infrastructure for docker-based validation (Epic 29 complete)
 - Comprehensive test suite (>79% coverage across all core packages)
 
-**Current Status**: Epic 1-29 COMPLETE ✅ (VM validation deferred to Epic 100)
+**Current Status**: Epic 1-29 COMPLETE ✅ | Epic 30 (CLI UX Restructuring) PLANNED | Epic 31 (NIST Design Principles) PLANNED | VM validation deferred to Epic 100
+
+**Epic 30 (Planned)**: CLI UX restructuring to split oversized commands:
+- `kscore-blueprint` (17 subcommands) → `kscore-blueprint` + `kscore-blueprint-publish` + `kscore-blueprint-state`
+- `kscore-identity` → `kscore-identity` + `kscore-federation`
+- `kscore-cluster` → `kscore-cluster` + `kscore-cluster-backup`
+- `kscore-files` → `kscore-files` + `kscore-files-storage`
+- `kscore-policy` → `kscore-policy` + `kscore-audit`
+- `kscore-gitops` → `kscore-gitops` + `kscore-webhook`
 
 ### ⚠️ Known Implementation Gaps
 

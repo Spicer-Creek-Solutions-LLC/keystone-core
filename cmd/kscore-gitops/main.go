@@ -13,6 +13,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/shawnbutts/keystone-core/pkg/cli/auditutil"
+	"github.com/shawnbutts/keystone-core/pkg/cli/deprecation"
 	clierrors "github.com/shawnbutts/keystone-core/pkg/cli/errors"
 	"github.com/shawnbutts/keystone-core/pkg/cli/output"
 	"github.com/shawnbutts/keystone-core/pkg/gitops/promotion"
@@ -55,8 +56,15 @@ Examples:
 	rootCmd.AddCommand(verifyCmd)
 	rootCmd.AddCommand(rollbackCmd)
 	rootCmd.AddCommand(promoteCmd)
-	rootCmd.AddCommand(webhookCmd)
 	rootCmd.AddCommand(statusCmd)
+
+	// Add deprecated command (moving to kscore-webhook)
+	rootCmd.AddCommand(webhookCmd)
+
+	// Apply deprecation warnings to webhook subcommands
+	webhookDeprecations := deprecation.WebhookDeprecations()
+	deprecation.DeprecateCommand(webhookListCmd, webhookDeprecations["list"])
+	deprecation.DeprecateCommand(webhookTestCmd, webhookDeprecations["test"])
 
 	return rootCmd
 }

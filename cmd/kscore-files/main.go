@@ -16,6 +16,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/shawnbutts/keystone-core/pkg/cli/auditutil"
+	"github.com/shawnbutts/keystone-core/pkg/cli/deprecation"
 	"github.com/shawnbutts/keystone-core/pkg/files"
 	"github.com/shawnbutts/keystone-core/pkg/files/backend"
 )
@@ -57,11 +58,20 @@ files without requiring direct HTTP/S3 access from agents.`,
 
 	rootCmd.AddCommand(newServeCommand())
 	rootCmd.AddCommand(newFilesCmd())
-	rootCmd.AddCommand(newBackendCmd())
 	rootCmd.AddCommand(newCacheCmd())
 	rootCmd.AddCommand(newNamespaceCmd())
-	rootCmd.AddCommand(newMirrorsCmd())
 	rootCmd.AddCommand(newVersionCommand())
+
+	// Add deprecated commands (moving to kscore-files-storage)
+	backendCmd := newBackendCmd()
+	mirrorsCmd := newMirrorsCmd()
+	rootCmd.AddCommand(backendCmd)
+	rootCmd.AddCommand(mirrorsCmd)
+
+	// Apply deprecation warnings
+	storageDeprecations := deprecation.FilesStorageDeprecations()
+	deprecation.DeprecateCommand(backendCmd, storageDeprecations["backend"])
+	deprecation.DeprecateCommand(mirrorsCmd, storageDeprecations["mirrors"])
 
 	return rootCmd
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/shawnbutts/keystone-core/pkg/cli/auditutil"
+	"github.com/shawnbutts/keystone-core/pkg/cli/deprecation"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
@@ -59,7 +60,7 @@ Examples:
 	rootCmd.PersistentFlags().StringVar(&auditLevel, "audit-level", "all", "Audit logging level (all, errors, none)")
 	rootCmd.PersistentFlags().StringVar(&auditOutput, "audit-output", "auto", "Audit output backend (auto, syslog, journald, stderr, none)")
 
-	// Add subcommands
+	// Add subcommands - core lifecycle (staying in this command)
 	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(validateCmd)
@@ -67,16 +68,33 @@ Examples:
 	rootCmd.AddCommand(testCmd)
 	rootCmd.AddCommand(searchCmd)
 	rootCmd.AddCommand(infoCmd)
-	rootCmd.AddCommand(versionsCmd)
 	rootCmd.AddCommand(installCmd)
 	rootCmd.AddCommand(updateCmd)
 	rootCmd.AddCommand(removeCmd)
+
+	// Add subcommands - publication workflow (deprecated, moving to kscore-blueprint-publish)
 	rootCmd.AddCommand(publishCmd)
 	rootCmd.AddCommand(signCmd)
 	rootCmd.AddCommand(verifyCmd)
+	rootCmd.AddCommand(versionsCmd)
 	rootCmd.AddCommand(docsCmd)
+
+	// Add subcommands - state management (deprecated, moving to kscore-blueprint-state)
 	rootCmd.AddCommand(rollbackCmd)
 	rootCmd.AddCommand(snapshotCmd)
+
+	// Apply deprecation warnings to commands moving to kscore-blueprint-publish
+	publishDeprecations := deprecation.BlueprintPublishDeprecations()
+	deprecation.DeprecateCommand(publishCmd, publishDeprecations["publish"])
+	deprecation.DeprecateCommand(signCmd, publishDeprecations["sign"])
+	deprecation.DeprecateCommand(verifyCmd, publishDeprecations["verify"])
+	deprecation.DeprecateCommand(versionsCmd, publishDeprecations["versions"])
+	deprecation.DeprecateCommand(docsCmd, publishDeprecations["docs"])
+
+	// Apply deprecation warnings to commands moving to kscore-blueprint-state
+	stateDeprecations := deprecation.BlueprintStateDeprecations()
+	deprecation.DeprecateCommand(rollbackCmd, stateDeprecations["rollback"])
+	deprecation.DeprecateCommand(snapshotCmd, stateDeprecations["snapshot"])
 
 	return rootCmd
 }

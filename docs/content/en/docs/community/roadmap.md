@@ -25,10 +25,12 @@ Keystone Core aims to be the operational layer between GitOps/IaC deployments an
 ---
 
 ```
-COMPLETED (Epics 1-29)                 PLANNED (Epic 100)
+COMPLETED (Epics 1-30)                 PLANNED (Epics 31, 100)
 ───────────────────────────────────────────────────────────────────────
-Epic 1: Core Infrastructure            Epic 100: 0.1.0 Release Readiness
+Epic 1: Core Infrastructure            Epic 31: NIST Design Principles
+                                        Epic 100: 0.1.0 Release Readiness
 Epic 2: Remote Execution
+Epic 30: CLI UX Restructuring
 Epic 3: State Management
                                        
 
@@ -681,6 +683,52 @@ Comprehensive testing for the bootstrap experience:
 
 ---
 
+### Epic 30: CLI UX Restructuring ✅
+
+**Status**: Complete | **Depends on**: Epic 25, 26
+
+Restructured CLI commands to improve user experience by splitting oversized commands into focused, purpose-specific tools:
+
+- **Deprecation Framework**: Created `pkg/cli/deprecation/` with structured deprecation warnings, migration paths, and configurable suppression
+- **Blueprint Split**: `kscore-blueprint` → 3 focused commands
+  - `kscore-blueprint` - Core lifecycle (reduced to 8 subcommands)
+  - `kscore-blueprint-publish` - Publication workflow (publish, sign, verify, versions, docs)
+  - `kscore-blueprint-state` - State management (snapshot, rollback, diff)
+- **Federation Extraction**: `kscore-federation` from `kscore-identity` (list, add, show, suspend, activate, remove, refresh, bundle)
+- **Backup Extraction**: `kscore-cluster-backup` from `kscore-cluster` (backup, restore, list, verify, schedule)
+- **Storage Extraction**: `kscore-files-storage` from `kscore-files` (backend, mirrors management)
+- **Audit Extraction**: `kscore-audit` from `kscore-policy` (log, report, export, stats)
+- **Webhook Elevation**: `kscore-webhook` from `kscore-gitops` (list, show, test, history, secrets)
+- **Backward Compatibility**: All original commands retained with deprecation warnings pointing to new commands
+
+**Key Achievements**:
+- Split 6 oversized commands into 12 focused commands
+- Created reusable deprecation framework for future migrations
+- All commands follow 7±2 subcommand guideline
+- Full backward compatibility with clear migration paths
+- 21 total CLI binaries now built
+
+---
+
+### Epic 31: NIST 800-53 Design Principles
+
+**Status**: Planned | **Depends on**: Epic 26
+
+Internal project policies, design philosophies, and architectural guardrails inspired by NIST 800-53:
+
+- **Design Principles**: 8 core principles (Least Privilege, Defense in Depth, Fail Secure, Explicit Over Implicit, Auditability, Cryptographic Agility, Reproducible Builds, Trust Boundary Enforcement)
+- **Documentation**: SECURITY-DESIGN.md, GLOSSARY.md, contributor security guidelines
+- **Trust Boundaries**: Comprehensive trust boundary map and threat model
+- **Cryptographic Standards**: Approved algorithms, key sizes, TLS configurations
+- **Audit Taxonomy**: Event types, required fields, retention recommendations
+
+**Goals**:
+- Security-conscious design thinking embedded in development process
+- Clear contributor expectations for security-relevant decisions
+- Comprehensive trust boundary and threat model documentation
+
+---
+
 ### Epic 100: 0.1.0 Release Readiness
 
 **Status**: Planned | **Depends on**: All completed epics
@@ -833,6 +881,8 @@ For detailed information on support windows, upgrade paths, and compatibility gu
 | v0.27.0 | Complete | Agent Bootstrap Experience (single-binary TUI-guided setup) |
 | v0.28.0 | Complete | Standard Deployment Blueprints (14 official blueprints) |
 | v0.29.0 | Complete | Bootstrap Testing Infrastructure (Docker-based coverage) |
+| v0.30.0 | Complete | CLI UX Restructuring (split 6 oversized commands into 12 focused commands) |
+| v0.31.0 | Planned | NIST 800-53 Design Principles (security design documentation) |
 | v0.100.0 | Planned | 0.1.0 Release Readiness (signing, version reset, docs audit, VM validation) |
 | v1.0.0 | Future | Stable release after comprehensive testing and hardening |
 
