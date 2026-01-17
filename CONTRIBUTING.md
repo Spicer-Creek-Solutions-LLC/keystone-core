@@ -33,6 +33,31 @@ consensus‑driven, with a project lead who resolves edge cases.
 
 Be respectful and constructive. See `CODE_OF_CONDUCT.md` for details.
 
+## Security Guidelines
+
+Keystone Core handles sensitive infrastructure operations. Security-conscious development is required.
+
+**Before writing code:**
+- Review `SECURITY-DESIGN.md` for design principles and cryptographic standards
+- Understand trust boundaries your code crosses (see `docs/concepts/threat-model.md`)
+
+**During development:**
+- Validate all external input using `pkg/security.Validate*` helpers
+- Use parameterized queries — never concatenate SQL strings
+- Avoid shell injection — never pass user input to `exec.Command` without validation
+- Handle errors securely — don't expose internal details to users
+- Use structured logging with automatic redaction for sensitive data
+
+**PRs requiring security review:**
+- Authentication or authorization logic
+- Cryptographic operations
+- Database queries with user input
+- File operations with user-supplied paths
+- Credential or secret management
+- Audit logging changes
+
+**Reporting vulnerabilities:** See `SECURITY.md` for responsible disclosure procedures.
+
 ## Getting Started
 
 If you’re new:

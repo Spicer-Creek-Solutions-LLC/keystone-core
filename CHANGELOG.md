@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 All development to date. No releases have been made yet.
 
+### Epic 31: NIST 800-53 Design Principles
+
+Internal project policies, design philosophies, and architectural guardrails inspired by NIST 800-53.
+
+- **SECURITY-DESIGN.md** - Core security design document
+  - 8 design principles: Least Privilege, Defense in Depth, Fail Secure, Explicit Over Implicit, Auditability, Cryptographic Agility, Reproducible Builds, Trust Boundary Enforcement
+  - Code review checklists for each principle
+  - Cryptographic standards with approved/acceptable/deprecated algorithms
+  - TLS configuration requirements (minimum TLS 1.2, recommended cipher suites)
+  - Key size requirements for RSA, ECDSA, Ed25519, AES, HMAC
+  - Audit event taxonomy with 30+ event types across 8 categories
+  - Required and optional audit fields specification
+  - Retention recommendations by event category
+  - Sensitive data handling and redaction guidelines
+  - Contributor security guidelines with code patterns to avoid
+
+- **GLOSSARY.md** - Security and infrastructure terminology
+  - 30+ security terms (attestation, CA, CEL, cipher suite, mTLS, OPA, SPIFFE, etc.)
+  - 20+ infrastructure terms (agent, cluster, control plane, etcd, NATS, etc.)
+  - Protocol terminology (gRPC, OTLP, REST, SNMP, SSH, WinRM)
+  - Development terms (capability, module, policy, reactor, requisite)
+  - Abbreviations reference table
+
+- **CONTRIBUTING.md** - Security guidelines section added
+  - Links to SECURITY-DESIGN.md and threat model
+  - Key security practices during development
+  - List of PR types requiring security review
+
 ### Epic 30: CLI UX Restructuring
 
 Restructured CLI commands to improve user experience by splitting oversized commands into focused, purpose-specific tools.
@@ -44,6 +72,21 @@ Restructured CLI commands to improve user experience by splitting oversized comm
   - Secrets management: list, rotate
 
 - **Backward Compatibility**: All original commands retained with deprecation warnings pointing to new focused commands
+
+### Race Condition Fixes
+
+Fixed data races detected by Go race detector (`go test -race`).
+
+- `pkg/agent/executor.go` - Moved command tracking after cmd.Start()
+- `pkg/controlplane/connection_manager.go` - Fixed GetAgent() to copy while holding lock
+- `pkg/execution/executor.go` - Same fix as agent executor
+- `pkg/files/ha/ha.go`, `ha_test.go` - Added mutex locking for state updates
+- `pkg/events/router.go`, `reactor.go` - Added mutex for time.Time/string fields
+- `pkg/gitops/verification/engine_test.go` - Added mutex/atomic to MockVerifier
+- `pkg/gitops/webhook/receiver_test.go` - Added mutex to MockEventProcessor
+- `pkg/health/circuitbreaker_test.go` - Added mutex for callback variables
+- `pkg/proxy/observability/health.go` - Captured stopCh before goroutine
+- `pkg/upgrade/upgrade_test.go` - Added mutex to mockNodeManager
 
 ### Security Hardening
 
