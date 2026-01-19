@@ -25,9 +25,11 @@ Keystone Core aims to be the operational layer between GitOps/IaC deployments an
 ---
 
 ```
-COMPLETED (Epics 1-31)                 PLANNED (Epic 100)
+COMPLETED (Epics 1-31)                 PLANNED (Epic 32-33, 100)
 ───────────────────────────────────────────────────────────────────────
-Epic 1: Core Infrastructure            Epic 100: 0.1.0 Release Readiness
+Epic 1: Core Infrastructure            Epic 32: Cross-Platform Testing
+                                       Epic 33: Multi-Cloud Real Env Testing
+                                       Epic 100: 0.1.0 Release Readiness
 
 Epic 2: Remote Execution
 Epic 30: CLI UX Restructuring
