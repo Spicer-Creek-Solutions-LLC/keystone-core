@@ -488,4 +488,4 @@ Or explore specific architectural topics:
 - [NATS Integration](../../concepts/message-bus/)
 - [State Storage Design](../../concepts/state-storage/)
 - [Event System Architecture](../../concepts/events/)
-- [Plugin System Design](../../concepts/plugin-system/)
+- [Plugin System Design](../../concepts/modules/)

@@ -1,0 +1,124 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kscore-telemetry-gateway.fullname" . }}
+  labels:
+    {{- include "kscore-telemetry-gateway.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    nats:
+      urls:
+        {{- toYaml .Values.gateway.nats.urls | nindent 8 }}
+      {{- if .Values.gateway.nats.cluster }}
+      cluster: {{ .Values.gateway.nats.cluster | quote }}
+      {{- end }}
+      {{- if .Values.gateway.nats.credentialsFile }}
+      credentials_file: {{ .Values.gateway.nats.credentialsFile | quote }}
+      {{- end }}
+      max_reconnects: {{ .Values.gateway.nats.maxReconnects }}
+      reconnect_wait: {{ .Values.gateway.nats.reconnectWait | quote }}
+      reconnect_jitter: {{ .Values.gateway.nats.reconnectJitter | quote }}
+
+    server:
+      listen: {{ .Values.gateway.server.listen | quote }}
+      metrics_path: {{ .Values.gateway.server.metricsPath | quote }}
+      health_path: {{ .Values.gateway.server.healthPath | quote }}
+      ready_path: {{ .Values.gateway.server.readyPath | quote }}
+      federate_path: {{ .Values.gateway.server.federatePath | quote }}
+      read_timeout: {{ .Values.gateway.server.readTimeout | quote }}
+      write_timeout: {{ .Values.gateway.server.writeTimeout | quote }}
+
+    metrics:
+      enabled: {{ .Values.gateway.metrics.enabled }}
+      subject: {{ .Values.gateway.metrics.subject | quote }}
+      stale_timeout: {{ .Values.gateway.metrics.staleTimeout | quote }}
+      max_series: {{ .Values.gateway.metrics.maxSeries }}
+      max_labels_per_series: {{ .Values.gateway.metrics.maxLabelsPerSeries }}
+      {{- if .Values.gateway.metrics.addLabels }}
+      add_labels:
+        {{- toYaml .Values.gateway.metrics.addLabels | nindent 8 }}
+      {{- end }}
+      {{- if .Values.gateway.metrics.dropLabels }}
+      drop_labels:
+        {{- toYaml .Values.gateway.metrics.dropLabels | nindent 8 }}
+      {{- end }}
+      {{- if .Values.gateway.metrics.rewriteLabels }}
+      rewrite_labels:
+        {{- toYaml .Values.gateway.metrics.rewriteLabels | nindent 8 }}
+      {{- end }}
+      {{- if .Values.gateway.metrics.remoteWrite.enabled }}
+      remote_write:
+        url: {{ .Values.gateway.metrics.remoteWrite.url | quote }}
+        {{- if .Values.gateway.metrics.remoteWrite.basicAuth.username }}
+        basic_auth:
+          username: {{ .Values.gateway.metrics.remoteWrite.basicAuth.username | quote }}
+          password: {{ .Values.gateway.metrics.remoteWrite.basicAuth.password | quote }}
+        {{- end }}
+        {{- if .Values.gateway.metrics.remoteWrite.bearerToken }}
+        bearer_token: {{ .Values.gateway.metrics.remoteWrite.bearerToken | quote }}
+        {{- end }}
+        timeout: {{ .Values.gateway.metrics.remoteWrite.timeout | quote }}
+        batch_size: {{ .Values.gateway.metrics.remoteWrite.batchSize }}
+        flush_interval: {{ .Values.gateway.metrics.remoteWrite.flushInterval | quote }}
+      {{- end }}
+
+    logs:
+      enabled: {{ .Values.gateway.logs.enabled }}
+      subject: {{ .Values.gateway.logs.subject | quote }}
+      min_level: {{ .Values.gateway.logs.minLevel | quote }}
+      {{- if .Values.gateway.logs.includeSources }}
+      include_sources:
+        {{- toYaml .Values.gateway.logs.includeSources | nindent 8 }}
+      {{- end }}
+      {{- if .Values.gateway.logs.excludeSources }}
+      exclude_sources:
+        {{- toYaml .Values.gateway.logs.excludeSources | nindent 8 }}
+      {{- end }}
+      {{- if .Values.gateway.logs.loki.enabled }}
+      loki:
+        url: {{ .Values.gateway.logs.loki.url | quote }}
+        {{- if .Values.gateway.logs.loki.tenantId }}
+        tenant_id: {{ .Values.gateway.logs.loki.tenantId | quote }}
+        {{- end }}
+        {{- if .Values.gateway.logs.loki.basicAuth.username }}
+        basic_auth:
+          username: {{ .Values.gateway.logs.loki.basicAuth.username | quote }}
+          password: {{ .Values.gateway.logs.loki.basicAuth.password | quote }}
+        {{- end }}
+        {{- if .Values.gateway.logs.loki.bearerToken }}
+        bearer_token: {{ .Values.gateway.logs.loki.bearerToken | quote }}
+        {{- end }}
+        batch_size: {{ .Values.gateway.logs.loki.batchSize }}
+        batch_wait: {{ .Values.gateway.logs.loki.batchWait | quote }}
+      {{- end }}
+
+    traces:
+      enabled: {{ .Values.gateway.traces.enabled }}
+      subject: {{ .Values.gateway.traces.subject | quote }}
+      sampling:
+        rate: {{ .Values.gateway.traces.sampling.rate }}
+        error_priority: {{ .Values.gateway.traces.sampling.errorPriority }}
+        slow_threshold: {{ .Values.gateway.traces.sampling.slowThreshold | quote }}
+      {{- if .Values.gateway.traces.otlp.enabled }}
+      otlp:
+        endpoint: {{ .Values.gateway.traces.otlp.endpoint | quote }}
+        protocol: {{ .Values.gateway.traces.otlp.protocol | quote }}
+        compression: {{ .Values.gateway.traces.otlp.compression | quote }}
+        {{- if .Values.gateway.traces.otlp.headers }}
+        headers:
+          {{- toYaml .Values.gateway.traces.otlp.headers | nindent 10 }}
+        {{- end }}
+        timeout: {{ .Values.gateway.traces.otlp.timeout | quote }}
+        batch_size: {{ .Values.gateway.traces.otlp.batchSize }}
+        batch_timeout: {{ .Values.gateway.traces.otlp.batchTimeout | quote }}
+      {{- end }}
+
+    ha:
+      enabled: {{ .Values.gateway.ha.enabled }}
+      {{- if .Values.gateway.ha.enabled }}
+      queue_group: {{ .Values.gateway.ha.queueGroup | quote }}
+      leader_election: {{ .Values.gateway.ha.leaderElection }}
+      lease_duration: {{ .Values.gateway.ha.leaseDuration | quote }}
+      renew_deadline: {{ .Values.gateway.ha.renewDeadline | quote }}
+      retry_period: {{ .Values.gateway.ha.retryPeriod | quote }}
+      {{- end }}

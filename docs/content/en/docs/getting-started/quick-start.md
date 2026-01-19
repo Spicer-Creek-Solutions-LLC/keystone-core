@@ -303,7 +303,7 @@ In about 5 minutes, you've:
 - **[Event Reactors](../../concepts/reactors/)** - Automate responses to events
 - **[GitOps Integration](../../concepts/gitops/)** - Connect to ArgoCD/Flux
 - **[Policy Enforcement](../../concepts/policy/)** - Write OPA/CEL policies
-- **[Multi-Environment](../../concepts/multi-environment/)** - Manage K8s, VMs, and cloud
+- **[Multi-Environment](../../scenarios/multi-environment/)** - Manage K8s, VMs, and cloud
 
 ### Production Deployment
 - **[High Availability](../../operations/cluster-management/)** - HA cluster setup

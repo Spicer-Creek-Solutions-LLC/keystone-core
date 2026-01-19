@@ -1,0 +1,11 @@
+{{/* Set dark mode as default if no user preference is stored */}}
+<script>
+(function() {
+  const themeKey = 'td-color-theme';
+  if (!localStorage.getItem(themeKey)) {
+    // Default to dark mode for new visitors
+    localStorage.setItem(themeKey, 'dark');
+    document.documentElement.setAttribute('data-bs-theme', 'dark');
+  }
+})();
+</script>

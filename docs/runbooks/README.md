@@ -14,6 +14,9 @@ This directory contains operational runbooks for common Keystone Core procedures
 | [backup-restore.md](backup-restore.md) | Backup and restore procedures | Data protection and recovery |
 | [upgrade-cluster.md](upgrade-cluster.md) | Upgrade Keystone Core cluster | Version upgrades |
 | [troubleshooting.md](troubleshooting.md) | Common troubleshooting procedures | Diagnosing issues |
+| [performance-degradation.md](performance-degradation.md) | Diagnose and remediate performance issues | API latency, timeouts, slowness |
+| [security-incident.md](security-incident.md) | Security incident response procedures | Breaches, credential compromise, attacks |
+| [capacity-scaling.md](capacity-scaling.md) | Scale infrastructure for increased load | Growth, resource constraints |
 
 ## Runbook Format
 

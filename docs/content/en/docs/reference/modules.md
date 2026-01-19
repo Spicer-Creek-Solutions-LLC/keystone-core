@@ -9804,6 +9804,3984 @@ kscore-module sign ./myorg/custom-state/myorg-custom-state-0.1.0.zip
 kscore-module publish ./myorg/custom-state/myorg-custom-state-0.1.0.zip
 ```
 
+## Custom Module Development Guide
+
+This section provides comprehensive templates and guidance for developing custom state modules.
+
+### Module Architecture Overview
+
+```
+mymodule/
+├── module.yaml           # Module manifest (required)
+├── states/
+│   └── main.star        # Main Starlark state logic (required)
+├── functions/
+│   └── helpers.star     # Shared helper functions (optional)
+├── templates/
+│   └── config.tmpl      # Configuration templates (optional)
+├── tests/
+│   └── main_test.star   # Unit tests (recommended)
+├── docs/
+│   └── README.md        # Module documentation (recommended)
+└── examples/
+    └── basic.yaml       # Usage examples (recommended)
+```
+
+### Module Manifest Template
+
+```yaml
+# module.yaml - Module manifest
+name: myorg/my-custom-module
+version: 1.0.0
+description: Custom module for managing application deployments
+
+# Module author information
+author:
+  name: My Organization
+  email: modules@myorg.com
+  url: https://github.com/myorg/my-custom-module
+
+# Minimum Keystone Core version
+min_version: "0.1.0"
+
+# Module dependencies
+dependencies:
+  - name: kscore/file
+    version: ">=1.0.0"
+  - name: kscore/service
+    version: ">=1.0.0"
+
+# Capabilities required by this module
+capabilities:
+  - type: fs.read
+    paths:
+      - "/etc/myapp/*"
+      - "/var/lib/myapp/*"
+  - type: fs.write
+    paths:
+      - "/etc/myapp/*"
+      - "/var/lib/myapp/*"
+  - type: exec
+    commands:
+      - "/usr/bin/systemctl"
+      - "/usr/bin/myapp"
+  - type: http.get
+    domains:
+      - "api.myorg.com"
+  - type: log
+    rate_limit: 100/s
+
+# Module states (entry points)
+states:
+  - name: config
+    description: Manage application configuration
+    entry: states/main.star:ensure_config
+  - name: deploy
+    description: Deploy application
+    entry: states/main.star:deploy_app
+
+# Module parameters schema
+parameters:
+  config:
+    - name: path
+      type: string
+      required: true
+      description: Path to configuration file
+    - name: template
+      type: string
+      required: false
+      default: "default.conf"
+      description: Template to use
+    - name: vars
+      type: map
+      required: false
+      description: Template variables
+  deploy:
+    - name: version
+      type: string
+      required: true
+      description: Application version to deploy
+    - name: rollback_on_failure
+      type: bool
+      required: false
+      default: true
+      description: Automatically rollback on deployment failure
+
+# Metadata
+license: Apache-2.0
+keywords:
+  - application
+  - deployment
+  - configuration
+repository: https://github.com/myorg/my-custom-module
+```
+
+### State Implementation Templates
+
+#### Basic State Template
+
+```python
+# states/main.star
+"""
+Custom state module for managing application configuration.
+
+States:
+  - config: Ensure application configuration exists
+  - deploy: Deploy application version
+"""
+
+# Helper function for consistent result formatting
+def _result(status, comment, changes=None, metadata=None):
+    """Create a standardized result dictionary."""
+    result = {
+        "result": status,
+        "comment": comment,
+    }
+    if changes:
+        result["changes"] = changes
+    if metadata:
+        result["metadata"] = metadata
+    return result
+
+def ensure_config(name, path, template="default.conf", vars={}):
+    """
+    Ensure application configuration exists with correct content.
+
+    Args:
+        name: State identifier (from state ID)
+        path: Target configuration file path
+        template: Template file name
+        vars: Template variables
+
+    Returns:
+        result: changed, unchanged, or failed
+        comment: Human-readable description
+        changes: Dictionary of changes made
+    """
+    # Load and render template
+    template_path = "templates/" + template
+    if not fs.exists(template_path):
+        return _result("failed", "Template not found: " + template_path)
+
+    template_content = fs.read(template_path)
+    rendered = render_template(template_content, vars)
+
+    # Check current state
+    if fs.exists(path):
+        current = fs.read(path)
+        if current == rendered:
+            return _result(
+                "unchanged",
+                "Configuration already in desired state",
+                metadata={"path": path, "checksum": fs.checksum(path)}
+            )
+
+    # Backup existing file
+    if fs.exists(path):
+        backup_path = path + ".bak"
+        fs.copy(path, backup_path)
+
+    # Write new configuration
+    fs.write(path, rendered, mode="0644")
+
+    return _result(
+        "changed",
+        "Configuration updated",
+        changes={
+            "path": path,
+            "action": "updated" if fs.exists(path + ".bak") else "created"
+        }
+    )
+
+def deploy_app(name, version, rollback_on_failure=True):
+    """
+    Deploy application to specified version.
+
+    Args:
+        name: State identifier
+        version: Target version
+        rollback_on_failure: Whether to rollback on failure
+
+    Returns:
+        Standard result dictionary
+    """
+    # Get current version
+    result = exec.run(["/usr/bin/myapp", "--version"])
+    current_version = result.stdout.strip()
+
+    if current_version == version:
+        return _result(
+            "unchanged",
+            "Application already at version " + version,
+            metadata={"version": version}
+        )
+
+    # Stop service
+    exec.run(["systemctl", "stop", "myapp"])
+
+    # Download and install new version
+    try:
+        url = "https://releases.myorg.com/myapp/" + version + "/myapp"
+        binary = http.get(url)
+        fs.write("/usr/bin/myapp", binary, mode="0755")
+
+        # Start service
+        exec.run(["systemctl", "start", "myapp"])
+
+        # Verify deployment
+        result = exec.run(["/usr/bin/myapp", "--version"])
+        if result.stdout.strip() != version:
+            raise Exception("Version mismatch after deployment")
+
+        return _result(
+            "changed",
+            "Deployed version " + version,
+            changes={
+                "previous_version": current_version,
+                "new_version": version
+            }
+        )
+    except Exception as e:
+        if rollback_on_failure:
+            # Attempt rollback
+            exec.run(["systemctl", "start", "myapp"])
+            return _result(
+                "failed",
+                "Deployment failed, rolled back: " + str(e),
+                changes={"rollback": True}
+            )
+        return _result("failed", "Deployment failed: " + str(e))
+
+def render_template(template, vars):
+    """Simple template rendering with variable substitution."""
+    result = template
+    for key, value in vars.items():
+        result = result.replace("{{ " + key + " }}", str(value))
+    return result
+```
+
+#### Advanced State Template with Drift Detection
+
+```python
+# states/drift_aware.star
+"""
+State module with built-in drift detection.
+"""
+
+def ensure_service_config(name, service, config_path, expected_config):
+    """
+    Manage service configuration with drift detection.
+    """
+    # Define expected state
+    expected = {
+        "path": config_path,
+        "content": expected_config,
+        "mode": "0644",
+        "owner": "root",
+        "group": "root",
+    }
+
+    # Get current state
+    current = _get_current_state(config_path)
+
+    # Calculate drift
+    drift = _calculate_drift(expected, current)
+
+    if not drift:
+        return {
+            "result": "unchanged",
+            "comment": "Service configuration matches expected state",
+            "drift": {"detected": False},
+        }
+
+    # Apply changes
+    if drift.get("content"):
+        fs.write(config_path, expected_config)
+
+    if drift.get("mode"):
+        fs.chmod(config_path, expected["mode"])
+
+    if drift.get("owner") or drift.get("group"):
+        fs.chown(config_path, expected["owner"], expected["group"])
+
+    # Reload service if config changed
+    if drift.get("content"):
+        exec.run(["systemctl", "reload", service])
+
+    return {
+        "result": "changed",
+        "comment": "Configuration drift corrected",
+        "drift": {
+            "detected": True,
+            "severity": _drift_severity(drift),
+            "fields": list(drift.keys()),
+        },
+        "changes": drift,
+    }
+
+def _get_current_state(path):
+    """Get current state of a file."""
+    if not fs.exists(path):
+        return None
+
+    stat = fs.stat(path)
+    return {
+        "path": path,
+        "content": fs.read(path),
+        "mode": stat.mode,
+        "owner": stat.owner,
+        "group": stat.group,
+    }
+
+def _calculate_drift(expected, current):
+    """Calculate differences between expected and current state."""
+    if current is None:
+        return {"all": "file does not exist"}
+
+    drift = {}
+    for key in expected:
+        if expected[key] != current.get(key):
+            drift[key] = {
+                "expected": expected[key],
+                "current": current.get(key),
+            }
+    return drift
+
+def _drift_severity(drift):
+    """Calculate drift severity level."""
+    if "content" in drift:
+        return "high"
+    if "mode" in drift or "owner" in drift:
+        return "medium"
+    return "low"
+```
+
+#### Idempotent Operations Template
+
+```python
+# states/idempotent.star
+"""
+Template demonstrating idempotent state operations.
+"""
+
+def ensure_directory(name, path, mode="0755", owner="root", group="root"):
+    """
+    Idempotent directory creation.
+
+    This function can be safely called multiple times with the same
+    parameters and will only make changes when necessary.
+    """
+    changes = []
+
+    # Check if directory exists
+    if not fs.exists(path):
+        fs.mkdir(path, parents=True)
+        changes.append("created")
+    elif not fs.is_dir(path):
+        return {
+            "result": "failed",
+            "comment": "Path exists but is not a directory: " + path,
+        }
+
+    # Check and fix permissions
+    stat = fs.stat(path)
+
+    if stat.mode != mode:
+        fs.chmod(path, mode)
+        changes.append("mode changed from " + stat.mode + " to " + mode)
+
+    if stat.owner != owner or stat.group != group:
+        fs.chown(path, owner, group)
+        changes.append("ownership changed")
+
+    if not changes:
+        return {
+            "result": "unchanged",
+            "comment": "Directory already in desired state",
+        }
+
+    return {
+        "result": "changed",
+        "comment": "Directory configured",
+        "changes": {"actions": changes},
+    }
+
+def ensure_absent(name, path, recursive=False):
+    """
+    Idempotent path removal.
+
+    Safely removes files or directories, with optional recursive deletion.
+    """
+    if not fs.exists(path):
+        return {
+            "result": "unchanged",
+            "comment": "Path does not exist",
+        }
+
+    if fs.is_dir(path):
+        if recursive:
+            fs.rmtree(path)
+        else:
+            # Check if directory is empty
+            if fs.listdir(path):
+                return {
+                    "result": "failed",
+                    "comment": "Directory not empty, use recursive=true",
+                }
+            fs.rmdir(path)
+    else:
+        fs.unlink(path)
+
+    return {
+        "result": "changed",
+        "comment": "Path removed",
+        "changes": {"removed": path},
+    }
+```
+
+### Helper Functions Library
+
+```python
+# functions/helpers.star
+"""
+Reusable helper functions for custom modules.
+"""
+
+def require_root():
+    """Check if running as root, fail if not."""
+    result = exec.run(["id", "-u"])
+    if result.stdout.strip() != "0":
+        fail("This operation requires root privileges")
+
+def backup_file(path, suffix=".bak"):
+    """Create a backup of a file before modification."""
+    if fs.exists(path):
+        backup_path = path + suffix
+        fs.copy(path, backup_path)
+        return backup_path
+    return None
+
+def restore_backup(path, suffix=".bak"):
+    """Restore a file from backup."""
+    backup_path = path + suffix
+    if fs.exists(backup_path):
+        fs.copy(backup_path, path)
+        return True
+    return False
+
+def wait_for_service(name, timeout=30, check_interval=1):
+    """Wait for a service to become healthy."""
+    elapsed = 0
+    while elapsed < timeout:
+        result = exec.run(["systemctl", "is-active", name], check=False)
+        if result.return_code == 0:
+            return True
+        time.sleep(check_interval)
+        elapsed += check_interval
+    return False
+
+def parse_version(version_string):
+    """Parse a version string into components."""
+    parts = version_string.split(".")
+    return {
+        "major": int(parts[0]) if len(parts) > 0 else 0,
+        "minor": int(parts[1]) if len(parts) > 1 else 0,
+        "patch": int(parts[2]) if len(parts) > 2 else 0,
+        "raw": version_string,
+    }
+
+def compare_versions(v1, v2):
+    """Compare two version strings. Returns -1, 0, or 1."""
+    p1 = parse_version(v1)
+    p2 = parse_version(v2)
+
+    for field in ["major", "minor", "patch"]:
+        if p1[field] < p2[field]:
+            return -1
+        if p1[field] > p2[field]:
+            return 1
+    return 0
+
+def validate_required_params(params, required):
+    """Validate that required parameters are present."""
+    missing = []
+    for name in required:
+        if name not in params or params[name] is None:
+            missing.append(name)
+    if missing:
+        fail("Missing required parameters: " + ", ".join(missing))
+
+def sanitize_path(path):
+    """Sanitize a file path to prevent directory traversal."""
+    # Remove any .. components
+    parts = path.split("/")
+    clean_parts = []
+    for part in parts:
+        if part == "..":
+            continue
+        if part == ".":
+            continue
+        clean_parts.append(part)
+    return "/".join(clean_parts)
+```
+
+### Test Templates
+
+#### Unit Tests
+
+```python
+# tests/main_test.star
+"""Unit tests for custom module."""
+
+load("//states/main.star", "ensure_config", "deploy_app")
+load("//functions/helpers.star", "parse_version", "compare_versions")
+
+# Test fixtures
+def setup():
+    """Set up test fixtures before each test."""
+    # Create test directory
+    fs.mkdir("/tmp/test-module", parents=True)
+    # Create test template
+    fs.write("/tmp/test-module/templates/default.conf", "key={{ value }}")
+
+def teardown():
+    """Clean up after each test."""
+    if fs.exists("/tmp/test-module"):
+        fs.rmtree("/tmp/test-module")
+
+# Configuration tests
+def test_ensure_config_creates_new_file():
+    """Test that ensure_config creates a new config file."""
+    setup()
+    result = ensure_config(
+        name="test",
+        path="/tmp/test-module/config.conf",
+        template="default.conf",
+        vars={"value": "test-value"}
+    )
+    assert.eq(result["result"], "changed")
+    assert.true(fs.exists("/tmp/test-module/config.conf"))
+    content = fs.read("/tmp/test-module/config.conf")
+    assert.eq(content, "key=test-value")
+    teardown()
+
+def test_ensure_config_idempotent():
+    """Test that ensure_config is idempotent."""
+    setup()
+    # First run
+    ensure_config(
+        name="test",
+        path="/tmp/test-module/config.conf",
+        template="default.conf",
+        vars={"value": "test-value"}
+    )
+    # Second run should be unchanged
+    result = ensure_config(
+        name="test",
+        path="/tmp/test-module/config.conf",
+        template="default.conf",
+        vars={"value": "test-value"}
+    )
+    assert.eq(result["result"], "unchanged")
+    teardown()
+
+def test_ensure_config_detects_changes():
+    """Test that ensure_config detects and applies changes."""
+    setup()
+    # Create initial config
+    ensure_config(
+        name="test",
+        path="/tmp/test-module/config.conf",
+        template="default.conf",
+        vars={"value": "initial"}
+    )
+    # Update with new value
+    result = ensure_config(
+        name="test",
+        path="/tmp/test-module/config.conf",
+        template="default.conf",
+        vars={"value": "updated"}
+    )
+    assert.eq(result["result"], "changed")
+    content = fs.read("/tmp/test-module/config.conf")
+    assert.eq(content, "key=updated")
+    teardown()
+
+def test_ensure_config_missing_template():
+    """Test error handling for missing template."""
+    result = ensure_config(
+        name="test",
+        path="/tmp/test.conf",
+        template="nonexistent.conf",
+        vars={}
+    )
+    assert.eq(result["result"], "failed")
+    assert.contains(result["comment"], "not found")
+
+# Helper function tests
+def test_parse_version():
+    """Test version parsing."""
+    v = parse_version("1.2.3")
+    assert.eq(v["major"], 1)
+    assert.eq(v["minor"], 2)
+    assert.eq(v["patch"], 3)
+
+def test_compare_versions():
+    """Test version comparison."""
+    assert.eq(compare_versions("1.0.0", "1.0.0"), 0)
+    assert.eq(compare_versions("1.0.0", "2.0.0"), -1)
+    assert.eq(compare_versions("2.0.0", "1.0.0"), 1)
+    assert.eq(compare_versions("1.1.0", "1.0.0"), 1)
+    assert.eq(compare_versions("1.0.1", "1.0.0"), 1)
+```
+
+#### Integration Tests
+
+```python
+# tests/integration_test.star
+"""Integration tests requiring real system resources."""
+
+load("//states/main.star", "ensure_config", "deploy_app")
+
+# Mark as integration test (requires --integration flag to run)
+_test_type = "integration"
+
+def test_full_deployment_workflow():
+    """Test complete deployment workflow."""
+    # This test requires a real system with systemd
+
+    # Step 1: Create configuration
+    config_result = ensure_config(
+        name="app-config",
+        path="/etc/myapp/config.conf",
+        template="production.conf",
+        vars={
+            "db_host": "localhost",
+            "db_port": "5432",
+        }
+    )
+    assert.true(config_result["result"] in ["changed", "unchanged"])
+
+    # Step 2: Deploy application
+    deploy_result = deploy_app(
+        name="app-deploy",
+        version="1.0.0",
+        rollback_on_failure=True
+    )
+    assert.true(deploy_result["result"] in ["changed", "unchanged"])
+
+    # Step 3: Verify service is running
+    result = exec.run(["systemctl", "is-active", "myapp"])
+    assert.eq(result.stdout.strip(), "active")
+```
+
+### Example Usage Files
+
+```yaml
+# examples/basic.yaml
+# Basic usage example for my-custom-module
+
+# Ensure application configuration
+app_config:
+  module: myorg/my-custom-module
+  state: config
+  path: /etc/myapp/config.conf
+  template: production.conf
+  vars:
+    db_host: "{{ .vars.database_host }}"
+    db_port: 5432
+    log_level: info
+
+# Deploy application
+app_deploy:
+  module: myorg/my-custom-module
+  state: deploy
+  version: "{{ .vars.app_version }}"
+  rollback_on_failure: true
+  require:
+    - app_config
+```
+
+```yaml
+# examples/advanced.yaml
+# Advanced usage with multiple configurations
+
+# Create configuration directory
+config_dir:
+  module: file
+  state: directory
+  path: /etc/myapp
+  mode: "0755"
+
+# Main application config
+main_config:
+  module: myorg/my-custom-module
+  state: config
+  path: /etc/myapp/main.conf
+  vars:
+    environment: production
+    workers: "{{ .facts.cpu_count }}"
+  require:
+    - config_dir
+
+# Logging configuration
+logging_config:
+  module: myorg/my-custom-module
+  state: config
+  path: /etc/myapp/logging.conf
+  template: logging.conf
+  vars:
+    log_path: /var/log/myapp
+    log_level: "{{ default 'info' .vars.log_level }}"
+  require:
+    - config_dir
+
+# Deploy with watching config changes
+app_deploy:
+  module: myorg/my-custom-module
+  state: deploy
+  version: "{{ .vars.app_version }}"
+  watch:
+    - main_config
+    - logging_config
+```
+
+### Publishing Your Module
+
+#### Build and Sign
+
+```bash
+# Validate module before building
+kscore-module validate ./myorg-my-custom-module
+
+# Run all tests
+kscore-module test ./myorg-my-custom-module
+
+# Build distributable package
+kscore-module build ./myorg-my-custom-module
+
+# Sign with your key
+kscore-module sign \
+  --key ~/.kscore/signing-key.pem \
+  ./myorg-my-custom-module/myorg-my-custom-module-1.0.0.zip
+```
+
+#### Publish to Registry
+
+```bash
+# Publish to OCI registry
+kscore-module publish \
+  --registry ghcr.io/myorg \
+  ./myorg-my-custom-module/myorg-my-custom-module-1.0.0.zip
+
+# Or publish to HTTP server
+scp ./myorg-my-custom-module/myorg-my-custom-module-1.0.0.zip \
+  user@modules.myorg.com:/var/www/modules/
+```
+
+#### Module Registry Entry
+
+```yaml
+# registry entry (for private registries)
+name: myorg/my-custom-module
+versions:
+  - version: 1.0.0
+    released: 2025-01-15
+    checksum: sha256:abc123...
+    signatures:
+      - keyid: ABCD1234
+        sig: base64...
+    sources:
+      - type: oci
+        url: ghcr.io/myorg/my-custom-module:1.0.0
+      - type: http
+        url: https://modules.myorg.com/my-custom-module-1.0.0.zip
+```
+
+## Real-World Examples
+
+This section provides comprehensive, production-ready examples demonstrating how to combine multiple modules for common infrastructure scenarios.
+
+### Example 1: NGINX Web Server Stack
+
+Deploy a complete NGINX web server with SSL, PHP-FPM, and PostgreSQL backend.
+
+```yaml
+# web-stack.yaml - Production NGINX + PHP + PostgreSQL Stack
+#
+# This example demonstrates:
+# - Package installation with automatic updates
+# - Service management with dependencies
+# - SSL certificate management
+# - Nginx configuration with security headers
+# - PHP-FPM pool configuration
+# - PostgreSQL database setup
+# - Firewall rules
+# - System tuning
+
+# Variables (set via pillar or state file vars)
+# .vars.domain: example.com
+# .vars.db_password: secure-password
+# .vars.php_version: "8.2"
+
+# --- Base System Configuration ---
+
+system_packages:
+  module: package
+  state: installed
+  names:
+    - nginx
+    - php{{ .vars.php_version }}-fpm
+    - php{{ .vars.php_version }}-pgsql
+    - php{{ .vars.php_version }}-mbstring
+    - php{{ .vars.php_version }}-xml
+    - php{{ .vars.php_version }}-curl
+    - postgresql-15
+    - certbot
+    - python3-certbot-nginx
+
+system_tuning:
+  module: sysctl
+  state: present
+  settings:
+    net.core.somaxconn: 65535
+    net.ipv4.tcp_max_syn_backlog: 65535
+    net.ipv4.ip_local_port_range: "1024 65535"
+    net.ipv4.tcp_tw_reuse: 1
+    vm.swappiness: 10
+
+# --- Firewall Configuration ---
+
+firewall_http:
+  module: firewall
+  state: allow
+  port: 80
+  protocol: tcp
+
+firewall_https:
+  module: firewall
+  state: allow
+  port: 443
+  protocol: tcp
+
+# --- SSL Certificate ---
+
+ssl_certificate:
+  module: cmd
+  state: run
+  name: obtain_ssl_cert
+  command: |
+    certbot certonly --nginx -d {{ .vars.domain }} -d www.{{ .vars.domain }} \
+      --non-interactive --agree-tos --email admin@{{ .vars.domain }}
+  creates: /etc/letsencrypt/live/{{ .vars.domain }}/fullchain.pem
+  require:
+    - system_packages
+    - firewall_http
+
+ssl_renewal_cron:
+  module: cron
+  state: present
+  name: certbot-renewal
+  user: root
+  hour: 2
+  minute: 30
+  weekday: 1
+  job: certbot renew --quiet --post-hook "systemctl reload nginx"
+  require:
+    - ssl_certificate
+
+# --- NGINX Configuration ---
+
+nginx_main_config:
+  module: file
+  state: managed
+  path: /etc/nginx/nginx.conf
+  content: |
+    user www-data;
+    worker_processes auto;
+    pid /run/nginx.pid;
+
+    events {
+        worker_connections 4096;
+        use epoll;
+        multi_accept on;
+    }
+
+    http {
+        sendfile on;
+        tcp_nopush on;
+        tcp_nodelay on;
+        keepalive_timeout 65;
+        types_hash_max_size 2048;
+        server_tokens off;
+
+        include /etc/nginx/mime.types;
+        default_type application/octet-stream;
+
+        # Logging
+        access_log /var/log/nginx/access.log;
+        error_log /var/log/nginx/error.log;
+
+        # Gzip compression
+        gzip on;
+        gzip_vary on;
+        gzip_proxied any;
+        gzip_comp_level 6;
+        gzip_types text/plain text/css application/json application/javascript text/xml application/xml;
+
+        # SSL settings
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_prefer_server_ciphers off;
+        ssl_session_cache shared:SSL:10m;
+        ssl_session_timeout 1d;
+
+        include /etc/nginx/conf.d/*.conf;
+        include /etc/nginx/sites-enabled/*;
+    }
+  mode: "0644"
+  require:
+    - system_packages
+
+nginx_site_config:
+  module: file
+  state: managed
+  path: /etc/nginx/sites-available/{{ .vars.domain }}
+  content: |
+    server {
+        listen 80;
+        server_name {{ .vars.domain }} www.{{ .vars.domain }};
+        return 301 https://$server_name$request_uri;
+    }
+
+    server {
+        listen 443 ssl http2;
+        server_name {{ .vars.domain }} www.{{ .vars.domain }};
+
+        root /var/www/{{ .vars.domain }};
+        index index.php index.html;
+
+        # SSL
+        ssl_certificate /etc/letsencrypt/live/{{ .vars.domain }}/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/{{ .vars.domain }}/privkey.pem;
+
+        # Security headers
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-XSS-Protection "1; mode=block" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';" always;
+
+        location / {
+            try_files $uri $uri/ /index.php?$query_string;
+        }
+
+        location ~ \.php$ {
+            fastcgi_pass unix:/run/php/php{{ .vars.php_version }}-fpm.sock;
+            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+            include fastcgi_params;
+            fastcgi_read_timeout 300;
+        }
+
+        location ~ /\.ht {
+            deny all;
+        }
+
+        # Static file caching
+        location ~* \.(jpg|jpeg|png|gif|ico|css|js|woff2)$ {
+            expires 30d;
+            add_header Cache-Control "public, immutable";
+        }
+    }
+  mode: "0644"
+  require:
+    - nginx_main_config
+    - ssl_certificate
+
+nginx_site_enable:
+  module: file
+  state: symlink
+  path: /etc/nginx/sites-enabled/{{ .vars.domain }}
+  target: /etc/nginx/sites-available/{{ .vars.domain }}
+  require:
+    - nginx_site_config
+
+web_root:
+  module: file
+  state: directory
+  path: /var/www/{{ .vars.domain }}
+  owner: www-data
+  group: www-data
+  mode: "0755"
+
+# --- PHP-FPM Configuration ---
+
+php_fpm_pool:
+  module: file
+  state: managed
+  path: /etc/php/{{ .vars.php_version }}/fpm/pool.d/www.conf
+  content: |
+    [www]
+    user = www-data
+    group = www-data
+    listen = /run/php/php{{ .vars.php_version }}-fpm.sock
+    listen.owner = www-data
+    listen.group = www-data
+
+    pm = dynamic
+    pm.max_children = {{ mul .facts.cpu_count 4 }}
+    pm.start_servers = {{ mul .facts.cpu_count 2 }}
+    pm.min_spare_servers = {{ .facts.cpu_count }}
+    pm.max_spare_servers = {{ mul .facts.cpu_count 3 }}
+    pm.max_requests = 500
+
+    php_admin_value[error_log] = /var/log/php-fpm/www-error.log
+    php_admin_flag[log_errors] = on
+    php_admin_value[memory_limit] = 256M
+    php_admin_value[upload_max_filesize] = 50M
+    php_admin_value[post_max_size] = 50M
+    php_admin_value[max_execution_time] = 300
+  mode: "0644"
+  require:
+    - system_packages
+
+php_log_dir:
+  module: file
+  state: directory
+  path: /var/log/php-fpm
+  owner: www-data
+  group: www-data
+  mode: "0755"
+
+# --- PostgreSQL Configuration ---
+
+postgres_service:
+  module: service
+  state: running
+  name: postgresql
+  enabled: true
+  require:
+    - system_packages
+
+app_database:
+  module: postgres_database
+  state: present
+  name: app_production
+  encoding: UTF8
+  lc_collate: en_US.UTF-8
+  lc_ctype: en_US.UTF-8
+  require:
+    - postgres_service
+
+app_db_user:
+  module: postgres_user
+  state: present
+  name: app_user
+  password: "{{ .vars.db_password }}"
+  databases:
+    - name: app_production
+      privileges: ALL
+  require:
+    - app_database
+
+# --- Service Management ---
+
+php_fpm_service:
+  module: service
+  state: running
+  name: php{{ .vars.php_version }}-fpm
+  enabled: true
+  require:
+    - php_fpm_pool
+    - php_log_dir
+  watch:
+    - php_fpm_pool
+
+nginx_service:
+  module: service
+  state: running
+  name: nginx
+  enabled: true
+  require:
+    - nginx_site_enable
+    - php_fpm_service
+  watch:
+    - nginx_main_config
+    - nginx_site_config
+```
+
+### Example 2: Kubernetes Node Preparation
+
+Prepare a Linux server as a Kubernetes worker node.
+
+```yaml
+# k8s-node.yaml - Kubernetes Node Preparation
+#
+# This example demonstrates:
+# - Kernel module loading
+# - System parameter tuning
+# - Container runtime installation
+# - Kubernetes component installation
+# - Network configuration
+# - Security settings
+
+# Variables:
+# .vars.k8s_version: "1.29"
+# .vars.containerd_version: "1.7"
+# .vars.control_plane_endpoint: "k8s-control:6443"
+# .vars.pod_cidr: "10.244.0.0/16"
+
+# --- System Prerequisites ---
+
+disable_swap:
+  module: swap
+  state: absent
+  all: true
+
+disable_swap_fstab:
+  module: file
+  state: managed
+  path: /etc/fstab
+  pattern: ".*swap.*"
+  repl: "# \\0"
+  backup: true
+
+required_kernel_modules:
+  module: kernel_module
+  state: present
+  names:
+    - overlay
+    - br_netfilter
+
+kernel_modules_load:
+  module: file
+  state: managed
+  path: /etc/modules-load.d/k8s.conf
+  content: |
+    overlay
+    br_netfilter
+  mode: "0644"
+
+k8s_sysctl:
+  module: sysctl
+  state: present
+  settings:
+    net.bridge.bridge-nf-call-iptables: 1
+    net.bridge.bridge-nf-call-ip6tables: 1
+    net.ipv4.ip_forward: 1
+    net.ipv4.conf.all.forwarding: 1
+    vm.overcommit_memory: 1
+    vm.panic_on_oom: 0
+    kernel.panic: 10
+    kernel.panic_on_oops: 1
+  require:
+    - required_kernel_modules
+
+# --- Firewall Configuration ---
+
+k8s_kubelet_port:
+  module: firewall
+  state: allow
+  port: 10250
+  protocol: tcp
+
+k8s_nodeport_range:
+  module: firewall
+  state: allow
+  port: 30000-32767
+  protocol: tcp
+
+k8s_flannel_vxlan:
+  module: firewall
+  state: allow
+  port: 8472
+  protocol: udp
+
+# --- Container Runtime (containerd) ---
+
+containerd_prerequisites:
+  module: package
+  state: installed
+  names:
+    - apt-transport-https
+    - ca-certificates
+    - curl
+    - gnupg
+    - lsb-release
+
+docker_gpg_key:
+  module: cmd
+  state: run
+  name: add_docker_gpg
+  command: |
+    curl -fsSL https://download.docker.com/linux/{{ .facts.os | lower }}/gpg | \
+      gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+  creates: /usr/share/keyrings/docker-archive-keyring.gpg
+  require:
+    - containerd_prerequisites
+
+docker_apt_repo:
+  module: file
+  state: managed
+  path: /etc/apt/sources.list.d/docker.list
+  content: |
+    deb [arch={{ .facts.architecture }} signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] \
+    https://download.docker.com/linux/{{ .facts.os | lower }} {{ .facts.os_codename }} stable
+  mode: "0644"
+  require:
+    - docker_gpg_key
+
+containerd_package:
+  module: package
+  state: installed
+  name: containerd.io
+  update_cache: true
+  require:
+    - docker_apt_repo
+
+containerd_config_dir:
+  module: file
+  state: directory
+  path: /etc/containerd
+  mode: "0755"
+
+containerd_config:
+  module: file
+  state: managed
+  path: /etc/containerd/config.toml
+  content: |
+    version = 2
+
+    [plugins]
+      [plugins."io.containerd.grpc.v1.cri"]
+        sandbox_image = "registry.k8s.io/pause:3.9"
+        [plugins."io.containerd.grpc.v1.cri".containerd]
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
+            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+              runtime_type = "io.containerd.runc.v2"
+              [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+                SystemdCgroup = true
+        [plugins."io.containerd.grpc.v1.cri".cni]
+          bin_dir = "/opt/cni/bin"
+          conf_dir = "/etc/cni/net.d"
+  mode: "0644"
+  require:
+    - containerd_config_dir
+
+containerd_service:
+  module: service
+  state: running
+  name: containerd
+  enabled: true
+  require:
+    - containerd_package
+    - containerd_config
+  watch:
+    - containerd_config
+
+# --- Kubernetes Components ---
+
+k8s_gpg_key:
+  module: cmd
+  state: run
+  name: add_k8s_gpg
+  command: |
+    curl -fsSL https://pkgs.k8s.io/core:/stable:/v{{ .vars.k8s_version }}/deb/Release.key | \
+      gpg --dearmor -o /usr/share/keyrings/kubernetes-apt-keyring.gpg
+  creates: /usr/share/keyrings/kubernetes-apt-keyring.gpg
+
+k8s_apt_repo:
+  module: file
+  state: managed
+  path: /etc/apt/sources.list.d/kubernetes.list
+  content: |
+    deb [signed-by=/usr/share/keyrings/kubernetes-apt-keyring.gpg] \
+    https://pkgs.k8s.io/core:/stable:/v{{ .vars.k8s_version }}/deb/ /
+  mode: "0644"
+  require:
+    - k8s_gpg_key
+
+k8s_packages:
+  module: package
+  state: installed
+  names:
+    - kubelet
+    - kubeadm
+    - kubectl
+  update_cache: true
+  require:
+    - k8s_apt_repo
+    - containerd_service
+    - k8s_sysctl
+    - disable_swap
+
+k8s_packages_hold:
+  module: cmd
+  state: run
+  name: hold_k8s_packages
+  command: apt-mark hold kubelet kubeadm kubectl
+  require:
+    - k8s_packages
+
+kubelet_service:
+  module: service
+  state: running
+  name: kubelet
+  enabled: true
+  require:
+    - k8s_packages
+
+# --- CNI Configuration ---
+
+cni_bin_dir:
+  module: file
+  state: directory
+  path: /opt/cni/bin
+  mode: "0755"
+
+cni_conf_dir:
+  module: file
+  state: directory
+  path: /etc/cni/net.d
+  mode: "0755"
+
+# --- Crictl Configuration ---
+
+crictl_config:
+  module: file
+  state: managed
+  path: /etc/crictl.yaml
+  content: |
+    runtime-endpoint: unix:///run/containerd/containerd.sock
+    image-endpoint: unix:///run/containerd/containerd.sock
+    timeout: 10
+    debug: false
+  mode: "0644"
+```
+
+### Example 3: Database Server Hardening
+
+Harden a PostgreSQL database server for production use.
+
+```yaml
+# postgres-hardened.yaml - Production PostgreSQL with Security Hardening
+#
+# This example demonstrates:
+# - PostgreSQL installation and configuration
+# - TLS/SSL setup for connections
+# - Authentication configuration (pg_hba.conf)
+# - Performance tuning based on hardware
+# - Backup automation
+# - Monitoring integration
+# - Security hardening
+
+# Variables:
+# .vars.pg_password: secure-root-password
+# .vars.replication_password: replication-password
+# .vars.app_db_password: app-password
+# .vars.backup_bucket: s3://my-backups/postgres
+
+# --- Base Installation ---
+
+postgresql_packages:
+  module: package
+  state: installed
+  names:
+    - postgresql-15
+    - postgresql-contrib-15
+    - python3-psycopg2  # For Ansible-style management
+    - s3cmd             # For backup uploads
+
+# --- Data Directory Security ---
+
+postgres_data_permissions:
+  module: file
+  state: directory
+  path: /var/lib/postgresql/15/main
+  owner: postgres
+  group: postgres
+  mode: "0700"
+  require:
+    - postgresql_packages
+
+# --- SSL Certificate Setup ---
+
+postgres_ssl_dir:
+  module: file
+  state: directory
+  path: /etc/postgresql/15/main/ssl
+  owner: postgres
+  group: postgres
+  mode: "0700"
+
+postgres_ssl_key:
+  module: x509
+  state: present
+  path: /etc/postgresql/15/main/ssl/server.key
+  type: private_key
+  bits: 4096
+  owner: postgres
+  group: postgres
+  mode: "0600"
+  require:
+    - postgres_ssl_dir
+
+postgres_ssl_cert:
+  module: x509
+  state: present
+  path: /etc/postgresql/15/main/ssl/server.crt
+  type: certificate
+  private_key: /etc/postgresql/15/main/ssl/server.key
+  common_name: "{{ .facts.fqdn }}"
+  days: 365
+  owner: postgres
+  group: postgres
+  mode: "0644"
+  require:
+    - postgres_ssl_key
+
+# --- PostgreSQL Configuration ---
+
+postgresql_conf:
+  module: file
+  state: managed
+  path: /etc/postgresql/15/main/postgresql.conf
+  content: |
+    # Connection Settings
+    listen_addresses = '*'
+    port = 5432
+    max_connections = 200
+
+    # Authentication
+    password_encryption = scram-sha-256
+
+    # SSL/TLS
+    ssl = on
+    ssl_cert_file = '/etc/postgresql/15/main/ssl/server.crt'
+    ssl_key_file = '/etc/postgresql/15/main/ssl/server.key'
+    ssl_min_protocol_version = 'TLSv1.2'
+    ssl_ciphers = 'HIGH:MEDIUM:+3DES:!aNULL'
+
+    # Memory Settings (based on available RAM)
+    shared_buffers = {{ div .facts.memory_mb 4 }}MB
+    effective_cache_size = {{ div (mul .facts.memory_mb 3) 4 }}MB
+    maintenance_work_mem = {{ min (div .facts.memory_mb 8) 2048 }}MB
+    work_mem = {{ div .facts.memory_mb 100 }}MB
+
+    # Checkpoint Settings
+    checkpoint_completion_target = 0.9
+    wal_buffers = 64MB
+    min_wal_size = 1GB
+    max_wal_size = 4GB
+
+    # Query Planner
+    random_page_cost = 1.1  # For SSD storage
+    effective_io_concurrency = 200
+
+    # Parallel Query
+    max_parallel_workers_per_gather = {{ div .facts.cpu_count 2 }}
+    max_parallel_workers = {{ .facts.cpu_count }}
+    max_parallel_maintenance_workers = {{ div .facts.cpu_count 2 }}
+
+    # WAL Archiving for Point-in-Time Recovery
+    archive_mode = on
+    archive_command = 'test ! -f /var/lib/postgresql/wal_archive/%f && cp %p /var/lib/postgresql/wal_archive/%f'
+
+    # Replication
+    wal_level = replica
+    max_wal_senders = 5
+    wal_keep_size = 1GB
+
+    # Logging
+    logging_collector = on
+    log_directory = '/var/log/postgresql'
+    log_filename = 'postgresql-%Y-%m-%d.log'
+    log_rotation_age = 1d
+    log_rotation_size = 100MB
+    log_min_duration_statement = 1000  # Log queries > 1 second
+    log_checkpoints = on
+    log_connections = on
+    log_disconnections = on
+    log_lock_waits = on
+    log_statement = 'ddl'
+    log_temp_files = 0
+
+    # Statistics
+    shared_preload_libraries = 'pg_stat_statements'
+    pg_stat_statements.max = 10000
+    pg_stat_statements.track = all
+  mode: "0644"
+  owner: postgres
+  group: postgres
+  require:
+    - postgres_ssl_cert
+
+# --- Authentication Configuration ---
+
+pg_hba_conf:
+  module: file
+  state: managed
+  path: /etc/postgresql/15/main/pg_hba.conf
+  content: |
+    # TYPE  DATABASE        USER            ADDRESS                 METHOD
+
+    # Local connections
+    local   all             postgres                                peer
+    local   all             all                                     scram-sha-256
+
+    # IPv4 local connections (localhost only for admin)
+    host    all             postgres        127.0.0.1/32            scram-sha-256
+
+    # IPv4 connections from application network (SSL required)
+    hostssl all             all             10.0.0.0/8              scram-sha-256
+    hostssl all             all             172.16.0.0/12           scram-sha-256
+    hostssl all             all             192.168.0.0/16          scram-sha-256
+
+    # Replication connections (from standby servers)
+    hostssl replication     replicator      10.0.0.0/8              scram-sha-256
+
+    # Deny all other connections
+    host    all             all             0.0.0.0/0               reject
+  mode: "0640"
+  owner: postgres
+  group: postgres
+  require:
+    - postgresql_packages
+
+# --- Create Directories ---
+
+postgres_log_dir:
+  module: file
+  state: directory
+  path: /var/log/postgresql
+  owner: postgres
+  group: postgres
+  mode: "0755"
+
+wal_archive_dir:
+  module: file
+  state: directory
+  path: /var/lib/postgresql/wal_archive
+  owner: postgres
+  group: postgres
+  mode: "0700"
+
+backup_dir:
+  module: file
+  state: directory
+  path: /var/lib/postgresql/backups
+  owner: postgres
+  group: postgres
+  mode: "0700"
+
+# --- Database and User Setup ---
+
+postgres_service:
+  module: service
+  state: running
+  name: postgresql
+  enabled: true
+  require:
+    - postgresql_conf
+    - pg_hba_conf
+    - postgres_log_dir
+    - wal_archive_dir
+  watch:
+    - postgresql_conf
+    - pg_hba_conf
+
+pg_stat_statements_ext:
+  module: postgres_extension
+  state: present
+  name: pg_stat_statements
+  database: postgres
+  require:
+    - postgres_service
+
+replicator_user:
+  module: postgres_user
+  state: present
+  name: replicator
+  password: "{{ .vars.replication_password }}"
+  role_attr_flags: REPLICATION,LOGIN
+  require:
+    - postgres_service
+
+app_database:
+  module: postgres_database
+  state: present
+  name: application
+  encoding: UTF8
+  require:
+    - postgres_service
+
+app_user:
+  module: postgres_user
+  state: present
+  name: app_user
+  password: "{{ .vars.app_db_password }}"
+  databases:
+    - name: application
+      privileges: ALL
+  require:
+    - app_database
+
+# --- Firewall ---
+
+postgres_firewall:
+  module: firewall
+  state: allow
+  port: 5432
+  protocol: tcp
+  source: 10.0.0.0/8
+
+# --- Backup Automation ---
+
+backup_script:
+  module: file
+  state: managed
+  path: /usr/local/bin/pg_backup.sh
+  content: |
+    #!/bin/bash
+    set -euo pipefail
+
+    BACKUP_DIR="/var/lib/postgresql/backups"
+    DATE=$(date +%Y%m%d_%H%M%S)
+    BACKUP_FILE="${BACKUP_DIR}/pg_backup_${DATE}.sql.gz"
+
+    # Create backup
+    pg_dumpall -U postgres | gzip > "${BACKUP_FILE}"
+
+    # Upload to S3
+    s3cmd put "${BACKUP_FILE}" {{ .vars.backup_bucket }}/
+
+    # Clean up local backups older than 7 days
+    find "${BACKUP_DIR}" -name "pg_backup_*.sql.gz" -mtime +7 -delete
+
+    # Log success
+    logger -t pg_backup "Backup completed: ${BACKUP_FILE}"
+  mode: "0750"
+  owner: postgres
+  group: postgres
+  require:
+    - backup_dir
+
+backup_cron:
+  module: cron
+  state: present
+  name: postgresql-backup
+  user: postgres
+  hour: 2
+  minute: 0
+  job: /usr/local/bin/pg_backup.sh
+  require:
+    - backup_script
+
+# --- Monitoring Integration ---
+
+postgres_exporter_user:
+  module: postgres_user
+  state: present
+  name: postgres_exporter
+  password: "{{ .vars.exporter_password | default \"exporter-password\" }}"
+  databases:
+    - name: postgres
+      privileges: "CONNECT"
+  require:
+    - postgres_service
+
+postgres_exporter_grants:
+  module: cmd
+  state: run
+  name: exporter_grants
+  command: |
+    psql -U postgres -c "GRANT pg_monitor TO postgres_exporter;"
+  require:
+    - postgres_exporter_user
+```
+
+### Example 4: Docker Application Deployment
+
+Deploy a containerized application with Docker Compose-like state management.
+
+```yaml
+# docker-app.yaml - Multi-Container Application Deployment
+#
+# This example demonstrates:
+# - Docker network creation
+# - Docker volume management
+# - Multi-container deployment with dependencies
+# - Environment configuration
+# - Health check configuration
+# - Log driver configuration
+
+# Variables:
+# .vars.app_version: "1.2.3"
+# .vars.redis_password: redis-secret
+# .vars.app_secret_key: app-secret
+
+# --- Docker Installation (if needed) ---
+
+docker_prerequisites:
+  module: package
+  state: installed
+  names:
+    - apt-transport-https
+    - ca-certificates
+    - curl
+    - gnupg
+
+docker_gpg:
+  module: cmd
+  state: run
+  name: docker_gpg_key
+  command: |
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
+      gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+  creates: /usr/share/keyrings/docker-archive-keyring.gpg
+  require:
+    - docker_prerequisites
+
+docker_repo:
+  module: file
+  state: managed
+  path: /etc/apt/sources.list.d/docker.list
+  content: |
+    deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] \
+    https://download.docker.com/linux/ubuntu {{ .facts.os_codename }} stable
+  mode: "0644"
+  require:
+    - docker_gpg
+
+docker_packages:
+  module: package
+  state: installed
+  names:
+    - docker-ce
+    - docker-ce-cli
+    - containerd.io
+  update_cache: true
+  require:
+    - docker_repo
+
+docker_service:
+  module: service
+  state: running
+  name: docker
+  enabled: true
+  require:
+    - docker_packages
+
+# --- Application Network ---
+
+app_network:
+  module: docker_network
+  state: present
+  name: myapp-network
+  driver: bridge
+  ipam:
+    driver: default
+    config:
+      - subnet: 172.28.0.0/16
+  require:
+    - docker_service
+
+# --- Persistent Volumes ---
+
+redis_volume:
+  module: docker_volume
+  state: present
+  name: myapp-redis-data
+  require:
+    - docker_service
+
+postgres_volume:
+  module: docker_volume
+  state: present
+  name: myapp-postgres-data
+  require:
+    - docker_service
+
+app_uploads_volume:
+  module: docker_volume
+  state: present
+  name: myapp-uploads
+  require:
+    - docker_service
+
+# --- Redis Container ---
+
+redis_container:
+  module: docker_container
+  state: running
+  name: myapp-redis
+  image: redis:7-alpine
+  command: redis-server --requirepass {{ .vars.redis_password }}
+  networks:
+    - name: myapp-network
+      aliases:
+        - redis
+  volumes:
+    - myapp-redis-data:/data
+  restart_policy: unless-stopped
+  healthcheck:
+    test: ["CMD", "redis-cli", "-a", "{{ .vars.redis_password }}", "ping"]
+    interval: 10s
+    timeout: 5s
+    retries: 3
+  log_driver: json-file
+  log_options:
+    max-size: "10m"
+    max-file: "3"
+  require:
+    - app_network
+    - redis_volume
+
+# --- PostgreSQL Container ---
+
+postgres_container:
+  module: docker_container
+  state: running
+  name: myapp-postgres
+  image: postgres:15-alpine
+  environment:
+    POSTGRES_DB: myapp
+    POSTGRES_USER: myapp
+    POSTGRES_PASSWORD: "{{ .vars.db_password }}"
+  networks:
+    - name: myapp-network
+      aliases:
+        - postgres
+        - db
+  volumes:
+    - myapp-postgres-data:/var/lib/postgresql/data
+  restart_policy: unless-stopped
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -U myapp"]
+    interval: 10s
+    timeout: 5s
+    retries: 5
+  log_driver: json-file
+  log_options:
+    max-size: "10m"
+    max-file: "3"
+  require:
+    - app_network
+    - postgres_volume
+
+# --- Application Container ---
+
+app_container:
+  module: docker_container
+  state: running
+  name: myapp-api
+  image: "myregistry.io/myapp:{{ .vars.app_version }}"
+  environment:
+    DATABASE_URL: "postgresql://myapp:{{ .vars.db_password }}@postgres:5432/myapp"
+    REDIS_URL: "redis://:{{ .vars.redis_password }}@redis:6379/0"
+    SECRET_KEY: "{{ .vars.app_secret_key }}"
+    ENVIRONMENT: production
+    LOG_LEVEL: info
+  networks:
+    - name: myapp-network
+      aliases:
+        - api
+  volumes:
+    - myapp-uploads:/app/uploads
+  ports:
+    - "127.0.0.1:8000:8000"
+  restart_policy: unless-stopped
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+    interval: 30s
+    timeout: 10s
+    retries: 3
+    start_period: 40s
+  log_driver: json-file
+  log_options:
+    max-size: "50m"
+    max-file: "5"
+  require:
+    - redis_container
+    - postgres_container
+    - app_uploads_volume
+
+# --- Worker Container ---
+
+worker_container:
+  module: docker_container
+  state: running
+  name: myapp-worker
+  image: "myregistry.io/myapp:{{ .vars.app_version }}"
+  command: celery -A myapp worker -l info
+  environment:
+    DATABASE_URL: "postgresql://myapp:{{ .vars.db_password }}@postgres:5432/myapp"
+    REDIS_URL: "redis://:{{ .vars.redis_password }}@redis:6379/0"
+    SECRET_KEY: "{{ .vars.app_secret_key }}"
+  networks:
+    - name: myapp-network
+  restart_policy: unless-stopped
+  log_driver: json-file
+  log_options:
+    max-size: "50m"
+    max-file: "5"
+  require:
+    - redis_container
+    - postgres_container
+
+# --- Scheduler Container ---
+
+scheduler_container:
+  module: docker_container
+  state: running
+  name: myapp-scheduler
+  image: "myregistry.io/myapp:{{ .vars.app_version }}"
+  command: celery -A myapp beat -l info
+  environment:
+    DATABASE_URL: "postgresql://myapp:{{ .vars.db_password }}@postgres:5432/myapp"
+    REDIS_URL: "redis://:{{ .vars.redis_password }}@redis:6379/0"
+  networks:
+    - name: myapp-network
+  restart_policy: unless-stopped
+  log_driver: json-file
+  log_options:
+    max-size: "10m"
+    max-file: "3"
+  require:
+    - redis_container
+    - postgres_container
+
+# --- Nginx Reverse Proxy ---
+
+nginx_config_dir:
+  module: file
+  state: directory
+  path: /etc/nginx/conf.d
+  mode: "0755"
+
+nginx_upstream_config:
+  module: file
+  state: managed
+  path: /etc/nginx/conf.d/myapp.conf
+  content: |
+    upstream myapp_api {
+        server 127.0.0.1:8000;
+        keepalive 32;
+    }
+
+    server {
+        listen 80;
+        server_name {{ .vars.domain }};
+
+        client_max_body_size 100M;
+
+        location / {
+            proxy_pass http://myapp_api;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header Connection "";
+            proxy_connect_timeout 60s;
+            proxy_send_timeout 60s;
+            proxy_read_timeout 60s;
+        }
+
+        location /health {
+            access_log off;
+            proxy_pass http://myapp_api/health;
+        }
+    }
+  mode: "0644"
+  require:
+    - nginx_config_dir
+    - app_container
+
+nginx_reload:
+  module: service
+  state: running
+  name: nginx
+  reload: true
+  require:
+    - nginx_upstream_config
+  watch:
+    - nginx_upstream_config
+```
+
+### Example 5: Security Baseline Compliance
+
+Implement CIS benchmark security controls.
+
+```yaml
+# security-baseline.yaml - CIS Level 1 Security Baseline
+#
+# This example demonstrates:
+# - Filesystem hardening
+# - Kernel parameter security
+# - Authentication hardening
+# - SSH hardening
+# - Audit configuration
+# - Service hardening
+
+# --- Filesystem Hardening ---
+
+# CIS 1.1.2-1.1.5: Ensure /tmp is configured properly
+tmp_mount_options:
+  module: mount
+  state: present
+  path: /tmp
+  src: tmpfs
+  fstype: tmpfs
+  opts: defaults,noexec,nosuid,nodev,size=2G
+
+# CIS 1.1.8-1.1.9: Ensure /var/tmp has noexec
+var_tmp_bind:
+  module: mount
+  state: present
+  path: /var/tmp
+  src: /tmp
+  fstype: none
+  opts: bind
+
+# CIS 1.1.21: Ensure sticky bit is set on all world-writable directories
+sticky_bit_check:
+  module: cmd
+  state: run
+  name: set_sticky_bits
+  command: |
+    df --local -P | awk {'if (NR!=1) print $6'} | xargs -I '{}' find '{}' -xdev -type d -perm -0002 2>/dev/null | \
+    xargs -I '{}' chmod a+t '{}'
+  onlyif: |
+    test $(df --local -P | awk {'if (NR!=1) print $6'} | xargs -I '{}' find '{}' -xdev -type d \( -perm -0002 -a ! -perm -1000 \) 2>/dev/null | wc -l) -gt 0
+
+# --- Kernel Parameters (CIS 3.x) ---
+
+network_security_sysctl:
+  module: sysctl
+  state: present
+  settings:
+    # CIS 3.1.1: Disable IPv6 (if not required)
+    # net.ipv6.conf.all.disable_ipv6: 1
+    # net.ipv6.conf.default.disable_ipv6: 1
+
+    # CIS 3.2.1: Source routed packets
+    net.ipv4.conf.all.accept_source_route: 0
+    net.ipv4.conf.default.accept_source_route: 0
+    net.ipv6.conf.all.accept_source_route: 0
+    net.ipv6.conf.default.accept_source_route: 0
+
+    # CIS 3.2.2: ICMP redirects
+    net.ipv4.conf.all.accept_redirects: 0
+    net.ipv4.conf.default.accept_redirects: 0
+    net.ipv6.conf.all.accept_redirects: 0
+    net.ipv6.conf.default.accept_redirects: 0
+
+    # CIS 3.2.3: Secure ICMP redirects
+    net.ipv4.conf.all.secure_redirects: 0
+    net.ipv4.conf.default.secure_redirects: 0
+
+    # CIS 3.2.4: Log suspicious packets
+    net.ipv4.conf.all.log_martians: 1
+    net.ipv4.conf.default.log_martians: 1
+
+    # CIS 3.2.5: Ignore broadcast ICMP
+    net.ipv4.icmp_echo_ignore_broadcasts: 1
+
+    # CIS 3.2.6: Ignore bogus ICMP errors
+    net.ipv4.icmp_ignore_bogus_error_responses: 1
+
+    # CIS 3.2.7: Reverse path filtering
+    net.ipv4.conf.all.rp_filter: 1
+    net.ipv4.conf.default.rp_filter: 1
+
+    # CIS 3.2.8: TCP SYN Cookies
+    net.ipv4.tcp_syncookies: 1
+
+    # CIS 3.2.9: IPv6 router advertisements
+    net.ipv6.conf.all.accept_ra: 0
+    net.ipv6.conf.default.accept_ra: 0
+
+# --- Core Dumps (CIS 1.5.1) ---
+
+disable_core_dumps:
+  module: file
+  state: managed
+  path: /etc/security/limits.d/core.conf
+  content: |
+    * hard core 0
+  mode: "0644"
+
+sysctl_core_dump:
+  module: sysctl
+  state: present
+  settings:
+    fs.suid_dumpable: 0
+
+# --- PAM Configuration (CIS 5.x) ---
+
+pwquality_conf:
+  module: file
+  state: managed
+  path: /etc/security/pwquality.conf
+  content: |
+    # CIS 5.3.1: Password quality requirements
+    minlen = 14
+    minclass = 4
+    dcredit = -1
+    ucredit = -1
+    ocredit = -1
+    lcredit = -1
+    maxrepeat = 3
+    maxclassrepeat = 2
+    gecoscheck = 1
+    dictcheck = 1
+  mode: "0644"
+
+# CIS 5.4.1.1-5.4.1.4: Password expiration
+login_defs:
+  module: file
+  state: managed
+  path: /etc/login.defs
+  pattern: "{{ .item.pattern }}"
+  repl: "{{ .item.repl }}"
+  loop:
+    - pattern: "^PASS_MAX_DAYS.*"
+      repl: "PASS_MAX_DAYS   365"
+    - pattern: "^PASS_MIN_DAYS.*"
+      repl: "PASS_MIN_DAYS   1"
+    - pattern: "^PASS_WARN_AGE.*"
+      repl: "PASS_WARN_AGE   7"
+
+# --- SSH Hardening (CIS 5.2.x) ---
+
+sshd_config:
+  module: sshd_config
+  state: present
+  settings:
+    # CIS 5.2.1: Permissions
+    # (handled by file module below)
+
+    # CIS 5.2.4-5.2.5: Access control
+    Protocol: 2
+    LogLevel: VERBOSE
+
+    # CIS 5.2.6: X11 forwarding
+    X11Forwarding: "no"
+
+    # CIS 5.2.7: Max auth tries
+    MaxAuthTries: 4
+
+    # CIS 5.2.8: Ignore rhosts
+    IgnoreRhosts: "yes"
+
+    # CIS 5.2.9: Host-based authentication
+    HostbasedAuthentication: "no"
+
+    # CIS 5.2.10: Root login
+    PermitRootLogin: "no"
+
+    # CIS 5.2.11: Empty passwords
+    PermitEmptyPasswords: "no"
+
+    # CIS 5.2.12: User environment
+    PermitUserEnvironment: "no"
+
+    # CIS 5.2.13: Strong ciphers only
+    Ciphers: "chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr"
+
+    # CIS 5.2.14: Strong MACs only
+    MACs: "hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,hmac-sha2-256"
+
+    # CIS 5.2.15: Strong key exchange
+    KexAlgorithms: "curve25519-sha256,curve25519-sha256@libssh.org,ecdh-sha2-nistp521,ecdh-sha2-nistp384,ecdh-sha2-nistp256,diffie-hellman-group-exchange-sha256"
+
+    # CIS 5.2.16: Idle timeout
+    ClientAliveInterval: 300
+    ClientAliveCountMax: 3
+
+    # CIS 5.2.17: Login grace time
+    LoginGraceTime: 60
+
+    # CIS 5.2.18: Warning banner
+    Banner: /etc/issue.net
+
+    # CIS 5.2.19: PAM
+    UsePAM: "yes"
+
+    # CIS 5.2.21: Max sessions
+    MaxSessions: 10
+
+    # CIS 5.2.22: Max startups
+    MaxStartups: "10:30:60"
+
+sshd_permissions:
+  module: file
+  state: managed
+  path: /etc/ssh/sshd_config
+  mode: "0600"
+  owner: root
+  group: root
+
+ssh_banner:
+  module: file
+  state: managed
+  path: /etc/issue.net
+  content: |
+    ***************************************************************************
+                                WARNING NOTICE
+
+    This system is for authorized use only. All activities are monitored and
+    recorded. Unauthorized access or use is prohibited and may result in
+    criminal prosecution.
+    ***************************************************************************
+  mode: "0644"
+
+sshd_restart:
+  module: service
+  state: running
+  name: sshd
+  enabled: true
+  watch:
+    - sshd_config
+
+# --- Audit Configuration (CIS 4.1.x) ---
+
+auditd_package:
+  module: package
+  state: installed
+  name: auditd
+
+audit_rules:
+  module: file
+  state: managed
+  path: /etc/audit/rules.d/cis.rules
+  content: |
+    # CIS 4.1.3: Ensure events that modify date/time are collected
+    -a always,exit -F arch=b64 -S adjtimex -S settimeofday -k time-change
+    -a always,exit -F arch=b32 -S adjtimex -S settimeofday -S stime -k time-change
+    -a always,exit -F arch=b64 -S clock_settime -k time-change
+    -a always,exit -F arch=b32 -S clock_settime -k time-change
+    -w /etc/localtime -p wa -k time-change
+
+    # CIS 4.1.4: Ensure events that modify user/group are collected
+    -w /etc/group -p wa -k identity
+    -w /etc/passwd -p wa -k identity
+    -w /etc/gshadow -p wa -k identity
+    -w /etc/shadow -p wa -k identity
+    -w /etc/security/opasswd -p wa -k identity
+
+    # CIS 4.1.5: Ensure events that modify network are collected
+    -a always,exit -F arch=b64 -S sethostname -S setdomainname -k system-locale
+    -a always,exit -F arch=b32 -S sethostname -S setdomainname -k system-locale
+    -w /etc/issue -p wa -k system-locale
+    -w /etc/issue.net -p wa -k system-locale
+    -w /etc/hosts -p wa -k system-locale
+    -w /etc/network -p wa -k system-locale
+
+    # CIS 4.1.6: Ensure events that modify MAC are collected
+    -w /etc/apparmor/ -p wa -k MAC-policy
+    -w /etc/apparmor.d/ -p wa -k MAC-policy
+
+    # CIS 4.1.7: Ensure login/logout events are collected
+    -w /var/log/faillog -p wa -k logins
+    -w /var/log/lastlog -p wa -k logins
+    -w /var/log/tallylog -p wa -k logins
+
+    # CIS 4.1.8: Ensure session initiation is collected
+    -w /var/run/utmp -p wa -k session
+    -w /var/log/wtmp -p wa -k logins
+    -w /var/log/btmp -p wa -k logins
+
+    # CIS 4.1.9: Ensure discretionary access control permission modification events
+    -a always,exit -F arch=b64 -S chmod -S fchmod -S fchmodat -F auid>=1000 -F auid!=4294967295 -k perm_mod
+    -a always,exit -F arch=b32 -S chmod -S fchmod -S fchmodat -F auid>=1000 -F auid!=4294967295 -k perm_mod
+    -a always,exit -F arch=b64 -S chown -S fchown -S fchownat -S lchown -F auid>=1000 -F auid!=4294967295 -k perm_mod
+    -a always,exit -F arch=b32 -S chown -S fchown -S fchownat -S lchown -F auid>=1000 -F auid!=4294967295 -k perm_mod
+
+    # CIS 4.1.10: Ensure unsuccessful unauthorized file access attempts
+    -a always,exit -F arch=b64 -S creat -S open -S openat -S truncate -S ftruncate -F exit=-EACCES -F auid>=1000 -F auid!=4294967295 -k access
+    -a always,exit -F arch=b32 -S creat -S open -S openat -S truncate -S ftruncate -F exit=-EACCES -F auid>=1000 -F auid!=4294967295 -k access
+    -a always,exit -F arch=b64 -S creat -S open -S openat -S truncate -S ftruncate -F exit=-EPERM -F auid>=1000 -F auid!=4294967295 -k access
+    -a always,exit -F arch=b32 -S creat -S open -S openat -S truncate -S ftruncate -F exit=-EPERM -F auid>=1000 -F auid!=4294967295 -k access
+
+    # CIS 4.1.14: Ensure successful file system mounts are collected
+    -a always,exit -F arch=b64 -S mount -F auid>=1000 -F auid!=4294967295 -k mounts
+    -a always,exit -F arch=b32 -S mount -F auid>=1000 -F auid!=4294967295 -k mounts
+
+    # CIS 4.1.15: Ensure file deletion events are collected
+    -a always,exit -F arch=b64 -S unlink -S unlinkat -S rename -S renameat -F auid>=1000 -F auid!=4294967295 -k delete
+    -a always,exit -F arch=b32 -S unlink -S unlinkat -S rename -S renameat -F auid>=1000 -F auid!=4294967295 -k delete
+
+    # CIS 4.1.16: Ensure changes to sudoers are collected
+    -w /etc/sudoers -p wa -k scope
+    -w /etc/sudoers.d/ -p wa -k scope
+
+    # CIS 4.1.17: Ensure sudo command usage is collected
+    -a always,exit -F arch=b64 -C euid!=uid -F euid=0 -Fauid>=1000 -F auid!=4294967295 -S execve -k actions
+    -a always,exit -F arch=b32 -C euid!=uid -F euid=0 -Fauid>=1000 -F auid!=4294967295 -S execve -k actions
+
+    # CIS 4.1.18: Ensure kernel module loading/unloading is collected
+    -w /sbin/insmod -p x -k modules
+    -w /sbin/rmmod -p x -k modules
+    -w /sbin/modprobe -p x -k modules
+    -a always,exit -F arch=b64 -S init_module -S delete_module -k modules
+
+    # Make rules immutable (must be last)
+    -e 2
+  mode: "0600"
+  require:
+    - auditd_package
+
+auditd_service:
+  module: service
+  state: running
+  name: auditd
+  enabled: true
+  require:
+    - audit_rules
+  watch:
+    - audit_rules
+
+# --- Disable Unnecessary Services ---
+
+unnecessary_services:
+  module: service
+  state: stopped
+  enabled: false
+  names:
+    - avahi-daemon
+    - cups
+    - rpcbind
+    - rsyncd
+
+# --- Cron Security (CIS 5.1.x) ---
+
+cron_permissions:
+  module: file
+  state: managed
+  path: "{{ .item }}"
+  mode: "0600"
+  owner: root
+  group: root
+  loop:
+    - /etc/crontab
+    - /etc/cron.hourly
+    - /etc/cron.daily
+    - /etc/cron.weekly
+    - /etc/cron.monthly
+    - /etc/cron.d
+
+cron_allow:
+  module: file
+  state: managed
+  path: /etc/cron.allow
+  content: |
+    root
+  mode: "0600"
+  owner: root
+  group: root
+
+cron_deny:
+  module: file
+  state: absent
+  path: /etc/cron.deny
+```
+
+### Example 6: Monitoring Agent Setup
+
+Deploy Prometheus node exporter and Grafana agent.
+
+```yaml
+# monitoring-agent.yaml - Observability Agent Stack
+#
+# This example demonstrates:
+# - Prometheus Node Exporter installation
+# - Grafana Agent for metrics and logs
+# - Custom metrics collection
+# - Log forwarding configuration
+
+# Variables:
+# .vars.prometheus_url: http://prometheus:9090
+# .vars.loki_url: http://loki:3100
+
+# --- Node Exporter ---
+
+node_exporter_user:
+  module: user
+  state: present
+  name: node_exporter
+  system: true
+  shell: /usr/sbin/nologin
+  home: /var/lib/node_exporter
+
+node_exporter_download:
+  module: cmd
+  state: run
+  name: download_node_exporter
+  command: |
+    curl -sSL https://github.com/prometheus/node_exporter/releases/download/v1.7.0/node_exporter-1.7.0.linux-amd64.tar.gz | \
+    tar -xzf - -C /tmp && \
+    mv /tmp/node_exporter-1.7.0.linux-amd64/node_exporter /usr/local/bin/
+  creates: /usr/local/bin/node_exporter
+
+node_exporter_permissions:
+  module: file
+  state: managed
+  path: /usr/local/bin/node_exporter
+  mode: "0755"
+  owner: root
+  group: root
+  require:
+    - node_exporter_download
+
+node_exporter_textfile_dir:
+  module: file
+  state: directory
+  path: /var/lib/node_exporter/textfile
+  owner: node_exporter
+  group: node_exporter
+  mode: "0755"
+  require:
+    - node_exporter_user
+
+node_exporter_service:
+  module: file
+  state: managed
+  path: /etc/systemd/system/node_exporter.service
+  content: |
+    [Unit]
+    Description=Prometheus Node Exporter
+    Wants=network-online.target
+    After=network-online.target
+
+    [Service]
+    User=node_exporter
+    Group=node_exporter
+    Type=simple
+    ExecStart=/usr/local/bin/node_exporter \
+      --collector.textfile.directory=/var/lib/node_exporter/textfile \
+      --collector.systemd \
+      --collector.processes \
+      --collector.filesystem.mount-points-exclude="^/(sys|proc|dev|run)($|/)" \
+      --web.listen-address=:9100
+    Restart=always
+    RestartSec=5
+
+    [Install]
+    WantedBy=multi-user.target
+  mode: "0644"
+  require:
+    - node_exporter_permissions
+    - node_exporter_textfile_dir
+
+node_exporter_enabled:
+  module: service
+  state: running
+  name: node_exporter
+  enabled: true
+  daemon_reload: true
+  require:
+    - node_exporter_service
+  watch:
+    - node_exporter_service
+
+# --- Custom Metrics Script ---
+
+custom_metrics_script:
+  module: file
+  state: managed
+  path: /usr/local/bin/custom-metrics.sh
+  content: |
+    #!/bin/bash
+    # Generate custom metrics for node_exporter textfile collector
+
+    OUTPUT_FILE="/var/lib/node_exporter/textfile/custom.prom"
+    TEMP_FILE="${OUTPUT_FILE}.tmp"
+
+    # System update metrics
+    if command -v apt-get &> /dev/null; then
+        UPDATES=$(apt-get -s upgrade 2>/dev/null | grep -c "^Inst")
+        SECURITY_UPDATES=$(apt-get -s upgrade 2>/dev/null | grep -c "^Inst.*security")
+        echo "# HELP apt_upgrades_pending Number of pending apt upgrades" > "$TEMP_FILE"
+        echo "# TYPE apt_upgrades_pending gauge" >> "$TEMP_FILE"
+        echo "apt_upgrades_pending $UPDATES" >> "$TEMP_FILE"
+        echo "# HELP apt_security_upgrades_pending Number of pending security upgrades" >> "$TEMP_FILE"
+        echo "# TYPE apt_security_upgrades_pending gauge" >> "$TEMP_FILE"
+        echo "apt_security_upgrades_pending $SECURITY_UPDATES" >> "$TEMP_FILE"
+    fi
+
+    # Systemd service health
+    FAILED_SERVICES=$(systemctl --failed --no-legend | wc -l)
+    echo "# HELP systemd_units_failed Number of failed systemd units" >> "$TEMP_FILE"
+    echo "# TYPE systemd_units_failed gauge" >> "$TEMP_FILE"
+    echo "systemd_units_failed $FAILED_SERVICES" >> "$TEMP_FILE"
+
+    # Disk SMART health (if smartctl available)
+    if command -v smartctl &> /dev/null; then
+        for disk in /dev/sd[a-z]; do
+            if [ -b "$disk" ]; then
+                SMART_STATUS=$(smartctl -H "$disk" 2>/dev/null | grep -c "PASSED")
+                DISK_NAME=$(basename "$disk")
+                echo "# HELP disk_smart_healthy Disk SMART health status (1=healthy)" >> "$TEMP_FILE"
+                echo "# TYPE disk_smart_healthy gauge" >> "$TEMP_FILE"
+                echo "disk_smart_healthy{disk=\"$DISK_NAME\"} $SMART_STATUS" >> "$TEMP_FILE"
+            fi
+        done
+    fi
+
+    # Reboot required check
+    if [ -f /var/run/reboot-required ]; then
+        REBOOT_REQUIRED=1
+    else
+        REBOOT_REQUIRED=0
+    fi
+    echo "# HELP node_reboot_required Node requires reboot" >> "$TEMP_FILE"
+    echo "# TYPE node_reboot_required gauge" >> "$TEMP_FILE"
+    echo "node_reboot_required $REBOOT_REQUIRED" >> "$TEMP_FILE"
+
+    # Atomically move temp file to output
+    mv "$TEMP_FILE" "$OUTPUT_FILE"
+  mode: "0755"
+  owner: root
+  group: root
+
+custom_metrics_cron:
+  module: cron
+  state: present
+  name: custom-metrics
+  user: root
+  minute: "*/5"
+  job: /usr/local/bin/custom-metrics.sh
+  require:
+    - custom_metrics_script
+    - node_exporter_textfile_dir
+
+# --- Grafana Agent ---
+
+grafana_agent_user:
+  module: user
+  state: present
+  name: grafana-agent
+  system: true
+  shell: /usr/sbin/nologin
+  home: /var/lib/grafana-agent
+
+grafana_agent_download:
+  module: cmd
+  state: run
+  name: download_grafana_agent
+  command: |
+    curl -sSL -o /tmp/grafana-agent.deb \
+      "https://github.com/grafana/agent/releases/download/v0.40.0/grafana-agent-0.40.0-1.amd64.deb" && \
+    dpkg -i /tmp/grafana-agent.deb
+  creates: /usr/bin/grafana-agent
+  require:
+    - grafana_agent_user
+
+grafana_agent_config_dir:
+  module: file
+  state: directory
+  path: /etc/grafana-agent
+  mode: "0755"
+
+grafana_agent_data_dir:
+  module: file
+  state: directory
+  path: /var/lib/grafana-agent
+  owner: grafana-agent
+  group: grafana-agent
+  mode: "0755"
+  require:
+    - grafana_agent_user
+
+grafana_agent_config:
+  module: file
+  state: managed
+  path: /etc/grafana-agent/agent.yaml
+  content: |
+    server:
+      log_level: info
+      http_listen_port: 12345
+
+    metrics:
+      global:
+        scrape_interval: 60s
+        external_labels:
+          cluster: {{ .vars.cluster_name | default "default" }}
+          host: {{ .facts.hostname }}
+
+      wal_directory: /var/lib/grafana-agent/wal
+
+      configs:
+        - name: default
+          scrape_configs:
+            # Scrape node exporter
+            - job_name: node
+              static_configs:
+                - targets: ['localhost:9100']
+                  labels:
+                    instance: {{ .facts.fqdn }}
+
+            # Scrape kscore agent (if present)
+            - job_name: kscore-agent
+              static_configs:
+                - targets: ['localhost:9091']
+              relabel_configs:
+                - source_labels: [__address__]
+                  target_label: instance
+                  replacement: {{ .facts.fqdn }}
+
+          remote_write:
+            - url: {{ .vars.prometheus_url }}/api/v1/write
+              basic_auth:
+                username: {{ .vars.prometheus_user | default "agent" }}
+                password: {{ .vars.prometheus_password | default "" }}
+
+    logs:
+      configs:
+        - name: default
+          clients:
+            - url: {{ .vars.loki_url }}/loki/api/v1/push
+              basic_auth:
+                username: {{ .vars.loki_user | default "agent" }}
+                password: {{ .vars.loki_password | default "" }}
+              external_labels:
+                host: {{ .facts.hostname }}
+
+          positions:
+            filename: /var/lib/grafana-agent/positions.yaml
+
+          scrape_configs:
+            # System logs
+            - job_name: journal
+              journal:
+                max_age: 12h
+                labels:
+                  job: systemd-journal
+              relabel_configs:
+                - source_labels: ['__journal__systemd_unit']
+                  target_label: 'unit'
+                - source_labels: ['__journal_priority_keyword']
+                  target_label: 'level'
+
+            # Application logs
+            - job_name: varlog
+              static_configs:
+                - targets: [localhost]
+                  labels:
+                    job: varlog
+                    __path__: /var/log/*.log
+              pipeline_stages:
+                - regex:
+                    expression: '(?P<timestamp>\S+) (?P<level>\w+) (?P<message>.*)'
+                - labels:
+                    level:
+                - timestamp:
+                    source: timestamp
+                    format: RFC3339
+
+            # Nginx access logs
+            - job_name: nginx
+              static_configs:
+                - targets: [localhost]
+                  labels:
+                    job: nginx
+                    __path__: /var/log/nginx/access.log
+              pipeline_stages:
+                - regex:
+                    expression: '^(?P<remote_addr>\S+) - (?P<remote_user>\S+) \[(?P<time_local>[^\]]+)\] "(?P<request>[^"]*)" (?P<status>\d+) (?P<body_bytes_sent>\d+)'
+                - labels:
+                    status:
+
+    integrations:
+      node_exporter:
+        enabled: false  # Using standalone node_exporter
+
+      agent:
+        enabled: true
+  mode: "0640"
+  owner: root
+  group: grafana-agent
+  require:
+    - grafana_agent_config_dir
+    - grafana_agent_data_dir
+
+grafana_agent_service:
+  module: service
+  state: running
+  name: grafana-agent
+  enabled: true
+  require:
+    - grafana_agent_download
+    - grafana_agent_config
+  watch:
+    - grafana_agent_config
+
+# --- Firewall Rules ---
+
+node_exporter_firewall:
+  module: firewall
+  state: allow
+  port: 9100
+  protocol: tcp
+  source: "{{ .vars.prometheus_cidr | default \"10.0.0.0/8\" }}"
+```
+
+### Example 7: VPN Server Deployment
+
+Deploy a WireGuard VPN server with client management.
+
+```yaml
+# wireguard-server.yaml - WireGuard VPN Server
+#
+# This example demonstrates:
+# - WireGuard installation
+# - Key generation
+# - Server configuration
+# - Client configuration generation
+# - Firewall and routing setup
+# - NAT configuration
+
+# Variables:
+# .vars.vpn_subnet: 10.200.200.0/24
+# .vars.vpn_port: 51820
+# .vars.vpn_interface: wg0
+# .vars.clients: [{name: "laptop", public_key: "xxx", allowed_ips: "10.200.200.2/32"}]
+
+# --- WireGuard Installation ---
+
+wireguard_packages:
+  module: package
+  state: installed
+  names:
+    - wireguard
+    - wireguard-tools
+    - qrencode  # For generating QR codes
+
+# --- Key Generation ---
+
+wireguard_keys_dir:
+  module: file
+  state: directory
+  path: /etc/wireguard/keys
+  mode: "0700"
+  owner: root
+  group: root
+  require:
+    - wireguard_packages
+
+server_private_key:
+  module: cmd
+  state: run
+  name: generate_server_key
+  command: |
+    wg genkey | tee /etc/wireguard/keys/server.key | wg pubkey > /etc/wireguard/keys/server.pub
+    chmod 600 /etc/wireguard/keys/server.key
+    chmod 644 /etc/wireguard/keys/server.pub
+  creates: /etc/wireguard/keys/server.key
+  require:
+    - wireguard_keys_dir
+
+# --- Server Configuration ---
+
+wireguard_config:
+  module: file
+  state: managed
+  path: /etc/wireguard/{{ .vars.vpn_interface }}.conf
+  content: |
+    [Interface]
+    Address = {{ .vars.vpn_subnet | splitList "/" | first }}1/{{ .vars.vpn_subnet | splitList "/" | last }}
+    ListenPort = {{ .vars.vpn_port }}
+    PrivateKey = {{ readFile "/etc/wireguard/keys/server.key" | trim }}
+
+    # Enable IP forwarding
+    PostUp = sysctl -w net.ipv4.ip_forward=1
+    PostUp = sysctl -w net.ipv6.conf.all.forwarding=1
+
+    # NAT for VPN clients
+    PostUp = iptables -t nat -A POSTROUTING -s {{ .vars.vpn_subnet }} -o {{ .facts.default_interface }} -j MASQUERADE
+    PostUp = iptables -A FORWARD -i %i -j ACCEPT
+    PostUp = iptables -A FORWARD -o %i -j ACCEPT
+
+    PostDown = iptables -t nat -D POSTROUTING -s {{ .vars.vpn_subnet }} -o {{ .facts.default_interface }} -j MASQUERADE
+    PostDown = iptables -D FORWARD -i %i -j ACCEPT
+    PostDown = iptables -D FORWARD -o %i -j ACCEPT
+
+    # Client configurations
+    {{- range $client := .vars.clients }}
+
+    [Peer]
+    # {{ $client.name }}
+    PublicKey = {{ $client.public_key }}
+    AllowedIPs = {{ $client.allowed_ips }}
+    {{- if $client.preshared_key }}
+    PresharedKey = {{ $client.preshared_key }}
+    {{- end }}
+    {{- end }}
+  mode: "0600"
+  owner: root
+  group: root
+  require:
+    - server_private_key
+
+# --- IP Forwarding (persistent) ---
+
+ip_forwarding:
+  module: sysctl
+  state: present
+  settings:
+    net.ipv4.ip_forward: 1
+    net.ipv6.conf.all.forwarding: 1
+
+# --- Firewall Configuration ---
+
+wireguard_firewall:
+  module: firewall
+  state: allow
+  port: "{{ .vars.vpn_port }}"
+  protocol: udp
+
+# --- Service Management ---
+
+wireguard_service:
+  module: service
+  state: running
+  name: "wg-quick@{{ .vars.vpn_interface }}"
+  enabled: true
+  require:
+    - wireguard_config
+    - ip_forwarding
+  watch:
+    - wireguard_config
+
+# --- Client Configuration Generation ---
+
+client_configs_dir:
+  module: file
+  state: directory
+  path: /etc/wireguard/clients
+  mode: "0700"
+  owner: root
+  group: root
+
+# Generate client configuration files
+generate_client_configs:
+  module: cmd
+  state: run
+  name: generate_client_configs
+  command: |
+    SERVER_PUBLIC_KEY=$(cat /etc/wireguard/keys/server.pub)
+    SERVER_ENDPOINT="{{ .facts.public_ip }}:{{ .vars.vpn_port }}"
+
+    {{- range $idx, $client := .vars.clients }}
+    cat > /etc/wireguard/clients/{{ $client.name }}.conf << EOF
+    [Interface]
+    PrivateKey = <CLIENT_PRIVATE_KEY>
+    Address = {{ $client.allowed_ips | splitList "/" | first }}/32
+    DNS = {{ $.vars.dns_servers | default "1.1.1.1, 8.8.8.8" }}
+
+    [Peer]
+    PublicKey = ${SERVER_PUBLIC_KEY}
+    Endpoint = ${SERVER_ENDPOINT}
+    AllowedIPs = 0.0.0.0/0, ::/0
+    PersistentKeepalive = 25
+    EOF
+
+    # Generate QR code for mobile
+    qrencode -t ansiutf8 < /etc/wireguard/clients/{{ $client.name }}.conf > /etc/wireguard/clients/{{ $client.name }}.qr
+
+    {{- end }}
+  require:
+    - server_private_key
+    - client_configs_dir
+  watch:
+    - wireguard_config
+
+# --- Monitoring Script ---
+
+wireguard_status_script:
+  module: file
+  state: managed
+  path: /usr/local/bin/wg-status.sh
+  content: |
+    #!/bin/bash
+    # WireGuard status check script
+
+    echo "=== WireGuard Status ==="
+    wg show {{ .vars.vpn_interface }}
+
+    echo ""
+    echo "=== Connected Peers ==="
+    wg show {{ .vars.vpn_interface }} latest-handshakes | while read peer handshake; do
+        if [ "$handshake" != "0" ]; then
+            last_seen=$(($(date +%s) - handshake))
+            if [ $last_seen -lt 180 ]; then
+                status="ONLINE"
+            else
+                status="OFFLINE ($last_seen seconds ago)"
+            fi
+            echo "$peer: $status"
+        else
+            echo "$peer: NEVER CONNECTED"
+        fi
+    done
+
+    echo ""
+    echo "=== Traffic Statistics ==="
+    wg show {{ .vars.vpn_interface }} transfer
+  mode: "0755"
+  owner: root
+  group: root
+```
+
+### Example 8: Mail Server Configuration
+
+Deploy Postfix with DKIM, SPF, and DMARC.
+
+```yaml
+# mail-server.yaml - Production Mail Server (Postfix + Dovecot)
+#
+# This example demonstrates:
+# - Postfix MTA configuration
+# - TLS certificate management
+# - DKIM signing
+# - SPF and DMARC
+# - Spam filtering with rspamd
+# - Virtual domain and mailbox management
+
+# Variables:
+# .vars.mail_domain: example.com
+# .vars.mail_hostname: mail.example.com
+# .vars.postmaster_email: postmaster@example.com
+
+# --- Package Installation ---
+
+mail_packages:
+  module: package
+  state: installed
+  names:
+    - postfix
+    - postfix-pcre
+    - dovecot-core
+    - dovecot-imapd
+    - dovecot-lmtpd
+    - opendkim
+    - opendkim-tools
+    - rspamd
+    - redis-server
+    - certbot
+
+# --- SSL Certificate ---
+
+mail_ssl_cert:
+  module: cmd
+  state: run
+  name: obtain_mail_cert
+  command: |
+    certbot certonly --standalone -d {{ .vars.mail_hostname }} \
+      --non-interactive --agree-tos --email {{ .vars.postmaster_email }}
+  creates: /etc/letsencrypt/live/{{ .vars.mail_hostname }}/fullchain.pem
+  require:
+    - mail_packages
+
+# --- Postfix Main Configuration ---
+
+postfix_main_cf:
+  module: file
+  state: managed
+  path: /etc/postfix/main.cf
+  content: |
+    # Basic settings
+    smtpd_banner = $myhostname ESMTP
+    biff = no
+    append_dot_mydomain = no
+    readme_directory = no
+    compatibility_level = 3.6
+
+    # Hostname and domain
+    myhostname = {{ .vars.mail_hostname }}
+    mydomain = {{ .vars.mail_domain }}
+    myorigin = $mydomain
+    mydestination = localhost
+
+    # Network
+    mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128
+    inet_interfaces = all
+    inet_protocols = all
+
+    # Virtual domains
+    virtual_mailbox_domains = {{ .vars.mail_domain }}
+    virtual_mailbox_base = /var/mail/vhosts
+    virtual_mailbox_maps = hash:/etc/postfix/vmailbox
+    virtual_alias_maps = hash:/etc/postfix/virtual
+    virtual_uid_maps = static:5000
+    virtual_gid_maps = static:5000
+
+    # TLS settings
+    smtpd_tls_cert_file = /etc/letsencrypt/live/{{ .vars.mail_hostname }}/fullchain.pem
+    smtpd_tls_key_file = /etc/letsencrypt/live/{{ .vars.mail_hostname }}/privkey.pem
+    smtpd_tls_security_level = may
+    smtpd_tls_auth_only = yes
+    smtpd_tls_protocols = !SSLv2, !SSLv3, !TLSv1, !TLSv1.1
+    smtpd_tls_ciphers = high
+    smtpd_tls_mandatory_ciphers = high
+    smtpd_tls_session_cache_database = btree:${data_directory}/smtpd_scache
+
+    smtp_tls_security_level = may
+    smtp_tls_session_cache_database = btree:${data_directory}/smtp_scache
+    smtp_tls_protocols = !SSLv2, !SSLv3, !TLSv1, !TLSv1.1
+
+    # SASL authentication
+    smtpd_sasl_type = dovecot
+    smtpd_sasl_path = private/auth
+    smtpd_sasl_auth_enable = yes
+    smtpd_sasl_security_options = noanonymous, noplaintext
+    smtpd_sasl_tls_security_options = noanonymous
+
+    # Restrictions
+    smtpd_helo_required = yes
+    smtpd_helo_restrictions =
+        permit_mynetworks,
+        permit_sasl_authenticated,
+        reject_invalid_helo_hostname,
+        reject_non_fqdn_helo_hostname
+
+    smtpd_sender_restrictions =
+        permit_mynetworks,
+        permit_sasl_authenticated,
+        reject_non_fqdn_sender,
+        reject_unknown_sender_domain
+
+    smtpd_recipient_restrictions =
+        permit_mynetworks,
+        permit_sasl_authenticated,
+        reject_unauth_destination,
+        reject_non_fqdn_recipient,
+        reject_unknown_recipient_domain
+
+    # Content filtering (rspamd)
+    smtpd_milters = inet:localhost:11332
+    non_smtpd_milters = inet:localhost:11332
+    milter_protocol = 6
+    milter_mail_macros = i {mail_addr} {client_addr} {client_name} {auth_authen}
+    milter_default_action = accept
+
+    # DKIM
+    milter_connect_macros = i j {daemon_name} v {if_name} _
+
+    # Delivery
+    virtual_transport = lmtp:unix:private/dovecot-lmtp
+
+    # Limits
+    message_size_limit = 52428800
+    mailbox_size_limit = 0
+  mode: "0644"
+  require:
+    - mail_ssl_cert
+
+# --- DKIM Configuration ---
+
+dkim_key_dir:
+  module: file
+  state: directory
+  path: /etc/opendkim/keys/{{ .vars.mail_domain }}
+  owner: opendkim
+  group: opendkim
+  mode: "0700"
+
+generate_dkim_key:
+  module: cmd
+  state: run
+  name: generate_dkim
+  command: |
+    cd /etc/opendkim/keys/{{ .vars.mail_domain }}
+    opendkim-genkey -s mail -d {{ .vars.mail_domain }}
+    chown opendkim:opendkim mail.private mail.txt
+  creates: /etc/opendkim/keys/{{ .vars.mail_domain }}/mail.private
+  require:
+    - dkim_key_dir
+
+opendkim_conf:
+  module: file
+  state: managed
+  path: /etc/opendkim.conf
+  content: |
+    Syslog                  yes
+    SyslogSuccess           yes
+    LogWhy                  yes
+
+    Canonicalization        relaxed/simple
+    Mode                    sv
+    SubDomains              no
+
+    OversignHeaders         From
+
+    AutoRestart             yes
+    AutoRestartRate         10/1M
+
+    Background              yes
+    DNSTimeout              5
+    SignatureAlgorithm      rsa-sha256
+
+    UserID                  opendkim
+    UMask                   007
+
+    Socket                  inet:8891@localhost
+
+    PidFile                 /run/opendkim/opendkim.pid
+
+    TrustAnchorFile         /usr/share/dns/root.key
+
+    KeyTable                /etc/opendkim/key.table
+    SigningTable            refile:/etc/opendkim/signing.table
+    InternalHosts           /etc/opendkim/trusted.hosts
+  mode: "0644"
+  require:
+    - mail_packages
+
+opendkim_key_table:
+  module: file
+  state: managed
+  path: /etc/opendkim/key.table
+  content: |
+    mail._domainkey.{{ .vars.mail_domain }} {{ .vars.mail_domain }}:mail:/etc/opendkim/keys/{{ .vars.mail_domain }}/mail.private
+  mode: "0644"
+  require:
+    - generate_dkim_key
+
+opendkim_signing_table:
+  module: file
+  state: managed
+  path: /etc/opendkim/signing.table
+  content: |
+    *@{{ .vars.mail_domain }} mail._domainkey.{{ .vars.mail_domain }}
+  mode: "0644"
+
+opendkim_trusted_hosts:
+  module: file
+  state: managed
+  path: /etc/opendkim/trusted.hosts
+  content: |
+    127.0.0.1
+    localhost
+    {{ .vars.mail_hostname }}
+    .{{ .vars.mail_domain }}
+  mode: "0644"
+
+# --- Rspamd Configuration ---
+
+rspamd_local_conf:
+  module: file
+  state: managed
+  path: /etc/rspamd/local.d/worker-normal.inc
+  content: |
+    bind_socket = "localhost:11333";
+  mode: "0644"
+
+rspamd_proxy_conf:
+  module: file
+  state: managed
+  path: /etc/rspamd/local.d/worker-proxy.inc
+  content: |
+    bind_socket = "localhost:11332";
+    milter = yes;
+    timeout = 120s;
+    upstream "local" {
+      default = yes;
+      self_scan = yes;
+    }
+  mode: "0644"
+
+# --- Service Management ---
+
+redis_service:
+  module: service
+  state: running
+  name: redis-server
+  enabled: true
+  require:
+    - mail_packages
+
+opendkim_service:
+  module: service
+  state: running
+  name: opendkim
+  enabled: true
+  require:
+    - opendkim_conf
+    - opendkim_key_table
+  watch:
+    - opendkim_conf
+
+rspamd_service:
+  module: service
+  state: running
+  name: rspamd
+  enabled: true
+  require:
+    - redis_service
+    - rspamd_local_conf
+  watch:
+    - rspamd_local_conf
+    - rspamd_proxy_conf
+
+postfix_service:
+  module: service
+  state: running
+  name: postfix
+  enabled: true
+  require:
+    - postfix_main_cf
+    - opendkim_service
+    - rspamd_service
+  watch:
+    - postfix_main_cf
+
+# --- Firewall ---
+
+mail_firewall_smtp:
+  module: firewall
+  state: allow
+  port: 25
+  protocol: tcp
+
+mail_firewall_submission:
+  module: firewall
+  state: allow
+  port: 587
+  protocol: tcp
+
+mail_firewall_imaps:
+  module: firewall
+  state: allow
+  port: 993
+  protocol: tcp
+```
+
+### Example 9: CI/CD Build Agent
+
+Configure a build agent for CI/CD pipelines.
+
+```yaml
+# build-agent.yaml - CI/CD Build Agent Configuration
+#
+# This example demonstrates:
+# - Build tools installation
+# - Docker configuration for builds
+# - Language runtime setup (Node, Python, Go)
+# - Caching directories
+# - Agent service configuration
+
+# Variables:
+# .vars.agent_name: build-agent-01
+# .vars.ci_server_url: https://ci.example.com
+# .vars.agent_token: secret-token
+# .vars.node_versions: ["18", "20"]
+# .vars.python_versions: ["3.10", "3.11", "3.12"]
+# .vars.go_version: "1.22"
+
+# --- Build User ---
+
+build_user:
+  module: user
+  state: present
+  name: builder
+  groups:
+    - docker
+  shell: /bin/bash
+  home: /home/builder
+
+builder_ssh_dir:
+  module: file
+  state: directory
+  path: /home/builder/.ssh
+  owner: builder
+  group: builder
+  mode: "0700"
+  require:
+    - build_user
+
+# --- Base Build Tools ---
+
+build_packages:
+  module: package
+  state: installed
+  names:
+    - build-essential
+    - git
+    - curl
+    - wget
+    - jq
+    - unzip
+    - zip
+    - rsync
+    - make
+    - cmake
+    - pkg-config
+    - libssl-dev
+    - libffi-dev
+    - zlib1g-dev
+    - libbz2-dev
+    - libreadline-dev
+    - libsqlite3-dev
+    - libncurses5-dev
+    - libxml2-dev
+    - libxmlsec1-dev
+    - liblzma-dev
+
+# --- Docker Installation ---
+
+docker_install:
+  module: package
+  state: installed
+  names:
+    - docker.io
+    - docker-buildx-plugin
+    - docker-compose-plugin
+
+docker_service:
+  module: service
+  state: running
+  name: docker
+  enabled: true
+  require:
+    - docker_install
+
+docker_config:
+  module: file
+  state: managed
+  path: /etc/docker/daemon.json
+  content: |
+    {
+      "storage-driver": "overlay2",
+      "log-driver": "json-file",
+      "log-opts": {
+        "max-size": "100m",
+        "max-file": "3"
+      },
+      "default-ulimits": {
+        "nofile": {
+          "Name": "nofile",
+          "Hard": 65536,
+          "Soft": 65536
+        }
+      },
+      "insecure-registries": [],
+      "registry-mirrors": []
+    }
+  mode: "0644"
+  require:
+    - docker_install
+
+docker_reload:
+  module: service
+  state: running
+  name: docker
+  reload: true
+  watch:
+    - docker_config
+
+# --- Node.js (via nvm) ---
+
+nvm_install:
+  module: cmd
+  state: run
+  name: install_nvm
+  user: builder
+  command: |
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+  creates: /home/builder/.nvm/nvm.sh
+  require:
+    - build_user
+
+node_versions:
+  module: cmd
+  state: run
+  name: install_node_versions
+  user: builder
+  command: |
+    export NVM_DIR="$HOME/.nvm"
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+    {{- range .vars.node_versions }}
+    nvm install {{ . }}
+    {{- end }}
+    nvm alias default {{ index .vars.node_versions 0 }}
+  require:
+    - nvm_install
+
+# --- Python (via pyenv) ---
+
+pyenv_install:
+  module: cmd
+  state: run
+  name: install_pyenv
+  user: builder
+  command: |
+    curl https://pyenv.run | bash
+    echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.bashrc
+    echo 'command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.bashrc
+    echo 'eval "$(pyenv init -)"' >> ~/.bashrc
+  creates: /home/builder/.pyenv/bin/pyenv
+  require:
+    - build_packages
+    - build_user
+
+python_versions:
+  module: cmd
+  state: run
+  name: install_python_versions
+  user: builder
+  command: |
+    export PYENV_ROOT="$HOME/.pyenv"
+    export PATH="$PYENV_ROOT/bin:$PATH"
+    eval "$(pyenv init -)"
+    {{- range .vars.python_versions }}
+    pyenv install -s {{ . }}
+    {{- end }}
+    pyenv global {{ index .vars.python_versions 0 }}
+  require:
+    - pyenv_install
+
+# --- Go ---
+
+go_install:
+  module: cmd
+  state: run
+  name: install_go
+  command: |
+    curl -sSL https://go.dev/dl/go{{ .vars.go_version }}.linux-amd64.tar.gz | tar -C /usr/local -xzf -
+  creates: /usr/local/go/bin/go
+
+go_path:
+  module: file
+  state: managed
+  path: /etc/profile.d/go.sh
+  content: |
+    export GOROOT=/usr/local/go
+    export PATH=$PATH:$GOROOT/bin
+  mode: "0644"
+  require:
+    - go_install
+
+builder_go_path:
+  module: file
+  state: managed
+  path: /home/builder/.bashrc
+  pattern: "# GO PATH"
+  append: true
+  content: |
+
+    # GO PATH
+    export GOROOT=/usr/local/go
+    export GOPATH=$HOME/go
+    export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
+  owner: builder
+  group: builder
+  require:
+    - build_user
+    - go_install
+
+# --- Build Caches ---
+
+cache_dirs:
+  module: file
+  state: directory
+  path: "{{ .item }}"
+  owner: builder
+  group: builder
+  mode: "0755"
+  loop:
+    - /home/builder/.cache
+    - /home/builder/.cache/pip
+    - /home/builder/.cache/npm
+    - /home/builder/.cache/go-build
+    - /home/builder/.cache/docker
+  require:
+    - build_user
+
+# --- Git Configuration ---
+
+builder_git_config:
+  module: git_config
+  state: present
+  scope: global
+  user: builder
+  settings:
+    user.name: "CI Builder"
+    user.email: "ci@{{ .vars.domain | default \"example.com\" }}"
+    init.defaultBranch: main
+    core.autocrlf: input
+    credential.helper: store
+  require:
+    - build_user
+
+# --- GitHub/GitLab CLI ---
+
+gh_cli:
+  module: cmd
+  state: run
+  name: install_gh_cli
+  command: |
+    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list
+    apt update && apt install -y gh
+  creates: /usr/bin/gh
+
+# --- CI Agent Service (example: GitLab Runner) ---
+
+gitlab_runner_install:
+  module: cmd
+  state: run
+  name: install_gitlab_runner
+  command: |
+    curl -L --output /usr/local/bin/gitlab-runner "https://gitlab-runner-downloads.s3.amazonaws.com/latest/binaries/gitlab-runner-linux-amd64"
+    chmod +x /usr/local/bin/gitlab-runner
+    gitlab-runner install --user=builder --working-directory=/home/builder
+  creates: /usr/local/bin/gitlab-runner
+  require:
+    - build_user
+    - docker_service
+
+gitlab_runner_register:
+  module: cmd
+  state: run
+  name: register_gitlab_runner
+  command: |
+    gitlab-runner register \
+      --non-interactive \
+      --url "{{ .vars.ci_server_url }}" \
+      --registration-token "{{ .vars.agent_token }}" \
+      --executor "docker" \
+      --docker-image "alpine:latest" \
+      --description "{{ .vars.agent_name }}" \
+      --tag-list "docker,linux,{{ .facts.architecture }}" \
+      --docker-privileged \
+      --docker-volumes "/var/run/docker.sock:/var/run/docker.sock" \
+      --docker-volumes "/cache:/cache"
+  creates: /etc/gitlab-runner/config.toml
+  require:
+    - gitlab_runner_install
+
+gitlab_runner_service:
+  module: service
+  state: running
+  name: gitlab-runner
+  enabled: true
+  require:
+    - gitlab_runner_register
+
+# --- Resource Limits ---
+
+builder_limits:
+  module: file
+  state: managed
+  path: /etc/security/limits.d/builder.conf
+  content: |
+    builder soft nofile 65536
+    builder hard nofile 65536
+    builder soft nproc 65536
+    builder hard nproc 65536
+  mode: "0644"
+
+# --- Cleanup Cron ---
+
+docker_cleanup_cron:
+  module: cron
+  state: present
+  name: docker-cleanup
+  user: root
+  hour: 3
+  minute: 0
+  job: docker system prune -af --volumes --filter "until=168h"
+  require:
+    - docker_service
+
+cache_cleanup_cron:
+  module: cron
+  state: present
+  name: cache-cleanup
+  user: builder
+  hour: 4
+  minute: 0
+  weekday: 0
+  job: find /home/builder/.cache -type f -mtime +7 -delete
+```
+
+### Example 10: Log Aggregation (Loki Stack)
+
+Deploy a log aggregation stack with Loki, Promtail, and Grafana.
+
+```yaml
+# loki-stack.yaml - Log Aggregation with Loki
+#
+# This example demonstrates:
+# - Loki installation and configuration
+# - Promtail log collector
+# - Grafana data source configuration
+# - S3-compatible storage backend
+# - Retention policies
+
+# Variables:
+# .vars.loki_version: "2.9.4"
+# .vars.s3_bucket: loki-logs
+# .vars.s3_endpoint: s3.amazonaws.com
+# .vars.retention_days: 30
+
+# --- System Users ---
+
+loki_user:
+  module: user
+  state: present
+  name: loki
+  system: true
+  shell: /usr/sbin/nologin
+  home: /var/lib/loki
+
+promtail_user:
+  module: user
+  state: present
+  name: promtail
+  system: true
+  shell: /usr/sbin/nologin
+  groups:
+    - adm  # For reading log files
+    - systemd-journal  # For reading journal
+
+# --- Directory Structure ---
+
+loki_dirs:
+  module: file
+  state: directory
+  path: "{{ .item.path }}"
+  owner: "{{ .item.owner }}"
+  group: "{{ .item.owner }}"
+  mode: "{{ .item.mode }}"
+  loop:
+    - {path: /etc/loki, owner: root, mode: "0755"}
+    - {path: /var/lib/loki, owner: loki, mode: "0755"}
+    - {path: /var/lib/loki/chunks, owner: loki, mode: "0755"}
+    - {path: /var/lib/loki/rules, owner: loki, mode: "0755"}
+    - {path: /etc/promtail, owner: root, mode: "0755"}
+    - {path: /var/lib/promtail, owner: promtail, mode: "0755"}
+  require:
+    - loki_user
+    - promtail_user
+
+# --- Loki Installation ---
+
+loki_download:
+  module: cmd
+  state: run
+  name: download_loki
+  command: |
+    curl -sSL -o /tmp/loki.zip \
+      "https://github.com/grafana/loki/releases/download/v{{ .vars.loki_version }}/loki-linux-amd64.zip"
+    unzip -o /tmp/loki.zip -d /usr/local/bin/
+    chmod +x /usr/local/bin/loki-linux-amd64
+    ln -sf /usr/local/bin/loki-linux-amd64 /usr/local/bin/loki
+  creates: /usr/local/bin/loki
+
+promtail_download:
+  module: cmd
+  state: run
+  name: download_promtail
+  command: |
+    curl -sSL -o /tmp/promtail.zip \
+      "https://github.com/grafana/loki/releases/download/v{{ .vars.loki_version }}/promtail-linux-amd64.zip"
+    unzip -o /tmp/promtail.zip -d /usr/local/bin/
+    chmod +x /usr/local/bin/promtail-linux-amd64
+    ln -sf /usr/local/bin/promtail-linux-amd64 /usr/local/bin/promtail
+  creates: /usr/local/bin/promtail
+
+# --- Loki Configuration ---
+
+loki_config:
+  module: file
+  state: managed
+  path: /etc/loki/config.yaml
+  content: |
+    auth_enabled: false
+
+    server:
+      http_listen_port: 3100
+      grpc_listen_port: 9096
+      log_level: info
+
+    common:
+      path_prefix: /var/lib/loki
+      storage:
+        filesystem:
+          chunks_directory: /var/lib/loki/chunks
+          rules_directory: /var/lib/loki/rules
+      replication_factor: 1
+      ring:
+        instance_addr: 127.0.0.1
+        kvstore:
+          store: inmemory
+
+    query_range:
+      results_cache:
+        cache:
+          embedded_cache:
+            enabled: true
+            max_size_mb: 100
+
+    schema_config:
+      configs:
+        - from: 2024-01-01
+          store: boltdb-shipper
+          object_store: filesystem
+          schema: v12
+          index:
+            prefix: index_
+            period: 24h
+
+    ruler:
+      alertmanager_url: http://localhost:9093
+      storage:
+        type: local
+        local:
+          directory: /var/lib/loki/rules
+      rule_path: /var/lib/loki/rules-temp
+      enable_api: true
+
+    limits_config:
+      retention_period: {{ .vars.retention_days }}d
+      enforce_metric_name: false
+      reject_old_samples: true
+      reject_old_samples_max_age: 168h
+      ingestion_rate_mb: 16
+      ingestion_burst_size_mb: 24
+      max_streams_per_user: 10000
+      max_line_size: 256kb
+
+    compactor:
+      working_directory: /var/lib/loki/compactor
+      shared_store: filesystem
+      retention_enabled: true
+      retention_delete_delay: 2h
+      retention_delete_worker_count: 150
+
+    analytics:
+      reporting_enabled: false
+  mode: "0644"
+  require:
+    - loki_dirs
+
+# --- Promtail Configuration ---
+
+promtail_config:
+  module: file
+  state: managed
+  path: /etc/promtail/config.yaml
+  content: |
+    server:
+      http_listen_port: 9080
+      grpc_listen_port: 0
+
+    positions:
+      filename: /var/lib/promtail/positions.yaml
+
+    clients:
+      - url: http://localhost:3100/loki/api/v1/push
+        tenant_id: default
+
+    scrape_configs:
+      # Systemd journal
+      - job_name: journal
+        journal:
+          max_age: 12h
+          labels:
+            job: systemd-journal
+            host: {{ .facts.hostname }}
+        relabel_configs:
+          - source_labels: ['__journal__systemd_unit']
+            target_label: 'unit'
+          - source_labels: ['__journal_priority_keyword']
+            target_label: 'level'
+          - source_labels: ['__journal__hostname']
+            target_label: 'hostname'
+
+      # Syslog
+      - job_name: syslog
+        static_configs:
+          - targets:
+              - localhost
+            labels:
+              job: syslog
+              host: {{ .facts.hostname }}
+              __path__: /var/log/syslog
+        pipeline_stages:
+          - regex:
+              expression: '^(?P<timestamp>\w+\s+\d+\s+\d+:\d+:\d+)\s+(?P<hostname>\S+)\s+(?P<service>\S+?)(\[(?P<pid>\d+)\])?:\s+(?P<message>.*)$'
+          - labels:
+              service:
+          - timestamp:
+              source: timestamp
+              format: "Jan _2 15:04:05"
+
+      # Auth logs
+      - job_name: auth
+        static_configs:
+          - targets:
+              - localhost
+            labels:
+              job: auth
+              host: {{ .facts.hostname }}
+              __path__: /var/log/auth.log
+        pipeline_stages:
+          - regex:
+              expression: '^(?P<timestamp>\w+\s+\d+\s+\d+:\d+:\d+)\s+(?P<hostname>\S+)\s+(?P<service>\S+?)(\[(?P<pid>\d+)\])?:\s+(?P<message>.*)$'
+          - labels:
+              service:
+
+      # Nginx access logs
+      - job_name: nginx_access
+        static_configs:
+          - targets:
+              - localhost
+            labels:
+              job: nginx
+              type: access
+              host: {{ .facts.hostname }}
+              __path__: /var/log/nginx/access.log
+        pipeline_stages:
+          - regex:
+              expression: '^(?P<remote_addr>\S+) - (?P<remote_user>\S+) \[(?P<time_local>[^\]]+)\] "(?P<method>\S+) (?P<request>\S+) (?P<protocol>\S+)" (?P<status>\d+) (?P<body_bytes_sent>\d+) "(?P<http_referer>[^"]*)" "(?P<http_user_agent>[^"]*)"'
+          - labels:
+              method:
+              status:
+          - metrics:
+              http_requests_total:
+                type: Counter
+                description: "Total HTTP requests"
+                source: status
+                config:
+                  action: inc
+
+      # Nginx error logs
+      - job_name: nginx_error
+        static_configs:
+          - targets:
+              - localhost
+            labels:
+              job: nginx
+              type: error
+              host: {{ .facts.hostname }}
+              __path__: /var/log/nginx/error.log
+        pipeline_stages:
+          - regex:
+              expression: '^(?P<timestamp>\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}) \[(?P<level>\w+)\] (?P<pid>\d+)#(?P<tid>\d+): (?P<message>.*)$'
+          - labels:
+              level:
+
+      # Docker container logs
+      - job_name: docker
+        docker_sd_configs:
+          - host: unix:///var/run/docker.sock
+            refresh_interval: 5s
+        relabel_configs:
+          - source_labels: ['__meta_docker_container_name']
+            target_label: 'container'
+          - source_labels: ['__meta_docker_container_log_stream']
+            target_label: 'stream'
+          - source_labels: ['__meta_docker_container_label_com_docker_compose_project']
+            target_label: 'project'
+          - source_labels: ['__meta_docker_container_label_com_docker_compose_service']
+            target_label: 'service'
+  mode: "0644"
+  require:
+    - promtail_dirs
+
+# --- Systemd Services ---
+
+loki_service:
+  module: file
+  state: managed
+  path: /etc/systemd/system/loki.service
+  content: |
+    [Unit]
+    Description=Loki Log Aggregation System
+    Wants=network-online.target
+    After=network-online.target
+
+    [Service]
+    User=loki
+    Group=loki
+    Type=simple
+    ExecStart=/usr/local/bin/loki -config.file=/etc/loki/config.yaml
+    Restart=always
+    RestartSec=5
+    LimitNOFILE=65536
+
+    [Install]
+    WantedBy=multi-user.target
+  mode: "0644"
+  require:
+    - loki_download
+    - loki_config
+
+promtail_service:
+  module: file
+  state: managed
+  path: /etc/systemd/system/promtail.service
+  content: |
+    [Unit]
+    Description=Promtail Log Collector
+    Wants=network-online.target
+    After=network-online.target loki.service
+
+    [Service]
+    User=promtail
+    Group=promtail
+    Type=simple
+    ExecStart=/usr/local/bin/promtail -config.file=/etc/promtail/config.yaml
+    Restart=always
+    RestartSec=5
+
+    # Allow reading Docker socket
+    SupplementaryGroups=docker
+
+    [Install]
+    WantedBy=multi-user.target
+  mode: "0644"
+  require:
+    - promtail_download
+    - promtail_config
+
+loki_service_start:
+  module: service
+  state: running
+  name: loki
+  enabled: true
+  daemon_reload: true
+  require:
+    - loki_service
+  watch:
+    - loki_config
+
+promtail_service_start:
+  module: service
+  state: running
+  name: promtail
+  enabled: true
+  daemon_reload: true
+  require:
+    - promtail_service
+    - loki_service_start
+  watch:
+    - promtail_config
+
+# --- Firewall ---
+
+loki_firewall:
+  module: firewall
+  state: allow
+  port: 3100
+  protocol: tcp
+  source: "{{ .vars.allowed_cidr | default \"10.0.0.0/8\" }}"
+```
+
 ## See Also
 
 - [State Management Concepts](../../concepts/state-management/) - State management overview

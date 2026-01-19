@@ -3,6 +3,9 @@
 package gateway
 
 import (
+	"fmt"
+	"net/url"
+	"strings"
 	"time"
 )
 
@@ -361,4 +364,633 @@ func DefaultConfig() *Config {
 			},
 		},
 	}
+}
+
+// ValidationError represents a configuration validation error
+type ValidationError struct {
+	Field   string
+	Message string
+}
+
+func (e ValidationError) Error() string {
+	return fmt.Sprintf("%s: %s", e.Field, e.Message)
+}
+
+// ValidationErrors is a collection of validation errors
+type ValidationErrors []ValidationError
+
+func (e ValidationErrors) Error() string {
+	if len(e) == 0 {
+		return "no errors"
+	}
+	if len(e) == 1 {
+		return e[0].Error()
+	}
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("%d validation errors:\n", len(e)))
+	for _, err := range e {
+		sb.WriteString(fmt.Sprintf("  - %s\n", err.Error()))
+	}
+	return sb.String()
+}
+
+// HasErrors returns true if there are any validation errors
+func (e ValidationErrors) HasErrors() bool {
+	return len(e) > 0
+}
+
+// Validate validates the complete gateway configuration
+func (c *Config) Validate() error {
+	var errors ValidationErrors
+
+	// Validate NATS config
+	errors = append(errors, c.NATS.Validate("nats")...)
+
+	// Validate Server config
+	errors = append(errors, c.Server.Validate("server")...)
+
+	// Validate Metrics config
+	errors = append(errors, c.Metrics.Validate("metrics")...)
+
+	// Validate Logs config
+	errors = append(errors, c.Logs.Validate("logs")...)
+
+	// Validate Traces config
+	errors = append(errors, c.Traces.Validate("traces")...)
+
+	// Validate HA config
+	errors = append(errors, c.HA.Validate("ha")...)
+
+	// Cross-field validation
+	if !c.Metrics.Enabled && !c.Logs.Enabled && !c.Traces.Enabled {
+		errors = append(errors, ValidationError{
+			Field:   "metrics/logs/traces",
+			Message: "at least one telemetry type (metrics, logs, or traces) must be enabled",
+		})
+	}
+
+	if errors.HasErrors() {
+		return errors
+	}
+	return nil
+}
+
+// Validate validates NATS configuration
+func (c *NATSConfig) Validate(prefix string) ValidationErrors {
+	var errors ValidationErrors
+
+	if len(c.URLs) == 0 {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".urls",
+			Message: "at least one NATS URL is required",
+		})
+	}
+
+	for i, u := range c.URLs {
+		if err := validateNATSURL(u); err != nil {
+			errors = append(errors, ValidationError{
+				Field:   fmt.Sprintf("%s.urls[%d]", prefix, i),
+				Message: err.Error(),
+			})
+		}
+	}
+
+	if c.Cluster == "" {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".cluster",
+			Message: "cluster name is required",
+		})
+	}
+
+	if c.ReconnectWait < 0 {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".reconnect_wait",
+			Message: "reconnect_wait cannot be negative",
+		})
+	}
+
+	errors = append(errors, c.TLS.Validate(prefix+".tls")...)
+
+	return errors
+}
+
+// validateNATSURL validates a NATS URL format
+func validateNATSURL(u string) error {
+	parsed, err := url.Parse(u)
+	if err != nil {
+		return fmt.Errorf("invalid URL: %w", err)
+	}
+
+	switch parsed.Scheme {
+	case "nats", "tls", "ws", "wss":
+		// Valid schemes
+	case "":
+		return fmt.Errorf("URL scheme is required (nats://, tls://, ws://, or wss://)")
+	default:
+		return fmt.Errorf("unsupported URL scheme %q (expected nats, tls, ws, or wss)", parsed.Scheme)
+	}
+
+	if parsed.Host == "" {
+		return fmt.Errorf("URL host is required")
+	}
+
+	return nil
+}
+
+// Validate validates TLS configuration
+func (c *TLSConfig) Validate(prefix string) ValidationErrors {
+	var errors ValidationErrors
+
+	if !c.Enabled {
+		return errors
+	}
+
+	if c.Insecure {
+		// Insecure mode, no cert validation needed
+		return errors
+	}
+
+	if c.CertFile != "" && c.KeyFile == "" {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".key_file",
+			Message: "key_file is required when cert_file is specified",
+		})
+	}
+
+	if c.KeyFile != "" && c.CertFile == "" {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".cert_file",
+			Message: "cert_file is required when key_file is specified",
+		})
+	}
+
+	return errors
+}
+
+// Validate validates Server configuration
+func (c *ServerConfig) Validate(prefix string) ValidationErrors {
+	var errors ValidationErrors
+
+	if c.Listen == "" {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".listen",
+			Message: "listen address is required",
+		})
+	}
+
+	if c.MetricsPath == "" {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".metrics_path",
+			Message: "metrics_path is required",
+		})
+	}
+
+	if c.ReadTimeout < 0 {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".read_timeout",
+			Message: "read_timeout cannot be negative",
+		})
+	}
+
+	if c.WriteTimeout < 0 {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".write_timeout",
+			Message: "write_timeout cannot be negative",
+		})
+	}
+
+	return errors
+}
+
+// Validate validates Metrics configuration
+func (c *MetricsConfig) Validate(prefix string) ValidationErrors {
+	var errors ValidationErrors
+
+	if !c.Enabled {
+		return errors
+	}
+
+	if c.Subject == "" {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".subject",
+			Message: "subject is required when metrics is enabled",
+		})
+	}
+
+	if c.StaleTimeout < 0 {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".stale_timeout",
+			Message: "stale_timeout cannot be negative",
+		})
+	}
+
+	if c.Cardinality.MaxSeries < 0 {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".cardinality.max_series",
+			Message: "max_series cannot be negative",
+		})
+	}
+
+	if c.Cardinality.MaxLabelsPerSeries < 0 {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".cardinality.max_labels_per_series",
+			Message: "max_labels_per_series cannot be negative",
+		})
+	}
+
+	errors = append(errors, c.RemoteWrite.Validate(prefix+".remote_write")...)
+
+	return errors
+}
+
+// Validate validates RemoteWrite configuration
+func (c *RemoteWriteConfig) Validate(prefix string) ValidationErrors {
+	var errors ValidationErrors
+
+	if !c.Enabled {
+		return errors
+	}
+
+	if c.URL == "" {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".url",
+			Message: "url is required when remote_write is enabled",
+		})
+	} else if _, err := url.Parse(c.URL); err != nil {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".url",
+			Message: fmt.Sprintf("invalid URL: %v", err),
+		})
+	}
+
+	if c.BatchSize <= 0 {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".batch_size",
+			Message: "batch_size must be greater than 0",
+		})
+	}
+
+	if c.FlushInterval <= 0 {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".flush_interval",
+			Message: "flush_interval must be greater than 0",
+		})
+	}
+
+	errors = append(errors, c.Auth.Validate(prefix+".auth")...)
+	errors = append(errors, c.TLS.Validate(prefix+".tls")...)
+	errors = append(errors, c.Retry.Validate(prefix+".retry")...)
+
+	return errors
+}
+
+// Validate validates Auth configuration
+func (c *AuthConfig) Validate(prefix string) ValidationErrors {
+	var errors ValidationErrors
+
+	switch c.Type {
+	case "", "none":
+		// No auth, valid
+	case "basic":
+		if c.Username == "" {
+			errors = append(errors, ValidationError{
+				Field:   prefix + ".username",
+				Message: "username is required for basic auth",
+			})
+		}
+		if c.Password == "" {
+			errors = append(errors, ValidationError{
+				Field:   prefix + ".password",
+				Message: "password is required for basic auth",
+			})
+		}
+	case "bearer":
+		if c.Token == "" {
+			errors = append(errors, ValidationError{
+				Field:   prefix + ".token",
+				Message: "token is required for bearer auth",
+			})
+		}
+	default:
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".type",
+			Message: fmt.Sprintf("unsupported auth type %q (expected: none, basic, or bearer)", c.Type),
+		})
+	}
+
+	return errors
+}
+
+// Validate validates Retry configuration
+func (c *RetryConfig) Validate(prefix string) ValidationErrors {
+	var errors ValidationErrors
+
+	if c.MaxAttempts < 0 {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".max_attempts",
+			Message: "max_attempts cannot be negative",
+		})
+	}
+
+	if c.Backoff < 0 {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".backoff",
+			Message: "backoff cannot be negative",
+		})
+	}
+
+	if c.MaxBackoff < 0 {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".max_backoff",
+			Message: "max_backoff cannot be negative",
+		})
+	}
+
+	if c.MaxBackoff > 0 && c.Backoff > 0 && c.MaxBackoff < c.Backoff {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".max_backoff",
+			Message: "max_backoff must be greater than or equal to backoff",
+		})
+	}
+
+	return errors
+}
+
+// Validate validates Logs configuration
+func (c *LogsConfig) Validate(prefix string) ValidationErrors {
+	var errors ValidationErrors
+
+	if !c.Enabled {
+		return errors
+	}
+
+	if c.Subject == "" {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".subject",
+			Message: "subject is required when logs is enabled",
+		})
+	}
+
+	// Validate min_level
+	switch strings.ToLower(c.MinLevel) {
+	case "", "debug", "info", "warn", "warning", "error", "fatal":
+		// Valid levels
+	default:
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".min_level",
+			Message: fmt.Sprintf("invalid log level %q (expected: debug, info, warn, error, or fatal)", c.MinLevel),
+		})
+	}
+
+	errors = append(errors, c.Loki.Validate(prefix+".loki")...)
+	errors = append(errors, c.Elasticsearch.Validate(prefix+".elasticsearch")...)
+
+	// Warn if no output is configured
+	if c.Enabled && !c.Loki.Enabled && !c.Elasticsearch.Enabled {
+		errors = append(errors, ValidationError{
+			Field:   prefix,
+			Message: "logs is enabled but no output (loki or elasticsearch) is configured",
+		})
+	}
+
+	return errors
+}
+
+// Validate validates Loki configuration
+func (c *LokiConfig) Validate(prefix string) ValidationErrors {
+	var errors ValidationErrors
+
+	if !c.Enabled {
+		return errors
+	}
+
+	if c.URL == "" {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".url",
+			Message: "url is required when loki is enabled",
+		})
+	} else if _, err := url.Parse(c.URL); err != nil {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".url",
+			Message: fmt.Sprintf("invalid URL: %v", err),
+		})
+	}
+
+	if c.BatchSize <= 0 {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".batch_size",
+			Message: "batch_size must be greater than 0",
+		})
+	}
+
+	if c.BatchWait <= 0 {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".batch_wait",
+			Message: "batch_wait must be greater than 0",
+		})
+	}
+
+	errors = append(errors, c.TLS.Validate(prefix+".tls")...)
+	errors = append(errors, c.Auth.Validate(prefix+".auth")...)
+	errors = append(errors, c.Retry.Validate(prefix+".retry")...)
+
+	return errors
+}
+
+// Validate validates Elasticsearch configuration
+func (c *ElasticsearchConfig) Validate(prefix string) ValidationErrors {
+	var errors ValidationErrors
+
+	if !c.Enabled {
+		return errors
+	}
+
+	if len(c.URLs) == 0 {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".urls",
+			Message: "at least one URL is required when elasticsearch is enabled",
+		})
+	}
+
+	for i, u := range c.URLs {
+		if _, err := url.Parse(u); err != nil {
+			errors = append(errors, ValidationError{
+				Field:   fmt.Sprintf("%s.urls[%d]", prefix, i),
+				Message: fmt.Sprintf("invalid URL: %v", err),
+			})
+		}
+	}
+
+	if c.Index == "" {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".index",
+			Message: "index is required when elasticsearch is enabled",
+		})
+	}
+
+	if c.BatchSize <= 0 {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".batch_size",
+			Message: "batch_size must be greater than 0",
+		})
+	}
+
+	errors = append(errors, c.TLS.Validate(prefix+".tls")...)
+	errors = append(errors, c.Auth.Validate(prefix+".auth")...)
+
+	return errors
+}
+
+// Validate validates Traces configuration
+func (c *TracesConfig) Validate(prefix string) ValidationErrors {
+	var errors ValidationErrors
+
+	if !c.Enabled {
+		return errors
+	}
+
+	if c.Subject == "" {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".subject",
+			Message: "subject is required when traces is enabled",
+		})
+	}
+
+	errors = append(errors, c.Sampling.Validate(prefix+".sampling")...)
+	errors = append(errors, c.OTLP.Validate(prefix+".otlp")...)
+
+	return errors
+}
+
+// Validate validates Sampling configuration
+func (c *SamplingConfig) Validate(prefix string) ValidationErrors {
+	var errors ValidationErrors
+
+	if !c.Enabled {
+		return errors
+	}
+
+	if c.Rate < 0 || c.Rate > 1 {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".rate",
+			Message: "rate must be between 0 and 1",
+		})
+	}
+
+	if c.PrioritySample.SlowThreshold < 0 {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".priority_sample.slow_threshold",
+			Message: "slow_threshold cannot be negative",
+		})
+	}
+
+	return errors
+}
+
+// Validate validates OTLP configuration
+func (c *OTLPConfig) Validate(prefix string) ValidationErrors {
+	var errors ValidationErrors
+
+	if !c.Enabled {
+		return errors
+	}
+
+	if c.Endpoint == "" {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".endpoint",
+			Message: "endpoint is required when otlp is enabled",
+		})
+	}
+
+	// Validate protocol
+	switch strings.ToLower(c.Protocol) {
+	case "", "grpc", "http", "http/protobuf":
+		// Valid protocols
+	default:
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".protocol",
+			Message: fmt.Sprintf("unsupported protocol %q (expected: grpc or http)", c.Protocol),
+		})
+	}
+
+	// Validate compression
+	switch strings.ToLower(c.Compression) {
+	case "", "none", "gzip":
+		// Valid compression options
+	default:
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".compression",
+			Message: fmt.Sprintf("unsupported compression %q (expected: none or gzip)", c.Compression),
+		})
+	}
+
+	if c.BatchSize <= 0 {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".batch_size",
+			Message: "batch_size must be greater than 0",
+		})
+	}
+
+	if c.FlushInterval <= 0 {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".flush_interval",
+			Message: "flush_interval must be greater than 0",
+		})
+	}
+
+	errors = append(errors, c.TLS.Validate(prefix+".tls")...)
+
+	return errors
+}
+
+// Validate validates HA configuration
+func (c *HAConfig) Validate(prefix string) ValidationErrors {
+	var errors ValidationErrors
+
+	if !c.Enabled {
+		return errors
+	}
+
+	if c.QueueGroup == "" {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".queue_group",
+			Message: "queue_group is required when HA is enabled",
+		})
+	}
+
+	errors = append(errors, c.LeaderElection.Validate(prefix+".leader_election")...)
+
+	return errors
+}
+
+// Validate validates LeaderElection configuration
+func (c *LeaderElectionConfig) Validate(prefix string) ValidationErrors {
+	var errors ValidationErrors
+
+	if !c.Enabled {
+		return errors
+	}
+
+	if c.LeaseDuration <= 0 {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".lease_duration",
+			Message: "lease_duration must be greater than 0",
+		})
+	}
+
+	if c.RenewDeadline <= 0 {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".renew_deadline",
+			Message: "renew_deadline must be greater than 0",
+		})
+	}
+
+	if c.LeaseDuration > 0 && c.RenewDeadline > 0 && c.RenewDeadline >= c.LeaseDuration {
+		errors = append(errors, ValidationError{
+			Field:   prefix + ".renew_deadline",
+			Message: "renew_deadline must be less than lease_duration",
+		})
+	}
+
+	return errors
 }

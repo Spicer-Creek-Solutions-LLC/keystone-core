@@ -388,6 +388,30 @@ func TestCountHealthy(t *testing.T) {
 	}
 }
 
+func TestGetAPIScheme(t *testing.T) {
+	tests := []struct {
+		name     string
+		addr     string
+		expected string
+	}{
+		{"localhost", "localhost:9090", "http"},
+		{"127.0.0.1", "127.0.0.1:9090", "http"},
+		{"IPv6 loopback", "[::1]:9090", "http"},
+		{"remote host", "example.com:9090", "https"},
+		{"remote ip", "192.168.1.1:9090", "https"},
+		{"IPv6 remote", "[2001:db8::1]:9090", "https"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := getAPIScheme(tt.addr)
+			if result != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
 // findSubcommand finds a subcommand by name
 func findSubcommand(cmd *cobra.Command, name string) *cobra.Command {
 	for _, sub := range cmd.Commands() {

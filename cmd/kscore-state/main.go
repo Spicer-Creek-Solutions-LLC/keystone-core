@@ -86,6 +86,7 @@ func main() {
 var (
 	applyVarsFile string
 	applyDryRun   bool
+	applyPreview  bool
 )
 
 var applyCmd = &cobra.Command{
@@ -113,6 +114,7 @@ func init() {
 	applyCmd.Flags().StringVar(&stateTarget, "target", "", "Target expression (not used in local mode)")
 	applyCmd.Flags().StringVar(&applyVarsFile, "vars", "", "Variables file (YAML)")
 	applyCmd.Flags().BoolVar(&applyDryRun, "dry-run", false, "Check what would change without applying")
+	applyCmd.Flags().BoolVar(&applyPreview, "preview", false, "Show rendered state before apply without executing")
 }
 
 func applyExecute(cmd *cobra.Command, args []string) error {
@@ -156,8 +158,9 @@ func applyExecute(cmd *cobra.Command, args []string) error {
 
 	// Validate state file
 	validator := statemgmt.NewValidator()
-	if errs := validator.Validate(stateFile); len(errs) > 0 {
-		err := fmt.Errorf("validation failed: %v", errs)
+	result := validator.Validate(stateFile)
+	if !result.Valid {
+		err := fmt.Errorf("validation failed: %s", result.Summary())
 		logAudit(audit.ResultFailure, 1, err)
 		return err
 	}
@@ -188,6 +191,13 @@ func applyExecute(cmd *cobra.Command, args []string) error {
 		err = fmt.Errorf("failed to render templates: %w", err)
 		logAudit(audit.ResultFailure, 1, err)
 		return err
+	}
+
+	// Handle preview mode - show rendered state without executing
+	if applyPreview {
+		printStatePreview(stateFile, vars, facts)
+		logAudit(audit.ResultSuccess, 0, nil)
+		return nil
 	}
 
 	// Execute state
@@ -343,8 +353,9 @@ func driftExecute(cmd *cobra.Command, args []string) error {
 
 	// Validate state file
 	validator := statemgmt.NewValidator()
-	if errs := validator.Validate(stateFile); len(errs) > 0 {
-		err := fmt.Errorf("validation failed: %v", errs)
+	result := validator.Validate(stateFile)
+	if !result.Valid {
+		err := fmt.Errorf("validation failed: %s", result.Summary())
 		logAudit(audit.ResultFailure, 1, err)
 		return err
 	}
@@ -481,5 +492,134 @@ func printRunSummary(run *statemgmt.StateRun, duration time.Duration) {
 		fmt.Println("\n✓ Success!")
 	} else {
 		fmt.Println("\n✗ Failed!")
+	}
+}
+
+// printStatePreview prints a preview of the rendered state file without executing
+func printStatePreview(stateFile *statemgmt.StateFile, vars *statemgmt.Vars, facts *statemgmt.Facts) {
+	fmt.Println()
+	fmt.Println("=== Rendered State Preview ===")
+	fmt.Println()
+
+	// Show metadata
+	fmt.Println("Metadata:")
+	if stateFile.Metadata.Name != "" {
+		fmt.Printf("  Name:        %s\n", stateFile.Metadata.Name)
+	}
+	if stateFile.Metadata.Description != "" {
+		fmt.Printf("  Description: %s\n", stateFile.Metadata.Description)
+	}
+	if stateFile.Metadata.Version != "" {
+		fmt.Printf("  Version:     %s\n", stateFile.Metadata.Version)
+	}
+	fmt.Println()
+
+	// Show applied variables if any
+	if vars != nil && len(vars.Data) > 0 {
+		fmt.Println("Variables Applied:")
+		for key, val := range vars.Data {
+			fmt.Printf("  %s: %v\n", key, val)
+		}
+		fmt.Println()
+	}
+
+	// Show facts
+	if facts != nil && len(facts.Data) > 0 {
+		fmt.Println("System Facts:")
+		for key, val := range facts.Data {
+			fmt.Printf("  %s: %v\n", key, val)
+		}
+		fmt.Println()
+	}
+
+	// Resolve execution order
+	executionOrder, err := statemgmt.ResolveExecutionOrder(stateFile)
+	if err != nil {
+		fmt.Printf("Warning: Could not resolve execution order: %v\n", err)
+		fmt.Println("Showing states in declaration order instead.")
+		fmt.Println()
+		printStatesInDeclarationOrder(stateFile)
+	} else {
+		fmt.Printf("States (%d total, in execution order):\n", len(executionOrder))
+		fmt.Println("─────────────────────────────────────────────────")
+		for i, decl := range executionOrder {
+			printStateDeclaration(i+1, decl)
+		}
+	}
+
+	// Show dependency graph
+	fmt.Println()
+	fmt.Println("=== Dependency Graph ===")
+	viz := statemgmt.NewGraphVisualizer()
+	if err := viz.BuildFromStateFile(stateFile); err == nil {
+		fmt.Println(viz.Render(statemgmt.GraphFormatText))
+	} else {
+		fmt.Printf("Could not build dependency graph: %v\n", err)
+	}
+
+	fmt.Println()
+	fmt.Println("Preview complete. Use --dry-run to check what would change,")
+	fmt.Println("or apply without flags to apply the state.")
+}
+
+// printStatesInDeclarationOrder prints states when execution order cannot be resolved
+func printStatesInDeclarationOrder(stateFile *statemgmt.StateFile) {
+	i := 1
+	for module, declarations := range stateFile.States {
+		for _, decl := range declarations {
+			decl.Module = module
+			printStateDeclaration(i, &decl)
+			i++
+		}
+	}
+}
+
+// printStateDeclaration prints a single state declaration
+func printStateDeclaration(index int, decl *statemgmt.StateDeclaration) {
+	fmt.Printf("\n%d. %s.%s\n", index, decl.Module, decl.ID)
+	fmt.Printf("   State: %s\n", decl.State)
+
+	if len(decl.Parameters) > 0 {
+		fmt.Println("   Parameters:")
+		for key, val := range decl.Parameters {
+			// Truncate long values
+			valStr := fmt.Sprintf("%v", val)
+			if len(valStr) > 60 {
+				valStr = valStr[:57] + "..."
+			}
+			fmt.Printf("     %s: %s\n", key, valStr)
+		}
+	}
+
+	// Show requisites
+	if hasRequisites(&decl.Requisites) {
+		fmt.Println("   Requisites:")
+		printRequisiteList("require", decl.Requisites.Require)
+		printRequisiteList("require_in", decl.Requisites.RequireIn)
+		printRequisiteList("watch", decl.Requisites.Watch)
+		printRequisiteList("watch_in", decl.Requisites.WatchIn)
+		printRequisiteList("prereq", decl.Requisites.Prereq)
+		printRequisiteList("prereq_in", decl.Requisites.PrereqIn)
+		printRequisiteList("onchanges", decl.Requisites.Onchanges)
+		printRequisiteList("onchanges_in", decl.Requisites.OnchangesIn)
+	}
+}
+
+// hasRequisites checks if any requisites are defined
+func hasRequisites(req *statemgmt.Requisites) bool {
+	return len(req.Require) > 0 || len(req.RequireIn) > 0 ||
+		len(req.Watch) > 0 || len(req.WatchIn) > 0 ||
+		len(req.Prereq) > 0 || len(req.PrereqIn) > 0 ||
+		len(req.Onchanges) > 0 || len(req.OnchangesIn) > 0
+}
+
+// printRequisiteList prints a list of requisites of a specific type
+func printRequisiteList(name string, refs []statemgmt.StateReference) {
+	if len(refs) == 0 {
+		return
+	}
+	fmt.Printf("     %s:\n", name)
+	for _, ref := range refs {
+		fmt.Printf("       - %s.%s\n", ref.Module, ref.ID)
 	}
 }

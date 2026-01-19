@@ -1,0 +1,294 @@
+{
+  "dashboard": {
+    "title": "Windows Agents",
+    "uid": "kscore-windows",
+    "tags": ["kscore", "windows", "agents", "epic-14"],
+    "timezone": "browser",
+    "schemaVersion": 36,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "environment",
+          "type": "query",
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "query": "label_values(kscore_agent_info{os=\"windows\"}, environment)",
+          "refresh": 1,
+          "multi": false,
+          "includeAll": true,
+          "allValue": ".*"
+        }
+      ]
+    },
+    "panels": [
+      {
+        "title": "Windows Agent Overview",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+        "collapsed": false
+      },
+      {
+        "title": "Windows Agents Connected",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 1},
+        "targets": [
+          {
+            "expr": "sum(kscore_agents_connected{os=\"windows\",environment=~\"$environment\"})",
+            "legendFormat": "Connected"
+          }
+        ]
+      },
+      {
+        "title": "Windows Agents Total",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 1},
+        "targets": [
+          {
+            "expr": "count(kscore_agent_info{os=\"windows\",environment=~\"$environment\"})",
+            "legendFormat": "Total"
+          }
+        ]
+      },
+      {
+        "title": "Exec Success Rate",
+        "type": "gauge",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 1},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_exec_total{status=\"success\",os=\"windows\",environment=~\"$environment\"}[5m])) / sum(rate(kscore_exec_total{os=\"windows\",environment=~\"$environment\"}[5m])) * 100",
+            "legendFormat": "Success %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 90, "color": "yellow"},
+                {"value": 99, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Avg Latency",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 1},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(kscore_exec_duration_seconds_bucket{os=\"windows\",environment=~\"$environment\"}[5m])) by (le))",
+            "legendFormat": "P95"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "s"}}
+      },
+      {
+        "title": "Windows Agent Versions",
+        "type": "piechart",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 5},
+        "targets": [
+          {
+            "expr": "count(kscore_agent_info{os=\"windows\",environment=~\"$environment\"}) by (version)",
+            "legendFormat": "{{version}}"
+          }
+        ]
+      },
+      {
+        "title": "Windows Versions",
+        "type": "piechart",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 5},
+        "targets": [
+          {
+            "expr": "count(kscore_agent_info{os=\"windows\",environment=~\"$environment\"}) by (os_version)",
+            "legendFormat": "{{os_version}}"
+          }
+        ]
+      },
+      {
+        "title": "Execution",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 13},
+        "collapsed": false
+      },
+      {
+        "title": "Execution Rate",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 14},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_exec_total{os=\"windows\",environment=~\"$environment\"}[5m])) by (status)",
+            "legendFormat": "{{status}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Execution Duration",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 14},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.5, sum(rate(kscore_exec_duration_seconds_bucket{os=\"windows\",environment=~\"$environment\"}[5m])) by (le))",
+            "legendFormat": "P50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(kscore_exec_duration_seconds_bucket{os=\"windows\",environment=~\"$environment\"}[5m])) by (le))",
+            "legendFormat": "P95"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "s"}}
+      },
+      {
+        "title": "PowerShell Executions",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 22},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_exec_total{os=\"windows\",shell=\"powershell\",environment=~\"$environment\"}[5m])) by (status)",
+            "legendFormat": "PowerShell {{status}}"
+          },
+          {
+            "expr": "sum(rate(kscore_exec_total{os=\"windows\",shell=\"cmd\",environment=~\"$environment\"}[5m])) by (status)",
+            "legendFormat": "CMD {{status}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Execution Errors by Type",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 22},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_exec_errors_total{os=\"windows\",environment=~\"$environment\"}[5m])) by (error_type)",
+            "legendFormat": "{{error_type}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Windows Service",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 30},
+        "collapsed": false
+      },
+      {
+        "title": "Service Status",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 8, "x": 0, "y": 31},
+        "targets": [
+          {
+            "expr": "sum(kscore_windows_service_status{environment=~\"$environment\"})",
+            "legendFormat": "Running"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {"options": {"0": {"text": "Stopped", "color": "red"}}, "type": "value"},
+              {"options": {"1": {"text": "Running", "color": "green"}}, "type": "value"}
+            ]
+          }
+        }
+      },
+      {
+        "title": "Service Restarts",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 8, "x": 8, "y": 31},
+        "targets": [
+          {
+            "expr": "sum(increase(kscore_windows_service_restarts_total{environment=~\"$environment\"}[24h]))",
+            "legendFormat": "Restarts (24h)"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 5, "color": "yellow"},
+                {"value": 10, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Service Memory",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 8, "x": 16, "y": 31},
+        "targets": [
+          {
+            "expr": "avg(kscore_windows_service_memory_bytes{environment=~\"$environment\"})",
+            "legendFormat": "Avg Memory"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "bytes"}}
+      },
+      {
+        "title": "Service Memory Over Time",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 35},
+        "targets": [
+          {
+            "expr": "avg(kscore_windows_service_memory_bytes{environment=~\"$environment\"}) by (agent_id)",
+            "legendFormat": "{{agent_id}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "bytes"}}
+      },
+      {
+        "title": "Service CPU Over Time",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 35},
+        "targets": [
+          {
+            "expr": "rate(kscore_windows_service_cpu_seconds_total{environment=~\"$environment\"}[5m]) * 100",
+            "legendFormat": "{{agent_id}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "percent"}}
+      },
+      {
+        "title": "WinRM & Connectivity",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 43},
+        "collapsed": false
+      },
+      {
+        "title": "WinRM Connection Status",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 8, "x": 0, "y": 44},
+        "targets": [
+          {
+            "expr": "sum(kscore_winrm_connections_active{environment=~\"$environment\"})",
+            "legendFormat": "Active"
+          }
+        ]
+      },
+      {
+        "title": "WinRM Errors",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 16, "x": 8, "y": 44},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_winrm_errors_total{environment=~\"$environment\"}[5m])) by (error_type)",
+            "legendFormat": "{{error_type}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      }
+    ]
+  }
+}

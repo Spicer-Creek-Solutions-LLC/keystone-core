@@ -1,0 +1,298 @@
+{
+  "dashboard": {
+    "title": "IPv6 Networking",
+    "uid": "kscore-ipv6",
+    "tags": ["kscore", "ipv6", "networking", "epic-13"],
+    "timezone": "browser",
+    "schemaVersion": 36,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "environment",
+          "type": "query",
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "query": "label_values(kscore_network_connections_total, environment)",
+          "refresh": 1,
+          "multi": false,
+          "includeAll": true,
+          "allValue": ".*"
+        }
+      ]
+    },
+    "panels": [
+      {
+        "title": "Network Protocol Overview",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+        "collapsed": false
+      },
+      {
+        "title": "IPv6 Agents",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 1},
+        "targets": [
+          {
+            "expr": "sum(kscore_agents_connected{ip_version=\"6\",environment=~\"$environment\"})",
+            "legendFormat": "IPv6"
+          }
+        ]
+      },
+      {
+        "title": "IPv4 Agents",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 1},
+        "targets": [
+          {
+            "expr": "sum(kscore_agents_connected{ip_version=\"4\",environment=~\"$environment\"})",
+            "legendFormat": "IPv4"
+          }
+        ]
+      },
+      {
+        "title": "Dual-Stack Agents",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 1},
+        "targets": [
+          {
+            "expr": "sum(kscore_agents_connected{ip_version=\"dual\",environment=~\"$environment\"})",
+            "legendFormat": "Dual-Stack"
+          }
+        ]
+      },
+      {
+        "title": "IPv6 Adoption Rate",
+        "type": "gauge",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 1},
+        "targets": [
+          {
+            "expr": "(sum(kscore_agents_connected{ip_version=\"6\",environment=~\"$environment\"}) + sum(kscore_agents_connected{ip_version=\"dual\",environment=~\"$environment\"})) / sum(kscore_agents_connected{environment=~\"$environment\"}) * 100",
+            "legendFormat": "IPv6 %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 50, "color": "yellow"},
+                {"value": 80, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Agent Distribution by Protocol",
+        "type": "piechart",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 5},
+        "targets": [
+          {
+            "expr": "sum(kscore_agents_connected{environment=~\"$environment\"}) by (ip_version)",
+            "legendFormat": "IPv{{ip_version}}"
+          }
+        ]
+      },
+      {
+        "title": "Protocol Adoption Over Time",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 5},
+        "targets": [
+          {
+            "expr": "sum(kscore_agents_connected{environment=~\"$environment\"}) by (ip_version)",
+            "legendFormat": "IPv{{ip_version}}"
+          }
+        ]
+      },
+      {
+        "title": "Connection Metrics",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 13},
+        "collapsed": false
+      },
+      {
+        "title": "IPv6 Connection Rate",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 14},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_network_connections_total{ip_version=\"6\",environment=~\"$environment\"}[5m])) by (status)",
+            "legendFormat": "IPv6 {{status}}"
+          },
+          {
+            "expr": "sum(rate(kscore_network_connections_total{ip_version=\"4\",environment=~\"$environment\"}[5m])) by (status)",
+            "legendFormat": "IPv4 {{status}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Connection Latency by Protocol",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 14},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(kscore_network_latency_seconds_bucket{ip_version=\"6\",environment=~\"$environment\"}[5m])) by (le))",
+            "legendFormat": "IPv6 P95"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(kscore_network_latency_seconds_bucket{ip_version=\"4\",environment=~\"$environment\"}[5m])) by (le))",
+            "legendFormat": "IPv4 P95"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "s"}}
+      },
+      {
+        "title": "IPv6-Only Mode",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 22},
+        "collapsed": false
+      },
+      {
+        "title": "IPv6-Only Agents",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 8, "x": 0, "y": 23},
+        "targets": [
+          {
+            "expr": "sum(kscore_agents_ipv6_only{environment=~\"$environment\"})",
+            "legendFormat": "IPv6-Only"
+          }
+        ]
+      },
+      {
+        "title": "NAT64 Translations",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 8, "x": 8, "y": 23},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_nat64_translations_total{environment=~\"$environment\"}[5m]))",
+            "legendFormat": "Translations/sec"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "DNS64 Queries",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 8, "x": 16, "y": 23},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_dns64_queries_total{environment=~\"$environment\"}[5m]))",
+            "legendFormat": "Queries/sec"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "NAT64/DNS64 Operations",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 27},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_nat64_translations_total{environment=~\"$environment\"}[5m])) by (status)",
+            "legendFormat": "NAT64 {{status}}"
+          },
+          {
+            "expr": "sum(rate(kscore_dns64_queries_total{environment=~\"$environment\"}[5m])) by (status)",
+            "legendFormat": "DNS64 {{status}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "IPv6 Transition Errors",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 27},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_ipv6_transition_errors_total{environment=~\"$environment\"}[5m])) by (error_type)",
+            "legendFormat": "{{error_type}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Address Management",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 35},
+        "collapsed": false
+      },
+      {
+        "title": "Address Types",
+        "type": "piechart",
+        "gridPos": {"h": 8, "w": 8, "x": 0, "y": 36},
+        "targets": [
+          {
+            "expr": "sum(kscore_ipv6_addresses{environment=~\"$environment\"}) by (address_type)",
+            "legendFormat": "{{address_type}}"
+          }
+        ]
+      },
+      {
+        "title": "SLAAC vs DHCPv6",
+        "type": "piechart",
+        "gridPos": {"h": 8, "w": 8, "x": 8, "y": 36},
+        "targets": [
+          {
+            "expr": "sum(kscore_ipv6_addresses{environment=~\"$environment\"}) by (assignment_method)",
+            "legendFormat": "{{assignment_method}}"
+          }
+        ]
+      },
+      {
+        "title": "Privacy Extensions",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 8, "x": 16, "y": 36},
+        "targets": [
+          {
+            "expr": "sum(kscore_ipv6_privacy_extensions_enabled{environment=~\"$environment\"})",
+            "legendFormat": "Privacy Ext Enabled"
+          }
+        ]
+      },
+      {
+        "title": "Traffic Analysis",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 44},
+        "collapsed": false
+      },
+      {
+        "title": "IPv6 Traffic (bytes/sec)",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 45},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_network_bytes_total{ip_version=\"6\",environment=~\"$environment\"}[5m])) by (direction)",
+            "legendFormat": "IPv6 {{direction}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "Bps"}}
+      },
+      {
+        "title": "IPv4 vs IPv6 Throughput",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 45},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_network_bytes_total{ip_version=\"6\",environment=~\"$environment\"}[5m]))",
+            "legendFormat": "IPv6"
+          },
+          {
+            "expr": "sum(rate(kscore_network_bytes_total{ip_version=\"4\",environment=~\"$environment\"}[5m]))",
+            "legendFormat": "IPv4"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "Bps"}}
+      }
+    ]
+  }
+}

@@ -31,6 +31,8 @@ go.work.sum
 # Keystone Core specific
 build/
 dist/
+docvalidation
+scripts/docvalidation/docvalidation
 data/
 *.db
 *.db-shm
@@ -84,3 +86,4 @@ SESSION-SUMMARY*.md
 *_TEST_RESULTS.md
 *_SESSION*.md
 .claude-session-context.md
+tools/moddoc/moddoc

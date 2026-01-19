@@ -1,0 +1,287 @@
+{
+  "dashboard": {
+    "title": "Multi-Environment",
+    "uid": "kscore-multienv",
+    "tags": ["kscore", "environments", "promotion", "epic-7"],
+    "timezone": "browser",
+    "schemaVersion": 36,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "environment",
+          "type": "query",
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "query": "label_values(kscore_environment_info, environment)",
+          "refresh": 1,
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*"
+        }
+      ]
+    },
+    "panels": [
+      {
+        "title": "Environment Overview",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+        "collapsed": false
+      },
+      {
+        "title": "Active Environments",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 1},
+        "targets": [
+          {
+            "expr": "count(kscore_environment_info)",
+            "legendFormat": "Environments"
+          }
+        ]
+      },
+      {
+        "title": "Total Agents",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 1},
+        "targets": [
+          {
+            "expr": "sum(kscore_agents_connected{environment=~\"$environment\"})",
+            "legendFormat": "Connected"
+          }
+        ]
+      },
+      {
+        "title": "Promotions Today",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 1},
+        "targets": [
+          {
+            "expr": "sum(increase(kscore_promotion_total[24h]))",
+            "legendFormat": "Promotions"
+          }
+        ]
+      },
+      {
+        "title": "Promotion Success Rate",
+        "type": "gauge",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 1},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_promotion_total{status=\"success\"}[24h])) / sum(rate(kscore_promotion_total[24h])) * 100",
+            "legendFormat": "Success %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 90, "color": "yellow"},
+                {"value": 99, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Agents by Environment",
+        "type": "piechart",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 5},
+        "targets": [
+          {
+            "expr": "sum(kscore_agents_connected) by (environment)",
+            "legendFormat": "{{environment}}"
+          }
+        ]
+      },
+      {
+        "title": "Environment Health",
+        "type": "table",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 5},
+        "targets": [
+          {
+            "expr": "kscore_environment_info",
+            "legendFormat": "{{environment}}",
+            "format": "table",
+            "instant": true
+          }
+        ],
+        "transformations": [
+          {"id": "organize", "options": {"excludeByName": {"Time": true}}}
+        ]
+      },
+      {
+        "title": "Promotion Pipeline",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 13},
+        "collapsed": false
+      },
+      {
+        "title": "Promotion Rate",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 14},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_promotion_total[5m])) by (source_env, target_env)",
+            "legendFormat": "{{source_env}} → {{target_env}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Promotion Duration",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 14},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.5, sum(rate(kscore_promotion_duration_seconds_bucket[5m])) by (le, target_env))",
+            "legendFormat": "{{target_env}} P50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(kscore_promotion_duration_seconds_bucket[5m])) by (le, target_env))",
+            "legendFormat": "{{target_env}} P95"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "s"}}
+      },
+      {
+        "title": "Promotion Failures",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 22},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_promotion_total{status=\"failed\"}[5m])) by (failure_reason)",
+            "legendFormat": "{{failure_reason}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Pending Approvals",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 22},
+        "targets": [
+          {
+            "expr": "sum(kscore_promotion_pending_approval) by (target_env)",
+            "legendFormat": "{{target_env}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 5, "color": "yellow"},
+                {"value": 10, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Configuration Sync",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 30},
+        "collapsed": false
+      },
+      {
+        "title": "Config Sync Status",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 31},
+        "targets": [
+          {
+            "expr": "sum(kscore_config_sync_status{environment=~\"$environment\"})",
+            "legendFormat": "In Sync"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {"options": {"0": {"text": "Out of Sync", "color": "red"}}, "type": "value"},
+              {"options": {"1": {"text": "In Sync", "color": "green"}}, "type": "value"}
+            ]
+          }
+        }
+      },
+      {
+        "title": "Config Drift Detected",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 31},
+        "targets": [
+          {
+            "expr": "sum(kscore_config_drift_total{environment=~\"$environment\"})",
+            "legendFormat": "Drifts"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "yellow"},
+                {"value": 5, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Last Sync Time",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 31},
+        "targets": [
+          {
+            "expr": "time() - max(kscore_config_last_sync_timestamp{environment=~\"$environment\"})",
+            "legendFormat": "Seconds ago"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "s"}}
+      },
+      {
+        "title": "Sync Errors",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 31},
+        "targets": [
+          {
+            "expr": "sum(increase(kscore_config_sync_errors_total{environment=~\"$environment\"}[1h]))",
+            "legendFormat": "Errors (1h)"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "yellow"},
+                {"value": 5, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Environment Comparison",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 35},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_exec_total[5m])) by (environment)",
+            "legendFormat": "{{environment}} exec/s"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      }
+    ]
+  }
+}

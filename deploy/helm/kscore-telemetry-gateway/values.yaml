@@ -1,0 +1,189 @@
+# Default values for kscore-telemetry-gateway
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/shawnbutts/keystone-core/kscore-telemetry-gateway
+  pullPolicy: IfNotPresent
+  tag: ""  # Defaults to Chart.appVersion
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+
+service:
+  type: ClusterIP
+  port: 9091
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9091"
+    prometheus.io/path: "/metrics"
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 200m
+    memory: 256Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Gateway configuration
+gateway:
+  # NATS connection settings
+  nats:
+    urls:
+      - "nats://kscore-server:4222"
+    cluster: ""
+    credentialsFile: ""
+    maxReconnects: -1
+    reconnectWait: "2s"
+    reconnectJitter: "100ms"
+
+  # HTTP server settings
+  server:
+    listen: "0.0.0.0:9091"
+    metricsPath: "/metrics"
+    healthPath: "/health"
+    readyPath: "/ready"
+    federatePath: "/federate"
+    readTimeout: "30s"
+    writeTimeout: "30s"
+
+  # Metrics pipeline
+  metrics:
+    enabled: true
+    subject: "kscore.telemetry.metrics.>"
+    staleTimeout: "60s"
+    maxSeries: 100000
+    maxLabelsPerSeries: 20
+    # Label manipulation
+    addLabels: {}
+    dropLabels: []
+    rewriteLabels: {}
+    # Remote write to Prometheus
+    remoteWrite:
+      enabled: false
+      url: ""
+      basicAuth:
+        username: ""
+        password: ""
+      bearerToken: ""
+      timeout: "30s"
+      batchSize: 1000
+      flushInterval: "10s"
+
+  # Logs pipeline
+  logs:
+    enabled: true
+    subject: "kscore.telemetry.logs.>"
+    minLevel: "debug"
+    includeSources: []
+    excludeSources: []
+    # Loki push configuration
+    loki:
+      enabled: false
+      url: ""
+      tenantId: ""
+      basicAuth:
+        username: ""
+        password: ""
+      bearerToken: ""
+      batchSize: 100
+      batchWait: "1s"
+
+  # Traces pipeline
+  traces:
+    enabled: true
+    subject: "kscore.telemetry.traces.>"
+    # Sampling configuration
+    sampling:
+      rate: 1.0
+      errorPriority: true
+      slowThreshold: "1s"
+    # OTLP exporter
+    otlp:
+      enabled: false
+      endpoint: ""
+      protocol: "grpc"  # grpc or http
+      compression: "gzip"
+      headers: {}
+      timeout: "30s"
+      batchSize: 512
+      batchTimeout: "5s"
+
+  # High availability settings
+  ha:
+    enabled: false
+    queueGroup: "telemetry-gateway"
+    leaderElection: false
+    leaseDuration: "15s"
+    renewDeadline: "10s"
+    retryPeriod: "2s"
+
+# Probes configuration
+probes:
+  liveness:
+    enabled: true
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readiness:
+    enabled: true
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+# Network policies
+networkPolicy:
+  enabled: false
+  ingress: []
+  egress: []
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  # maxUnavailable: 1
+
+# ServiceMonitor for Prometheus Operator
+serviceMonitor:
+  enabled: false
+  interval: "30s"
+  scrapeTimeout: "10s"
+  labels: {}
+  annotations: {}

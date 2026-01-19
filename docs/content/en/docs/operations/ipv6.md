@@ -552,6 +552,110 @@ table ip6 filter {
 }
 ```
 
+#### firewalld (RHEL/CentOS/Fedora)
+
+```bash
+# Add services
+firewall-cmd --permanent --add-port=4222/tcp  # NATS client
+firewall-cmd --permanent --add-port=6222/tcp  # NATS cluster
+firewall-cmd --permanent --add-port=8080/tcp  # gRPC API
+firewall-cmd --permanent --add-port=8081/tcp  # REST API
+firewall-cmd --permanent --add-port=9090/tcp  # Metrics
+firewall-cmd --permanent --add-port=2379/tcp  # etcd client
+firewall-cmd --permanent --add-port=2380/tcp  # etcd peer
+firewall-cmd --reload
+
+# Verify
+firewall-cmd --list-all
+```
+
+#### ufw (Ubuntu/Debian)
+
+```bash
+# Allow Keystone Core ports for IPv6
+ufw allow proto tcp from any to any port 4222 comment 'NATS client'
+ufw allow proto tcp from any to any port 6222 comment 'NATS cluster'
+ufw allow proto tcp from any to any port 8080 comment 'gRPC API'
+ufw allow proto tcp from any to any port 8081 comment 'REST API'
+ufw allow proto tcp from any to any port 9090 comment 'Metrics'
+ufw allow proto tcp from any to any port 2379 comment 'etcd client'
+ufw allow proto tcp from any to any port 2380 comment 'etcd peer'
+
+# Enable IPv6 in UFW
+# Ensure IPV6=yes in /etc/default/ufw
+ufw enable
+```
+
+#### Windows Firewall
+
+```powershell
+# Create firewall rules for IPv6
+New-NetFirewallRule -DisplayName "Keystone NATS Client" -Direction Inbound -Protocol TCP -LocalPort 4222 -Action Allow
+New-NetFirewallRule -DisplayName "Keystone NATS Cluster" -Direction Inbound -Protocol TCP -LocalPort 6222 -Action Allow
+New-NetFirewallRule -DisplayName "Keystone gRPC API" -Direction Inbound -Protocol TCP -LocalPort 8080 -Action Allow
+New-NetFirewallRule -DisplayName "Keystone REST API" -Direction Inbound -Protocol TCP -LocalPort 8081 -Action Allow
+New-NetFirewallRule -DisplayName "Keystone Metrics" -Direction Inbound -Protocol TCP -LocalPort 9090 -Action Allow
+New-NetFirewallRule -DisplayName "Keystone etcd Client" -Direction Inbound -Protocol TCP -LocalPort 2379 -Action Allow
+New-NetFirewallRule -DisplayName "Keystone etcd Peer" -Direction Inbound -Protocol TCP -LocalPort 2380 -Action Allow
+```
+
+### Cloud Provider Firewall Configuration
+
+#### AWS Security Groups
+
+```hcl
+# Terraform example for IPv6 security group
+resource "aws_security_group" "kscore" {
+  name        = "kscore-control-plane"
+  description = "Keystone Core control plane IPv6"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    from_port        = 4222
+    to_port          = 4222
+    protocol         = "tcp"
+    ipv6_cidr_blocks = ["::/0"]
+    description      = "NATS client"
+  }
+
+  ingress {
+    from_port        = 8080
+    to_port          = 8080
+    protocol         = "tcp"
+    ipv6_cidr_blocks = ["::/0"]
+    description      = "gRPC API"
+  }
+
+  # Add other ports as needed
+}
+```
+
+#### GCP Firewall Rules
+
+```bash
+# Create IPv6 firewall rule
+gcloud compute firewall-rules create kscore-ipv6 \
+  --network=default \
+  --allow=tcp:4222,tcp:6222,tcp:8080,tcp:8081,tcp:9090 \
+  --source-ranges=::/0 \
+  --description="Keystone Core IPv6 access"
+```
+
+#### Azure Network Security Groups
+
+```bash
+# Create NSG rules for IPv6
+az network nsg rule create \
+  --nsg-name kscore-nsg \
+  --resource-group kscore-rg \
+  --name Allow-NATS-IPv6 \
+  --priority 100 \
+  --source-address-prefixes '::/0' \
+  --destination-port-ranges 4222 \
+  --access Allow \
+  --protocol Tcp
+```
+
 ## Migration Guide
 
 ### IPv4 to Dual-Stack
@@ -601,6 +705,158 @@ table ip6 filter {
 
 4. **Update firewall rules** to close IPv4 ports.
 
+## Extended Troubleshooting
+
+### Connectivity Testing Matrix
+
+When troubleshooting IPv6 issues, work through this matrix:
+
+| Test | Command | Expected Result |
+|------|---------|-----------------|
+| Local IPv6 | `ping6 ::1` | Response from localhost |
+| Interface IPv6 | `ip -6 addr show` | Shows configured addresses |
+| Gateway reachability | `ping6 <gateway>` | Response from gateway |
+| DNS resolution | `dig AAAA kscore.example.com` | Returns IPv6 address |
+| Port listening | `ss -6 -tlnp` | Shows services on IPv6 |
+| Remote connectivity | `nc -6 -zv <addr> <port>` | Connection established |
+
+### Common Failure Modes
+
+#### Failure: Agent Cannot Connect Over IPv6
+
+**Symptoms:**
+- Agent logs show connection timeouts
+- Control plane doesn't see agent registration
+
+**Diagnostic Steps:**
+```bash
+# 1. Check agent can reach control plane
+ping6 2001:db8::1
+
+# 2. Check port is reachable
+nc -6 -zv 2001:db8::1 4222
+
+# 3. Check agent configuration
+grep -r "address_family\|nats" /etc/kscore/agent.yaml
+
+# 4. Check local firewall
+ip6tables -L -n
+```
+
+**Solutions:**
+- Enable IPv6 routing: `sysctl net.ipv6.conf.all.forwarding=1`
+- Add firewall rule: `ip6tables -A INPUT -p tcp --dport 4222 -j ACCEPT`
+- Verify NATS URL has brackets: `nats://[2001:db8::1]:4222`
+
+#### Failure: etcd Cluster Won't Form
+
+**Symptoms:**
+- etcd logs show connection refused or timeout
+- Cluster status shows unhealthy members
+
+**Diagnostic Steps:**
+```bash
+# 1. Check etcd is listening on IPv6
+ss -tlnp | grep 2379
+ss -tlnp | grep 2380
+
+# 2. Test peer connectivity
+nc -6 -zv 2001:db8::2 2380
+
+# 3. Check etcd member list
+ETCDCTL_API=3 etcdctl --endpoints=http://[::1]:2379 member list
+
+# 4. Check initial cluster configuration
+grep initial_cluster /etc/kscore/server.yaml
+```
+
+**Solutions:**
+- Ensure initial_cluster uses bracketed addresses
+- Verify peer ports are open in firewall
+- Check advertise_address is correct and routable
+
+#### Failure: PostgreSQL Connection Fails
+
+**Symptoms:**
+- Server logs show "could not connect to database"
+- Authentication succeeds but connection drops
+
+**Diagnostic Steps:**
+```bash
+# 1. Test direct PostgreSQL connection
+psql -h 2001:db8::10 -U kscore -d kscore
+
+# 2. Check PostgreSQL is listening on IPv6
+sudo -u postgres psql -c "SHOW listen_addresses;"
+
+# 3. Check pg_hba.conf has IPv6 entries
+sudo cat /etc/postgresql/*/main/pg_hba.conf | grep -v "^#" | grep ":"
+
+# 4. Check SSL mode
+psql "host=2001:db8::10 sslmode=require" -c "SELECT 1;"
+```
+
+**Solutions:**
+- Set `listen_addresses = '*'` in postgresql.conf
+- Add IPv6 entry to pg_hba.conf: `host kscore kscore ::/0 scram-sha-256`
+- Use structured config instead of DSN to avoid bracket issues
+
+### Performance Debugging
+
+#### Measure IPv6 vs IPv4 Latency
+
+```bash
+# Compare latency
+ping -c 100 10.0.1.1 | tail -1
+ping6 -c 100 2001:db8::1 | tail -1
+
+# Check for MTU issues (IPv6 minimum is 1280)
+ping6 -M do -s 1452 2001:db8::1
+
+# Check path MTU
+tracepath6 2001:db8::1
+```
+
+#### Monitor Connection Distribution
+
+```promql
+# Connection distribution by address family
+sum(kscore_connections_total) by (family)
+
+# Alert if IPv6 connections drop unexpectedly
+ALERT IPv6ConnectionsDegraded
+  IF sum(rate(kscore_connection_failures_total{family="ipv6"}[5m]))
+     / sum(rate(kscore_connections_total{family="ipv6"}[5m])) > 0.1
+  FOR 5m
+  LABELS { severity = "warning" }
+```
+
+### Kernel Parameters
+
+Ensure these sysctl settings for reliable IPv6:
+
+```bash
+# /etc/sysctl.d/99-kscore-ipv6.conf
+
+# Enable IPv6
+net.ipv6.conf.all.disable_ipv6 = 0
+net.ipv6.conf.default.disable_ipv6 = 0
+
+# Enable forwarding (control plane nodes)
+net.ipv6.conf.all.forwarding = 1
+
+# Increase neighbor cache (large deployments)
+net.ipv6.neigh.default.gc_thresh1 = 1024
+net.ipv6.neigh.default.gc_thresh2 = 2048
+net.ipv6.neigh.default.gc_thresh3 = 4096
+
+# Prefer IPv6 temporary addresses (privacy)
+net.ipv6.conf.all.use_tempaddr = 0
+
+# Apply changes
+sysctl -p /etc/sysctl.d/99-kscore-ipv6.conf
+```
+
 ## Best Practices
 
 1. **Use structured config** for PostgreSQL to avoid DSN bracket issues
@@ -610,3 +866,6 @@ table ip6 filter {
 5. **Test failover** between address families before production
 6. **Document IP allocations** for both families in your infrastructure
 7. **Use DNS names** where possible to abstract address family selection
+8. **Configure kernel parameters** for IPv6 on all nodes
+9. **Test MTU path** to avoid fragmentation issues
+10. **Use consistent firewall rules** across all control plane nodes

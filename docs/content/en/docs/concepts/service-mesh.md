@@ -150,14 +150,17 @@ Collected metrics include:
 Access mesh mTLS configuration for workload operations:
 
 ```go
-// Example: Using mesh certificates for a command
-metadata := agent.GetMeshMetadata()
-if metadata.TLSConfig.Enabled {
+// Create a mesh detector with default configuration
+detector := servicemesh.NewDetector(servicemesh.DefaultConfig())
+
+// Detect mesh and get metadata
+metadata, err := detector.Detect()
+if err == nil && metadata.TLSConfig != nil && metadata.TLSConfig.Enabled {
     // Use mesh certificates for secure connections
-    tlsConfig := &tls.Config{
-        Certificates: []tls.Certificate{meshCert},
-        RootCAs:      meshCA,
-    }
+    // Certificates are available at:
+    // - metadata.TLSConfig.CertChainFile
+    // - metadata.TLSConfig.PrivateKeyFile
+    // - metadata.TLSConfig.CAFile
 }
 ```
 

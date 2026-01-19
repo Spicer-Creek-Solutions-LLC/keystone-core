@@ -12,6 +12,10 @@ package config
 
 import (
 	"fmt"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/shawnbutts/keystone-core/pkg/netutil"
@@ -231,6 +235,308 @@ type JetStreamConfig struct {
 	StoreDir string
 	// Maximum storage size (bytes)
 	MaxStorage int64
+}
+
+// Validate validates the NATS configuration with detailed error messages.
+// Returns nil if the configuration is valid, or an error with actionable guidance.
+func (c *NATSConfig) Validate() error {
+	// Validate NATS mode
+	switch c.Mode {
+	case NATSModeEmbedded, NATSModeExternal, NATSModeLeaf:
+		// valid modes
+	case "":
+		return &NATSConfigError{
+			Field:   "mode",
+			Message: "NATS mode is required",
+			Hint:    "Set to 'embedded' for single-node deployments, 'external' to connect to existing NATS cluster, or 'leaf' for edge deployments",
+		}
+	default:
+		return &NATSConfigError{
+			Field:   "mode",
+			Message: fmt.Sprintf("invalid NATS mode: %q", c.Mode),
+			Hint:    "Valid modes are: 'embedded', 'external', or 'leaf'",
+		}
+	}
+
+	// Validate based on mode
+	switch c.Mode {
+	case NATSModeExternal:
+		if err := c.validateExternalMode(); err != nil {
+			return err
+		}
+	case NATSModeLeaf:
+		if err := c.validateLeafMode(); err != nil {
+			return err
+		}
+	case NATSModeEmbedded:
+		if err := c.validateEmbeddedMode(); err != nil {
+			return err
+		}
+	}
+
+	// Validate JetStream configuration
+	if err := c.JetStream.Validate(); err != nil {
+		return err
+	}
+
+	// Validate connection settings
+	if c.MaxReconnects < -1 {
+		return &NATSConfigError{
+			Field:   "maxreconnects",
+			Message: fmt.Sprintf("invalid max reconnects value: %d", c.MaxReconnects),
+			Hint:    "Use -1 for unlimited reconnects, 0 to disable reconnection, or a positive number for a specific limit",
+		}
+	}
+
+	if c.ReconnectWait < 0 {
+		return &NATSConfigError{
+			Field:   "reconnectwait",
+			Message: "reconnect wait cannot be negative",
+			Hint:    "Use a positive duration like '2s' or '5s' for reconnection delay",
+		}
+	}
+
+	// Validate authentication consistency
+	if c.Token != "" && c.Credential != "" {
+		return &NATSConfigError{
+			Field:   "authentication",
+			Message: "both token and credential file are specified",
+			Hint:    "Use either 'token' for simple authentication or 'credential' for NKey/JWT authentication, not both",
+		}
+	}
+
+	return nil
+}
+
+// validateExternalMode validates configuration for external NATS mode.
+func (c *NATSConfig) validateExternalMode() error {
+	if c.URL == "" {
+		return &NATSConfigError{
+			Field:   "url",
+			Message: "NATS URL is required for external mode",
+			Hint:    "Provide the URL(s) of your NATS cluster, e.g., 'nats://nats.example.com:4222' or comma-separated for multiple servers",
+		}
+	}
+
+	// Validate URL format
+	if err := validateNATSURL(c.URL); err != nil {
+		return &NATSConfigError{
+			Field:   "url",
+			Message: fmt.Sprintf("invalid NATS URL: %s", err),
+			Hint:    "Use format: nats://host:port, tls://host:port, ws://host:port, or wss://host:port",
+		}
+	}
+
+	return nil
+}
+
+// validateLeafMode validates configuration for leaf node mode.
+func (c *NATSConfig) validateLeafMode() error {
+	if len(c.Embedded.LeafNodeURLs) == 0 {
+		return &NATSConfigError{
+			Field:   "embedded.leafnodeurls",
+			Message: "leaf node parent URLs are required for leaf mode",
+			Hint:    "Provide the URL(s) of the parent NATS cluster leaf node endpoints, e.g., 'nats-leaf://hub.example.com:7422'",
+		}
+	}
+
+	// Validate each leaf node URL
+	for i, leafURL := range c.Embedded.LeafNodeURLs {
+		if err := validateNATSLeafURL(leafURL); err != nil {
+			return &NATSConfigError{
+				Field:   fmt.Sprintf("embedded.leafnodeurls[%d]", i),
+				Message: fmt.Sprintf("invalid leaf node URL %q: %s", leafURL, err),
+				Hint:    "Use format: nats-leaf://host:port or tls://host:port for secure connections",
+			}
+		}
+	}
+
+	// Also validate embedded settings since leaf mode uses embedded server
+	if err := c.validateEmbeddedSettings(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// validateEmbeddedMode validates configuration for embedded NATS mode.
+func (c *NATSConfig) validateEmbeddedMode() error {
+	return c.validateEmbeddedSettings()
+}
+
+// validateEmbeddedSettings validates embedded NATS server settings.
+func (c *NATSConfig) validateEmbeddedSettings() error {
+	// Validate port (0 means use default, which is valid)
+	if c.Embedded.Port < 0 || c.Embedded.Port > 65535 {
+		return &NATSConfigError{
+			Field:   "embedded.port",
+			Message: fmt.Sprintf("invalid embedded NATS port: %d", c.Embedded.Port),
+			Hint:    "Port must be between 0 and 65535. Use 0 for default (4222)",
+		}
+	}
+
+	// Warn about well-known ports
+	if c.Embedded.Port < 1024 && c.Embedded.Port != 0 {
+		// This is a warning, not an error - privileged ports require root
+		// We'll just validate the port is valid
+	}
+
+	// Validate max connections
+	if c.Embedded.MaxConnections < 0 {
+		return &NATSConfigError{
+			Field:   "embedded.maxconnections",
+			Message: "max connections cannot be negative",
+			Hint:    "Use 0 for unlimited connections or a positive number to limit concurrent connections",
+		}
+	}
+
+	// Validate max memory
+	if c.Embedded.MaxMemory < 0 {
+		return &NATSConfigError{
+			Field:   "embedded.maxmemory",
+			Message: "max memory cannot be negative",
+			Hint:    "Use 0 for automatic sizing based on available system memory, or specify bytes (e.g., 1073741824 for 1GB)",
+		}
+	}
+
+	// Validate JetStream store directory if JetStream is enabled
+	if c.Embedded.EnableJetStream && c.Embedded.StoreDir != "" {
+		// Check if parent directory exists and is writable
+		parentDir := filepath.Dir(c.Embedded.StoreDir)
+		if _, err := os.Stat(parentDir); os.IsNotExist(err) {
+			return &NATSConfigError{
+				Field:   "embedded.storedir",
+				Message: fmt.Sprintf("JetStream store parent directory does not exist: %s", parentDir),
+				Hint:    "Create the parent directory or specify a different path. The store directory will be created automatically.",
+			}
+		}
+	}
+
+	// Validate address family
+	if c.Embedded.AddressFamily != "" {
+		switch c.Embedded.AddressFamily {
+		case "prefer_ipv4", "prefer_ipv6", "ipv4_only", "ipv6_only":
+			// valid
+		default:
+			return &NATSConfigError{
+				Field:   "embedded.addressfamily",
+				Message: fmt.Sprintf("invalid address family: %q", c.Embedded.AddressFamily),
+				Hint:    "Valid options: 'prefer_ipv4' (default), 'prefer_ipv6', 'ipv4_only', 'ipv6_only'",
+			}
+		}
+	}
+
+	return nil
+}
+
+// Validate validates the JetStream configuration.
+func (c *JetStreamConfig) Validate() error {
+	if !c.Enabled {
+		return nil
+	}
+
+	if c.MaxStorage < 0 {
+		return &NATSConfigError{
+			Field:   "jetstream.maxstorage",
+			Message: "JetStream max storage cannot be negative",
+			Hint:    "Use 0 for automatic sizing or specify bytes (e.g., 10737418240 for 10GB)",
+		}
+	}
+
+	// If store directory is specified, validate it
+	if c.StoreDir != "" {
+		parentDir := filepath.Dir(c.StoreDir)
+		if _, err := os.Stat(parentDir); os.IsNotExist(err) {
+			return &NATSConfigError{
+				Field:   "jetstream.storedir",
+				Message: fmt.Sprintf("JetStream store parent directory does not exist: %s", parentDir),
+				Hint:    "Create the parent directory or specify a different path",
+			}
+		}
+	}
+
+	return nil
+}
+
+// NATSConfigError provides detailed error information for NATS configuration issues.
+type NATSConfigError struct {
+	Field   string // Configuration field that has the issue
+	Message string // Description of the error
+	Hint    string // Actionable guidance on how to fix the issue
+}
+
+// Error implements the error interface.
+func (e *NATSConfigError) Error() string {
+	if e.Hint != "" {
+		return fmt.Sprintf("NATS configuration error in %s: %s. Hint: %s", e.Field, e.Message, e.Hint)
+	}
+	return fmt.Sprintf("NATS configuration error in %s: %s", e.Field, e.Message)
+}
+
+// validateNATSURL validates a NATS connection URL.
+func validateNATSURL(urlStr string) error {
+	// Handle comma-separated URLs
+	urls := strings.Split(urlStr, ",")
+	for _, u := range urls {
+		u = strings.TrimSpace(u)
+		if u == "" {
+			continue
+		}
+		if err := validateSingleNATSURL(u); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// validateSingleNATSURL validates a single NATS URL.
+func validateSingleNATSURL(urlStr string) error {
+	parsed, err := url.Parse(urlStr)
+	if err != nil {
+		return fmt.Errorf("malformed URL: %w", err)
+	}
+
+	// Check scheme
+	switch parsed.Scheme {
+	case "nats", "tls", "ws", "wss":
+		// Valid NATS schemes
+	case "":
+		return fmt.Errorf("URL scheme is required (nats://, tls://, ws://, or wss://)")
+	default:
+		return fmt.Errorf("unsupported URL scheme %q (use nats://, tls://, ws://, or wss://)", parsed.Scheme)
+	}
+
+	// Check host
+	if parsed.Host == "" {
+		return fmt.Errorf("URL host is required")
+	}
+
+	return nil
+}
+
+// validateNATSLeafURL validates a NATS leaf node URL.
+func validateNATSLeafURL(urlStr string) error {
+	parsed, err := url.Parse(urlStr)
+	if err != nil {
+		return fmt.Errorf("malformed URL: %w", err)
+	}
+
+	// Check scheme - leaf nodes typically use nats-leaf or tls
+	switch parsed.Scheme {
+	case "nats", "nats-leaf", "tls", "ws", "wss":
+		// Valid leaf node schemes
+	case "":
+		return fmt.Errorf("URL scheme is required (nats-leaf://, nats://, tls://, ws://, or wss://)")
+	default:
+		return fmt.Errorf("unsupported URL scheme %q (use nats-leaf://, nats://, tls://, ws://, or wss://)", parsed.Scheme)
+	}
+
+	// Check host
+	if parsed.Host == "" {
+		return fmt.Errorf("URL host is required")
+	}
+
+	return nil
 }
 
 // StorageConfig contains state storage settings
@@ -548,22 +854,9 @@ func setDefaults(v *viper.Viper) {
 
 // Validate checks if the configuration is valid
 func (c *Config) Validate() error {
-	// Validate NATS mode
-	switch c.NATS.Mode {
-	case NATSModeEmbedded, NATSModeExternal, NATSModeLeaf:
-		// valid
-	default:
-		return fmt.Errorf("invalid NATS mode: %s (must be embedded, external, or leaf)", c.NATS.Mode)
-	}
-
-	// Validate external mode has URL
-	if c.NATS.Mode == NATSModeExternal && c.NATS.URL == "" {
-		return fmt.Errorf("NATS URL is required when mode is external")
-	}
-
-	// Validate leaf mode has parent URLs
-	if c.NATS.Mode == NATSModeLeaf && len(c.NATS.Embedded.LeafNodeURLs) == 0 {
-		return fmt.Errorf("leaf node parent URLs required when mode is leaf")
+	// Validate NATS configuration with detailed error messages
+	if err := c.NATS.Validate(); err != nil {
+		return err
 	}
 
 	// Validate storage backend
@@ -591,9 +884,7 @@ func (c *Config) Validate() error {
 	if err := validateAddressFamily(c.Server.AddressFamily, "server"); err != nil {
 		return err
 	}
-	if err := validateAddressFamily(c.NATS.Embedded.AddressFamily, "nats.embedded"); err != nil {
-		return err
-	}
+	// NATS embedded address family is validated in c.NATS.Validate()
 	if err := validateAddressFamily(c.Agent.AddressFamily, "agent"); err != nil {
 		return err
 	}

@@ -1,8 +1,0 @@
-{
-  "editor.formatOnSave": true,
-  "files.insertFinalNewline": true,
-  "files.trimTrailingWhitespace": true,
-  "go.useLanguageServer": true,
-  "go.formatTool": "gofmt",
-  "go.lintTool": "golangci-lint"
-}

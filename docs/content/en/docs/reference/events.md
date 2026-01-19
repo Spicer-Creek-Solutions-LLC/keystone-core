@@ -783,19 +783,18 @@ message ListEventsRequest {
 ### From Code
 
 ```go
-event := events.NewEvent().
-    WithType(events.EventTypeJobComplete).
-    WithSource("control-plane").
-    WithSeverity(events.SeverityInfo).
-    WithCorrelationID("job-abc123").
-    WithTag("production").
-    WithData(map[string]interface{}{
+event := events.NewEvent(events.EventTypeJobComplete).
+    Source("control-plane").
+    Severity(events.SeverityInfo).
+    CorrelationID("job-abc123").
+    Tag("env", "production").
+    DataMap(map[string]interface{}{
         "job_id": "abc123",
         "status": "success",
     }).
     Build()
 
-publisher.Publish(ctx, event)
+publisher.Publish(event)
 ```
 
 ### From CLI

@@ -655,6 +655,618 @@ nats stream purge KSCORE_EVENTS --keep 1000000
 nats stream edit KSCORE_EVENTS --max-bytes 10GB
 ```
 
+## NATS Metrics Dashboards
+
+### Dashboard Overview
+
+The following dashboards provide comprehensive visibility into NATS mesh health and performance.
+
+### Connection Health Dashboard
+
+Monitor connection status across all agents and NATS endpoints.
+
+```json
+{
+  "title": "NATS Connection Health",
+  "panels": [
+    {
+      "title": "Active Connections",
+      "type": "stat",
+      "targets": [{
+        "expr": "sum(kscore_nats_connections_total{status=\"success\"})",
+        "legendFormat": "Active"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": 0},
+              {"color": "yellow", "value": 10},
+              {"color": "green", "value": 50}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Connection Success Rate",
+      "type": "gauge",
+      "targets": [{
+        "expr": "sum(rate(kscore_nats_connections_total{status=\"success\"}[5m])) / sum(rate(kscore_nats_connections_total[5m])) * 100"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "steps": [
+              {"color": "red", "value": 0},
+              {"color": "yellow", "value": 95},
+              {"color": "green", "value": 99}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Connection Latency by Endpoint",
+      "type": "timeseries",
+      "targets": [{
+        "expr": "histogram_quantile(0.95, rate(kscore_nats_connection_latency_seconds_bucket[5m])) * 1000",
+        "legendFormat": "P95 {{endpoint}}"
+      }, {
+        "expr": "histogram_quantile(0.50, rate(kscore_nats_connection_latency_seconds_bucket[5m])) * 1000",
+        "legendFormat": "P50 {{endpoint}}"
+      }],
+      "fieldConfig": {"defaults": {"unit": "ms"}}
+    },
+    {
+      "title": "Reconnections Rate",
+      "type": "timeseries",
+      "targets": [{
+        "expr": "sum(rate(kscore_nats_reconnections_total[5m])) by (endpoint)",
+        "legendFormat": "{{endpoint}}"
+      }],
+      "fieldConfig": {"defaults": {"unit": "ops"}}
+    },
+    {
+      "title": "Connection Errors",
+      "type": "timeseries",
+      "targets": [{
+        "expr": "sum(rate(kscore_nats_connection_errors_total[5m])) by (error_type)",
+        "legendFormat": "{{error_type}}"
+      }]
+    },
+    {
+      "title": "Connections by Status",
+      "type": "piechart",
+      "targets": [{
+        "expr": "sum(kscore_nats_connections_total) by (status)",
+        "legendFormat": "{{status}}"
+      }]
+    }
+  ]
+}
+```
+
+### Message Throughput Dashboard
+
+Track message rates, delivery status, and processing latency.
+
+```json
+{
+  "title": "NATS Message Throughput",
+  "panels": [
+    {
+      "title": "Messages Published/sec",
+      "type": "stat",
+      "targets": [{
+        "expr": "sum(rate(kscore_nats_messages_published_total[5m]))"
+      }],
+      "fieldConfig": {"defaults": {"unit": "msg/s"}}
+    },
+    {
+      "title": "Messages Received/sec",
+      "type": "stat",
+      "targets": [{
+        "expr": "sum(rate(kscore_nats_messages_received_total[5m]))"
+      }],
+      "fieldConfig": {"defaults": {"unit": "msg/s"}}
+    },
+    {
+      "title": "Message Rate by Subject",
+      "type": "timeseries",
+      "targets": [{
+        "expr": "topk(10, sum(rate(kscore_nats_messages_published_total[5m])) by (subject))",
+        "legendFormat": "{{subject}}"
+      }],
+      "fieldConfig": {"defaults": {"unit": "msg/s"}}
+    },
+    {
+      "title": "Delivery Status",
+      "type": "piechart",
+      "targets": [{
+        "expr": "sum(increase(kscore_nats_delivery_acked_total[1h]))",
+        "legendFormat": "Acked"
+      }, {
+        "expr": "sum(increase(kscore_nats_delivery_failed_total[1h]))",
+        "legendFormat": "Failed"
+      }, {
+        "expr": "sum(kscore_nats_delivery_pending)",
+        "legendFormat": "Pending"
+      }]
+    },
+    {
+      "title": "Message Latency Heatmap",
+      "type": "heatmap",
+      "targets": [{
+        "expr": "sum(rate(kscore_nats_message_latency_seconds_bucket[5m])) by (le)",
+        "format": "heatmap"
+      }],
+      "options": {
+        "yAxis": {"unit": "s"}
+      }
+    },
+    {
+      "title": "Duplicate Detection Rate",
+      "type": "timeseries",
+      "targets": [{
+        "expr": "sum(rate(kscore_nats_duplicates_detected_total[5m])) by (subject)",
+        "legendFormat": "{{subject}}"
+      }]
+    },
+    {
+      "title": "Message Size Distribution",
+      "type": "histogram",
+      "targets": [{
+        "expr": "sum(rate(kscore_nats_message_size_bytes_bucket[5m])) by (le)",
+        "format": "heatmap"
+      }],
+      "options": {
+        "xAxis": {"unit": "bytes"}
+      }
+    }
+  ]
+}
+```
+
+### JetStream Dashboard
+
+Monitor JetStream streams, consumers, and storage.
+
+```json
+{
+  "title": "NATS JetStream",
+  "panels": [
+    {
+      "title": "Stream Overview",
+      "type": "table",
+      "targets": [{
+        "expr": "kscore_nats_stream_messages",
+        "legendFormat": "",
+        "instant": true
+      }],
+      "transformations": [{
+        "id": "organize",
+        "options": {
+          "includeByName": {
+            "stream": true,
+            "Value": true
+          },
+          "renameByName": {"Value": "Messages"}
+        }
+      }]
+    },
+    {
+      "title": "Stream Messages Count",
+      "type": "timeseries",
+      "targets": [{
+        "expr": "kscore_nats_stream_messages",
+        "legendFormat": "{{stream}}"
+      }]
+    },
+    {
+      "title": "Stream Storage Used",
+      "type": "timeseries",
+      "targets": [{
+        "expr": "kscore_nats_stream_bytes",
+        "legendFormat": "{{stream}}"
+      }],
+      "fieldConfig": {"defaults": {"unit": "bytes"}}
+    },
+    {
+      "title": "Consumer Pending Messages",
+      "type": "timeseries",
+      "targets": [{
+        "expr": "kscore_nats_consumer_pending",
+        "legendFormat": "{{stream}}/{{consumer}}"
+      }]
+    },
+    {
+      "title": "Consumer Ack Pending",
+      "type": "timeseries",
+      "targets": [{
+        "expr": "kscore_nats_consumer_ack_pending",
+        "legendFormat": "{{stream}}/{{consumer}}"
+      }]
+    },
+    {
+      "title": "Redelivery Rate",
+      "type": "timeseries",
+      "targets": [{
+        "expr": "sum(rate(kscore_nats_consumer_redelivered_total[5m])) by (consumer)",
+        "legendFormat": "{{consumer}}"
+      }]
+    },
+    {
+      "title": "Stream Storage Capacity",
+      "type": "gauge",
+      "targets": [{
+        "expr": "kscore_nats_stream_bytes / kscore_nats_stream_max_bytes * 100",
+        "legendFormat": "{{stream}}"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "steps": [
+              {"color": "green", "value": 0},
+              {"color": "yellow", "value": 70},
+              {"color": "red", "value": 90}
+            ]
+          }
+        }
+      }
+    }
+  ]
+}
+```
+
+### Cluster Topology Dashboard
+
+Visualize NATS cluster structure and health.
+
+```json
+{
+  "title": "NATS Cluster Topology",
+  "panels": [
+    {
+      "title": "Cluster Servers",
+      "type": "stat",
+      "targets": [{
+        "expr": "count(kscore_nats_server_up == 1)"
+      }]
+    },
+    {
+      "title": "Leaf Nodes Connected",
+      "type": "stat",
+      "targets": [{
+        "expr": "sum(kscore_nats_leaf_nodes_total)"
+      }]
+    },
+    {
+      "title": "Gateway Connections",
+      "type": "stat",
+      "targets": [{
+        "expr": "sum(kscore_nats_gateway_connections_total)"
+      }]
+    },
+    {
+      "title": "Server Status",
+      "type": "table",
+      "targets": [{
+        "expr": "kscore_nats_server_up",
+        "instant": true
+      }, {
+        "expr": "kscore_nats_server_connections",
+        "instant": true
+      }, {
+        "expr": "kscore_nats_server_subscriptions",
+        "instant": true
+      }],
+      "transformations": [{
+        "id": "merge"
+      }]
+    },
+    {
+      "title": "Route Connections",
+      "type": "timeseries",
+      "targets": [{
+        "expr": "kscore_nats_route_connections by (server)",
+        "legendFormat": "{{server}}"
+      }]
+    },
+    {
+      "title": "Leaf Node Distribution",
+      "type": "piechart",
+      "targets": [{
+        "expr": "sum(kscore_nats_leaf_nodes_total) by (hub_server)",
+        "legendFormat": "{{hub_server}}"
+      }]
+    },
+    {
+      "title": "Gateway Latency",
+      "type": "timeseries",
+      "targets": [{
+        "expr": "histogram_quantile(0.95, rate(kscore_nats_gateway_latency_seconds_bucket[5m])) * 1000",
+        "legendFormat": "{{gateway}} P95"
+      }],
+      "fieldConfig": {"defaults": {"unit": "ms"}}
+    },
+    {
+      "title": "Cross-Cluster Messages",
+      "type": "timeseries",
+      "targets": [{
+        "expr": "sum(rate(kscore_nats_gateway_messages_total[5m])) by (gateway)",
+        "legendFormat": "{{gateway}}"
+      }],
+      "fieldConfig": {"defaults": {"unit": "msg/s"}}
+    }
+  ]
+}
+```
+
+### Buffer and Reliability Dashboard
+
+Monitor message buffers, circuit breakers, and reliability features.
+
+```json
+{
+  "title": "NATS Reliability",
+  "panels": [
+    {
+      "title": "Buffer Utilization",
+      "type": "gauge",
+      "targets": [{
+        "expr": "kscore_nats_buffer_size / kscore_nats_buffer_capacity * 100",
+        "legendFormat": "{{agent}}"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "steps": [
+              {"color": "green", "value": 0},
+              {"color": "yellow", "value": 60},
+              {"color": "red", "value": 80}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Buffer Overflow Events",
+      "type": "timeseries",
+      "targets": [{
+        "expr": "rate(kscore_nats_buffer_overflow_total[5m])",
+        "legendFormat": "Overflows/sec"
+      }]
+    },
+    {
+      "title": "Circuit Breaker States",
+      "type": "stat",
+      "targets": [{
+        "expr": "count(kscore_nats_circuit_breaker_state == 0)",
+        "legendFormat": "Closed"
+      }, {
+        "expr": "count(kscore_nats_circuit_breaker_state == 1)",
+        "legendFormat": "Half-Open"
+      }, {
+        "expr": "count(kscore_nats_circuit_breaker_state == 2)",
+        "legendFormat": "Open"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [{
+            "type": "value",
+            "options": {
+              "0": {"text": "Closed", "color": "green"},
+              "1": {"text": "Half-Open", "color": "yellow"},
+              "2": {"text": "Open", "color": "red"}
+            }
+          }]
+        }
+      }
+    },
+    {
+      "title": "Circuit Breaker Trips",
+      "type": "timeseries",
+      "targets": [{
+        "expr": "sum(increase(kscore_nats_circuit_breaker_trips_total[1h])) by (endpoint)",
+        "legendFormat": "{{endpoint}}"
+      }]
+    },
+    {
+      "title": "Message Retry Rate",
+      "type": "timeseries",
+      "targets": [{
+        "expr": "sum(rate(kscore_nats_message_retries_total[5m])) by (reason)",
+        "legendFormat": "{{reason}}"
+      }]
+    },
+    {
+      "title": "Dead Letter Queue Size",
+      "type": "timeseries",
+      "targets": [{
+        "expr": "kscore_nats_dlq_messages_total",
+        "legendFormat": "DLQ Messages"
+      }]
+    },
+    {
+      "title": "Degradation Mode Status",
+      "type": "stat",
+      "targets": [{
+        "expr": "kscore_nats_degradation_mode",
+        "legendFormat": "{{agent}}"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [{
+            "type": "value",
+            "options": {
+              "0": {"text": "Normal", "color": "green"},
+              "1": {"text": "Degraded", "color": "yellow"},
+              "2": {"text": "Offline", "color": "red"}
+            }
+          }]
+        }
+      }
+    }
+  ]
+}
+```
+
+### Agent NATS Dashboard
+
+Per-agent NATS metrics for detailed troubleshooting.
+
+```json
+{
+  "title": "Agent NATS Details",
+  "variables": [
+    {
+      "name": "agent",
+      "type": "query",
+      "query": "label_values(kscore_nats_connections_total, agent)"
+    }
+  ],
+  "panels": [
+    {
+      "title": "Connection Status",
+      "type": "stat",
+      "targets": [{
+        "expr": "kscore_nats_connection_status{agent=\"$agent\"}"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [{
+            "type": "value",
+            "options": {
+              "0": {"text": "Disconnected", "color": "red"},
+              "1": {"text": "Connected", "color": "green"},
+              "2": {"text": "Reconnecting", "color": "yellow"}
+            }
+          }]
+        }
+      }
+    },
+    {
+      "title": "Connected Endpoint",
+      "type": "stat",
+      "targets": [{
+        "expr": "kscore_nats_current_endpoint{agent=\"$agent\"}",
+        "legendFormat": "{{endpoint}}"
+      }]
+    },
+    {
+      "title": "Messages Published",
+      "type": "timeseries",
+      "targets": [{
+        "expr": "rate(kscore_nats_messages_published_total{agent=\"$agent\"}[5m])",
+        "legendFormat": "{{subject}}"
+      }],
+      "fieldConfig": {"defaults": {"unit": "msg/s"}}
+    },
+    {
+      "title": "Messages Received",
+      "type": "timeseries",
+      "targets": [{
+        "expr": "rate(kscore_nats_messages_received_total{agent=\"$agent\"}[5m])",
+        "legendFormat": "{{subject}}"
+      }],
+      "fieldConfig": {"defaults": {"unit": "msg/s"}}
+    },
+    {
+      "title": "Buffer Status",
+      "type": "timeseries",
+      "targets": [{
+        "expr": "kscore_nats_buffer_size{agent=\"$agent\"}",
+        "legendFormat": "Current Size"
+      }, {
+        "expr": "kscore_nats_buffer_capacity{agent=\"$agent\"}",
+        "legendFormat": "Capacity"
+      }],
+      "fieldConfig": {"defaults": {"unit": "bytes"}}
+    },
+    {
+      "title": "Subscriptions",
+      "type": "table",
+      "targets": [{
+        "expr": "kscore_nats_subscription_messages_total{agent=\"$agent\"}",
+        "instant": true
+      }]
+    },
+    {
+      "title": "Connection Events",
+      "type": "logs",
+      "targets": [{
+        "expr": "{agent=\"$agent\", component=\"nats\"}",
+        "datasource": "Loki"
+      }]
+    }
+  ]
+}
+```
+
+### Dashboard Installation
+
+```bash
+# Import all NATS dashboards
+for dashboard in connection-health message-throughput jetstream cluster-topology reliability agent-details; do
+  curl -X POST http://admin:admin@grafana:3000/api/dashboards/db \
+    -H "Content-Type: application/json" \
+    -d @deploy/grafana/dashboards/nats-${dashboard}.json
+done
+
+# Or use Grafana provisioning
+cp deploy/grafana/dashboards/nats-*.json /etc/grafana/provisioning/dashboards/
+```
+
+### Dashboard Variables
+
+All dashboards support these common variables:
+
+| Variable | Query | Description |
+|----------|-------|-------------|
+| `$cluster` | `label_values(kscore_nats_server_up, cluster)` | NATS cluster |
+| `$endpoint` | `label_values(kscore_nats_connections_total, endpoint)` | NATS endpoint |
+| `$agent` | `label_values(kscore_nats_connections_total, agent)` | Agent ID |
+| `$stream` | `label_values(kscore_nats_stream_messages, stream)` | JetStream stream |
+| `$interval` | `$__auto_interval_interval` | Auto time interval |
+
+### Recording Rules for Dashboards
+
+Add these recording rules for dashboard performance:
+
+```yaml
+groups:
+  - name: nats-recording-rules
+    rules:
+      # Connection success rate (pre-computed)
+      - record: kscore:nats_connection_success_rate
+        expr: |
+          sum(rate(kscore_nats_connections_total{status="success"}[5m])) /
+          sum(rate(kscore_nats_connections_total[5m]))
+
+      # Message throughput aggregates
+      - record: kscore:nats_messages_per_second
+        expr: sum(rate(kscore_nats_messages_published_total[5m]))
+
+      # P95 latency by endpoint
+      - record: kscore:nats_latency_p95
+        expr: histogram_quantile(0.95, rate(kscore_nats_connection_latency_seconds_bucket[5m]))
+
+      # Buffer utilization
+      - record: kscore:nats_buffer_utilization
+        expr: kscore_nats_buffer_size / kscore_nats_buffer_capacity
+
+      # JetStream storage utilization
+      - record: kscore:nats_stream_utilization
+        expr: kscore_nats_stream_bytes / kscore_nats_stream_max_bytes
+```
+
 ## See Also
 
 - [NATS Mesh Concepts]({{< ref "../concepts/nats-mesh" >}}) - Architecture overview

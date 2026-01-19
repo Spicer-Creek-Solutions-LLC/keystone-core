@@ -257,5 +257,5 @@ This example demonstrates:
 ## Next Steps
 
 - [Remote Execution Basics](/docs/tutorials/remote-execution/) - Run commands on agents
-- [Deploy a Web Application](/docs/tutorials/deploy-web-app/) - A real-world example
+- [Multi-Tier Web Application](/docs/scenarios/multi-tier-webapp/) - A real-world example
 - [State Management Concepts](/docs/concepts/state-management/) - Deep dive into states

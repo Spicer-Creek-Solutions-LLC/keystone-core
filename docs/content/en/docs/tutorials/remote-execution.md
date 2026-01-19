@@ -250,6 +250,6 @@ kscorectl exec run "your-expression" -- hostname
 
 ## Next Steps
 
-- [Deploy a Web Application](/docs/tutorials/deploy-web-app/) - Combine states with execution
-- [Event-Driven Automation](/docs/tutorials/event-automation/) - Trigger commands from events
+- [Multi-Tier Web Application](/docs/scenarios/multi-tier-webapp/) - Combine states with execution
+- [Event-Driven Automation](/docs/scenarios/event-driven-automation/) - Trigger commands from events
 - [Remote Execution Reference](/docs/reference/cli/#kscore-exec) - Complete CLI reference

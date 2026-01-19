@@ -70,4 +70,4 @@ Each concept page follows a consistent structure:
 
 ## Contributing
 
-Found an error or have a suggestion? See our [Contributing Guide](../../community/contributing/) to learn how to improve the documentation.
+Found an error or have a suggestion? See our [Contributing Guide](../community/contributing/) to learn how to improve the documentation.

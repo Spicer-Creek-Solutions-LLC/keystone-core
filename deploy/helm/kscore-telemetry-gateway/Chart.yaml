@@ -1,0 +1,22 @@
+apiVersion: v2
+name: kscore-telemetry-gateway
+description: Keystone Core Telemetry Gateway - aggregates metrics, logs, and traces from agents
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - keystone
+  - telemetry
+  - observability
+  - metrics
+  - logs
+  - traces
+  - prometheus
+  - loki
+  - tempo
+home: https://github.com/shawnbutts/keystone-core
+sources:
+  - https://github.com/shawnbutts/keystone-core
+maintainers:
+  - name: Keystone Core Team
+    url: https://github.com/shawnbutts/keystone-core

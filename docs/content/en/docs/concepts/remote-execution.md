@@ -766,6 +766,311 @@ kscorectl exec run "free -h" --target "role:web"
 kscorectl exec run "df -h" --target "role:web"
 ```
 
+## Output Retention and Archival
+
+Command output is stored for troubleshooting, auditing, and compliance. Configure retention policies to balance storage costs with operational needs.
+
+### Storage Locations
+
+Command output is stored in two locations:
+
+| Location | Content | Default Retention | Purpose |
+|----------|---------|-------------------|---------|
+| Database | Metadata, exit codes, truncated output | 30 days | Quick queries, UI display |
+| Object Storage | Full stdout/stderr | 90 days | Full output retrieval, archival |
+
+### Retention Configuration
+
+Configure retention in the control plane:
+
+```yaml
+# server.yaml
+execution:
+  output:
+    # Database retention (metadata and truncated output)
+    retention:
+      default: 30d           # Default retention period
+      max: 365d              # Maximum allowed retention
+      min: 1d                # Minimum retention
+
+    # Per-output size limits
+    truncation:
+      stdout_max: 1MB        # Max stdout stored in DB
+      stderr_max: 256KB      # Max stderr stored in DB
+      combined_max: 2MB      # Total output limit
+
+    # Object storage for full output
+    storage:
+      enabled: true
+      backend: s3            # s3, gcs, azure, local
+      bucket: kscore-output
+      prefix: command-output/
+      retention: 90d
+
+    # Cleanup schedule
+    cleanup:
+      schedule: "0 2 * * *"  # Daily at 2 AM
+      batch_size: 10000      # Records per cleanup batch
+```
+
+### Per-Job Retention
+
+Override retention for specific jobs:
+
+```bash
+# Keep output for 1 year (compliance requirement)
+kscorectl exec run "audit-command" \
+  --target "role:db" \
+  --retention 365d
+
+# Keep output for only 1 day (sensitive data)
+kscorectl exec run "show-secrets" \
+  --target "web-01" \
+  --retention 1d
+
+# Don't store output at all
+kscorectl exec run "interactive-debug" \
+  --target "web-01" \
+  --retention 0
+```
+
+### Output Truncation
+
+Large command output is truncated in the database, with full output available in object storage:
+
+```yaml
+# Default truncation settings
+truncation:
+  stdout_max: 1MB          # First 1MB in database
+  stderr_max: 256KB        # First 256KB in database
+  tail_size: 64KB          # Also keep last 64KB
+```
+
+When output exceeds limits:
+1. Database stores first N bytes + last M bytes
+2. Full output stored in object storage
+3. Metadata includes `truncated: true` flag
+4. Link provided to full output
+
+### Archival Options
+
+#### Archive to Object Storage
+
+Move old output to cold storage:
+
+```yaml
+execution:
+  output:
+    archival:
+      enabled: true
+      after: 30d             # Archive after 30 days
+      backend: s3
+      bucket: kscore-archive
+      storage_class: GLACIER # Use cold storage tier
+      retention: 7y          # Keep archives for 7 years
+```
+
+**Supported Storage Classes:**
+
+| Provider | Hot | Warm | Cold | Archive |
+|----------|-----|------|------|---------|
+| AWS S3 | STANDARD | STANDARD_IA | GLACIER_IR | GLACIER_DEEP |
+| GCS | STANDARD | NEARLINE | COLDLINE | ARCHIVE |
+| Azure | Hot | Cool | Cold | Archive |
+
+#### Archive Command
+
+Manually archive output:
+
+```bash
+# Archive output older than 90 days
+kscorectl exec archive --older-than 90d
+
+# Archive specific job
+kscorectl exec archive --job-id job-123
+
+# Archive to specific location
+kscorectl exec archive --older-than 90d --destination s3://archive-bucket/
+```
+
+#### Export for Compliance
+
+Export output for compliance audits:
+
+```bash
+# Export all output for date range
+kscorectl exec export \
+  --since 2024-01-01 \
+  --until 2024-03-31 \
+  --output /backup/Q1-2024-commands.tar.gz
+
+# Export with metadata
+kscorectl exec export \
+  --since 2024-01-01 \
+  --until 2024-03-31 \
+  --include-metadata \
+  --format json \
+  --output /backup/Q1-2024-commands.json
+```
+
+### Retrieval
+
+#### Recent Output (from Database)
+
+```bash
+# Get job output (uses database if within retention)
+kscorectl exec output job-123
+
+# Get output for specific agent
+kscorectl exec output job-123 --agent web-01
+```
+
+#### Archived Output
+
+```bash
+# Retrieve from archive (may take time for cold storage)
+kscorectl exec output job-123 --from-archive
+
+# Check archive status
+kscorectl exec archive status job-123
+```
+
+#### Full Output (Object Storage)
+
+```bash
+# Get full untruncated output
+kscorectl exec output job-123 --full
+
+# Download to file
+kscorectl exec output job-123 --full --output /tmp/output.txt
+```
+
+### Cleanup Policies
+
+#### Automatic Cleanup
+
+Configure automatic cleanup of expired output:
+
+```yaml
+execution:
+  output:
+    cleanup:
+      enabled: true
+      schedule: "0 2 * * *"    # Run daily at 2 AM
+      batch_size: 10000        # Process 10k records per run
+      dry_run: false           # Set true to test
+      notify_on_error: true    # Alert on cleanup failures
+```
+
+#### Manual Cleanup
+
+```bash
+# Preview what would be deleted
+kscorectl exec cleanup --dry-run
+
+# Delete output older than 90 days
+kscorectl exec cleanup --older-than 90d
+
+# Delete output for specific targets
+kscorectl exec cleanup --target "environment:dev" --older-than 7d
+
+# Force cleanup (skip confirmation)
+kscorectl exec cleanup --older-than 90d --force
+```
+
+### Storage Sizing Guidelines
+
+Estimate storage requirements:
+
+| Metric | Typical Value | Notes |
+|--------|---------------|-------|
+| Avg output size | 10-50 KB | Varies by command type |
+| Commands/day | 1,000-10,000 | Depends on automation level |
+| Metadata overhead | 1 KB/command | Fixed per command |
+
+**Storage Calculation:**
+
+```
+Daily storage = Commands/day × (Avg output + Metadata)
+Monthly storage = Daily storage × 30 × (1 + archive_factor)
+```
+
+**Example (medium deployment):**
+- 5,000 commands/day × 30 KB average = 150 MB/day
+- 30 days retention = 4.5 GB
+- With 90-day archive = 13.5 GB total
+
+### Monitoring
+
+```promql
+# Output storage usage
+kscore_execution_output_bytes_total
+
+# Cleanup metrics
+kscore_execution_cleanup_deleted_total
+kscore_execution_cleanup_errors_total
+kscore_execution_cleanup_duration_seconds
+
+# Archive metrics
+kscore_execution_archive_bytes_total
+kscore_execution_archive_objects_total
+```
+
+**Alert Examples:**
+
+```yaml
+# Alert when storage usage high
+- alert: ExecutionOutputStorageHigh
+  expr: kscore_execution_output_bytes_total > 100e9  # 100GB
+  for: 1h
+  labels:
+    severity: warning
+
+# Alert when cleanup failing
+- alert: ExecutionCleanupFailing
+  expr: increase(kscore_execution_cleanup_errors_total[1d]) > 0
+  for: 1h
+  labels:
+    severity: warning
+```
+
+### Security Considerations
+
+1. **Sensitive Data**: Output may contain secrets - configure short retention or disable storage:
+   ```bash
+   kscorectl exec run "show-password" --retention 0
+   ```
+
+2. **Access Control**: Restrict who can retrieve output:
+   ```yaml
+   rbac:
+     roles:
+       - name: operator
+         permissions:
+           - execution.run
+           - execution.output.recent   # Last 24h only
+       - name: admin
+         permissions:
+           - execution.output.all      # All output
+           - execution.output.archive  # Archived output
+   ```
+
+3. **Encryption**: Enable encryption at rest:
+   ```yaml
+   execution:
+     output:
+       storage:
+         encryption:
+           enabled: true
+           kms_key: alias/kscore-output
+   ```
+
+4. **Audit Logging**: Track output access:
+   ```yaml
+   audit:
+     log_output_access: true
+   ```
+
 ## Troubleshooting
 
 ### Command Not Executing

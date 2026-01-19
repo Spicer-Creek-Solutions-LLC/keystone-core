@@ -98,6 +98,13 @@ func (lc *LinkChecker) checkLink(source, link string) LinkCheckResult {
 		Link:   link,
 	}
 
+	// Skip Hugo shortcodes like {{< ref "..." >}} or {{% ... %}}
+	if strings.HasPrefix(link, "{{") {
+		result.Type = "shortcode"
+		result.Status = "skipped"
+		return result
+	}
+
 	// Determine link type
 	if strings.HasPrefix(link, "#") {
 		result.Type = "anchor"
@@ -151,27 +158,60 @@ func (lc *LinkChecker) checkInternalLink(source string, result LinkCheckResult) 
 		return result
 	}
 
-	// Handle relative paths
-	sourceDir := filepath.Dir(filepath.Join(lc.docsDir, source))
 	var targetPath string
 
-	if strings.HasPrefix(link, "/") {
-		// Absolute from docs root
-		targetPath = filepath.Join(lc.docsDir, link)
-	} else if strings.HasPrefix(link, "../") || strings.HasPrefix(link, "./") {
-		// Relative path
-		targetPath = filepath.Join(sourceDir, link)
+	if strings.HasPrefix(link, "/docs/") {
+		// Hugo-style absolute URL: /docs/concepts/ -> docs/content/en/docs/concepts/
+		// Strip /docs/ prefix and resolve from docsDir
+		hugoPath := strings.TrimPrefix(link, "/docs/")
+		hugoPath = strings.TrimSuffix(hugoPath, "/")
+		targetPath = filepath.Join(lc.docsDir, hugoPath)
+	} else if strings.HasPrefix(link, "/") {
+		// Other absolute paths - check from root
+		targetPath = filepath.Join(lc.rootDir, link)
 	} else {
-		// Assume relative to current directory
-		targetPath = filepath.Join(sourceDir, link)
+		// Relative paths in Hugo: a file like concepts/gitops.md has URL /docs/concepts/gitops/
+		// So relative links are from that "directory", meaning we treat the source file as a directory
+		// For concepts/gitops.md with link ../events/, we want concepts/events/ not concepts/../events/
+
+		// Get the source file's directory AND include the file basename (without .md) as another directory level
+		sourceDir := filepath.Dir(filepath.Join(lc.docsDir, source))
+		sourceBase := strings.TrimSuffix(filepath.Base(source), ".md")
+
+		// If source is _index.md, don't add another directory level
+		if sourceBase == "_index" || sourceBase == "index" {
+			targetPath = filepath.Join(sourceDir, link)
+		} else {
+			// Treat the source file as if it were a directory
+			// concepts/gitops.md + ../events/ = concepts/gitops/../events/ = concepts/events/
+			virtualDir := filepath.Join(sourceDir, sourceBase)
+			targetPath = filepath.Join(virtualDir, link)
+		}
 	}
 
-	// Check various extensions
+	// Clean the path and remove trailing slashes
+	targetPath = filepath.Clean(targetPath)
+
+	// Check various extensions and Hugo conventions
 	candidates := []string{
 		targetPath,
 		targetPath + ".md",
 		filepath.Join(targetPath, "_index.md"),
 		filepath.Join(targetPath, "index.md"),
+	}
+
+	// Also check as sibling (common Hugo pattern where relative links are siblings)
+	// For concepts/control-plane.md with link "state-storage/", also check concepts/state-storage.md
+	sourceDir := filepath.Dir(filepath.Join(lc.docsDir, source))
+	siblingPath := filepath.Join(sourceDir, strings.TrimSuffix(link, "/"))
+	siblingPath = filepath.Clean(siblingPath)
+	if siblingPath != targetPath {
+		candidates = append(candidates,
+			siblingPath,
+			siblingPath+".md",
+			filepath.Join(siblingPath, "_index.md"),
+			filepath.Join(siblingPath, "index.md"),
+		)
 	}
 
 	for _, candidate := range candidates {

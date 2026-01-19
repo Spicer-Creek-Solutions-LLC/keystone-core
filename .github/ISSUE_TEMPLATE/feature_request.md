@@ -28,4 +28,4 @@ assignees: ''
 
 ---
 
-**Note**: For larger features that affect architecture, compatibility, or user experience, consider opening an RFC instead. See [RFC.md](../../RFC.md) for the proposal process.
+**Note**: For larger features that affect architecture, compatibility, or user experience, consider opening an RFC instead. See [RFC.md](../../docs/project/RFC.md) for the proposal process.

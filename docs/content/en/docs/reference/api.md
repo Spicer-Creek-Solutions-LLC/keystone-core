@@ -15,6 +15,11 @@ Keystone Core provides both REST and gRPC APIs for programmatic access to all fu
 
 **Authentication**: All API requests require authentication (see [Authentication](#authentication))
 
+**OpenAPI Specification**: A complete OpenAPI 3.0 specification is available at [`api/openapi/openapi-spec.yaml`](https://github.com/keystone-core/keystone-core/blob/main/api/openapi/openapi-spec.yaml). Use this for:
+- Generating client SDKs in any language
+- Importing into API tools (Postman, Insomnia, etc.)
+- Viewing interactive documentation via Swagger UI or Redoc
+
 ## Authentication
 
 ### API Key Authentication
@@ -1229,13 +1234,27 @@ Official client libraries:
 
 ### Go
 
-```go
-import "github.com/shawnbutts/keystone-core/pkg/client"
+Use the standard `net/http` package to interact with the REST API:
 
-client := client.New("http://control-plane:8080", apiKey)
-agents, err := client.Agents().List(ctx, &client.ListAgentsOptions{
-    Environment: "production",
-})
+```go
+import (
+    "encoding/json"
+    "net/http"
+)
+
+req, _ := http.NewRequest("GET", "http://control-plane:8080/api/v1/agents?environment=production", nil)
+req.Header.Set("Authorization", "Bearer "+apiKey)
+
+resp, err := http.DefaultClient.Do(req)
+if err != nil {
+    return err
+}
+defer resp.Body.Close()
+
+var result struct {
+    Agents []map[string]interface{} `json:"agents"`
+}
+json.NewDecoder(resp.Body).Decode(&result)
 ```
 
 ### Python
@@ -1345,6 +1364,372 @@ request = event_service_pb2.SubscribeEventsRequest(
 
 for event in stub.SubscribeEvents(request):
     print(f"Event: {event.type} from {event.source}")
+```
+
+## API Versioning and Compatibility Policy
+
+This section defines how Keystone Core versions its APIs and maintains backward compatibility.
+
+### Version Scheme
+
+#### REST API
+
+The REST API uses URL path versioning:
+
+```
+/api/v1/agents
+/api/v2/agents
+```
+
+**Current Versions**:
+- `v1`: Stable, recommended for most use cases
+- `v2`: Latest features, may have breaking changes in minor releases until GA
+
+**Version Header**:
+You can also specify the version via header:
+
+```bash
+curl -H "Accept: application/vnd.kscore.v2+json" \
+  http://control-plane:8080/api/agents
+```
+
+#### gRPC API
+
+gRPC uses package versioning:
+
+```protobuf
+// v1 API
+package kscore.api.v1;
+
+// v2 API
+package kscore.api.v2;
+```
+
+### Compatibility Guarantees
+
+#### Stable (v1) API
+
+For stable API versions, we guarantee:
+
+| Change Type | Allowed | Notes |
+|-------------|---------|-------|
+| Add new endpoint | ✅ Yes | Non-breaking |
+| Add optional field | ✅ Yes | Non-breaking |
+| Add new enum value | ✅ Yes | Clients must handle unknown values |
+| Add new error code | ✅ Yes | Non-breaking |
+| Remove endpoint | ❌ No | Breaking change |
+| Remove field | ❌ No | Breaking change |
+| Change field type | ❌ No | Breaking change |
+| Change field semantics | ❌ No | Breaking change |
+| Rename endpoint | ❌ No | Breaking change |
+| Remove enum value | ❌ No | Breaking change |
+
+**Deprecation Notice**: Deprecated endpoints remain available for at least 12 months before removal.
+
+#### Preview (Beta) API
+
+For preview API versions (e.g., `v2-beta`):
+
+| Change Type | Allowed | Notes |
+|-------------|---------|-------|
+| All additive changes | ✅ Yes | |
+| Breaking changes | ⚠️ Yes | With 30-day notice |
+| Endpoint removal | ⚠️ Yes | With 30-day notice |
+
+### API Lifecycle
+
+```
+Alpha → Beta → Stable → Deprecated → Removed
+  ↓       ↓       ↓          ↓           ↓
+ Dev   Preview   GA      6 months    12 months
+                        notice       after dep.
+```
+
+| Stage | Stability | SLA | Support |
+|-------|-----------|-----|---------|
+| Alpha | Unstable | None | None |
+| Beta | Semi-stable | None | Best effort |
+| Stable | Stable | 99.9% | Full support |
+| Deprecated | Stable | 99.9% | Security only |
+| Removed | N/A | N/A | N/A |
+
+### Version Discovery
+
+```bash
+# List supported API versions
+curl http://control-plane:8080/api/versions
+
+# Response
+{
+  "versions": [
+    {
+      "version": "v1",
+      "status": "stable",
+      "default": true
+    },
+    {
+      "version": "v2",
+      "status": "beta",
+      "default": false,
+      "sunset_date": null
+    }
+  ],
+  "deprecated_versions": [
+    {
+      "version": "v1beta1",
+      "status": "deprecated",
+      "sunset_date": "2025-06-01",
+      "migration_guide": "https://docs.kscore.io/api/migrate-v1beta1-to-v1"
+    }
+  ]
+}
+```
+
+### Deprecation Policy
+
+#### Marking Deprecation
+
+Deprecated endpoints include warning headers:
+
+```http
+HTTP/1.1 200 OK
+Deprecation: true
+Sunset: Sat, 01 Jun 2025 00:00:00 GMT
+Link: <https://docs.kscore.io/api/migrate-v1-events>; rel="deprecation"
+Warning: 299 - "Deprecated API endpoint, migrate to /api/v2/events"
+```
+
+#### Deprecation Announcements
+
+- **API changelog**: All deprecations documented
+- **Release notes**: Major deprecations highlighted
+- **Email notification**: For registered API consumers
+- **In-API warnings**: As shown above
+
+#### Migration Timeline
+
+| Milestone | Timeline |
+|-----------|----------|
+| Deprecation announced | T+0 |
+| Warning headers added | T+0 |
+| Deprecation notice in docs | T+0 |
+| Migration guide published | T+0 |
+| Email notification sent | T+0 |
+| API marked deprecated in discovery | T+0 |
+| Last day of support | T+12 months |
+| API removed | T+12 months |
+
+### Backward Compatibility Guidelines
+
+#### Client Implementation Recommendations
+
+```python
+# Good: Handle unknown fields gracefully
+def process_agent(agent_data):
+    # Only access fields you need
+    agent_id = agent_data.get('id')
+    status = agent_data.get('status', 'unknown')
+    # Ignore unknown fields
+
+# Good: Handle unknown enum values
+def handle_status(status):
+    if status in ('connected', 'disconnected', 'degraded'):
+        return status
+    return 'unknown'  # Handle future enum values
+
+# Good: Check API version
+def check_version():
+    versions = client.get_versions()
+    if 'v2' in [v['version'] for v in versions['versions']]:
+        return 'v2'
+    return 'v1'
+```
+
+#### Handling API Changes
+
+```python
+# Check for deprecated endpoints
+import warnings
+
+response = client.get('/api/v1/old-endpoint')
+if 'Deprecation' in response.headers:
+    sunset = response.headers.get('Sunset')
+    warnings.warn(
+        f"API endpoint deprecated, will be removed: {sunset}",
+        DeprecationWarning
+    )
+```
+
+### Version Migration
+
+#### v1beta1 → v1 Migration
+
+```bash
+# Before (v1beta1)
+curl /api/v1beta1/agents?filter=role:web
+
+# After (v1)
+curl /api/v1/agents?role=web
+```
+
+| v1beta1 | v1 | Notes |
+|---------|-----|-------|
+| `filter=field:value` | `field=value` | Query param syntax change |
+| `agent.metadata.os` | `agent.os` | Field moved |
+| `job.state` | `job.status` | Field renamed |
+
+#### v1 → v2 Migration (Preview)
+
+```bash
+# Before (v1)
+curl /api/v1/agents/web-01/execute \
+  -d '{"command": "hostname"}'
+
+# After (v2)
+curl /api/v2/agents/web-01/commands \
+  -d '{"command": "hostname", "options": {"timeout": "30s"}}'
+```
+
+| v1 | v2 | Notes |
+|-----|-----|-------|
+| `/agents/{id}/execute` | `/agents/{id}/commands` | Endpoint renamed |
+| `command` (string) | `command` (object) | Richer command spec |
+| Sync response | Async job | Always returns job ID |
+
+### gRPC Service Evolution
+
+#### Adding New RPCs
+
+```protobuf
+// v1 - original
+service AgentService {
+  rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse);
+  rpc GetAgent(GetAgentRequest) returns (Agent);
+}
+
+// v1 - with new RPC (non-breaking)
+service AgentService {
+  rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse);
+  rpc GetAgent(GetAgentRequest) returns (Agent);
+  rpc StreamAgentEvents(StreamAgentEventsRequest) returns (stream AgentEvent);  // New!
+}
+```
+
+#### Adding New Fields
+
+```protobuf
+// Original
+message Agent {
+  string id = 1;
+  string status = 2;
+}
+
+// Updated (non-breaking)
+message Agent {
+  string id = 1;
+  string status = 2;
+  AgentHealth health = 3;  // New optional field
+  repeated string tags = 4;  // New repeated field
+}
+```
+
+### Error Handling
+
+#### Standard Error Response
+
+```json
+{
+  "error": {
+    "code": "INVALID_ARGUMENT",
+    "message": "Invalid agent ID format",
+    "details": [
+      {
+        "type": "FieldViolation",
+        "field": "agent_id",
+        "description": "Must be alphanumeric, 3-64 characters"
+      }
+    ],
+    "request_id": "req-12345"
+  }
+}
+```
+
+#### Error Code Stability
+
+| Code | Meaning | Stability |
+|------|---------|-----------|
+| `OK` | Success | Stable |
+| `INVALID_ARGUMENT` | Bad request | Stable |
+| `NOT_FOUND` | Resource not found | Stable |
+| `ALREADY_EXISTS` | Duplicate resource | Stable |
+| `PERMISSION_DENIED` | Authorization failed | Stable |
+| `UNAUTHENTICATED` | Authentication failed | Stable |
+| `INTERNAL` | Server error | Stable |
+| `UNAVAILABLE` | Service unavailable | Stable |
+
+New error codes may be added; clients should handle unknown codes gracefully.
+
+### Rate Limiting
+
+Rate limits are communicated via headers:
+
+```http
+HTTP/1.1 429 Too Many Requests
+X-RateLimit-Limit: 1000
+X-RateLimit-Remaining: 0
+X-RateLimit-Reset: 1705312345
+Retry-After: 60
+```
+
+Rate limits are per API version and may differ between versions.
+
+### Changelog
+
+Major API changes are documented in the changelog:
+
+```yaml
+# api-changelog.yaml
+- version: "v1.5.0"
+  date: "2025-01-15"
+  changes:
+    - type: added
+      path: "/api/v1/agents/{id}/metrics"
+      description: "New endpoint for agent metrics"
+    - type: deprecated
+      path: "/api/v1/status"
+      description: "Use /api/v1/health instead"
+      sunset: "2026-01-15"
+
+- version: "v1.4.0"
+  date: "2024-10-15"
+  changes:
+    - type: added
+      field: "Agent.health"
+      description: "Health status object added to Agent"
+```
+
+### SDK Compatibility
+
+| SDK | API v1 Support | API v2 Support | Auto-upgrade |
+|-----|----------------|----------------|--------------|
+| Go SDK 1.x | ✅ | ❌ | No |
+| Go SDK 2.x | ✅ | ✅ | Yes |
+| Python SDK 1.x | ✅ | ❌ | No |
+| Python SDK 2.x | ✅ | ✅ | Yes |
+
+**Auto-upgrade**: SDK automatically uses highest available API version.
+
+### Testing Against API Versions
+
+```bash
+# Run tests against v1 API
+KSCORE_API_VERSION=v1 go test ./...
+
+# Run tests against v2 API
+KSCORE_API_VERSION=v2 go test ./...
+
+# Run compatibility tests
+make test-api-compat
 ```
 
 ## See Also

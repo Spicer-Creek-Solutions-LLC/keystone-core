@@ -129,7 +129,7 @@ Unified interface for heterogeneous infrastructure.
 - **Edge**: Offline mode, local buffering
 - **Bare Metal**: Hardware detection, BMC/IPMI integration
 - **Containers**: Docker, containerd detection
-- **Service Mesh**: Istio, Linkerd, Consul integration
+- **Service Mesh**: Istio, Linkerd, Consul integration with SPIFFE identity
 
 ### 7. Plugin System
 Extend Keystone Core with custom modules.
@@ -140,7 +140,16 @@ Extend Keystone Core with custom modules.
 
 **SDKs provided** for all languages with example modules.
 
-### 8. Full Observability
+### 8. Identity & Security
+Secure workload identity with SPIFFE/SPIRE integration.
+
+- **SPIFFE identity**: Automatic workload identity via service mesh
+- **mTLS everywhere**: Encrypted agent-to-control-plane communication
+- **Bootstrap security**: Secure agent enrollment with time-limited tokens
+- **RBAC**: Role-based access control for operations
+- **Audit logging**: Complete audit trail of all operations
+
+### 9. Full Observability
 Built-in monitoring and troubleshooting tools.
 
 - **Prometheus metrics**: 70+ metrics exported

@@ -675,6 +675,428 @@ Configure Git webhook to trigger instant sync:
 - URL: `http://kscore-server:8090/webhooks/git-sync`
 - Events: Push events
 
+### Conflict Resolution Strategies
+
+When syncing from Git, conflicts can occur between the Git repository state and the current runtime state. This section documents how Keystone Core handles various conflict scenarios.
+
+#### Types of Conflicts
+
+| Conflict Type | Description | Example |
+|---------------|-------------|---------|
+| **Schema Conflict** | File structure changed incompatibly | Field renamed or removed |
+| **State Conflict** | Runtime state differs from Git | Manual changes made via CLI |
+| **Concurrent Modification** | Multiple sources editing same resource | Two branches merged simultaneously |
+| **Dependency Conflict** | Required resource missing | Reactor references deleted state file |
+| **Version Conflict** | Resource version mismatch | Stale edit overwrites newer version |
+
+#### Conflict Resolution Configuration
+
+```yaml
+git_sync:
+  repositories:
+    - name: "infrastructure-config"
+      url: "https://github.com/myorg/infrastructure-config"
+
+      # Conflict resolution settings
+      conflict_resolution:
+        # Default strategy for all resources
+        default_strategy: git_wins
+
+        # Strategy options:
+        # - git_wins: Git state always takes precedence (default)
+        # - runtime_wins: Keep runtime state, reject Git changes
+        # - manual: Pause sync and alert for manual resolution
+        # - merge: Attempt automatic merge (where possible)
+        # - newest_wins: Use most recently modified version
+
+        # Per-resource-type strategies
+        strategies:
+          states: git_wins
+          reactors: git_wins
+          vars: merge
+          policies: manual  # Require approval for policy changes
+
+        # Validation before applying
+        validation:
+          enabled: true
+          strict: false  # false = warn on issues, true = reject on issues
+
+        # Backup before overwriting
+        backup_on_conflict: true
+        backup_retention: "7d"
+```
+
+#### Strategy: Git Wins (Default)
+
+Git repository is the source of truth. Runtime changes are overwritten.
+
+```yaml
+conflict_resolution:
+  default_strategy: git_wins
+```
+
+**Behavior:**
+- Git state always replaces runtime state
+- Any local modifications are lost
+- Simplest and most predictable
+- Recommended for GitOps-first workflows
+
+**Example scenario:**
+```
+Git repository: nginx.yaml (version 3)
+Runtime state:  nginx.yaml (version 2, with manual edits)
+Result:         Runtime overwritten with Git version 3
+```
+
+**Warning events emitted:**
+```json
+{
+  "type": "git.sync.conflict",
+  "data": {
+    "file": "states/nginx.yaml",
+    "resolution": "git_wins",
+    "git_version": "abc123",
+    "runtime_version": "xyz789",
+    "changes_lost": true
+  }
+}
+```
+
+#### Strategy: Runtime Wins
+
+Runtime state is preserved. Git changes are rejected until manually resolved.
+
+```yaml
+conflict_resolution:
+  default_strategy: runtime_wins
+```
+
+**Behavior:**
+- Runtime modifications are preserved
+- Git changes are queued for review
+- Requires manual intervention to resolve
+- Useful for operational overrides
+
+**Example scenario:**
+```
+Git repository: nginx.yaml (version 3)
+Runtime state:  nginx.yaml (version 2, with emergency hotfix)
+Result:         Runtime version 2 preserved, Git change queued
+```
+
+**Resolution workflow:**
+```bash
+# View pending conflicts
+kscorectl git-sync conflicts list
+
+# Accept Git version
+kscorectl git-sync conflicts resolve nginx.yaml --accept-git
+
+# Keep runtime version and update Git
+kscorectl git-sync conflicts resolve nginx.yaml --keep-runtime --push
+```
+
+#### Strategy: Manual
+
+Pause sync and require human intervention for any conflict.
+
+```yaml
+conflict_resolution:
+  default_strategy: manual
+
+  # Notification settings
+  notifications:
+    on_conflict:
+      - slack: "#gitops-alerts"
+      - email: "ops-team@example.com"
+
+  # Auto-resolve after timeout (optional)
+  manual_timeout: "4h"
+  timeout_action: git_wins  # Default to git_wins if not resolved
+```
+
+**Behavior:**
+- Sync pauses when conflict detected
+- Alerts sent to configured channels
+- Human must explicitly resolve
+- Best for critical resources (policies, security configs)
+
+**Manual resolution:**
+```bash
+# List conflicts requiring resolution
+kscorectl git-sync conflicts list --status pending
+
+# View conflict details
+kscorectl git-sync conflicts show policies/security.yaml
+
+# Output:
+# Conflict: policies/security.yaml
+# ---
+# Git Version (abc123):
+#   allow_root_login: false
+#   min_password_length: 12
+#
+# Runtime Version:
+#   allow_root_login: false
+#   min_password_length: 8  # <-- Differs
+#
+# Options:
+#   --accept-git     Use Git version
+#   --keep-runtime   Keep runtime version
+#   --merge          Attempt merge
+
+# Resolve with merge
+kscorectl git-sync conflicts resolve policies/security.yaml --merge
+
+# Or choose a side
+kscorectl git-sync conflicts resolve policies/security.yaml --accept-git --reason "Git is authoritative"
+```
+
+#### Strategy: Merge
+
+Attempt automatic merge of changes where possible.
+
+```yaml
+conflict_resolution:
+  default_strategy: merge
+
+  merge:
+    # Merge algorithm
+    algorithm: three_way  # three_way, ours, theirs
+
+    # Fields that cannot be merged (always conflict)
+    non_mergeable_fields:
+      - "version"
+      - "metadata.uid"
+
+    # Fields to ignore in merge
+    ignore_fields:
+      - "metadata.lastSyncTime"
+      - "status"
+
+    # On merge failure
+    fallback_strategy: manual
+```
+
+**Behavior:**
+- Attempts three-way merge like Git
+- Succeeds if changes don't overlap
+- Falls back to manual on true conflicts
+- Best for vars and non-critical configs
+
+**Merge example - Success:**
+```yaml
+# Base version (common ancestor)
+database:
+  host: db.example.com
+  port: 5432
+  max_connections: 100
+
+# Git version (changes port)
+database:
+  host: db.example.com
+  port: 5433  # Changed
+  max_connections: 100
+
+# Runtime version (changes max_connections)
+database:
+  host: db.example.com
+  port: 5432
+  max_connections: 200  # Changed
+
+# Merged result (both changes applied)
+database:
+  host: db.example.com
+  port: 5433           # From Git
+  max_connections: 200  # From runtime
+```
+
+**Merge example - Conflict (same field modified):**
+```yaml
+# Git version
+database:
+  max_connections: 150
+
+# Runtime version
+database:
+  max_connections: 200
+
+# Result: CONFLICT - requires manual resolution
+# Both modified max_connections
+```
+
+#### Strategy: Newest Wins
+
+Use the most recently modified version based on timestamps.
+
+```yaml
+conflict_resolution:
+  default_strategy: newest_wins
+
+  newest_wins:
+    # Timestamp source for Git
+    git_timestamp: commit_time  # commit_time or author_time
+
+    # Tolerance for "same time" (to handle clock skew)
+    time_tolerance: "5s"
+
+    # On tie, prefer:
+    tie_breaker: git  # git or runtime
+```
+
+**Behavior:**
+- Compares modification timestamps
+- Most recent change wins
+- Useful for collaborative environments
+- Requires accurate time synchronization
+
+#### Conflict Detection Events
+
+All conflicts emit events for monitoring and alerting:
+
+```yaml
+# Conflict detected
+{
+  "type": "git.sync.conflict.detected",
+  "timestamp": "2026-01-18T10:30:00Z",
+  "data": {
+    "repository": "infrastructure-config",
+    "file": "states/nginx.yaml",
+    "conflict_type": "concurrent_modification",
+    "git_commit": "abc123",
+    "git_author": "developer@example.com",
+    "runtime_modified_by": "operator@example.com",
+    "runtime_modified_at": "2026-01-18T10:25:00Z"
+  }
+}
+
+# Conflict resolved
+{
+  "type": "git.sync.conflict.resolved",
+  "timestamp": "2026-01-18T10:35:00Z",
+  "data": {
+    "repository": "infrastructure-config",
+    "file": "states/nginx.yaml",
+    "resolution": "manual",
+    "chosen_version": "git",
+    "resolved_by": "admin@example.com",
+    "reason": "Git version reviewed and approved"
+  }
+}
+```
+
+#### Conflict Prevention Best Practices
+
+1. **Single Source of Truth**
+   ```yaml
+   # Enforce Git as the only way to modify
+   git_sync:
+     enforce_git_only: true
+     block_runtime_modifications: true
+   ```
+
+2. **Branch Protection**
+   - Require PR reviews before merging
+   - Use CI validation on config changes
+   - Implement approval gates for production
+
+3. **Locking During Edits**
+   ```bash
+   # Lock a resource before manual editing
+   kscorectl git-sync lock states/nginx.yaml --reason "Emergency hotfix"
+
+   # Unlock after changes committed to Git
+   kscorectl git-sync unlock states/nginx.yaml
+   ```
+
+4. **Validation in CI Pipeline**
+   ```yaml
+   # GitHub Actions example
+   - name: Validate Keystone configs
+     run: |
+       kscorectl config validate states/
+       kscorectl config validate reactors/
+       kscorectl config validate vars/
+   ```
+
+5. **Audit Trail**
+   ```bash
+   # View sync history with conflicts
+   kscorectl git-sync history --conflicts-only
+
+   # Export for compliance
+   kscorectl git-sync audit --format json > sync-audit.json
+   ```
+
+#### Conflict Resolution CLI Commands
+
+```bash
+# List all conflicts
+kscorectl git-sync conflicts list
+
+# List pending (unresolved) conflicts
+kscorectl git-sync conflicts list --status pending
+
+# Show conflict details
+kscorectl git-sync conflicts show <file-path>
+
+# Diff between versions
+kscorectl git-sync conflicts diff <file-path>
+
+# Resolve conflict
+kscorectl git-sync conflicts resolve <file-path> \
+  --accept-git|--keep-runtime|--merge \
+  --reason "Explanation for audit"
+
+# Bulk resolve (use with caution)
+kscorectl git-sync conflicts resolve-all --accept-git
+
+# Force sync (overwrite all runtime state)
+kscorectl git-sync force --repository infrastructure-config
+
+# Lock/unlock resources
+kscorectl git-sync lock <file-path> --reason "Manual maintenance"
+kscorectl git-sync unlock <file-path>
+
+# View lock status
+kscorectl git-sync locks list
+```
+
+#### Conflict Metrics
+
+```promql
+# Total conflicts by type
+kscore_git_sync_conflicts_total{type="schema|state|concurrent|dependency"}
+
+# Pending conflicts
+kscore_git_sync_conflicts_pending
+
+# Conflict resolution time
+histogram_quantile(0.95, rate(kscore_git_sync_conflict_resolution_seconds_bucket[1h]))
+
+# Auto-resolved vs manual
+kscore_git_sync_conflicts_resolved_total{method="auto|manual"}
+```
+
+**Alert rules:**
+```yaml
+- alert: GitSyncConflictsPending
+  expr: kscore_git_sync_conflicts_pending > 0
+  for: 15m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Git sync has unresolved conflicts"
+
+- alert: GitSyncConflictsHigh
+  expr: rate(kscore_git_sync_conflicts_total[1h]) > 10
+  for: 30m
+  labels:
+    severity: warning
+  annotations:
+    summary: "High rate of Git sync conflicts"
+```
+
 ## Reactor Integration
 
 Use reactors to automate GitOps workflows:
@@ -729,6 +1151,634 @@ notify_deployments:
           "text": "Deployment: {{ event.data.application }} to {{ event.data.environment }}",
           "status": "{{ event.data.status }}"
         }
+```
+
+## Approval Workflow Integrations
+
+Keystone Core supports interactive approval workflows through Slack, PagerDuty, and Microsoft Teams. This enables teams to approve or reject deployments, rollbacks, and promotions directly from their communication tools.
+
+### Slack Integration
+
+#### Prerequisites
+
+1. Slack workspace with admin permissions
+2. Slack App created with appropriate scopes
+3. Bot token and signing secret
+
+#### Creating a Slack App
+
+1. Go to https://api.slack.com/apps and create a new app
+2. Add the following Bot Token Scopes:
+   - `chat:write` - Send messages
+   - `chat:write.public` - Send to public channels
+   - `reactions:write` - Add reactions to messages
+   - `commands` - Handle slash commands (optional)
+
+3. Enable Interactivity and set Request URL:
+   ```
+   https://kscore-server.example.com/webhooks/slack/interactive
+   ```
+
+4. Install app to workspace and copy Bot Token
+
+#### Slack Configuration
+
+```yaml
+# server.yaml
+notifications:
+  slack:
+    enabled: true
+
+    # Bot token (from Slack App)
+    bot_token: "${SLACK_BOT_TOKEN}"
+
+    # Signing secret for webhook verification
+    signing_secret: "${SLACK_SIGNING_SECRET}"
+
+    # Default channel for notifications
+    default_channel: "#deployments"
+
+    # Channel mappings by environment
+    channels:
+      dev: "#dev-deployments"
+      staging: "#staging-deployments"
+      production: "#production-deployments"
+
+    # Interactive webhooks
+    interactive:
+      enabled: true
+      listen: "0.0.0.0:8091"
+      path: "/webhooks/slack/interactive"
+```
+
+#### Slack Approval Messages
+
+When an approval is required, Keystone Core sends an interactive message:
+
+```yaml
+# Approval request reactor
+request_deployment_approval:
+  filter: "type == 'gitops.promotion.pending' and data.environment == 'production'"
+  actions:
+    - type: slack_approval
+      channel: "#production-deployments"
+      message: |
+        :rocket: *Deployment Approval Required*
+
+        *Application:* {{ event.data.application }}
+        *Version:* {{ event.data.version }}
+        *Environment:* {{ event.data.environment }}
+        *Requested by:* {{ event.data.requester }}
+        *Changes:* {{ event.data.changelog }}
+
+        Please review and approve or reject this deployment.
+
+      # Approval options
+      approve_button:
+        text: "✅ Approve"
+        style: "primary"
+
+      reject_button:
+        text: "❌ Reject"
+        style: "danger"
+
+      # Required approvers (Slack user IDs or groups)
+      required_approvers:
+        - "@ops-team"
+        - "U12345678"  # Specific user ID
+
+      # Minimum approvals needed
+      min_approvals: 1
+
+      # Timeout
+      timeout: "30m"
+
+      # On timeout action
+      on_timeout: reject
+```
+
+#### Slack Message Format
+
+The interactive message includes:
+
+```json
+{
+  "channel": "#production-deployments",
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "🚀 Deployment Approval Required"
+      }
+    },
+    {
+      "type": "section",
+      "fields": [
+        {"type": "mrkdwn", "text": "*Application:*\nmyapp"},
+        {"type": "mrkdwn", "text": "*Version:*\nv1.2.3"},
+        {"type": "mrkdwn", "text": "*Environment:*\nproduction"},
+        {"type": "mrkdwn", "text": "*Requested by:*\n@developer"}
+      ]
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Changes:*\n• Fixed login bug\n• Updated dependencies"
+      }
+    },
+    {
+      "type": "actions",
+      "elements": [
+        {
+          "type": "button",
+          "text": {"type": "plain_text", "text": "✅ Approve"},
+          "style": "primary",
+          "action_id": "approve_deployment",
+          "value": "approval_id_123"
+        },
+        {
+          "type": "button",
+          "text": {"type": "plain_text", "text": "❌ Reject"},
+          "style": "danger",
+          "action_id": "reject_deployment",
+          "value": "approval_id_123"
+        }
+      ]
+    }
+  ]
+}
+```
+
+#### Handling Slack Responses
+
+When a user clicks Approve or Reject:
+
+```yaml
+# Keystone Core processes the interaction and updates the message
+# Updated message shows who approved/rejected and when
+
+# On Approval:
+# "✅ Approved by @ops-lead at 2026-01-18 10:30 UTC"
+# Deployment proceeds automatically
+
+# On Rejection:
+# "❌ Rejected by @ops-lead at 2026-01-18 10:30 UTC"
+# "Reason: Waiting for database migration to complete first"
+# Deployment is cancelled
+```
+
+#### Slack Slash Commands (Optional)
+
+Enable slash commands for quick actions:
+
+```yaml
+notifications:
+  slack:
+    slash_commands:
+      enabled: true
+      commands:
+        - name: "/kscore-approve"
+          description: "Approve pending deployment"
+        - name: "/kscore-reject"
+          description: "Reject pending deployment"
+        - name: "/kscore-status"
+          description: "Check deployment status"
+```
+
+Usage:
+```
+/kscore-approve myapp --env production --reason "Reviewed and tested"
+/kscore-reject myapp --env production --reason "Found regression in staging"
+/kscore-status myapp
+```
+
+### PagerDuty Integration
+
+#### Prerequisites
+
+1. PagerDuty account with Events API v2 access
+2. Service configured for Keystone Core
+3. Integration key
+
+#### PagerDuty Configuration
+
+```yaml
+# server.yaml
+notifications:
+  pagerduty:
+    enabled: true
+
+    # Events API routing key
+    routing_key: "${PAGERDUTY_ROUTING_KEY}"
+
+    # Service ID for incidents
+    service_id: "P123ABC"
+
+    # API token for incident management
+    api_token: "${PAGERDUTY_API_TOKEN}"
+
+    # Event settings
+    events:
+      # Create incidents for these events
+      create_incident:
+        - verification_failed
+        - rollback_required
+        - promotion_blocked
+
+      # Severity mapping
+      severity:
+        verification_failed: critical
+        rollback_required: critical
+        promotion_blocked: warning
+```
+
+#### PagerDuty Approval via Incident
+
+When approval is required, create a PagerDuty incident:
+
+```yaml
+# Approval request via PagerDuty
+request_approval_pagerduty:
+  filter: "type == 'gitops.promotion.pending' and data.environment == 'production'"
+  actions:
+    - type: pagerduty_incident
+      title: "Deployment Approval: {{ event.data.application }} to production"
+      description: |
+        Deployment approval is required for {{ event.data.application }}.
+
+        Version: {{ event.data.version }}
+        Requested by: {{ event.data.requester }}
+
+        To approve: Acknowledge this incident
+        To reject: Resolve with "Rejected" in notes
+
+      service_id: "P123ABC"
+      severity: warning
+      urgency: high
+
+      # Link to deployment details
+      links:
+        - href: "https://kscore.example.com/deployments/{{ event.data.deployment_id }}"
+          text: "View Deployment"
+
+      # Custom details
+      custom_details:
+        application: "{{ event.data.application }}"
+        version: "{{ event.data.version }}"
+        environment: "{{ event.data.environment }}"
+        approval_id: "{{ event.data.approval_id }}"
+```
+
+#### PagerDuty Webhook Handler
+
+Configure PagerDuty to send webhooks back to Keystone Core:
+
+```yaml
+notifications:
+  pagerduty:
+    webhooks:
+      enabled: true
+      listen: "0.0.0.0:8092"
+      path: "/webhooks/pagerduty"
+
+      # Map PagerDuty actions to approvals
+      action_mapping:
+        incident.acknowledged: approve
+        incident.resolved: check_notes  # Check notes for approve/reject
+```
+
+#### PagerDuty Approval Flow
+
+1. **Pending Approval** → PagerDuty incident created
+2. **Acknowledge** → Deployment approved, proceeds automatically
+3. **Resolve** → Check resolution notes:
+   - Contains "approve" → Deployment approved
+   - Contains "reject" → Deployment rejected
+   - No approval keywords → Deployment rejected (safe default)
+
+### Microsoft Teams Integration
+
+#### Prerequisites
+
+1. Microsoft Teams with admin permissions
+2. Incoming Webhook connector (for notifications)
+3. Azure Bot registration (for interactive approvals)
+
+#### Teams Webhook Configuration (Notifications Only)
+
+For simple notifications without interactive approval:
+
+```yaml
+# server.yaml
+notifications:
+  teams:
+    enabled: true
+
+    # Incoming webhook URLs by channel
+    webhooks:
+      default: "https://outlook.office.com/webhook/..."
+      dev: "https://outlook.office.com/webhook/..."
+      staging: "https://outlook.office.com/webhook/..."
+      production: "https://outlook.office.com/webhook/..."
+```
+
+#### Teams Adaptive Card Notifications
+
+```yaml
+# Notification reactor for Teams
+notify_deployment_teams:
+  filter: "type == 'gitops.argocd.deployment'"
+  actions:
+    - type: teams_message
+      webhook: production
+      card: |
+        {
+          "type": "message",
+          "attachments": [
+            {
+              "contentType": "application/vnd.microsoft.card.adaptive",
+              "content": {
+                "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                "type": "AdaptiveCard",
+                "version": "1.4",
+                "body": [
+                  {
+                    "type": "TextBlock",
+                    "size": "Large",
+                    "weight": "Bolder",
+                    "text": "🚀 Deployment: {{ event.data.application }}"
+                  },
+                  {
+                    "type": "FactSet",
+                    "facts": [
+                      {"title": "Environment", "value": "{{ event.data.environment }}"},
+                      {"title": "Version", "value": "{{ event.data.revision }}"},
+                      {"title": "Status", "value": "{{ event.data.status }}"}
+                    ]
+                  }
+                ],
+                "actions": [
+                  {
+                    "type": "Action.OpenUrl",
+                    "title": "View Details",
+                    "url": "https://kscore.example.com/deployments/{{ event.data.id }}"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+```
+
+#### Teams Bot Integration (Interactive Approvals)
+
+For interactive approvals, configure an Azure Bot:
+
+```yaml
+# server.yaml
+notifications:
+  teams:
+    enabled: true
+
+    # Azure Bot configuration
+    bot:
+      enabled: true
+      app_id: "${TEAMS_BOT_APP_ID}"
+      app_secret: "${TEAMS_BOT_APP_SECRET}"
+
+      # Bot messaging endpoint
+      messaging_endpoint: "https://kscore.example.com/api/teams/messages"
+
+    # Interactive message settings
+    interactive:
+      enabled: true
+      listen: "0.0.0.0:8093"
+      path: "/api/teams/messages"
+```
+
+#### Teams Interactive Approval Card
+
+```yaml
+# Approval request reactor for Teams
+request_approval_teams:
+  filter: "type == 'gitops.promotion.pending' and data.environment == 'production'"
+  actions:
+    - type: teams_approval
+      channel: "production-deployments"
+      card: |
+        {
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "size": "Large",
+              "weight": "Bolder",
+              "text": "🚀 Deployment Approval Required"
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {"title": "Application", "value": "{{ event.data.application }}"},
+                {"title": "Version", "value": "{{ event.data.version }}"},
+                {"title": "Environment", "value": "{{ event.data.environment }}"},
+                {"title": "Requested by", "value": "{{ event.data.requester }}"}
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "{{ event.data.changelog }}",
+              "wrap": true
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.Submit",
+              "title": "✅ Approve",
+              "style": "positive",
+              "data": {
+                "action": "approve",
+                "approval_id": "{{ event.data.approval_id }}"
+              }
+            },
+            {
+              "type": "Action.Submit",
+              "title": "❌ Reject",
+              "style": "destructive",
+              "data": {
+                "action": "reject",
+                "approval_id": "{{ event.data.approval_id }}"
+              }
+            }
+          ]
+        }
+
+      timeout: "30m"
+      on_timeout: reject
+```
+
+### Multi-Platform Approval Workflow
+
+Configure approvals to work across multiple platforms:
+
+```yaml
+# server.yaml
+approvals:
+  enabled: true
+
+  # Default approval settings
+  defaults:
+    timeout: "30m"
+    on_timeout: reject
+    min_approvals: 1
+
+  # Environment-specific settings
+  environments:
+    dev:
+      auto_approve: true
+
+    staging:
+      require_approval: true
+      min_approvals: 1
+      platforms:
+        - slack
+
+    production:
+      require_approval: true
+      min_approvals: 2
+      platforms:
+        - slack
+        - pagerduty
+
+      # Require approval from different teams
+      require_approvers_from:
+        - group: "@ops-team"
+          min: 1
+        - group: "@dev-leads"
+          min: 1
+
+  # Approval tracking
+  tracking:
+    # Store approval audit trail
+    store_audit: true
+
+    # Emit events for approvals
+    emit_events: true
+```
+
+### Approval Reactor
+
+```yaml
+# Combined approval workflow
+multi_platform_approval:
+  filter: "type == 'gitops.promotion.pending' and data.environment == 'production'"
+  actions:
+    # Send to Slack
+    - type: slack_approval
+      channel: "#production-deployments"
+      message: "Deployment approval needed for {{ event.data.application }}"
+
+    # Create PagerDuty incident for on-call
+    - type: pagerduty_incident
+      title: "Deployment Approval: {{ event.data.application }}"
+      severity: warning
+
+    # Send to Teams
+    - type: teams_approval
+      channel: "production-deployments"
+
+    # Wait for approval from any platform
+    - type: wait_for_approval
+      approval_id: "{{ event.data.approval_id }}"
+      timeout: "30m"
+
+      on_approve:
+        - type: emit_event
+          event_type: "approval.granted"
+        - type: promote
+          pipeline: "{{ event.data.pipeline }}"
+
+      on_reject:
+        - type: emit_event
+          event_type: "approval.rejected"
+        - type: notify
+          message: "Deployment rejected: {{ approval.reason }}"
+```
+
+### Approval CLI Commands
+
+```bash
+# List pending approvals
+kscorectl approvals list --status pending
+
+# Approve via CLI
+kscorectl approvals approve <approval-id> \
+  --approver "admin@example.com" \
+  --reason "Reviewed and tested in staging"
+
+# Reject via CLI
+kscorectl approvals reject <approval-id> \
+  --approver "admin@example.com" \
+  --reason "Found regression in integration tests"
+
+# View approval history
+kscorectl approvals history --application myapp --env production
+
+# Check approval requirements
+kscorectl approvals requirements myapp --env production
+```
+
+### Approval Audit Trail
+
+All approvals are logged for compliance:
+
+```json
+{
+  "approval_id": "apr-abc123",
+  "type": "deployment_promotion",
+  "application": "myapp",
+  "environment": "production",
+  "status": "approved",
+  "requested_at": "2026-01-18T10:00:00Z",
+  "decided_at": "2026-01-18T10:15:00Z",
+  "requester": {
+    "name": "developer",
+    "email": "developer@example.com"
+  },
+  "approvers": [
+    {
+      "name": "ops-lead",
+      "email": "ops-lead@example.com",
+      "platform": "slack",
+      "decision": "approved",
+      "reason": "LGTM, tested in staging",
+      "timestamp": "2026-01-18T10:15:00Z"
+    }
+  ],
+  "metadata": {
+    "version": "v1.2.3",
+    "changelog": "Fixed login bug",
+    "deployment_id": "dep-xyz789"
+  }
+}
+```
+
+### Approval Metrics
+
+```promql
+# Pending approvals
+kscore_approvals_pending_total{environment}
+
+# Approval decisions
+kscore_approvals_total{environment, decision}  # approved, rejected, timeout
+
+# Time to approval
+histogram_quantile(0.95, rate(kscore_approval_duration_seconds_bucket[1h]))
+
+# Approvals by platform
+kscore_approvals_total by (platform)  # slack, pagerduty, teams, cli
 ```
 
 ## Best Practices

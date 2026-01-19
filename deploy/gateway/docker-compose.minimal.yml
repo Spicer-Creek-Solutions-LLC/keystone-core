@@ -1,0 +1,44 @@
+# Minimal Keystone Core Telemetry Gateway
+#
+# This minimal setup provides just the gateway and NATS.
+# For a full observability stack, use docker-compose.yml instead.
+#
+# Usage:
+#   docker-compose -f docker-compose.minimal.yml up -d
+#
+# Access:
+#   - Gateway: http://localhost:9091
+#     - /metrics - Prometheus metrics endpoint
+#     - /health - Health check
+
+services:
+  nats:
+    image: nats:2.10-alpine
+    ports:
+      - "4222:4222"
+    command: ["-js"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8222/healthz || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  gateway:
+    image: ghcr.io/shawnbutts/keystone-core/kscore-telemetry-gateway:latest
+    ports:
+      - "9091:9091"
+    environment:
+      - KSCORE_NATS_URLS=nats://nats:4222
+    depends_on:
+      nats:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9091/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+networks:
+  default:
+    name: kscore-gateway

@@ -66,19 +66,10 @@ flowchart TB
 The file-based cache stores data locally for offline operation:
 
 ```go
-cache := edge.NewCache(edge.CacheConfig{
-    // Cache storage directory
-    Directory: "/var/lib/keystone/cache",
-
-    // Maximum cache size
-    MaxSize: 100 * 1024 * 1024, // 100MB
-
-    // Time-to-live for cached entries
-    DefaultTTL: 24 * time.Hour,
-
-    // Enable LRU eviction when full
-    EnableLRU: true,
-})
+cache, err := edge.NewFileCache("/var/lib/keystone/cache")
+if err != nil {
+    log.Fatalf("failed to create cache: %v", err)
+}
 ```
 
 ### Cached Content
@@ -95,21 +86,29 @@ cache := edge.NewCache(edge.CacheConfig{
 
 ```go
 // Store data in cache
-err := cache.Put(ctx, "states/web-config", stateData, edge.CacheOptions{
-    TTL:      24 * time.Hour,
-    Priority: edge.PriorityHigh,
+err := cache.Set(&edge.CacheEntry{
+    ID:        "web-config",
+    Type:      "state",
+    Data:      stateData,
+    CreatedAt: time.Now(),
+    ExpiresAt: time.Now().Add(24 * time.Hour),
+    Size:      int64(len(stateData)),
 })
 
 // Retrieve from cache
-data, err := cache.Get(ctx, "states/web-config")
-
-// Check if entry exists and is valid
-if cache.Has(ctx, "states/web-config") {
-    // Use cached data
+entry, err := cache.Get("web-config")
+if err != nil {
+    // Handle cache miss or expired entry
 }
 
 // List all cached entries
-entries, err := cache.List(ctx, "states/")
+entries, err := cache.List()
+
+// Prune expired entries
+err = cache.Prune()
+
+// Get cache statistics
+stats, err := cache.GetStats()
 ```
 
 ### Size Management
@@ -126,6 +125,452 @@ cache:
     minEntries: 100
     # Never evict high-priority items first
     priorityAware: true
+```
+
+### Cache Invalidation Policies
+
+Keystone Core supports multiple cache invalidation strategies to ensure edge agents have fresh data while minimizing network traffic and control plane load.
+
+#### Invalidation Strategies
+
+| Strategy | Description | Use Case |
+|----------|-------------|----------|
+| **TTL-based** | Entries expire after configured time | Default, works offline |
+| **Event-driven** | Control plane pushes invalidations | Real-time updates |
+| **Version-based** | Compare version numbers | Explicit versioning |
+| **Content-hash** | Compare content hashes | Detect any change |
+| **Hybrid** | Combine multiple strategies | Production recommended |
+
+#### TTL-Based Invalidation
+
+Configure TTL (Time-To-Live) for different content types:
+
+```yaml
+agent:
+  edge:
+    cache:
+      # Default TTL for all cached content
+      defaultTTL: 24h
+
+      # Per-type TTL configuration
+      ttl:
+        # State files - longer TTL since they change infrequently
+        states:
+          default: 24h
+          # Override for specific states
+          overrides:
+            "critical-config": 1h
+            "security-policy": 30m
+            "frequently-updated-*": 15m  # Glob patterns supported
+
+        # Policies - shorter TTL for security
+        policies:
+          default: 12h
+          # Security policies refresh more frequently
+          security: 1h
+          compliance: 6h
+
+        # Variables - varies by environment
+        vars:
+          default: 6h
+          overrides:
+            "secrets/*": 1h          # Secrets refresh frequently
+            "static/*": 168h         # Static config rarely changes
+            "feature-flags": 15m     # Feature flags change often
+
+        # Facts - system facts change rarely
+        facts:
+          default: 1h
+          # Hardware facts almost never change
+          hardware: 24h
+          # Network facts can change
+          network: 15m
+
+        # Command results - until synced
+        commands:
+          default: 0  # No expiration, sync-based
+
+        # Files from file distribution
+        files:
+          default: 168h  # 1 week
+          # Large files cached longer
+          large_files: 720h  # 30 days
+```
+
+#### TTL Calculation Rules
+
+TTL is determined in the following order of precedence:
+
+1. **Explicit override** - Specific entry name matches override pattern
+2. **Category default** - Type-specific default (states, policies, vars)
+3. **Global default** - `defaultTTL` setting
+4. **System default** - Built-in default (24h)
+
+**Example:**
+```yaml
+ttl:
+  defaultTTL: 24h
+  states:
+    default: 48h
+    overrides:
+      "nginx-config": 1h
+```
+
+- `nginx-config` state → 1h (explicit override)
+- `postgres-config` state → 48h (category default)
+- Unknown content type → 24h (global default)
+
+#### Event-Driven Invalidation
+
+Control plane can push cache invalidations to connected agents:
+
+```yaml
+agent:
+  edge:
+    cache:
+      invalidation:
+        # Enable event-driven invalidation
+        eventDriven:
+          enabled: true
+
+          # Subscribe to invalidation events
+          subjects:
+            - "kscore.cache.invalidate.>"
+            - "kscore.state.updated.>"
+
+          # How to handle invalidation events
+          action: invalidate  # invalidate, refresh, mark_stale
+```
+
+**Invalidation event format:**
+```json
+{
+  "type": "cache.invalidate",
+  "data": {
+    "pattern": "states/nginx-*",    // Glob pattern
+    "reason": "state_updated",
+    "timestamp": "2026-01-18T10:30:00Z",
+    "source": "control-plane",
+    "new_version": "v1.2.3"         // Optional
+  }
+}
+```
+
+**Triggering invalidation from control plane:**
+```bash
+# Invalidate specific entry
+kscorectl cache invalidate "states/nginx-config" --target "region=us-west"
+
+# Invalidate by pattern
+kscorectl cache invalidate "states/web-*" --target "*"
+
+# Invalidate all policies (security update)
+kscorectl cache invalidate "policies/*" --target "*" --priority high
+```
+
+#### Version-Based Invalidation
+
+Track versions and only refresh when version changes:
+
+```yaml
+agent:
+  edge:
+    cache:
+      invalidation:
+        versionBased:
+          enabled: true
+
+          # How to check versions
+          checkInterval: 5m
+
+          # Only fetch if version differs
+          fetchOnMismatch: true
+
+          # Version source: header, metadata, or api
+          versionSource: metadata
+```
+
+**Version metadata in cached entries:**
+```json
+{
+  "id": "states/nginx-config",
+  "version": "v1.2.3",
+  "etag": "abc123def456",
+  "lastModified": "2026-01-18T10:00:00Z",
+  "data": "..."
+}
+```
+
+**Version check flow:**
+```
+Agent                           Control Plane
+  |                                   |
+  |--- HEAD /states/nginx-config ---->|
+  |    If-None-Match: "abc123"        |
+  |                                   |
+  |<-- 304 Not Modified --------------|  (Cache valid)
+  |                                   |
+  |<-- 200 OK + new content ----------|  (Cache stale, refresh)
+  |    ETag: "def456"                 |
+```
+
+#### Content-Hash Invalidation
+
+Detect changes by comparing content hashes:
+
+```yaml
+agent:
+  edge:
+    cache:
+      invalidation:
+        contentHash:
+          enabled: true
+
+          # Hash algorithm
+          algorithm: sha256  # md5, sha1, sha256
+
+          # Store hash alongside content
+          storeHash: true
+
+          # Verify on read (detect corruption)
+          verifyOnRead: true
+```
+
+**Hash verification:**
+```bash
+# Verify cache integrity
+kscorectl cache verify
+
+# Output:
+# Verifying cache entries...
+# states/nginx-config: OK (sha256: abc123...)
+# states/postgres-config: OK (sha256: def456...)
+# policies/security: MISMATCH - refreshing
+# Total: 150 entries, 149 valid, 1 refreshed
+```
+
+#### Hybrid Invalidation Strategy
+
+Combine multiple strategies for production deployments:
+
+```yaml
+agent:
+  edge:
+    cache:
+      invalidation:
+        # Primary: TTL-based (works offline)
+        ttl:
+          enabled: true
+          default: 24h
+
+        # Secondary: Event-driven (real-time when connected)
+        eventDriven:
+          enabled: true
+          subjects:
+            - "kscore.cache.invalidate.>"
+
+        # Tertiary: Version check (periodic verification)
+        versionBased:
+          enabled: true
+          checkInterval: 30m
+
+        # Priority order for invalidation decisions
+        priority:
+          - eventDriven   # Immediate if connected
+          - versionBased  # Periodic check
+          - ttl           # Fallback
+
+        # Stale-while-revalidate
+        staleWhileRevalidate:
+          enabled: true
+          maxStaleAge: 1h  # Serve stale for up to 1h while refreshing
+```
+
+#### Stale-While-Revalidate
+
+Serve stale content while refreshing in background:
+
+```yaml
+agent:
+  edge:
+    cache:
+      staleWhileRevalidate:
+        enabled: true
+
+        # Maximum age of stale content to serve
+        maxStaleAge: 1h
+
+        # Content types that allow stale serving
+        allowedTypes:
+          - states
+          - vars
+          - facts
+
+        # Never serve stale (always wait for refresh)
+        neverStale:
+          - policies      # Security critical
+          - credentials   # Must be current
+```
+
+**Behavior:**
+```
+Request for "nginx-config" (TTL expired 10 minutes ago)
+  |
+  |-- maxStaleAge: 1h, expired 10m ago → within window
+  |
+  |-- Return stale content immediately
+  |-- Trigger background refresh
+  |-- Next request gets fresh content
+```
+
+#### Invalidation Events and Metrics
+
+**Events emitted:**
+```json
+// Cache entry expired
+{
+  "type": "cache.entry.expired",
+  "data": {
+    "id": "states/nginx-config",
+    "expired_at": "2026-01-18T10:00:00Z",
+    "ttl": "24h",
+    "action": "evicted"
+  }
+}
+
+// Cache entry invalidated
+{
+  "type": "cache.entry.invalidated",
+  "data": {
+    "id": "states/nginx-config",
+    "reason": "event_driven",
+    "source": "control-plane"
+  }
+}
+
+// Cache entry refreshed
+{
+  "type": "cache.entry.refreshed",
+  "data": {
+    "id": "states/nginx-config",
+    "old_version": "v1.2.2",
+    "new_version": "v1.2.3",
+    "refresh_duration_ms": 150
+  }
+}
+```
+
+**Metrics:**
+```promql
+# Cache invalidation rate by reason
+rate(kscore_edge_cache_invalidations_total{reason="ttl|event|version|hash"}[5m])
+
+# Stale content served
+rate(kscore_edge_cache_stale_served_total[5m])
+
+# Background refresh latency
+histogram_quantile(0.95, rate(kscore_edge_cache_refresh_duration_seconds_bucket[5m]))
+
+# Cache freshness (entries not yet expired)
+kscore_edge_cache_fresh_entries / kscore_edge_cache_total_entries
+```
+
+#### TTL Tuning Guidelines
+
+**By Connectivity Pattern:**
+
+| Scenario | Recommended TTL | Rationale |
+|----------|-----------------|-----------|
+| Always connected | 1-6h | Fresh data available |
+| Intermittent (daily sync) | 24-48h | Survive disconnection |
+| Weekly sync | 168h+ | Extended offline operation |
+| Air-gapped | 720h+ | Manual sync cycles |
+
+**By Content Criticality:**
+
+| Content Type | Low Criticality | Medium | High (Security) |
+|--------------|-----------------|--------|-----------------|
+| States | 48h | 24h | 6h |
+| Policies | 24h | 12h | 1h |
+| Variables | 12h | 6h | 1h |
+| Credentials | N/A | N/A | 30m |
+
+**By Change Frequency:**
+
+| Content | Typical Change Rate | Recommended TTL |
+|---------|---------------------|-----------------|
+| Static config | Monthly | 168h (1 week) |
+| Application config | Weekly | 24-48h |
+| Feature flags | Daily | 1-6h |
+| Secrets/credentials | On rotation | 30m-1h |
+
+#### Cache Invalidation CLI
+
+```bash
+# View cache entry details including TTL
+kscorectl cache show states/nginx-config
+
+# Output:
+# ID: states/nginx-config
+# Type: state
+# Created: 2026-01-18T08:00:00Z
+# Expires: 2026-01-19T08:00:00Z (in 22h)
+# TTL: 24h
+# Version: v1.2.3
+# Size: 2.3KB
+# Hash: sha256:abc123...
+
+# List entries by TTL status
+kscorectl cache list --expiring-soon 1h
+kscorectl cache list --expired
+
+# Manually invalidate entry
+kscorectl cache invalidate states/nginx-config
+
+# Refresh entry (fetch new version)
+kscorectl cache refresh states/nginx-config
+
+# Bulk refresh by pattern
+kscorectl cache refresh "states/*" --force
+
+# Set custom TTL for entry
+kscorectl cache set-ttl states/nginx-config 6h
+
+# View invalidation history
+kscorectl cache history --type invalidation --limit 50
+```
+
+#### Invalidation Alerts
+
+```yaml
+groups:
+  - name: edge_cache_alerts
+    rules:
+      - alert: EdgeCacheHighStaleRate
+        expr: >
+          rate(kscore_edge_cache_stale_served_total[5m])
+          / rate(kscore_edge_cache_requests_total[5m]) > 0.1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High rate of stale cache content being served"
+
+      - alert: EdgeCacheRefreshFailures
+        expr: rate(kscore_edge_cache_refresh_failures_total[5m]) > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Cache refresh failures on edge agent {{ $labels.agent }}"
+
+      - alert: EdgeCacheTTLMisconfigured
+        expr: kscore_edge_cache_avg_ttl_seconds < 3600
+        for: 5m
+        labels:
+          severity: info
+        annotations:
+          summary: "Very short average TTL may cause excessive refreshes"
 ```
 
 ## Connection Resilience
@@ -164,20 +609,20 @@ stateDiagram-v2
 
 ### Health Monitoring
 
-```go
-monitor := edge.NewConnectionMonitor(edge.MonitorConfig{
-    // Health check interval
-    CheckInterval: 30 * time.Second,
+Connection health is monitored through the edge manager, which tracks connectivity status and triggers mode transitions:
 
-    // Timeout for health checks
-    Timeout: 5 * time.Second,
-
-    // Mark unhealthy after N failures
-    FailureThreshold: 3,
-
-    // Mark healthy after N successes
-    SuccessThreshold: 2,
-})
+```yaml
+agent:
+  edge:
+    connection:
+      # Health check interval
+      healthCheckInterval: 30s
+      # Timeout for health checks
+      healthCheckTimeout: 5s
+      # Mark unhealthy after N failures
+      failureThreshold: 3
+      # Mark healthy after N successes
+      successThreshold: 2
 ```
 
 ## Resource Constraints
@@ -341,21 +786,23 @@ kscorectl state check web-config.yaml
 
 ### Event Buffering
 
-Events are buffered during offline periods:
+Events are buffered during offline periods and automatically synced when connectivity is restored:
 
-```go
-buffer := edge.NewEventBuffer(edge.BufferConfig{
-    MaxSize:     10000,
-    MaxAge:      7 * 24 * time.Hour,
-    FlushOnSync: true,
-})
-
-// Events are automatically buffered when offline
-agent.PublishEvent(event) // Buffered if disconnected
-
-// Manual flush when back online
-buffer.Flush(ctx)
+```yaml
+agent:
+  edge:
+    offline:
+      # Enable event buffering when disconnected
+      bufferEvents: true
+      # Maximum events to buffer
+      maxBufferedEvents: 10000
+      # Maximum age of buffered events
+      maxBufferAge: 168h  # 7 days
+      # Automatically flush on reconnect
+      flushOnSync: true
 ```
+
+The edge manager handles event buffering automatically based on connection state.
 
 ### Offline Policy Evaluation
 

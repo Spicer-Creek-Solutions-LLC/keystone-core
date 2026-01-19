@@ -1126,6 +1126,736 @@ kscore_policy_remediations_total{policy,status}
 - `policy.violation` - Policy violated
 - `policy.remediation` - Remediation triggered
 
+## Policy Library
+
+Keystone Core provides a library of pre-built policies for common compliance frameworks. These policies can be used as-is or customized for your specific requirements.
+
+### CIS Benchmark Policies
+
+The following policies implement controls from the CIS Benchmarks for Linux systems.
+
+#### CIS Level 1 - Core Security
+
+```yaml
+# cis-level1-core.yaml
+policies:
+  # 1.1.1 - Disable mounting of cramfs filesystems
+  - id: cis-1.1.1-cramfs
+    name: "CIS 1.1.1 - Disable cramfs"
+    type: opa
+    category: security
+    severity: medium
+    enforcement: enforce
+    code: |
+      package kscore.cis.filesystem
+
+      deny[msg] {
+        input.resource.type == "command"
+        input.resource.command == ["modprobe", "cramfs"]
+        msg := "CIS 1.1.1: cramfs filesystem mounting is prohibited"
+      }
+
+  # 1.4.1 - Ensure GRUB has password protection
+  - id: cis-1.4.1-grub-password
+    name: "CIS 1.4.1 - GRUB Password"
+    type: opa
+    category: security
+    severity: high
+    enforcement: warn
+    code: |
+      package kscore.cis.bootloader
+
+      deny[msg] {
+        input.resource.type == "file"
+        input.resource.path == "/boot/grub2/grub.cfg"
+        not contains(input.resource.contents, "password_pbkdf2")
+        msg := "CIS 1.4.1: GRUB bootloader must have password protection"
+      }
+
+  # 3.2.1 - Ensure source routed packets are not accepted
+  - id: cis-3.2.1-source-routing
+    name: "CIS 3.2.1 - Disable Source Routing"
+    type: opa
+    category: network
+    severity: high
+    enforcement: enforce
+    code: |
+      package kscore.cis.network
+
+      deny[msg] {
+        input.resource.type == "file"
+        input.resource.path == "/etc/sysctl.conf"
+        not contains(input.resource.contents, "net.ipv4.conf.all.accept_source_route = 0")
+        msg := "CIS 3.2.1: IPv4 source routing must be disabled"
+      }
+
+  # 4.1.1 - Ensure auditd is installed
+  - id: cis-4.1.1-auditd
+    name: "CIS 4.1.1 - auditd Installation"
+    type: opa
+    category: logging
+    severity: medium
+    enforcement: enforce
+    code: |
+      package kscore.cis.audit
+
+      violation[msg] {
+        input.context.type == "package_install"
+        input.facts.packages.audit == "not_installed"
+        msg := "CIS 4.1.1: auditd package must be installed"
+      }
+
+  # 5.2.1 - Ensure permissions on /etc/ssh/sshd_config
+  - id: cis-5.2.1-sshd-permissions
+    name: "CIS 5.2.1 - SSH Config Permissions"
+    type: opa
+    category: security
+    severity: medium
+    enforcement: enforce
+    code: |
+      package kscore.cis.ssh
+
+      deny[msg] {
+        input.resource.type == "file"
+        input.resource.path == "/etc/ssh/sshd_config"
+        to_number(input.resource.mode) > 600
+        msg := sprintf("CIS 5.2.1: sshd_config must have permissions 600 or stricter, got %s", [input.resource.mode])
+      }
+
+  # 5.2.11 - Ensure SSH PermitRootLogin is disabled
+  - id: cis-5.2.11-no-root-login
+    name: "CIS 5.2.11 - Disable SSH Root Login"
+    type: opa
+    category: security
+    severity: high
+    enforcement: enforce
+    code: |
+      package kscore.cis.ssh
+
+      deny[msg] {
+        input.resource.type == "file"
+        input.resource.path == "/etc/ssh/sshd_config"
+        contains(lower(input.resource.contents), "permitrootlogin yes")
+        msg := "CIS 5.2.11: SSH root login must be disabled"
+      }
+```
+
+#### CIS Level 2 - Extended Security
+
+```yaml
+# cis-level2-extended.yaml
+policies:
+  # 1.6.1 - Ensure SELinux is enforcing
+  - id: cis-1.6.1-selinux-enforcing
+    name: "CIS 1.6.1 - SELinux Enforcing"
+    type: opa
+    category: security
+    severity: high
+    enforcement: warn
+    code: |
+      package kscore.cis.selinux
+
+      deny[msg] {
+        input.resource.type == "file"
+        input.resource.path == "/etc/selinux/config"
+        not contains(input.resource.contents, "SELINUX=enforcing")
+        msg := "CIS 1.6.1: SELinux must be in enforcing mode"
+      }
+
+  # 3.5.1 - Ensure DCCP is disabled
+  - id: cis-3.5.1-dccp-disabled
+    name: "CIS 3.5.1 - Disable DCCP"
+    type: opa
+    category: network
+    severity: medium
+    enforcement: enforce
+    code: |
+      package kscore.cis.network.protocols
+
+      deny[msg] {
+        input.resource.type == "file"
+        input.resource.path == "/etc/modprobe.d/dccp.conf"
+        not contains(input.resource.contents, "install dccp /bin/true")
+        msg := "CIS 3.5.1: DCCP protocol must be disabled"
+      }
+
+  # 4.2.1.4 - Ensure rsyslog default file permissions
+  - id: cis-4.2.1.4-rsyslog-permissions
+    name: "CIS 4.2.1.4 - rsyslog File Permissions"
+    type: opa
+    category: logging
+    severity: medium
+    enforcement: enforce
+    code: |
+      package kscore.cis.logging
+
+      deny[msg] {
+        input.resource.type == "file"
+        input.resource.path == "/etc/rsyslog.conf"
+        not contains(input.resource.contents, "$FileCreateMode 0640")
+        msg := "CIS 4.2.1.4: rsyslog must create files with mode 0640"
+      }
+
+  # 5.4.1.1 - Ensure password expiration is 365 days or less
+  - id: cis-5.4.1.1-password-expiration
+    name: "CIS 5.4.1.1 - Password Expiration"
+    type: opa
+    category: identity
+    severity: medium
+    enforcement: warn
+    code: |
+      package kscore.cis.password
+
+      deny[msg] {
+        input.resource.type == "file"
+        input.resource.path == "/etc/login.defs"
+        line := split(input.resource.contents, "\n")[_]
+        startswith(trim_space(line), "PASS_MAX_DAYS")
+        parts := split(trim_space(line), " ")
+        to_number(parts[1]) > 365
+        msg := sprintf("CIS 5.4.1.1: Password max age must be 365 days or less, got %s", [parts[1]])
+      }
+```
+
+### SOC 2 Control Policies
+
+The following policies help demonstrate compliance with SOC 2 Trust Service Criteria.
+
+#### CC6 - Logical and Physical Access Controls
+
+```yaml
+# soc2-cc6-access-controls.yaml
+policies:
+  # CC6.1 - Logical access security software
+  - id: soc2-cc6.1-access-controls
+    name: "SOC 2 CC6.1 - Access Control Implementation"
+    type: opa
+    category: access-control
+    severity: high
+    enforcement: enforce
+    code: |
+      package kscore.soc2.cc6
+
+      # Ensure commands require authentication
+      deny[msg] {
+        input.context.type == "command_execution"
+        not input.context.authenticated
+        msg := "SOC 2 CC6.1: All commands must be authenticated"
+      }
+
+      # Ensure privileged operations are authorized
+      deny[msg] {
+        input.context.type == "command_execution"
+        input.context.privileged
+        not input.context.authorized_for_privileged
+        msg := "SOC 2 CC6.1: Privileged operations require explicit authorization"
+      }
+
+  # CC6.2 - Registration and authorization
+  - id: soc2-cc6.2-registration
+    name: "SOC 2 CC6.2 - Agent Registration Controls"
+    type: opa
+    category: identity
+    severity: high
+    enforcement: enforce
+    code: |
+      package kscore.soc2.cc6
+
+      # Agents must be registered with valid certificates
+      deny[msg] {
+        input.context.type == "agent_connect"
+        not input.agent.certificate_valid
+        msg := "SOC 2 CC6.2: Agents must present valid certificates"
+      }
+
+      # Agents must have approved identity
+      deny[msg] {
+        input.context.type == "agent_connect"
+        not input.agent.identity_approved
+        msg := "SOC 2 CC6.2: Agent identity must be pre-approved"
+      }
+
+  # CC6.3 - Authentication mechanisms
+  - id: soc2-cc6.3-authentication
+    name: "SOC 2 CC6.3 - Strong Authentication"
+    type: opa
+    category: authentication
+    severity: high
+    enforcement: enforce
+    code: |
+      package kscore.soc2.cc6
+
+      # Require MFA for sensitive operations
+      deny[msg] {
+        input.context.type == "user_action"
+        input.context.sensitivity == "high"
+        not input.context.mfa_verified
+        msg := "SOC 2 CC6.3: High sensitivity operations require MFA"
+      }
+
+  # CC6.6 - Restriction on software installation
+  - id: soc2-cc6.6-software-controls
+    name: "SOC 2 CC6.6 - Software Installation Controls"
+    type: opa
+    category: change-management
+    severity: medium
+    enforcement: enforce
+    code: |
+      package kscore.soc2.cc6
+
+      # Only approved packages can be installed
+      deny[msg] {
+        input.context.type == "package_install"
+        not input.package.source in approved_repositories
+        msg := sprintf("SOC 2 CC6.6: Package %s not from approved repository", [input.package.name])
+      }
+
+      approved_repositories = {"official", "internal", "verified-third-party"}
+
+  # CC6.7 - Restricting data access
+  - id: soc2-cc6.7-data-access
+    name: "SOC 2 CC6.7 - Data Access Restrictions"
+    type: opa
+    category: data-protection
+    severity: high
+    enforcement: enforce
+    code: |
+      package kscore.soc2.cc6
+
+      # Sensitive files require explicit access
+      deny[msg] {
+        input.context.type == "file_access"
+        is_sensitive_path(input.resource.path)
+        not input.context.has_sensitive_data_access
+        msg := sprintf("SOC 2 CC6.7: Access to %s requires sensitive data authorization", [input.resource.path])
+      }
+
+      is_sensitive_path(path) {
+        startswith(path, "/etc/ssl/")
+      }
+      is_sensitive_path(path) {
+        startswith(path, "/etc/pki/")
+      }
+      is_sensitive_path(path) {
+        contains(path, "password")
+      }
+      is_sensitive_path(path) {
+        contains(path, "secret")
+      }
+```
+
+#### CC7 - System Operations
+
+```yaml
+# soc2-cc7-system-operations.yaml
+policies:
+  # CC7.1 - Security incidents
+  - id: soc2-cc7.1-incident-detection
+    name: "SOC 2 CC7.1 - Security Event Logging"
+    type: opa
+    category: monitoring
+    severity: high
+    enforcement: enforce
+    code: |
+      package kscore.soc2.cc7
+
+      # All security events must be logged
+      deny[msg] {
+        input.context.type == "security_event"
+        not input.event.logged
+        msg := "SOC 2 CC7.1: Security events must be logged to audit trail"
+      }
+
+  # CC7.2 - System monitoring
+  - id: soc2-cc7.2-monitoring
+    name: "SOC 2 CC7.2 - System Monitoring"
+    type: opa
+    category: monitoring
+    severity: medium
+    enforcement: warn
+    code: |
+      package kscore.soc2.cc7
+
+      # Agents must have monitoring enabled
+      violation[msg] {
+        input.context.type == "agent_config_check"
+        not input.agent.config.telemetry.enabled
+        msg := "SOC 2 CC7.2: Agent telemetry must be enabled for monitoring"
+      }
+
+  # CC7.4 - Incident response
+  - id: soc2-cc7.4-incident-response
+    name: "SOC 2 CC7.4 - Incident Response"
+    type: opa
+    category: incident-management
+    severity: high
+    enforcement: enforce
+    code: |
+      package kscore.soc2.cc7
+
+      # Critical alerts must trigger notification
+      deny[msg] {
+        input.context.type == "alert"
+        input.alert.severity == "critical"
+        not input.alert.notification_sent
+        msg := "SOC 2 CC7.4: Critical alerts must trigger incident response notification"
+      }
+```
+
+#### CC8 - Change Management
+
+```yaml
+# soc2-cc8-change-management.yaml
+policies:
+  # CC8.1 - Change authorization
+  - id: soc2-cc8.1-change-authorization
+    name: "SOC 2 CC8.1 - Change Authorization"
+    type: opa
+    category: change-management
+    severity: high
+    enforcement: enforce
+    code: |
+      package kscore.soc2.cc8
+
+      # Production changes require approval
+      deny[msg] {
+        input.context.type == "state_apply"
+        input.context.environment == "production"
+        not input.context.change_approved
+        msg := "SOC 2 CC8.1: Production changes require change approval"
+      }
+
+      # Changes must have associated ticket
+      deny[msg] {
+        input.context.type == "state_apply"
+        input.context.environment == "production"
+        not input.context.change_ticket
+        msg := "SOC 2 CC8.1: Production changes must reference a change ticket"
+      }
+
+  # CC8.2 - Change testing
+  - id: soc2-cc8.2-change-testing
+    name: "SOC 2 CC8.2 - Change Testing"
+    type: opa
+    category: change-management
+    severity: medium
+    enforcement: warn
+    code: |
+      package kscore.soc2.cc8
+
+      # Changes should be tested in non-prod first
+      warn[msg] {
+        input.context.type == "state_apply"
+        input.context.environment == "production"
+        not input.context.tested_in_staging
+        msg := "SOC 2 CC8.2: Changes should be tested in staging before production"
+      }
+```
+
+### HIPAA Security Rule Policies
+
+For healthcare organizations handling PHI (Protected Health Information).
+
+```yaml
+# hipaa-security.yaml
+policies:
+  # 164.312(a)(1) - Access Control
+  - id: hipaa-164.312a1-access-control
+    name: "HIPAA Access Control"
+    type: opa
+    category: access-control
+    severity: critical
+    enforcement: enforce
+    code: |
+      package kscore.hipaa.access
+
+      # Unique user identification required
+      deny[msg] {
+        input.context.type == "user_action"
+        not input.user.unique_identifier
+        msg := "HIPAA 164.312(a)(1): User must have unique identification"
+      }
+
+      # Automatic logoff for inactive sessions
+      deny[msg] {
+        input.context.type == "session_activity"
+        input.session.idle_minutes > 15
+        not input.session.terminated
+        msg := "HIPAA 164.312(a)(1): Sessions must auto-terminate after 15 minutes of inactivity"
+      }
+
+  # 164.312(a)(2)(iv) - Encryption and Decryption
+  - id: hipaa-164.312a2iv-encryption
+    name: "HIPAA Encryption Requirements"
+    type: opa
+    category: data-protection
+    severity: critical
+    enforcement: enforce
+    code: |
+      package kscore.hipaa.encryption
+
+      # PHI data must be encrypted at rest
+      deny[msg] {
+        input.context.type == "file_write"
+        is_phi_location(input.resource.path)
+        not input.resource.encrypted
+        msg := "HIPAA 164.312(a)(2)(iv): PHI must be encrypted at rest"
+      }
+
+      is_phi_location(path) {
+        contains(path, "/phi/")
+      }
+      is_phi_location(path) {
+        contains(path, "/patient-data/")
+      }
+      is_phi_location(path) {
+        contains(path, "/medical-records/")
+      }
+
+  # 164.312(b) - Audit Controls
+  - id: hipaa-164.312b-audit
+    name: "HIPAA Audit Controls"
+    type: opa
+    category: logging
+    severity: critical
+    enforcement: enforce
+    code: |
+      package kscore.hipaa.audit
+
+      # All PHI access must be audited
+      deny[msg] {
+        input.context.type == "data_access"
+        input.context.data_classification == "PHI"
+        not input.context.audit_logged
+        msg := "HIPAA 164.312(b): PHI access must be audit logged"
+      }
+
+  # 164.312(c)(1) - Integrity
+  - id: hipaa-164.312c1-integrity
+    name: "HIPAA Data Integrity"
+    type: opa
+    category: data-protection
+    severity: high
+    enforcement: enforce
+    code: |
+      package kscore.hipaa.integrity
+
+      # PHI modifications must be authenticated
+      deny[msg] {
+        input.context.type == "data_modify"
+        input.context.data_classification == "PHI"
+        not input.context.authentication_verified
+        msg := "HIPAA 164.312(c)(1): PHI modifications require authenticated access"
+      }
+
+  # 164.312(d) - Person or Entity Authentication
+  - id: hipaa-164.312d-authentication
+    name: "HIPAA Authentication"
+    type: opa
+    category: authentication
+    severity: critical
+    enforcement: enforce
+    code: |
+      package kscore.hipaa.auth
+
+      # Strong authentication for PHI systems
+      deny[msg] {
+        input.context.type == "system_access"
+        input.system.handles_phi
+        input.authentication.method == "password_only"
+        msg := "HIPAA 164.312(d): PHI systems require multi-factor authentication"
+      }
+
+  # 164.312(e)(1) - Transmission Security
+  - id: hipaa-164.312e1-transmission
+    name: "HIPAA Transmission Security"
+    type: opa
+    category: network
+    severity: critical
+    enforcement: enforce
+    code: |
+      package kscore.hipaa.transmission
+
+      # PHI transmission must use encryption
+      deny[msg] {
+        input.context.type == "network_transfer"
+        input.context.contains_phi
+        not input.context.tls_enabled
+        msg := "HIPAA 164.312(e)(1): PHI transmission must use TLS encryption"
+      }
+
+      # Minimum TLS version
+      deny[msg] {
+        input.context.type == "network_transfer"
+        input.context.contains_phi
+        input.context.tls_version < "1.2"
+        msg := "HIPAA 164.312(e)(1): PHI transmission requires TLS 1.2 or higher"
+      }
+```
+
+### PCI DSS Policies
+
+For organizations handling payment card data.
+
+```yaml
+# pci-dss.yaml
+policies:
+  # Requirement 2 - Default Passwords
+  - id: pci-req2-no-defaults
+    name: "PCI DSS Req 2 - No Default Passwords"
+    type: opa
+    category: security
+    severity: critical
+    enforcement: enforce
+    code: |
+      package kscore.pci.passwords
+
+      deny[msg] {
+        input.context.type == "credential_check"
+        input.credential.is_default
+        msg := "PCI DSS Req 2: Default passwords must be changed"
+      }
+
+  # Requirement 3 - Protect Stored Data
+  - id: pci-req3-data-protection
+    name: "PCI DSS Req 3 - Protect Cardholder Data"
+    type: opa
+    category: data-protection
+    severity: critical
+    enforcement: enforce
+    code: |
+      package kscore.pci.data
+
+      # PAN must be encrypted or masked
+      deny[msg] {
+        input.context.type == "file_write"
+        contains_pan(input.resource.contents)
+        not input.resource.encrypted
+        msg := "PCI DSS Req 3: Cardholder data must be encrypted"
+      }
+
+      contains_pan(content) {
+        regex.match(`\b(?:\d{4}[- ]?){3}\d{4}\b`, content)
+      }
+
+  # Requirement 7 - Restrict Access
+  - id: pci-req7-need-to-know
+    name: "PCI DSS Req 7 - Need-to-Know Access"
+    type: opa
+    category: access-control
+    severity: high
+    enforcement: enforce
+    code: |
+      package kscore.pci.access
+
+      # Access must be based on business need
+      deny[msg] {
+        input.context.type == "data_access"
+        input.context.data_classification == "cardholder_data"
+        not input.user.has_business_need
+        msg := "PCI DSS Req 7: Access to cardholder data requires business justification"
+      }
+
+  # Requirement 10 - Track and Monitor Access
+  - id: pci-req10-audit-logging
+    name: "PCI DSS Req 10 - Audit Logging"
+    type: opa
+    category: logging
+    severity: high
+    enforcement: enforce
+    code: |
+      package kscore.pci.audit
+
+      # All access to cardholder data must be logged
+      deny[msg] {
+        input.context.type == "data_access"
+        input.context.data_classification == "cardholder_data"
+        not input.context.audit_logged
+        msg := "PCI DSS Req 10: All access to cardholder data must be logged"
+      }
+```
+
+### Using the Policy Library
+
+#### Import Policies
+
+```bash
+# Import CIS Level 1 policies
+kscorectl policy import https://policies.kscore.io/cis/level1-linux.yaml
+
+# Import SOC 2 policies
+kscorectl policy import https://policies.kscore.io/soc2/full.yaml
+
+# Import from local file
+kscorectl policy import ./policies/hipaa-security.yaml
+```
+
+#### Create Policy Set
+
+```yaml
+# compliance-policy-set.yaml
+id: enterprise-compliance
+name: Enterprise Compliance Policy Set
+description: Combined CIS, SOC 2, and HIPAA policies
+
+policies:
+  - cis-level1-*
+  - soc2-cc6-*
+  - soc2-cc7-*
+  - soc2-cc8-*
+  - hipaa-*
+
+enforcement:
+  default: warn
+  overrides:
+    - pattern: "*critical*"
+      mode: enforce
+    - pattern: "hipaa-*"
+      mode: enforce
+```
+
+#### Bind to Environments
+
+```yaml
+# policy-binding.yaml
+bindings:
+  - policy_set: enterprise-compliance
+    scope:
+      environments:
+        - production
+        - staging
+    enforcement: enforce
+
+  - policy_set: enterprise-compliance
+    scope:
+      environments:
+        - development
+    enforcement: warn
+```
+
+#### Generate Compliance Reports
+
+```bash
+# Generate CIS compliance report
+kscorectl policy report \
+  --framework cis-level1 \
+  --format pdf \
+  --output cis-report.pdf
+
+# Generate SOC 2 evidence package
+kscorectl policy evidence \
+  --framework soc2 \
+  --from 2024-01-01 \
+  --to 2024-03-31 \
+  --output soc2-q1-evidence.zip
+
+# Export to GRC tool
+kscorectl policy export \
+  --format csv \
+  --include-violations \
+  --output compliance-data.csv
+```
+
 ## Troubleshooting
 
 ### Policy Not Evaluating

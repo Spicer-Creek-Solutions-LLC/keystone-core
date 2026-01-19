@@ -287,6 +287,7 @@ clean:
 	rm -rf dist/
 	rm -rf data/
 	rm -f coverage.out
+	rm -f docvalidation scripts/docvalidation/docvalidation
 	# Rust build artifacts
 	rm -rf modules/sdk/rust/target/
 	rm -rf modules/sdk/rust/examples/*/target/

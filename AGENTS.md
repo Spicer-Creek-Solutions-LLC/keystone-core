@@ -231,7 +231,7 @@ These gaps should be addressed before production use.
 
 ```
 /
-├── DESIGN.md                          # Main design document
+├── docs/project/DESIGN.md             # Main design document
 └── epics/                             # Epic-level implementation plans
     ├── 01-core-infrastructure.md      # NATS, agents, control plane
     ├── 02-remote-execution.md         # Command execution system
@@ -5865,9 +5865,27 @@ A Go tool that:
 
 ## Working with Design Documents
 
-### Updating DESIGN.md
+### Documentation Formatting Requirements
+
+**Diagrams must use Mermaid format.** All diagrams in documentation should be written in Mermaid syntax rather than ASCII art. This ensures:
+- Consistent rendering across different viewing platforms (GitHub, Hugo, IDEs)
+- Easier maintenance and updates
+- Better accessibility
+- Professional appearance
+
+Example Mermaid diagram:
+```mermaid
+flowchart LR
+    A[Agent] --> B[Control Plane]
+    B --> C[Database]
+    B --> D[NATS]
+```
+
+When updating existing documentation, convert ASCII art diagrams to Mermaid format.
+
+### Updating docs/project/DESIGN.md
 - Maintain the market positioning section - this defines Keystone Core's unique value
-- Keep architecture diagrams in sync with epic changes
+- Keep architecture diagrams in sync with epic changes (use Mermaid format)
 - Update comparison matrix if competitive landscape changes
 - Technology stack changes require epic updates too
 

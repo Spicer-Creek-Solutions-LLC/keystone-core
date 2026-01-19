@@ -104,6 +104,9 @@ type ReactorEngine struct {
 	metrics        *ReactorMetrics
 	eventPublisher EventPublisher
 
+	// Dead letter queue for failed executions
+	deadLetterQueue DeadLetterQueue
+
 	// Context for cancellation
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -202,6 +205,20 @@ func (e *ReactorEngine) SetEventPublisher(publisher EventPublisher) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.eventPublisher = publisher
+}
+
+// SetDeadLetterQueue sets the dead letter queue for failed executions
+func (e *ReactorEngine) SetDeadLetterQueue(dlq DeadLetterQueue) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.deadLetterQueue = dlq
+}
+
+// GetDeadLetterQueue returns the configured dead letter queue
+func (e *ReactorEngine) GetDeadLetterQueue() DeadLetterQueue {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	return e.deadLetterQueue
 }
 
 // AddReactor adds a reactor to the engine
@@ -496,11 +513,16 @@ func (e *ReactorEngine) executeActions(reactor *Reactor, event *Event, exec *rea
 	success := true
 	var lastErr error
 
+	var failedActionIndex int = -1
+	var failedActionName string
+
 	for i, action := range reactor.Actions {
 		err := action.Execute(ctx, event)
 		if err != nil {
 			lastErr = err
 			success = false
+			failedActionIndex = i
+			failedActionName = action.Name()
 
 			// Handle error based on OnError behavior
 			if reactor.OnError == ErrorBehaviorStop {
@@ -510,6 +532,8 @@ func (e *ReactorEngine) executeActions(reactor *Reactor, event *Event, exec *rea
 				err = action.Execute(ctx, event)
 				if err == nil {
 					success = true
+					failedActionIndex = -1
+					failedActionName = ""
 					continue
 				}
 			}
@@ -544,6 +568,9 @@ func (e *ReactorEngine) executeActions(reactor *Reactor, event *Event, exec *rea
 			metrics.LastErrorMsg = lastErr.Error()
 		}
 		metrics.mu.Unlock()
+
+		// Enqueue to dead letter queue if configured
+		e.enqueueToDeadLetterQueue(reactor, event, failedActionIndex, failedActionName, lastErr)
 	}
 
 	metrics.mu.Lock()
@@ -662,6 +689,38 @@ func (e *ReactorEngine) emitActionEvent(reactor *Reactor, action Action, index i
 		Build()
 
 	e.eventPublisher.PublishAsync(event)
+}
+
+// enqueueToDeadLetterQueue adds a failed execution to the dead letter queue
+func (e *ReactorEngine) enqueueToDeadLetterQueue(reactor *Reactor, event *Event, actionIndex int, actionName string, err error) {
+	e.mu.RLock()
+	dlq := e.deadLetterQueue
+	e.mu.RUnlock()
+
+	if dlq == nil || err == nil {
+		return
+	}
+
+	entry := &DeadLetterEntry{
+		ReactorID:   reactor.ID,
+		ReactorName: reactor.Name,
+		Event:       event,
+		ActionIndex: actionIndex,
+		ActionName:  actionName,
+		Error:       err.Error(),
+		Metadata: map[string]interface{}{
+			"reactor_priority":    reactor.Priority,
+			"reactor_description": reactor.Description,
+			"on_error":            string(reactor.OnError),
+		},
+	}
+
+	// Enqueue in background to not block execution
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		dlq.Enqueue(ctx, entry)
+	}()
 }
 
 // GetReactor returns a reactor by ID

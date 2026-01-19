@@ -49,7 +49,7 @@ Fixes #
 - [ ] My commits are signed off (`git commit -s`)
 - [ ] All CI checks pass
 - [ ] I have read [CONTRIBUTING.md](../CONTRIBUTING.md)
-- [ ] I have read [AI-CONTRIBUTIONS.md](../AI-CONTRIBUTIONS.md) (if using AI)
+- [ ] I have read [AI-CONTRIBUTIONS.md](../docs/project/AI-CONTRIBUTIONS.md) (if using AI)
 
 ## Additional Notes
 

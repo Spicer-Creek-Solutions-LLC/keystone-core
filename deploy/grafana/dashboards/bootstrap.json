@@ -1,0 +1,346 @@
+{
+  "dashboard": {
+    "title": "Bootstrap",
+    "uid": "kscore-bootstrap",
+    "tags": ["kscore", "bootstrap", "enrollment", "epic-30"],
+    "timezone": "browser",
+    "schemaVersion": 36,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+      "from": "now-24h",
+      "to": "now"
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "environment",
+          "type": "query",
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "query": "label_values(kscore_bootstrap_enrollments_total, environment)",
+          "refresh": 1,
+          "multi": false,
+          "includeAll": true,
+          "allValue": ".*"
+        }
+      ]
+    },
+    "panels": [
+      {
+        "title": "Bootstrap Overview",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+        "collapsed": false
+      },
+      {
+        "title": "Enrollments Today",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 1},
+        "targets": [
+          {
+            "expr": "sum(increase(kscore_bootstrap_enrollments_total{environment=~\"$environment\"}[24h]))",
+            "legendFormat": "Enrollments"
+          }
+        ]
+      },
+      {
+        "title": "Pending Enrollments",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 1},
+        "targets": [
+          {
+            "expr": "sum(kscore_bootstrap_pending{environment=~\"$environment\"})",
+            "legendFormat": "Pending"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 10, "color": "yellow"},
+                {"value": 50, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Enrollment Success Rate",
+        "type": "gauge",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 1},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_bootstrap_enrollments_total{status=\"success\",environment=~\"$environment\"}[24h])) / sum(rate(kscore_bootstrap_enrollments_total{environment=~\"$environment\"}[24h])) * 100",
+            "legendFormat": "Success %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 90, "color": "yellow"},
+                {"value": 99, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Avg Enrollment Time",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 1},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.5, sum(rate(kscore_bootstrap_enrollment_duration_seconds_bucket{environment=~\"$environment\"}[24h])) by (le))",
+            "legendFormat": "P50"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "s"}}
+      },
+      {
+        "title": "Enrollment Rate",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 5},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_bootstrap_enrollments_total{environment=~\"$environment\"}[5m])) by (attestation_method)",
+            "legendFormat": "{{attestation_method}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Enrollment Duration",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 5},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.5, sum(rate(kscore_bootstrap_enrollment_duration_seconds_bucket{environment=~\"$environment\"}[5m])) by (le))",
+            "legendFormat": "P50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(kscore_bootstrap_enrollment_duration_seconds_bucket{environment=~\"$environment\"}[5m])) by (le))",
+            "legendFormat": "P95"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "s"}}
+      },
+      {
+        "title": "Token Management",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 13},
+        "collapsed": false
+      },
+      {
+        "title": "Active Bootstrap Tokens",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 14},
+        "targets": [
+          {
+            "expr": "sum(kscore_bootstrap_tokens_active{environment=~\"$environment\"})",
+            "legendFormat": "Active"
+          }
+        ]
+      },
+      {
+        "title": "Tokens Expiring Soon",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 14},
+        "targets": [
+          {
+            "expr": "sum(kscore_bootstrap_tokens_expiring_soon{environment=~\"$environment\"})",
+            "legendFormat": "Expiring (24h)"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 5, "color": "yellow"},
+                {"value": 20, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Token Usage",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 14},
+        "targets": [
+          {
+            "expr": "sum(increase(kscore_bootstrap_token_uses_total{environment=~\"$environment\"}[24h]))",
+            "legendFormat": "Uses (24h)"
+          }
+        ]
+      },
+      {
+        "title": "Invalid Token Attempts",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 14},
+        "targets": [
+          {
+            "expr": "sum(increase(kscore_bootstrap_invalid_token_total{environment=~\"$environment\"}[24h]))",
+            "legendFormat": "Invalid (24h)"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 5, "color": "yellow"},
+                {"value": 20, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Token Creation Rate",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 18},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_bootstrap_tokens_created_total{environment=~\"$environment\"}[5m])) by (token_type)",
+            "legendFormat": "{{token_type}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Token Expiration Distribution",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 18},
+        "targets": [
+          {
+            "expr": "kscore_bootstrap_tokens_by_expiry_bucket{environment=~\"$environment\"}",
+            "legendFormat": "{{le}}h"
+          }
+        ]
+      },
+      {
+        "title": "Attestation",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 26},
+        "collapsed": false
+      },
+      {
+        "title": "Attestation Methods",
+        "type": "piechart",
+        "gridPos": {"h": 8, "w": 8, "x": 0, "y": 27},
+        "targets": [
+          {
+            "expr": "sum(increase(kscore_bootstrap_enrollments_total{environment=~\"$environment\"}[24h])) by (attestation_method)",
+            "legendFormat": "{{attestation_method}}"
+          }
+        ]
+      },
+      {
+        "title": "Attestation Failures",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 8, "x": 8, "y": 27},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_bootstrap_attestation_failures_total{environment=~\"$environment\"}[5m])) by (reason)",
+            "legendFormat": "{{reason}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Cloud Provider Attestations",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 8, "x": 16, "y": 27},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_bootstrap_enrollments_total{environment=~\"$environment\"}[5m])) by (cloud_provider)",
+            "legendFormat": "{{cloud_provider}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Post-Bootstrap",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 35},
+        "collapsed": false
+      },
+      {
+        "title": "Configuration Applied",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 8, "x": 0, "y": 36},
+        "targets": [
+          {
+            "expr": "sum(increase(kscore_bootstrap_config_applied_total{environment=~\"$environment\"}[24h]))",
+            "legendFormat": "Configs Applied"
+          }
+        ]
+      },
+      {
+        "title": "Agent Healthcheck Pass Rate",
+        "type": "gauge",
+        "gridPos": {"h": 4, "w": 8, "x": 8, "y": 36},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_bootstrap_healthcheck_pass_total{environment=~\"$environment\"}[24h])) / sum(rate(kscore_bootstrap_healthcheck_total{environment=~\"$environment\"}[24h])) * 100",
+            "legendFormat": "Pass %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 90, "color": "yellow"},
+                {"value": 99, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Time to First Command",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 8, "x": 16, "y": 36},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.5, sum(rate(kscore_bootstrap_time_to_ready_seconds_bucket{environment=~\"$environment\"}[24h])) by (le))",
+            "legendFormat": "P50"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "s"}}
+      },
+      {
+        "title": "Recent Enrollments",
+        "type": "table",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 40},
+        "targets": [
+          {
+            "expr": "kscore_bootstrap_enrollment_info{environment=~\"$environment\"}",
+            "legendFormat": "{{agent_id}}",
+            "format": "table",
+            "instant": true
+          }
+        ],
+        "transformations": [
+          {"id": "organize", "options": {"excludeByName": {"Time": true}}}
+        ]
+      }
+    ]
+  }
+}

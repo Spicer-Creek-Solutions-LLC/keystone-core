@@ -14,10 +14,10 @@ The following documents in the repository root define how the project operates:
 
 | Document | Purpose |
 |----------|---------|
-| [GOVERNANCE.md](https://github.com/shawnbutts/keystone-core/blob/main/GOVERNANCE.md) | Roles, decision making, breaking changes policy |
-| [MAINTAINERS.md](https://github.com/shawnbutts/keystone-core/blob/main/MAINTAINERS.md) | Maintainer responsibilities and expectations |
-| [RFC.md](https://github.com/shawnbutts/keystone-core/blob/main/RFC.md) | Proposal process for larger changes |
-| [COMPATIBILITY.md](https://github.com/shawnbutts/keystone-core/blob/main/COMPATIBILITY.md) | Versioning, release cadence, support windows |
+| [GOVERNANCE.md](https://github.com/shawnbutts/keystone-core/blob/main/docs/project/GOVERNANCE.md) | Roles, decision making, breaking changes policy |
+| [MAINTAINERS.md](https://github.com/shawnbutts/keystone-core/blob/main/docs/project/MAINTAINERS.md) | Maintainer responsibilities and expectations |
+| [RFC.md](https://github.com/shawnbutts/keystone-core/blob/main/docs/project/RFC.md) | Proposal process for larger changes |
+| [COMPATIBILITY.md](https://github.com/shawnbutts/keystone-core/blob/main/docs/project/COMPATIBILITY.md) | Versioning, release cadence, support windows |
 | [CODE_OF_CONDUCT.md](https://github.com/shawnbutts/keystone-core/blob/main/CODE_OF_CONDUCT.md) | Community behavior expectations |
 
 ## Summary
@@ -40,7 +40,7 @@ Breaking changes require:
 - Maintainer agreement
 - BDFL approval
 
-See [COMPATIBILITY.md](https://github.com/shawnbutts/keystone-core/blob/main/COMPATIBILITY.md) for
+See [COMPATIBILITY.md](https://github.com/shawnbutts/keystone-core/blob/main/docs/project/COMPATIBILITY.md) for
 versioning guarantees and upgrade paths.
 
 ## Questions?

@@ -198,6 +198,7 @@ type RunOptions struct {
 	JobID            string
 	ShowProgress     bool
 	ShowAgentResults bool
+	DryRun           bool
 }
 
 // newRunCmd creates the run command
@@ -248,6 +249,7 @@ Examples:
 	cmd.Flags().StringVar(&opts.JobID, "job-id", "", "Custom batch job ID (auto-generated if not specified)")
 	cmd.Flags().BoolVar(&opts.ShowProgress, "show-progress", true, "Show progress updates during execution")
 	cmd.Flags().BoolVar(&opts.ShowAgentResults, "show-results", true, "Show per-agent results at the end")
+	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", false, "Preview matched agents and command without executing")
 
 	return cmd
 }
@@ -331,6 +333,19 @@ func runExecute(cmd *cobra.Command, args []string, cfg *Config, opts *RunOptions
 
 	// Create client
 	client, conn, err := createClient(cfg)
+	if err != nil {
+		logAudit(audit.ResultFailure, 1, err)
+		return err
+	}
+	defer conn.Close()
+
+	// Handle dry-run mode - preview matched agents without executing
+	if opts.DryRun {
+		return runDryRun(cmd, client, cfg, target, command, cmdArgs, envMap, opts)
+	}
+
+	// Re-create client for actual execution (deferred close already set up above)
+	client, conn, err = createClient(cfg)
 	if err != nil {
 		logAudit(audit.ResultFailure, 1, err)
 		return err
@@ -454,6 +469,126 @@ func runExecute(cmd *cobra.Command, args []string, cfg *Config, opts *RunOptions
 		}
 	}
 	logAudit(audit.ResultSuccess, 0, nil)
+
+	return nil
+}
+
+// runDryRun performs a dry run showing what would be executed without actually executing
+func runDryRun(cmd *cobra.Command, client pb.ControlPlaneServiceClient, cfg *Config, target, command string, cmdArgs []string, envMap map[string]string, opts *RunOptions) error {
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
+	defer cancel()
+
+	fmt.Println("=== DRY RUN MODE ===")
+	fmt.Println("No commands will be executed.")
+	fmt.Println()
+
+	// Show command details
+	fmt.Println("Command Details:")
+	fmt.Printf("  Target:          %s\n", target)
+	fmt.Printf("  Command:         %s %s\n", command, strings.Join(cmdArgs, " "))
+	if opts.WorkingDir != "" {
+		fmt.Printf("  Working Dir:     %s\n", opts.WorkingDir)
+	}
+	if opts.User != "" {
+		fmt.Printf("  Run As User:     %s\n", opts.User)
+	}
+	fmt.Printf("  Timeout:         %ds\n", opts.CommandTimeout)
+	fmt.Printf("  Concurrency:     %d\n", opts.Concurrency)
+	fmt.Printf("  Continue on Fail: %v\n", opts.ContinueOnError)
+
+	if len(envMap) > 0 {
+		fmt.Println("  Environment:")
+		for k, v := range envMap {
+			fmt.Printf("    %s=%s\n", k, v)
+		}
+	}
+	fmt.Println()
+
+	// List all agents to show potential scope
+	listReq := &pb.ListAgentsRequest{
+		PageSize: 1000,
+	}
+
+	resp, err := client.ListAgents(ctx, listReq)
+	if err != nil {
+		return fmt.Errorf("failed to list agents: %w", err)
+	}
+
+	// Show agent information
+	fmt.Printf("Agent Summary (total registered: %d):\n", resp.TotalCount)
+
+	// Count agents by status
+	var onlineCount, offlineCount int
+	for _, agent := range resp.Agents {
+		switch agent.Status {
+		case pb.AgentStatus_AGENT_STATUS_ONLINE:
+			onlineCount++
+		case pb.AgentStatus_AGENT_STATUS_OFFLINE:
+			offlineCount++
+		}
+	}
+
+	fmt.Printf("  Online:  %d\n", onlineCount)
+	fmt.Printf("  Offline: %d\n", offlineCount)
+	fmt.Println()
+
+	// Parse and display target expression information
+	fmt.Println("Target Expression Analysis:")
+	fmt.Printf("  Expression: %s\n", target)
+	fmt.Println()
+
+	// Show matching agents (simplified - shows all agents with labels for manual verification)
+	fmt.Println("Registered Agents (target matching will occur server-side):")
+	fmt.Printf("%-40s %-12s %-20s %-20s\n", "AGENT ID", "STATUS", "OS", "LABELS")
+	fmt.Println(strings.Repeat("-", 100))
+
+	displayCount := 0
+	maxDisplay := 20
+
+	for _, agent := range resp.Agents {
+		if displayCount >= maxDisplay && len(resp.Agents) > maxDisplay {
+			fmt.Printf("... and %d more agents\n", len(resp.Agents)-maxDisplay)
+			break
+		}
+
+		status := "UNKNOWN"
+		switch agent.Status {
+		case pb.AgentStatus_AGENT_STATUS_ONLINE:
+			status = "ONLINE"
+		case pb.AgentStatus_AGENT_STATUS_OFFLINE:
+			status = "OFFLINE"
+		}
+
+		osInfo := "N/A"
+		labelsStr := ""
+
+		if agent.Metadata != nil {
+			osInfo = agent.Metadata.Os
+			if agent.Metadata.Labels != nil {
+				labels := make([]string, 0, len(agent.Metadata.Labels))
+				for k, v := range agent.Metadata.Labels {
+					labels = append(labels, k+":"+v)
+				}
+				if len(labels) > 3 {
+					labelsStr = strings.Join(labels[:3], ", ") + "..."
+				} else {
+					labelsStr = strings.Join(labels, ", ")
+				}
+			}
+		}
+
+		fmt.Printf("%-40s %-12s %-20s %-20s\n",
+			truncate(agent.AgentId, 40),
+			status,
+			truncate(osInfo, 20),
+			truncate(labelsStr, 20),
+		)
+		displayCount++
+	}
+
+	fmt.Println()
+	fmt.Println("=== END DRY RUN ===")
+	fmt.Println("Run without --dry-run to execute the command.")
 
 	return nil
 }

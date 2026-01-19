@@ -139,6 +139,271 @@ current-3
 
 As the platform stabilizes, a Go-like compatibility promise may be adopted once surfaces mature.
 
+## Version Compatibility Matrix
+
+This matrix shows compatibility between components across supported versions.
+
+### Control Plane ↔ Agent Compatibility
+
+| Control Plane | Agent 0.1.x | Agent 0.2.x | Agent 0.3.x | Agent 0.4.x |
+|---------------|-------------|-------------|-------------|-------------|
+| 0.1.x | ✅ Full | ⚠️ Limited | ❌ Unsupported | ❌ Unsupported |
+| 0.2.x | ✅ Full | ✅ Full | ⚠️ Limited | ❌ Unsupported |
+| 0.3.x | ⚠️ Limited | ✅ Full | ✅ Full | ⚠️ Limited |
+| 0.4.x | ❌ Unsupported | ⚠️ Limited | ✅ Full | ✅ Full |
+
+**Legend**:
+- ✅ **Full**: All features work, fully tested combination
+- ⚠️ **Limited**: Core features work, some new features may be unavailable
+- ❌ **Unsupported**: Not tested, may have protocol incompatibilities
+
+**Recommendation**: Control plane should be same version or newer than agents.
+
+### Database Backend Compatibility
+
+| Version | SQLite | PostgreSQL 13 | PostgreSQL 14 | PostgreSQL 15 | PostgreSQL 16 |
+|---------|--------|---------------|---------------|---------------|---------------|
+| 0.1.x | ✅ | ✅ | ✅ | ✅ | ⚠️ |
+| 0.2.x | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 0.3.x | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 0.4.x | ✅ | ⚠️ | ✅ | ✅ | ✅ |
+
+**Notes**:
+- SQLite recommended for deployments < 500 agents
+- PostgreSQL 13 reaches EOL November 2025
+- PostgreSQL 16 requires 0.2.x+ for full feature support
+
+### NATS Server Compatibility
+
+| Version | NATS 2.9.x | NATS 2.10.x | NATS 2.11.x |
+|---------|------------|-------------|-------------|
+| 0.1.x | ✅ | ✅ | ⚠️ |
+| 0.2.x | ✅ | ✅ | ✅ |
+| 0.3.x | ⚠️ | ✅ | ✅ |
+| 0.4.x | ❌ | ✅ | ✅ |
+
+**Notes**:
+- JetStream required for all versions
+- NATS 2.9.x deprecated in 0.4.x
+- NATS 2.11.x recommended for new deployments
+
+### etcd Compatibility (HA Clustering)
+
+| Version | etcd 3.4.x | etcd 3.5.x |
+|---------|------------|------------|
+| 0.1.x | ✅ | ✅ |
+| 0.2.x | ✅ | ✅ |
+| 0.3.x | ⚠️ | ✅ |
+| 0.4.x | ❌ | ✅ |
+
+**Notes**:
+- etcd 3.5.x recommended for all deployments
+- etcd 3.4.x support removed in 0.4.x
+
+### Operating System Compatibility
+
+#### Control Plane
+
+| Version | Ubuntu 22.04 | Ubuntu 24.04 | RHEL 8 | RHEL 9 | Debian 11 | Debian 12 |
+|---------|--------------|--------------|--------|--------|-----------|-----------|
+| 0.1.x | ✅ | ⚠️ | ✅ | ✅ | ✅ | ⚠️ |
+| 0.2.x | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 0.3.x | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 0.4.x | ✅ | ✅ | ⚠️ | ✅ | ⚠️ | ✅ |
+
+#### Agent
+
+| Version | Ubuntu 20.04+ | RHEL 7+ | Debian 10+ | Windows Server 2019+ | macOS 12+ |
+|---------|---------------|---------|------------|----------------------|-----------|
+| 0.1.x | ✅ | ✅ | ✅ | ⚠️ | ⚠️ |
+| 0.2.x | ✅ | ✅ | ✅ | ✅ | ⚠️ |
+| 0.3.x | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 0.4.x | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+### Kubernetes Compatibility
+
+| Version | K8s 1.26 | K8s 1.27 | K8s 1.28 | K8s 1.29 | K8s 1.30 |
+|---------|----------|----------|----------|----------|----------|
+| 0.1.x | ✅ | ✅ | ✅ | ⚠️ | ❌ |
+| 0.2.x | ✅ | ✅ | ✅ | ✅ | ⚠️ |
+| 0.3.x | ⚠️ | ✅ | ✅ | ✅ | ✅ |
+| 0.4.x | ❌ | ⚠️ | ✅ | ✅ | ✅ |
+
+**Notes**:
+- Helm chart compatibility follows same matrix
+- Operator supports N-3 Kubernetes versions
+- CRD versions may differ; see Helm chart docs
+
+### API Version Compatibility
+
+| Version | REST API v1 | REST API v2 | gRPC v1 | gRPC v2 |
+|---------|-------------|-------------|---------|---------|
+| 0.1.x | ✅ | ❌ | ✅ | ❌ |
+| 0.2.x | ✅ | ⚠️ beta | ✅ | ❌ |
+| 0.3.x | ✅ | ✅ | ✅ | ⚠️ beta |
+| 0.4.x | ⚠️ deprecated | ✅ | ⚠️ deprecated | ✅ |
+
+**Migration Notes**:
+- REST API v1 deprecated in 0.4.x, removed in 0.6.x
+- gRPC v1 deprecated in 0.4.x, removed in 0.6.x
+- Use API version header to specify desired version
+
+### CLI Compatibility
+
+| CLI Version | Control Plane 0.1.x | Control Plane 0.2.x | Control Plane 0.3.x | Control Plane 0.4.x |
+|-------------|---------------------|---------------------|---------------------|---------------------|
+| 0.1.x | ✅ | ⚠️ | ❌ | ❌ |
+| 0.2.x | ✅ | ✅ | ⚠️ | ❌ |
+| 0.3.x | ⚠️ | ✅ | ✅ | ⚠️ |
+| 0.4.x | ❌ | ⚠️ | ✅ | ✅ |
+
+**Recommendation**: Keep CLI version aligned with control plane version.
+
+### SDK Compatibility
+
+| SDK | Language | Supported Versions | Notes |
+|-----|----------|-------------------|-------|
+| `kscore-go` | Go | 0.2.x+ | Primary SDK |
+| `kscore-python` | Python 3.9+ | 0.2.x+ | Community maintained |
+| `kscore-typescript` | TypeScript/Node | 0.3.x+ | Beta |
+| `kscore-rust` | Rust | 0.4.x+ | Alpha |
+
+### Module Compatibility
+
+| Module Version | Runtime 0.1.x | Runtime 0.2.x | Runtime 0.3.x | Runtime 0.4.x |
+|----------------|---------------|---------------|---------------|---------------|
+| Starlark v1 | ✅ | ✅ | ✅ | ✅ |
+| Starlark v2 | ❌ | ⚠️ | ✅ | ✅ |
+| WASM v1 | ❌ | ❌ | ⚠️ | ✅ |
+
+### Terraform Provider Compatibility
+
+| Provider Version | Keystone 0.2.x | Keystone 0.3.x | Keystone 0.4.x |
+|------------------|----------------|----------------|----------------|
+| 0.1.x | ✅ | ⚠️ | ❌ |
+| 0.2.x | ✅ | ✅ | ⚠️ |
+| 0.3.x | ⚠️ | ✅ | ✅ |
+
+## Upgrade Path Matrix
+
+### Direct Upgrade Support
+
+| From → To | 0.1.x | 0.2.x | 0.3.x | 0.4.x |
+|-----------|-------|-------|-------|-------|
+| 0.1.x | — | ✅ | ⚠️ | ❌ |
+| 0.2.x | ❌ | — | ✅ | ⚠️ |
+| 0.3.x | ❌ | ❌ | — | ✅ |
+| 0.4.x | ❌ | ❌ | ❌ | — |
+
+**Legend**:
+- ✅ Direct upgrade supported
+- ⚠️ Requires intermediate version (step upgrade)
+- ❌ Downgrade not supported
+
+### Recommended Upgrade Paths
+
+```
+0.1.x → 0.2.x → 0.3.x → 0.4.x (sequential)
+0.1.x → 0.2.x → 0.4.x (skip 0.3.x if needed)
+0.2.x → 0.4.x (direct, requires migration script)
+```
+
+### Rolling Upgrade Support
+
+| Upgrade | Rolling | Zero-Downtime | Notes |
+|---------|---------|---------------|-------|
+| 0.1.x → 0.2.x | ✅ | ⚠️ | Brief API interruption during schema migration |
+| 0.2.x → 0.3.x | ✅ | ✅ | Full rolling upgrade support |
+| 0.3.x → 0.4.x | ✅ | ✅ | Full rolling upgrade support |
+
+## Deprecation Timeline
+
+### Scheduled Deprecations
+
+| Component | Deprecated In | Removed In | Replacement |
+|-----------|---------------|------------|-------------|
+| REST API v1 | 0.4.x | 0.6.x | REST API v2 |
+| gRPC v1 | 0.4.x | 0.6.x | gRPC v2 |
+| SQLite CGO | 0.3.x | 0.5.x | Pure Go SQLite |
+| NATS 2.9.x | 0.3.x | 0.4.x | NATS 2.10.x+ |
+| etcd 3.4.x | 0.3.x | 0.4.x | etcd 3.5.x |
+| Python SDK 0.1.x | 0.4.x | 0.6.x | Python SDK 0.2.x |
+
+### Configuration Deprecations
+
+| Config Key | Deprecated In | Removed In | Replacement |
+|------------|---------------|------------|-------------|
+| `server.legacy_auth` | 0.2.x | 0.4.x | `server.auth.method` |
+| `agent.nats_url` | 0.3.x | 0.5.x | `agent.nats.urls` |
+| `database.sqlite_path` | 0.3.x | 0.5.x | `database.sqlite.path` |
+
+## Support Windows
+
+### Version Support Policy
+
+| Version | Release Date | Active Support | Security Support | End of Life |
+|---------|--------------|----------------|------------------|-------------|
+| 0.1.x | 2024-01-15 | Ended | 2025-01-15 | 2025-01-15 |
+| 0.2.x | 2024-07-15 | Ended | 2025-07-15 | 2025-07-15 |
+| 0.3.x | 2025-01-15 | Active | 2026-01-15 | 2026-01-15 |
+| 0.4.x | 2025-07-15 | Active | 2026-07-15 | 2026-07-15 |
+
+### Support Levels
+
+- **Active Support**: Bug fixes, security patches, minor features
+- **Security Support**: Critical security patches only
+- **End of Life**: No further updates
+
+## Checking Compatibility
+
+### CLI Commands
+
+```bash
+# Check component versions
+kscorectl version --all
+
+# Output:
+# Control Plane: 0.4.1
+# CLI: 0.4.0
+# Database Schema: 42
+# NATS Protocol: 2
+# API Version: v2
+
+# Check compatibility
+kscorectl compatibility check
+
+# Output:
+# ✅ CLI compatible with control plane
+# ✅ Database schema up to date
+# ⚠️ 3 agents running older version (0.3.x)
+# ✅ NATS server version compatible
+
+# Check agent compatibility
+kscorectl agent list --show-compatibility
+
+# Output:
+# AGENT          VERSION   COMPATIBLE   FEATURES
+# agent-001      0.4.0     ✅ Full       All
+# agent-002      0.3.5     ⚠️ Limited    Missing: blueprints-v2
+# agent-003      0.2.8     ❌ Upgrade    Required: 0.3.x+
+```
+
+### Programmatic Check
+
+```go
+import "github.com/keystone-core/kscore/compatibility"
+
+// Check version compatibility
+result := compatibility.Check(
+    compatibility.ControlPlane("0.4.1"),
+    compatibility.Agent("0.3.5"),
+)
+
+if result.Status == compatibility.Limited {
+    log.Warn("Limited compatibility", "missing", result.MissingFeatures)
+}
+```
+
 ## Design Goals
 
 - avoid stagnation

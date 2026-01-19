@@ -584,4 +584,4 @@ WHERE seq_scan > idx_scan;
 - [Control Plane](/docs/concepts/control-plane/) - Control plane architecture
 - [Observability](/docs/concepts/observability/) - Monitoring storage metrics
 - [Operations: Maintenance](/docs/operations/maintenance/) - Database maintenance
-- [Operations: Backup](/docs/operations/backup/) - Backup procedures
+- [Operations: Backup](/docs/operations/self-management/) - Backup procedures

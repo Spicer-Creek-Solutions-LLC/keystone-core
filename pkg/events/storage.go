@@ -143,6 +143,38 @@ type EventReplay interface {
 	ReplayRange(ctx context.Context, startTime, endTime time.Time, handler EventHandler) error
 }
 
+// ReplayProgress tracks replay progress
+type ReplayProgress struct {
+	// Current is the number of events processed so far
+	Current int64
+	// Total is the total number of events to replay
+	Total int64
+	// LastEvent is the most recently processed event
+	LastEvent *Event
+	// Percentage is the completion percentage (0-100)
+	Percentage float64
+}
+
+// ReplayProgressFunc is a callback for reporting replay progress
+type ReplayProgressFunc func(progress *ReplayProgress)
+
+// BatchEventHandler processes a batch of events
+type BatchEventHandler func(events []*Event) error
+
+// EventReplayExtended provides extended replay capabilities
+type EventReplayExtended interface {
+	EventReplay
+
+	// ReplayWithProgress replays events with progress tracking
+	ReplayWithProgress(ctx context.Context, query *EventQuery, handler EventHandler, progressFn ReplayProgressFunc) error
+
+	// ReplayBatched replays events in batches for memory efficiency
+	ReplayBatched(ctx context.Context, query *EventQuery, batchSize int, handler BatchEventHandler) error
+
+	// ReplayRangeWithTypes replays specific event types within a time range
+	ReplayRangeWithTypes(ctx context.Context, startTime, endTime time.Time, types []EventType, handler EventHandler) error
+}
+
 // EventArchive provides event archiving capabilities
 type EventArchive interface {
 	// Archive archives events to external storage

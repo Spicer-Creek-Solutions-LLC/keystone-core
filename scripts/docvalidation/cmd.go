@@ -6,8 +6,8 @@ import (
 	"strings"
 )
 
-// RunLinkCheck runs the link checker
-func RunLinkCheck(rootDir string, checkExternal, verbose bool) {
+// RunLinkCheck runs the link checker and returns the number of broken links
+func RunLinkCheck(rootDir string, checkExternal, verbose bool) int {
 	fmt.Println("Checking documentation links...")
 	checker := NewLinkChecker(rootDir, checkExternal)
 	results := checker.CheckAll(verbose)
@@ -16,22 +16,27 @@ func RunLinkCheck(rootDir string, checkExternal, verbose bool) {
 	outputPath := "./scripts/docvalidation/link-check-report.md"
 	if err := os.WriteFile(outputPath, []byte(report), 0644); err != nil {
 		fmt.Fprintf(os.Stderr, "Error writing report: %v\n", err)
-		return
+		return -1
 	}
 	fmt.Printf("Link check report written to %s\n", outputPath)
 
 	// Summary
-	var broken int
+	var broken, brokenInternal int
 	for _, r := range results {
 		if r.Status == "broken" {
 			broken++
+			if r.Type == "internal" {
+				brokenInternal++
+			}
 		}
 	}
 	if broken > 0 {
-		fmt.Printf("WARNING: %d broken links found\n", broken)
+		fmt.Printf("Found %d broken links (%d internal, %d external)\n", broken, brokenInternal, broken-brokenInternal)
 	} else {
-		fmt.Println("All internal links OK")
+		fmt.Println("All links OK")
 	}
+
+	return brokenInternal
 }
 
 // RunExampleValidation runs the example validator

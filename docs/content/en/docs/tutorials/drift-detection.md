@@ -310,6 +310,6 @@ Key metrics to monitor:
 
 ## Next Steps
 
-- [Event-Driven Automation](/docs/tutorials/event-automation/) - Create more complex reactors
+- [Event-Driven Automation](/docs/scenarios/event-driven-automation/) - Create more complex reactors
 - [Policy Enforcement](/docs/concepts/policy/) - Add compliance policies
 - [Observability](/docs/concepts/observability/) - Monitor your infrastructure

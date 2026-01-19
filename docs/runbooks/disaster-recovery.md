@@ -320,6 +320,529 @@ kscore-bootstrap restore --backup /tmp/backup-older.tar.gz
 | Validation | 30 min |
 | **Total** | **1.5-4 hours** |
 
+## Split-Brain Recovery Playbook
+
+Split-brain occurs when a network partition divides the cluster into multiple segments, each believing it's the authoritative cluster. This is one of the most dangerous distributed systems failure modes.
+
+### Understanding Split-Brain
+
+#### What Causes Split-Brain
+
+```
+Normal State:
+┌─────────────────────────────────────────────────────┐
+│                    Cluster                           │
+│   [Node A] ←──→ [Node B] ←──→ [Node C]              │
+│     (L)           (F)           (F)                  │
+│   L=Leader, F=Follower                               │
+└─────────────────────────────────────────────────────┘
+
+Split-Brain State:
+┌───────────────────────┐     ┌───────────────────────┐
+│    Partition A        │  X  │    Partition B        │
+│   [Node A] ←→ [Node B]│     │      [Node C]         │
+│     (L)        (F)    │     │        (L?)           │
+└───────────────────────┘     └───────────────────────┘
+                  Network partition
+```
+
+**Common causes:**
+- Network equipment failure (switch, router)
+- Misconfigured firewalls
+- Cloud provider network issues
+- DNS failures
+- Certificate expiration blocking communication
+
+### Detection
+
+#### Symptoms of Split-Brain
+
+1. **Conflicting leaders**: Multiple nodes claiming leadership
+2. **Data divergence**: Different state on different nodes
+3. **Agent confusion**: Agents connected to different "clusters"
+4. **Duplicate operations**: Commands executed multiple times
+
+#### Detection Commands
+
+```bash
+# Check for multiple leaders
+for node in ks-server-1 ks-server-2 ks-server-3; do
+  echo "=== $node ==="
+  ssh $node "kscorectl cluster leader --local 2>/dev/null || echo 'unreachable'"
+done
+
+# Check etcd cluster state
+for node in ks-server-1 ks-server-2 ks-server-3; do
+  echo "=== $node ==="
+  ssh $node "etcdctl endpoint status --cluster 2>/dev/null" || echo "unreachable"
+done
+
+# Check agent distribution
+kscorectl agent list --group-by control-plane-node
+
+# Check for data divergence
+for node in ks-server-1 ks-server-2 ks-server-3; do
+  echo "=== $node agent count ==="
+  ssh $node "kscorectl agent list --count 2>/dev/null" || echo "unreachable"
+done
+```
+
+#### Alert Rules for Split-Brain
+
+```yaml
+groups:
+  - name: split-brain-detection
+    rules:
+      - alert: ClusterMultipleLeaders
+        expr: count(kscore_cluster_is_leader == 1) > 1
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "SPLIT-BRAIN: Multiple leaders detected"
+          runbook_url: "https://docs.example.com/runbooks/split-brain"
+
+      - alert: ClusterPartitioned
+        expr: |
+          count(kscore_cluster_member_reachable == 0) by (from_node) > 0
+          and count(kscore_cluster_member_reachable == 1) by (from_node) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Network partition detected in cluster"
+
+      - alert: EtcdClusterDegraded
+        expr: etcd_server_has_leader == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "etcd node has no leader - possible split-brain"
+```
+
+### Recovery Procedure
+
+#### Phase 1: Isolate and Assess (5-10 minutes)
+
+##### Step 1.1: Prevent Further Damage
+
+```bash
+# CRITICAL: Stop all write operations
+# On ALL nodes that might be accepting writes:
+for node in ks-server-1 ks-server-2 ks-server-3; do
+  ssh $node "kscorectl config set server.read_only true" 2>/dev/null || true
+  ssh $node "systemctl restart kscore-server" 2>/dev/null || true
+done
+
+# Block agent connections temporarily (if needed)
+# This prevents agents from making changes during recovery
+iptables -A INPUT -p tcp --dport 4222 -j REJECT --reject-with tcp-reset
+```
+
+##### Step 1.2: Identify Partitions
+
+```bash
+# From each node, check connectivity to others
+echo "=== Connectivity Matrix ==="
+for src in ks-server-1 ks-server-2 ks-server-3; do
+  echo -n "$src: "
+  for dst in ks-server-1 ks-server-2 ks-server-3; do
+    ssh $src "nc -zw1 $dst 2379 && echo -n '$dst:OK ' || echo -n '$dst:FAIL '" 2>/dev/null || echo -n "$dst:UNREACHABLE "
+  done
+  echo
+done
+
+# Document partition topology
+# Example output:
+# ks-server-1: ks-server-1:OK ks-server-2:OK ks-server-3:FAIL
+# ks-server-2: ks-server-1:OK ks-server-2:OK ks-server-3:FAIL
+# ks-server-3: ks-server-1:FAIL ks-server-2:FAIL ks-server-3:OK
+#
+# This shows: [Node1, Node2] | [Node3] partition
+```
+
+##### Step 1.3: Determine Authoritative Partition
+
+Criteria for selecting authoritative partition (in order):
+1. **Quorum**: Partition with majority of nodes
+2. **Data freshness**: Partition with most recent data
+3. **Agent count**: Partition serving more agents
+4. **Manual selection**: If no clear winner, make explicit choice
+
+```bash
+# Check which partition has quorum
+for node in ks-server-1 ks-server-2 ks-server-3; do
+  echo "=== $node quorum status ==="
+  ssh $node "kscorectl cluster health --json | jq '.has_quorum'" 2>/dev/null || echo "unreachable"
+done
+
+# Check data timestamps (last write time)
+for node in ks-server-1 ks-server-2 ks-server-3; do
+  echo "=== $node last write ==="
+  ssh $node "kscorectl debug db last-write 2>/dev/null" || echo "unreachable"
+done
+
+# Check agent counts
+for node in ks-server-1 ks-server-2 ks-server-3; do
+  echo "=== $node agents ==="
+  ssh $node "kscorectl agent list --count 2>/dev/null" || echo "unreachable"
+done
+```
+
+#### Phase 2: Resolve Network Partition (5-30 minutes)
+
+##### Step 2.1: Diagnose Network Issue
+
+```bash
+# Check for network issues
+traceroute ks-server-3
+mtr --report ks-server-3
+
+# Check firewall rules
+iptables -L -n | grep -E "2379|4222|8080"
+
+# Check cloud security groups (AWS)
+aws ec2 describe-security-groups --group-ids sg-xxx
+
+# Check DNS resolution
+dig ks-server-3
+
+# Check certificates
+openssl s_client -connect ks-server-3:8080 -servername ks-server-3
+```
+
+##### Step 2.2: Fix Network Issue
+
+```bash
+# If firewall issue:
+iptables -D INPUT -p tcp --dport 2379 -j DROP  # Remove bad rule
+systemctl restart kscore-server
+
+# If DNS issue:
+# Update /etc/hosts or fix DNS records
+echo "10.0.1.3 ks-server-3" >> /etc/hosts
+
+# If cloud network issue:
+# Update security groups, VPC peering, etc.
+
+# If certificate issue:
+# Regenerate or distribute certificates
+```
+
+##### Step 2.3: Verify Connectivity Restored
+
+```bash
+# Test connectivity from all nodes
+for src in ks-server-1 ks-server-2 ks-server-3; do
+  echo "=== From $src ==="
+  ssh $src "for dst in ks-server-1 ks-server-2 ks-server-3; do nc -zw1 \$dst 2379 && echo \"\$dst OK\" || echo \"\$dst FAIL\"; done"
+done
+```
+
+#### Phase 3: Cluster Reconciliation (10-30 minutes)
+
+##### Step 3.1: Stop Non-Authoritative Partition
+
+```bash
+# Identify non-authoritative partition (example: Node 3)
+# Stop services on non-authoritative nodes
+ssh ks-server-3 "systemctl stop kscore-server"
+ssh ks-server-3 "systemctl stop etcd"
+```
+
+##### Step 3.2: Preserve Split Data (Optional)
+
+```bash
+# If data on non-authoritative partition might be needed
+ssh ks-server-3 "
+  # Backup local data before reset
+  tar czf /backup/split-brain-data-$(date +%Y%m%d-%H%M%S).tar.gz \
+    /var/lib/kscore \
+    /var/lib/etcd
+"
+```
+
+##### Step 3.3: Reset Non-Authoritative Nodes
+
+```bash
+# Remove cluster membership and data from non-authoritative nodes
+ssh ks-server-3 "
+  # Remove from etcd cluster first
+  etcdctl member remove \$(etcdctl member list | grep ks-server-3 | cut -d',' -f1)
+
+  # Clear local data
+  rm -rf /var/lib/etcd/*
+  rm -rf /var/lib/kscore/state/*
+"
+```
+
+##### Step 3.4: Rejoin Nodes to Authoritative Cluster
+
+```bash
+# On authoritative cluster, add member back
+kscorectl cluster member add ks-server-3 --peer-urls https://ks-server-3:2380
+
+# Get join configuration
+JOIN_CONFIG=$(kscorectl cluster join-config --for ks-server-3)
+
+# On rejoining node
+ssh ks-server-3 "
+  # Write join configuration
+  echo '$JOIN_CONFIG' > /etc/kscore/join.yaml
+
+  # Start etcd in join mode
+  systemctl start etcd
+
+  # Wait for etcd to sync
+  sleep 30
+
+  # Start kscore-server
+  systemctl start kscore-server
+"
+```
+
+##### Step 3.5: Verify Cluster Unified
+
+```bash
+# Check cluster membership
+kscorectl cluster members
+
+# Verify all nodes see same leader
+for node in ks-server-1 ks-server-2 ks-server-3; do
+  echo "$node leader: $(ssh $node 'kscorectl cluster leader --local')"
+done
+
+# Verify quorum
+kscorectl cluster health
+
+# Check etcd cluster
+etcdctl endpoint status --cluster -w table
+```
+
+#### Phase 4: Data Reconciliation (15-60 minutes)
+
+##### Step 4.1: Identify Data Conflicts
+
+```bash
+# Compare data across time periods
+kscorectl debug db diff \
+  --from "2024-01-15T10:00:00Z" \
+  --to "2024-01-15T12:00:00Z" \
+  --output conflicts.json
+
+# Review conflicting operations
+cat conflicts.json | jq '.conflicts[] | {type, id, operation}'
+```
+
+##### Step 4.2: Manual Conflict Resolution
+
+```bash
+# For each conflict, decide authoritative version
+# Example: Agent state conflicts
+
+# View conflict details
+kscorectl debug conflict show conflict-123
+
+# Resolve by keeping authoritative version
+kscorectl debug conflict resolve conflict-123 --keep authoritative
+
+# Or resolve by merging (if possible)
+kscorectl debug conflict resolve conflict-123 --merge
+```
+
+##### Step 4.3: Replay Lost Operations
+
+If the non-authoritative partition accepted commands that need to be preserved:
+
+```bash
+# Export commands from backup of non-authoritative partition
+tar xzf /backup/split-brain-data-xxx.tar.gz -C /tmp/split-data
+kscorectl debug db export-commands \
+  --from /tmp/split-data/var/lib/kscore/state \
+  --output /tmp/lost-commands.json
+
+# Review and replay approved commands
+kscorectl debug replay-commands \
+  --input /tmp/lost-commands.json \
+  --dry-run
+
+# If satisfied, replay for real
+kscorectl debug replay-commands \
+  --input /tmp/lost-commands.json
+```
+
+#### Phase 5: Agent Recovery (10-30 minutes)
+
+##### Step 5.1: Enable Write Operations
+
+```bash
+# Re-enable writes on all nodes
+for node in ks-server-1 ks-server-2 ks-server-3; do
+  ssh $node "kscorectl config set server.read_only false"
+  ssh $node "systemctl restart kscore-server"
+done
+
+# Re-enable agent connections (if blocked)
+iptables -D INPUT -p tcp --dport 4222 -j REJECT --reject-with tcp-reset
+```
+
+##### Step 5.2: Force Agent Re-registration
+
+```bash
+# Agents connected to non-authoritative partition need to re-register
+kscorectl agent invalidate-sessions --stale-since "2024-01-15T10:00:00Z"
+
+# Agents will automatically reconnect and re-register
+
+# Monitor agent reconnection
+watch -n 5 'kscorectl agent list --status | grep -c connected'
+```
+
+##### Step 5.3: Verify Agent State
+
+```bash
+# Check all agents are connected
+kscorectl agent list --status disconnected
+
+# If agents stuck, force reconnect
+kscorectl agent reconnect --target "status=disconnected"
+
+# Verify agent data is consistent
+kscorectl agent verify --sample 10
+```
+
+### Post-Recovery Checklist
+
+- [ ] All cluster nodes healthy and communicating
+- [ ] Single leader elected
+- [ ] Quorum established
+- [ ] All agents reconnected
+- [ ] Data consistency verified
+- [ ] No conflicting operations pending
+- [ ] Monitoring alerts cleared
+- [ ] Write operations re-enabled
+
+### Prevention Measures
+
+#### Network Redundancy
+
+```yaml
+# Use multiple network paths
+cluster:
+  peers:
+    - name: ks-server-1
+      peer_urls:
+        - https://10.0.1.1:2380      # Primary network
+        - https://172.16.1.1:2380    # Secondary network
+```
+
+#### Quorum Configuration
+
+```yaml
+# Ensure odd number of nodes for clear majority
+cluster:
+  min_quorum: 2  # For 3 nodes
+  election_timeout: 5s
+  heartbeat_interval: 1s
+```
+
+#### Split-Brain Prevention
+
+```yaml
+# Configure pre-vote to prevent disruption
+etcd:
+  pre_vote: true
+
+  # Strict quorum checking
+  strict_reconfig_check: true
+
+  # Auto-compaction to limit divergence
+  auto_compaction_retention: "1h"
+```
+
+#### Monitoring
+
+```yaml
+# Set up split-brain alerting
+alerting:
+  rules:
+    - alert: PotentialSplitBrain
+      expr: |
+        (sum(kscore_cluster_members_connected) by (node) /
+         count(kscore_cluster_members_total)) < 0.5
+      for: 30s
+      severity: warning
+```
+
+### Recovery Time Estimates
+
+| Phase | Estimated Time |
+|-------|----------------|
+| Detection and assessment | 5-10 min |
+| Network diagnosis | 5-15 min |
+| Network repair | 5-30 min |
+| Cluster reconciliation | 10-30 min |
+| Data reconciliation | 15-60 min |
+| Agent recovery | 10-30 min |
+| Validation | 15 min |
+| **Total** | **1-3 hours** |
+
+### Decision Tree
+
+```
+Split-brain detected
+        │
+        ▼
+┌───────────────────────┐
+│ Network partition     │
+│ currently active?     │
+└───────────┬───────────┘
+            │
+     ┌──────┴──────┐
+     │             │
+    YES           NO
+     │             │
+     ▼             ▼
+Fix network    Partitions may
+first          have rejoined
+     │         automatically
+     │             │
+     ▼             ▼
+┌───────────────────────┐
+│ Multiple leaders      │
+│ detected?             │
+└───────────┬───────────┘
+            │
+     ┌──────┴──────┐
+     │             │
+    YES           NO
+     │             │
+     ▼             ▼
+Select         Check for
+authoritative  data divergence
+partition      only
+     │             │
+     ▼             ▼
+Reset non-     Reconcile
+authoritative  data
+nodes              │
+     │             │
+     └──────┬──────┘
+            │
+            ▼
+    Verify cluster
+    unified
+            │
+            ▼
+    Reconcile
+    agent state
+            │
+            ▼
+    Resume normal
+    operations
+```
+
 ## Appendix: Backup Locations
 
 | Location | Purpose | Retention |

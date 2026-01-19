@@ -2,7 +2,7 @@
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go&logoColor=white)](https://go.dev/)
-[![AI Contributions Welcome](https://img.shields.io/badge/AI_Contributions-Welcome-brightgreen)](AI-CONTRIBUTIONS.md)
+[![AI Contributions Welcome](https://img.shields.io/badge/AI_Contributions-Welcome-brightgreen)](docs/project/AI-CONTRIBUTIONS.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 **GitOps deploys it. We keep it running.**
@@ -65,7 +65,7 @@ Not yet. We're just getting stated. If you need something like this for producti
 Contributions are welcome. Issues, pull requests, and design discussions help steer the direction of the project. Please maintain clarity, functionality, and testability in all contributions.
 
 ### Q: Can I use AI-generated code or documentation?
-Yes. AI-generated contributions are welcome as long as they meet quality standards, follow our [Developer Certificate of Origin](DCO.md),  [AI Contributions Policy](AI-CONTRIBUTIONS.md), and other policies.  Of course, humans are still responsible for the consequences.
+Yes. AI-generated contributions are welcome as long as they meet quality standards, follow our [Developer Certificate of Origin](docs/project/DCO.md),  [AI Contributions Policy](docs/project/AI-CONTRIBUTIONS.md), and other policies.  Of course, humans are still responsible for the consequences.
 
 ## Quick Start
 
@@ -393,7 +393,7 @@ This project welcomes AI-assisted contributions. We've established clear policie
 - **Transparency**: No copyright claimed on purely AI-generated portions
 - **Licensing**: All contributions covered under Apache 2.0
 
-See [AI-CONTRIBUTIONS.md](AI-CONTRIBUTIONS.md) for details and [CONTRIBUTING.md](CONTRIBUTING.md) for the full contribution guide.
+See [AI-CONTRIBUTIONS.md](docs/project/AI-CONTRIBUTIONS.md) for details and [CONTRIBUTING.md](CONTRIBUTING.md) for the full contribution guide.
 
 ## License
 
@@ -405,7 +405,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and contribution wo
 
 ## Compatibility & Support
 
-Keystone Core follows a predictable release cadence (every 6 months) with a 2-year support window. See [COMPATIBILITY.md](COMPATIBILITY.md) for details on:
+Keystone Core follows a predictable release cadence (every 6 months) with a 2-year support window. See [COMPATIBILITY.md](docs/project/COMPATIBILITY.md) for details on:
 
 - Versioning (SemVer) and release schedule
 - Support windows and upgrade paths
@@ -420,4 +420,4 @@ who guides long-term direction, architecture, and compatibility.
 - **Governance:** Day-to-day decisions by maintainers; big changes go through RFCs; BDFL has final
   say on project direction and breaking changes
 
-For details, see `GOVERNANCE.md` and `RFC.md`.
+For details, see [GOVERNANCE.md](docs/project/GOVERNANCE.md) and [RFC.md](docs/project/RFC.md).

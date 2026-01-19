@@ -662,3 +662,135 @@ func (s *SQLiteEventStore) Replay(ctx context.Context, query *EventQuery, handle
 
 	return nil
 }
+
+// ReplayFrom replays events from a specific time to now
+// Events are replayed in chronological order (oldest first)
+func (s *SQLiteEventStore) ReplayFrom(ctx context.Context, startTime time.Time, handler EventHandler) error {
+	query := NewEventQuery().
+		WithTimeRange(startTime, time.Now()).
+		WithSort("time", "asc")
+
+	return s.Replay(ctx, query, handler)
+}
+
+// ReplayRange replays events within a specific time range
+// Events are replayed in chronological order (oldest first)
+func (s *SQLiteEventStore) ReplayRange(ctx context.Context, startTime, endTime time.Time, handler EventHandler) error {
+	if startTime.After(endTime) {
+		return fmt.Errorf("start time %v is after end time %v", startTime, endTime)
+	}
+
+	query := NewEventQuery().
+		WithTimeRange(startTime, endTime).
+		WithSort("time", "asc")
+
+	return s.Replay(ctx, query, handler)
+}
+
+// ReplayWithProgress replays events with progress tracking
+func (s *SQLiteEventStore) ReplayWithProgress(ctx context.Context, query *EventQuery, handler EventHandler, progressFn ReplayProgressFunc) error {
+	s.mu.RLock()
+
+	// First get total count for progress tracking
+	count, err := s.Count(ctx, query)
+	if err != nil {
+		s.mu.RUnlock()
+		return fmt.Errorf("failed to count events for replay: %w", err)
+	}
+
+	// Query events
+	result, err := s.Query(ctx, query)
+	if err != nil {
+		s.mu.RUnlock()
+		return fmt.Errorf("failed to query events for replay: %w", err)
+	}
+	s.mu.RUnlock()
+
+	// Replay events with progress updates
+	for i, event := range result.Events {
+		if err := handler(event); err != nil {
+			return fmt.Errorf("replay handler failed for event %s: %w", event.ID, err)
+		}
+
+		// Report progress if callback provided
+		if progressFn != nil {
+			progress := &ReplayProgress{
+				Current:    int64(i + 1),
+				Total:      count,
+				LastEvent:  event,
+				Percentage: float64(i+1) / float64(count) * 100.0,
+			}
+			progressFn(progress)
+		}
+
+		// Check for cancellation
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+	}
+
+	return nil
+}
+
+// ReplayBatched replays events in batches for memory-efficient processing
+func (s *SQLiteEventStore) ReplayBatched(ctx context.Context, query *EventQuery, batchSize int, handler BatchEventHandler) error {
+	if batchSize <= 0 {
+		batchSize = 100
+	}
+
+	offset := 0
+	for {
+		batchQuery := *query
+		batchQuery.Limit = batchSize
+		batchQuery.Offset = offset
+
+		s.mu.RLock()
+		result, err := s.Query(ctx, &batchQuery)
+		s.mu.RUnlock()
+
+		if err != nil {
+			return fmt.Errorf("failed to query batch at offset %d: %w", offset, err)
+		}
+
+		if len(result.Events) == 0 {
+			break // No more events
+		}
+
+		// Process batch
+		if err := handler(result.Events); err != nil {
+			return fmt.Errorf("batch handler failed at offset %d: %w", offset, err)
+		}
+
+		// Check for cancellation
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		// If we got fewer events than batch size, we're done
+		if len(result.Events) < batchSize {
+			break
+		}
+
+		offset += batchSize
+	}
+
+	return nil
+}
+
+// ReplayRangeWithTypes replays events of specific types within a time range
+func (s *SQLiteEventStore) ReplayRangeWithTypes(ctx context.Context, startTime, endTime time.Time, types []EventType, handler EventHandler) error {
+	if startTime.After(endTime) {
+		return fmt.Errorf("start time %v is after end time %v", startTime, endTime)
+	}
+
+	query := NewEventQuery().
+		WithTimeRange(startTime, endTime).
+		WithTypes(types...).
+		WithSort("time", "asc")
+
+	return s.Replay(ctx, query, handler)
+}

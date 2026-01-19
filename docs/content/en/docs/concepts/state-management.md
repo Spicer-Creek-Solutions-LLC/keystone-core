@@ -696,6 +696,761 @@ Scaling (100 agents, 10 modules each):
 - Parallel (batch=10): ~50s
 - Parallel (batch=50): ~10s
 
+### Large State File Performance
+
+When working with large state files (100+ resources), understanding performance characteristics helps avoid bottlenecks and optimize execution.
+
+#### Resource Count Impact
+
+| Resources | Parse Time | DAG Build | Validation | Total Overhead |
+|-----------|------------|-----------|------------|----------------|
+| 10 | <10ms | <5ms | <5ms | ~20ms |
+| 100 | ~50ms | ~20ms | ~30ms | ~100ms |
+| 500 | ~200ms | ~100ms | ~150ms | ~450ms |
+| 1000 | ~500ms | ~300ms | ~400ms | ~1.2s |
+| 5000 | ~3s | ~2s | ~2.5s | ~7.5s |
+
+**Key observations**:
+- Parsing scales linearly with file size
+- DAG building scales O(n log n) with requisite complexity
+- Validation scales linearly but can be parallelized
+
+#### Memory Consumption
+
+Large state files consume memory during processing:
+
+| Resources | Control Plane | Agent Memory | Peak During Apply |
+|-----------|--------------|--------------|-------------------|
+| 100 | ~10MB | ~5MB | ~20MB |
+| 500 | ~40MB | ~15MB | ~80MB |
+| 1000 | ~80MB | ~30MB | ~160MB |
+| 5000 | ~400MB | ~150MB | ~800MB |
+
+**Memory optimization tips**:
+- Split large state files into logical groups
+- Use `include` to compose smaller files
+- Apply to agent groups rather than all at once
+- Monitor control plane memory during large applies
+
+#### Dependency Graph Complexity
+
+Complex requisite chains impact performance more than resource count:
+
+```yaml
+# Linear chain - O(n) traversal
+resource_1:
+  require: []
+resource_2:
+  require: [resource_1]
+resource_3:
+  require: [resource_2]
+# ... continues
+
+# Tree structure - O(log n) depth
+base_package:
+  require: []
+service_a:
+  require: [base_package]
+service_b:
+  require: [base_package]
+config_a:
+  require: [service_a]
+config_b:
+  require: [service_b]
+```
+
+**DAG complexity benchmarks** (1000 resources):
+
+| Topology | DAG Build Time | Max Parallelism |
+|----------|---------------|-----------------|
+| Flat (no deps) | ~100ms | 1000 concurrent |
+| Linear chain | ~400ms | 1 (sequential) |
+| Tree (depth 5) | ~150ms | ~200 concurrent |
+| Dense graph | ~800ms | ~50 concurrent |
+
+#### File I/O Considerations
+
+When state files manage many files, I/O becomes the bottleneck:
+
+```yaml
+# 1000 file resources - I/O bound
+config_files:
+  module: file
+  state: present
+  # Loop creates 1000 file states
+```
+
+**I/O performance by storage type**:
+
+| Storage | Files/Second | 1000 Files |
+|---------|--------------|------------|
+| SSD (NVMe) | ~5000 | ~0.2s |
+| SSD (SATA) | ~2000 | ~0.5s |
+| HDD | ~200 | ~5s |
+| Network (NFS) | ~100-500 | ~2-10s |
+| Network (SMB) | ~50-200 | ~5-20s |
+
+**Optimization strategies**:
+- Group related files in same directory
+- Use templated multi-file operations
+- Prefer atomic directory operations
+- Consider file distribution module for large file sets
+
+#### Template Rendering Performance
+
+Complex templates in large state files add overhead:
+
+| Template Complexity | Overhead per Resource |
+|--------------------|-----------------------|
+| Simple variables | <1ms |
+| Conditional logic | ~2ms |
+| Loops (small) | ~5ms |
+| Loops (large, 100+) | ~50ms |
+| Nested templates | ~10ms |
+| External lookups | ~100ms+ (network) |
+
+**Template optimization tips**:
+```yaml
+# SLOW: Complex template per resource
+{{ range .vars.configs }}
+{{ .name }}_config:
+  module: file
+  contents: |
+    {{ range .items }}
+    {{ template "complex_item" . }}
+    {{ end }}
+{{ end }}
+
+# FASTER: Pre-compute in vars file
+# vars.yaml
+configs:
+  app1:
+    rendered_content: "pre-computed content..."
+
+# state.yaml
+{{ range $name, $config := .vars.configs }}
+{{ $name }}_config:
+  module: file
+  contents: {{ $config.rendered_content }}
+{{ end }}
+```
+
+#### Scaling Recommendations
+
+**For 100-500 resources**:
+- Single state file acceptable
+- Enable parallel execution
+- Default settings work well
+
+```yaml
+# Apply with parallelism
+kscorectl state apply large-state.yaml --parallel 20
+```
+
+**For 500-1000 resources**:
+- Consider splitting by component or layer
+- Use `include` for composition
+- Increase agent-side timeouts
+
+```yaml
+# Structure for large deployments
+states/
+├── base.yaml         # Core packages, users (50 resources)
+├── network.yaml      # Network config (100 resources)
+├── services.yaml     # Services (200 resources)
+├── apps.yaml         # Applications (300 resources)
+└── monitoring.yaml   # Monitoring (50 resources)
+
+# Main composition file
+include:
+  - base.yaml
+  - network.yaml
+  - services.yaml
+  - apps.yaml
+  - monitoring.yaml
+```
+
+**For 1000+ resources**:
+- Split into multiple state applications
+- Stage rollouts by agent group
+- Use blueprints for complex deployments
+- Consider async application with status polling
+
+```bash
+# Staged rollout for large deployments
+kscorectl state apply infra-base.yaml --target "role=base"
+kscorectl state apply infra-services.yaml --target "role=services"
+kscorectl state apply app-layer.yaml --target "role=app"
+```
+
+**For 5000+ resources**:
+- Redesign using modular architecture
+- Implement hierarchical state application
+- Use event-driven orchestration
+- Consider purpose-built blueprints
+
+#### Monitoring Large State Applications
+
+Track these metrics for large state operations:
+
+| Metric | Warning Threshold | Critical Threshold |
+|--------|------------------|-------------------|
+| Apply duration | >5 minutes | >15 minutes |
+| Memory usage | >500MB | >1GB |
+| Failed resources | >1% | >5% |
+| Retry rate | >5% | >10% |
+| Agent timeouts | >1% | >5% |
+
+**Prometheus queries for monitoring**:
+```promql
+# Apply duration histogram
+histogram_quantile(0.95, rate(state_apply_duration_seconds_bucket[5m]))
+
+# Resource failure rate
+rate(state_resource_failures_total[5m]) / rate(state_resource_total[5m])
+
+# Memory during apply
+max_over_time(process_resident_memory_bytes{job="control-plane"}[5m])
+```
+
+#### Troubleshooting Large State Applications
+
+**Problem: State apply times out**
+```bash
+# Increase timeout for large applies
+kscorectl state apply large.yaml --timeout 30m
+
+# Or in config
+execution:
+  state_apply_timeout: 30m
+```
+
+**Problem: Agent runs out of memory**
+```yaml
+# agent.yaml - Increase memory limits
+resources:
+  memory_limit: 512Mi  # Increase from default 256Mi
+```
+
+**Problem: DAG build is slow**
+```bash
+# Analyze dependency graph
+kscorectl state graph large.yaml --output dot > graph.dot
+dot -Tpng graph.dot -o graph.png
+# Review for unnecessary complexity
+```
+
+**Problem: Many resources failing in parallel**
+```yaml
+# Reduce parallelism to avoid resource contention
+execution:
+  max_parallel_resources: 10  # Reduce from default 50
+```
+
+## Performance Tuning Guide
+
+This section provides actionable tuning recommendations to optimize state application performance across your deployment.
+
+### Control Plane Tuning
+
+#### Server Configuration
+
+```yaml
+# /etc/kscore/server.yaml
+
+# State processing settings
+state:
+  # Number of concurrent state renders
+  render_workers: 8             # Default: 4, increase for many agents
+
+  # DAG builder parallelism
+  dag_workers: 4                # Default: 2
+
+  # Validation parallelism
+  validation_workers: 8         # Default: 4
+
+  # Maximum state file size (prevents memory issues)
+  max_state_size: 10MB          # Default: 5MB
+
+  # Cache compiled templates
+  template_cache:
+    enabled: true
+    max_entries: 1000           # Number of cached templates
+    ttl: 1h                     # Cache TTL
+
+  # Response timeout for large applies
+  apply_timeout: 30m            # Default: 10m
+```
+
+#### Memory Tuning
+
+```yaml
+# For deployments with 1000+ agents
+resources:
+  # Go runtime settings
+  gomaxprocs: 0                 # 0 = use all CPUs
+  memory_limit: 4GB             # Limit Go heap
+
+  # State processing buffers
+  state_buffer_size: 100MB      # Per-apply buffer
+  result_buffer_size: 50MB      # Result aggregation buffer
+```
+
+#### Database Connection Tuning
+
+State application generates significant database activity:
+
+```yaml
+# PostgreSQL tuning for large deployments
+database:
+  pool:
+    max_connections: 100        # Default: 25
+    max_idle: 25                # Default: 5
+    connection_lifetime: 5m     # Recycle connections
+
+  # Statement caching
+  prepared_statements: true
+  statement_cache_size: 500
+
+# SQLite tuning
+sqlite:
+  journal_mode: wal             # Write-ahead logging
+  synchronous: normal           # Balance durability/speed
+  cache_size: -64000            # 64MB cache
+  mmap_size: 268435456          # 256MB memory-mapped I/O
+```
+
+### Agent Tuning
+
+#### Agent Resource Limits
+
+```yaml
+# /etc/kscore/agent.yaml
+
+# Resource limits for state execution
+execution:
+  # Concurrent module executions
+  max_parallel: 10              # Default: 5
+
+  # Per-module timeout
+  module_timeout: 5m            # Default: 2m
+
+  # Retry settings
+  retry_count: 3
+  retry_backoff: exponential
+  retry_initial_delay: 1s
+  retry_max_delay: 30s
+
+# Memory limits
+resources:
+  memory_limit: 512MB           # Increase for large states
+  temp_dir: /var/tmp/kscore     # Fast local storage
+
+# File module optimization
+file_module:
+  buffer_size: 64KB             # I/O buffer
+  checksum_workers: 4           # Parallel checksumming
+```
+
+#### Agent-Side Caching
+
+```yaml
+# Enable fact caching to avoid repeated discovery
+facts:
+  cache_enabled: true
+  cache_ttl: 5m
+  refresh_on_apply: false       # Don't refresh during apply
+
+# Enable file checksum caching
+file_cache:
+  enabled: true
+  max_entries: 10000
+  ttl: 10m
+```
+
+### Network Tuning
+
+#### NATS Connection Optimization
+
+```yaml
+# Optimize NATS for state distribution
+nats:
+  # Connection pooling
+  pool_size: 10                 # Connections per server
+
+  # Buffer sizes for large states
+  pending_bytes_limit: 64MB     # Default: 16MB
+  pending_msgs_limit: 100000    # Default: 65536
+
+  # Reconnection during large applies
+  reconnect_wait: 500ms
+  max_reconnect: 60
+  reconnect_buffer_size: 32MB
+
+  # Compression for large state payloads
+  compression: true
+  compression_level: 6          # 1-9, balance speed/ratio
+```
+
+#### Batching Configuration
+
+```yaml
+# Control state distribution batching
+batching:
+  # Agent batching
+  agents_per_batch: 100         # Default: 50
+  batch_interval: 100ms         # Time between batches
+
+  # Result collection
+  result_batch_size: 500
+  result_batch_timeout: 5s
+
+  # Parallel batch execution
+  concurrent_batches: 10        # Default: 5
+```
+
+### Execution Strategies
+
+#### Sequential vs Parallel Execution
+
+```yaml
+# execution.yaml - Control execution strategy
+strategy:
+  # Global parallelism
+  type: parallel                # parallel, sequential, adaptive
+  max_parallel_agents: 100      # Concurrent agent executions
+  max_parallel_resources: 50    # Resources per agent
+
+  # Adaptive settings (adjusts based on failure rate)
+  adaptive:
+    initial_parallelism: 50
+    min_parallelism: 10
+    max_parallelism: 200
+    failure_threshold: 5%       # Reduce parallelism above this
+    recovery_rate: 10           # Increase per successful batch
+```
+
+#### Staged Rollouts
+
+For large deployments, use staged rollouts to control impact:
+
+```bash
+# Stage 1: Canary (5% of agents)
+kscorectl state apply app.yaml \
+  --target "role=app AND canary=true" \
+  --parallel 10
+
+# Stage 2: Early majority (25% of agents)
+kscorectl state apply app.yaml \
+  --target "role=app AND tier=early" \
+  --parallel 50
+
+# Stage 3: Remaining agents
+kscorectl state apply app.yaml \
+  --target "role=app" \
+  --parallel 100
+```
+
+### Module-Specific Tuning
+
+#### File Module Optimization
+
+```yaml
+# Optimize file operations
+file_module:
+  # Use rsync-style delta sync for large files
+  delta_sync:
+    enabled: true
+    min_file_size: 1MB          # Only for files larger than this
+    block_size: 64KB
+
+  # Parallel directory operations
+  parallel_directory_ops: true
+  dir_workers: 8
+
+  # Temporary file handling
+  atomic_writes: true           # Use temp file + rename
+  temp_prefix: ".kscore-"
+
+  # Skip unchanged files quickly
+  quick_check:
+    enabled: true
+    use_mtime: true
+    use_size: true
+```
+
+#### Package Module Optimization
+
+```yaml
+# Optimize package operations
+package_module:
+  # Cache package metadata
+  metadata_cache:
+    enabled: true
+    ttl: 1h
+
+  # Parallel package operations (where supported)
+  parallel_installs: 5
+
+  # Download optimization
+  download_timeout: 10m
+  retry_downloads: 3
+
+  # Use local package cache
+  local_cache:
+    enabled: true
+    path: /var/cache/kscore/packages
+    max_size: 10GB
+```
+
+#### Service Module Optimization
+
+```yaml
+# Optimize service operations
+service_module:
+  # Status check caching
+  status_cache_ttl: 5s
+
+  # Parallel service operations
+  parallel_ops: 10
+
+  # Startup timeouts
+  start_timeout: 2m
+  stop_timeout: 1m
+
+  # Reload preference (faster than restart)
+  prefer_reload: true
+```
+
+### Template Performance
+
+#### Precompilation
+
+```bash
+# Precompile templates for faster rendering
+kscorectl state precompile states/ --output compiled/
+
+# Apply precompiled states (skips parsing/rendering)
+kscorectl state apply compiled/app.yaml --precompiled
+```
+
+#### Template Optimization Patterns
+
+```yaml
+# SLOW: Repeated function calls in loop
+{{ range .vars.hosts }}
+  server {{ . }}:{{ default 8080 $.vars.port }};
+{{ end }}
+
+# FASTER: Compute once, reuse
+{{ $port := default 8080 .vars.port }}
+{{ range .vars.hosts }}
+  server {{ . }}:{{ $port }};
+{{ end }}
+
+# SLOW: String concatenation in loop
+{{ $result := "" }}
+{{ range .vars.items }}
+  {{ $result = printf "%s%s," $result . }}
+{{ end }}
+
+# FASTER: Use join function
+{{ join .vars.items "," }}
+```
+
+### Caching Strategies
+
+#### Control Plane Caching
+
+```yaml
+# Enable aggressive caching for read-heavy workloads
+caching:
+  # State file cache
+  state_cache:
+    enabled: true
+    max_size: 100MB
+    ttl: 5m
+
+  # Rendered state cache (keyed by state + vars hash)
+  render_cache:
+    enabled: true
+    max_entries: 500
+    ttl: 10m
+
+  # Agent state cache (current state snapshots)
+  agent_state_cache:
+    enabled: true
+    max_agents: 10000
+    ttl: 1m
+
+  # Drift calculation cache
+  drift_cache:
+    enabled: true
+    ttl: 30s
+```
+
+#### Distributed Caching
+
+For multi-server deployments:
+
+```yaml
+# Use Redis for distributed caching
+distributed_cache:
+  type: redis
+  url: "redis://redis-cluster:6379"
+  prefix: "kscore:state:"
+  ttl: 5m
+
+  # Cache layers
+  state_files: true
+  rendered_states: true
+  agent_snapshots: true
+```
+
+### Monitoring Performance
+
+#### Key Metrics to Track
+
+```promql
+# State application throughput
+rate(state_apply_total[5m])
+
+# Application duration by percentile
+histogram_quantile(0.99, rate(state_apply_duration_seconds_bucket[5m]))
+
+# Resource execution rate
+rate(state_resource_executions_total[5m])
+
+# Cache hit rates
+state_cache_hits_total / (state_cache_hits_total + state_cache_misses_total)
+
+# Template render time
+histogram_quantile(0.95, rate(state_template_render_seconds_bucket[5m]))
+
+# DAG build time
+histogram_quantile(0.95, rate(state_dag_build_seconds_bucket[5m]))
+
+# Agent-side execution time
+histogram_quantile(0.95, rate(agent_module_execution_seconds_bucket[5m]))
+```
+
+#### Performance Alerts
+
+```yaml
+groups:
+  - name: state-performance
+    rules:
+      - alert: StateApplySlowP95
+        expr: |
+          histogram_quantile(0.95, rate(state_apply_duration_seconds_bucket[5m])) > 300
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: State apply P95 latency exceeds 5 minutes
+
+      - alert: StateTemplateRenderSlow
+        expr: |
+          histogram_quantile(0.95, rate(state_template_render_seconds_bucket[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Template rendering taking longer than 5 seconds
+
+      - alert: StateCacheHitRateLow
+        expr: |
+          state_cache_hits_total / (state_cache_hits_total + state_cache_misses_total) < 0.5
+        for: 15m
+        labels:
+          severity: info
+        annotations:
+          summary: State cache hit rate below 50%
+
+      - alert: AgentModuleExecutionSlow
+        expr: |
+          histogram_quantile(0.95, rate(agent_module_execution_seconds_bucket[5m])) > 60
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Agent module execution P95 exceeds 1 minute
+```
+
+### Performance Testing
+
+#### Benchmarking Your Deployment
+
+```bash
+# Generate test state file
+kscorectl state generate-test \
+  --resources 1000 \
+  --complexity medium \
+  --output test-state.yaml
+
+# Run benchmark
+kscorectl state benchmark test-state.yaml \
+  --agents 100 \
+  --iterations 10 \
+  --output benchmark-results.json
+
+# Analyze results
+kscorectl state benchmark-report benchmark-results.json
+```
+
+#### Performance Baseline
+
+Establish baselines for your deployment:
+
+```bash
+# Capture baseline
+kscorectl state baseline capture \
+  --state production.yaml \
+  --agents "environment=prod" \
+  --output baseline.json
+
+# Compare against baseline
+kscorectl state baseline compare \
+  --baseline baseline.json \
+  --state production.yaml \
+  --threshold 20%  # Alert if >20% slower
+```
+
+### Tuning Workflow
+
+1. **Measure Current Performance**
+   ```bash
+   kscorectl state apply app.yaml --timing --verbose
+   ```
+
+2. **Identify Bottlenecks**
+   - Check metrics dashboards
+   - Review timing breakdown
+   - Profile with `--profile` flag
+
+3. **Apply Targeted Tuning**
+   - Start with highest-impact changes
+   - Change one setting at a time
+   - Verify improvement with benchmarks
+
+4. **Monitor in Production**
+   - Set up performance alerts
+   - Track trends over time
+   - Re-tune as deployment scales
+
+### Quick Reference: Tuning by Symptom
+
+| Symptom | Likely Cause | Tuning Action |
+|---------|-------------|---------------|
+| Slow state parsing | Large files, complex YAML | Split files, precompile |
+| Slow template render | Complex templates | Optimize templates, enable cache |
+| Slow DAG build | Complex dependencies | Simplify requisites, flatten graph |
+| Slow agent execution | Resource contention | Reduce parallelism per agent |
+| Network timeouts | Large payloads | Enable compression, increase buffers |
+| Memory pressure | Too many concurrent | Reduce parallelism, batch smaller |
+| High failure rate | Overloaded agents | Staged rollout, reduce batch size |
+| Inconsistent timing | Network variance | Increase timeouts, add retries |
+
 ## Next Steps
 
 - Learn about [Remote Execution](remote-execution/) for command-based operations

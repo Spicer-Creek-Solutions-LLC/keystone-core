@@ -362,5 +362,5 @@ When adding or updating documentation:
 
 - [Hugo Documentation](https://gohugo.io/documentation/)
 - [Docsy Theme Documentation](https://www.docsy.dev/docs/)
-- [Keystone Core Design Documents](../DESIGN.md)
+- [Keystone Core Design Documents](project/DESIGN.md)
 - [Keystone Core Epic Plans](../epics/)

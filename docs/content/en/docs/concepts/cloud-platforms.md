@@ -234,7 +234,7 @@ client := azure.NewIMDSClient(azure.IMDSConfig{
 The `MultiCloudDetector` automatically determines the cloud provider:
 
 ```go
-detector := cloud.NewMultiCloudDetector(cloud.DetectorConfig{
+detector := cloud.NewDetector(&cloud.Config{
     CacheTTL:       5 * time.Minute,
     DetectTimeout:  5 * time.Second,
     EnableAWS:      true,
@@ -461,6 +461,6 @@ If detection is slow, check network connectivity to metadata services and consid
 ## See Also
 
 - [Agents](/docs/concepts/agents/) - Agent architecture and metadata
-- [Multi-Environment Support](/docs/concepts/multi-environment/) - Cross-platform operations
+- [Multi-Environment Support](/docs/scenarios/multi-environment/) - Cross-platform operations
 - [Kubernetes Integration](/docs/concepts/kubernetes/) - Container orchestration
 - [Edge Computing](/docs/concepts/edge/) - Disconnected environments

@@ -1,0 +1,253 @@
+{
+  "dashboard": {
+    "title": "Remote Execution",
+    "uid": "kscore-exec",
+    "tags": ["kscore", "execution", "epic-2"],
+    "timezone": "browser",
+    "schemaVersion": 36,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "environment",
+          "type": "query",
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "query": "label_values(kscore_exec_total, environment)",
+          "refresh": 1,
+          "multi": false,
+          "includeAll": true,
+          "allValue": ".*"
+        }
+      ]
+    },
+    "panels": [
+      {
+        "title": "Command Execution Overview",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+        "collapsed": false
+      },
+      {
+        "title": "Commands Executed (Rate)",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 1},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_exec_total{environment=~\"$environment\"}[5m]))",
+            "legendFormat": "exec/sec"
+          }
+        ],
+        "options": {"graphMode": "area", "colorMode": "value"},
+        "fieldConfig": {
+          "defaults": {"unit": "ops"}
+        }
+      },
+      {
+        "title": "Success Rate",
+        "type": "gauge",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 1},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_exec_total{status=\"success\",environment=~\"$environment\"}[5m])) / sum(rate(kscore_exec_total{environment=~\"$environment\"}[5m])) * 100",
+            "legendFormat": "Success %"
+          }
+        ],
+        "options": {"showThresholdLabels": false, "showThresholdMarkers": true},
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 90, "color": "yellow"},
+                {"value": 99, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Active Jobs",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 1},
+        "targets": [
+          {
+            "expr": "sum(kscore_exec_jobs_active{environment=~\"$environment\"})",
+            "legendFormat": "Active"
+          }
+        ],
+        "options": {"graphMode": "area", "colorMode": "value"}
+      },
+      {
+        "title": "P95 Latency",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 1},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(kscore_exec_duration_seconds_bucket{environment=~\"$environment\"}[5m])) by (le))",
+            "legendFormat": "P95"
+          }
+        ],
+        "options": {"graphMode": "area", "colorMode": "value"},
+        "fieldConfig": {"defaults": {"unit": "s"}}
+      },
+      {
+        "title": "Command Execution Rate",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 5},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_exec_total{environment=~\"$environment\"}[5m])) by (status)",
+            "legendFormat": "{{status}}"
+          }
+        ],
+        "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Execution Latency Distribution",
+        "type": "heatmap",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 5},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_exec_duration_seconds_bucket{environment=~\"$environment\"}[5m])) by (le)",
+            "legendFormat": "{{le}}"
+          }
+        ],
+        "options": {"calculate": false, "cellGap": 1}
+      },
+      {
+        "title": "Batch Operations",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 13},
+        "collapsed": false
+      },
+      {
+        "title": "Batch Jobs Created",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 8, "x": 0, "y": 14},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_exec_batch_jobs_total{environment=~\"$environment\"}[5m]))",
+            "legendFormat": "Jobs/sec"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Batch Job Size Distribution",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 8, "x": 8, "y": 14},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.5, sum(rate(kscore_exec_batch_size_bucket{environment=~\"$environment\"}[5m])) by (le))",
+            "legendFormat": "P50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(kscore_exec_batch_size_bucket{environment=~\"$environment\"}[5m])) by (le))",
+            "legendFormat": "P95"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "short"}}
+      },
+      {
+        "title": "Batch Completion Time",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 8, "x": 16, "y": 14},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.5, sum(rate(kscore_exec_batch_duration_seconds_bucket{environment=~\"$environment\"}[5m])) by (le))",
+            "legendFormat": "P50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(kscore_exec_batch_duration_seconds_bucket{environment=~\"$environment\"}[5m])) by (le))",
+            "legendFormat": "P95"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "s"}}
+      },
+      {
+        "title": "Execution by Target",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 22},
+        "collapsed": false
+      },
+      {
+        "title": "Executions by Role",
+        "type": "piechart",
+        "gridPos": {"h": 8, "w": 8, "x": 0, "y": 23},
+        "targets": [
+          {
+            "expr": "sum(increase(kscore_exec_total{environment=~\"$environment\"}[1h])) by (target_role)",
+            "legendFormat": "{{target_role}}"
+          }
+        ]
+      },
+      {
+        "title": "Executions by Datacenter",
+        "type": "piechart",
+        "gridPos": {"h": 8, "w": 8, "x": 8, "y": 23},
+        "targets": [
+          {
+            "expr": "sum(increase(kscore_exec_total{environment=~\"$environment\"}[1h])) by (datacenter)",
+            "legendFormat": "{{datacenter}}"
+          }
+        ]
+      },
+      {
+        "title": "Top Commands",
+        "type": "table",
+        "gridPos": {"h": 8, "w": 8, "x": 16, "y": 23},
+        "targets": [
+          {
+            "expr": "topk(10, sum(increase(kscore_exec_total{environment=~\"$environment\"}[1h])) by (command))",
+            "legendFormat": "{{command}}",
+            "format": "table",
+            "instant": true
+          }
+        ],
+        "transformations": [
+          {"id": "organize", "options": {"excludeByName": {"Time": true}}}
+        ]
+      },
+      {
+        "title": "Errors & Timeouts",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 31},
+        "collapsed": false
+      },
+      {
+        "title": "Execution Errors",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 32},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_exec_errors_total{environment=~\"$environment\"}[5m])) by (error_type)",
+            "legendFormat": "{{error_type}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Command Timeouts",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 32},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_exec_timeouts_total{environment=~\"$environment\"}[5m]))",
+            "legendFormat": "Timeouts/sec"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      }
+    ]
+  }
+}

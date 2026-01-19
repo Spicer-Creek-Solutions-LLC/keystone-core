@@ -207,7 +207,7 @@ func checkFeatureConsistency(rootDir string, report *SyncReport, verbose bool) {
 
 	files := []string{
 		filepath.Join(rootDir, "README.md"),
-		filepath.Join(rootDir, "DESIGN.md"),
+		filepath.Join(rootDir, "docs", "project", "DESIGN.md"),
 		filepath.Join(rootDir, "docs", "content", "en", "docs", "_index.md"),
 		filepath.Join(rootDir, "docs", "content", "en", "docs", "getting-started", "overview.md"),
 	}

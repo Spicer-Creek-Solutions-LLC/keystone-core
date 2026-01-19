@@ -1121,6 +1121,276 @@ kscorectl state list  # Verify state is accessible
 - **PostgreSQL**: 1GB RAM per 10,000 state resources
 - **Network**: 1Mbps per 100 agents (typical, spiky during state application)
 
+## Sizing Guidelines for Embedded Deployments
+
+Embedded deployments (embedded NATS + SQLite) are simpler to operate but have different sizing considerations than external clusters. This section provides detailed guidance.
+
+### When to Use Embedded Mode
+
+| Use Case | Embedded Mode | External Cluster |
+|----------|---------------|------------------|
+| Development/testing | Recommended | Overkill |
+| Home lab / POC | Recommended | Optional |
+| Small production (<100 agents) | Suitable | Optional |
+| Medium production (100-500 agents) | Possible with tuning | Recommended |
+| Large production (>500 agents) | Not recommended | Required |
+| High availability required | Not suitable | Required |
+
+### Embedded NATS Sizing
+
+Embedded NATS runs in-process with the control plane. Memory is the primary constraint.
+
+**Memory Components:**
+
+| Component | Base | Per Agent | Per 1K msgs/sec |
+|-----------|------|-----------|-----------------|
+| Connection buffers | 10 MB | 64 KB | - |
+| Subscription state | 5 MB | 1 KB | - |
+| Message routing | 50 MB | - | 10 MB |
+| JetStream memory | Configurable | - | - |
+| JetStream file cache | - | - | ~15% of file store |
+
+**Sizing Examples:**
+
+| Agents | Messages/sec | JetStream Memory | JetStream File | Total Memory |
+|--------|--------------|------------------|----------------|--------------|
+| 25 | 50 | 256 MB | 1 GB | ~500 MB |
+| 50 | 100 | 512 MB | 2 GB | ~800 MB |
+| 100 | 200 | 1 GB | 5 GB | ~1.5 GB |
+| 200 | 500 | 2 GB | 10 GB | ~3 GB |
+| 500 | 1000 | 4 GB | 20 GB | ~6 GB |
+
+**Configuration for Different Scales:**
+
+**Small (up to 50 agents):**
+```yaml
+nats:
+  mode: embedded
+  jetstream:
+    max_memory: 512MB
+    max_file: 2GB
+  max_connections: 100
+  max_payload: 1MB
+```
+
+**Medium (50-200 agents):**
+```yaml
+nats:
+  mode: embedded
+  jetstream:
+    max_memory: 2GB
+    max_file: 10GB
+  max_connections: 500
+  max_payload: 1MB
+  flow_control:
+    enabled: true
+```
+
+**Large (200-500 agents - at the limit):**
+```yaml
+nats:
+  mode: embedded
+  jetstream:
+    max_memory: 4GB
+    max_file: 50GB
+  max_connections: 1000
+  max_payload: 1MB
+  flow_control:
+    enabled: true
+    max_pending: 5000
+```
+
+### SQLite Sizing
+
+SQLite is single-writer and file-based. Performance depends on disk speed and database size.
+
+**Performance Characteristics:**
+
+| Operation | Typical Performance | Notes |
+|-----------|--------------------| ------|
+| Read | 10,000+ ops/sec | Limited by disk I/O |
+| Write | 100-1,000 ops/sec | Single writer, WAL mode helps |
+| State apply | 10-50 resources/sec | Depends on resource complexity |
+| Query | 1,000+ queries/sec | Index-dependent |
+
+**Database Size Estimates:**
+
+| Data Type | Size per Item | Growth Rate |
+|-----------|---------------|-------------|
+| Agent record | ~2 KB | Per agent |
+| State resource | ~1 KB | Per resource |
+| Job record | ~5 KB | Per command execution |
+| Event | ~1 KB | Per event (if stored) |
+| Policy | ~2 KB | Per policy |
+
+**Sizing Examples:**
+
+| Agents | Resources | Jobs/day | Events/day | Est. DB Size |
+|--------|-----------|----------|------------|--------------|
+| 25 | 500 | 100 | 5,000 | ~50 MB |
+| 50 | 1,000 | 500 | 25,000 | ~200 MB |
+| 100 | 2,500 | 1,000 | 100,000 | ~500 MB |
+| 200 | 5,000 | 2,500 | 250,000 | ~1 GB |
+| 500 | 10,000 | 5,000 | 500,000 | ~2.5 GB |
+
+*After 30 days with retention*
+
+**SQLite Configuration:**
+
+```yaml
+storage:
+  type: sqlite
+  sqlite:
+    path: /var/lib/kscore/state.db
+    # Performance tuning
+    journal_mode: WAL          # Write-Ahead Logging (faster writes)
+    busy_timeout: 5000ms       # Wait for locks instead of failing
+    cache_size: 100MB          # In-memory page cache
+    synchronous: NORMAL        # Balance safety and speed
+```
+
+**When SQLite Becomes a Bottleneck:**
+
+Signs you need PostgreSQL:
+- Write latency >100ms consistently
+- State apply operations queuing
+- Database file >10GB
+- Need concurrent write operations
+- Backup windows becoming too long
+
+### Combined Resource Requirements
+
+**System Memory Formula:**
+```
+Total RAM = OS Base (512 MB)
+          + Control Plane Base (500 MB)
+          + NATS Memory (see table)
+          + SQLite Cache (100-500 MB)
+          + Headroom (20%)
+```
+
+**Recommended Minimum Specifications:**
+
+| Deployment Size | Agents | CPU | RAM | Disk (SSD) |
+|-----------------|--------|-----|-----|------------|
+| Minimal | 10-25 | 2 cores | 2 GB | 10 GB |
+| Small | 25-50 | 2 cores | 4 GB | 20 GB |
+| Medium | 50-100 | 4 cores | 8 GB | 50 GB |
+| Large | 100-200 | 4 cores | 16 GB | 100 GB |
+| Maximum (embedded) | 200-500 | 8 cores | 32 GB | 200 GB |
+
+### Disk I/O Considerations
+
+SQLite and JetStream both require fast disk I/O.
+
+**Disk Type Recommendations:**
+
+| Disk Type | Suitability | Notes |
+|-----------|-------------|-------|
+| NVMe SSD | Excellent | Best for all workloads |
+| SATA SSD | Good | Suitable up to 200 agents |
+| HDD | Poor | Only for dev/test |
+| Network storage (NFS/EBS) | Variable | Test latency carefully |
+
+**I/O Monitoring:**
+```bash
+# Check disk I/O wait
+iostat -x 1
+
+# Alert threshold: I/O wait >20% indicates disk bottleneck
+```
+
+### Memory Pressure Handling
+
+When memory is constrained, embedded NATS and SQLite compete for resources.
+
+**Priority Order:**
+1. OS and control plane base functions
+2. Active connections and subscriptions
+3. JetStream memory cache
+4. SQLite page cache
+
+**Under Memory Pressure:**
+- JetStream falls back to file storage (slower)
+- SQLite flushes cache more frequently
+- Connection buffers may be reduced
+
+**Configuration for Memory-Constrained Environments:**
+```yaml
+nats:
+  jetstream:
+    max_memory: 256MB    # Minimal memory allocation
+    max_file: 10GB       # More reliance on disk
+
+storage:
+  sqlite:
+    cache_size: 50MB     # Reduced cache
+    synchronous: NORMAL  # Not FULL
+```
+
+### Monitoring Embedded Deployments
+
+**Key Metrics:**
+
+```promql
+# Memory usage
+process_resident_memory_bytes{job="kscore-server"}
+
+# SQLite operations
+kscore_sqlite_operations_total{operation="write"}
+kscore_sqlite_busy_timeout_total
+
+# JetStream usage
+kscore_nats_jetstream_memory_used_bytes
+kscore_nats_jetstream_file_used_bytes
+
+# Connection count
+kscore_nats_connections_current
+```
+
+**Alert Thresholds:**
+
+```yaml
+alerts:
+  # Memory approaching limit
+  - alert: EmbeddedMemoryHigh
+    expr: process_resident_memory_bytes / node_memory_MemTotal_bytes > 0.8
+    for: 5m
+    severity: warning
+
+  # SQLite write latency
+  - alert: SQLiteWriteSlow
+    expr: histogram_quantile(0.95, kscore_sqlite_operation_duration_seconds_bucket{operation="write"}) > 0.1
+    for: 5m
+    severity: warning
+
+  # JetStream at capacity
+  - alert: JetStreamMemoryFull
+    expr: kscore_nats_jetstream_memory_used_bytes / kscore_nats_jetstream_memory_max_bytes > 0.9
+    for: 5m
+    severity: warning
+```
+
+### Migration from Embedded to External
+
+When you outgrow embedded mode, migrate to external NATS cluster and PostgreSQL.
+
+**Migration Triggers:**
+- Consistent memory pressure (>80% usage)
+- SQLite write latency >100ms (p95)
+- Need for high availability
+- Agent count approaching 500
+
+**Migration Path:**
+1. Deploy external NATS cluster
+2. Deploy PostgreSQL
+3. Migrate using `kscore-migrate` tool
+4. Update configuration
+5. Test thoroughly
+6. Switch production
+
+See [Migration Paths](#migration-paths) for detailed procedures.
+
 ## Troubleshooting Deployments
 
 ### Control Plane Won't Start

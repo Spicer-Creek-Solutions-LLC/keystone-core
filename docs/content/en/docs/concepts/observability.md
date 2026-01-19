@@ -229,6 +229,268 @@ scrape_configs:
         services: ['kscore-agent']
 ```
 
+### Metrics Retention Sizing
+
+Properly sizing metrics retention depends on scrape interval, metric cardinality, and storage capacity. Use these guidelines to calculate storage requirements.
+
+#### Storage Formula
+
+Prometheus storage requirements can be estimated using:
+
+```
+Storage (bytes/day) = samples_per_second × bytes_per_sample × seconds_per_day
+                    = (metrics × cardinality / scrape_interval) × 2 × 86400
+```
+
+Where:
+- **metrics**: Number of unique metric names (~70 for Keystone Core)
+- **cardinality**: Average label combinations per metric
+- **scrape_interval**: Seconds between scrapes (default 15s)
+- **bytes_per_sample**: ~2 bytes (Prometheus compressed)
+
+#### Cardinality by Deployment Size
+
+| Deployment Size | Agents | Estimated Cardinality | Daily Storage |
+|-----------------|--------|----------------------|---------------|
+| Small | 1-50 | ~500 | ~600 MB |
+| Medium | 50-500 | ~5,000 | ~6 GB |
+| Large | 500-5,000 | ~50,000 | ~60 GB |
+| Enterprise | 5,000+ | ~500,000+ | ~600+ GB |
+
+**Cardinality drivers**:
+- Agent count (each agent adds label combinations)
+- Datacenters/environments (multiplier for many metrics)
+- Command diversity (unique commands increase `command` label cardinality)
+- Custom labels added to agents
+
+#### Recommended Retention by Use Case
+
+| Use Case | Retention | Typical Storage | Notes |
+|----------|-----------|-----------------|-------|
+| Real-time monitoring | 2 hours | Minimal | Hot queries only |
+| Troubleshooting | 7 days | 1× daily | Recent incident investigation |
+| Capacity planning | 30 days | 4× daily | Trend analysis |
+| Compliance/audit | 90 days | 12× daily | Regulatory requirements |
+| Historical analysis | 1 year | 48× daily | Long-term patterns |
+
+#### Scrape Interval Impact
+
+Shorter scrape intervals provide higher resolution but increase storage:
+
+| Scrape Interval | Samples/Day | Storage Multiplier | Use Case |
+|-----------------|-------------|-------------------|----------|
+| 5s | 17,280 | 3× | Critical real-time monitoring |
+| 15s (default) | 5,760 | 1× | Standard monitoring |
+| 30s | 2,880 | 0.5× | Cost-sensitive deployments |
+| 60s | 1,440 | 0.25× | Low-priority metrics |
+
+#### Prometheus Storage Configuration
+
+Configure retention based on your requirements:
+
+```yaml
+# prometheus.yml
+global:
+  scrape_interval: 15s
+
+# Command-line flags for storage
+# --storage.tsdb.retention.time=30d
+# --storage.tsdb.retention.size=100GB
+```
+
+**Retention by time vs size**:
+```bash
+# Retain 30 days of data
+prometheus --storage.tsdb.retention.time=30d
+
+# Retain up to 100GB (removes oldest data when exceeded)
+prometheus --storage.tsdb.retention.size=100GB
+
+# Both (whichever limit is reached first)
+prometheus \
+  --storage.tsdb.retention.time=30d \
+  --storage.tsdb.retention.size=100GB
+```
+
+#### Sizing Examples
+
+**Example 1: Small deployment (50 agents, 7-day retention)**
+```
+Metrics: 70
+Cardinality: 500 (50 agents × 10 avg label combinations)
+Scrape interval: 15s
+Samples/second: 70 × 500 / 15 = 2,333
+
+Daily storage: 2,333 × 2 × 86,400 = 403 MB/day
+7-day storage: 403 × 7 = 2.8 GB
+
+Recommended: 5 GB with 20% headroom
+```
+
+**Example 2: Medium deployment (500 agents, 30-day retention)**
+```
+Metrics: 70
+Cardinality: 5,000 (500 agents × 10 avg label combinations)
+Scrape interval: 15s
+Samples/second: 70 × 5,000 / 15 = 23,333
+
+Daily storage: 23,333 × 2 × 86,400 = 4.03 GB/day
+30-day storage: 4.03 × 30 = 121 GB
+
+Recommended: 150 GB with 25% headroom
+```
+
+**Example 3: Large deployment (5,000 agents, 90-day retention)**
+```
+Metrics: 70
+Cardinality: 50,000 (5,000 agents × 10 avg label combinations)
+Scrape interval: 15s
+Samples/second: 70 × 50,000 / 15 = 233,333
+
+Daily storage: 233,333 × 2 × 86,400 = 40.3 GB/day
+90-day storage: 40.3 × 90 = 3.6 TB
+
+Recommended: 4.5 TB with 25% headroom
+Consider: Remote write to long-term storage (Thanos, Cortex, Mimir)
+```
+
+#### Reducing Cardinality
+
+High cardinality increases storage costs. Reduce with these strategies:
+
+**1. Aggregate high-cardinality labels**:
+```yaml
+# prometheus.yml - Use relabeling to drop high-cardinality labels
+scrape_configs:
+  - job_name: 'kscore-agents'
+    metric_relabel_configs:
+      # Drop command label for command_duration metric
+      - source_labels: [__name__]
+        regex: kscore_command_duration_seconds
+        target_label: command
+        replacement: ''
+```
+
+**2. Use recording rules for aggregation**:
+```yaml
+# recording_rules.yml
+groups:
+  - name: kscore_aggregations
+    rules:
+      # Aggregate command metrics by datacenter only
+      - record: kscore:commands_executed:by_dc
+        expr: sum by (datacenter, status) (kscore_commands_executed_total)
+
+      # Aggregate agent count by environment
+      - record: kscore:agents_connected:by_env
+        expr: sum by (environment) (kscore_agents_connected_total)
+```
+
+**3. Filter unnecessary metrics**:
+```yaml
+# Scrape only essential metrics
+scrape_configs:
+  - job_name: 'kscore-control-plane'
+    metric_relabel_configs:
+      # Keep only specified metrics
+      - source_labels: [__name__]
+        regex: kscore_(agents_connected|api_requests|commands_executed).*
+        action: keep
+```
+
+#### Long-Term Storage
+
+For retention beyond 30-90 days, use external long-term storage:
+
+**Thanos**:
+```yaml
+# thanos-sidecar.yml
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+    - name: prometheus
+      args:
+        - --storage.tsdb.retention.time=2h  # Local retention only
+        - --storage.tsdb.min-block-duration=2h
+        - --storage.tsdb.max-block-duration=2h
+    - name: thanos-sidecar
+      args:
+        - sidecar
+        - --tsdb.path=/prometheus
+        - --objstore.config-file=/etc/thanos/bucket.yml
+```
+
+**Grafana Mimir**:
+```yaml
+# mimir-config.yml
+# Remote write from Prometheus to Mimir
+remote_write:
+  - url: http://mimir:9009/api/v1/push
+    remote_timeout: 30s
+    queue_config:
+      capacity: 10000
+      max_samples_per_send: 5000
+```
+
+**Victoria Metrics**:
+```yaml
+# prometheus.yml - Remote write to VictoriaMetrics
+remote_write:
+  - url: http://victoriametrics:8428/api/v1/write
+    queue_config:
+      max_samples_per_send: 10000
+      capacity: 20000
+```
+
+#### Monitoring Storage Health
+
+Monitor Prometheus storage to prevent issues:
+
+```yaml
+# Alert when storage is running low
+groups:
+  - name: prometheus_storage
+    rules:
+      - alert: PrometheusStorageNearCapacity
+        expr: |
+          (prometheus_tsdb_storage_blocks_bytes / prometheus_tsdb_retention_limit_bytes) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus storage at {{ $value | humanizePercentage }}"
+
+      - alert: PrometheusHighCardinality
+        expr: prometheus_tsdb_head_series > 1000000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High metric cardinality: {{ $value }} series"
+
+      - alert: PrometheusScrapeErrors
+        expr: rate(prometheus_target_scrapes_sample_out_of_order_total[5m]) > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Out-of-order samples detected"
+```
+
+#### Quick Reference
+
+| Agents | 7d Retention | 30d Retention | 90d Retention |
+|--------|--------------|---------------|---------------|
+| 50 | 3 GB | 12 GB | 36 GB |
+| 100 | 5 GB | 22 GB | 65 GB |
+| 500 | 25 GB | 100 GB | 300 GB |
+| 1,000 | 50 GB | 200 GB | 600 GB |
+| 5,000 | 250 GB | 1 TB | 3 TB |
+| 10,000 | 500 GB | 2 TB | 6 TB |
+
+*Based on 15s scrape interval, default metrics, ~10 label combinations per agent*
+
 ## Logging
 
 Keystone Core uses structured logging with correlation IDs:
@@ -452,6 +714,536 @@ logging:
 ```
 # /etc/rsyslog.d/kscore.conf
 local0.* /var/log/kscore.log
+```
+
+### SIEM Field Mapping
+
+Keystone emits structured log data that maps to common SIEM schemas. This section documents field mappings for popular SIEM platforms.
+
+#### Keystone Log Field Reference
+
+Keystone logs contain these standard fields:
+
+| Keystone Field | Type | Description |
+|----------------|------|-------------|
+| `timestamp` | ISO 8601 | Event timestamp with microsecond precision |
+| `level` | string | Log level: debug, info, warn, error, fatal |
+| `logger` | string | Component name (e.g., command-dispatcher) |
+| `message` | string | Human-readable event description |
+| `correlation_id` | string | Request/job correlation identifier |
+| `trace_id` | string | Distributed trace identifier |
+| `span_id` | string | Span identifier within trace |
+| `agent_id` | string | Agent UUID |
+| `agent_name` | string | Agent hostname or display name |
+| `command_id` | string | Command execution identifier |
+| `job_id` | string | Batch job identifier |
+| `user` | string | Authenticated username |
+| `source_ip` | string | Client IP address |
+| `duration_ms` | number | Operation duration in milliseconds |
+| `exit_code` | number | Command exit code |
+| `error` | string | Error message if applicable |
+| `error_code` | string | Structured error code |
+
+#### Splunk Common Information Model (CIM)
+
+Map Keystone fields to Splunk CIM for consistent searches across data sources:
+
+```
+# props.conf - Field extraction
+[kscore:json]
+SHOULD_LINEMERGE = false
+TIME_FORMAT = %Y-%m-%dT%H:%M:%S.%6N%Z
+TIME_PREFIX = "timestamp":"
+KV_MODE = json
+TRUNCATE = 0
+
+# Field aliases for CIM compliance
+FIELDALIAS-action = message AS action
+FIELDALIAS-app = logger AS app
+FIELDALIAS-dest = agent_name AS dest
+FIELDALIAS-dest_ip = agent_ip AS dest_ip
+FIELDALIAS-duration = duration_ms AS duration
+FIELDALIAS-result = exit_code AS result
+FIELDALIAS-signature = error_code AS signature
+FIELDALIAS-src = source_ip AS src
+FIELDALIAS-user = user AS user
+
+# CIM-compliant event categorization
+EVAL-vendor = "Anthropic"
+EVAL-product = "Keystone"
+EVAL-vendor_product = "Anthropic Keystone"
+```
+
+**CIM Data Model Mappings**:
+
+| CIM Field | Keystone Field | Data Model |
+|-----------|----------------|------------|
+| `action` | `message` | Change |
+| `app` | `logger` | Application State |
+| `command` | `command_name` | Endpoint.Processes |
+| `dest` | `agent_name` | Common |
+| `duration` | `duration_ms` | Common |
+| `object` | `resource_type` | Change |
+| `object_path` | `resource_id` | Change |
+| `result` | `exit_code` | Common |
+| `severity` | `level` | Common |
+| `signature` | `error_code` | Intrusion Detection |
+| `src` | `source_ip` | Common |
+| `status` | `status` | Common |
+| `user` | `user` | Authentication |
+| `vendor_product` | (static) | Common |
+
+**Splunk Search Examples**:
+```spl
+# All authentication events
+index=kscore sourcetype="kscore:json" logger="auth"
+| stats count by user, src, action
+
+# Failed commands by agent
+index=kscore sourcetype="kscore:json" exit_code!=0
+| stats count by dest, command_name
+| sort -count
+
+# CIM-compliant change tracking
+| datamodel Change search
+| search vendor_product="Anthropic Keystone"
+| stats count by object, action, user
+```
+
+#### Elastic Common Schema (ECS)
+
+Map Keystone fields to ECS for Elastic SIEM and Kibana:
+
+```yaml
+# Filebeat module configuration
+- module: kscore
+  log:
+    enabled: true
+    var.paths:
+      - /var/log/kscore/*.log
+    var.format: json
+```
+
+**ECS Field Mappings**:
+
+| ECS Field | Keystone Field | ECS Category |
+|-----------|----------------|--------------|
+| `@timestamp` | `timestamp` | Base |
+| `event.action` | `message` | Event |
+| `event.category` | (derived) | Event |
+| `event.dataset` | `logger` | Event |
+| `event.duration` | `duration_ms * 1000000` | Event |
+| `event.kind` | (derived) | Event |
+| `event.module` | `"kscore"` | Event |
+| `event.outcome` | (derived from exit_code) | Event |
+| `event.severity` | (derived from level) | Event |
+| `host.hostname` | `agent_name` | Host |
+| `host.id` | `agent_id` | Host |
+| `log.level` | `level` | Log |
+| `log.logger` | `logger` | Log |
+| `message` | `message` | Base |
+| `process.exit_code` | `exit_code` | Process |
+| `process.name` | `command_name` | Process |
+| `source.ip` | `source_ip` | Source |
+| `trace.id` | `trace_id` | Tracing |
+| `transaction.id` | `correlation_id` | Tracing |
+| `user.name` | `user` | User |
+
+**Logstash Pipeline**:
+```ruby
+# /etc/logstash/conf.d/kscore.conf
+input {
+  file {
+    path => "/var/log/kscore/*.log"
+    codec => json
+    tags => ["kscore"]
+  }
+}
+
+filter {
+  if "kscore" in [tags] {
+    # ECS field mapping
+    mutate {
+      rename => {
+        "timestamp" => "@timestamp"
+        "logger" => "[log][logger]"
+        "level" => "[log][level]"
+        "agent_id" => "[host][id]"
+        "agent_name" => "[host][hostname]"
+        "source_ip" => "[source][ip]"
+        "user" => "[user][name]"
+        "trace_id" => "[trace][id]"
+        "correlation_id" => "[transaction][id]"
+        "command_name" => "[process][name]"
+        "exit_code" => "[process][exit_code]"
+      }
+    }
+
+    # Convert duration from ms to nanoseconds (ECS standard)
+    if [duration_ms] {
+      ruby {
+        code => "event.set('[event][duration]', event.get('duration_ms').to_i * 1000000)"
+      }
+      mutate { remove_field => ["duration_ms"] }
+    }
+
+    # Derive event.outcome from exit_code
+    if [process][exit_code] {
+      if [process][exit_code] == 0 {
+        mutate { add_field => { "[event][outcome]" => "success" } }
+      } else {
+        mutate { add_field => { "[event][outcome]" => "failure" } }
+      }
+    }
+
+    # Map log level to ECS severity
+    translate {
+      field => "[log][level]"
+      destination => "[event][severity]"
+      dictionary => {
+        "debug" => "1"
+        "info" => "2"
+        "warn" => "3"
+        "error" => "4"
+        "fatal" => "5"
+      }
+    }
+
+    # Set event categorization
+    mutate {
+      add_field => {
+        "[event][module]" => "kscore"
+        "[event][dataset]" => "%{[log][logger]}"
+      }
+    }
+
+    # Derive event.category from logger
+    if [log][logger] == "auth" {
+      mutate { add_field => { "[event][category]" => "authentication" } }
+    } else if [log][logger] == "command-dispatcher" {
+      mutate { add_field => { "[event][category]" => "process" } }
+    } else if [log][logger] == "state-manager" {
+      mutate { add_field => { "[event][category]" => "configuration" } }
+    } else if [log][logger] == "policy-engine" {
+      mutate { add_field => { "[event][category]" => "intrusion_detection" } }
+    }
+  }
+}
+
+output {
+  if "kscore" in [tags] {
+    elasticsearch {
+      hosts => ["https://elasticsearch:9200"]
+      index => "kscore-%{+YYYY.MM.dd}"
+      ssl_certificate_verification => true
+    }
+  }
+}
+```
+
+**Kibana Query Examples**:
+```
+# All failed commands
+event.outcome: "failure" AND event.module: "kscore"
+
+# Authentication events by user
+event.category: "authentication" AND user.name: *
+
+# Configuration changes in last 24 hours
+event.category: "configuration" AND @timestamp >= now-24h
+```
+
+#### Common Event Format (CEF)
+
+CEF mapping for ArcSight, QRadar, and other SIEM platforms:
+
+**CEF Header Mapping**:
+```
+CEF:0|Anthropic|Keystone|1.0|<signature_id>|<name>|<severity>|<extension>
+```
+
+| CEF Field | Keystone Source | Notes |
+|-----------|-----------------|-------|
+| `Version` | `0` | CEF version |
+| `Device Vendor` | `Anthropic` | Static |
+| `Device Product` | `Keystone` | Static |
+| `Device Version` | `version` | Keystone version |
+| `Signature ID` | `error_code` or `event_type` | Event identifier |
+| `Name` | `message` | Event description |
+| `Severity` | `level` | 0-10 scale mapping |
+
+**Severity Mapping**:
+
+| Keystone Level | CEF Severity |
+|----------------|--------------|
+| `debug` | `0` |
+| `info` | `3` |
+| `warn` | `5` |
+| `error` | `7` |
+| `fatal` | `10` |
+
+**CEF Extension Fields**:
+
+| CEF Extension | Keystone Field | Key |
+|---------------|----------------|-----|
+| `sourceAddress` | `source_ip` | `src` |
+| `destinationHostName` | `agent_name` | `dhost` |
+| `destinationProcessId` | `agent_id` | `dpid` |
+| `sourceUserName` | `user` | `suser` |
+| `deviceCustomString1` | `correlation_id` | `cs1` |
+| `deviceCustomString1Label` | `Correlation ID` | `cs1Label` |
+| `deviceCustomString2` | `trace_id` | `cs2` |
+| `deviceCustomString2Label` | `Trace ID` | `cs2Label` |
+| `deviceCustomString3` | `command_name` | `cs3` |
+| `deviceCustomString3Label` | `Command` | `cs3Label` |
+| `deviceCustomNumber1` | `duration_ms` | `cn1` |
+| `deviceCustomNumber1Label` | `Duration (ms)` | `cn1Label` |
+| `deviceCustomNumber2` | `exit_code` | `cn2` |
+| `deviceCustomNumber2Label` | `Exit Code` | `cn2Label` |
+| `message` | `error` | `msg` |
+
+**CEF Output Configuration**:
+```yaml
+logging:
+  syslog:
+    enabled: true
+    transport: tcp+tls
+    address: "siem.example.com:6514"
+    format: cef
+    cef:
+      device_vendor: "Anthropic"
+      device_product: "Keystone"
+```
+
+**Sample CEF Output**:
+```
+CEF:0|Anthropic|Keystone|1.0|CMD_EXEC|Command Executed|3|src=10.0.0.1 dhost=agent-01 suser=admin cs1=job-abc123 cs1Label=Correlation ID cs3=apt-get cs3Label=Command cn1=1234 cn1Label=Duration (ms) cn2=0 cn2Label=Exit Code
+```
+
+#### Log Event Extended Format (LEEF)
+
+LEEF mapping for IBM QRadar:
+
+**LEEF Header**:
+```
+LEEF:2.0|Anthropic|Keystone|1.0|<event_id>|
+```
+
+**LEEF Field Mappings**:
+
+| LEEF Field | Keystone Field | Notes |
+|------------|----------------|-------|
+| `devTime` | `timestamp` | ISO 8601 format |
+| `devTimeFormat` | `yyyy-MM-dd'T'HH:mm:ss.SSSZ` | Time format |
+| `src` | `source_ip` | Source IP |
+| `dst` | `agent_ip` | Destination IP |
+| `dstHost` | `agent_name` | Agent hostname |
+| `usrName` | `user` | Username |
+| `cat` | `logger` | Event category |
+| `sev` | `level` | Severity (1-10) |
+| `identSrc` | `agent_id` | Agent UUID |
+| `msg` | `message` | Event message |
+| `resource` | `resource_type` | Resource type |
+| `action` | `command_name` | Action performed |
+| `responseTime` | `duration_ms` | Response time |
+| `outcome` | `exit_code` | Result code |
+
+**Sample LEEF Output**:
+```
+LEEF:2.0|Anthropic|Keystone|1.0|CMD_EXEC|devTime=2024-01-15T10:30:45.123Z	cat=command-dispatcher	sev=3	src=10.0.0.1	dstHost=agent-01	usrName=admin	action=apt-get	responseTime=1234	outcome=0	msg=Command executed successfully
+```
+
+#### Microsoft Sentinel (Azure)
+
+Data connector configuration for Microsoft Sentinel:
+
+**Log Analytics Workspace Schema**:
+```kusto
+// Custom log table: Keystone_CL
+Keystone_CL
+| project
+    TimeGenerated,
+    Level_s as Level,
+    Logger_s as Logger,
+    Message_s as Message,
+    CorrelationId_g as CorrelationId,
+    TraceId_s as TraceId,
+    AgentId_g as AgentId,
+    AgentName_s as AgentName,
+    SourceIP_s as SourceIP,
+    User_s as User,
+    CommandName_s as CommandName,
+    DurationMs_d as DurationMs,
+    ExitCode_d as ExitCode
+```
+
+**Azure Monitor Agent Configuration**:
+```json
+{
+  "logs": [
+    {
+      "streams": ["Custom-Keystone_CL"],
+      "filePaths": ["/var/log/kscore/*.log"],
+      "format": "json",
+      "settings": {
+        "text": {
+          "recordStartTimestampFormat": "ISO 8601"
+        }
+      }
+    }
+  ]
+}
+```
+
+**KQL Queries for Threat Hunting**:
+```kusto
+// Failed authentication attempts
+Keystone_CL
+| where Logger_s == "auth" and Level_s == "error"
+| summarize FailedAttempts=count() by SourceIP_s, bin(TimeGenerated, 1h)
+| where FailedAttempts > 10
+
+// Unusual command execution patterns
+Keystone_CL
+| where Logger_s == "command-dispatcher"
+| summarize CommandCount=count() by AgentName_s, CommandName_s, bin(TimeGenerated, 1h)
+| join kind=inner (
+    Keystone_CL
+    | where Logger_s == "command-dispatcher"
+    | summarize AvgCount=avg(CommandCount) by AgentName_s, CommandName_s
+) on AgentName_s, CommandName_s
+| where CommandCount > AvgCount * 3
+
+// Policy violations
+Keystone_CL
+| where Logger_s == "policy-engine" and Message_s contains "denied"
+| project TimeGenerated, AgentName_s, User_s, Message_s
+| order by TimeGenerated desc
+```
+
+#### Field Normalization Reference
+
+Quick reference for field normalization across all SIEM formats:
+
+| Keystone | Splunk CIM | ECS | CEF | LEEF | Sentinel |
+|----------|------------|-----|-----|------|----------|
+| `timestamp` | `_time` | `@timestamp` | (header) | `devTime` | `TimeGenerated` |
+| `level` | `severity` | `log.level` | Severity | `sev` | `Level_s` |
+| `logger` | `app` | `event.dataset` | (extension) | `cat` | `Logger_s` |
+| `message` | `action` | `message` | Name | `msg` | `Message_s` |
+| `source_ip` | `src` | `source.ip` | `src` | `src` | `SourceIP_s` |
+| `agent_name` | `dest` | `host.hostname` | `dhost` | `dstHost` | `AgentName_s` |
+| `agent_id` | `dest_id` | `host.id` | `dpid` | `identSrc` | `AgentId_g` |
+| `user` | `user` | `user.name` | `suser` | `usrName` | `User_s` |
+| `command_name` | `command` | `process.name` | `cs3` | `action` | `CommandName_s` |
+| `duration_ms` | `duration` | `event.duration` | `cn1` | `responseTime` | `DurationMs_d` |
+| `exit_code` | `result` | `process.exit_code` | `cn2` | `outcome` | `ExitCode_d` |
+| `correlation_id` | `correlation_id` | `transaction.id` | `cs1` | (custom) | `CorrelationId_g` |
+| `trace_id` | `trace_id` | `trace.id` | `cs2` | (custom) | `TraceId_s` |
+
+#### Parser Configuration Templates
+
+**Splunk Add-on**:
+```
+# inputs.conf
+[monitor:///var/log/kscore]
+sourcetype = kscore:json
+index = main
+
+# transforms.conf
+[kscore_severity]
+REGEX = "level":"(\w+)"
+FORMAT = severity::$1
+WRITE_META = true
+```
+
+**Elastic Ingest Pipeline**:
+```json
+{
+  "description": "Keystone log parser",
+  "processors": [
+    {
+      "json": {
+        "field": "message",
+        "target_field": "kscore"
+      }
+    },
+    {
+      "rename": {
+        "field": "kscore.timestamp",
+        "target_field": "@timestamp"
+      }
+    },
+    {
+      "rename": {
+        "field": "kscore.level",
+        "target_field": "log.level"
+      }
+    },
+    {
+      "set": {
+        "field": "event.module",
+        "value": "kscore"
+      }
+    }
+  ]
+}
+```
+
+**Fluentd Configuration**:
+```
+<source>
+  @type tail
+  path /var/log/kscore/*.log
+  pos_file /var/log/td-agent/kscore.pos
+  tag kscore.logs
+  <parse>
+    @type json
+    time_key timestamp
+    time_format %Y-%m-%dT%H:%M:%S.%N%z
+  </parse>
+</source>
+
+<filter kscore.logs>
+  @type record_transformer
+  enable_ruby true
+  <record>
+    # ECS field mapping
+    event.module kscore
+    event.dataset ${record["logger"]}
+    host.hostname ${record["agent_name"]}
+    user.name ${record["user"]}
+    source.ip ${record["source_ip"]}
+  </record>
+</filter>
+```
+
+**Vector Configuration**:
+```toml
+[sources.kscore_logs]
+type = "file"
+include = ["/var/log/kscore/*.log"]
+
+[transforms.kscore_parse]
+type = "remap"
+inputs = ["kscore_logs"]
+source = '''
+. = parse_json!(.message)
+.event.module = "kscore"
+.event.dataset = .logger
+.host.hostname = .agent_name
+.user.name = .user
+.source.ip = .source_ip
+del(.logger)
+del(.agent_name)
+del(.user)
+del(.source_ip)
+'''
+
+[sinks.elasticsearch]
+type = "elasticsearch"
+inputs = ["kscore_parse"]
+endpoints = ["https://elasticsearch:9200"]
 ```
 
 ### Loki Integration

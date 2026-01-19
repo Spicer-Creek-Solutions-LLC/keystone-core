@@ -617,6 +617,843 @@ my-blueprint/
     └── test_full.yaml    # Full integration tests
 ```
 
+## Blueprint Authoring Guide
+
+This section provides a complete walkthrough for creating blueprints from scratch.
+
+### Step 1: Initialize Blueprint
+
+Create a new blueprint with the init command:
+
+```bash
+kscore-blueprint init myorg/nginx-stack \
+  --description "Production-ready Nginx web server stack" \
+  --author "Your Name" \
+  --email "you@example.com" \
+  --license "Apache-2.0" \
+  --category "web-server" \
+  --keywords "nginx,web,proxy"
+```
+
+This creates the directory structure with template files:
+
+```
+myorg-nginx-stack/
+├── blueprint.yaml
+├── README.md
+├── states/
+│   └── init.yaml
+├── vars/
+│   └── defaults.yaml
+└── tests/
+    └── test_basic.yaml
+```
+
+### Step 2: Define Parameters
+
+Edit `blueprint.yaml` to define your parameters with proper validation:
+
+```yaml
+apiVersion: blueprints.kscore.io/v1
+kind: Blueprint
+
+metadata:
+  name: myorg/nginx-stack
+  version: "1.0.0"
+  description: Production-ready Nginx web server stack
+
+parameters:
+  # Required parameters
+  domain:
+    type: string
+    description: Primary domain name
+    required: true
+    format: hostname
+    examples:
+      - example.com
+      - www.example.com
+
+  # Numeric with defaults
+  http_port:
+    type: integer
+    description: HTTP port
+    default: 80
+    minimum: 1
+    maximum: 65535
+
+  https_port:
+    type: integer
+    description: HTTPS port
+    default: 443
+    minimum: 1
+    maximum: 65535
+
+  # Boolean toggle
+  enable_ssl:
+    type: boolean
+    description: Enable SSL/TLS
+    default: true
+
+  # Enum for limited options
+  ssl_provider:
+    type: string
+    description: SSL certificate provider
+    default: letsencrypt
+    enum:
+      - letsencrypt
+      - custom
+      - selfsigned
+    feature: ssl  # Only used when ssl feature is enabled
+
+  # Sensitive data
+  ssl_key:
+    type: string
+    description: SSL private key (PEM format)
+    sensitive: true
+    source: secret
+    feature: ssl
+    required_if:
+      - ssl_provider: custom
+
+  # Complex object
+  upstream_servers:
+    type: array
+    description: Backend servers for load balancing
+    items:
+      type: object
+      properties:
+        address:
+          type: string
+          format: hostname
+        port:
+          type: integer
+          default: 8080
+        weight:
+          type: integer
+          default: 1
+          minimum: 1
+          maximum: 100
+    minItems: 1
+    maxItems: 20
+
+  # Conditional parameter
+  worker_processes:
+    type: string
+    description: Number of worker processes
+    default: auto
+    pattern: "^(auto|[1-9][0-9]*)$"
+```
+
+### Step 3: Create Default Values
+
+Define sensible defaults in `vars/defaults.yaml`:
+
+```yaml
+# Default parameter values
+# These are used when parameters are not explicitly set
+
+http_port: 80
+https_port: 443
+enable_ssl: true
+ssl_provider: letsencrypt
+worker_processes: auto
+
+# Default upstream configuration
+upstream_servers:
+  - address: localhost
+    port: 8080
+    weight: 1
+
+# Nginx configuration defaults
+client_max_body_size: 100M
+keepalive_timeout: 65
+gzip_enabled: true
+gzip_types:
+  - text/plain
+  - text/css
+  - application/json
+  - application/javascript
+
+# SSL configuration defaults
+ssl_protocols:
+  - TLSv1.2
+  - TLSv1.3
+ssl_ciphers: "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256"
+ssl_session_timeout: 1d
+ssl_session_cache: "shared:SSL:10m"
+
+# Logging defaults
+access_log: /var/log/nginx/access.log
+error_log: /var/log/nginx/error.log
+log_format: combined
+```
+
+### Step 4: Create State Files
+
+Create the main entry point `states/init.yaml`:
+
+```yaml
+# Main entry point - orchestrates the full deployment
+# This file is the default entrypoint and includes other states
+
+include:
+  - ./install.yaml
+  - ./configure.yaml
+
+# Conditional SSL setup
+{{- if .params.enable_ssl }}
+  - ./ssl.yaml
+{{- end }}
+
+# Final verification
+verification:
+  module: cmd
+  state: run
+  name: verify_nginx
+  command: nginx -t && systemctl is-active nginx
+  require:
+    - "include:configure"
+```
+
+Create `states/install.yaml` for package installation:
+
+```yaml
+# Package installation and user setup
+
+nginx_package:
+  module: package
+  state: installed
+  name: nginx
+
+nginx_user:
+  module: user
+  state: present
+  name: nginx
+  system: true
+  shell: /sbin/nologin
+  home: /var/cache/nginx
+  require:
+    - nginx_package
+
+log_directory:
+  module: file
+  state: directory
+  path: /var/log/nginx
+  owner: nginx
+  group: nginx
+  mode: "0755"
+  require:
+    - nginx_user
+
+config_directory:
+  module: file
+  state: directory
+  path: /etc/nginx/conf.d
+  owner: root
+  group: root
+  mode: "0755"
+  require:
+    - nginx_package
+```
+
+Create `states/configure.yaml` for configuration:
+
+```yaml
+# Nginx configuration
+
+nginx_main_config:
+  module: file
+  state: managed
+  path: /etc/nginx/nginx.conf
+  source: templates/nginx.conf.tpl
+  vars:
+    worker_processes: "{{ .params.worker_processes }}"
+    worker_connections: "{{ default 4096 .params.worker_connections }}"
+    keepalive_timeout: "{{ .vars.keepalive_timeout }}"
+  owner: root
+  group: root
+  mode: "0644"
+  require:
+    - "include:install"
+
+site_config:
+  module: file
+  state: managed
+  path: /etc/nginx/conf.d/{{ .params.domain }}.conf
+  source: templates/site.conf.tpl
+  vars:
+    domain: "{{ .params.domain }}"
+    http_port: "{{ .params.http_port }}"
+    https_port: "{{ .params.https_port }}"
+    enable_ssl: "{{ .params.enable_ssl }}"
+    upstream_servers: "{{ .params.upstream_servers | toJson }}"
+  owner: root
+  group: root
+  mode: "0644"
+  require:
+    - nginx_main_config
+
+nginx_service:
+  module: service
+  state: running
+  name: nginx
+  enabled: true
+  require:
+    - site_config
+  watch:
+    - nginx_main_config
+    - site_config
+```
+
+Create `states/ssl.yaml` for SSL configuration:
+
+```yaml
+# SSL/TLS configuration (included when enable_ssl is true)
+
+{{- if eq .params.ssl_provider "letsencrypt" }}
+certbot_package:
+  module: package
+  state: installed
+  name: certbot
+
+certbot_nginx_plugin:
+  module: package
+  state: installed
+  name: python3-certbot-nginx
+  require:
+    - certbot_package
+
+obtain_certificate:
+  module: cmd
+  state: run
+  name: certbot_obtain
+  command: |
+    certbot certonly --nginx -d {{ .params.domain }} \
+      --non-interactive --agree-tos \
+      --email {{ default "admin@" .params.domain | trimPrefix "@" }}{{ .params.domain }}
+  creates: /etc/letsencrypt/live/{{ .params.domain }}/fullchain.pem
+  require:
+    - certbot_nginx_plugin
+    - "configure:nginx_service"
+
+renewal_cron:
+  module: cron
+  state: present
+  name: certbot-renewal
+  user: root
+  hour: 2
+  minute: 30
+  weekday: 1
+  job: certbot renew --quiet --post-hook "systemctl reload nginx"
+  require:
+    - obtain_certificate
+
+{{- else if eq .params.ssl_provider "custom" }}
+ssl_cert_dir:
+  module: file
+  state: directory
+  path: /etc/nginx/ssl
+  owner: root
+  group: root
+  mode: "0700"
+
+ssl_certificate:
+  module: file
+  state: managed
+  path: /etc/nginx/ssl/{{ .params.domain }}.crt
+  content: "{{ .params.ssl_cert }}"
+  owner: root
+  group: root
+  mode: "0644"
+  require:
+    - ssl_cert_dir
+
+ssl_private_key:
+  module: file
+  state: managed
+  path: /etc/nginx/ssl/{{ .params.domain }}.key
+  content: "{{ .params.ssl_key }}"
+  owner: root
+  group: root
+  mode: "0600"
+  require:
+    - ssl_cert_dir
+
+{{- else if eq .params.ssl_provider "selfsigned" }}
+openssl_package:
+  module: package
+  state: installed
+  name: openssl
+
+ssl_cert_dir:
+  module: file
+  state: directory
+  path: /etc/nginx/ssl
+  owner: root
+  group: root
+  mode: "0700"
+
+generate_selfsigned:
+  module: cmd
+  state: run
+  name: generate_ssl
+  command: |
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+      -keyout /etc/nginx/ssl/{{ .params.domain }}.key \
+      -out /etc/nginx/ssl/{{ .params.domain }}.crt \
+      -subj "/CN={{ .params.domain }}"
+  creates: /etc/nginx/ssl/{{ .params.domain }}.crt
+  require:
+    - openssl_package
+    - ssl_cert_dir
+{{- end }}
+
+# Update nginx config to use SSL
+ssl_site_config:
+  module: file
+  state: managed
+  path: /etc/nginx/conf.d/{{ .params.domain }}-ssl.conf
+  source: templates/site-ssl.conf.tpl
+  vars:
+    domain: "{{ .params.domain }}"
+    https_port: "{{ .params.https_port }}"
+    ssl_provider: "{{ .params.ssl_provider }}"
+  owner: root
+  group: root
+  mode: "0644"
+  require:
+    {{- if eq .params.ssl_provider "letsencrypt" }}
+    - obtain_certificate
+    {{- else if eq .params.ssl_provider "custom" }}
+    - ssl_certificate
+    - ssl_private_key
+    {{- else }}
+    - generate_selfsigned
+    {{- end }}
+
+nginx_ssl_reload:
+  module: service
+  state: running
+  name: nginx
+  reload: true
+  require:
+    - ssl_site_config
+```
+
+Create `states/rollback.yaml` for rollback support:
+
+```yaml
+# Rollback entry point
+# Restores previous configuration state
+
+restore_nginx_config:
+  module: cmd
+  state: run
+  name: restore_config
+  command: |
+    if [ -f /etc/nginx/nginx.conf.bak ]; then
+      cp /etc/nginx/nginx.conf.bak /etc/nginx/nginx.conf
+    fi
+    if [ -d /etc/nginx/conf.d.bak ]; then
+      rm -rf /etc/nginx/conf.d/*
+      cp -r /etc/nginx/conf.d.bak/* /etc/nginx/conf.d/
+    fi
+
+validate_config:
+  module: cmd
+  state: run
+  name: validate
+  command: nginx -t
+  require:
+    - restore_nginx_config
+
+restart_nginx:
+  module: service
+  state: running
+  name: nginx
+  reload: true
+  require:
+    - validate_config
+```
+
+### Step 5: Create Templates
+
+Create `templates/nginx.conf.tpl`:
+
+```nginx
+# Nginx main configuration
+# Generated by myorg/nginx-stack blueprint
+
+user nginx;
+worker_processes {{ .vars.worker_processes }};
+error_log {{ .vars.error_log }} warn;
+pid /run/nginx.pid;
+
+events {
+    worker_connections {{ .vars.worker_connections }};
+    use epoll;
+    multi_accept on;
+}
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                    '$status $body_bytes_sent "$http_referer" '
+                    '"$http_user_agent" "$http_x_forwarded_for"';
+
+    access_log {{ .vars.access_log }} main;
+
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    keepalive_timeout {{ .vars.keepalive_timeout }};
+    types_hash_max_size 2048;
+    server_tokens off;
+
+    client_max_body_size {{ .vars.client_max_body_size }};
+
+    {{- if .vars.gzip_enabled }}
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_types {{ .vars.gzip_types | join " " }};
+    {{- end }}
+
+    include /etc/nginx/conf.d/*.conf;
+}
+```
+
+Create `templates/site.conf.tpl`:
+
+```nginx
+# Site configuration for {{ .vars.domain }}
+
+{{- $upstream := fromJson .vars.upstream_servers }}
+
+upstream backend {
+    {{- range $upstream }}
+    server {{ .address }}:{{ .port }} weight={{ .weight }};
+    {{- end }}
+    keepalive 32;
+}
+
+server {
+    listen {{ .vars.http_port }};
+    server_name {{ .vars.domain }};
+
+    {{- if .vars.enable_ssl }}
+    return 301 https://$server_name$request_uri;
+    {{- else }}
+    location / {
+        proxy_pass http://backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+    }
+    {{- end }}
+
+    location /health {
+        access_log off;
+        return 200 "OK\n";
+    }
+}
+```
+
+### Step 6: Add Features
+
+Define optional features in `blueprint.yaml`:
+
+```yaml
+features:
+  ssl:
+    description: Enable SSL/TLS with certificate management
+    default: true
+    enables:
+      - states/ssl.yaml
+    parameters:
+      - ssl_provider
+      - ssl_cert
+      - ssl_key
+
+  metrics:
+    description: Enable Prometheus metrics endpoint
+    default: false
+    enables:
+      - states/metrics.yaml
+    parameters:
+      - metrics_port
+
+  caching:
+    description: Enable response caching
+    default: false
+    enables:
+      - states/caching.yaml
+    parameters:
+      - cache_path
+      - cache_size
+      - cache_ttl
+
+  rate_limiting:
+    description: Enable request rate limiting
+    default: false
+    enables:
+      - states/rate-limit.yaml
+    parameters:
+      - rate_limit
+      - rate_limit_burst
+```
+
+### Step 7: Create Tests
+
+Create `tests/test_basic.yaml`:
+
+```yaml
+name: basic-tests
+description: Basic functionality tests
+
+setup:
+  - module: file
+    state: directory
+    path: /tmp/test-upstream
+
+teardown:
+  - module: file
+    state: absent
+    path: /tmp/test-upstream
+
+tests:
+  - name: test_install_completes
+    description: Verify installation completes without errors
+    parameters:
+      domain: test.example.com
+      enable_ssl: false
+      upstream_servers:
+        - address: localhost
+          port: 8080
+    assertions:
+      - type: state
+        state_id: nginx_package
+        expected: changed
+
+  - name: test_config_created
+    description: Verify configuration file is created
+    parameters:
+      domain: test.example.com
+      enable_ssl: false
+    assertions:
+      - type: file
+        path: /etc/nginx/conf.d/test.example.com.conf
+        exists: true
+        mode: "0644"
+        contains: "server_name test.example.com"
+
+  - name: test_service_running
+    description: Verify nginx service is running
+    assertions:
+      - type: service
+        name: nginx
+        running: true
+        enabled: true
+
+  - name: test_config_valid
+    description: Verify nginx configuration is valid
+    assertions:
+      - type: command
+        command: nginx -t
+        exit_code: 0
+
+  - name: test_idempotency
+    description: Verify re-running produces no changes
+    parameters:
+      domain: test.example.com
+      enable_ssl: false
+    assertions:
+      - type: idempotency
+        reruns: 2
+        expect_no_changes: true
+```
+
+Create `tests/test_ssl.yaml`:
+
+```yaml
+name: ssl-tests
+description: SSL/TLS functionality tests
+tags:
+  - ssl
+  - integration
+
+tests:
+  - name: test_letsencrypt_setup
+    description: Test Let's Encrypt certificate setup
+    skip_reason: Requires real domain
+    skip: true
+    parameters:
+      domain: test.example.com
+      enable_ssl: true
+      ssl_provider: letsencrypt
+
+  - name: test_selfsigned_certificate
+    description: Test self-signed certificate generation
+    parameters:
+      domain: test.example.com
+      enable_ssl: true
+      ssl_provider: selfsigned
+    assertions:
+      - type: file
+        path: /etc/nginx/ssl/test.example.com.crt
+        exists: true
+      - type: file
+        path: /etc/nginx/ssl/test.example.com.key
+        exists: true
+        mode: "0600"
+      - type: command
+        command: openssl x509 -in /etc/nginx/ssl/test.example.com.crt -noout -subject
+        stdout_contains: "CN = test.example.com"
+
+  - name: test_custom_certificate
+    description: Test custom certificate installation
+    parameters:
+      domain: test.example.com
+      enable_ssl: true
+      ssl_provider: custom
+      ssl_cert: |
+        -----BEGIN CERTIFICATE-----
+        [test certificate content]
+        -----END CERTIFICATE-----
+      ssl_key: |
+        -----BEGIN PRIVATE KEY-----
+        [test key content]
+        -----END PRIVATE KEY-----
+    assertions:
+      - type: file
+        path: /etc/nginx/ssl/test.example.com.crt
+        exists: true
+      - type: file
+        path: /etc/nginx/ssl/test.example.com.key
+        exists: true
+        mode: "0600"
+```
+
+### Step 8: Validate and Lint
+
+Run validation and linting:
+
+```bash
+# Validate manifest structure
+kscore-blueprint validate ./myorg-nginx-stack
+
+# Validate with test parameters
+kscore-blueprint validate ./myorg-nginx-stack --params tests/params.yaml
+
+# Lint for best practices
+kscore-blueprint lint ./myorg-nginx-stack
+
+# Lint with strict mode
+kscore-blueprint lint --strict ./myorg-nginx-stack
+```
+
+### Step 9: Generate Documentation
+
+Generate README and documentation:
+
+```bash
+# Generate README.md
+kscore-blueprint docs ./myorg-nginx-stack -o README.md
+
+# Generate full documentation
+kscore-blueprint docs ./myorg-nginx-stack --full -o docs/
+```
+
+### Step 10: Test Locally
+
+Run the test suite:
+
+```bash
+# Run all tests
+kscore-blueprint test ./myorg-nginx-stack
+
+# Run specific test
+kscore-blueprint test ./myorg-nginx-stack --pattern "test_install*"
+
+# Run tests with specific tags
+kscore-blueprint test ./myorg-nginx-stack --tags basic
+
+# Verbose output
+kscore-blueprint test ./myorg-nginx-stack -v
+
+# Generate test report
+kscore-blueprint test ./myorg-nginx-stack --format junit -o test-results.xml
+```
+
+### Step 11: Version and Publish
+
+Prepare for release:
+
+```bash
+# Update version in blueprint.yaml
+sed -i 's/version: "1.0.0"/version: "1.1.0"/' blueprint.yaml
+
+# Sign the blueprint
+kscore-blueprint sign ./myorg-nginx-stack --key ~/.kscore/signing.key
+
+# Publish to registry
+kscore-blueprint publish ./myorg-nginx-stack
+
+# Or publish to custom registry
+kscore-blueprint publish ./myorg-nginx-stack --registry https://registry.myorg.com
+```
+
+### Best Practices
+
+**Parameter Design:**
+- Use descriptive names with consistent naming conventions
+- Provide sensible defaults for optional parameters
+- Mark sensitive data with `sensitive: true`
+- Use format validators for structured data (hostname, email, etc.)
+- Document parameters with descriptions and examples
+
+**State Organization:**
+- Keep state files focused (one concern per file)
+- Use meaningful IDs for states (not generic names)
+- Order states by dependency naturally
+- Use explicit `require` declarations for complex dependencies
+
+**Template Guidelines:**
+- Keep templates simple and readable
+- Use Go template functions for complex logic
+- Document template variables
+- Validate template output during testing
+
+**Testing:**
+- Test all code paths (features, conditionals)
+- Include idempotency tests
+- Test failure scenarios
+- Use tags to organize test categories
+
+**Documentation:**
+- Maintain accurate README with usage examples
+- Document all parameters with examples
+- Keep CHANGELOG up to date
+- Include troubleshooting section
+
+**Versioning:**
+- Follow semantic versioning strictly
+- Document breaking changes in CHANGELOG
+- Provide migration guides for major versions
+- Test upgrades between versions
+
+**Security:**
+- Never store secrets in blueprint files
+- Use `sensitive: true` for passwords and keys
+- Validate input parameters strictly
+- Review file permissions in states
+
 ## Testing Framework
 
 ### Test Suite Format

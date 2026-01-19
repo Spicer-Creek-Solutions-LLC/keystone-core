@@ -159,6 +159,7 @@ Flags:
   -format     Output format: text, json, markdown (default "text")
   -verbose    Verbose output
   -external   Check external links (links command only)
+  -strict     Exit with error on broken internal links (links command, default: true)
 
 Examples:
   docvalidation                           # Run inventory
@@ -241,9 +242,15 @@ func runLinksCommand(args []string) {
 	rootDir := fs.String("root", ".", "Root directory of keystone-core")
 	verbose := fs.Bool("verbose", false, "Verbose output")
 	external := fs.Bool("external", false, "Check external links")
+	strict := fs.Bool("strict", true, "Exit with error code on broken internal links (default: true)")
 	fs.Parse(args)
 
-	RunLinkCheck(*rootDir, *external, *verbose)
+	brokenInternal := RunLinkCheck(*rootDir, *external, *verbose)
+
+	if *strict && brokenInternal > 0 {
+		fmt.Fprintf(os.Stderr, "ERROR: %d broken internal links found\n", brokenInternal)
+		os.Exit(1)
+	}
 }
 
 func runExamplesCommand(args []string) {
@@ -308,7 +315,7 @@ func runAllCommand(args []string) {
 
 	// Run link check
 	fmt.Println("--- Link Validation ---")
-	RunLinkCheck(*rootDir, *external, *verbose)
+	brokenLinks := RunLinkCheck(*rootDir, *external, *verbose)
 	fmt.Println()
 
 	// Run example validation
@@ -337,6 +344,12 @@ func runAllCommand(args []string) {
 	fmt.Println()
 
 	fmt.Println("=== Validation Complete ===")
+
+	// Exit with error if there were broken internal links
+	if brokenLinks > 0 {
+		fmt.Fprintf(os.Stderr, "\nERROR: Validation found %d broken internal links\n", brokenLinks)
+		os.Exit(1)
+	}
 }
 
 func inventoryDocs(root string, inv *DocInventory, verbose bool) error {

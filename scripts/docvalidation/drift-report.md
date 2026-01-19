@@ -4,16 +4,15 @@
 
 | Category | Count |
 |----------|-------|
-| Packages without docs | 24 |
+| Packages without docs | 22 |
 | Undocumented types | 0 |
-| Undocumented functions | 177 |
-| Stale references | 11 |
+| Undocumented functions | 179 |
+| Stale references | 10 |
 | Epics without docs | 0 |
 
 ## Packages Without Documentation
 
 - `audit`
-- `backup`
 - `cloud`
 - `controlplane`
 - `credentials`
@@ -22,7 +21,7 @@
 - `files`
 - `hardware`
 - `identity`
-- `k8s`
+- `logging`
 - `metrics`
 - `nats`
 - `netutil`
@@ -35,7 +34,6 @@
 - `targeting`
 - `tracing`
 - `vendors`
-- `visualization`
 
 ## Undocumented Functions
 
@@ -46,17 +44,21 @@
 
 ### backup (4 functions)
 
-- `Debug` (manager.go:457)
-- `Info` (manager.go:458)
-- `Warn` (manager.go:459)
-- `Error` (manager.go:460)
+- `Debug` (manager.go:463)
+- `Info` (manager.go:464)
+- `Warn` (manager.go:465)
+- `Error` (manager.go:466)
+
+### blueprint (1 functions)
+
+- `Error` (validator.go:21)
 
 ### bootstrap (6 functions)
 
-- `Debug` (bootstrap.go:472)
-- `Info` (bootstrap.go:473)
-- `Warn` (bootstrap.go:474)
-- `Error` (bootstrap.go:475)
+- `Debug` (bootstrap.go:486)
+- `Info` (bootstrap.go:487)
+- `Warn` (bootstrap.go:488)
+- `Error` (bootstrap.go:489)
 - `Error` (config.go:181)
 - `Error` (config.go:188)
 
@@ -67,7 +69,7 @@
 
 ### container (1 functions)
 
-- `String` (types.go:21)
+- `String` (types.go:72)
 
 ### controlplane (2 functions)
 
@@ -80,6 +82,33 @@
 
 ### events (57 functions)
 
+- `Name` (enrichment.go:120)
+- `Enrich` (enrichment.go:124)
+- `Name` (enrichment.go:152)
+- `Enrich` (enrichment.go:156)
+- `Name` (enrichment.go:177)
+- `Enrich` (enrichment.go:181)
+- `Name` (enrichment.go:202)
+- `Enrich` (enrichment.go:206)
+- `Name` (enrichment.go:226)
+- `Enrich` (enrichment.go:230)
+- `Name` (enrichment.go:252)
+- `Enrich` (enrichment.go:256)
+- `Name` (enrichment.go:285)
+- `Enrich` (enrichment.go:289)
+- `Name` (enrichment.go:316)
+- `Enrich` (enrichment.go:320)
+- `Publish` (enrichment.go:363)
+- `PublishAsync` (enrichment.go:373)
+- `Close` (enrichment.go:383)
+- `Publish` (cloudevents.go:215)
+- `PublishAsync` (cloudevents.go:226)
+- `Close` (cloudevents.go:236)
+- `Close` (cloudevents.go:280)
+- `Matches` (filter_expression.go:48)
+- `String` (filter_expression.go:75)
+- `Matches` (filter_expression.go:246)
+- `String` (filter_expression.go:259)
 - `Name` (actions.go:38)
 - `Type` (actions.go:42)
 - `Execute` (actions.go:46)
@@ -110,33 +139,6 @@
 - `Name` (actions.go:491)
 - `Type` (actions.go:495)
 - `Execute` (actions.go:499)
-- `Publish` (cloudevents.go:215)
-- `PublishAsync` (cloudevents.go:226)
-- `Close` (cloudevents.go:236)
-- `Close` (cloudevents.go:280)
-- `Matches` (filter_expression.go:48)
-- `String` (filter_expression.go:75)
-- `Matches` (filter_expression.go:246)
-- `String` (filter_expression.go:259)
-- `Name` (enrichment.go:120)
-- `Enrich` (enrichment.go:124)
-- `Name` (enrichment.go:152)
-- `Enrich` (enrichment.go:156)
-- `Name` (enrichment.go:177)
-- `Enrich` (enrichment.go:181)
-- `Name` (enrichment.go:202)
-- `Enrich` (enrichment.go:206)
-- `Name` (enrichment.go:226)
-- `Enrich` (enrichment.go:230)
-- `Name` (enrichment.go:252)
-- `Enrich` (enrichment.go:256)
-- `Name` (enrichment.go:285)
-- `Enrich` (enrichment.go:289)
-- `Name` (enrichment.go:316)
-- `Enrich` (enrichment.go:320)
-- `Publish` (enrichment.go:363)
-- `PublishAsync` (enrichment.go:373)
-- `Close` (enrichment.go:383)
 
 ### execution (20 functions)
 
@@ -174,46 +176,31 @@
 
 ### nats (59 functions)
 
-- `Allow` (degradation.go:260)
-- `SetRate` (degradation.go:279)
-- `String` (health.go:25)
-- `String` (health.go:417)
-- `Name` (health.go:607)
-- `Check` (health.go:611)
-- `Name` (health.go:647)
-- `Check` (health.go:651)
-- `String` (websocket.go:253)
-- `String` (websocket.go:859)
-- `Dial` (websocket.go:1053)
-- `Name` (websocket.go:1407)
-- `SupportsEndpoint` (websocket.go:1411)
-- `ConfigureOptions` (websocket.go:1415)
-- `Priority` (websocket.go:1442)
-- `String` (discovery.go:48)
-- `Method` (discovery.go:226)
-- `Discover` (discovery.go:230)
-- `Watch` (discovery.go:369)
-- `Close` (discovery.go:399)
-- `Method` (discovery.go:491)
-- `Discover` (discovery.go:495)
-- `Watch` (discovery.go:504)
-- `Close` (discovery.go:534)
-- `Method` (discovery.go:666)
-- `Discover` (discovery.go:670)
-- `Watch` (discovery.go:903)
-- `Close` (discovery.go:933)
-- `Method` (discovery.go:1041)
-- `Discover` (discovery.go:1052)
-- `Watch` (discovery.go:1313)
-- `Close` (discovery.go:1343)
-- `Method` (discovery.go:1401)
-- `Discover` (discovery.go:1405)
-- `Watch` (discovery.go:1409)
-- `Close` (discovery.go:1414)
-- `String` (connection_manager.go:30)
+- `String` (discovery.go:49)
+- `Method` (discovery.go:227)
+- `Discover` (discovery.go:231)
+- `Watch` (discovery.go:370)
+- `Close` (discovery.go:400)
+- `Method` (discovery.go:492)
+- `Discover` (discovery.go:496)
+- `Watch` (discovery.go:597)
+- `Close` (discovery.go:627)
+- `Method` (discovery.go:759)
+- `Discover` (discovery.go:763)
+- `Watch` (discovery.go:996)
+- `Close` (discovery.go:1026)
+- `Method` (discovery.go:1134)
+- `Discover` (discovery.go:1145)
+- `Watch` (discovery.go:1406)
+- `Close` (discovery.go:1436)
+- `Method` (discovery.go:1494)
+- `Discover` (discovery.go:1498)
+- `Watch` (discovery.go:1502)
+- `Close` (discovery.go:1507)
 - `Reset` (ntlm.go:494)
 - `Write` (ntlm.go:503)
 - `Sum` (ntlm.go:525)
+- `String` (connection_manager.go:30)
 - `Len` (endpoint.go:430)
 - `Less` (endpoint.go:431)
 - `Swap` (endpoint.go:432)
@@ -233,6 +220,25 @@
 - `SupportsEndpoint` (strategy.go:376)
 - `ConfigureOptions` (strategy.go:382)
 - `Priority` (strategy.go:411)
+- `Allow` (degradation.go:260)
+- `SetRate` (degradation.go:279)
+- `String` (websocket.go:253)
+- `String` (websocket.go:860)
+- `Dial` (websocket.go:1054)
+- `Name` (websocket.go:1408)
+- `SupportsEndpoint` (websocket.go:1412)
+- `ConfigureOptions` (websocket.go:1416)
+- `Priority` (websocket.go:1443)
+- `String` (health.go:25)
+- `String` (health.go:417)
+- `Name` (health.go:607)
+- `Check` (health.go:611)
+- `Name` (health.go:647)
+- `Check` (health.go:651)
+
+### security (1 functions)
+
+- `Error` (path.go:15)
 
 ### selfmgmt (6 functions)
 
@@ -245,11 +251,11 @@
 
 ### servicemesh (1 functions)
 
-- `String` (types.go:23)
+- `String` (types.go:33)
 
 ### statemgmt (1 functions)
 
-- `Error` (types.go:262)
+- `Error` (types.go:291)
 
 ### tracing (2 functions)
 
@@ -258,10 +264,10 @@
 
 ### upgrade (4 functions)
 
-- `Debug` (version.go:591)
-- `Info` (version.go:592)
-- `Warn` (version.go:593)
-- `Error` (version.go:594)
+- `Debug` (version.go:601)
+- `Info` (version.go:602)
+- `Warn` (version.go:603)
+- `Error` (version.go:604)
 
 ### vendors (1 functions)
 
@@ -273,13 +279,12 @@
 |----------|-----------|------|
 | concepts/events.md | events.EventTypeJobComplete | symbol |
 | concepts/events.md | events.SeverityInfo | symbol |
-| concepts/events.md | events.NewQuery | symbol |
 | concepts/events.md | events.EventTypeAgentConnect | symbol |
 | concepts/events.md | events.SeverityWarning | symbol |
-| concepts/events.md | events.WithFilter | symbol |
-| concepts/events.md | events.WithTransform | symbol |
-| concepts/events.md | events.NewReplay | symbol |
-| reference/api.md | pkg/client | package |
+| concepts/events.md | events.EventTypeStateApplyStart | symbol |
+| concepts/events.md | events.EventTypeStateApplyDone | symbol |
+| concepts/events.md | events.EventTypeStateChange | symbol |
+| concepts/events.md | events.EventTypeStateDrift | symbol |
 | reference/events.md | events.EventTypeJobComplete | symbol |
 | reference/events.md | events.SeverityInfo | symbol |
 

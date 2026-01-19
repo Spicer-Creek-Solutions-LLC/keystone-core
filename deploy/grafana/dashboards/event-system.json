@@ -1,0 +1,314 @@
+{
+  "dashboard": {
+    "title": "Event System",
+    "uid": "kscore-events",
+    "tags": ["kscore", "events", "reactors", "epic-4"],
+    "timezone": "browser",
+    "schemaVersion": 36,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "event_type",
+          "type": "query",
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "query": "label_values(kscore_events_total, event_type)",
+          "refresh": 1,
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*"
+        }
+      ]
+    },
+    "panels": [
+      {
+        "title": "Event Processing Overview",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+        "collapsed": false
+      },
+      {
+        "title": "Events/sec",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 1},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_events_total{event_type=~\"$event_type\"}[5m]))",
+            "legendFormat": "Events/sec"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Pending Events",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 1},
+        "targets": [
+          {
+            "expr": "sum(kscore_events_pending)",
+            "legendFormat": "Pending"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1000, "color": "yellow"},
+                {"value": 10000, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Processing Latency (P95)",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 1},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(kscore_event_processing_duration_seconds_bucket[5m])) by (le))",
+            "legendFormat": "P95"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "s"}}
+      },
+      {
+        "title": "Dead Letter Queue Size",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 1},
+        "targets": [
+          {
+            "expr": "sum(kscore_events_dlq_size)",
+            "legendFormat": "DLQ"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 10, "color": "yellow"},
+                {"value": 100, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Event Throughput",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 5},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_events_total{event_type=~\"$event_type\"}[5m])) by (event_type)",
+            "legendFormat": "{{event_type}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Event Processing Latency",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 5},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.5, sum(rate(kscore_event_processing_duration_seconds_bucket[5m])) by (le))",
+            "legendFormat": "P50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(kscore_event_processing_duration_seconds_bucket[5m])) by (le))",
+            "legendFormat": "P95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum(rate(kscore_event_processing_duration_seconds_bucket[5m])) by (le))",
+            "legendFormat": "P99"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "s"}}
+      },
+      {
+        "title": "Reactor Execution",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 13},
+        "collapsed": false
+      },
+      {
+        "title": "Reactor Executions/sec",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 14},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_reactor_executions_total[5m]))",
+            "legendFormat": "Exec/sec"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Reactor Success Rate",
+        "type": "gauge",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 14},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_reactor_executions_total{status=\"success\"}[5m])) / sum(rate(kscore_reactor_executions_total[5m])) * 100",
+            "legendFormat": "Success %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 90, "color": "yellow"},
+                {"value": 99, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Active Reactors",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 14},
+        "targets": [
+          {
+            "expr": "sum(kscore_reactors_active)",
+            "legendFormat": "Active"
+          }
+        ]
+      },
+      {
+        "title": "Reactor Queue Depth",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 14},
+        "targets": [
+          {
+            "expr": "sum(kscore_reactor_queue_depth)",
+            "legendFormat": "Queue"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 100, "color": "yellow"},
+                {"value": 1000, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Reactor Executions by Type",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 18},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_reactor_executions_total[5m])) by (reactor_name)",
+            "legendFormat": "{{reactor_name}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Reactor Execution Duration",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 18},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(kscore_reactor_duration_seconds_bucket[5m])) by (le, reactor_name))",
+            "legendFormat": "{{reactor_name}} P95"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "s"}}
+      },
+      {
+        "title": "JetStream Consumers",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 26},
+        "collapsed": false
+      },
+      {
+        "title": "Consumer Pending Messages",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 27},
+        "targets": [
+          {
+            "expr": "kscore_jetstream_consumer_pending{stream=\"kscore-events\"}",
+            "legendFormat": "{{consumer}}"
+          }
+        ]
+      },
+      {
+        "title": "Consumer Ack Rate",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 27},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_jetstream_consumer_acks_total{stream=\"kscore-events\"}[5m])) by (consumer)",
+            "legendFormat": "{{consumer}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Event Stream Health",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 35},
+        "collapsed": false
+      },
+      {
+        "title": "Stream Message Count",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 8, "x": 0, "y": 36},
+        "targets": [
+          {
+            "expr": "kscore_jetstream_stream_messages{stream=\"kscore-events\"}",
+            "legendFormat": "Messages"
+          }
+        ]
+      },
+      {
+        "title": "Stream Bytes",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 8, "x": 8, "y": 36},
+        "targets": [
+          {
+            "expr": "kscore_jetstream_stream_bytes{stream=\"kscore-events\"}",
+            "legendFormat": "Bytes"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "bytes"}}
+      },
+      {
+        "title": "Stream First/Last Seq",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 8, "x": 16, "y": 36},
+        "targets": [
+          {
+            "expr": "kscore_jetstream_stream_last_seq{stream=\"kscore-events\"}",
+            "legendFormat": "Last Seq"
+          },
+          {
+            "expr": "kscore_jetstream_stream_first_seq{stream=\"kscore-events\"}",
+            "legendFormat": "First Seq"
+          }
+        ]
+      }
+    ]
+  }
+}

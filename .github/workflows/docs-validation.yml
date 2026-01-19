@@ -8,7 +8,7 @@ on:
       - 'pkg/**'
       - 'README.md'
       - 'CLAUDE.md'
-      - 'DESIGN.md'
+      - 'docs/project/DESIGN.md'
       - 'scripts/docvalidation/**'
   pull_request:
     branches: [main]
@@ -17,7 +17,7 @@ on:
       - 'pkg/**'
       - 'README.md'
       - 'CLAUDE.md'
-      - 'DESIGN.md'
+      - 'docs/project/DESIGN.md'
       - 'scripts/docvalidation/**'
   # Weekly comprehensive check
   schedule:

@@ -895,3 +895,337 @@ func TestGetEffectiveNATSMaxConnections(t *testing.T) {
 		t.Errorf("Expected custom connections %d, got %d", 5000, c)
 	}
 }
+
+// Tests for NATS configuration validation with clear error messages
+
+func TestNATSConfig_Validate_InvalidURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		url     string
+		wantErr bool
+		errHint string
+	}{
+		{
+			name:    "valid nats URL",
+			url:     "nats://localhost:4222",
+			wantErr: false,
+		},
+		{
+			name:    "valid tls URL",
+			url:     "tls://secure.nats.io:4222",
+			wantErr: false,
+		},
+		{
+			name:    "valid websocket URL",
+			url:     "ws://localhost:8080",
+			wantErr: false,
+		},
+		{
+			name:    "valid secure websocket URL",
+			url:     "wss://localhost:8080",
+			wantErr: false,
+		},
+		{
+			name:    "comma-separated URLs",
+			url:     "nats://host1:4222,nats://host2:4222",
+			wantErr: false,
+		},
+		{
+			name:    "invalid scheme",
+			url:     "http://localhost:4222",
+			wantErr: true,
+			errHint: "Use format: nats://host:port",
+		},
+		{
+			name:    "missing scheme",
+			url:     "localhost:4222",
+			wantErr: true,
+			errHint: "unsupported URL scheme",
+		},
+		{
+			name:    "missing host",
+			url:     "nats://",
+			wantErr: true,
+			errHint: "URL host is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &NATSConfig{
+				Mode: NATSModeExternal,
+				URL:  tt.url,
+			}
+
+			err := cfg.Validate()
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("expected error for URL %q, got nil", tt.url)
+					return
+				}
+				if tt.errHint != "" && !contains(err.Error(), tt.errHint) {
+					t.Errorf("error should contain hint %q, got: %v", tt.errHint, err)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error for URL %q: %v", tt.url, err)
+				}
+			}
+		})
+	}
+}
+
+func TestNATSConfig_Validate_ErrorMessages(t *testing.T) {
+	tests := []struct {
+		name         string
+		config       NATSConfig
+		wantField    string
+		wantMessage  string
+		wantHint     string
+	}{
+		{
+			name:        "empty mode",
+			config:      NATSConfig{Mode: ""},
+			wantField:   "mode",
+			wantMessage: "NATS mode is required",
+			wantHint:    "Set to 'embedded'",
+		},
+		{
+			name:        "invalid mode",
+			config:      NATSConfig{Mode: "invalid"},
+			wantField:   "mode",
+			wantMessage: "invalid NATS mode",
+			wantHint:    "Valid modes are",
+		},
+		{
+			name: "external without URL",
+			config: NATSConfig{
+				Mode: NATSModeExternal,
+				URL:  "",
+			},
+			wantField:   "url",
+			wantMessage: "NATS URL is required for external mode",
+			wantHint:    "Provide the URL",
+		},
+		{
+			name: "leaf without parent URLs",
+			config: NATSConfig{
+				Mode: NATSModeLeaf,
+			},
+			wantField:   "embedded.leafnodeurls",
+			wantMessage: "leaf node parent URLs are required",
+			wantHint:    "parent NATS cluster",
+		},
+		{
+			name: "negative max reconnects",
+			config: NATSConfig{
+				Mode:          NATSModeExternal,
+				URL:           "nats://localhost:4222",
+				MaxReconnects: -5,
+			},
+			wantField:   "maxreconnects",
+			wantMessage: "invalid max reconnects",
+			wantHint:    "Use -1 for unlimited",
+		},
+		{
+			name: "both token and credential",
+			config: NATSConfig{
+				Mode:       NATSModeExternal,
+				URL:        "nats://localhost:4222",
+				Token:      "secret",
+				Credential: "/path/to/creds",
+			},
+			wantField:   "authentication",
+			wantMessage: "both token and credential",
+			wantHint:    "Use either",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.config.Validate()
+			if err == nil {
+				t.Fatal("expected validation error, got nil")
+			}
+
+			natsErr, ok := err.(*NATSConfigError)
+			if !ok {
+				t.Fatalf("expected *NATSConfigError, got %T", err)
+			}
+
+			if natsErr.Field != tt.wantField {
+				t.Errorf("Field = %q, want %q", natsErr.Field, tt.wantField)
+			}
+
+			if !contains(natsErr.Message, tt.wantMessage) {
+				t.Errorf("Message should contain %q, got %q", tt.wantMessage, natsErr.Message)
+			}
+
+			if !contains(natsErr.Hint, tt.wantHint) {
+				t.Errorf("Hint should contain %q, got %q", tt.wantHint, natsErr.Hint)
+			}
+
+			// Verify Error() includes all parts
+			errStr := err.Error()
+			if !contains(errStr, natsErr.Field) {
+				t.Errorf("Error() should contain field, got: %s", errStr)
+			}
+			if !contains(errStr, natsErr.Hint) {
+				t.Errorf("Error() should contain hint, got: %s", errStr)
+			}
+		})
+	}
+}
+
+func TestNATSConfig_Validate_EmbeddedSettings(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  NATSConfig
+		wantErr bool
+		errHint string
+	}{
+		{
+			name: "valid embedded config",
+			config: NATSConfig{
+				Mode: NATSModeEmbedded,
+				Embedded: NATSEmbeddedConfig{
+					Port:           4222,
+					MaxConnections: 1000,
+					MaxMemory:      1024 * 1024 * 100,
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "zero port uses default",
+			config: NATSConfig{
+				Mode: NATSModeEmbedded,
+				Embedded: NATSEmbeddedConfig{
+					Port: 0,
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "negative port",
+			config: NATSConfig{
+				Mode: NATSModeEmbedded,
+				Embedded: NATSEmbeddedConfig{
+					Port: -1,
+				},
+			},
+			wantErr: true,
+			errHint: "Port must be between",
+		},
+		{
+			name: "port too high",
+			config: NATSConfig{
+				Mode: NATSModeEmbedded,
+				Embedded: NATSEmbeddedConfig{
+					Port: 70000,
+				},
+			},
+			wantErr: true,
+			errHint: "Port must be between",
+		},
+		{
+			name: "negative max connections",
+			config: NATSConfig{
+				Mode: NATSModeEmbedded,
+				Embedded: NATSEmbeddedConfig{
+					MaxConnections: -1,
+				},
+			},
+			wantErr: true,
+			errHint: "cannot be negative",
+		},
+		{
+			name: "invalid address family",
+			config: NATSConfig{
+				Mode: NATSModeEmbedded,
+				Embedded: NATSEmbeddedConfig{
+					AddressFamily: "invalid",
+				},
+			},
+			wantErr: true,
+			errHint: "Valid options:",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.config.Validate()
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("expected error, got nil")
+					return
+				}
+				if tt.errHint != "" && !contains(err.Error(), tt.errHint) {
+					t.Errorf("error should contain %q, got: %v", tt.errHint, err)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestJetStreamConfig_Validate(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  JetStreamConfig
+		wantErr bool
+	}{
+		{
+			name: "disabled jetstream",
+			config: JetStreamConfig{
+				Enabled: false,
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid enabled jetstream",
+			config: JetStreamConfig{
+				Enabled:    true,
+				MaxStorage: 1024 * 1024 * 1024, // 1GB
+			},
+			wantErr: false,
+		},
+		{
+			name: "zero max storage (auto)",
+			config: JetStreamConfig{
+				Enabled:    true,
+				MaxStorage: 0,
+			},
+			wantErr: false,
+		},
+		{
+			name: "negative max storage",
+			config: JetStreamConfig{
+				Enabled:    true,
+				MaxStorage: -100,
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.config.Validate()
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("expected error, got nil")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}

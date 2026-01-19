@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -285,7 +286,11 @@ func (c *ClusterClient) Restore(ctx context.Context, data []byte) error {
 // getAPIScheme returns "https" by default, "http" only for localhost addresses.
 // This ensures production deployments use TLS while allowing HTTP for local development.
 func getAPIScheme(addr string) string {
-	host := strings.Split(addr, ":")[0]
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		// If SplitHostPort fails, try treating the whole string as a host
+		host = addr
+	}
 	if host == "localhost" || host == "127.0.0.1" || host == "::1" {
 		return "http"
 	}

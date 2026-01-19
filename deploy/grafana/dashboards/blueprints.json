@@ -1,0 +1,337 @@
+{
+  "dashboard": {
+    "title": "Blueprints",
+    "uid": "kscore-blueprints",
+    "tags": ["kscore", "blueprints", "epic-25"],
+    "timezone": "browser",
+    "schemaVersion": 36,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "blueprint",
+          "type": "query",
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "query": "label_values(kscore_blueprint_deployments_total, blueprint)",
+          "refresh": 1,
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*"
+        },
+        {
+          "name": "environment",
+          "type": "query",
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "query": "label_values(kscore_blueprint_deployments_total, environment)",
+          "refresh": 1,
+          "multi": false,
+          "includeAll": true,
+          "allValue": ".*"
+        }
+      ]
+    },
+    "panels": [
+      {
+        "title": "Blueprint Deployment Overview",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+        "collapsed": false
+      },
+      {
+        "title": "Active Deployments",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 1},
+        "targets": [
+          {
+            "expr": "sum(kscore_blueprint_deployments_active{blueprint=~\"$blueprint\",environment=~\"$environment\"})",
+            "legendFormat": "Active"
+          }
+        ]
+      },
+      {
+        "title": "Deployments Today",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 1},
+        "targets": [
+          {
+            "expr": "sum(increase(kscore_blueprint_deployments_total{blueprint=~\"$blueprint\",environment=~\"$environment\"}[24h]))",
+            "legendFormat": "Today"
+          }
+        ]
+      },
+      {
+        "title": "Deployment Success Rate",
+        "type": "gauge",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 1},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_blueprint_deployments_total{status=\"success\",blueprint=~\"$blueprint\"}[24h])) / sum(rate(kscore_blueprint_deployments_total{blueprint=~\"$blueprint\"}[24h])) * 100",
+            "legendFormat": "Success %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 90, "color": "yellow"},
+                {"value": 99, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Avg Deploy Time",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 1},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.5, sum(rate(kscore_blueprint_deployment_duration_seconds_bucket{blueprint=~\"$blueprint\"}[24h])) by (le))",
+            "legendFormat": "P50"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "s"}}
+      },
+      {
+        "title": "Deployments by Blueprint",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 5},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_blueprint_deployments_total{blueprint=~\"$blueprint\",environment=~\"$environment\"}[5m])) by (blueprint)",
+            "legendFormat": "{{blueprint}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Deployment Duration",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 5},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.5, sum(rate(kscore_blueprint_deployment_duration_seconds_bucket{blueprint=~\"$blueprint\"}[5m])) by (le, blueprint))",
+            "legendFormat": "{{blueprint}} P50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(kscore_blueprint_deployment_duration_seconds_bucket{blueprint=~\"$blueprint\"}[5m])) by (le, blueprint))",
+            "legendFormat": "{{blueprint}} P95"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "s"}}
+      },
+      {
+        "title": "Resource Management",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 13},
+        "collapsed": false
+      },
+      {
+        "title": "Resources Created",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 14},
+        "targets": [
+          {
+            "expr": "sum(increase(kscore_blueprint_resources_created_total{blueprint=~\"$blueprint\"}[24h]))",
+            "legendFormat": "Created (24h)"
+          }
+        ]
+      },
+      {
+        "title": "Resources Updated",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 14},
+        "targets": [
+          {
+            "expr": "sum(increase(kscore_blueprint_resources_updated_total{blueprint=~\"$blueprint\"}[24h]))",
+            "legendFormat": "Updated (24h)"
+          }
+        ]
+      },
+      {
+        "title": "Resources Deleted",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 14},
+        "targets": [
+          {
+            "expr": "sum(increase(kscore_blueprint_resources_deleted_total{blueprint=~\"$blueprint\"}[24h]))",
+            "legendFormat": "Deleted (24h)"
+          }
+        ]
+      },
+      {
+        "title": "Resource Failures",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 14},
+        "targets": [
+          {
+            "expr": "sum(increase(kscore_blueprint_resource_failures_total{blueprint=~\"$blueprint\"}[24h]))",
+            "legendFormat": "Failures (24h)"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 5, "color": "yellow"},
+                {"value": 20, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Resource Operations by Type",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 18},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_blueprint_resources_created_total{blueprint=~\"$blueprint\"}[5m])) by (resource_type)",
+            "legendFormat": "create {{resource_type}}"
+          },
+          {
+            "expr": "sum(rate(kscore_blueprint_resources_updated_total{blueprint=~\"$blueprint\"}[5m])) by (resource_type)",
+            "legendFormat": "update {{resource_type}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Resource Failures by Type",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 18},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_blueprint_resource_failures_total{blueprint=~\"$blueprint\"}[5m])) by (resource_type, failure_reason)",
+            "legendFormat": "{{resource_type}}: {{failure_reason}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Rollbacks",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 26},
+        "collapsed": false
+      },
+      {
+        "title": "Rollbacks Triggered",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 8, "x": 0, "y": 27},
+        "targets": [
+          {
+            "expr": "sum(increase(kscore_blueprint_rollbacks_total{blueprint=~\"$blueprint\"}[24h]))",
+            "legendFormat": "Rollbacks (24h)"
+          }
+        ]
+      },
+      {
+        "title": "Rollback Success Rate",
+        "type": "gauge",
+        "gridPos": {"h": 4, "w": 8, "x": 8, "y": 27},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_blueprint_rollbacks_total{status=\"success\",blueprint=~\"$blueprint\"}[24h])) / sum(rate(kscore_blueprint_rollbacks_total{blueprint=~\"$blueprint\"}[24h])) * 100",
+            "legendFormat": "Success %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 80, "color": "yellow"},
+                {"value": 95, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Avg Rollback Time",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 8, "x": 16, "y": 27},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.5, sum(rate(kscore_blueprint_rollback_duration_seconds_bucket{blueprint=~\"$blueprint\"}[24h])) by (le))",
+            "legendFormat": "P50"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "s"}}
+      },
+      {
+        "title": "Rollbacks Over Time",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 31},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_blueprint_rollbacks_total{blueprint=~\"$blueprint\"}[5m])) by (trigger_reason)",
+            "legendFormat": "{{trigger_reason}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Rollback Duration Distribution",
+        "type": "heatmap",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 31},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_blueprint_rollback_duration_seconds_bucket{blueprint=~\"$blueprint\"}[5m])) by (le)",
+            "legendFormat": "{{le}}"
+          }
+        ]
+      },
+      {
+        "title": "Parameter Validation",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 39},
+        "collapsed": false
+      },
+      {
+        "title": "Validation Errors",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 40},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_blueprint_validation_errors_total{blueprint=~\"$blueprint\"}[5m])) by (error_type)",
+            "legendFormat": "{{error_type}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Recent Deployments",
+        "type": "table",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 40},
+        "targets": [
+          {
+            "expr": "kscore_blueprint_deployment_status{blueprint=~\"$blueprint\"}",
+            "legendFormat": "{{deployment_id}}",
+            "format": "table",
+            "instant": true
+          }
+        ],
+        "transformations": [
+          {"id": "organize", "options": {"excludeByName": {"Time": true}}}
+        ]
+      }
+    ]
+  }
+}

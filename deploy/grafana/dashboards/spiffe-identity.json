@@ -1,0 +1,357 @@
+{
+  "dashboard": {
+    "title": "SPIFFE Identity",
+    "uid": "kscore-identity",
+    "tags": ["kscore", "spiffe", "identity", "epic-17"],
+    "timezone": "browser",
+    "schemaVersion": 36,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "trust_domain",
+          "type": "query",
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "query": "label_values(kscore_svid_issued_total, trust_domain)",
+          "refresh": 1,
+          "multi": false,
+          "includeAll": true,
+          "allValue": ".*"
+        }
+      ]
+    },
+    "panels": [
+      {
+        "title": "Identity Provider Overview",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+        "collapsed": false
+      },
+      {
+        "title": "Active SVIDs",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 1},
+        "targets": [
+          {
+            "expr": "sum(kscore_svids_active{trust_domain=~\"$trust_domain\"})",
+            "legendFormat": "Active SVIDs"
+          }
+        ]
+      },
+      {
+        "title": "SVID Issuance Rate",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 1},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_svid_issued_total{trust_domain=~\"$trust_domain\"}[5m]))",
+            "legendFormat": "Issued/sec"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "CA Status",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 1},
+        "targets": [
+          {
+            "expr": "kscore_ca_health{trust_domain=~\"$trust_domain\"}",
+            "legendFormat": "CA Health"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {"options": {"0": {"text": "Unhealthy", "color": "red"}}, "type": "value"},
+              {"options": {"1": {"text": "Healthy", "color": "green"}}, "type": "value"}
+            ]
+          }
+        }
+      },
+      {
+        "title": "CA Expiry Days",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 1},
+        "targets": [
+          {
+            "expr": "kscore_ca_expiry_days{trust_domain=~\"$trust_domain\"}",
+            "legendFormat": "Days"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "d",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 30, "color": "yellow"},
+                {"value": 90, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "SVID Issuance",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 5},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_svid_issued_total{trust_domain=~\"$trust_domain\"}[5m])) by (attestation_type)",
+            "legendFormat": "{{attestation_type}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "SVID Issuance Latency",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 5},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.5, sum(rate(kscore_svid_issuance_duration_seconds_bucket{trust_domain=~\"$trust_domain\"}[5m])) by (le))",
+            "legendFormat": "P50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(kscore_svid_issuance_duration_seconds_bucket{trust_domain=~\"$trust_domain\"}[5m])) by (le))",
+            "legendFormat": "P95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum(rate(kscore_svid_issuance_duration_seconds_bucket{trust_domain=~\"$trust_domain\"}[5m])) by (le))",
+            "legendFormat": "P99"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "s"}}
+      },
+      {
+        "title": "Attestation",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 13},
+        "collapsed": false
+      },
+      {
+        "title": "Attestation Success Rate",
+        "type": "gauge",
+        "gridPos": {"h": 4, "w": 8, "x": 0, "y": 14},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_attestation_success_total{trust_domain=~\"$trust_domain\"}[5m])) / sum(rate(kscore_attestation_attempts_total{trust_domain=~\"$trust_domain\"}[5m])) * 100",
+            "legendFormat": "Success %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 90, "color": "yellow"},
+                {"value": 99, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Attestation Failures",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 8, "x": 8, "y": 14},
+        "targets": [
+          {
+            "expr": "sum(increase(kscore_attestation_failures_total{trust_domain=~\"$trust_domain\"}[1h]))",
+            "legendFormat": "Failures (1h)"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 10, "color": "yellow"},
+                {"value": 50, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Join Tokens Active",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 8, "x": 16, "y": 14},
+        "targets": [
+          {
+            "expr": "sum(kscore_join_tokens_active{trust_domain=~\"$trust_domain\"})",
+            "legendFormat": "Active"
+          }
+        ]
+      },
+      {
+        "title": "Attestation by Type",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 18},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_attestation_attempts_total{trust_domain=~\"$trust_domain\"}[5m])) by (attestation_type)",
+            "legendFormat": "{{attestation_type}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Attestation Failures by Reason",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 18},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_attestation_failures_total{trust_domain=~\"$trust_domain\"}[5m])) by (reason)",
+            "legendFormat": "{{reason}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Certificate Rotation",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 26},
+        "collapsed": false
+      },
+      {
+        "title": "SVID Rotations/sec",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 27},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_svid_rotations_total{trust_domain=~\"$trust_domain\"}[5m]))",
+            "legendFormat": "Rotations/sec"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "SVIDs Expiring Soon (24h)",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 27},
+        "targets": [
+          {
+            "expr": "sum(kscore_svids_expiring_soon{hours=\"24\",trust_domain=~\"$trust_domain\"})",
+            "legendFormat": "Expiring"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 10, "color": "yellow"},
+                {"value": 50, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Rotation Failures",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 27},
+        "targets": [
+          {
+            "expr": "sum(increase(kscore_svid_rotation_failures_total{trust_domain=~\"$trust_domain\"}[1h]))",
+            "legendFormat": "Failures (1h)"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "yellow"},
+                {"value": 5, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Avg SVID Lifetime",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 27},
+        "targets": [
+          {
+            "expr": "avg(kscore_svid_lifetime_seconds{trust_domain=~\"$trust_domain\"})",
+            "legendFormat": "Lifetime"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "s"}}
+      },
+      {
+        "title": "SVID Rotation Rate",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 31},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_svid_rotations_total{trust_domain=~\"$trust_domain\"}[5m])) by (rotation_reason)",
+            "legendFormat": "{{rotation_reason}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "SVID Expiry Distribution",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 31},
+        "targets": [
+          {
+            "expr": "kscore_svids_by_expiry_bucket{trust_domain=~\"$trust_domain\"}",
+            "legendFormat": "{{le}}h"
+          }
+        ]
+      },
+      {
+        "title": "Trust Federation",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 39},
+        "collapsed": false
+      },
+      {
+        "title": "Federated Domains",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 8, "x": 0, "y": 40},
+        "targets": [
+          {
+            "expr": "count(kscore_federation_status)",
+            "legendFormat": "Domains"
+          }
+        ]
+      },
+      {
+        "title": "Federation Health",
+        "type": "table",
+        "gridPos": {"h": 8, "w": 16, "x": 8, "y": 40},
+        "targets": [
+          {
+            "expr": "kscore_federation_status",
+            "legendFormat": "{{remote_domain}}",
+            "format": "table",
+            "instant": true
+          }
+        ],
+        "transformations": [
+          {"id": "organize", "options": {"excludeByName": {"Time": true}}}
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,354 @@
+{
+  "dashboard": {
+    "title": "Audit Logging",
+    "uid": "kscore-audit",
+    "tags": ["kscore", "audit", "compliance", "epic-6"],
+    "timezone": "browser",
+    "schemaVersion": 36,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "event_category",
+          "type": "query",
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "query": "label_values(kscore_audit_events_total, category)",
+          "refresh": 1,
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*"
+        }
+      ]
+    },
+    "panels": [
+      {
+        "title": "Audit Overview",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+        "collapsed": false
+      },
+      {
+        "title": "Audit Events/sec",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 1},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_audit_events_total{category=~\"$event_category\"}[5m]))",
+            "legendFormat": "Events/sec"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Events Today",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 1},
+        "targets": [
+          {
+            "expr": "sum(increase(kscore_audit_events_total{category=~\"$event_category\"}[24h]))",
+            "legendFormat": "Today"
+          }
+        ]
+      },
+      {
+        "title": "Security Events",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 1},
+        "targets": [
+          {
+            "expr": "sum(increase(kscore_audit_events_total{category=\"security\"}[24h]))",
+            "legendFormat": "Security (24h)"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 100, "color": "yellow"},
+                {"value": 500, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Failed Operations",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 1},
+        "targets": [
+          {
+            "expr": "sum(increase(kscore_audit_events_total{outcome=\"failure\"}[24h]))",
+            "legendFormat": "Failures (24h)"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 50, "color": "yellow"},
+                {"value": 200, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Audit Events by Category",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 5},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_audit_events_total{category=~\"$event_category\"}[5m])) by (category)",
+            "legendFormat": "{{category}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Event Outcome Distribution",
+        "type": "piechart",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 5},
+        "targets": [
+          {
+            "expr": "sum(increase(kscore_audit_events_total{category=~\"$event_category\"}[24h])) by (outcome)",
+            "legendFormat": "{{outcome}}"
+          }
+        ]
+      },
+      {
+        "title": "Security Events",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 13},
+        "collapsed": false
+      },
+      {
+        "title": "Authentication Events",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 14},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_audit_events_total{category=\"authentication\"}[5m])) by (outcome)",
+            "legendFormat": "Auth {{outcome}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Authorization Failures",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 14},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_audit_events_total{category=\"authorization\",outcome=\"denied\"}[5m])) by (resource_type)",
+            "legendFormat": "{{resource_type}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Suspicious Activity",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 8, "x": 0, "y": 22},
+        "targets": [
+          {
+            "expr": "sum(increase(kscore_audit_suspicious_activity_total[1h]))",
+            "legendFormat": "Suspicious (1h)"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "yellow"},
+                {"value": 10, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Privilege Escalations",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 8, "x": 8, "y": 22},
+        "targets": [
+          {
+            "expr": "sum(increase(kscore_audit_events_total{action=\"privilege_escalation\"}[24h]))",
+            "legendFormat": "Escalations (24h)"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Policy Violations",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 8, "x": 16, "y": 22},
+        "targets": [
+          {
+            "expr": "sum(increase(kscore_audit_events_total{category=\"policy_violation\"}[24h]))",
+            "legendFormat": "Violations (24h)"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 10, "color": "yellow"},
+                {"value": 50, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Audit Storage",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 26},
+        "collapsed": false
+      },
+      {
+        "title": "Log Storage Size",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 27},
+        "targets": [
+          {
+            "expr": "kscore_audit_storage_bytes",
+            "legendFormat": "Storage"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "bytes"}}
+      },
+      {
+        "title": "Retention Period",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 27},
+        "targets": [
+          {
+            "expr": "kscore_audit_retention_days",
+            "legendFormat": "Days"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "d"}}
+      },
+      {
+        "title": "Events Archived",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 27},
+        "targets": [
+          {
+            "expr": "sum(increase(kscore_audit_events_archived_total[24h]))",
+            "legendFormat": "Archived (24h)"
+          }
+        ]
+      },
+      {
+        "title": "Archive Lag",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 27},
+        "targets": [
+          {
+            "expr": "kscore_audit_archive_lag_seconds",
+            "legendFormat": "Lag"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 300, "color": "yellow"},
+                {"value": 3600, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Audit Ingestion Rate",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 31},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_audit_bytes_ingested_total[5m]))",
+            "legendFormat": "Ingestion"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "Bps"}}
+      },
+      {
+        "title": "Storage Growth",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 31},
+        "targets": [
+          {
+            "expr": "kscore_audit_storage_bytes",
+            "legendFormat": "Storage"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "bytes"}}
+      },
+      {
+        "title": "Top Activity",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 39},
+        "collapsed": false
+      },
+      {
+        "title": "Top Users by Activity",
+        "type": "table",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 40},
+        "targets": [
+          {
+            "expr": "topk(10, sum(increase(kscore_audit_events_total[24h])) by (principal))",
+            "legendFormat": "{{principal}}",
+            "format": "table",
+            "instant": true
+          }
+        ],
+        "transformations": [
+          {"id": "organize", "options": {"excludeByName": {"Time": true}}}
+        ]
+      },
+      {
+        "title": "Top Resources Accessed",
+        "type": "table",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 40},
+        "targets": [
+          {
+            "expr": "topk(10, sum(increase(kscore_audit_events_total[24h])) by (resource))",
+            "legendFormat": "{{resource}}",
+            "format": "table",
+            "instant": true
+          }
+        ],
+        "transformations": [
+          {"id": "organize", "options": {"excludeByName": {"Time": true}}}
+        ]
+      }
+    ]
+  }
+}

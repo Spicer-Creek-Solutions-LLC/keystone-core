@@ -1,0 +1,298 @@
+{
+  "dashboard": {
+    "title": "Module System",
+    "uid": "kscore-modules",
+    "tags": ["kscore", "modules", "plugins", "epic-9"],
+    "timezone": "browser",
+    "schemaVersion": 36,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "module",
+          "type": "query",
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "query": "label_values(kscore_module_executions_total, module)",
+          "refresh": 1,
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*"
+        }
+      ]
+    },
+    "panels": [
+      {
+        "title": "Module Overview",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+        "collapsed": false
+      },
+      {
+        "title": "Loaded Modules",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 1},
+        "targets": [
+          {
+            "expr": "sum(kscore_modules_loaded)",
+            "legendFormat": "Loaded"
+          }
+        ]
+      },
+      {
+        "title": "Module Executions/sec",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 1},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_module_executions_total{module=~\"$module\"}[5m]))",
+            "legendFormat": "Exec/sec"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Module Success Rate",
+        "type": "gauge",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 1},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_module_executions_total{status=\"success\",module=~\"$module\"}[5m])) / sum(rate(kscore_module_executions_total{module=~\"$module\"}[5m])) * 100",
+            "legendFormat": "Success %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 90, "color": "yellow"},
+                {"value": 99, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Average Execution Time",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 1},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(kscore_module_execution_duration_seconds_bucket{module=~\"$module\"}[5m])) by (le))",
+            "legendFormat": "P95"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "s"}}
+      },
+      {
+        "title": "Module Execution Rate",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 5},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_module_executions_total{module=~\"$module\"}[5m])) by (module)",
+            "legendFormat": "{{module}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Module Execution Duration",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 5},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.5, sum(rate(kscore_module_execution_duration_seconds_bucket{module=~\"$module\"}[5m])) by (le, module))",
+            "legendFormat": "{{module}} P50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(kscore_module_execution_duration_seconds_bucket{module=~\"$module\"}[5m])) by (le, module))",
+            "legendFormat": "{{module}} P95"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "s"}}
+      },
+      {
+        "title": "Sandbox & Resources",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 13},
+        "collapsed": false
+      },
+      {
+        "title": "Sandbox Violations",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 14},
+        "targets": [
+          {
+            "expr": "sum(increase(kscore_module_sandbox_violations_total[1h]))",
+            "legendFormat": "Violations"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "yellow"},
+                {"value": 10, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Resource Limit Exceeded",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 14},
+        "targets": [
+          {
+            "expr": "sum(increase(kscore_module_resource_limit_exceeded_total[1h]))",
+            "legendFormat": "Exceeded"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1, "color": "yellow"},
+                {"value": 10, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Memory Usage (avg)",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 14},
+        "targets": [
+          {
+            "expr": "avg(kscore_module_memory_usage_bytes{module=~\"$module\"})",
+            "legendFormat": "Memory"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "bytes"}}
+      },
+      {
+        "title": "CPU Time (avg)",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 14},
+        "targets": [
+          {
+            "expr": "avg(rate(kscore_module_cpu_time_seconds_total{module=~\"$module\"}[5m]))",
+            "legendFormat": "CPU Time"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "s"}}
+      },
+      {
+        "title": "Module Memory Usage",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 18},
+        "targets": [
+          {
+            "expr": "kscore_module_memory_usage_bytes{module=~\"$module\"}",
+            "legendFormat": "{{module}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "bytes"}}
+      },
+      {
+        "title": "Module CPU Usage",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 18},
+        "targets": [
+          {
+            "expr": "rate(kscore_module_cpu_time_seconds_total{module=~\"$module\"}[5m])",
+            "legendFormat": "{{module}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "s"}}
+      },
+      {
+        "title": "Registry & Loading",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 26},
+        "collapsed": false
+      },
+      {
+        "title": "Module Downloads/sec",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 8, "x": 0, "y": 27},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_module_downloads_total[5m]))",
+            "legendFormat": "Downloads/sec"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Module Load Time",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 8, "x": 8, "y": 27},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(kscore_module_load_duration_seconds_bucket[5m])) by (le))",
+            "legendFormat": "P95"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "s"}}
+      },
+      {
+        "title": "Signature Verifications",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 8, "x": 16, "y": 27},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_module_signature_verifications_total[5m])) by (result)",
+            "legendFormat": "{{result}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Capabilities",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 35},
+        "collapsed": false
+      },
+      {
+        "title": "Capability Requests",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 36},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_module_capability_requests_total[5m])) by (capability)",
+            "legendFormat": "{{capability}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      },
+      {
+        "title": "Capability Denials",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 36},
+        "targets": [
+          {
+            "expr": "sum(rate(kscore_module_capability_denials_total[5m])) by (capability, module)",
+            "legendFormat": "{{module}}: {{capability}}"
+          }
+        ],
+        "fieldConfig": {"defaults": {"unit": "ops"}}
+      }
+    ]
+  }
+}

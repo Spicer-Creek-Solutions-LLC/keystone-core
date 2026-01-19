@@ -37,7 +37,7 @@ The client wrapper (`pkg/k8s/client.go`) provides a unified interface for Kubern
 
 ```go
 // Create a new Kubernetes client
-client, err := k8s.NewClient(k8s.ClientConfig{
+client, err := k8s.NewClient(k8s.ClusterConfig{
     Kubeconfig: "/path/to/kubeconfig",
     Context:    "my-cluster",
 })
@@ -476,4 +476,4 @@ kscorectl cluster status --cluster=production
 - [Agents](/docs/concepts/agents/) - Agent architecture and deployment
 - [State Management](/docs/concepts/state-management/) - Declarative configuration
 - [Remote Execution](/docs/concepts/remote-execution/) - Command execution system
-- [Multi-Environment Support](/docs/concepts/multi-environment/) - Cross-platform operations
+- [Multi-Environment Support](/docs/scenarios/multi-environment/) - Cross-platform operations

@@ -191,14 +191,13 @@ Publish events from Go code:
 ```go
 import "github.com/shawnbutts/keystone-core/pkg/events"
 
-// Create event
-event := events.NewEvent().
-    WithType(events.EventTypeJobComplete).
-    WithSource("control-plane").
-    WithSeverity(events.SeverityInfo).
-    WithCorrelationID("job-" + jobID).
-    WithTag("production").
-    WithData(map[string]interface{}{
+// Create event using the fluent builder API
+event := events.NewEvent(events.EventTypeJobComplete).
+    Source("control-plane").
+    Severity(events.SeverityInfo).
+    CorrelationID("job-" + jobID).
+    Tag("env", "production").
+    DataMap(map[string]interface{}{
         "job_id": jobID,
         "status": "success",
         "duration": duration.Seconds(),
@@ -206,7 +205,7 @@ event := events.NewEvent().
     Build()
 
 // Publish
-publisher.Publish(ctx, event)
+publisher.Publish(event)
 ```
 
 ### From CLI
@@ -387,15 +386,19 @@ curl "http://control-plane:8080/api/v1/events?type=agent.connect&limit=100"
 
 **Go Code**:
 ```go
-// Query events
-query := events.NewQuery().
-    WithType(events.EventTypeAgentConnect).
-    WithTimeRange(since, until).
-    WithSeverity(events.SeverityWarning).
-    WithLimit(100).
-    Build()
+// Filter events using EventFilter
+filter := &events.EventFilter{
+    Types:    []events.EventType{events.EventTypeAgentConnect},
+    Severity: events.SeverityWarning,
+    Since:    &since,
+    Until:    &until,
+}
 
-results, err := storage.Query(ctx, query)
+// Subscribe with filter
+subscriber.SubscribeWithFilter("agent.>", filter, func(event *events.Event) error {
+    // Handle matching events
+    return nil
+})
 ```
 
 ### Retention Policies
@@ -542,29 +545,38 @@ webhooks:
 
 ### Event Bridge
 
-Bridge events between systems:
+Bridge events between systems by subscribing to one event source and publishing to another:
 
 ```go
-bridge := events.NewBridge(
-    sourceSubscriber,  // NATS
-    targetPublisher,   // Kafka
-    events.WithFilter("type startsWith 'state.'"),
-    events.WithTransform(transformFunc),
-)
+// Subscribe to state events and forward to Kafka
+filter := &events.EventFilter{
+    Types: []events.EventType{
+        events.EventTypeStateApplyStart,
+        events.EventTypeStateApplyDone,
+        events.EventTypeStateChange,
+        events.EventTypeStateDrift,
+    },
+}
+
+sourceSubscriber.SubscribeWithFilter("state.>", filter, func(event *events.Event) error {
+    // Transform and forward to Kafka
+    return kafkaPublisher.Publish(event)
+})
 ```
 
 ## Event Replay
 
-Replay historical events for testing or recovery:
+Replay historical events for testing or recovery using the CLI:
 
-```go
-// Replay events from last hour
-query := events.NewQuery().
-    WithTimeRange(time.Now().Add(-1*time.Hour), time.Now()).
-    Build()
+```bash
+# Replay events from last hour
+kscorectl event replay --since 1h --until now
 
-replay := events.NewReplay(storage, publisher)
-replay.Replay(ctx, query)
+# Replay specific event types
+kscorectl event replay --type state.change --since 24h
+
+# Replay to a different target
+kscorectl event replay --since 1h --target webhook:https://example.com/events
 ```
 
 **Use Cases**:
@@ -572,6 +584,574 @@ replay.Replay(ctx, query)
 - Recover from processing failures
 - Audit and compliance reviews
 - Debugging event-driven workflows
+
+## Event Ordering Semantics
+
+Understanding event ordering is critical for building reliable event-driven systems. Keystone Core provides specific ordering guarantees through NATS JetStream.
+
+### Ordering Guarantees
+
+| Scope | Guarantee | Notes |
+|-------|-----------|-------|
+| Single source | Strict FIFO | Events from same source are ordered |
+| Single subject | Strict FIFO | Events on same NATS subject are ordered |
+| Across sources | No guarantee | Events from different sources may interleave |
+| Across subjects | No guarantee | Use correlation IDs to track related events |
+
+### Per-Source Ordering
+
+Events from the same source (agent, control plane component) are delivered in the order they were published:
+
+```
+Source: web-01
+Events: E1 → E2 → E3 → E4
+Delivery: E1, E2, E3, E4 (guaranteed order)
+```
+
+This is achieved through:
+- Single publisher per source
+- NATS JetStream sequence numbers
+- Ordered consumer configuration
+
+### Per-Subject Ordering
+
+NATS subjects partition the event stream. Events on the same subject maintain order:
+
+```
+Subject: kscore.events.agent.connect
+Publisher 1: E1, E3
+Publisher 2: E2, E4
+
+Possible delivery: E1, E2, E3, E4 (within subject, order maintained per publisher)
+```
+
+**Subject hierarchy:**
+```
+kscore.events.                    # All events
+kscore.events.agent.              # Agent events (connect, disconnect, etc.)
+kscore.events.agent.connect       # Specific event type
+kscore.events.job.                # Job events
+kscore.events.state.              # State events
+```
+
+### Cross-Source Ordering
+
+Events from different sources have **no ordering guarantee**:
+
+```
+Source A: E1a, E2a, E3a (timestamps: 10:00:01, 10:00:02, 10:00:03)
+Source B: E1b, E2b, E3b (timestamps: 10:00:01, 10:00:02, 10:00:03)
+
+Possible delivery orders:
+- E1a, E1b, E2a, E2b, E3a, E3b
+- E1a, E2a, E1b, E3a, E2b, E3b
+- E1b, E1a, E2a, E2b, E3a, E3b
+- ... (any valid interleaving)
+```
+
+**Why this matters:**
+- Job results may arrive before job start notification (from different agents)
+- Agent disconnect may arrive before related error events
+- State changes from multiple agents interleave unpredictably
+
+### Clustered NATS Considerations
+
+In multi-node NATS clusters, additional factors affect ordering:
+
+#### Leader-Based Ordering
+
+JetStream uses Raft consensus for streams. The stream leader sequences all messages:
+
+```mermaid
+flowchart TB
+    subgraph Cluster["NATS Cluster (Raft Consensus)"]
+        NATS1["NATS 1\n(Leader)"]
+        NATS2["NATS 2\n(Follower)"]
+        NATS3["NATS 3\n(Follower)"]
+        NATS1 <--> NATS2
+        NATS2 <--> NATS3
+    end
+
+    PubA["Publisher A"] --> NATS1
+    PubB["Publisher B"] --> NATS3
+```
+
+Both publishers' events are sequenced by the leader.
+
+#### During Leader Elections
+
+When a leader election occurs:
+- Publishing pauses briefly (typically <100ms)
+- No events are lost (Raft guarantees)
+- Order is preserved across election
+- Consumers may see brief delay
+
+#### Network Partitions
+
+During network partitions:
+- Minority partition cannot publish (no quorum)
+- Majority partition continues normally
+- After healing, all events are delivered in order
+- Consumers on minority side may miss events until reconnect
+
+### Achieving Global Ordering
+
+If you need strict global ordering across all events, use one of these strategies:
+
+#### 1. Centralized Sequencing
+
+Route all events through a single sequencer:
+
+```yaml
+event_processing:
+  ordering:
+    mode: centralized
+    sequencer: control-plane-1
+```
+
+**Trade-offs:**
+- Single point of bottleneck
+- Higher latency
+- Guaranteed global order
+
+#### 2. Timestamp-Based Reordering
+
+Buffer events and reorder by timestamp before processing:
+
+```yaml
+event_processing:
+  ordering:
+    mode: reorder
+    buffer_window: 5s  # Wait 5 seconds for late events
+    clock_skew_tolerance: 1s
+```
+
+**Trade-offs:**
+- Adds latency equal to buffer window
+- Requires synchronized clocks (NTP)
+- May still have edge cases with high clock skew
+
+#### 3. Correlation-Based Processing
+
+Group related events by correlation ID and process as a unit:
+
+```yaml
+event_processing:
+  ordering:
+    mode: correlation
+    correlation_timeout: 30s  # Wait for related events
+```
+
+**Trade-offs:**
+- Only orders within correlation groups
+- Requires proper correlation ID usage
+- Good for job/workflow tracking
+
+### Clock Synchronization
+
+Event timestamps depend on source clocks. For accurate ordering:
+
+1. **Use NTP on all nodes**:
+   ```bash
+   # Install and configure NTP
+   systemctl enable chronyd
+   systemctl start chronyd
+   chronyc tracking  # Verify sync
+   ```
+
+2. **Monitor clock skew**:
+   ```promql
+   # Alert if clock skew exceeds 100ms
+   ALERT ClockSkew
+     IF abs(node_timex_offset_seconds) > 0.1
+     FOR 5m
+   ```
+
+3. **Configure tolerance**:
+   ```yaml
+   event_processing:
+     clock_skew_tolerance: 100ms
+   ```
+
+### Consumer Configuration
+
+Configure consumers for ordered delivery:
+
+```yaml
+# Ordered consumer (single active)
+consumers:
+  ordered_processor:
+    deliver_policy: all
+    ack_policy: explicit
+    max_ack_pending: 1  # Process one at a time
+    replay_policy: instant
+
+# Parallel consumer (multiple active, per-subject order)
+consumers:
+  parallel_processor:
+    deliver_policy: all
+    ack_policy: explicit
+    max_ack_pending: 100  # Process multiple in parallel
+    replay_policy: instant
+```
+
+### Idempotency
+
+Because events may be redelivered (network issues, consumer restart), design handlers to be idempotent:
+
+```go
+func handleEvent(event *events.Event) error {
+    // Check if already processed
+    if store.HasProcessed(event.ID) {
+        return nil  // Skip duplicate
+    }
+
+    // Process event
+    if err := processEvent(event); err != nil {
+        return err
+    }
+
+    // Mark as processed
+    store.MarkProcessed(event.ID)
+    return nil
+}
+```
+
+### Debugging Ordering Issues
+
+```bash
+# Check event sequence numbers
+kscorectl event list --show-sequence --source web-01
+
+# Check for out-of-order delivery
+kscorectl event analyze --check-order --since 1h
+
+# View consumer lag
+nats consumer info KSCORE_EVENTS processor
+
+# Check stream info
+nats stream info KSCORE_EVENTS
+```
+
+## Retention Sizing Recommendations
+
+Proper retention sizing balances storage costs with operational and compliance needs. This section provides guidance for sizing event storage based on deployment scale.
+
+### Sizing Factors
+
+| Factor | Impact on Storage | Typical Range |
+|--------|-------------------|---------------|
+| Agent count | Linear | 10 - 10,000 agents |
+| Event rate | Linear | 1 - 100 events/agent/minute |
+| Event size | Linear | 0.5 - 5 KB average |
+| Retention period | Linear | 7 - 365 days |
+| Query patterns | Index overhead | 20-50% additional |
+
+### Event Size Reference
+
+| Event Type | Typical Size | Notes |
+|------------|--------------|-------|
+| agent.heartbeat | 0.5 KB | High volume, minimal data |
+| agent.connect/disconnect | 1 KB | Includes metadata |
+| job.start/complete | 2 KB | Includes command info |
+| job.output | 1-50 KB | Varies with output size |
+| state.change | 2 KB | Module diff data |
+| state.drift | 3 KB | Includes drift details |
+| policy.violation | 2 KB | Policy context |
+| user.custom | 1-10 KB | Depends on payload |
+
+### Sizing Formula
+
+```
+Daily Storage (GB) = Agents × Events/Agent/Day × Avg Event Size (KB) / 1,000,000
+
+Total Storage (GB) = Daily Storage × Retention Days × (1 + Index Overhead)
+```
+
+### Sizing Examples
+
+#### Small Deployment (50 agents)
+
+**Assumptions:**
+- 50 agents
+- 100 events/agent/day (heartbeats disabled in storage)
+- 2 KB average event size
+- 30 days retention
+- 30% index overhead
+
+**Calculation:**
+```
+Daily: 50 × 100 × 2 KB = 10 MB/day
+30 days: 10 MB × 30 × 1.3 = 390 MB
+
+Recommended: 1 GB (SQLite adequate)
+```
+
+**Configuration:**
+```yaml
+event_storage:
+  backend: sqlite
+  retention:
+    max_age: 30d
+    max_size: 1GB
+  type_retention:
+    agent.heartbeat: 1d    # Short retention for heartbeats
+```
+
+#### Medium Deployment (500 agents)
+
+**Assumptions:**
+- 500 agents
+- 200 events/agent/day
+- 2 KB average event size
+- 30 days retention
+- 30% index overhead
+
+**Calculation:**
+```
+Daily: 500 × 200 × 2 KB = 200 MB/day
+30 days: 200 MB × 30 × 1.3 = 7.8 GB
+
+Recommended: 15 GB (PostgreSQL recommended)
+```
+
+**Configuration:**
+```yaml
+event_storage:
+  backend: postgresql
+  retention:
+    max_age: 30d
+    max_count: 50000000    # 50M events
+  type_retention:
+    agent.heartbeat: 1d
+    job.output: 7d         # Large events, shorter retention
+```
+
+#### Large Deployment (5,000 agents)
+
+**Assumptions:**
+- 5,000 agents
+- 500 events/agent/day (high automation)
+- 2.5 KB average event size
+- 90 days retention
+- 30% index overhead
+
+**Calculation:**
+```
+Daily: 5,000 × 500 × 2.5 KB = 6.25 GB/day
+90 days: 6.25 GB × 90 × 1.3 = 731 GB
+
+Recommended: 1 TB (PostgreSQL with partitioning)
+```
+
+**Configuration:**
+```yaml
+event_storage:
+  backend: postgresql
+  retention:
+    max_age: 90d
+    max_count: 500000000   # 500M events
+  partitioning:
+    enabled: true
+    strategy: monthly
+  type_retention:
+    agent.heartbeat: 12h   # Minimal heartbeat storage
+    job.output: 14d        # Medium retention for output
+    state.drift: 180d      # Long retention for drift
+  archival:
+    enabled: true
+    after: 30d
+    destination: s3://events-archive/
+```
+
+#### Enterprise Deployment (50,000 agents)
+
+**Assumptions:**
+- 50,000 agents
+- 200 events/agent/day
+- 2 KB average event size
+- 365 days retention
+- 30% index overhead
+
+**Calculation:**
+```
+Daily: 50,000 × 200 × 2 KB = 20 GB/day
+365 days: 20 GB × 365 × 1.3 = 9.5 TB
+
+Recommended: Multi-TB PostgreSQL cluster with archival
+```
+
+**Configuration:**
+```yaml
+event_storage:
+  backend: postgresql
+  cluster:
+    enabled: true
+    read_replicas: 3
+  retention:
+    hot: 30d              # Fast storage
+    warm: 90d             # Standard storage
+    cold: 365d            # Archive storage
+  partitioning:
+    enabled: true
+    strategy: weekly
+  archival:
+    enabled: true
+    after: 30d
+    destination: s3://events-archive/
+    storage_class: GLACIER
+```
+
+### Per-Type Retention Strategy
+
+Optimize storage by setting different retention periods per event type:
+
+| Event Type | Typical Retention | Rationale |
+|------------|-------------------|-----------|
+| agent.heartbeat | 1-7 days | High volume, low value after short period |
+| agent.connect | 30-90 days | Useful for connection history |
+| agent.disconnect | 30-90 days | Useful for troubleshooting |
+| job.start | 30-90 days | Audit trail |
+| job.complete | 30-90 days | Audit trail |
+| job.fail | 90-365 days | Important for pattern analysis |
+| job.output | 7-30 days | Large size, archive if needed |
+| state.apply.done | 30-90 days | State history |
+| state.change | 90-180 days | Configuration audit |
+| state.drift | 180-365 days | Compliance evidence |
+| policy.violation | 365+ days | Compliance requirement |
+| user.* | 365+ days | Audit trail |
+
+**Configuration:**
+```yaml
+event_storage:
+  retention:
+    default: 30d
+  type_retention:
+    agent.heartbeat: 1d
+    agent.connect: 90d
+    agent.disconnect: 90d
+    job.start: 90d
+    job.complete: 90d
+    job.fail: 365d
+    job.output: 14d
+    state.apply.done: 90d
+    state.change: 180d
+    state.drift: 365d
+    policy.violation: 730d    # 2 years
+    policy.pass: 30d
+    user.*: 730d              # Wildcard for user events
+```
+
+### JetStream vs Database Sizing
+
+Events flow through both JetStream (streaming) and database (queries):
+
+**JetStream Sizing:**
+```yaml
+nats:
+  jetstream:
+    # Size for replay window, not long-term storage
+    max_memory: 1GB          # Recent events in memory
+    max_file: 10GB           # Short-term persistence
+
+streams:
+  KSCORE_EVENTS:
+    max_age: 7d              # JetStream keeps 7 days
+    max_bytes: 10GB
+    storage: file
+```
+
+**Database Sizing:**
+```yaml
+event_storage:
+  # Long-term storage and queries
+  retention:
+    max_age: 90d             # Database keeps 90 days
+    max_size: 100GB
+```
+
+**Relationship:**
+- JetStream: Short-term buffer for real-time processing
+- Database: Long-term storage for queries and audit
+
+### Monitoring Storage
+
+```promql
+# Current event count by type
+sum(kscore_events_count) by (type)
+
+# Storage usage
+kscore_events_storage_bytes
+kscore_events_storage_percent_used
+
+# Growth rate (events per second)
+rate(kscore_events_stored_total[1h])
+
+# Estimated days until full
+(kscore_events_storage_max_bytes - kscore_events_storage_bytes)
+  / (rate(kscore_events_storage_bytes[1d]) * 86400)
+```
+
+**Alerts:**
+```yaml
+- alert: EventStorageHigh
+  expr: kscore_events_storage_percent_used > 80
+  for: 1h
+  labels:
+    severity: warning
+  annotations:
+    summary: "Event storage at {{ $value }}%"
+
+- alert: EventStorageCritical
+  expr: kscore_events_storage_percent_used > 95
+  for: 15m
+  labels:
+    severity: critical
+  annotations:
+    summary: "Event storage nearly full at {{ $value }}%"
+
+- alert: EventRetentionNotRunning
+  expr: time() - kscore_events_retention_last_run_timestamp > 86400
+  for: 1h
+  labels:
+    severity: warning
+```
+
+### Cost Optimization
+
+1. **Disable heartbeat storage** if not needed for troubleshooting:
+   ```yaml
+   type_retention:
+     agent.heartbeat: 0    # Don't store heartbeats
+   ```
+
+2. **Truncate large events** before storage:
+   ```yaml
+   event_storage:
+     truncation:
+       job.output: 10KB    # Only store first 10KB of output
+   ```
+
+3. **Archive to cold storage** after hot period:
+   ```yaml
+   archival:
+     after: 30d
+     storage_class: GLACIER
+   ```
+
+4. **Compress archived events**:
+   ```yaml
+   archival:
+     compression: zstd
+     compression_level: 3
+   ```
+
+5. **Use partitioning** for faster retention enforcement:
+   ```yaml
+   partitioning:
+     enabled: true
+     strategy: monthly   # Drop entire partitions vs row-by-row delete
+   ```
 
 ## Performance
 

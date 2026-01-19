@@ -2,6 +2,7 @@ package events
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -640,6 +641,257 @@ func TestEventStore_Replay(t *testing.T) {
 
 	if len(replayed) != 2 {
 		t.Errorf("Expected 2 replayed events, got %d", len(replayed))
+	}
+}
+
+func TestEventStore_ReplayFrom(t *testing.T) {
+	config := DefaultEventStoreConfig()
+	config.Path = ":memory:"
+	config.AutoRetention = false
+
+	store, _ := NewSQLiteEventStore(config)
+	defer store.Close()
+
+	ctx := context.Background()
+
+	// Create events at different times
+	now := time.Now()
+	oldEvent := NewEvent(EventTypeAgentConnect).Source("/old").Build()
+	oldEvent.Time = now.Add(-2 * time.Hour)
+
+	recentEvent := NewEvent(EventTypeAgentConnect).Source("/recent").Build()
+	recentEvent.Time = now.Add(-30 * time.Minute)
+
+	store.Store(ctx, oldEvent)
+	store.Store(ctx, recentEvent)
+
+	// Replay from 1 hour ago
+	var replayed []*Event
+	handler := func(event *Event) error {
+		replayed = append(replayed, event)
+		return nil
+	}
+
+	err := store.ReplayFrom(ctx, now.Add(-1*time.Hour), handler)
+	if err != nil {
+		t.Fatalf("ReplayFrom failed: %v", err)
+	}
+
+	// Should only get the recent event
+	if len(replayed) != 1 {
+		t.Errorf("Expected 1 replayed event, got %d", len(replayed))
+	}
+}
+
+func TestEventStore_ReplayRange(t *testing.T) {
+	config := DefaultEventStoreConfig()
+	config.Path = ":memory:"
+	config.AutoRetention = false
+
+	store, _ := NewSQLiteEventStore(config)
+	defer store.Close()
+
+	ctx := context.Background()
+
+	// Create events with specific times
+	now := time.Now()
+
+	events := []*Event{
+		NewEvent(EventTypeAgentConnect).Source("/e1").Build(),
+		NewEvent(EventTypeJobStart).Source("/e2").Build(),
+		NewEvent(EventTypeStateChange).Source("/e3").Build(),
+	}
+
+	// Set times to spread across 2 hours
+	events[0].Time = now.Add(-2 * time.Hour)
+	events[1].Time = now.Add(-1 * time.Hour)
+	events[2].Time = now
+
+	for _, e := range events {
+		store.Store(ctx, e)
+	}
+
+	// Replay only middle time range
+	var replayed []*Event
+	handler := func(event *Event) error {
+		replayed = append(replayed, event)
+		return nil
+	}
+
+	startTime := now.Add(-90 * time.Minute)
+	endTime := now.Add(-30 * time.Minute)
+
+	err := store.ReplayRange(ctx, startTime, endTime, handler)
+	if err != nil {
+		t.Fatalf("ReplayRange failed: %v", err)
+	}
+
+	// Should only get the middle event
+	if len(replayed) != 1 {
+		t.Errorf("Expected 1 replayed event, got %d", len(replayed))
+	}
+}
+
+func TestEventStore_ReplayRange_InvalidRange(t *testing.T) {
+	config := DefaultEventStoreConfig()
+	config.Path = ":memory:"
+	config.AutoRetention = false
+
+	store, _ := NewSQLiteEventStore(config)
+	defer store.Close()
+
+	ctx := context.Background()
+
+	now := time.Now()
+	handler := func(event *Event) error { return nil }
+
+	// Start time after end time should fail
+	err := store.ReplayRange(ctx, now, now.Add(-1*time.Hour), handler)
+	if err == nil {
+		t.Error("Expected error for invalid time range")
+	}
+}
+
+func TestEventStore_ReplayWithProgress(t *testing.T) {
+	config := DefaultEventStoreConfig()
+	config.Path = ":memory:"
+	config.AutoRetention = false
+
+	store, _ := NewSQLiteEventStore(config)
+	defer store.Close()
+
+	ctx := context.Background()
+
+	// Create multiple events
+	for i := 0; i < 10; i++ {
+		event := NewEvent(EventTypeAgentConnect).Source(fmt.Sprintf("/agent%d", i)).Build()
+		store.Store(ctx, event)
+	}
+
+	var replayed []*Event
+	var progressUpdates []*ReplayProgress
+
+	handler := func(event *Event) error {
+		replayed = append(replayed, event)
+		return nil
+	}
+
+	progressFn := func(progress *ReplayProgress) {
+		progressUpdates = append(progressUpdates, progress)
+	}
+
+	query := NewEventQuery()
+	err := store.ReplayWithProgress(ctx, query, handler, progressFn)
+	if err != nil {
+		t.Fatalf("ReplayWithProgress failed: %v", err)
+	}
+
+	if len(replayed) != 10 {
+		t.Errorf("Expected 10 replayed events, got %d", len(replayed))
+	}
+
+	if len(progressUpdates) != 10 {
+		t.Errorf("Expected 10 progress updates, got %d", len(progressUpdates))
+	}
+
+	// Check last progress update
+	if len(progressUpdates) > 0 {
+		last := progressUpdates[len(progressUpdates)-1]
+		if last.Percentage != 100.0 {
+			t.Errorf("Expected final progress to be 100%%, got %.2f%%", last.Percentage)
+		}
+	}
+}
+
+func TestEventStore_ReplayBatched(t *testing.T) {
+	config := DefaultEventStoreConfig()
+	config.Path = ":memory:"
+	config.AutoRetention = false
+
+	store, _ := NewSQLiteEventStore(config)
+	defer store.Close()
+
+	ctx := context.Background()
+
+	// Create 25 events
+	for i := 0; i < 25; i++ {
+		event := NewEvent(EventTypeAgentConnect).Source(fmt.Sprintf("/agent%d", i)).Build()
+		store.Store(ctx, event)
+	}
+
+	var batchCount int
+	var totalEvents int
+
+	handler := func(events []*Event) error {
+		batchCount++
+		totalEvents += len(events)
+		return nil
+	}
+
+	query := NewEventQuery()
+	err := store.ReplayBatched(ctx, query, 10, handler) // Batch size of 10
+	if err != nil {
+		t.Fatalf("ReplayBatched failed: %v", err)
+	}
+
+	// Should have 3 batches (10 + 10 + 5)
+	if batchCount != 3 {
+		t.Errorf("Expected 3 batches, got %d", batchCount)
+	}
+
+	if totalEvents != 25 {
+		t.Errorf("Expected 25 total events, got %d", totalEvents)
+	}
+}
+
+func TestEventStore_ReplayRangeWithTypes(t *testing.T) {
+	config := DefaultEventStoreConfig()
+	config.Path = ":memory:"
+	config.AutoRetention = false
+
+	store, _ := NewSQLiteEventStore(config)
+	defer store.Close()
+
+	ctx := context.Background()
+
+	now := time.Now()
+
+	// Create mixed event types
+	events := []*Event{
+		NewEvent(EventTypeAgentConnect).Source("/a1").Build(),
+		NewEvent(EventTypeJobStart).Source("/j1").Build(),
+		NewEvent(EventTypeStateChange).Source("/s1").Build(),
+		NewEvent(EventTypeAgentConnect).Source("/a2").Build(),
+	}
+
+	for i, e := range events {
+		e.Time = now.Add(time.Duration(i) * time.Minute)
+		store.Store(ctx, e)
+	}
+
+	// Replay only AgentConnect events
+	var replayed []*Event
+	handler := func(event *Event) error {
+		replayed = append(replayed, event)
+		return nil
+	}
+
+	startTime := now.Add(-1 * time.Hour)
+	endTime := now.Add(1 * time.Hour)
+
+	err := store.ReplayRangeWithTypes(ctx, startTime, endTime, []EventType{EventTypeAgentConnect}, handler)
+	if err != nil {
+		t.Fatalf("ReplayRangeWithTypes failed: %v", err)
+	}
+
+	if len(replayed) != 2 {
+		t.Errorf("Expected 2 AgentConnect events, got %d", len(replayed))
+	}
+
+	for _, e := range replayed {
+		if e.Type != EventTypeAgentConnect {
+			t.Errorf("Expected AgentConnect event, got %v", e.Type)
+		}
 	}
 }
 

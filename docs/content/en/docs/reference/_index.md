@@ -11,6 +11,7 @@ This section provides detailed technical reference documentation for all Keyston
 
 - **[API Reference](api/)** - REST and gRPC API endpoints with request/response examples
 - **[CLI Reference](cli/)** - Complete command-line interface documentation
+- **[CLI Quick Reference](cli-quick-reference/)** - Command cheat sheet for quick lookups
 - **[Configuration Reference](configuration/)** - All configuration options for control plane and agents
 - **[Module Reference](modules/)** - State module parameters and specifications
 - **[SDK Reference](sdk/)** - Language SDKs for module development

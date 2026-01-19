@@ -1,0 +1,1997 @@
+openapi: 3.0.3
+info:
+  title: Keystone Core REST API
+  description: |
+    REST API for Keystone Core - a runtime infrastructure control plane.
+
+    This specification covers all HTTP REST endpoints exposed by Keystone Core components.
+    The primary control plane operations use gRPC (see proto files), but HTTP REST endpoints
+    are available for cluster management, health checks, file operations, and more.
+
+    ## Authentication
+
+    Keystone Core supports multiple authentication methods:
+    - **API Key**: Bearer token in `Authorization` header
+    - **mTLS**: Client certificate authentication
+    - **JWT**: JSON Web Token authentication
+
+    ## Rate Limiting
+
+    API endpoints are subject to rate limiting. When rate limited, the API returns
+    HTTP 429 with `Retry-After` header indicating when to retry.
+
+    ## Versioning
+
+    All REST APIs use the `/api/v1/` prefix. Breaking changes will increment the version.
+  version: 0.1.0
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+  contact:
+    name: Keystone Core Team
+    url: https://github.com/keystone-core/keystone-core
+
+servers:
+  - url: http://localhost:9090
+    description: Local development server
+  - url: https://{control-plane-host}:9443
+    description: Production server (HTTPS)
+    variables:
+      control-plane-host:
+        default: control-plane.example.com
+        description: Control plane hostname
+
+tags:
+  - name: Health
+    description: Health check and status endpoints
+  - name: Cluster
+    description: Cluster management operations
+  - name: Agents
+    description: Agent management and visualization
+  - name: Events
+    description: Event ingestion and processing
+  - name: Mirrors
+    description: File mirror management
+  - name: Discovery
+    description: Proxy device discovery
+  - name: Gateway
+    description: Telemetry gateway operations
+  - name: Webhooks
+    description: GitOps webhook receivers
+
+security:
+  - bearerAuth: []
+  - mtls: []
+
+paths:
+  # ============================================
+  # Health Endpoints
+  # ============================================
+  /health/live:
+    get:
+      tags:
+        - Health
+      summary: Liveness probe
+      description: |
+        Returns 200 OK if the process is running. Used by Kubernetes liveness probes.
+        Does not check downstream dependencies.
+      operationId: healthLive
+      security: []
+      responses:
+        '200':
+          description: Process is alive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /health/ready:
+    get:
+      tags:
+        - Health
+      summary: Readiness probe
+      description: |
+        Returns 200 OK if the service is ready to accept traffic.
+        Checks NATS connection and other critical dependencies.
+      operationId: healthReady
+      security: []
+      responses:
+        '200':
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /health/status:
+    get:
+      tags:
+        - Health
+      summary: Detailed health status
+      description: |
+        Returns detailed health status including component health,
+        agent counts, and system metrics.
+      operationId: healthStatus
+      security: []
+      responses:
+        '200':
+          description: Detailed status information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailedHealthStatus'
+
+  /api/status:
+    get:
+      tags:
+        - Health
+      summary: Server status
+      description: |
+        Returns detailed server status including version, uptime,
+        memory usage, goroutine count, and connected agents.
+      operationId: serverStatus
+      responses:
+        '200':
+          description: Server status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ============================================
+  # Cluster Management
+  # ============================================
+  /api/v1/cluster/status:
+    get:
+      tags:
+        - Cluster
+      summary: Get cluster status
+      description: Returns current cluster status including member count and health.
+      operationId: getClusterStatus
+      responses:
+        '200':
+          description: Cluster status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/cluster/members:
+    get:
+      tags:
+        - Cluster
+      summary: List cluster members
+      description: Returns all cluster members with their status and roles.
+      operationId: listClusterMembers
+      responses:
+        '200':
+          description: List of cluster members
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterMemberList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags:
+        - Cluster
+      summary: Add cluster member
+      description: Adds a new member to the cluster.
+      operationId: addClusterMember
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddMemberRequest'
+      responses:
+        '201':
+          description: Member added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterMember'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Member already exists
+
+  /api/v1/cluster/members/{id}:
+    get:
+      tags:
+        - Cluster
+      summary: Get cluster member
+      description: Returns details for a specific cluster member.
+      operationId: getClusterMember
+      parameters:
+        - $ref: '#/components/parameters/MemberId'
+      responses:
+        '200':
+          description: Cluster member details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterMember'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - Cluster
+      summary: Remove cluster member
+      description: Removes a member from the cluster.
+      operationId: removeClusterMember
+      parameters:
+        - $ref: '#/components/parameters/MemberId'
+      responses:
+        '204':
+          description: Member removed successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/cluster/leader:
+    get:
+      tags:
+        - Cluster
+      summary: Get current leader
+      description: Returns information about the current cluster leader.
+      operationId: getClusterLeader
+      responses:
+        '200':
+          description: Leader information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterMember'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          description: No leader elected
+
+  /api/v1/cluster/leader/transfer:
+    post:
+      tags:
+        - Cluster
+      summary: Transfer leadership
+      description: Triggers leadership transfer to a specific member or any eligible member.
+      operationId: transferLeadership
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LeaderTransferRequest'
+      responses:
+        '200':
+          description: Leadership transfer initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaderTransferResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Transfer in progress
+
+  /api/v1/cluster/rebalance:
+    post:
+      tags:
+        - Cluster
+      summary: Trigger cluster rebalance
+      description: Triggers a rebalance of agents across cluster members.
+      operationId: rebalanceCluster
+      responses:
+        '202':
+          description: Rebalance initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RebalanceResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Rebalance already in progress
+
+  /api/v1/cluster/backup:
+    get:
+      tags:
+        - Cluster
+      summary: Get cluster backup
+      description: |
+        Downloads a backup of the cluster state including etcd data
+        and configuration. Returns a gzip-compressed archive.
+      operationId: getClusterBackup
+      responses:
+        '200':
+          description: Backup archive
+          content:
+            application/gzip:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/cluster/restore:
+    post:
+      tags:
+        - Cluster
+      summary: Restore cluster from backup
+      description: |
+        Restores cluster state from a backup archive.
+        **Warning**: This operation will replace all current state.
+      operationId: restoreClusterBackup
+      requestBody:
+        required: true
+        content:
+          application/gzip:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '200':
+          description: Restore completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestoreResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ============================================
+  # Agent Visualization
+  # ============================================
+  /api/agents:
+    get:
+      tags:
+        - Agents
+      summary: List agents
+      description: Returns a list of all registered agents with their current status.
+      operationId: listAgents
+      parameters:
+        - name: status
+          in: query
+          description: Filter by agent status
+          schema:
+            type: string
+            enum: [connected, disconnected, unknown]
+        - name: environment
+          in: query
+          description: Filter by environment
+          schema:
+            type: string
+        - name: role
+          in: query
+          description: Filter by role
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: List of agents
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/agents/{id}:
+    get:
+      tags:
+        - Agents
+      summary: Get agent details
+      description: Returns detailed information about a specific agent.
+      operationId: getAgent
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Agent ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Agent details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/topology:
+    get:
+      tags:
+        - Agents
+      summary: Get cluster topology
+      description: Returns the cluster topology for visualization.
+      operationId: getTopology
+      responses:
+        '200':
+          description: Topology data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Topology'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/graph:
+    get:
+      tags:
+        - Agents
+      summary: Get graph visualization data
+      description: Returns graph data suitable for D3.js or similar visualization libraries.
+      operationId: getGraphData
+      responses:
+        '200':
+          description: Graph data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GraphData'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ============================================
+  # Events
+  # ============================================
+  /events:
+    post:
+      tags:
+        - Events
+      summary: Submit event
+      description: |
+        Submit a single event for processing. Supports both CloudEvents format
+        and native JSON format.
+      operationId: submitEvent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Event'
+          application/cloudevents+json:
+            schema:
+              $ref: '#/components/schemas/CloudEvent'
+      responses:
+        '202':
+          description: Event accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /events/batch:
+    post:
+      tags:
+        - Events
+      summary: Submit batch events
+      description: Submit multiple events in a single request.
+      operationId: submitBatchEvents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/Event'
+              maxItems: 1000
+      responses:
+        '202':
+          description: Events accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchEventResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  # ============================================
+  # File Mirrors
+  # ============================================
+  /api/v1/mirrors:
+    get:
+      tags:
+        - Mirrors
+      summary: List mirror groups
+      description: Returns all configured mirror groups.
+      operationId: listMirrors
+      responses:
+        '200':
+          description: List of mirror groups
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MirrorGroupList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/mirrors/{id}:
+    get:
+      tags:
+        - Mirrors
+      summary: Get mirror group
+      description: Returns details for a specific mirror group.
+      operationId: getMirrorGroup
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Mirror group ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Mirror group details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MirrorGroup'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - Mirrors
+      summary: Delete mirror group
+      description: Deletes a mirror group configuration.
+      operationId: deleteMirrorGroup
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Mirror group ID
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Mirror group deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/mirrors/health:
+    get:
+      tags:
+        - Mirrors
+      summary: Get mirror health
+      description: Returns health status for mirror groups.
+      operationId: getMirrorHealth
+      parameters:
+        - name: group
+          in: query
+          description: Filter by mirror group ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Mirror health status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MirrorHealthList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/mirrors/sync:
+    post:
+      tags:
+        - Mirrors
+      summary: Trigger mirror sync
+      description: Triggers a synchronization operation for a mirror group.
+      operationId: triggerMirrorSync
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncRequest'
+      responses:
+        '202':
+          description: Sync initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/mirrors/sync/status:
+    get:
+      tags:
+        - Mirrors
+      summary: Get sync status
+      description: Returns current sync status for mirror groups.
+      operationId: getSyncStatus
+      parameters:
+        - name: group
+          in: query
+          description: Filter by mirror group ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Sync status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncStatusList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/mirrors/sync/operations:
+    get:
+      tags:
+        - Mirrors
+      summary: List sync operations
+      description: Returns a list of sync operations.
+      operationId: listSyncOperations
+      parameters:
+        - name: active
+          in: query
+          description: Filter by active status
+          schema:
+            type: boolean
+        - name: group
+          in: query
+          description: Filter by mirror group ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of sync operations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncOperationList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/mirrors/sync/history:
+    get:
+      tags:
+        - Mirrors
+      summary: Get sync history
+      description: Returns sync history for mirror groups.
+      operationId: getSyncHistory
+      parameters:
+        - name: group
+          in: query
+          description: Filter by mirror group ID
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Maximum number of results
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: Sync history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncHistoryList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/mirrors/conflicts:
+    get:
+      tags:
+        - Mirrors
+      summary: List conflicts
+      description: Returns unresolved sync conflicts.
+      operationId: listConflicts
+      parameters:
+        - name: group
+          in: query
+          description: Filter by mirror group ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of conflicts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConflictList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/mirrors/conflicts/{id}:
+    post:
+      tags:
+        - Mirrors
+      summary: Resolve conflict
+      description: Resolves a specific sync conflict.
+      operationId: resolveConflict
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Conflict ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConflictResolution'
+      responses:
+        '200':
+          description: Conflict resolved
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ============================================
+  # Proxy Device Discovery
+  # ============================================
+  /api/v1/discovery/scan:
+    post:
+      tags:
+        - Discovery
+      summary: Trigger device scan
+      description: Initiates a network scan to discover manageable devices.
+      operationId: triggerScan
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScanRequest'
+      responses:
+        '202':
+          description: Scan initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/discovery/devices:
+    get:
+      tags:
+        - Discovery
+      summary: List discovered devices
+      description: Returns all discovered devices.
+      operationId: listDiscoveredDevices
+      parameters:
+        - name: status
+          in: query
+          description: Filter by discovery status
+          schema:
+            type: string
+            enum: [pending, approved, rejected, ignored]
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: List of devices
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscoveredDeviceList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/discovery/devices/{id}:
+    get:
+      tags:
+        - Discovery
+      summary: Get discovered device
+      description: Returns details for a specific discovered device.
+      operationId: getDiscoveredDevice
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Device ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Device details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscoveredDevice'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - Discovery
+      summary: Delete discovered device
+      description: Removes a device from the discovery database.
+      operationId: deleteDiscoveredDevice
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Device ID
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Device deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/discovery/pending:
+    get:
+      tags:
+        - Discovery
+      summary: List pending devices
+      description: Returns devices pending approval.
+      operationId: listPendingDevices
+      responses:
+        '200':
+          description: List of pending devices
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscoveredDeviceList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/discovery/approved:
+    get:
+      tags:
+        - Discovery
+      summary: List approved devices
+      description: Returns approved devices.
+      operationId: listApprovedDevices
+      responses:
+        '200':
+          description: List of approved devices
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscoveredDeviceList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/discovery/approve:
+    post:
+      tags:
+        - Discovery
+      summary: Approve device
+      description: Approves a discovered device for management.
+      operationId: approveDevice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceApprovalRequest'
+      responses:
+        '200':
+          description: Device approved
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/discovery/reject:
+    post:
+      tags:
+        - Discovery
+      summary: Reject device
+      description: Rejects a discovered device.
+      operationId: rejectDevice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceRejectionRequest'
+      responses:
+        '200':
+          description: Device rejected
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/discovery/ignore:
+    post:
+      tags:
+        - Discovery
+      summary: Ignore device
+      description: Marks a device to be ignored in future scans.
+      operationId: ignoreDevice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceIgnoreRequest'
+      responses:
+        '200':
+          description: Device ignored
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/discovery/profiles:
+    get:
+      tags:
+        - Discovery
+      summary: List discovery profiles
+      description: Returns available discovery profiles.
+      operationId: listDiscoveryProfiles
+      responses:
+        '200':
+          description: List of profiles
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscoveryProfileList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ============================================
+  # Telemetry Gateway
+  # ============================================
+  /metrics:
+    get:
+      tags:
+        - Gateway
+      summary: Prometheus metrics
+      description: Returns metrics in Prometheus exposition format.
+      operationId: getMetrics
+      security: []
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /federate:
+    get:
+      tags:
+        - Gateway
+      summary: Prometheus federation
+      description: |
+        Prometheus federation endpoint. Returns metrics matching the specified
+        matchers in Prometheus exposition format.
+      operationId: federate
+      parameters:
+        - name: match[]
+          in: query
+          description: Prometheus matcher expression
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+      responses:
+        '200':
+          description: Federated metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /metrics/health:
+    get:
+      tags:
+        - Gateway
+      summary: Metrics gateway health
+      description: Returns gateway health with detailed statistics.
+      operationId: getMetricsHealth
+      responses:
+        '200':
+          description: Gateway health
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatewayHealth'
+
+  # ============================================
+  # Webhooks
+  # ============================================
+  /webhooks:
+    post:
+      tags:
+        - Webhooks
+      summary: Receive webhook
+      description: |
+        Receives webhooks from GitOps tools (ArgoCD, Flux, GitHub, GitLab).
+        The source is auto-detected from headers.
+      operationId: receiveWebhook
+      parameters:
+        - name: X-GitHub-Event
+          in: header
+          description: GitHub event type
+          schema:
+            type: string
+        - name: X-GitLab-Event
+          in: header
+          description: GitLab event type
+          schema:
+            type: string
+        - name: X-Argo-Event
+          in: header
+          description: ArgoCD event type
+          schema:
+            type: string
+        - name: X-Flux-Event
+          in: header
+          description: Flux event type
+          schema:
+            type: string
+        - name: X-Hub-Signature-256
+          in: header
+          description: HMAC signature (GitHub)
+          schema:
+            type: string
+        - name: X-Gitlab-Token
+          in: header
+          description: Secret token (GitLab)
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Webhook payload (format varies by source)
+      responses:
+        '200':
+          description: Webhook processed
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Invalid signature or token
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /webhooks/stats:
+    get:
+      tags:
+        - Webhooks
+      summary: Webhook statistics
+      description: Returns webhook receiver statistics.
+      operationId: getWebhookStats
+      responses:
+        '200':
+          description: Webhook statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookStats'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: API key authentication
+    mtls:
+      type: mutualTLS
+      description: Mutual TLS client certificate authentication
+
+  parameters:
+    MemberId:
+      name: id
+      in: path
+      required: true
+      description: Cluster member ID
+      schema:
+        type: string
+    Limit:
+      name: limit
+      in: query
+      description: Maximum number of results to return
+      schema:
+        type: integer
+        default: 100
+        maximum: 1000
+    Offset:
+      name: offset
+      in: query
+      description: Number of results to skip
+      schema:
+        type: integer
+        default: 0
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    TooManyRequests:
+      description: Rate limit exceeded
+      headers:
+        Retry-After:
+          description: Seconds to wait before retrying
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Error code
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          description: Additional error details
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy, degraded]
+        timestamp:
+          type: string
+          format: date-time
+
+    DetailedHealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy, degraded]
+        components:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ComponentHealth'
+        agents:
+          type: object
+          properties:
+            connected:
+              type: integer
+            total:
+              type: integer
+        uptime:
+          type: string
+          description: Service uptime duration
+
+    ComponentHealth:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy, degraded]
+        message:
+          type: string
+        lastCheck:
+          type: string
+          format: date-time
+
+    ServerStatus:
+      type: object
+      properties:
+        version:
+          type: string
+        buildDate:
+          type: string
+          format: date-time
+        goVersion:
+          type: string
+        uptime:
+          type: string
+        memoryUsage:
+          type: integer
+          format: int64
+          description: Memory usage in bytes
+        goroutines:
+          type: integer
+        connectedAgents:
+          type: integer
+
+    ClusterStatus:
+      type: object
+      properties:
+        healthy:
+          type: boolean
+        memberCount:
+          type: integer
+        leader:
+          type: string
+          description: Leader member ID
+        term:
+          type: integer
+          format: int64
+          description: Raft term
+        committedIndex:
+          type: integer
+          format: int64
+        appliedIndex:
+          type: integer
+          format: int64
+
+    ClusterMember:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        address:
+          type: string
+        role:
+          type: string
+          enum: [leader, follower, learner]
+        healthy:
+          type: boolean
+        lastContact:
+          type: string
+          format: date-time
+        agentCount:
+          type: integer
+          description: Number of agents connected to this member
+
+    ClusterMemberList:
+      type: object
+      properties:
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClusterMember'
+        total:
+          type: integer
+
+    AddMemberRequest:
+      type: object
+      required:
+        - address
+      properties:
+        address:
+          type: string
+          description: Member address (host:port)
+        name:
+          type: string
+          description: Optional member name
+
+    LeaderTransferRequest:
+      type: object
+      properties:
+        targetMemberId:
+          type: string
+          description: Target member ID (optional, any eligible if not specified)
+
+    LeaderTransferResponse:
+      type: object
+      properties:
+        previousLeader:
+          type: string
+        newLeader:
+          type: string
+        transferTime:
+          type: string
+
+    RebalanceResponse:
+      type: object
+      properties:
+        operationId:
+          type: string
+        agentsMoved:
+          type: integer
+        status:
+          type: string
+          enum: [started, in_progress, completed, failed]
+
+    RestoreResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        restoredAt:
+          type: string
+          format: date-time
+        backupDate:
+          type: string
+          format: date-time
+
+    Agent:
+      type: object
+      properties:
+        id:
+          type: string
+        hostname:
+          type: string
+        environment:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [connected, disconnected, unknown]
+        version:
+          type: string
+        os:
+          type: string
+        arch:
+          type: string
+        ipAddress:
+          type: string
+        lastSeen:
+          type: string
+          format: date-time
+        registeredAt:
+          type: string
+          format: date-time
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+
+    AgentList:
+      type: object
+      properties:
+        agents:
+          type: array
+          items:
+            $ref: '#/components/schemas/Agent'
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    Topology:
+      type: object
+      properties:
+        clusters:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopologyCluster'
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopologyEdge'
+
+    TopologyCluster:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum: [control-plane, agent-cluster, datacenter]
+        members:
+          type: array
+          items:
+            type: string
+
+    TopologyEdge:
+      type: object
+      properties:
+        source:
+          type: string
+        target:
+          type: string
+        type:
+          type: string
+          enum: [control, data, mesh]
+
+    GraphData:
+      type: object
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/GraphNode'
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/GraphLink'
+
+    GraphNode:
+      type: object
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        type:
+          type: string
+        group:
+          type: string
+        metadata:
+          type: object
+
+    GraphLink:
+      type: object
+      properties:
+        source:
+          type: string
+        target:
+          type: string
+        type:
+          type: string
+        weight:
+          type: number
+
+    Event:
+      type: object
+      required:
+        - type
+        - source
+      properties:
+        id:
+          type: string
+          description: Event ID (generated if not provided)
+        type:
+          type: string
+          description: Event type
+        source:
+          type: string
+          description: Event source
+        subject:
+          type: string
+          description: Event subject
+        time:
+          type: string
+          format: date-time
+          description: Event timestamp
+        data:
+          type: object
+          description: Event payload
+
+    CloudEvent:
+      type: object
+      description: CloudEvents 1.0 format
+      required:
+        - specversion
+        - type
+        - source
+        - id
+      properties:
+        specversion:
+          type: string
+          enum: ['1.0']
+        type:
+          type: string
+        source:
+          type: string
+          format: uri-reference
+        id:
+          type: string
+        subject:
+          type: string
+        time:
+          type: string
+          format: date-time
+        datacontenttype:
+          type: string
+        data:
+          type: object
+
+    EventResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Assigned event ID
+        status:
+          type: string
+          enum: [accepted, queued]
+
+    BatchEventResponse:
+      type: object
+      properties:
+        accepted:
+          type: integer
+        rejected:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              index:
+                type: integer
+              error:
+                type: string
+
+    MirrorGroup:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        source:
+          $ref: '#/components/schemas/MirrorEndpoint'
+        destinations:
+          type: array
+          items:
+            $ref: '#/components/schemas/MirrorEndpoint'
+        syncPolicy:
+          $ref: '#/components/schemas/SyncPolicy'
+        status:
+          type: string
+          enum: [active, paused, error]
+
+    MirrorEndpoint:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [s3, gcs, azure-blob, local, http]
+        url:
+          type: string
+        region:
+          type: string
+        bucket:
+          type: string
+
+    SyncPolicy:
+      type: object
+      properties:
+        schedule:
+          type: string
+          description: Cron expression
+        conflictResolution:
+          type: string
+          enum: [source-wins, dest-wins, manual, newest]
+        deletePolicy:
+          type: string
+          enum: [sync, preserve]
+
+    MirrorGroupList:
+      type: object
+      properties:
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/MirrorGroup'
+        total:
+          type: integer
+
+    MirrorHealthList:
+      type: object
+      properties:
+        health:
+          type: array
+          items:
+            type: object
+            properties:
+              groupId:
+                type: string
+              healthy:
+                type: boolean
+              lastSync:
+                type: string
+                format: date-time
+              errors:
+                type: array
+                items:
+                  type: string
+
+    SyncRequest:
+      type: object
+      required:
+        - groupId
+      properties:
+        groupId:
+          type: string
+        force:
+          type: boolean
+          default: false
+        paths:
+          type: array
+          items:
+            type: string
+          description: Specific paths to sync (all if empty)
+
+    SyncResponse:
+      type: object
+      properties:
+        operationId:
+          type: string
+        status:
+          type: string
+          enum: [started, queued]
+        estimatedFiles:
+          type: integer
+
+    SyncStatusList:
+      type: object
+      properties:
+        statuses:
+          type: array
+          items:
+            type: object
+            properties:
+              groupId:
+                type: string
+              status:
+                type: string
+                enum: [idle, syncing, error]
+              progress:
+                type: number
+                format: float
+              filesProcessed:
+                type: integer
+              bytesTransferred:
+                type: integer
+                format: int64
+
+    SyncOperationList:
+      type: object
+      properties:
+        operations:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              groupId:
+                type: string
+              status:
+                type: string
+              startedAt:
+                type: string
+                format: date-time
+              completedAt:
+                type: string
+                format: date-time
+
+    SyncHistoryList:
+      type: object
+      properties:
+        history:
+          type: array
+          items:
+            type: object
+            properties:
+              operationId:
+                type: string
+              groupId:
+                type: string
+              status:
+                type: string
+                enum: [completed, failed, cancelled]
+              startedAt:
+                type: string
+                format: date-time
+              completedAt:
+                type: string
+                format: date-time
+              filesProcessed:
+                type: integer
+              bytesTransferred:
+                type: integer
+                format: int64
+              errors:
+                type: array
+                items:
+                  type: string
+
+    ConflictList:
+      type: object
+      properties:
+        conflicts:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              groupId:
+                type: string
+              path:
+                type: string
+              sourceVersion:
+                type: string
+              destVersion:
+                type: string
+              detectedAt:
+                type: string
+                format: date-time
+
+    ConflictResolution:
+      type: object
+      required:
+        - resolution
+      properties:
+        resolution:
+          type: string
+          enum: [use-source, use-dest, merge, skip]
+        mergedContent:
+          type: string
+          description: Required if resolution is 'merge'
+
+    DiscoveredDevice:
+      type: object
+      properties:
+        id:
+          type: string
+        ipAddress:
+          type: string
+        hostname:
+          type: string
+        vendor:
+          type: string
+        model:
+          type: string
+        osVersion:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected, ignored]
+        protocols:
+          type: array
+          items:
+            type: string
+            enum: [ssh, snmp, netconf, restconf, api]
+        discoveredAt:
+          type: string
+          format: date-time
+        lastSeen:
+          type: string
+          format: date-time
+
+    DiscoveredDeviceList:
+      type: object
+      properties:
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/DiscoveredDevice'
+        total:
+          type: integer
+
+    ScanRequest:
+      type: object
+      properties:
+        networks:
+          type: array
+          items:
+            type: string
+          description: CIDR ranges to scan
+        profileId:
+          type: string
+          description: Discovery profile to use
+        protocols:
+          type: array
+          items:
+            type: string
+            enum: [ssh, snmp, netconf, restconf, api]
+
+    ScanResponse:
+      type: object
+      properties:
+        scanId:
+          type: string
+        status:
+          type: string
+          enum: [started, queued]
+        estimatedDevices:
+          type: integer
+
+    DeviceApprovalRequest:
+      type: object
+      required:
+        - deviceId
+      properties:
+        deviceId:
+          type: string
+        credentials:
+          type: object
+          description: Credentials for device management
+        profileId:
+          type: string
+          description: Management profile to assign
+
+    DeviceRejectionRequest:
+      type: object
+      required:
+        - deviceId
+      properties:
+        deviceId:
+          type: string
+        reason:
+          type: string
+
+    DeviceIgnoreRequest:
+      type: object
+      required:
+        - deviceId
+      properties:
+        deviceId:
+          type: string
+        permanent:
+          type: boolean
+          default: false
+
+    DiscoveryProfileList:
+      type: object
+      properties:
+        profiles:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              description:
+                type: string
+              protocols:
+                type: array
+                items:
+                  type: string
+              vendorPatterns:
+                type: array
+                items:
+                  type: string
+
+    GatewayHealth:
+      type: object
+      properties:
+        healthy:
+          type: boolean
+        backends:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              healthy:
+                type: boolean
+              lastWrite:
+                type: string
+                format: date-time
+        stats:
+          type: object
+          properties:
+            metricsReceived:
+              type: integer
+              format: int64
+            metricsWritten:
+              type: integer
+              format: int64
+            metricsDropped:
+              type: integer
+              format: int64
+            activeTimeSeries:
+              type: integer
+
+    WebhookStats:
+      type: object
+      properties:
+        totalReceived:
+          type: integer
+          format: int64
+        totalProcessed:
+          type: integer
+          format: int64
+        totalFailed:
+          type: integer
+          format: int64
+        bySource:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              received:
+                type: integer
+                format: int64
+              processed:
+                type: integer
+                format: int64
+              failed:
+                type: integer
+                format: int64
+        lastReceived:
+          type: string
+          format: date-time

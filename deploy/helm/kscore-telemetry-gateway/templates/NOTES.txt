@@ -1,0 +1,36 @@
+Keystone Core Telemetry Gateway has been installed!
+
+1. Get the application URL by running these commands:
+{{- if contains "NodePort" .Values.service.type }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "kscore-telemetry-gateway.fullname" . }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo "Gateway URL: http://$NODE_IP:$NODE_PORT"
+{{- else if contains "LoadBalancer" .Values.service.type }}
+  NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+  You can watch the status by running:
+    kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "kscore-telemetry-gateway.fullname" . }}
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "kscore-telemetry-gateway.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+  echo "Gateway URL: http://$SERVICE_IP:{{ .Values.service.port }}"
+{{- else if contains "ClusterIP" .Values.service.type }}
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "kscore-telemetry-gateway.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }}
+  echo "Gateway URL: http://127.0.0.1:{{ .Values.service.port }}"
+{{- end }}
+
+2. Check the gateway health:
+  curl http://<gateway-url>{{ .Values.gateway.server.healthPath }}
+
+3. View metrics:
+  curl http://<gateway-url>{{ .Values.gateway.server.metricsPath }}
+
+4. Enabled pipelines:
+{{- if .Values.gateway.metrics.enabled }}
+  - Metrics: {{ .Values.gateway.metrics.subject }}
+{{- end }}
+{{- if .Values.gateway.logs.enabled }}
+  - Logs: {{ .Values.gateway.logs.subject }}
+{{- end }}
+{{- if .Values.gateway.traces.enabled }}
+  - Traces: {{ .Values.gateway.traces.subject }}
+{{- end }}
+
+For more information, visit: https://github.com/shawnbutts/keystone-core

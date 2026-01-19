@@ -1,0 +1,80 @@
+{
+  "version": "1.0.0",
+  "description": "Performance baselines for Keystone Core CI/CD regression detection",
+  "updated": "2024-01-15",
+  "baselines": {
+    "command_execution": {
+      "sequential_commands": {
+        "min_ops_per_second": 5.0,
+        "max_p99_latency_ms": 2000,
+        "max_error_rate_percent": 5.0
+      },
+      "parallel_commands": {
+        "min_ops_per_second": 10.0,
+        "max_p99_latency_ms": 3000,
+        "max_error_rate_percent": 5.0
+      },
+      "batch_commands": {
+        "min_batches_per_second": 1.0,
+        "max_p99_latency_ms": 5000,
+        "max_error_rate_percent": 5.0
+      },
+      "sustained_load": {
+        "min_ops_per_second": 5.0,
+        "max_p99_latency_ms": 3000,
+        "max_error_rate_percent": 5.0
+      }
+    },
+    "api": {
+      "list_agents": {
+        "min_ops_per_second": 50.0,
+        "max_p99_latency_ms": 500,
+        "max_error_rate_percent": 1.0
+      },
+      "get_agent": {
+        "min_ops_per_second": 100.0,
+        "max_p99_latency_ms": 200,
+        "max_error_rate_percent": 1.0
+      }
+    },
+    "scale": {
+      "agent_registration": {
+        "max_registration_time_seconds": 60.0,
+        "min_agents": 3
+      },
+      "heartbeat_verification": {
+        "min_success_rate_percent": 95.0
+      },
+      "concurrent_commands": {
+        "max_error_rate_percent": 5.0
+      }
+    },
+    "agent_registration": {
+      "max_time_per_agent_ms": 500,
+      "max_total_time_100_agents_seconds": 30
+    },
+    "state_application": {
+      "max_time_per_resource_ms": 1000,
+      "max_drift_check_time_ms": 500
+    },
+    "event_processing": {
+      "min_events_per_second": 1000,
+      "max_p99_latency_ms": 100
+    },
+    "policy_evaluation": {
+      "min_evaluations_per_second": 500,
+      "max_p99_latency_ms": 50
+    }
+  },
+  "regression_thresholds": {
+    "throughput_decrease_percent": 20,
+    "latency_increase_percent": 50,
+    "error_rate_increase_percent": 100
+  },
+  "notes": [
+    "These baselines are used for CI/CD regression detection",
+    "Values are derived from performance testing on standard hardware",
+    "Adjust thresholds based on your deployment environment",
+    "Regressions beyond thresholds will fail the CI build"
+  ]
+}

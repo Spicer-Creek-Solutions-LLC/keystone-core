@@ -35,7 +35,7 @@ While Keystone Core draws inspiration from Salt Project, it's designed from the 
 
 ### Is Keystone Core production-ready?
 
-Keystone Core has completed 25 Epics and has extensive test coverage. However, review the [Known Implementation Gaps](/docs/concepts/implementation-status/) before production deployment. The project is actively developed with focus on security and stability.
+Keystone Core has completed 25 Epics and has extensive test coverage. However, review the [Known Implementation Gaps](/docs/community/roadmap/) before production deployment. The project is actively developed with focus on security and stability.
 
 ## Installation & Setup
 

@@ -3683,6 +3683,354 @@ kscore-telemetry-gateway \
 
 Agents are distributed across instances using consistent hashing.
 
+## Command Migration Guide
+
+This section documents the CLI command restructuring in version 0.4.0 and provides migration guidance for scripts and automation.
+
+### Overview
+
+In version 0.4.0, the monolithic `kscorectl` command was split into focused plugins for better maintainability and clearer responsibility boundaries. This guide helps you update existing scripts and workflows.
+
+### Command Mapping Table
+
+#### Agent Commands
+
+| Old Command (< 0.4.0) | New Command (≥ 0.4.0) | Notes |
+|----------------------|----------------------|-------|
+| `kscorectl agent list` | `kscorectl agent list` | Unchanged |
+| `kscorectl agent show <id>` | `kscorectl agent show <id>` | Unchanged |
+| `kscorectl agent exec <cmd>` | `kscorectl exec run <cmd>` | Moved to exec plugin |
+| `kscorectl agent shell <id>` | `kscorectl exec shell <id>` | Moved to exec plugin |
+| `kscorectl agent run-script` | `kscorectl exec script` | Moved to exec plugin |
+| `kscorectl agent upload` | `kscorectl files push` | Moved to files plugin |
+| `kscorectl agent download` | `kscorectl files pull` | Moved to files plugin |
+
+#### State Commands
+
+| Old Command (< 0.4.0) | New Command (≥ 0.4.0) | Notes |
+|----------------------|----------------------|-------|
+| `kscorectl apply <file>` | `kscorectl state apply <file>` | Requires `state` prefix |
+| `kscorectl check <file>` | `kscorectl state check <file>` | Requires `state` prefix |
+| `kscorectl show-state` | `kscorectl state show` | Renamed |
+| `kscorectl highstate` | `kscorectl state apply --all` | Deprecated term |
+| `kscorectl state.apply` | `kscorectl state apply` | Salt-style removed |
+
+#### Execution Commands
+
+| Old Command (< 0.4.0) | New Command (≥ 0.4.0) | Notes |
+|----------------------|----------------------|-------|
+| `kscorectl run <cmd>` | `kscorectl exec run <cmd>` | Moved to exec plugin |
+| `kscorectl cmd.run <cmd>` | `kscorectl exec run <cmd>` | Salt-style removed |
+| `kscorectl shell` | `kscorectl exec shell` | Moved to exec plugin |
+| `kscorectl script <file>` | `kscorectl exec script <file>` | Moved to exec plugin |
+| `kscorectl batch <file>` | `kscorectl exec batch <file>` | Moved to exec plugin |
+
+#### Cluster Commands
+
+| Old Command (< 0.4.0) | New Command (≥ 0.4.0) | Notes |
+|----------------------|----------------------|-------|
+| `kscorectl cluster-status` | `kscorectl cluster status` | Subcommand structure |
+| `kscorectl cluster-health` | `kscorectl cluster health` | Subcommand structure |
+| `kscorectl cluster-members` | `kscorectl cluster members` | Subcommand structure |
+| `kscorectl join` | `kscorectl cluster join` | Moved to cluster plugin |
+| `kscorectl leave` | `kscorectl cluster leave` | Moved to cluster plugin |
+
+#### Policy Commands
+
+| Old Command (< 0.4.0) | New Command (≥ 0.4.0) | Notes |
+|----------------------|----------------------|-------|
+| `kscorectl policy-list` | `kscorectl policy list` | Subcommand structure |
+| `kscorectl policy-eval` | `kscorectl policy evaluate` | Renamed |
+| `kscorectl compliance` | `kscorectl policy report` | Moved to policy plugin |
+
+#### Module Commands
+
+| Old Command (< 0.4.0) | New Command (≥ 0.4.0) | Notes |
+|----------------------|----------------------|-------|
+| `kscorectl module-list` | `kscorectl module list` | Subcommand structure |
+| `kscorectl module-install` | `kscorectl module install` | Subcommand structure |
+| `kscorectl module-publish` | `kscorectl module publish` | Subcommand structure |
+
+#### GitOps Commands
+
+| Old Command (< 0.4.0) | New Command (≥ 0.4.0) | Notes |
+|----------------------|----------------------|-------|
+| `kscorectl gitops-status` | `kscorectl gitops status` | Subcommand structure |
+| `kscorectl gitops-sync` | `kscorectl gitops sync` | Subcommand structure |
+| `kscorectl deploy` | `kscorectl gitops deploy` | Moved to gitops plugin |
+
+#### Identity Commands
+
+| Old Command (< 0.4.0) | New Command (≥ 0.4.0) | Notes |
+|----------------------|----------------------|-------|
+| `kscorectl identity-list` | `kscorectl identity list` | Subcommand structure |
+| `kscorectl svid-show` | `kscorectl identity svid show` | Nested subcommand |
+| `kscorectl ca-rotate` | `kscorectl identity ca rotate` | Nested subcommand |
+
+### Deprecated Commands
+
+The following commands are deprecated and will be removed in version 0.6.0:
+
+| Deprecated Command | Replacement | Removal Version |
+|-------------------|-------------|-----------------|
+| `kscorectl cmd.run` | `kscorectl exec run` | 0.6.0 |
+| `kscorectl state.apply` | `kscorectl state apply` | 0.6.0 |
+| `kscorectl highstate` | `kscorectl state apply --all` | 0.6.0 |
+| `kscorectl pillar.get` | `kscorectl vars get` | 0.6.0 |
+| `kscorectl grains.items` | `kscorectl facts list` | 0.6.0 |
+
+### Migration Scripts
+
+#### Automated Script Migration
+
+Use the migration tool to update scripts:
+
+```bash
+# Scan scripts for deprecated commands
+kscore-migrate scan-scripts \
+  --path ./scripts \
+  --output migration-report.json
+
+# Preview changes
+kscore-migrate update-scripts \
+  --path ./scripts \
+  --dry-run
+
+# Apply changes
+kscore-migrate update-scripts \
+  --path ./scripts \
+  --backup .bak
+```
+
+#### Manual Migration Examples
+
+**Before (< 0.4.0)**:
+```bash
+#!/bin/bash
+# Old script using deprecated commands
+
+# Execute command on agents
+kscorectl run "hostname" --target "role=web"
+
+# Apply state
+kscorectl apply /etc/kscore/states/nginx.yaml
+
+# Check cluster health
+kscorectl cluster-health
+
+# Show compliance
+kscorectl compliance --report
+```
+
+**After (≥ 0.4.0)**:
+```bash
+#!/bin/bash
+# Updated script using new commands
+
+# Execute command on agents
+kscorectl exec run "hostname" --target "role=web"
+
+# Apply state
+kscorectl state apply /etc/kscore/states/nginx.yaml
+
+# Check cluster health
+kscorectl cluster health
+
+# Show compliance
+kscorectl policy report
+```
+
+### Flag Changes
+
+#### Renamed Flags
+
+| Old Flag | New Flag | Commands |
+|----------|----------|----------|
+| `--agents` | `--target` | exec, state |
+| `--glob` | `--target` | exec, state |
+| `--nodegroup` | `--target` | exec, state |
+| `--timeout-minutes` | `--timeout` | exec (now accepts duration) |
+| `--output-format` | `--output` | all |
+| `--concurrent` | `--parallel` | exec, state |
+
+#### Removed Flags
+
+| Removed Flag | Replacement | Notes |
+|--------------|-------------|-------|
+| `--batch` | `--parallel` | Use parallel with number |
+| `--return` | Default behavior | Results always returned |
+| `--async` | `--background` | Renamed for clarity |
+| `--jid` | `--job-id` | Renamed for clarity |
+
+#### Flag Value Changes
+
+**Timeout values** now use Go duration format:
+
+```bash
+# Old (minutes as integer)
+kscorectl run "command" --timeout-minutes 5
+
+# New (duration string)
+kscorectl exec run "command" --timeout 5m
+```
+
+**Target expressions** unified across commands:
+
+```bash
+# Old (multiple formats)
+kscorectl run "cmd" --agents "web*"
+kscorectl run "cmd" --glob "web*"
+kscorectl run "cmd" --nodegroup "production"
+
+# New (unified --target with expressions)
+kscorectl exec run "cmd" --target "hostname=web*"
+kscorectl exec run "cmd" --target "environment=production"
+kscorectl exec run "cmd" --target "role=web AND datacenter=us-east-1"
+```
+
+### Environment Variable Changes
+
+| Old Variable | New Variable | Notes |
+|--------------|--------------|-------|
+| `KSCORE_MASTER` | `KSCORE_SERVER` | Renamed |
+| `KSCORE_MINION_ID` | `KSCORE_AGENT_ID` | Renamed |
+| `KSCORE_OUTPUT_FORMAT` | `KSCORE_OUTPUT` | Shortened |
+| `KSCORE_TIMEOUT_MINUTES` | `KSCORE_TIMEOUT` | Now duration format |
+
+### CI/CD Pipeline Migration
+
+#### GitHub Actions
+
+**Before**:
+```yaml
+- name: Apply state
+  run: |
+    kscorectl apply infra/state.yaml --target "env=${{ env.ENVIRONMENT }}"
+    kscorectl run "systemctl status nginx" --target "role=web"
+```
+
+**After**:
+```yaml
+- name: Apply state
+  run: |
+    kscorectl state apply infra/state.yaml --target "environment=${{ env.ENVIRONMENT }}"
+    kscorectl exec run "systemctl status nginx" --target "role=web"
+```
+
+#### GitLab CI
+
+**Before**:
+```yaml
+deploy:
+  script:
+    - kscorectl apply ${STATE_FILE}
+    - kscorectl cluster-health
+```
+
+**After**:
+```yaml
+deploy:
+  script:
+    - kscorectl state apply ${STATE_FILE}
+    - kscorectl cluster health
+```
+
+#### Jenkins
+
+**Before**:
+```groovy
+sh 'kscorectl run "service nginx restart" --agents "web*"'
+sh 'kscorectl compliance --report > compliance.html'
+```
+
+**After**:
+```groovy
+sh 'kscorectl exec run "service nginx restart" --target "hostname=web*"'
+sh 'kscorectl policy report --output html > compliance.html'
+```
+
+### Shell Completion Updates
+
+After upgrading, regenerate shell completions:
+
+```bash
+# Bash
+kscorectl completion bash > /etc/bash_completion.d/kscorectl
+
+# Zsh
+kscorectl completion zsh > "${fpath[1]}/_kscorectl"
+
+# Fish
+kscorectl completion fish > ~/.config/fish/completions/kscorectl.fish
+
+# PowerShell
+kscorectl completion powershell > $HOME\Documents\WindowsPowerShell\Modules\kscorectl\kscorectl.psm1
+```
+
+### Alias Recommendations
+
+For users transitioning, these aliases help maintain muscle memory:
+
+```bash
+# ~/.bashrc or ~/.zshrc
+
+# State shortcuts
+alias ks-apply='kscorectl state apply'
+alias ks-check='kscorectl state check'
+
+# Exec shortcuts
+alias ks-run='kscorectl exec run'
+alias ks-shell='kscorectl exec shell'
+
+# Legacy compatibility aliases (temporary)
+alias kscorectl-run='kscorectl exec run'
+alias kscorectl-apply='kscorectl state apply'
+```
+
+### Compatibility Mode
+
+For gradual migration, enable compatibility mode:
+
+```yaml
+# ~/.kscore/config.yaml
+cli:
+  compatibility_mode: true  # Accept both old and new commands
+  deprecation_warnings: true  # Show warnings for deprecated usage
+```
+
+With compatibility mode:
+- Old commands still work but show deprecation warnings
+- Helps identify scripts that need updating
+- Disable before 0.6.0 release
+
+### Migration Checklist
+
+- [ ] Review all scripts using `kscore-migrate scan-scripts`
+- [ ] Update CI/CD pipeline configurations
+- [ ] Update automation playbooks
+- [ ] Regenerate shell completions
+- [ ] Update monitoring/alerting that parses CLI output
+- [ ] Update documentation referencing CLI commands
+- [ ] Test all integrations in staging environment
+- [ ] Remove compatibility mode after migration
+
+### Getting Help
+
+If you encounter issues during migration:
+
+```bash
+# Check command mapping
+kscorectl help migrate
+
+# Show deprecation warnings interactively
+kscorectl --show-deprecated
+
+# Get help for new command structure
+kscorectl exec --help
+kscorectl state --help
+kscorectl policy --help
+```
+
 ## See Also
 
 - [API Reference](../api/) - REST/gRPC API

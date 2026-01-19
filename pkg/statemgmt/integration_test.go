@@ -80,9 +80,9 @@ cmd:
 
 	// Step 2: Validate the state file
 	validator := NewValidator()
-	errors := validator.Validate(stateFile)
-	if len(errors) > 0 {
-		t.Fatalf("Validation failed with %d errors: %v", len(errors), errors[0])
+	result := validator.Validate(stateFile)
+	if !result.Valid {
+		t.Fatalf("Validation failed with %d errors: %s", result.Errors, result.Summary())
 	}
 
 	// Step 3: Dry run - preview changes

@@ -1,0 +1,396 @@
+# Keystone Core Performance Benchmark Pipeline
+# Runs performance tests and detects regressions against baseline
+
+name: Benchmark
+
+on:
+  # Run on main branch pushes to update baseline
+  push:
+    branches: [main]
+    paths:
+      - 'pkg/**'
+      - 'cmd/**'
+      - 'test/e2e/performance/**'
+  # Run on PRs to detect regressions
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'pkg/**'
+      - 'cmd/**'
+      - 'test/e2e/performance/**'
+  # Weekly scheduled run
+  schedule:
+    - cron: '0 2 * * 0'  # 2 AM UTC every Sunday
+  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      update_baseline:
+        description: 'Update baseline with new results'
+        type: boolean
+        default: false
+
+env:
+  GO_VERSION: '1.21'
+  CGO_ENABLED: '1'
+
+jobs:
+  benchmark:
+    name: Performance Benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      # PostgreSQL for database benchmarks
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: kscore
+          POSTGRES_PASSWORD: kscore
+          POSTGRES_DB: kscore_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install dependencies
+        run: |
+          go mod download
+          go install golang.org/x/perf/cmd/benchstat@latest
+
+      - name: Run Go benchmarks
+        run: |
+          mkdir -p benchmark-results
+
+          # Run package benchmarks
+          go test -bench=. -benchmem -count=5 -timeout=10m \
+            ./pkg/... 2>&1 | tee benchmark-results/go-bench.txt
+
+          # Filter to just benchmark lines
+          grep -E '^Benchmark|^pkg:' benchmark-results/go-bench.txt > benchmark-results/go-bench-filtered.txt || true
+
+      - name: Run E2E performance tests
+        if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'run-perf-tests')
+        run: |
+          # Start test environment
+          cd test/e2e
+          docker-compose -f containers/docker-compose.yml up -d
+
+          # Wait for services
+          sleep 30
+
+          # Run performance tests
+          cd ../..
+          KSCORE_E2E_TESTS=1 KSCORE_PERF_TESTS=1 \
+          go test -v -timeout=15m \
+            ./test/e2e/performance/... 2>&1 | tee benchmark-results/e2e-perf.txt
+
+          # Stop test environment
+          cd test/e2e
+          docker-compose -f containers/docker-compose.yml down
+        continue-on-error: true
+
+      - name: Download previous benchmark
+        if: github.event_name == 'pull_request'
+        uses: actions/cache@v4
+        with:
+          path: benchmark-results/baseline
+          key: benchmark-baseline-${{ github.base_ref }}
+          restore-keys: |
+            benchmark-baseline-main
+            benchmark-baseline-
+
+      - name: Compare with baseline
+        id: compare
+        run: |
+          # Create comparison script
+          cat > compare-benchmark.sh << 'SCRIPT'
+          #!/bin/bash
+          set -e
+
+          BASELINE_FILE="test/e2e/performance/baselines/baseline.json"
+          RESULTS_DIR="benchmark-results"
+
+          if [ ! -f "$BASELINE_FILE" ]; then
+            echo "No baseline file found, skipping comparison"
+            exit 0
+          fi
+
+          # Extract baseline thresholds
+          THROUGHPUT_THRESHOLD=$(jq -r '.regression_thresholds.throughput_decrease_percent' "$BASELINE_FILE")
+          LATENCY_THRESHOLD=$(jq -r '.regression_thresholds.latency_increase_percent' "$BASELINE_FILE")
+          ERROR_THRESHOLD=$(jq -r '.regression_thresholds.error_rate_increase_percent' "$BASELINE_FILE")
+
+          echo "=== Regression Thresholds ==="
+          echo "Throughput decrease limit: ${THROUGHPUT_THRESHOLD}%"
+          echo "Latency increase limit: ${LATENCY_THRESHOLD}%"
+          echo "Error rate increase limit: ${ERROR_THRESHOLD}%"
+          echo ""
+
+          # Check if we have previous results to compare
+          if [ -d "$RESULTS_DIR/baseline" ]; then
+            echo "=== Comparing with previous baseline ==="
+
+            if [ -f "$RESULTS_DIR/go-bench-filtered.txt" ] && [ -f "$RESULTS_DIR/baseline/go-bench-filtered.txt" ]; then
+              echo "--- Go Benchmark Comparison ---"
+              benchstat "$RESULTS_DIR/baseline/go-bench-filtered.txt" "$RESULTS_DIR/go-bench-filtered.txt" || true
+            fi
+          else
+            echo "No previous baseline found for comparison"
+          fi
+
+          # Check E2E performance test results
+          if [ -f "$RESULTS_DIR/e2e-perf.txt" ]; then
+            echo ""
+            echo "=== E2E Performance Test Results ==="
+
+            # Extract key metrics
+            FAILURES=$(grep -c "FAIL" "$RESULTS_DIR/e2e-perf.txt" || echo "0")
+            PASSES=$(grep -c "PASS" "$RESULTS_DIR/e2e-perf.txt" || echo "0")
+
+            echo "Tests passed: $PASSES"
+            echo "Tests failed: $FAILURES"
+
+            if [ "$FAILURES" -gt "0" ]; then
+              echo ""
+              echo "::warning::Performance tests had $FAILURES failures"
+              # Extract failure details
+              grep -A5 "FAIL" "$RESULTS_DIR/e2e-perf.txt" || true
+            fi
+          fi
+
+          # Generate summary
+          echo ""
+          echo "=== Benchmark Summary ==="
+          echo "Benchmark run completed at: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+          if [ -f "$RESULTS_DIR/go-bench-filtered.txt" ]; then
+            BENCH_COUNT=$(wc -l < "$RESULTS_DIR/go-bench-filtered.txt")
+            echo "Go benchmarks run: $BENCH_COUNT"
+          fi
+          SCRIPT
+
+          chmod +x compare-benchmark.sh
+          ./compare-benchmark.sh
+        continue-on-error: true
+
+      - name: Check for regressions
+        id: check-regressions
+        run: |
+          # Parse E2E results for regressions
+          REGRESSION_FOUND=false
+
+          if [ -f benchmark-results/e2e-perf.txt ]; then
+            # Check for explicit regression markers
+            if grep -q "regression" benchmark-results/e2e-perf.txt; then
+              REGRESSION_FOUND=true
+            fi
+
+            # Check error rates
+            if grep -q "Error rate too high" benchmark-results/e2e-perf.txt; then
+              REGRESSION_FOUND=true
+            fi
+
+            # Check throughput
+            if grep -q "Throughput too low" benchmark-results/e2e-perf.txt; then
+              REGRESSION_FOUND=true
+            fi
+          fi
+
+          if [ "$REGRESSION_FOUND" = "true" ]; then
+            echo "regression=true" >> "$GITHUB_OUTPUT"
+            echo "::error::Performance regression detected!"
+          else
+            echo "regression=false" >> "$GITHUB_OUTPUT"
+            echo "No performance regressions detected"
+          fi
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: benchmark-results/
+          retention-days: 30
+
+      - name: Save benchmark for future comparison
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v4
+        with:
+          path: benchmark-results
+          key: benchmark-baseline-main-${{ github.sha }}
+
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        env:
+          REGRESSION_STATUS: ${{ steps.check-regressions.outputs.regression }}
+        with:
+          script: |
+            const fs = require('fs');
+            const regression = process.env.REGRESSION_STATUS;
+
+            let body = '## Performance Benchmark Results\n\n';
+
+            // Read benchmark results
+            try {
+              const results = fs.readFileSync('benchmark-results/go-bench-filtered.txt', 'utf8');
+              const lines = results.split('\n').filter(l => l.startsWith('Benchmark'));
+
+              if (lines.length > 0) {
+                body += '### Go Benchmarks\n\n';
+                body += '```\n';
+                body += lines.slice(0, 20).join('\n');  // Show first 20
+                if (lines.length > 20) {
+                  body += `\n... and ${lines.length - 20} more\n`;
+                }
+                body += '```\n\n';
+              }
+            } catch (e) {
+              body += '_No Go benchmark results available_\n\n';
+            }
+
+            // Check for regressions
+            if (regression === 'true') {
+              body += '### :warning: Performance Regression Detected\n\n';
+              body += 'Please review the benchmark results and address any performance issues before merging.\n\n';
+            } else {
+              body += '### :white_check_mark: No Regressions Detected\n\n';
+            }
+
+            body += '_Full results available in workflow artifacts_\n';
+
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('Performance Benchmark Results')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
+
+      - name: Fail on regression
+        if: steps.check-regressions.outputs.regression == 'true' && github.event_name == 'pull_request'
+        run: |
+          echo "Performance regression detected. Failing build."
+          exit 1
+
+  benchmark-report:
+    name: Generate Benchmark Report
+    runs-on: ubuntu-latest
+    needs: benchmark
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download benchmark results
+        uses: actions/download-artifact@v4
+        with:
+          name: benchmark-results
+          path: benchmark-results/
+
+      - name: Generate report
+        run: |
+          mkdir -p reports
+
+          cat > reports/benchmark-report.md << 'EOF'
+          # Keystone Core Benchmark Report
+
+          Generated: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          Commit: ${{ github.sha }}
+
+          ## Summary
+
+          EOF
+
+          # Add Go benchmark summary
+          if [ -f benchmark-results/go-bench-filtered.txt ]; then
+            echo "### Go Benchmarks" >> reports/benchmark-report.md
+            echo "" >> reports/benchmark-report.md
+            echo '```' >> reports/benchmark-report.md
+            head -50 benchmark-results/go-bench-filtered.txt >> reports/benchmark-report.md
+            echo '```' >> reports/benchmark-report.md
+          fi
+
+          # Add E2E perf summary
+          if [ -f benchmark-results/e2e-perf.txt ]; then
+            echo "" >> reports/benchmark-report.md
+            echo "### E2E Performance Tests" >> reports/benchmark-report.md
+            echo "" >> reports/benchmark-report.md
+            grep -E "(PASS|FAIL|throughput|latency)" benchmark-results/e2e-perf.txt | head -30 >> reports/benchmark-report.md || true
+          fi
+
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-report
+          path: reports/
+          retention-days: 90
+
+  update-baseline:
+    name: Update Baseline
+    runs-on: ubuntu-latest
+    needs: benchmark
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.update_baseline == 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download benchmark results
+        uses: actions/download-artifact@v4
+        with:
+          name: benchmark-results
+          path: benchmark-results/
+
+      - name: Update baseline file
+        run: |
+          # In a real implementation, this would parse results and update baseline.json
+          echo "Baseline update would happen here"
+          echo "Results from: $(date -u)"
+
+          # For now, just update the timestamp
+          jq '.updated = "'"$(date +%Y-%m-%d)"'"' \
+            test/e2e/performance/baselines/baseline.json > /tmp/baseline.json
+          mv /tmp/baseline.json test/e2e/performance/baselines/baseline.json
+
+      - name: Commit baseline update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add test/e2e/performance/baselines/
+          git commit -m "chore: update performance baseline" || echo "No changes to commit"
+          git push
