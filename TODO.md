@@ -33,7 +33,7 @@ This is a TODO list of work that still needs to be done outside any current epic
 ### Test Coverage Improvements
 - [ ] Epic 3 (State Management): Increase coverage from 44% to >80%
 - [ ] Add edge case tests for complex requisite chains and circular dependencies
-- [ ] Add comprehensive cross-platform testing (Windows, macOS)
+- [x] Add comprehensive cross-platform testing (Windows, macOS) → Epic 32
 - [ ] Add integration tests between all major epics
 - [ ] Implement load test scenarios with configurable agent counts
 
@@ -46,10 +46,10 @@ This is a TODO list of work that still needs to be done outside any current epic
 - [x] Add automated performance benchmarking to CI/CD with regression alerting
 - [x] Benchmark pure Go SQLite vs CGO implementation (Epic 13)
 - [x] Benchmark IPv6 vs IPv4 performance (Epic 18)
-- [ ] Benchmark Windows vs Linux agent performance (Epic 20)
+- [x] Benchmark Windows vs Linux agent performance (Epic 20) → Epic 32
 - [x] Benchmark large file distribution performance (Epic 22)
-- [ ] Benchmark high-volume SVID issuance scenarios (Epic 17)
-- [ ] Benchmark gateway performance at scale (Epic 19)
+- [x] Benchmark high-volume SVID issuance scenarios (Epic 17) → Epic 33
+- [x] Benchmark gateway performance at scale (Epic 19) → Epic 33
 
 ### Documentation Improvements
 - [x] Expand REST API reference with OpenAPI/Swagger documentation
@@ -124,17 +124,17 @@ This is a TODO list of work that still needs to be done outside any current epic
 - [x] Implement distributed tracing correlation IDs across all request types
 
 ### Epic 8 (Multi-Environment) Gaps
-- [ ] Expand GCP/Azure integrations to match AWS coverage
+- [x] Expand GCP/Azure integrations to match AWS coverage → Epic 33
 - [ ] Implement automated bare metal discovery with profile matching
 - [x] Document edge cache invalidation policies and TTL configuration
 - [ ] Complete service mesh integration with mTLS policy verification
-- [ ] Add CI/CD jobs for real K8s cluster testing (EKS, GKE, AKS)
+- [x] Add CI/CD jobs for real K8s cluster testing (EKS, GKE, AKS) → Epic 33
 - [ ] Implement K8s NetworkPolicy integration for network enforcement
 - [ ] Add comprehensive container registry authentication support
 
 ### Epic 9 (Plugin System) Gaps
 - [x] Expand stdlib with yaml, xml, database, and http2 modules
-- [ ] Implement Starlark debugger with breakpoints and step execution
+- [x] Implement Starlark debugger with breakpoints and step execution → Epic 32
 - [x] Auto-generate module documentation from code annotations
 - [x] Version lock file format with migration tooling
 - [x] Create standard module testing framework
@@ -152,20 +152,20 @@ This is a TODO list of work that still needs to be done outside any current epic
 - [ ] Integrate etcd backup/restore with cluster backup system
 - [x] Publish latency benchmarks for leader election and agent handoff
 - [x] Document scaling guidelines for clusters >5 nodes
-- [ ] Characterize rebalance performance impact with metrics
+- [x] Characterize rebalance performance impact with metrics → Epic 33
 - [x] Provide default alert rules for cluster health monitoring
 - [x] Add network partition simulation tests
 
 ### Epic 12 (E2E Testing) Gaps
 - [x] Replace time.Sleep with condition-based waits and timeout helpers
-- [ ] Implement performance baseline tracking with alerting for regressions
-- [ ] Add multi-cloud CI/CD pipelines for real cluster testing
-- [ ] Implement chaos engineering tests (partition, latency injection, failures)
+- [x] Implement performance baseline tracking with alerting for regressions → Epic 33
+- [x] Add multi-cloud CI/CD pipelines for real cluster testing → Epic 33
+- [x] Implement chaos engineering tests (partition, latency injection, failures) → Epic 33
 - [ ] Add comprehensive security testing covering auth/authz/audit scenarios
 
 ### Epic 14 (NATS Mesh) Gaps
 - [x] Document subject namespace with examples
-- [ ] Characterize supercluster failover and recovery times
+- [x] Characterize supercluster failover and recovery times → Epic 33
 - [x] Implement and document message ordering guarantees
 - [x] Implement publisher backpressure with flow control
 - [x] Curate NATS metrics dashboards for common scenarios
@@ -185,7 +185,7 @@ This is a TODO list of work that still needs to be done outside any current epic
 
 ### Epic 16 (Stdlib Modules) Gaps
 - [ ] Increase unit test coverage to >80% for all modules
-- [ ] Add comprehensive cross-platform testing (Windows, macOS)
+- [x] Add comprehensive cross-platform testing (Windows, macOS) → Epic 32
 - [x] Add real-world examples to module documentation
 - [x] Improve error messages with actionable suggestions
 - [x] Implement dry-run/preview mode for all write operations
@@ -197,13 +197,13 @@ This is a TODO list of work that still needs to be done outside any current epic
 - [x] Implement automatic CA rotation scheduling with alerting
 - [ ] Simplify trust federation setup with interactive wizard
 - [ ] Add automatic fallback between attestation methods
-- [ ] Expand cloud provider attestation testing to real environments
+- [x] Expand cloud provider attestation testing to real environments → Epic 33
 - [x] Implement certificate pinning for service-to-service communication
 - [x] Add identity audit query API with compliance reporting
 
 ### Epic 18 (IPv6) Gaps
 - [x] Add IPv6 deployment documentation
-- [ ] Enable IPv6 testing in all CI/CD jobs
+- [x] Enable IPv6 testing in all CI/CD jobs → Epic 33
 - [ ] Implement cloud provider IPv6 metadata detection
 - [x] Document IPv6 firewall configuration for common platforms
 - [x] Implement automatic IPv4/IPv6 failover
@@ -219,7 +219,7 @@ This is a TODO list of work that still needs to be done outside any current epic
 - [x] Implement gateway configuration validation
 
 ### Epic 20 (Windows) Gaps
-- [ ] Add comprehensive Windows CI/CD testing matrix
+- [x] Add comprehensive Windows CI/CD testing matrix → Epic 32
 - [x] Expand Windows deployment documentation
 - [x] Document PowerShell version requirements and compatibility
 - [x] Create UAC handling guide for common scenarios
@@ -229,11 +229,11 @@ This is a TODO list of work that still needs to be done outside any current epic
 - [x] Create Windows troubleshooting guide
 
 ### Epic 21 (Proxy Agents) Gaps
-- [ ] Add support for additional protocols (Telnet, NETCONF, RESTCONF)
-- [ ] Expand vendor support (HP, Dell, Checkpoint, etc.)
-- [ ] Add real network device testing to CI/CD
-- [ ] Benchmark large numbers of proxy agents
-- [ ] Implement automatic credential rotation for all backends
+- [x] Add support for additional protocols (Telnet, NETCONF, RESTCONF) → Epic 35
+- [x] Expand vendor support (HP, Dell, Checkpoint, etc.) → Epic 35
+- [x] Add real network device testing to CI/CD → Epic 33
+- [x] Benchmark large numbers of proxy agents → Epic 33
+- [x] Implement automatic credential rotation for all backends → Epic 35
 - [x] Expand vendor-specific documentation
 - [x] Add detailed protocol debugging/logging
 - [x] Document vendor API compatibility matrix
@@ -241,7 +241,7 @@ This is a TODO list of work that still needs to be done outside any current epic
 ### Epic 22 (File Distribution) Gaps
 - [x] Implement automatic compression with configurable algorithms
 - [x] Add bandwidth throttling for downloads
-- [ ] Comprehensive mirror consistency testing
+- [x] Comprehensive mirror consistency testing → Epic 33
 - [ ] Tighter integration with policy engine for access control
 - [x] Implement conflict resolution strategies (last-write-wins, version-based)
 - [x] Add storage backend failover with queuing
@@ -254,40 +254,40 @@ This is a TODO list of work that still needs to be done outside any current epic
 - [x] Implement automatic DR drill scheduling and reporting
 - [x] Expand runbook templates with additional operational scenarios
 - [x] Create comprehensive version compatibility matrix
-- [ ] Characterize upgrade downtime by deployment scale
+- [x] Characterize upgrade downtime by deployment scale → Epic 33
 
 ### Epic 25 (Blueprints) Gaps
-- [ ] Complete runtime implementation with full feature support
-- [ ] Build comprehensive blueprint testing framework
+- [x] Complete runtime implementation with full feature support → Epic 34
+- [x] Build comprehensive blueprint testing framework → Epic 34
 - [x] Create 10+ real-world blueprint examples
 - [x] Improve parameter validation error messages
-- [ ] Expand rollback mechanism with comprehensive testing
+- [x] Expand rollback mechanism with comprehensive testing → Epic 34
 - [x] Complete blueprint authoring documentation
-- [ ] Finalize registry design and implementation
-- [ ] Create blueprint marketplace and discovery mechanism
+- [x] Finalize registry design and implementation → Epic 34
+- [x] Create blueprint marketplace and discovery mechanism → Epic 34
 
 ### Epic 27 (Bootstrap) Gaps
 - [ ] Implement comprehensive error recovery with detailed diagnostics
 - [x] Complete bootstrap documentation for all scenarios
-- [ ] Add Windows and macOS bootstrap support
+- [x] Add Windows and macOS bootstrap support → Epic 32
 - [ ] Implement atomic bootstrap with automatic rollback
 - [x] Optimize bootstrap performance and add progress reporting
 
 ### Epic 28 (Standard Blueprints) Gaps
-- [ ] Expand real-world testing on production-like environments
+- [x] Expand real-world testing on production-like environments → Epic 33
 - [x] Review and refine parameter defaults based on feedback
 - [x] Complete blueprint documentation with examples
-- [ ] Create Windows and macOS deployment blueprints
-- [ ] Implement automatic blueprint update mechanism
+- [x] Create Windows and macOS deployment blueprints → Epic 32
+- [x] Implement automatic blueprint update mechanism → Epic 34
 
 ### Epic 29 (Bootstrap Testing) Gaps
-- [ ] Implement VM-based testing infrastructure (Epic 100)
-- [ ] Comprehensive failure scenario testing
-- [ ] Establish and track bootstrap performance baselines
-- [ ] Add Windows and macOS bootstrap testing
+- [x] Implement VM-based testing infrastructure → Epic 32
+- [x] Comprehensive failure scenario testing → Epic 33
+- [x] Establish and track bootstrap performance baselines → Epic 33
+- [x] Add Windows and macOS bootstrap testing → Epic 32
 - [ ] Comprehensive recovery and rollback testing
-- [ ] Test bootstrap at scale (many agents simultaneously)
-- [ ] Add chaos testing for bootstrap scenarios
+- [x] Test bootstrap at scale (many agents simultaneously) → Epic 33
+- [x] Add chaos testing for bootstrap scenarios → Epic 33
 
 ---
 
