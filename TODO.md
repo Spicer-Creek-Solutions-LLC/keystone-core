@@ -34,7 +34,7 @@ This is a TODO list of work that still needs to be done outside any current epic
 - [x] Implement atomic bootstrap with automatic rollback (checkpoint/transaction system)
 
 ### Epic 29 (Bootstrap Testing) Gaps
-- [ ] Comprehensive recovery and rollback testing
+- [x] Comprehensive recovery and rollback testing
 
 ---
 
