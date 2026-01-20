@@ -75,7 +75,7 @@ backup:
         region: us-east-1
       encryption:
         enabled: true
-        kms_key_id: alias/kscore-backup
+        kms_key_id: alias/kscore-cluster-backup
 
     - name: state-files
       type: files
@@ -98,7 +98,7 @@ backup:
         region: us-east-1
       encryption:
         enabled: true
-        kms_key_id: alias/kscore-backup
+        kms_key_id: alias/kscore-cluster-backup
 
   replication:
     enabled: true
@@ -541,7 +541,7 @@ tail -100 /var/log/kscore/backup.log
 aws s3 cp /tmp/test.txt s3://kscore-backups/test.txt
 
 # Check KMS key access
-aws kms describe-key --key-id alias/kscore-backup
+aws kms describe-key --key-id alias/kscore-cluster-backup
 ```
 
 ### Restore Failures

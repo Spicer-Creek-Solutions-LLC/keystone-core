@@ -173,6 +173,13 @@ type ParameterSchema struct {
 	// Feature restricts this parameter to when a feature is enabled
 	Feature string `yaml:"feature,omitempty" json:"feature,omitempty"`
 
+	// RequiredIf specifies conditions under which this parameter becomes required.
+	// Each element is a map of parameter name to expected value.
+	// The parameter is required if ANY condition matches (OR logic).
+	// Example: required_if: [{ssl_provider: custom}] means this parameter
+	// is required when ssl_provider equals "custom".
+	RequiredIf []map[string]interface{} `yaml:"required_if,omitempty" json:"required_if,omitempty"`
+
 	// Examples shows example values
 	Examples []interface{} `yaml:"examples,omitempty" json:"examples,omitempty"`
 

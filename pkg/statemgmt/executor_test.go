@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/events"
 )
 
 func TestExecutor_ExecuteState(t *testing.T) {
@@ -403,5 +405,387 @@ func TestExecutor_CalculateSummary(t *testing.T) {
 
 	if summary.Success {
 		t.Error("Expected overall failure (has 1 failed)")
+	}
+}
+
+func TestExecutor_EvaluateCondition(t *testing.T) {
+	executor := NewExecutor()
+	ctx := context.Background()
+
+	tests := []struct {
+		name      string
+		condition string
+		expected  bool
+	}{
+		{
+			name:      "true command",
+			condition: "true",
+			expected:  true,
+		},
+		{
+			name:      "false command",
+			condition: "false",
+			expected:  false,
+		},
+		{
+			name:      "echo succeeds",
+			condition: "echo hello",
+			expected:  true,
+		},
+		{
+			name:      "nonexistent command fails",
+			condition: "nonexistent-command-12345",
+			expected:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := executor.evaluateCondition(ctx, tt.condition)
+			if result != tt.expected {
+				t.Errorf("evaluateCondition(%q) = %v, want %v", tt.condition, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestExecutor_CalculateSummaryAllSuccess(t *testing.T) {
+	executor := NewExecutor()
+
+	run := &StateRun{
+		StartTime: time.Now(),
+		Results: []*StateResult{
+			{Success: true, Changed: true},
+			{Success: true, Changed: true},
+		},
+	}
+	run.EndTime = time.Now()
+
+	summary := executor.calculateSummary(run)
+
+	if summary.Total != 2 {
+		t.Errorf("Expected 2 total, got %d", summary.Total)
+	}
+
+	if summary.Succeeded != 2 {
+		t.Errorf("Expected 2 succeeded, got %d", summary.Succeeded)
+	}
+
+	if summary.Failed != 0 {
+		t.Errorf("Expected 0 failed, got %d", summary.Failed)
+	}
+
+	if !summary.Success {
+		t.Error("Expected overall success")
+	}
+}
+
+func TestExecutor_CalculateSummaryEmpty(t *testing.T) {
+	executor := NewExecutor()
+
+	run := &StateRun{
+		StartTime: time.Now(),
+		Results:   []*StateResult{},
+	}
+	run.EndTime = time.Now()
+
+	summary := executor.calculateSummary(run)
+
+	if summary.Total != 0 {
+		t.Errorf("Expected 0 total, got %d", summary.Total)
+	}
+
+	if !summary.Success {
+		t.Error("Expected success for empty results")
+	}
+}
+
+type mockEventPublisher struct {
+	events []*events.Event
+}
+
+func (m *mockEventPublisher) Publish(event *events.Event) error {
+	m.events = append(m.events, event)
+	return nil
+}
+
+func (m *mockEventPublisher) PublishAsync(event *events.Event) error {
+	m.events = append(m.events, event)
+	return nil
+}
+
+func (m *mockEventPublisher) Close() error {
+	return nil
+}
+
+type fakeModule struct {
+	name         string
+	checkResult  *ModuleCheckResult
+	checkErr     error
+	applyResults []*StateResult
+	applyErrs    []error
+	applyCalls   int
+}
+
+func (m *fakeModule) Name() string {
+	return m.name
+}
+
+func (m *fakeModule) ValidStates() []string {
+	return []string{"present"}
+}
+
+func (m *fakeModule) Check(ctx context.Context, decl *StateDeclaration) (*ModuleCheckResult, error) {
+	if m.checkErr != nil {
+		return nil, m.checkErr
+	}
+	if m.checkResult != nil {
+		return m.checkResult, nil
+	}
+	return &ModuleCheckResult{Matches: true}, nil
+}
+
+func (m *fakeModule) Apply(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+	callIndex := m.applyCalls
+	m.applyCalls++
+
+	if callIndex < len(m.applyErrs) && m.applyErrs[callIndex] != nil {
+		return nil, m.applyErrs[callIndex]
+	}
+	if callIndex < len(m.applyResults) && m.applyResults[callIndex] != nil {
+		return m.applyResults[callIndex], nil
+	}
+	return &StateResult{
+		StateID: decl.ID,
+		Module:  decl.Module,
+		Success: true,
+	}, nil
+}
+
+func (m *fakeModule) Test(ctx context.Context, decl *StateDeclaration) (bool, error) {
+	return true, nil
+}
+
+func TestExecutor_EmitEvent_CorrelationID(t *testing.T) {
+	mock := &mockEventPublisher{}
+	executor := &Executor{
+		EventPublisher: mock,
+		EventSource:    "",
+	}
+
+	executor.emitEvent(events.EventTypeStateApplyStart, events.SeverityInfo, map[string]interface{}{
+		"run_id": "run-123",
+	})
+
+	if len(mock.events) != 1 {
+		t.Fatalf("Expected 1 event, got %d", len(mock.events))
+	}
+
+	event := mock.events[0]
+	if event.CorrelationID != "run-123" {
+		t.Errorf("Expected correlation_id to be run-123, got %q", event.CorrelationID)
+	}
+	if event.Source != "/state-manager" {
+		t.Errorf("Expected default source, got %q", event.Source)
+	}
+}
+
+func TestExecutor_DryRun_CheckError(t *testing.T) {
+	registry := NewModuleRegistry()
+	module := &fakeModule{
+		name:     "fake",
+		checkErr: os.ErrNotExist,
+	}
+	if err := registry.Register(module); err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
+
+	executor := &Executor{
+		Registry: registry,
+		DryRun:   true,
+	}
+
+	stateFile := &StateFile{
+		Path: "test.yaml",
+		States: map[string][]StateDeclaration{
+			"fake": {
+				{
+					ID:     "fake-id",
+					Module: "fake",
+					State:  "present",
+				},
+			},
+		},
+	}
+
+	run, err := executor.ExecuteState(context.Background(), stateFile)
+	if err != nil {
+		t.Fatalf("ExecuteState returned error: %v", err)
+	}
+
+	if run.Summary.Failed != 1 {
+		t.Errorf("Expected 1 failed state, got %d", run.Summary.Failed)
+	}
+}
+
+func TestExecutor_Retry_SucceedsAfterFailure(t *testing.T) {
+	registry := NewModuleRegistry()
+	module := &fakeModule{
+		name: "fake",
+		applyErrs: []error{
+			os.ErrInvalid,
+			nil,
+		},
+		applyResults: []*StateResult{
+			nil,
+			{
+				StateID: "fake-id",
+				Module:  "fake",
+				Success: true,
+				Changed: true,
+			},
+		},
+	}
+	if err := registry.Register(module); err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
+
+	executor := &Executor{
+		Registry: registry,
+	}
+
+	stateFile := &StateFile{
+		Path: "test.yaml",
+		States: map[string][]StateDeclaration{
+			"fake": {
+				{
+					ID:     "fake-id",
+					Module: "fake",
+					State:  "present",
+					Retry: &RetryConfig{
+						Attempts:          2,
+						Delay:             time.Millisecond,
+						BackoffMultiplier: 1,
+					},
+				},
+			},
+		},
+	}
+
+	run, err := executor.ExecuteState(context.Background(), stateFile)
+	if err != nil {
+		t.Fatalf("ExecuteState returned error: %v", err)
+	}
+
+	if module.applyCalls != 2 {
+		t.Errorf("Expected 2 apply calls, got %d", module.applyCalls)
+	}
+	if run.Summary.Failed != 0 {
+		t.Errorf("Expected 0 failed states, got %d", run.Summary.Failed)
+	}
+}
+
+func TestExecutor_FailHard_ModuleMissing(t *testing.T) {
+	executor := &Executor{
+		Registry: NewModuleRegistry(),
+	}
+
+	stateFile := &StateFile{
+		Path: "test.yaml",
+		States: map[string][]StateDeclaration{
+			"missing": {
+				{
+					ID:       "missing-id",
+					Module:   "missing",
+					State:    "present",
+					FailHard: true,
+				},
+			},
+		},
+	}
+
+	run, err := executor.ExecuteState(context.Background(), stateFile)
+	if err == nil {
+		t.Fatal("Expected ExecuteState to fail for missing module with fail_hard")
+	}
+
+	if run.Summary.Failed != 1 {
+		t.Errorf("Expected 1 failed state, got %d", run.Summary.Failed)
+	}
+}
+
+func TestExecutor_SkipUnless(t *testing.T) {
+	registry := NewModuleRegistry()
+	module := &fakeModule{name: "fake"}
+	if err := registry.Register(module); err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
+
+	executor := &Executor{
+		Registry: registry,
+	}
+
+	stateFile := &StateFile{
+		Path: "test.yaml",
+		States: map[string][]StateDeclaration{
+			"fake": {
+				{
+					ID:     "skip-unless",
+					Module: "fake",
+					State:  "present",
+					Unless: "true",
+				},
+			},
+		},
+	}
+
+	run, err := executor.ExecuteState(context.Background(), stateFile)
+	if err != nil {
+		t.Fatalf("ExecuteState returned error: %v", err)
+	}
+
+	if module.applyCalls != 0 {
+		t.Errorf("Expected no apply calls, got %d", module.applyCalls)
+	}
+	if run.Summary.Unchanged != 1 {
+		t.Errorf("Expected 1 unchanged state, got %d", run.Summary.Unchanged)
+	}
+}
+
+func TestExecutor_SkipOnlyIf(t *testing.T) {
+	registry := NewModuleRegistry()
+	module := &fakeModule{name: "fake"}
+	if err := registry.Register(module); err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
+
+	executor := &Executor{
+		Registry: registry,
+	}
+
+	stateFile := &StateFile{
+		Path: "test.yaml",
+		States: map[string][]StateDeclaration{
+			"fake": {
+				{
+					ID:     "skip-onlyif",
+					Module: "fake",
+					State:  "present",
+					OnlyIf: "false",
+				},
+			},
+		},
+	}
+
+	run, err := executor.ExecuteState(context.Background(), stateFile)
+	if err != nil {
+		t.Fatalf("ExecuteState returned error: %v", err)
+	}
+
+	if module.applyCalls != 0 {
+		t.Errorf("Expected no apply calls, got %d", module.applyCalls)
+	}
+	if run.Summary.Unchanged != 1 {
+		t.Errorf("Expected 1 unchanged state, got %d", run.Summary.Unchanged)
 	}
 }

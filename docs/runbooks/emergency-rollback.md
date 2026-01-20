@@ -138,7 +138,7 @@ If rollback causes additional issues:
 
 ```bash
 # Check if previous version backup exists
-kscore-backup list --dest /backup/
+kscore-cluster-backup list --dest /backup/
 
 # Restore from pre-upgrade backup
 kscore-bootstrap restore --backup /backup/pre-upgrade.tar.gz

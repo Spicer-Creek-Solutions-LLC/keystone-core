@@ -150,7 +150,7 @@ states:
     module: file
     state: present
     path: /etc/nginx/nginx.conf
-    template: nginx.conf.j2
+    template: nginx.conf.tmpl
     vars:
       worker_processes: auto
       upstream_servers: "{{ .pillar.upstream_servers }}"

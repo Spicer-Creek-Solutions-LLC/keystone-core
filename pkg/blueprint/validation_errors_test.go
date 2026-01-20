@@ -12,8 +12,8 @@ func TestValidationError_Error(t *testing.T) {
 		Message:   "This parameter is required",
 	}
 
-	if err.Error() != "This parameter is required" {
-		t.Errorf("Error() = %s, want 'This parameter is required'", err.Error())
+	if err.Error() != "name: This parameter is required" {
+		t.Errorf("Error() = %s, want 'name: This parameter is required'", err.Error())
 	}
 }
 
@@ -131,7 +131,7 @@ func TestValidationErrors_Error(t *testing.T) {
 	}
 
 	errs.AddError("param1", ErrorKindRequired, "message1")
-	if errs.Error() != "message1" {
+	if errs.Error() != "param1: message1" {
 		t.Errorf("Single error Error() = %s", errs.Error())
 	}
 

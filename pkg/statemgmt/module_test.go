@@ -230,3 +230,140 @@ func TestDefaultRegistry(t *testing.T) {
 		}
 	}
 }
+
+func TestHasParameter(t *testing.T) {
+	tests := []struct {
+		name     string
+		params   map[string]interface{}
+		key      string
+		expected bool
+	}{
+		{
+			name:     "parameter exists",
+			params:   map[string]interface{}{"key": "value"},
+			key:      "key",
+			expected: true,
+		},
+		{
+			name:     "parameter missing",
+			params:   map[string]interface{}{"key": "value"},
+			key:      "missing",
+			expected: false,
+		},
+		{
+			name:     "nil parameters",
+			params:   nil,
+			key:      "key",
+			expected: false,
+		},
+		{
+			name:     "empty parameters",
+			params:   map[string]interface{}{},
+			key:      "key",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			decl := &StateDeclaration{Parameters: tt.params}
+			result := hasParameter(decl, tt.key)
+			if result != tt.expected {
+				t.Errorf("hasParameter() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestGetParameter(t *testing.T) {
+	tests := []struct {
+		name         string
+		params       map[string]interface{}
+		key          string
+		defaultValue interface{}
+		expected     interface{}
+	}{
+		{
+			name:         "string parameter exists",
+			params:       map[string]interface{}{"key": "value"},
+			key:          "key",
+			defaultValue: "default",
+			expected:     "value",
+		},
+		{
+			name:         "int parameter exists",
+			params:       map[string]interface{}{"num": 42},
+			key:          "num",
+			defaultValue: 0,
+			expected:     42,
+		},
+		{
+			name:         "parameter missing returns default",
+			params:       map[string]interface{}{"key": "value"},
+			key:          "missing",
+			defaultValue: "default",
+			expected:     "default",
+		},
+		{
+			name:         "nil parameters returns default",
+			params:       nil,
+			key:          "key",
+			defaultValue: "default",
+			expected:     "default",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			decl := &StateDeclaration{Parameters: tt.params}
+			result := getParameter(decl, tt.key, tt.defaultValue)
+			if result != tt.expected {
+				t.Errorf("getParameter() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestGetSliceParameter(t *testing.T) {
+	tests := []struct {
+		name     string
+		params   map[string]interface{}
+		key      string
+		expected []interface{}
+	}{
+		{
+			name:     "slice parameter exists",
+			params:   map[string]interface{}{"list": []interface{}{"a", "b", "c"}},
+			key:      "list",
+			expected: []interface{}{"a", "b", "c"},
+		},
+		{
+			name:     "parameter missing returns nil",
+			params:   map[string]interface{}{"key": "value"},
+			key:      "missing",
+			expected: nil,
+		},
+		{
+			name:     "parameter is not slice returns nil",
+			params:   map[string]interface{}{"key": "value"},
+			key:      "key",
+			expected: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			decl := &StateDeclaration{Parameters: tt.params}
+			result := getSliceParameter(decl, tt.key)
+			if tt.expected == nil {
+				if result != nil {
+					t.Errorf("getSliceParameter() = %v, want nil", result)
+				}
+			} else {
+				if len(result) != len(tt.expected) {
+					t.Errorf("getSliceParameter() length = %d, want %d", len(result), len(tt.expected))
+				}
+			}
+		})
+	}
+}

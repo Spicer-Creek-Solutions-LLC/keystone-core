@@ -41,7 +41,7 @@ func TestValidator_MissingAPIVersion(t *testing.T) {
 
 	found := false
 	for _, err := range result.Errors {
-		if err.Field == "apiVersion" {
+		if err.Parameter == "apiVersion" {
 			found = true
 			break
 		}
@@ -417,12 +417,12 @@ func TestValidator_EntrypointValidation(t *testing.T) {
 	foundEmpty := false
 	foundWarning := false
 	for _, err := range result.Errors {
-		if strings.Contains(err.Field, "empty") {
+		if strings.Contains(err.Parameter, "empty") {
 			foundEmpty = true
 		}
 	}
 	for _, warn := range result.Warnings {
-		if strings.Contains(warn.Field, "no_suffix") {
+		if strings.Contains(warn.Parameter, "no_suffix") {
 			foundWarning = true
 		}
 	}
@@ -456,12 +456,12 @@ func TestValidator_HookValidation(t *testing.T) {
 	foundEmpty := false
 	foundWarning := false
 	for _, err := range result.Errors {
-		if strings.Contains(err.Field, "pre_apply") {
+		if strings.Contains(err.Parameter, "pre_apply") {
 			foundEmpty = true
 		}
 	}
 	for _, warn := range result.Warnings {
-		if strings.Contains(warn.Field, "post_apply") {
+		if strings.Contains(warn.Parameter, "post_apply") {
 			foundWarning = true
 		}
 	}
@@ -497,7 +497,7 @@ func TestValidator_OutputValidation(t *testing.T) {
 
 	found := false
 	for _, err := range result.Errors {
-		if strings.Contains(err.Field, "empty.value") {
+		if strings.Contains(err.Parameter, "empty.value") {
 			found = true
 			break
 		}

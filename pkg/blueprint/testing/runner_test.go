@@ -53,7 +53,7 @@ func TestMatchesErrorPattern_Substring(t *testing.T) {
 		{"file not found", "missing", false},
 		{"connection timeout", "timeout", true},
 		{"connection timeout", "connect", true},
-		{"", "", true}, // empty pattern matches empty string
+		{"", "", true},           // empty pattern matches empty string
 		{"some error", "", true}, // empty pattern matches anything
 	}
 
@@ -569,4 +569,312 @@ func TestAssertionTypes_Defined(t *testing.T) {
 		}
 		seen[at] = true
 	}
+}
+
+func TestRunner_AssertionHelpers(t *testing.T) {
+	tmpDir := t.TempDir()
+	runner, err := NewRunner(&RunnerConfig{TempDir: tmpDir})
+	if err != nil {
+		t.Fatalf("NewRunner failed: %v", err)
+	}
+
+	execResult := &ExecutionResult{
+		StatesApplied:   2,
+		StatesChanged:   1,
+		StatesFailed:    1,
+		StatesUnchanged: 1,
+		StateResults: []StateResult{
+			{ID: "file1", Module: "file", Success: true, Changed: true},
+			{ID: "file2", Module: "file", Success: false, Changed: false},
+		},
+		Outputs: map[string]interface{}{
+			"version": "1.2.3",
+			"count":   3,
+		},
+	}
+
+	assertion := &Assertion{Type: AssertStateApplied, Target: "file1"}
+	if !runner.assertStateApplied(assertion, execResult).Passed {
+		t.Fatal("expected state applied assertion to pass")
+	}
+
+	assertion = &Assertion{Type: AssertStateChanged, Target: "file1"}
+	if !runner.assertStateChanged(assertion, execResult).Passed {
+		t.Fatal("expected state changed assertion to pass")
+	}
+
+	assertion = &Assertion{Type: AssertStateUnchanged, Target: "file2"}
+	if !runner.assertStateUnchanged(assertion, execResult).Passed {
+		t.Fatal("expected state unchanged assertion to pass")
+	}
+
+	assertion = &Assertion{Type: AssertStateFailed, Target: "file2"}
+	if !runner.assertStateFailed(assertion, execResult).Passed {
+		t.Fatal("expected state failed assertion to pass")
+	}
+
+	assertion = &Assertion{Type: AssertStatesApplied, Expected: 2}
+	if !runner.assertStatesCount(assertion, execResult.StatesApplied, "applied").Passed {
+		t.Fatal("expected states applied count to pass")
+	}
+
+	assertion = &Assertion{Type: AssertStatesChanged, Operator: OpGreaterThan, Expected: 0}
+	if !runner.assertStatesCount(assertion, execResult.StatesChanged, "changed").Passed {
+		t.Fatal("expected states changed count to pass")
+	}
+
+	assertion = &Assertion{Type: AssertStatesFailed, Operator: OpGreaterOrEq, Expected: 1}
+	if !runner.assertStatesCount(assertion, execResult.StatesFailed, "failed").Passed {
+		t.Fatal("expected states failed count to pass")
+	}
+
+	assertion = &Assertion{Type: AssertStatesApplied, Expected: "bad"}
+	if runner.assertStatesCount(assertion, execResult.StatesApplied, "applied").Passed {
+		t.Fatal("expected states count to fail for invalid expected type")
+	}
+
+	assertion = &Assertion{Type: AssertNoFailures}
+	if runner.assertNoFailures(execResult).Passed {
+		t.Fatal("expected no-failures assertion to fail when failures exist")
+	}
+
+	assertion = &Assertion{Type: AssertIdempotent}
+	if runner.assertIdempotent(context.Background(), &TestCase{}, execResult).Passed {
+		t.Fatal("expected idempotent assertion to fail when changes exist")
+	}
+
+	assertion = &Assertion{Type: AssertOutputContains, Output: &OutputAssertion{Name: "version", Contains: "1.2"}}
+	if !runner.assertOutputContains(assertion, execResult).Passed {
+		t.Fatal("expected output contains to pass")
+	}
+
+	assertion = &Assertion{Type: AssertOutputEquals, Output: &OutputAssertion{Name: "count", Value: 3}}
+	if !runner.assertOutputEquals(assertion, execResult).Passed {
+		t.Fatal("expected output equals to pass")
+	}
+
+	assertion = &Assertion{Type: AssertOutputEquals, Output: &OutputAssertion{Name: "missing", Value: 1}}
+	if runner.assertOutputEquals(assertion, execResult).Passed {
+		t.Fatal("expected output equals to fail for missing output")
+	}
+
+	filePath := filepath.Join(tmpDir, "file.txt")
+	if err := os.WriteFile(filePath, []byte("hello world"), 0644); err != nil {
+		t.Fatalf("failed to write file: %v", err)
+	}
+
+	assertion = &Assertion{Type: AssertFileExists, Target: filePath}
+	if !runner.assertFileExists(assertion).Passed {
+		t.Fatal("expected file exists to pass")
+	}
+
+	assertion = &Assertion{Type: AssertFileNotExists, Target: filepath.Join(tmpDir, "missing.txt")}
+	if !runner.assertFileNotExists(assertion).Passed {
+		t.Fatal("expected file not exists to pass")
+	}
+
+	assertion = &Assertion{Type: AssertFileContains, File: &FileAssertion{Path: filePath, Contains: "hello"}}
+	if !runner.assertFileContains(assertion).Passed {
+		t.Fatal("expected file contains to pass")
+	}
+
+	assertion = &Assertion{Type: AssertFileContains, File: &FileAssertion{Path: filePath, Matches: "("}}
+	if runner.assertFileContains(assertion).Passed {
+		t.Fatal("expected file contains to fail on invalid regex")
+	}
+
+	assertion = &Assertion{Type: AssertFileMode, File: &FileAssertion{Path: filePath, Mode: "0644"}}
+	if !runner.assertFileMode(assertion).Passed {
+		t.Fatal("expected file mode to pass")
+	}
+
+	dirPath := filepath.Join(tmpDir, "dir")
+	if err := os.MkdirAll(dirPath, 0755); err != nil {
+		t.Fatalf("failed to create dir: %v", err)
+	}
+	assertion = &Assertion{Type: AssertDirectoryExists, Target: dirPath}
+	if !runner.assertDirectoryExists(assertion).Passed {
+		t.Fatal("expected directory exists to pass")
+	}
+
+	assertion = &Assertion{Type: AssertCommandSuccess, Command: &CommandAssertion{Command: "true"}}
+	if !runner.assertCommandSuccess(context.Background(), assertion).Passed {
+		t.Fatal("expected command success to pass")
+	}
+
+	assertion = &Assertion{Type: AssertCommandFailure, Command: &CommandAssertion{Command: "false"}}
+	if !runner.assertCommandFailure(context.Background(), assertion).Passed {
+		t.Fatal("expected command failure to pass")
+	}
+
+	assertion = &Assertion{Type: AssertCommandOutput, Command: &CommandAssertion{Command: "echo hello", StdoutContains: "hello"}}
+	if !runner.assertCommandOutput(context.Background(), assertion).Passed {
+		t.Fatal("expected command output contains to pass")
+	}
+}
+
+func TestRunner_RunSuite_StopOnFailure(t *testing.T) {
+	blueprintsDir := setupTestBlueprint(t)
+
+	runner, err := NewRunner(&RunnerConfig{
+		BlueprintPath: blueprintsDir,
+		StopOnFailure: true,
+	})
+	if err != nil {
+		t.Fatalf("NewRunner failed: %v", err)
+	}
+
+	suite := &TestSuite{
+		Name:      "stop-on-failure",
+		Blueprint: "acme/demo",
+		Tests: []TestCase{
+			{
+				Name:          "expected-failure-but-success",
+				ExpectFailure: true,
+			},
+			{
+				Name: "should-not-run",
+			},
+		},
+	}
+
+	result := runner.RunSuite(context.Background(), suite)
+	if len(result.Tests) != 1 {
+		t.Fatalf("Expected 1 test to run, got %d", len(result.Tests))
+	}
+	if result.Tests[0].Status != StatusFailed {
+		t.Fatalf("Expected first test to fail, got %s", result.Tests[0].Status)
+	}
+}
+
+func TestRunner_RunTest_ExpectErrorAndFailure(t *testing.T) {
+	blueprintsDir := setupTestBlueprint(t)
+	runner, err := NewRunner(&RunnerConfig{BlueprintPath: blueprintsDir})
+	if err != nil {
+		t.Fatalf("NewRunner failed: %v", err)
+	}
+
+	suite := &TestSuite{
+		Name:      "expect-error",
+		Blueprint: "acme/demo",
+	}
+
+	test := &TestCase{
+		Name:        "expect-error",
+		Entrypoint:  "missing",
+		ExpectError: "entrypoint",
+	}
+
+	result := runner.RunTest(context.Background(), test, suite)
+	if result.Status != StatusPassed {
+		t.Fatalf("Expected test to pass, got %s (assertions: %+v)", result.Status, result.AssertionResults)
+	}
+
+	test = &TestCase{
+		Name:          "expect-failure",
+		Entrypoint:    "missing",
+		ExpectFailure: true,
+	}
+	result = runner.RunTest(context.Background(), test, suite)
+	if result.Status != StatusPassed {
+		t.Fatalf("Expected test to pass, got %s", result.Status)
+	}
+}
+
+func TestRunner_RunTest_NegatedAssertion(t *testing.T) {
+	blueprintsDir := setupTestBlueprint(t)
+	runner, err := NewRunner(&RunnerConfig{BlueprintPath: blueprintsDir})
+	if err != nil {
+		t.Fatalf("NewRunner failed: %v", err)
+	}
+
+	suite := &TestSuite{
+		Name:      "negate",
+		Blueprint: "acme/demo",
+	}
+
+	test := &TestCase{
+		Name: "negated-assertion",
+		Assertions: []Assertion{
+			{
+				Type:   AssertOutputEquals,
+				Negate: true,
+				Output: &OutputAssertion{
+					Name:  "missing",
+					Value: "x",
+				},
+			},
+			{
+				Type:   AssertionType("unknown"),
+				Negate: true,
+			},
+		},
+	}
+
+	result := runner.RunTest(context.Background(), test, suite)
+	if result.Status != StatusPassed {
+		t.Fatalf("Expected test to pass, got %s (assertions: %+v)", result.Status, result.AssertionResults)
+	}
+	if len(result.AssertionResults) != 2 {
+		t.Fatalf("Expected 2 assertion results, got %d", len(result.AssertionResults))
+	}
+	if !result.AssertionResults[0].Passed || !result.AssertionResults[1].Passed {
+		t.Fatal("Expected negated assertions to pass")
+	}
+}
+
+func TestRunner_EvaluateAssertion_Negate(t *testing.T) {
+	runner := &Runner{}
+	execResult := &ExecutionResult{Outputs: map[string]interface{}{}}
+
+	assertion := &Assertion{
+		Type:   AssertOutputEquals,
+		Negate: true,
+		Output: &OutputAssertion{
+			Name:  "missing",
+			Value: "x",
+		},
+	}
+
+	result := runner.evaluateAssertion(context.Background(), assertion, execResult, &TestCase{})
+	if !result.Passed {
+		t.Fatalf("Expected negated assertion to pass, got %+v", result)
+	}
+}
+
+func setupTestBlueprint(t *testing.T) string {
+	t.Helper()
+	tmpDir := t.TempDir()
+	blueprintsDir := filepath.Join(tmpDir, "blueprints")
+	bpDir := filepath.Join(blueprintsDir, "acme", "demo")
+	statesDir := filepath.Join(bpDir, "states")
+
+	if err := os.MkdirAll(statesDir, 0755); err != nil {
+		t.Fatalf("Failed to create blueprint dirs: %v", err)
+	}
+
+	manifest := `
+apiVersion: blueprints.kscore.io/v1
+kind: Blueprint
+metadata:
+  name: demo
+  version: 1.0.0
+entrypoints:
+  default: states/main.yaml
+`
+	if err := os.WriteFile(filepath.Join(bpDir, "blueprint.yaml"), []byte(manifest), 0644); err != nil {
+		t.Fatalf("Failed to write blueprint.yaml: %v", err)
+	}
+
+	state := `
+file:
+  /tmp/demo.txt:
+    state: present
+    contents: "demo"
+`
+	if err := os.WriteFile(filepath.Join(statesDir, "main.yaml"), []byte(state), 0644); err != nil {
+		t.Fatalf("Failed to write main.yaml: %v", err)
+	}
+
+	return blueprintsDir
 }

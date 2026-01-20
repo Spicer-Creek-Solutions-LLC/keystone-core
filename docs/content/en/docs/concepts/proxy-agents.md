@@ -155,6 +155,27 @@ device:
 - PowerShell and CMD execution
 - TLS encryption (port 5986)
 
+## Debugging and Protocol Tracing
+
+Proxy agents include a protocol-level debug logger for troubleshooting device interactions. Debug output can be captured at different verbosity levels and rendered as text, JSON, or raw hex.
+
+**Debug Levels**:
+- `off`: No debug output
+- `basic`: Connection lifecycle events and errors
+- `verbose`: Commands and responses
+- `trace`: Full protocol data including raw byte dumps
+
+**Supported Protocol Labels**:
+`ssh`, `snmp`, `rest`, `winrm`, `telnet`, `api`
+
+**Event Types**:
+`connect`, `disconnect`, `authenticate`, `send`, `receive`, `command`, `response`, `error`, `warning`, `handshake`, `keepalive`, `timeout`
+
+**Notes**:
+- `trace` includes hex dumps for request/response payloads.
+- Output can be structured as JSON for ingestion into log pipelines.
+- Sensitive fields can be redacted before logging.
+
 ## Credential Management
 
 ### Credential Types

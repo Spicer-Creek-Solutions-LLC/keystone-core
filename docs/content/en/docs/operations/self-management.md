@@ -170,23 +170,23 @@ kscore_backup:
 
 ```bash
 # Full backup to local directory
-kscore-backup create --dest /backup/keystone
+kscore-cluster-backup create --dest /backup/keystone
 
 # Backup to S3
-kscore-backup create \
+kscore-cluster-backup create \
   --dest s3://keystone-backups/manual/ \
   --encrypt --encrypt-recipient age1...
 
 # Database-only backup
-kscore-backup create \
+kscore-cluster-backup create \
   --components database \
   --dest /backup/db-only
 
 # List available backups
-kscore-backup list --dest s3://keystone-backups/
+kscore-cluster-backup list --dest s3://keystone-backups/
 
 # Verify backup integrity
-kscore-backup verify /backup/keystone/backup-2024-01-15.tar.gz
+kscore-cluster-backup verify /backup/keystone/backup-2024-01-15.tar.gz
 ```
 
 ### Backup Components
@@ -271,7 +271,7 @@ retention:
 
 ```bash
 # List available backups
-kscore-backup list --dest s3://keystone-backups/
+kscore-cluster-backup list --dest s3://keystone-backups/
 
 # Restore full backup
 kscore-bootstrap restore \
@@ -756,8 +756,8 @@ kscore-test integration --suite recovery
 ```markdown
 ## Pre-Maintenance
 1. Notify stakeholders
-2. Create backup: `kscore-backup create --dest /backup/pre-maintenance`
-3. Verify backup: `kscore-backup verify /backup/pre-maintenance/...`
+2. Create backup: `kscore-cluster-backup create --dest /backup/pre-maintenance`
+3. Verify backup: `kscore-cluster-backup verify /backup/pre-maintenance/...`
 
 ## During Maintenance
 4. Enable maintenance mode: `kscorectl maintenance enable`
@@ -795,7 +795,7 @@ kscore-test integration --suite recovery
 ```markdown
 ## Pre-Rotation
 1. Verify current cert expiry: `kscorectl certs status`
-2. Create backup: `kscore-backup create --components certificates`
+2. Create backup: `kscore-cluster-backup create --components certificates`
 
 ## Rotation
 3. Generate new certificates:

@@ -84,6 +84,7 @@ type AWSProvider struct {
 	accountID       string
 	region          string
 	availabilityZone string
+	ipv6Addresses    []string
 	imdsToken       string
 	imdsTokenExpiry time.Time
 
@@ -206,6 +207,9 @@ func (p *AWSProvider) Info(ctx context.Context) identity.ProviderInfo {
 	}
 	if p.availabilityZone != "" {
 		metadata["availability_zone"] = p.availabilityZone
+	}
+	if len(p.ipv6Addresses) > 0 {
+		metadata["ipv6_addresses"] = strings.Join(p.ipv6Addresses, ",")
 	}
 
 	return identity.ProviderInfo{
@@ -430,6 +434,24 @@ func (p *AWSProvider) detectEnvironment(ctx context.Context) error {
 	p.availabilityZone = id.AvailabilityZone
 	p.mu.Unlock()
 
+	token := ""
+	if p.config.IMDSv2 {
+		if err := p.ensureIMDSToken(ctx); err == nil {
+			p.mu.RLock()
+			token = p.imdsToken
+			p.mu.RUnlock()
+		}
+	}
+
+	if rawIPv6, err := p.getIMDSValue(ctx, "/latest/meta-data/ipv6", token); err == nil {
+		ipv6 := parseIPv6List(rawIPv6)
+		if len(ipv6) > 0 {
+			p.mu.Lock()
+			p.ipv6Addresses = ipv6
+			p.mu.Unlock()
+		}
+	}
+
 	return nil
 }
 
@@ -499,6 +521,18 @@ func (p *AWSProvider) getIMDSValue(ctx context.Context, path, token string) (str
 	}
 
 	return string(data), nil
+}
+
+func parseIPv6List(raw string) []string {
+	lines := strings.Split(raw, "\n")
+	out := make([]string, 0, len(lines))
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
 }
 
 func (p *AWSProvider) healthCheckLoop(ctx context.Context) {

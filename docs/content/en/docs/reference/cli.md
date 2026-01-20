@@ -21,13 +21,21 @@ Keystone Core uses a Git-style plugin architecture for its CLI. The main command
 | `kscore-state` | Plugin | Declarative state management |
 | `kscore-monitor` | Plugin | Real-time TUI monitoring |
 | `kscore-module` | Plugin | Module management and development |
+| `kscore-blueprint` | Plugin | Blueprint lifecycle management |
+| `kscore-blueprint-publish` | Plugin | Blueprint publishing and signing |
+| `kscore-blueprint-state` | Plugin | Blueprint rollback and snapshot tooling |
 | `kscore-policy` | Plugin | Policy evaluation and compliance |
+| `kscore-audit` | Plugin | Policy audit, reporting, and exports |
 | `kscore-gitops` | Plugin | GitOps integration and verification |
+| `kscore-webhook` | Plugin | Webhook handler management |
 | `kscore-cluster` | Plugin | Cluster management and HA |
+| `kscore-cluster-backup` | Plugin | Cluster backup and restore automation |
 | `kscore-identity` | Plugin | SPIFFE identity management |
+| `kscore-federation` | Plugin | Trust federation management |
 | `kscore-migrate` | Plugin | Database migration tool |
 | `kscore-registry` | Server | Module registry HTTP server |
 | `kscore-files` | Server | File distribution server |
+| `kscore-files-storage` | Plugin | File backend and mirror administration |
 | `kscore-bootstrap` | Tool | Cluster bootstrapping and recovery |
 | `kscore-telemetry-gateway` | Server | Telemetry aggregation gateway |
 | `kscore-agent` | Daemon | Agent daemon on managed nodes |
@@ -1281,6 +1289,734 @@ Installed: 1
 
 **Note**: Installing requires a running module registry. The default registry (registry.keystonecore.io) is a placeholder - use `--registry` to specify your own registry instance.
 
+## kscore-blueprint (Blueprint Management)
+
+Manage blueprint lifecycle tasks including initialization, validation, testing, and installation. Blueprints are pre-packaged, reusable collections of states similar to Salt Formulas, Ansible Roles, or Helm Charts.
+
+> **Note**: Publishing, signing, and state operations are split into `kscore-blueprint-publish` and `kscore-blueprint-state` (Epic 30). These commands currently exist in kscore-blueprint with deprecation warnings.
+
+### Global Flags
+
+These flags apply to all kscore-blueprint commands:
+
+- `--audit-level string`: Audit logging level: all, errors, none (default: all)
+- `--audit-output string`: Audit output backend: auto, syslog, journald, stderr, none (default: auto)
+
+### blueprint init
+
+Initialize a new blueprint from a template.
+
+```bash
+kscorectl blueprint init <vendor/name> [flags]
+```
+
+**Arguments**:
+- `<vendor/name>`: Blueprint name in vendor/package format (e.g., myorg/web-stack)
+
+**Flags**:
+- `--description string`: Blueprint description
+- `--author string`: Author name
+- `--email string`: Author email
+- `--license string`: License identifier (default: Apache-2.0)
+- `-o, --output string`: Output directory (default: current directory)
+- `--category string`: Blueprint category (default: general)
+- `--keywords strings`: Blueprint keywords (comma-separated)
+
+**Created Structure**:
+```
+<name>/
+├── blueprint.yaml    # Manifest with metadata and parameters
+├── states/           # State declarations
+├── vars/             # Default variable values
+├── templates/        # Jinja2/Go templates
+├── files/            # Static files
+└── tests/            # Blueprint tests
+```
+
+**Examples**:
+```bash
+# Basic initialization
+kscorectl blueprint init myorg/web-stack
+
+# With full metadata
+kscorectl blueprint init myorg/nginx-stack \
+  --description "Production-ready Nginx deployment" \
+  --author "John Doe" \
+  --email "john@example.com" \
+  --license "MIT" \
+  --category "web" \
+  --keywords "nginx,web,proxy,loadbalancer"
+
+# Initialize in a specific directory
+kscorectl blueprint init myorg/database --output ./blueprints/
+```
+
+### blueprint validate
+
+Validate blueprint manifest syntax and structure.
+
+```bash
+kscorectl blueprint validate [path] [flags]
+```
+
+**Arguments**:
+- `[path]`: Path to blueprint directory (default: current directory)
+
+**Flags**:
+- `--strict`: Treat warnings as errors (exit with error on any warning)
+- `--format string`: Output format: text, json (default: text)
+
+**Validation Checks**:
+- YAML syntax validation
+- Required fields (apiVersion, kind, metadata.name, metadata.version)
+- Parameter schema validation
+- Dependency reference validation
+- Entrypoint file existence
+- Template syntax (basic check)
+
+**Examples**:
+```bash
+# Validate current directory
+kscorectl blueprint validate
+
+# Validate specific blueprint
+kscorectl blueprint validate ./myorg-web-stack
+
+# Strict mode for CI/CD
+kscorectl blueprint validate ./myorg-web-stack --strict
+
+# JSON output for parsing
+kscorectl blueprint validate ./myorg-web-stack --format json
+```
+
+**Output (Success)**:
+```
+Validating blueprint: myorg/web-stack@1.0.0
+
+✓ Manifest syntax valid
+✓ Required fields present
+✓ Parameters valid
+✓ Dependencies resolvable
+✓ Entrypoints exist
+
+Validation passed!
+```
+
+**Output (Errors)**:
+```
+Validating blueprint: myorg/broken-stack@1.0.0
+
+✗ Error: metadata.version is required
+✗ Error: parameter 'port' has invalid type 'invalid'
+! Warning: entrypoint 'main.yaml' not found
+
+Validation failed: 2 errors, 1 warning
+```
+
+### blueprint lint
+
+Run best-practice checks on a blueprint.
+
+```bash
+kscorectl blueprint lint [path] [flags]
+```
+
+**Arguments**:
+- `[path]`: Path to blueprint directory (default: current directory)
+
+**Flags**:
+- `--fix`: Automatically fix issues where possible
+- `--format string`: Output format: text, json (default: text)
+
+**Lint Categories**:
+- **documentation**: README exists, parameters documented, description present
+- **security**: No hardcoded secrets, sensitive parameters marked
+- **naming**: Consistent naming conventions, valid identifiers
+- **versioning**: Semantic versioning, CHANGELOG present
+- **testing**: Test files exist, coverage adequate
+- **license**: License file present, valid SPDX identifier
+
+**Examples**:
+```bash
+# Lint current directory
+kscorectl blueprint lint
+
+# Lint with auto-fix
+kscorectl blueprint lint --fix
+
+# JSON output for CI integration
+kscorectl blueprint lint --format json
+```
+
+**Output**:
+```
+Linting blueprint: myorg/web-stack@1.0.0
+
+Documentation:
+  ✓ README.md exists
+  ✓ All parameters documented
+  ! Warning: No CHANGELOG.md found
+
+Security:
+  ✓ No hardcoded credentials
+  ✓ Sensitive parameters marked
+
+Naming:
+  ✓ Blueprint name valid
+  ✓ Parameter names consistent
+
+Versioning:
+  ✓ Semantic version format
+
+Testing:
+  ! Warning: No test files found in tests/
+
+License:
+  ✓ LICENSE file present
+  ✓ Valid SPDX identifier
+
+Summary: 0 errors, 2 warnings
+```
+
+### blueprint test
+
+Run blueprint tests from the tests/ directory.
+
+```bash
+kscorectl blueprint test [path] [flags]
+```
+
+**Arguments**:
+- `[path]`: Path to blueprint directory (default: current directory)
+
+**Flags**:
+- `-v, --verbose`: Verbose output with detailed test events
+- `--dry-run`: Dry run (no actual state changes)
+- `--timeout duration`: Default test timeout (default: 5m)
+- `--parallel`: Run tests in parallel
+- `--max-parallel int`: Maximum parallel tests (default: 4)
+- `--tags strings`: Only run tests with these tags (comma-separated)
+- `--exclude-tags strings`: Exclude tests with these tags
+- `--pattern string`: Only run tests matching pattern (supports wildcards)
+- `--format string`: Output format: text, json, junit (default: text)
+- `-o, --output string`: Write output to file
+- `--stop-on-failure`: Stop on first failure
+
+**Test File Format** (tests/*_test.yaml):
+```yaml
+name: Basic Tests
+description: Test basic blueprint functionality
+setup:
+  - mock:
+      command: systemctl
+      response: "active"
+tests:
+  - name: default parameters
+    assertions:
+      - type: no_failures
+  - name: custom port
+    parameters:
+      port: 8080
+    assertions:
+      - type: state_applied
+        target: configure_nginx
+      - type: file_contains
+        path: /etc/nginx/nginx.conf
+        content: "listen 8080"
+teardown:
+  - cleanup: temp_files
+```
+
+**Assertion Types**:
+- `no_failures`: No state application failures
+- `state_applied`: Specific state was applied
+- `state_changed`: Specific state made changes
+- `file_exists`: File exists at path
+- `file_contains`: File contains content
+- `file_mode`: File has specific permissions
+- `directory_exists`: Directory exists
+- `command_succeeds`: Command exits with 0
+- `command_fails`: Command exits non-zero
+- `command_output`: Command output matches
+- `idempotent`: Running twice produces same result
+
+**Examples**:
+```bash
+# Run all tests
+kscorectl blueprint test
+
+# Verbose output
+kscorectl blueprint test -v
+
+# Run specific test pattern
+kscorectl blueprint test --pattern "validation*"
+
+# Run only tagged tests
+kscorectl blueprint test --tags "quick,smoke"
+
+# Exclude integration tests
+kscorectl blueprint test --exclude-tags "integration,slow"
+
+# JUnit XML output for CI
+kscorectl blueprint test --format junit -o results.xml
+
+# Parallel execution
+kscorectl blueprint test --parallel --max-parallel 8
+
+# Dry run for validation
+kscorectl blueprint test --dry-run
+```
+
+**Output (Text)**:
+```
+Running blueprint tests from ./tests
+
+Suite: Basic Tests (3 tests)
+  ✓ default parameters (125ms)
+  ✓ custom port (203ms)
+  ○ network config (skipped)
+
+Suite: Validation Tests (2 tests)
+  ✓ invalid port rejected (45ms)
+  ✗ missing required param (89ms)
+    Error: Expected validation error, got success
+
+═══════════════════════════════════════════
+Test Summary
+═══════════════════════════════════════════
+  Total:   5
+  Passed:  3
+  Failed:  1
+  Skipped: 1
+  Errors:  0
+  Duration: 462ms
+  Pass Rate: 75.0%
+═══════════════════════════════════════════
+
+✗ 1 test(s) failed
+```
+
+### blueprint search
+
+Search for blueprints in registries.
+
+```bash
+kscorectl blueprint search [query] [flags]
+```
+
+**Arguments**:
+- `[query]`: Search query (optional, lists all if empty)
+
+**Flags**:
+- `--registry string`: Registry URL (default: configured registry)
+- `--category string`: Filter by category
+- `--tags strings`: Filter by tags (comma-separated)
+- `--limit int`: Maximum results to show (default: 20)
+- `--offset int`: Offset for pagination
+- `--verified`: Only show verified blueprints
+- `--sort-by string`: Sort field: name, downloads, updated, created (default: downloads)
+- `--sort-order string`: Sort order: asc, desc (default: desc)
+- `--json`: Output as JSON
+
+**Examples**:
+```bash
+# Search for nginx blueprints
+kscorectl blueprint search nginx
+
+# Filter by category
+kscorectl blueprint search --category web
+
+# Filter by tags
+kscorectl blueprint search --tags "production,ha"
+
+# Only verified blueprints
+kscorectl blueprint search --verified
+
+# Custom registry
+kscorectl blueprint search nginx --registry https://blueprints.example.com
+
+# Paginated results
+kscorectl blueprint search --limit 50 --offset 100
+
+# JSON output
+kscorectl blueprint search nginx --json
+```
+
+**Output**:
+```
+Search results for "nginx":
+
+NAME                    VERSION   DOWNLOADS   DESCRIPTION
+community/nginx         2.1.0     45,231      Production Nginx with SSL
+community/nginx-proxy   1.5.2     12,847      Nginx reverse proxy
+myorg/nginx-lb          3.0.0     1,203       Nginx load balancer
+
+Showing 3 of 3 results
+```
+
+### blueprint info
+
+Show detailed information about a blueprint.
+
+```bash
+kscorectl blueprint info <blueprint> [flags]
+```
+
+**Arguments**:
+- `<blueprint>`: Blueprint name (e.g., community/nginx)
+
+**Flags**:
+- `--registry string`: Registry URL
+- `--version string`: Specific version (default: latest)
+- `--json`: Output as JSON
+
+**Examples**:
+```bash
+# Show info for latest version
+kscorectl blueprint info community/nginx
+
+# Show info for specific version
+kscorectl blueprint info community/nginx --version 2.0.0
+
+# JSON output
+kscorectl blueprint info community/nginx --json
+```
+
+**Output**:
+```
+Name:        community/nginx
+Version:     2.1.0
+Description: Production-ready Nginx web server deployment
+Author:      Community Maintainers
+License:     Apache-2.0
+Categories:  web, proxy
+Keywords:    nginx, web, reverse-proxy, ssl
+
+Parameters:
+  port (integer)     - Listen port (default: 80)
+  ssl_enabled (bool) - Enable SSL (default: false)
+  worker_count (int) - Worker processes (default: auto)
+
+Dependencies:
+  - community/ssl-certs@^1.0.0 (optional)
+
+Downloads:   45,231
+Created:     2024-01-15
+Updated:     2024-06-20
+
+Install: kscorectl blueprint install community/nginx@2.1.0
+```
+
+### blueprint install
+
+Install blueprints from a registry.
+
+```bash
+kscorectl blueprint install <blueprint[@version]>... [flags]
+```
+
+**Arguments**:
+- `<blueprint[@version]>`: One or more blueprints to install (version optional)
+
+**Flags**:
+- `--registry string`: Registry URL
+- `--dir string`: Installation directory (default: ~/.kscore/blueprints)
+- `--verify`: Verify signature before installing (default: true)
+- `--force`: Overwrite if already installed
+- `--dry-run`: Show what would be installed
+- `--no-deps`: Don't install dependencies
+
+**Examples**:
+```bash
+# Install latest version
+kscorectl blueprint install community/nginx
+
+# Install specific version
+kscorectl blueprint install community/nginx@2.1.0
+
+# Install multiple blueprints
+kscorectl blueprint install community/nginx@2.1.0 community/mysql@8.0.0
+
+# Install without dependencies
+kscorectl blueprint install community/nginx --no-deps
+
+# Dry run
+kscorectl blueprint install community/nginx --dry-run
+
+# Force reinstall
+kscorectl blueprint install community/nginx --force
+
+# Skip signature verification (not recommended)
+kscorectl blueprint install community/nginx --verify=false
+```
+
+**Output**:
+```
+Installing community/nginx@2.1.0...
+  Downloading community/nginx@2.1.0 (245 KB)
+  Verifying signature...
+  Installing dependency: community/ssl-certs@1.2.0
+  Extracting to ~/.kscore/blueprints/community/nginx
+
+✓ Installed community/nginx@2.1.0
+```
+
+### blueprint update
+
+Update installed blueprints to newer versions.
+
+```bash
+kscorectl blueprint update [blueprint...] [flags]
+```
+
+**Arguments**:
+- `[blueprint...]`: Blueprints to update (default: all installed)
+
+**Flags**:
+- `--registry string`: Registry URL
+- `--dir string`: Blueprint directory (default: ~/.kscore/blueprints)
+- `--dry-run`: Show what would be updated
+- `--major`: Allow major version updates (breaking changes)
+- `--accept-breaking-changes`: Accept breaking parameter changes
+- `--show-breaking`: Show breaking changes before updating
+
+**Examples**:
+```bash
+# Update all blueprints (minor/patch only)
+kscorectl blueprint update
+
+# Update specific blueprint
+kscorectl blueprint update community/nginx
+
+# Allow major version updates
+kscorectl blueprint update community/nginx --major
+
+# Show what would be updated
+kscorectl blueprint update --dry-run
+
+# Show breaking changes before updating
+kscorectl blueprint update --show-breaking
+```
+
+**Output**:
+```
+Checking for updates...
+
+Blueprint               Current   Available   Type
+community/nginx         2.1.0     2.2.1       patch
+community/mysql         8.0.0     8.1.0       minor
+community/redis         6.2.0     7.0.0       major (skipped)
+
+Updating community/nginx 2.1.0 -> 2.2.1...
+Updating community/mysql 8.0.0 -> 8.1.0...
+
+✓ Updated 2 blueprints
+! 1 major update available (use --major to include)
+```
+
+### blueprint remove
+
+Remove installed blueprints.
+
+```bash
+kscorectl blueprint remove <blueprint>... [flags]
+```
+
+**Arguments**:
+- `<blueprint>...`: One or more blueprints to remove
+
+**Flags**:
+- `--dir string`: Blueprint directory (default: ~/.kscore/blueprints)
+- `--force`: Remove without confirmation
+- `--dry-run`: Show what would be removed
+
+**Examples**:
+```bash
+# Remove a blueprint
+kscorectl blueprint remove community/nginx
+
+# Remove multiple blueprints
+kscorectl blueprint remove community/nginx community/mysql
+
+# Force remove without confirmation
+kscorectl blueprint remove community/nginx --force
+
+# Dry run
+kscorectl blueprint remove community/nginx --dry-run
+```
+
+**Output**:
+```
+Removing community/nginx@2.2.1...
+  Removing ~/.kscore/blueprints/community/nginx
+
+✓ Removed community/nginx
+```
+
+### Deprecated Commands
+
+The following commands are deprecated and will be removed in a future version. They are being moved to separate binaries:
+
+**Moving to kscore-blueprint-publish**:
+- `blueprint publish` → `blueprint-publish publish`
+- `blueprint sign` → `blueprint-publish sign`
+- `blueprint verify` → `blueprint-publish verify`
+- `blueprint versions` → `blueprint-publish versions`
+- `blueprint docs` → `blueprint-publish docs`
+
+**Moving to kscore-blueprint-state**:
+- `blueprint rollback` → `blueprint-state rollback`
+- `blueprint snapshot` → `blueprint-state snapshot`
+
+These commands still work but display deprecation warnings. See the dedicated sections below for full documentation.
+
+## kscore-blueprint-publish (Blueprint Publishing)
+
+Publish blueprints to registries and manage signatures.
+
+### Global Flags
+
+These flags apply to all kscore-blueprint-publish commands:
+
+- `--audit-level string`: Audit logging level: all, errors, none (default: all)
+- `--audit-output string`: Audit output backend: auto, syslog, journald, stderr, none
+
+### blueprint-publish publish
+
+Publish a blueprint directory to a registry.
+
+```bash
+kscorectl blueprint-publish publish [path] [flags]
+```
+
+**Flags**:
+- `--registry string`: Registry URL
+- `--sign`: Sign before publishing (default: true)
+- `--key string`: Signing key file
+- `--force`: Overwrite if version exists
+- `--dry-run`: Show what would be published
+
+**Examples**:
+```bash
+# Publish current directory
+kscorectl blueprint-publish publish .
+
+# Publish to custom registry
+kscorectl blueprint-publish publish . --registry https://blueprints.example.com
+```
+
+### blueprint-publish sign
+
+Sign a blueprint package.
+
+```bash
+kscorectl blueprint-publish sign <file> [flags]
+```
+
+**Flags**:
+- `--key string`: Signing key file
+- `--generate-key`: Generate a new signing key pair
+- `--output string`: Output signature file
+
+### blueprint-publish verify
+
+Verify a blueprint signature.
+
+```bash
+kscorectl blueprint-publish verify <blueprint[@version]|file> [flags]
+```
+
+**Flags**:
+- `--key string`: Public key file for verification
+- `--registry string`: Registry URL
+- `--signature string`: Signature file (for local verification)
+
+### blueprint-publish versions
+
+List available versions of a blueprint.
+
+```bash
+kscorectl blueprint-publish versions <blueprint> [flags]
+```
+
+**Flags**:
+- `--registry string`: Registry URL
+- `--all`: Include prerelease versions
+- `--limit int`: Maximum versions to show (default: 20)
+- `--json`: Output as JSON
+
+### blueprint-publish docs
+
+Generate documentation from a blueprint manifest.
+
+```bash
+kscorectl blueprint-publish docs [path] [flags]
+```
+
+**Flags**:
+- `-o, --output string`: Output directory (default: docs)
+- `--format string`: Output format (markdown, html, json)
+- `--include-usage`: Include usage examples (default: true)
+
+## kscore-blueprint-state (Blueprint State)
+
+Manage blueprint rollback operations and snapshots.
+
+### Global Flags
+
+These flags apply to all kscore-blueprint-state commands:
+
+- `--audit-level string`: Audit logging level: all, errors, none (default: all)
+- `--audit-output string`: Audit output backend: auto, syslog, journald, stderr, none
+
+### blueprint-state rollback
+
+Rollback a blueprint to a previous version or snapshot.
+
+```bash
+kscorectl blueprint-state rollback <blueprint> [flags]
+```
+
+**Flags**:
+- `--dir string`: Blueprint directory (default: ~/.kscore/blueprints)
+- `--dry-run`: Show what would happen without changes
+- `--force`: Force rollback even with breaking changes
+- `--to-version string`: Rollback to a specific version
+- `--to-snapshot string`: Rollback to a snapshot ID
+- `--history`: Show rollback history
+- `--json`: Output in JSON format
+
+### blueprint-state snapshot
+
+Manage snapshots of blueprint state.
+
+```bash
+kscorectl blueprint-state snapshot <command> [flags]
+```
+
+**Commands**:
+- `list [blueprint]`: List available snapshots
+- `delete <snapshot-id>`: Delete a snapshot
+- `info <snapshot-id>`: Show snapshot details
+
+**Common Flags**:
+- `--dir string`: Snapshot directory
+- `--limit int`: Maximum snapshots to show (list)
+- `--json`: Output in JSON format
+
+### blueprint-state diff
+
+Compare two snapshots.
+
+```bash
+kscorectl blueprint-state diff <snapshot1> <snapshot2> [flags]
+```
+
+**Flags**:
+- `--dir string`: Snapshot directory
+- `--json`: Output in JSON format
+- `--files-only`: Show only file differences
+
 ## kscore-policy (Policy Management)
 
 Manage and evaluate policies using OPA (Rego) and CEL for compliance, security, and operational enforcement.
@@ -1581,6 +2317,120 @@ Violations by Severity:
 Top Violations:
   1. security-no-root (high) - 5 violations
   2. required-tags (low) - 3 violations
+```
+
+## kscore-audit (Audit and Compliance)
+
+Review policy evaluation logs, generate compliance reports, export audit data, and inspect trends.
+
+> **Note**: The CLI can operate against sample/in-memory data when the control plane API is not connected.
+> Use the control plane API for production audit history.
+
+### Global Flags
+
+These flags apply to all kscore-audit commands:
+
+- `--server string`: Control plane server address (default: localhost:9090)
+- `-o, --format string`: Output format: table, text, json, yaml (default: table)
+- `--audit-level string`: Audit logging level: all, errors, none (default: all)
+- `--audit-output string`: Audit output backend: auto, syslog, journald, stderr, none
+
+### audit log
+
+View policy evaluation audit entries.
+
+```bash
+kscorectl audit log [flags]
+```
+
+**Flags**:
+- `--policy string`: Filter by policy ID
+- `--resource-type string`: Filter by resource type
+- `--denied`: Show only denied evaluations
+- `--limit int`: Maximum entries to show (default: 100)
+- `--since string`: Show entries since date (YYYY-MM-DD)
+- `--until string`: Show entries until date (YYYY-MM-DD)
+- `-o, --format string`: Output format: table, text, json, yaml (default: table)
+
+**Examples**:
+```bash
+# Show recent audit entries
+kscorectl audit log
+
+# Filter by policy
+kscorectl audit log --policy security-no-root
+
+# Show only denied evaluations
+kscorectl audit log --denied
+
+# Filter by time range
+kscorectl audit log --since 2026-01-01 --until 2026-01-17
+```
+
+### audit report
+
+Generate a compliance report from policy evaluations.
+
+```bash
+kscorectl audit report [flags]
+```
+
+**Flags**:
+- `--days int`: Number of days to include (default: 7)
+- `--category string`: Filter by policy category
+- `--severity string`: Filter by severity (low, medium, high, critical)
+- `-o, --format string`: Output format: table, text, json, yaml (default: table)
+
+**Examples**:
+```bash
+# Generate report for last 7 days
+kscorectl audit report --days 7
+
+# Generate report as JSON
+kscorectl audit report --days 30 --format json
+```
+
+### audit export
+
+Export audit data for external analysis or archiving.
+
+```bash
+kscorectl audit export [flags]
+```
+
+**Flags**:
+- `--days int`: Number of days to export (default: 30)
+- `--output string`: Output file path (default: stdout)
+- `--export-format string`: Export format (json, csv, yaml) (default: json)
+
+**Examples**:
+```bash
+# Export last 30 days to JSON
+kscorectl audit export --days 30 --output audit-data.json
+
+# Export to CSV
+kscorectl audit export --days 7 --output audit-data.csv --export-format csv
+```
+
+### audit stats
+
+View audit statistics and trends.
+
+```bash
+kscorectl audit stats [flags]
+```
+
+**Flags**:
+- `--days int`: Number of days to analyze (default: 7)
+- `-o, --format string`: Output format: table, text, json, yaml (default: table)
+
+**Examples**:
+```bash
+# Show stats for last 7 days
+kscorectl audit stats --days 7
+
+# Show stats for last 30 days
+kscorectl audit stats --days 30 --format json
 ```
 
 ## kscore-gitops (GitOps Management)
@@ -1911,6 +2761,118 @@ verify-001   verification passed       post-deploy-checks             2024-01-15
 Total: 3 operations
 ```
 
+## kscore-webhook (Webhook Management)
+
+Manage webhook handlers, test payloads, delivery history, and secrets for GitOps integrations.
+
+> **Note**: The CLI can return sample data when not connected to the control plane API.
+> Configure webhook endpoints on the control plane for production use.
+
+### Global Flags
+
+These flags apply to all kscore-webhook commands:
+
+- `--server string`: Control plane server address (default: localhost:9090)
+- `-o, --format string`: Output format: table, text, json, yaml (default: table)
+- `--audit-level string`: Audit logging level: all, errors, none (default: all)
+- `--audit-output string`: Audit output backend: auto, syslog, journald, stderr, none
+
+### webhook list
+
+List registered webhook handlers.
+
+```bash
+kscorectl webhook list [flags]
+```
+
+**Examples**:
+```bash
+# List all webhook handlers
+kscorectl webhook list
+
+# Output as JSON
+kscorectl webhook list --format json
+```
+
+### webhook show
+
+Show details of a webhook handler.
+
+```bash
+kscorectl webhook show <type> [flags]
+```
+
+**Arguments**:
+- `<type>`: argocd, flux, github, gitlab
+
+**Examples**:
+```bash
+# Show ArgoCD webhook details
+kscorectl webhook show argocd
+
+# Show GitHub webhook details as JSON
+kscorectl webhook show github --format json
+```
+
+### webhook test
+
+Generate a sample payload to test a webhook endpoint.
+
+```bash
+kscorectl webhook test <type>
+```
+
+**Arguments**:
+- `<type>`: argocd, flux, github, gitlab
+
+**Examples**:
+```bash
+# Test ArgoCD webhook
+kscorectl webhook test argocd
+```
+
+### webhook history
+
+View webhook delivery history.
+
+```bash
+kscorectl webhook history [flags]
+```
+
+**Flags**:
+- `--limit int`: Maximum entries to show (default: 20)
+- `-o, --format string`: Output format: table, text, json, yaml (default: table)
+
+**Examples**:
+```bash
+# View recent webhook deliveries
+kscorectl webhook history
+
+# Limit results
+kscorectl webhook history --limit 50
+```
+
+### webhook secrets
+
+Manage webhook secrets.
+
+```bash
+kscorectl webhook secrets <command> [flags]
+```
+
+**Commands**:
+- `list`: List webhook secrets
+- `rotate <name>`: Rotate a webhook secret
+
+**Examples**:
+```bash
+# List webhook secrets
+kscorectl webhook secrets list
+
+# Rotate a secret
+kscorectl webhook secrets rotate github-webhook-secret
+```
+
 ## kscore-cluster (Cluster Management)
 
 Manage high-availability cluster operations. Only available when running in HA cluster mode.
@@ -2135,6 +3097,113 @@ kscorectl cluster remove server-3
 kscorectl cluster remove server-3 --force
 ```
 
+## kscore-cluster-backup (Cluster Backup and Restore)
+
+Create, restore, verify, and schedule cluster backups via the control plane API.
+
+### Global Flags
+
+These flags apply to all kscore-cluster-backup commands:
+
+- `--server string`: Control plane server address (default: localhost:9090)
+- `-o, --output string`: Output format: table, text, json, yaml (default: table)
+- `-v, --verbose`: Enable verbose output
+- `--audit-level string`: Audit logging level: all, errors, none (default: all)
+- `--audit-output string`: Audit output backend: auto, syslog, journald, stderr, none
+
+### cluster-backup backup
+
+Create a backup of the cluster state.
+
+```bash
+kscorectl cluster-backup backup [flags]
+```
+
+**Flags**:
+- `-f, --file string`: Output file path (default: stdout)
+- `--compress`: Compress the backup
+- `--encrypt`: Encrypt the backup
+- `--description string`: Backup description
+
+**Examples**:
+```bash
+# Create a backup to file
+kscorectl cluster-backup backup --file cluster-backup.bin
+
+# Create an encrypted compressed backup
+kscorectl cluster-backup backup --file backup.bin.gz --compress --encrypt
+```
+
+### cluster-backup restore
+
+Restore cluster state from a backup file.
+
+```bash
+kscorectl cluster-backup restore [flags]
+```
+
+**Flags**:
+- `-f, --input string`: Input backup file path (required)
+- `--force`: Skip confirmation prompt
+- `--dry-run`: Show what would be done without restoring
+
+**Examples**:
+```bash
+# Restore from backup
+kscorectl cluster-backup restore --input cluster-backup.bin
+
+# Dry run to preview changes
+kscorectl cluster-backup restore --input cluster-backup.bin --dry-run
+```
+
+### cluster-backup list
+
+List available backups from backup storage.
+
+```bash
+kscorectl cluster-backup list [flags]
+```
+
+**Flags**:
+- `--limit int`: Maximum number of backups to show (default: 20)
+
+### cluster-backup verify
+
+Verify a backup file before restore.
+
+```bash
+kscorectl cluster-backup verify [flags]
+```
+
+**Flags**:
+- `-f, --input string`: Backup file to verify (required)
+
+### cluster-backup schedule
+
+Manage automated backup schedules.
+
+```bash
+kscorectl cluster-backup schedule <command> [flags]
+```
+
+**Commands**:
+- `list`: List backup schedules
+- `add <name>`: Add a backup schedule
+- `remove <name>`: Remove a backup schedule
+
+**Flags (schedule add)**:
+- `--cron string`: Cron expression (default: "0 0 * * *")
+- `--retention string`: Backup retention period (default: "7d")
+
+**Examples**:
+```bash
+# Add a daily backup schedule
+kscorectl cluster-backup schedule add daily --cron "0 2 * * *" --retention 14d
+
+# Remove a schedule
+kscorectl cluster-backup schedule remove daily
+```
+
 ## kscore-identity (Identity Management)
 
 Manage SPIFFE identities, join tokens, CA certificates, and trust federation.
@@ -2201,26 +3270,29 @@ kscorectl identity token create [flags]
 ```
 
 **Flags**:
-- `--agent-id string`: Agent identifier for this token
+- `--path string`: SPIFFE path for agents using this token (default: /agent/default)
 - `--ttl string`: Token time-to-live (default: 5m)
-- `--label key=value`: Labels to attach to agents using this token (can be repeated)
+- `--uses int`: Maximum number of uses, 0 for unlimited (default: 1)
 
 **Examples**:
 ```bash
-# Create a token for a specific agent
-kscorectl identity token create --agent-id web-server-1 --ttl 10m
+# Create a token with default settings
+kscorectl identity token create
 
-# Create a token with labels
-kscorectl identity token create --agent-id db-server-1 --ttl 1h \
-  --label environment=production --label role=database
+# Create a token with custom path and TTL
+kscorectl identity token create --path /agent/web --ttl 10m
+
+# Create a token that can be used 5 times
+kscorectl identity token create --path /agent/db --ttl 1h --uses 5
 ```
 
 **Output**:
 ```
 Token created successfully!
 Token:    Rj2k9xLm3n4o5p6q7r8s9t0u1v2w3x4y5z
-Agent ID: web-server-1
+Path:     /agent/web
 TTL:      10m
+Max Uses: 1
 
 Configure agent with:
   identity:
@@ -2239,9 +3311,9 @@ kscorectl identity token list [flags]
 
 **Output**:
 ```
-TOKEN ID           AGENT ID         EXPIRES                  STATUS
-abc123def456...    web-server-1     2024-01-15T12:00:00Z     valid
-ghi789jkl012...    db-server-1      2024-01-15T11:00:00Z     used
+TOKEN                                    AGENT PATH           EXPIRES                    USES  STATUS
+test-token-1                             /agent/web           2024-01-15T12:00:00Z       0/1   valid
+test-token-2                             /agent/db            2024-01-15T11:00:00Z       1/1   used
 ```
 
 #### token show
@@ -2257,13 +3329,11 @@ kscorectl identity token show <token-id>
 Token Details
 =============
 Token ID:    abc123def456
-Agent ID:    web-server-1
+Agent Path:  /agent/web
 Created:     2024-01-15T10:00:00Z
 Expires:     2024-01-15T12:00:00Z
+Uses:        0/1
 Status:      valid
-Labels:
-  environment: production
-  role: web
 ```
 
 #### token revoke
@@ -2354,11 +3424,11 @@ kscorectl identity ca restore [flags]
 ```
 
 **Flags**:
-- `--backup string`: Backup file to restore (required)
+- `--input string`: Backup file to restore (required)
 
 **Example**:
 ```bash
-kscorectl identity ca restore --backup /var/backups/ca-backup.json
+kscorectl identity ca restore --input /var/backups/ca-backup.json
 ```
 
 **Output**:
@@ -2415,7 +3485,8 @@ kscorectl identity federation add <trust-domain> [flags]
 ```
 
 **Flags**:
-- `--bundle-endpoint string`: Bundle endpoint URL (required)
+- `--endpoint string`: Bundle endpoint URL (required)
+- `--profile string`: Bundle endpoint profile (default: https_web)
 - `--type string`: Federation type: bidirectional, unidirectional (default: bidirectional)
 - `--refresh-interval string`: Bundle refresh interval (default: 5m)
 
@@ -2423,19 +3494,25 @@ kscorectl identity federation add <trust-domain> [flags]
 ```bash
 # Add bidirectional federation
 kscorectl identity federation add partner.example.org \
-  --bundle-endpoint https://partner.example.org/.well-known/spiffe-bundle
+  --endpoint https://partner.example.org/.well-known/spiffe-bundle
 
 # Add unidirectional federation with custom refresh interval
 kscorectl identity federation add vendor.example.com \
-  --bundle-endpoint https://vendor.example.com/.well-known/spiffe-bundle \
+  --endpoint https://vendor.example.com/.well-known/spiffe-bundle \
   --type unidirectional \
   --refresh-interval 1h
+
+# Add federation with SPIFFE bundle profile
+kscorectl identity federation add vendor.example.com \
+  --endpoint https://vendor.example.com/bundle \
+  --profile https_spiffe
 ```
 
 **Output**:
 ```
 Federation relationship added: partner.example.org
 Bundle Endpoint: https://partner.example.org/.well-known/spiffe-bundle
+Profile: https_web
 Type: bidirectional
 Refresh Interval: 5m
 
@@ -2621,7 +3698,7 @@ kscorectl identity events [flags]
 ```
 
 **Flags**:
-- `-f, --follow`: Follow events in real-time
+- `--limit int`: Number of events to show (default: 10)
 
 **Output**:
 ```
@@ -2638,7 +3715,7 @@ TIME       TYPE                    DESCRIPTION
 **Bootstrap a new agent**:
 ```bash
 # Create a join token
-kscorectl identity token create --agent-id web-server-1 --ttl 10m
+kscorectl identity token create --path /agent/web-server-1 --ttl 10m
 
 # Copy token to agent configuration
 # Start agent - it will use the token to register
@@ -2648,7 +3725,7 @@ kscorectl identity token create --agent-id web-server-1 --ttl 10m
 ```bash
 # Add federation relationship
 kscorectl identity federation add partner.example.org \
-  --bundle-endpoint https://partner.example.org/.well-known/spiffe-bundle
+  --endpoint https://partner.example.org/.well-known/spiffe-bundle
 
 # Verify bundle was fetched
 kscorectl identity federation show partner.example.org
@@ -2663,7 +3740,7 @@ kscorectl identity federation activate partner.example.org
 kscorectl identity ca backup --output /var/backups/ca-$(date +%Y%m%d).json
 
 # Restore (after disaster)
-kscorectl identity ca restore --backup /var/backups/ca-20240115.json
+kscorectl identity ca restore --input /var/backups/ca-20240115.json
 ```
 
 **Rotate CA**:
@@ -2677,6 +3754,101 @@ kscorectl identity ca rotate
 # Verify new CA
 kscorectl identity ca info
 ```
+
+## kscore-federation (Trust Federation)
+
+Manage trust federation as a dedicated CLI (split from `kscore-identity`).
+
+> **Note**: This CLI currently returns placeholder/demo data for testing purposes.
+> Full API integration is planned for a future release.
+
+### Global Flags
+
+These flags apply to all kscore-federation commands:
+
+- `--server string`: Control plane API address (default: localhost:9090)
+- `-o, --output string`: Output format: table, text, json, yaml (default: table)
+- `--audit-level string`: Audit logging level: all, errors, none (default: all)
+- `--audit-output string`: Audit output backend: auto, syslog, journald, stderr, none
+
+### federation list
+
+List federated trust domains.
+
+```bash
+kscorectl federation list [flags]
+```
+
+### federation add
+
+Add a federated trust domain.
+
+```bash
+kscorectl federation add <trust-domain> [flags]
+```
+
+**Flags**:
+- `--bundle-endpoint string`: Bundle endpoint URL
+- `--type string`: Federation type: bidirectional, unidirectional (default: bidirectional)
+- `--refresh-interval duration`: Trust bundle refresh interval (default: 5m)
+
+### federation show
+
+Show details for a federated domain.
+
+```bash
+kscorectl federation show <trust-domain> [flags]
+```
+
+### federation suspend
+
+Suspend trust with a federated domain.
+
+```bash
+kscorectl federation suspend <trust-domain>
+```
+
+### federation activate
+
+Activate trust with a federated domain.
+
+```bash
+kscorectl federation activate <trust-domain>
+```
+
+### federation remove
+
+Remove a federated trust domain.
+
+```bash
+kscorectl federation remove <trust-domain> [flags]
+```
+
+**Flags**:
+- `--force`: Skip confirmation prompt
+
+### federation refresh
+
+Refresh trust bundle from a federated domain.
+
+```bash
+kscorectl federation refresh <trust-domain>
+```
+
+### federation bundle
+
+Manage the local trust bundle.
+
+```bash
+kscorectl federation bundle <command> [flags]
+```
+
+**Commands**:
+- `show`: Show the local trust bundle
+- `export`: Export the trust bundle
+
+**Export Flags**:
+- `--format string`: Bundle format (pem, jwks, spiffe)
 
 ## kscore-migrate (Database Migration)
 
@@ -2813,7 +3985,8 @@ kscore-registry [flags]
 - `--api-key string`: API key for write operations (or KSCORE_REGISTRY_API_KEY env)
 - `--readonly`: Disable write operations (mirror mode)
 - `--max-upload-size int`: Maximum upload size in bytes (default: 100MB)
-- `--cors`: Enable CORS headers for web clients
+- `--cors`: Enable CORS headers (requires --cors-origins)
+- `--cors-origins string`: Comma-separated list of allowed CORS origins (e.g., 'https://example.com,https://app.example.com')
 
 **Examples**:
 ```bash
@@ -2833,10 +4006,24 @@ export KSCORE_REGISTRY_API_KEY="your-secret-api-key"
 kscore-registry
 
 # Enable CORS for web-based module browsers
-kscore-registry --cors
+kscore-registry --cors --cors-origins "https://example.com,https://app.example.com"
+
+# Enable CORS with wildcard (use with caution)
+kscore-registry --cors --cors-origins "*"
+```
+
+### Version Information
+
+```bash
+kscore-registry version
 ```
 
 **Output**:
+```
+kscore-registry version 0.1.0
+```
+
+**Server Startup Output**:
 ```
 Starting kscore-registry on :8090
   Data directory: ./data
@@ -2856,7 +4043,7 @@ The registry provides a Go-mod style HTTP API:
 | POST | `/<module>/@v/<version>` | Publish module (requires auth) |
 | DELETE | `/<module>/@v/<version>` | Delete module (requires auth) |
 | GET | `/health` | Health check endpoint |
-| GET | `/` | Server information |
+| GET | `/` | Server information (name, version, mode) |
 
 ### Listing Versions
 
@@ -2985,6 +4172,21 @@ curl http://localhost:8090/health
 {
   "status": "healthy",
   "time": "2024-01-15T10:30:45Z"
+}
+```
+
+### Server Information
+
+```bash
+curl http://localhost:8090/
+```
+
+**Response**:
+```json
+{
+  "name": "kscore-registry",
+  "version": "0.1.0",
+  "readonly": false
 }
 ```
 
@@ -3245,7 +4447,38 @@ kscorectl state apply security-baseline.yaml \
 
 The file distribution server for Keystone Core. Manages file storage, distribution, and synchronization across clusters.
 
-### Running the Server
+### Global Flags
+
+These flags apply to all kscore-files commands:
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--config string` | Configuration file path | |
+| `--nats-url string` | NATS server URL | `nats://localhost:4222` |
+| `--cluster-id string` | Cluster identifier for routing | |
+| `--instance-id string` | Instance identifier for HA deployments | |
+| `-o, --output string` | Output format: text, json, yaml, table | `text` |
+| `-h, --help` | Show help | |
+
+### serve
+
+Run the file distribution server.
+
+```bash
+kscore-files serve [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--config string` | Configuration file path | |
+| `--nats-url string` | NATS server URL | `nats://localhost:4222` |
+| `--cluster-id string` | Cluster identifier for routing | |
+| `--instance-id string` | Instance identifier for HA deployments | |
+| `--listen string` | HTTP listen address | `:8080` |
+
+**Examples:**
 
 ```bash
 # Run with configuration file
@@ -3254,110 +4487,1019 @@ kscore-files serve --config /etc/kscore/files.yaml
 # Run with NATS connection
 kscore-files serve --nats-url nats://localhost:4222
 
-# Show version
-kscore-files version
+# Run with HA configuration
+kscore-files serve --config /etc/kscore/files.yaml --instance-id files-1
 ```
 
-### Server Flags
+### files
 
-```
---config string       Configuration file path
---nats-url string     NATS server URL (default: nats://localhost:4222)
---cluster-id string   Cluster identifier for routing
---instance-id string  Instance identifier for HA deployments
--h, --help            Show help
-```
+Manage files in the distribution system.
 
-### File Management Commands
+#### files list
+
+List files in a namespace.
 
 ```bash
-# List files in a namespace
-kscore-files files list <namespace>
-
-# Upload a file
-kscore-files files put <local-path> <namespace>/<remote-path>
-
-# Download a file
-kscore-files files get <namespace>/<remote-path> <local-path>
-
-# Delete a file
-kscore-files files delete <namespace>/<path>
-
-# Show file info
-kscore-files files info <namespace>/<path>
+kscore-files files list <namespace> [flags]
 ```
 
-### Backend Commands
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--path string` | Filter by path prefix | |
+| `--recursive` | List files recursively | `false` |
+| `-o, --output string` | Output format: text, json, yaml, table | `text` |
+
+**Examples:**
+
+```bash
+# List all files in packages namespace
+kscore-files files list packages
+
+# List files recursively with path filter
+kscore-files files list packages --path /myapp --recursive
+
+# Output as JSON
+kscore-files files list packages -o json
+```
+
+#### files put
+
+Upload a file to a namespace.
+
+```bash
+kscore-files files put <local-path> <namespace>/<remote-path> [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--content-type string` | Content type for the file | auto-detect |
+| `--metadata string` | JSON metadata to attach to file | |
+| `--overwrite` | Overwrite existing file | `false` |
+
+**Examples:**
+
+```bash
+# Upload a file
+kscore-files files put ./myapp-1.0.0.tar.gz packages/myapp/v1.0.0.tar.gz
+
+# Upload with metadata
+kscore-files files put ./config.yaml configs/app/config.yaml --metadata '{"version":"1.0"}'
+```
+
+#### files get
+
+Download a file from a namespace.
+
+```bash
+kscore-files files get <namespace>/<remote-path> <local-path> [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--verify` | Verify checksum after download | `true` |
+
+**Examples:**
+
+```bash
+# Download a file
+kscore-files files get packages/myapp/v1.0.0.tar.gz ./myapp.tar.gz
+```
+
+#### files delete
+
+Delete a file from a namespace.
+
+```bash
+kscore-files files delete <namespace>/<path> [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--force` | Delete without confirmation | `false` |
+| `--dry-run` | Show what would be deleted | `false` |
+
+#### files info
+
+Show detailed file information.
+
+```bash
+kscore-files files info <namespace>/<path> [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `-o, --output string` | Output format: text, json, yaml | `text` |
+
+### cache
+
+Manage file caching. Cache commands help optimize file distribution by pre-warming caches and managing cached content.
+
+#### cache status
+
+Get cache status for a specific cache or all caches.
+
+```bash
+kscore-files cache status [name] [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `-o, --output string` | Output format: text, json, yaml, table | `text` |
+
+**Examples:**
+
+```bash
+# Show status of all caches
+kscore-files cache status
+
+# Show status of specific cache
+kscore-files cache status edge-cache-1
+
+# Output as JSON
+kscore-files cache status -o json
+```
+
+#### cache clear
+
+Clear cache contents.
+
+```bash
+kscore-files cache clear [name] [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--pattern string` | Only clear entries matching pattern (glob) | |
+| `--force` | Clear without confirmation | `false` |
+| `--older string` | Only clear entries older than duration (e.g., 24h, 7d) | |
+| `--dry-run` | Show what would be cleared | `false` |
+
+**Examples:**
+
+```bash
+# Clear all caches (with confirmation)
+kscore-files cache clear
+
+# Clear specific cache
+kscore-files cache clear edge-cache-1
+
+# Clear entries matching pattern
+kscore-files cache clear --pattern "packages/*.tar.gz"
+
+# Clear entries older than 7 days
+kscore-files cache clear --older 7d
+
+# Preview what would be cleared
+kscore-files cache clear --older 24h --dry-run
+```
+
+#### cache warm
+
+Pre-warm the cache with files from a path.
+
+```bash
+kscore-files cache warm <path> [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--namespace string` | Namespace to warm from | |
+| `--recursive` | Warm files recursively | `false` |
+| `--dry-run` | Show what would be warmed | `false` |
+
+**Examples:**
+
+```bash
+# Warm cache with files from packages namespace
+kscore-files cache warm /myapp --namespace packages
+
+# Warm recursively
+kscore-files cache warm / --namespace configs --recursive
+
+# Preview what would be warmed
+kscore-files cache warm /releases --namespace packages --dry-run
+```
+
+#### cache list
+
+List cached entries.
+
+```bash
+kscore-files cache list [name] [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--pattern string` | Filter entries matching pattern (glob) | |
+| `--limit int` | Maximum number of entries to show | `100` |
+| `--sort-by string` | Sort by: name, size, accessed, created | `accessed` |
+| `-o, --output string` | Output format: text, json, yaml, table | `table` |
+
+**Examples:**
+
+```bash
+# List all cached entries
+kscore-files cache list
+
+# List entries in specific cache
+kscore-files cache list edge-cache-1
+
+# List with pattern filter
+kscore-files cache list --pattern "*.tar.gz" --limit 50
+
+# Sort by size
+kscore-files cache list --sort-by size
+```
+
+#### cache evict
+
+Evict a specific entry from the cache.
+
+```bash
+kscore-files cache evict <path> [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--force` | Evict without confirmation | `false` |
+| `--dry-run` | Show what would be evicted | `false` |
+
+**Examples:**
+
+```bash
+# Evict a specific entry
+kscore-files cache evict packages/myapp/v1.0.0.tar.gz
+
+# Force evict without confirmation
+kscore-files cache evict packages/old-package.tar.gz --force
+```
+
+#### cache stats
+
+Get detailed cache statistics.
+
+```bash
+kscore-files cache stats [name] [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `-o, --output string` | Output format: text, json, yaml | `text` |
+
+**Examples:**
+
+```bash
+# Show stats for all caches
+kscore-files cache stats
+
+# Show stats for specific cache
+kscore-files cache stats edge-cache-1 -o json
+```
+
+**Output includes:**
+
+- Total entries and size
+- Hit/miss ratios
+- Eviction statistics
+- Age distribution
+- Top accessed files
+
+### namespace (ns)
+
+Manage file namespaces. Namespaces provide logical separation of files with independent access controls and quotas.
+
+#### namespace list
+
+List all namespaces.
+
+```bash
+kscore-files namespace list [flags]
+kscore-files ns list [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `-o, --output string` | Output format: text, json, yaml, table | `table` |
+
+**Examples:**
+
+```bash
+# List all namespaces
+kscore-files namespace list
+
+# Using alias
+kscore-files ns list -o json
+```
+
+#### namespace create
+
+Create a new namespace.
+
+```bash
+kscore-files namespace create <name> [flags]
+kscore-files ns create <name> [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--backend string` | Backend to use for storage | default backend |
+| `--path string` | Base path within backend | |
+| `--description string` | Namespace description | |
+| `--max-size string` | Maximum total size (e.g., 10GB, 100MB) | unlimited |
+| `--max-files int` | Maximum number of files | unlimited |
+| `--read-only` | Create as read-only namespace | `false` |
+| `--dry-run` | Show what would be created | `false` |
+
+**Examples:**
+
+```bash
+# Create a simple namespace
+kscore-files namespace create packages
+
+# Create with description and quota
+kscore-files namespace create configs \
+  --description "Application configuration files" \
+  --max-size 1GB \
+  --max-files 1000
+
+# Create on specific backend
+kscore-files namespace create archives \
+  --backend s3-backup \
+  --path /archives \
+  --read-only
+
+# Preview creation
+kscore-files ns create test-ns --dry-run
+```
+
+#### namespace delete
+
+Delete a namespace.
+
+```bash
+kscore-files namespace delete <name> [flags]
+kscore-files ns delete <name> [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--force` | Delete without confirmation (also deletes all files) | `false` |
+| `--dry-run` | Show what would be deleted | `false` |
+
+**Examples:**
+
+```bash
+# Delete namespace (prompts for confirmation)
+kscore-files namespace delete old-packages
+
+# Force delete without confirmation
+kscore-files ns delete temp-ns --force
+
+# Preview deletion
+kscore-files namespace delete archives --dry-run
+```
+
+#### namespace info
+
+Get detailed namespace information.
+
+```bash
+kscore-files namespace info <name> [flags]
+kscore-files ns info <name> [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `-o, --output string` | Output format: text, json, yaml | `text` |
+
+**Examples:**
+
+```bash
+# Show namespace info
+kscore-files namespace info packages
+
+# Output as YAML
+kscore-files ns info configs -o yaml
+```
+
+**Output includes:**
+
+- Namespace name and description
+- Backend and path configuration
+- Quota settings and usage
+- Access control settings
+- File count and total size
+
+#### namespace quota
+
+Set namespace quota limits.
+
+```bash
+kscore-files namespace quota <name> [flags]
+kscore-files ns quota <name> [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--max-size string` | Maximum total size (e.g., 10GB, 100MB) | |
+| `--max-files int` | Maximum number of files | |
+| `--max-file-size string` | Maximum single file size | |
+| `--clear` | Clear all quota limits | `false` |
+| `--dry-run` | Show what would be changed | `false` |
+
+**Examples:**
+
+```bash
+# Set size quota
+kscore-files namespace quota packages --max-size 50GB
+
+# Set multiple quotas
+kscore-files ns quota configs \
+  --max-size 1GB \
+  --max-files 5000 \
+  --max-file-size 10MB
+
+# Clear all quotas
+kscore-files namespace quota archives --clear
+
+# Preview changes
+kscore-files ns quota packages --max-size 100GB --dry-run
+```
+
+#### namespace access
+
+Set namespace access controls.
+
+```bash
+kscore-files namespace access <name> [flags]
+kscore-files ns access <name> [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--read-only` | Set namespace to read-only | `false` |
+| `--read-write` | Set namespace to read-write | `false` |
+| `--allow-ip string` | Add allowed IP/CIDR (can be repeated) | |
+| `--deny-ip string` | Add denied IP/CIDR (can be repeated) | |
+| `--allow-user string` | Add allowed user/role (can be repeated) | |
+| `--deny-user string` | Add denied user/role (can be repeated) | |
+| `--clear` | Clear all access controls | `false` |
+| `--dry-run` | Show what would be changed | `false` |
+
+**Examples:**
+
+```bash
+# Set read-only
+kscore-files namespace access archives --read-only
+
+# Allow specific IPs
+kscore-files ns access packages \
+  --allow-ip 10.0.0.0/8 \
+  --allow-ip 192.168.1.0/24
+
+# Set user-based access
+kscore-files namespace access configs \
+  --allow-user admin \
+  --allow-user role:ops \
+  --deny-user guest
+
+# Clear all access controls
+kscore-files ns access temp --clear
+
+# Preview changes
+kscore-files namespace access packages --read-only --dry-run
+```
+
+### backend
+
+Manage storage backends.
+
+> **Note:** Backend management commands are also available in `kscore-files-storage` which provides additional functionality.
+
+#### backend list
+
+List configured storage backends.
+
+```bash
+kscore-files backend list [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `-o, --output string` | Output format: text, json, yaml, table | `table` |
+
+**Examples:**
+
+```bash
+# List all backends
+kscore-files backend list
+
+# Output as JSON
+kscore-files backend list -o json
+```
+
+#### backend status
+
+Get status of a specific backend.
+
+```bash
+kscore-files backend status <name> [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `-o, --output string` | Output format: text, json, yaml | `text` |
+
+**Examples:**
 
 ```bash
 # Show backend status
-kscore-files backend status
+kscore-files backend status s3-primary
 
-# Run garbage collection
-kscore-files backend gc
-
-# Verify backend integrity
-kscore-files backend verify
+# Output as YAML
+kscore-files backend status local-storage -o yaml
 ```
 
-### Cache Commands
+**Output includes:**
+
+- Backend type and configuration
+- Connection status
+- Storage capacity and usage
+- Error counts and last error
+
+#### backend sync
+
+Synchronize files between backends.
 
 ```bash
-# Show cache status
-kscore-files cache status
-
-# Clear cache
-kscore-files cache clear
-
-# Warm cache for namespace
-kscore-files cache warm <namespace>
+kscore-files backend sync <source> <destination> [flags]
 ```
 
-### Namespace Commands
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--dry-run` | Show what would be synced | `false` |
+| `--force` | Sync even if destination has newer files | `false` |
+
+**Examples:**
 
 ```bash
-# List namespaces
-kscore-files namespace list
+# Sync from primary to backup
+kscore-files backend sync s3-primary s3-backup
 
-# Create namespace
-kscore-files namespace create <name> --description "Description"
+# Preview sync operation
+kscore-files backend sync local-storage s3-archive --dry-run
 
-# Delete namespace
-kscore-files namespace delete <name>
-
-# Manage namespace ACLs
-kscore-files namespace acl add <name> --principal role:ops --permission read,write
-kscore-files namespace acl remove <name> --principal role:ops
-kscore-files namespace acl list <name>
+# Force sync (overwrites newer files)
+kscore-files backend sync primary secondary --force
 ```
 
-### Mirror Commands
+#### backend enable
+
+Enable a disabled backend.
 
 ```bash
-# List mirror groups
+kscore-files backend enable <name> [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--dry-run` | Show what would be changed | `false` |
+
+#### backend disable
+
+Disable a backend (prevents reads and writes).
+
+```bash
+kscore-files backend disable <name> [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--dry-run` | Show what would be changed | `false` |
+
+#### backend health
+
+Check health of all backends.
+
+```bash
+kscore-files backend health [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `-o, --output string` | Output format: text, json, yaml, table | `table` |
+
+**Examples:**
+
+```bash
+# Check all backends health
+kscore-files backend health
+
+# Output as JSON for monitoring
+kscore-files backend health -o json
+```
+
+### mirrors
+
+Manage mirror groups for file replication and geographic distribution.
+
+> **Note:** Mirror management commands are also available in `kscore-files-storage` which provides additional functionality.
+
+#### mirrors list
+
+List all mirror groups.
+
+```bash
+kscore-files mirrors list [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `-o, --output string` | Output format: text, json, yaml, table | `table` |
+
+**Examples:**
+
+```bash
+# List all mirror groups
 kscore-files mirrors list
 
-# Show mirror group status
-kscore-files mirrors show <group-id>
-
-# Check mirror health
-kscore-files mirrors health --group <group-id>
-
-# Trigger sync
-kscore-files mirrors sync --group <group-id>
-
-# View sync status
-kscore-files mirrors sync-status --group <group-id>
-
-# Trigger failover
-kscore-files mirrors failover <group-id> --from <mirror-id>
-
-# List conflicts
-kscore-files mirrors conflicts --group <group-id>
-
-# Resolve conflict
-kscore-files mirrors resolve-conflict <conflict-id> --strategy source
+# Output as JSON
+kscore-files mirrors list -o json
 ```
+
+#### mirrors show
+
+Show detailed information about a mirror group.
+
+```bash
+kscore-files mirrors show <group-id> [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `-o, --output string` | Output format: text, json, yaml | `text` |
+
+**Examples:**
+
+```bash
+# Show mirror group details
+kscore-files mirrors show us-east-mirrors
+
+# Output as YAML
+kscore-files mirrors show global-mirrors -o yaml
+```
+
+**Output includes:**
+
+- Group ID and description
+- Member mirrors with health status
+- Sync configuration
+- Routing strategy
+- Recent sync status
+
+#### mirrors sync-status
+
+Check synchronization status for a mirror group.
+
+```bash
+kscore-files mirrors sync-status <group-id> [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `-o, --output string` | Output format: text, json, yaml | `text` |
+
+**Examples:**
+
+```bash
+# Check sync status
+kscore-files mirrors sync-status us-east-mirrors
+
+# Output as JSON for monitoring
+kscore-files mirrors sync-status global-mirrors -o json
+```
+
+**Output includes:**
+
+- Sync state (in-sync, syncing, error)
+- Last sync time
+- Pending files count
+- Sync lag duration
+
+#### mirrors sync
+
+Trigger a manual synchronization.
+
+```bash
+kscore-files mirrors sync <group-id> [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--path string` | Only sync specific path | |
+| `--source string` | Source mirror for sync | primary |
+| `--target string` | Target mirror(s) for sync | all |
+| `--priority string` | Sync priority: low, normal, high | `normal` |
+| `--wait` | Wait for sync to complete | `false` |
+| `--dry-run` | Show what would be synced | `false` |
+
+**Examples:**
+
+```bash
+# Trigger sync for mirror group
+kscore-files mirrors sync us-east-mirrors
+
+# Sync specific path only
+kscore-files mirrors sync global-mirrors --path /packages/critical
+
+# Sync to specific target
+kscore-files mirrors sync us-mirrors --target us-west-1
+
+# Wait for sync completion
+kscore-files mirrors sync production --wait
+
+# Preview sync
+kscore-files mirrors sync us-east-mirrors --dry-run
+```
+
+#### mirrors health
+
+Show health status of mirrors.
+
+```bash
+kscore-files mirrors health [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--group string` | Filter by mirror group | |
+| `-o, --output string` | Output format: text, json, yaml, table | `table` |
+
+**Examples:**
+
+```bash
+# Show health of all mirrors
+kscore-files mirrors health
+
+# Filter by group
+kscore-files mirrors health --group us-east-mirrors
+
+# Output as JSON
+kscore-files mirrors health -o json
+```
+
+#### mirrors failover
+
+Force failover to a specific mirror.
+
+```bash
+kscore-files mirrors failover <group-id> [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--to string` | Target mirror ID for failover | |
+| `--dry-run` | Show what would happen | `false` |
+
+**Examples:**
+
+```bash
+# Failover to specific mirror
+kscore-files mirrors failover us-east-mirrors --to us-east-2
+
+# Preview failover
+kscore-files mirrors failover production --to backup-dc --dry-run
+```
+
+#### mirrors latency
+
+Show latency matrix between mirrors.
+
+```bash
+kscore-files mirrors latency [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--group string` | Filter by mirror group | |
+| `-o, --output string` | Output format: text, json, yaml, table | `table` |
+
+**Examples:**
+
+```bash
+# Show latency matrix
+kscore-files mirrors latency
+
+# Filter by group
+kscore-files mirrors latency --group global-mirrors
+```
+
+#### mirrors conflicts
+
+List unresolved sync conflicts.
+
+```bash
+kscore-files mirrors conflicts [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--group string` | Filter by mirror group | |
+| `-o, --output string` | Output format: text, json, yaml, table | `table` |
+
+**Examples:**
+
+```bash
+# List all conflicts
+kscore-files mirrors conflicts
+
+# Filter by group
+kscore-files mirrors conflicts --group us-mirrors
+
+# Output as JSON
+kscore-files mirrors conflicts -o json
+```
+
+#### mirrors resolve-conflict
+
+Resolve a sync conflict.
+
+```bash
+kscore-files mirrors resolve-conflict <conflict-id> [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--strategy string` | Resolution strategy: newest-wins, largest-wins, primary-wins, source, target | |
+| `--dry-run` | Show what would happen | `false` |
+
+**Strategies:**
+
+| Strategy | Description |
+|----------|-------------|
+| `newest-wins` | Keep the file with the most recent modification time |
+| `largest-wins` | Keep the larger file |
+| `primary-wins` | Keep the file from the primary mirror |
+| `source` | Keep the source file (for this specific conflict) |
+| `target` | Keep the target file (for this specific conflict) |
+
+**Examples:**
+
+```bash
+# Resolve using newest-wins strategy
+kscore-files mirrors resolve-conflict conflict-12345 --strategy newest-wins
+
+# Preview resolution
+kscore-files mirrors resolve-conflict conflict-67890 --strategy primary-wins --dry-run
+```
+
+#### mirrors history
+
+Show synchronization history.
+
+```bash
+kscore-files mirrors history [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--limit int` | Maximum entries to show | `50` |
+| `--group string` | Filter by mirror group | |
+| `-o, --output string` | Output format: text, json, yaml, table | `table` |
+
+**Examples:**
+
+```bash
+# Show recent sync history
+kscore-files mirrors history
+
+# Show more entries
+kscore-files mirrors history --limit 100
+
+# Filter by group
+kscore-files mirrors history --group us-east-mirrors
+
+# Output as JSON
+kscore-files mirrors history -o json
+```
+
+## kscore-files-storage (File Storage Administration)
+
+Admin CLI for file distribution storage backends and mirror groups.
+
+### Global Flags
+
+These flags apply to all kscore-files-storage commands:
+
+- `--nats-url string`: NATS server URL (default: nats://localhost:4222)
+- `--cluster-id string`: Cluster identifier for NATS subjects
+- `-o, --output string`: Output format: table, text, json, yaml (default: table)
+- `--audit-level string`: Audit logging level: all, errors, none (default: all)
+- `--audit-output string`: Audit output backend: auto, syslog, journald, stderr, none
+
+### files-storage backend
+
+Manage storage backends.
+
+```bash
+kscorectl files-storage backend <command> [flags]
+```
+
+**Commands**:
+- `list`: List configured backends
+- `status <name>`: Get backend status
+- `sync <source> <destination>`: Synchronize backends
+- `enable <name>`: Enable a backend
+- `disable <name>`: Disable a backend
+- `health`: Check health of all backends
+
+**Sync Flags**:
+- `--dry-run`: Show what would be done
+- `--force`: Force sync even if destination has newer files
+
+### files-storage mirrors
+
+Manage mirror groups.
+
+```bash
+kscorectl files-storage mirrors <command> [flags]
+```
+
+**Commands**:
+- `list`: List mirror groups
+- `show <group-id>`: Show mirror group details
+- `sync <group-id>`: Trigger manual sync
+- `health`: Show mirror health
+- `conflicts`: List unresolved conflicts
+
+**Sync Flags**:
+- `--dry-run`: Show what would be done
 
 ## kscore-bootstrap (Cluster Bootstrap Tool)
 
@@ -3554,34 +5696,42 @@ kscore-bootstrap cleanup --force
 
 Aggregates metrics, logs, and traces from agents over NATS and exposes them to standard observability backends (Prometheus, Loki, Tempo/Jaeger).
 
-### Running the Gateway
+### Commands
+
+#### serve
+
+Start the telemetry gateway server.
 
 ```bash
-# Run with configuration file
-kscore-telemetry-gateway --config /etc/kscore/gateway.yaml
+# Start with default settings
+kscore-telemetry-gateway serve
 
-# Run with command-line options
-kscore-telemetry-gateway \
-  --listen 0.0.0.0:9091 \
-  --nats-url nats://localhost:4222 \
-  --metrics \
-  --logs \
-  --traces
+# Start with custom config file
+kscore-telemetry-gateway serve --config /etc/kscore/gateway.yaml
 
-# Show version
-kscore-telemetry-gateway --version
+# Override specific settings
+kscore-telemetry-gateway serve --listen 0.0.0.0:9091 --nats-url nats://nats:4222
 ```
 
-### Gateway Flags
+#### version
+
+Print version information.
+
+```bash
+kscore-telemetry-gateway version
+```
+
+### Global Flags
+
+These flags are available for all commands:
 
 ```
 --config string     Path to configuration file
---listen string     Listen address (default: 0.0.0.0:9091)
---nats-url string   NATS server URL (default: nats://localhost:4222)
+--listen string     Listen address (overrides config)
+--nats-url string   NATS server URL (overrides config)
 --metrics           Enable metrics gateway (default: true)
 --logs              Enable logs gateway (default: true)
 --traces            Enable traces gateway (default: true)
---version           Show version information
 -h, --help          Show help
 ```
 
@@ -3589,23 +5739,27 @@ kscore-telemetry-gateway --version
 
 When running, the gateway exposes the following endpoints:
 
-| Endpoint | Description |
-|----------|-------------|
-| `/metrics` | Prometheus metrics scrape endpoint |
-| `/federate` | Prometheus federation endpoint |
-| `/health` | Health check endpoint |
-| `/ready` | Readiness check endpoint |
+| Endpoint | Description | Default Path |
+|----------|-------------|--------------|
+| Metrics | Prometheus metrics scrape endpoint | `/metrics` |
+| Federation | Prometheus federation endpoint | `/federate` |
+| Health | Health check endpoint | `/health` |
+| Ready | Readiness check endpoint | `/ready` |
 
-### Metrics Gateway
+### Features
+
+#### Metrics Gateway
 
 The metrics gateway:
-- Subscribes to `kscore.metrics.>` on NATS
+- Subscribes to `kscore.telemetry.metrics.>` on NATS (configurable)
 - Aggregates metrics from all agents
 - Exposes `/metrics` for Prometheus scraping
 - Exposes `/federate` for Prometheus federation
-- Supports label transformations
+- Supports label transformations (add, drop, rewrite)
+- Cardinality control (max series, max labels per series)
+- Remote write support for pushing to Prometheus
 
-**Prometheus Configuration**:
+**Prometheus Scrape Configuration**:
 ```yaml
 scrape_configs:
   - job_name: 'kscore-gateway'
@@ -3613,75 +5767,234 @@ scrape_configs:
       - targets: ['gateway:9091']
 ```
 
-### Logs Gateway
+#### Logs Gateway
 
 The logs gateway:
-- Subscribes to `kscore.logs.>` on NATS
+- Subscribes to `kscore.telemetry.logs.>` on NATS (configurable)
 - Buffers and batches logs
 - Pushes to Loki via push API
-- Supports log level filtering
+- Supports log level filtering (debug, info, warn, error, fatal)
+- Source filtering (include/exclude patterns)
 - Multi-tenant support via X-Scope-OrgID
+- Optional Elasticsearch output
 
-### Traces Gateway
+#### Traces Gateway
 
 The traces gateway:
-- Subscribes to `kscore.traces.>` on NATS
+- Subscribes to `kscore.telemetry.traces.>` on NATS (configurable)
 - Groups spans into traces
-- Exports via OTLP to Tempo/Jaeger
+- Exports via OTLP to Tempo/Jaeger (gRPC or HTTP)
 - Supports sampling configuration
-- Prioritizes error and slow traces
+- Priority sampling for error and slow traces
+- Configurable compression (gzip)
 
-### Configuration Example
+### Configuration Reference
+
+#### Complete Configuration Example
 
 ```yaml
 # /etc/kscore/gateway.yaml
+
+# NATS connection settings
+nats:
+  urls:
+    - "nats://localhost:4222"
+  cluster: "default"
+  credentials_file: ""
+  max_reconnects: -1           # -1 for infinite
+  reconnect_wait: "2s"
+  reconnect_jitter: "500ms"
+  tls:
+    enabled: false
+    cert_file: ""
+    key_file: ""
+    ca_file: ""
+    insecure: false
+
+# HTTP server settings
 server:
   listen: "0.0.0.0:9091"
+  metrics_path: "/metrics"
+  health_path: "/health"
+  ready_path: "/ready"
+  federate_path: "/federate"
+  read_timeout: "30s"
+  write_timeout: "30s"
 
-nats:
-  url: "nats://localhost:4222"
-  subject_prefix: "kscore"
-
+# Metrics gateway configuration
 metrics:
   enabled: true
-  path: "/metrics"
-  federation_path: "/federate"
-  retention: "15m"
+  subject: "kscore.telemetry.metrics.>"
+  stale_timeout: "60s"         # Remove agents not seen for this duration
+  labels:
+    add:                       # Add labels to all metrics
+      environment: "production"
+    drop:                      # Drop these label names
+      - "internal_id"
+    rewrite:                   # Rewrite label names
+      - source: "old_name"
+        target: "new_name"
+  cardinality:
+    max_series: 100000
+    max_labels_per_series: 20
+    drop_high_cardinality: false
+  remote_write:
+    enabled: false
+    url: "http://prometheus:9090/api/v1/write"
+    batch_size: 1000
+    flush_interval: "15s"
+    auth:
+      type: "none"             # none, basic, bearer
+      username: ""
+      password: ""
+      token: ""
+    tls:
+      enabled: false
+    retry:
+      max_attempts: 3
+      backoff: "1s"
+      max_backoff: "30s"
+  federation:
+    enabled: true
+    path: "/federate"
 
+# Logs gateway configuration
 logs:
   enabled: true
-  loki_url: "http://loki:3100"
-  batch_size: 1000
-  flush_interval: "5s"
+  subject: "kscore.telemetry.logs.>"
+  min_level: "info"            # debug, info, warn, error, fatal
+  sources:
+    include: []
+    exclude: []
+  loki:
+    enabled: false
+    url: "http://loki:3100/loki/api/v1/push"
+    batch_size: 100
+    batch_wait: "1s"
+    tenant_id: ""
+    labels:
+      - "agent_id"
+      - "level"
+      - "source"
+    auth:
+      type: "none"
+    tls:
+      enabled: false
+    retry:
+      max_attempts: 3
+      backoff: "1s"
+      max_backoff: "30s"
+  elasticsearch:
+    enabled: false
+    urls:
+      - "http://elasticsearch:9200"
+    index: "kscore-logs-%Y.%m.%d"
+    batch_size: 500
+    auth:
+      type: "none"
+    tls:
+      enabled: false
 
+# Traces gateway configuration
 traces:
   enabled: true
-  otlp_endpoint: "tempo:4317"
-  sampling_rate: 1.0
+  subject: "kscore.telemetry.traces.>"
+  sampling:
+    enabled: true
+    rate: 1.0                  # 0.0 to 1.0 (1.0 = 100%)
+    priority_sample:
+      errors: true             # Always sample error traces
+      slow_threshold: "1s"     # Always sample traces slower than this
+  otlp:
+    enabled: false
+    endpoint: "tempo:4317"
+    protocol: "grpc"           # grpc, http
+    compression: "gzip"        # gzip, none
+    batch_size: 100
+    flush_interval: "5s"
+    headers: {}
+    tls:
+      enabled: false
 
+# High availability configuration
 ha:
   enabled: false
-  instance_id: "gateway-1"
-  shard_count: 3
+  queue_group: "kscore-gateway"
+  leader_election:
+    enabled: false
+    lease_duration: "15s"
+    renew_deadline: "10s"
 ```
+
+#### Configuration Sections
+
+**nats** - NATS connection:
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `urls` | []string | `["nats://localhost:4222"]` | NATS server URLs |
+| `cluster` | string | `"default"` | Cluster name for subject prefixing |
+| `credentials_file` | string | `""` | Path to credentials file (JWT/NKey) |
+| `max_reconnects` | int | `-1` | Max reconnect attempts (-1 = infinite) |
+| `reconnect_wait` | duration | `2s` | Wait between reconnect attempts |
+| `reconnect_jitter` | duration | `500ms` | Random jitter for reconnects |
+
+**server** - HTTP server:
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `listen` | string | `0.0.0.0:9091` | Listen address |
+| `metrics_path` | string | `/metrics` | Prometheus metrics path |
+| `health_path` | string | `/health` | Health check path |
+| `ready_path` | string | `/ready` | Readiness check path |
+| `federate_path` | string | `/federate` | Federation endpoint path |
+| `read_timeout` | duration | `30s` | HTTP read timeout |
+| `write_timeout` | duration | `30s` | HTTP write timeout |
+
+**metrics.cardinality** - Cardinality control:
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `max_series` | int | `100000` | Maximum total metric series |
+| `max_labels_per_series` | int | `20` | Maximum labels per series |
+| `drop_high_cardinality` | bool | `false` | Auto-drop high cardinality metrics |
+
+**logs** - Log filtering:
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `min_level` | string | `info` | Minimum log level (debug, info, warn, error, fatal) |
+| `sources.include` | []string | `[]` | Only include these sources |
+| `sources.exclude` | []string | `[]` | Exclude these sources |
+
+**traces.sampling** - Trace sampling:
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `rate` | float64 | `1.0` | Sampling rate (0.0 to 1.0) |
+| `priority_sample.errors` | bool | `true` | Always sample error traces |
+| `priority_sample.slow_threshold` | duration | `1s` | Always sample traces slower than this |
 
 ### High Availability
 
-For HA deployments, run multiple gateway instances:
+For HA deployments, enable HA mode in the configuration:
+
+```yaml
+ha:
+  enabled: true
+  queue_group: "kscore-gateway"
+  leader_election:
+    enabled: true
+    lease_duration: "15s"
+    renew_deadline: "10s"
+```
+
+Run multiple gateway instances with the same configuration. The queue group ensures agents are distributed across instances.
 
 ```bash
 # Instance 1
-kscore-telemetry-gateway \
-  --config /etc/kscore/gateway.yaml \
-  --instance-id gateway-1
+kscore-telemetry-gateway serve --config /etc/kscore/gateway.yaml
 
-# Instance 2
-kscore-telemetry-gateway \
-  --config /etc/kscore/gateway.yaml \
-  --instance-id gateway-2
+# Instance 2 (same config)
+kscore-telemetry-gateway serve --config /etc/kscore/gateway.yaml
 ```
 
-Agents are distributed across instances using consistent hashing.
+Agents are distributed across instances using NATS queue groups. Leader election coordinates tasks that should only run on one instance (like remote write).
 
 ## Command Migration Guide
 

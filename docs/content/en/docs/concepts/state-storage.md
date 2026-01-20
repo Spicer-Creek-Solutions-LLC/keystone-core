@@ -438,8 +438,8 @@ default_pool_size = 25
 # Online backup using SQLite's backup API
 sqlite3 /var/lib/keystone/keystone.db ".backup /backup/keystone-$(date +%Y%m%d).db"
 
-# Or with kscore-backup
-kscore-backup create --type database
+# Or with kscore-cluster-backup
+kscore-cluster-backup create --type database
 ```
 
 ### PostgreSQL Backup
@@ -451,8 +451,8 @@ pg_dump -h localhost -U keystone -d keystone -F c -f keystone-backup.dump
 # Physical backup
 pg_basebackup -h localhost -U replication -D /backup/pg-base -Fp -Xs -P
 
-# Or with kscore-backup
-kscore-backup create --type database
+# Or with kscore-cluster-backup
+kscore-cluster-backup create --type database
 ```
 
 ## Best Practices

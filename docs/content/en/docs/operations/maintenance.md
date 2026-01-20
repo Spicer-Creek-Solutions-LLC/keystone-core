@@ -88,7 +88,7 @@ echo "Backup completed: state-$TIMESTAMP.db.gz"
 
 **Schedule with Cron:**
 ```bash
-# /etc/cron.d/kscore-backup
+# /etc/cron.d/kscore-cluster-backup
 0 2 * * * keystonecore /usr/local/bin/backup-sqlite.sh >> /var/log/kscore/backup.log 2>&1
 ```
 
@@ -174,6 +174,18 @@ For high-availability deployments, you can backup the cluster state via the API.
 # Backup cluster state to file
 curl -H "Authorization: Bearer $API_KEY" \
   http://control-plane:8080/api/v1/cluster/backup > cluster-backup-$(date +%Y%m%d).json
+```
+
+**kscore-cluster-backup CLI (Recommended):**
+```bash
+# Create a backup
+kscorectl cluster-backup backup --file /var/backups/kscore/cluster-backup.bin
+
+# Verify a backup before restore
+kscorectl cluster-backup verify --input /var/backups/kscore/cluster-backup.bin
+
+# Restore from backup (use --dry-run to preview)
+kscorectl cluster-backup restore --input /var/backups/kscore/cluster-backup.bin --dry-run
 ```
 
 **Backup Contents:**

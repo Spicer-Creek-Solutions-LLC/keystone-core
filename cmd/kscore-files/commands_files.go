@@ -140,14 +140,18 @@ func newFilesGetCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "get <path>",
-		Short: "Download a file from the distribution system",
+		Use:     "get <path>",
+		Aliases: []string{"pull"},
+		Short:   "Download a file from the distribution system",
 		Long: `Download a file to the local filesystem.
+
+Aliases: pull (for compatibility with kscorectl files pull)
 
 Examples:
   kscore-files files get /packages/nginx-1.20.rpm
   kscore-files files get /configs/app.yaml --output /etc/app/app.yaml
-  kscore-files files get /binaries/myapp --version v1.2.0`,
+  kscore-files files get /binaries/myapp --version v1.2.0
+  kscorectl files pull /packages/nginx-1.20.rpm`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := args[0]
@@ -236,14 +240,18 @@ func newFilesPutCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "put <source> <destination>",
-		Short: "Upload a file to the distribution system",
+		Use:     "put <source> <destination>",
+		Aliases: []string{"push"},
+		Short:   "Upload a file to the distribution system",
 		Long: `Upload a local file or directory to the distribution system.
+
+Aliases: push (for compatibility with kscorectl files push)
 
 Examples:
   kscore-files files put ./nginx.rpm /packages/nginx-1.20.rpm
   kscore-files files put ./configs/ /configs/ --recursive
-  kscore-files files put ./app.yaml /configs/app.yaml --namespace myapp`,
+  kscore-files files put ./app.yaml /configs/app.yaml --namespace myapp
+  kscorectl files push ./nginx.rpm /packages/nginx-1.20.rpm`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			source := args[0]

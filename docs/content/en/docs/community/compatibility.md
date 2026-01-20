@@ -334,7 +334,7 @@ This matrix shows compatibility between components across supported versions.
 | Config Key | Deprecated In | Removed In | Replacement |
 |------------|---------------|------------|-------------|
 | `server.legacy_auth` | 0.2.x | 0.4.x | `server.auth.method` |
-| `agent.nats_url` | 0.3.x | 0.5.x | `agent.nats.urls` |
+| `agent.nats_url` | 0.3.x | 0.5.x | `nats.url` |
 | `database.sqlite_path` | 0.3.x | 0.5.x | `database.sqlite.path` |
 
 ## Support Windows

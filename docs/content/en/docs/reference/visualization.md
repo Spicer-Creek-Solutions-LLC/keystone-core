@@ -125,7 +125,7 @@ curl "http://localhost:8080/api/agents?status=healthy"
         "os": "linux",
         "arch": "amd64"
       },
-      "tags": ["web", "frontend"],
+      "labels": {"tier": "web", "component": "frontend"},
       "datacenter": "us-west-2",
       "environment": "prod",
       "role": "web",
@@ -160,7 +160,7 @@ curl http://localhost:8080/api/agents/agent-001
     "cpu_cores": "8",
     "memory_gb": "32"
   },
-  "tags": ["web", "frontend"],
+  "labels": {"tier": "web", "component": "frontend"},
   "datacenter": "us-west-2",
   "environment": "prod",
   "role": "web",

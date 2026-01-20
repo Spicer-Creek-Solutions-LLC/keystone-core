@@ -270,6 +270,47 @@ func (a *CommandAction) Execute(ctx context.Context, event *Event) error {
 	return nil
 }
 
+// StateApplyAction applies a state file using a provided handler.
+type StateApplyAction struct {
+	name       string
+	stateFile  string
+	checkOnly  bool
+	applyFunc  func(ctx context.Context, stateFile string, checkOnly bool) error
+}
+
+// NewStateApplyAction creates a new state apply action.
+func NewStateApplyAction(name, stateFile string, applyFunc func(ctx context.Context, stateFile string, checkOnly bool) error) *StateApplyAction {
+	return &StateApplyAction{
+		name:      name,
+		stateFile: stateFile,
+		applyFunc: applyFunc,
+	}
+}
+
+// SetCheckOnly toggles dry-run mode for the action.
+func (a *StateApplyAction) SetCheckOnly(checkOnly bool) *StateApplyAction {
+	a.checkOnly = checkOnly
+	return a
+}
+
+func (a *StateApplyAction) Name() string {
+	return a.name
+}
+
+func (a *StateApplyAction) Type() string {
+	return "state_apply"
+}
+
+func (a *StateApplyAction) Execute(ctx context.Context, event *Event) error {
+	if a.applyFunc == nil {
+		return fmt.Errorf("state apply handler not configured")
+	}
+	if a.stateFile == "" {
+		return fmt.Errorf("state file path is required")
+	}
+	return a.applyFunc(ctx, a.stateFile, a.checkOnly)
+}
+
 // FunctionAction executes a custom function
 type FunctionAction struct {
 	name string

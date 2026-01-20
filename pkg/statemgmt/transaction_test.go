@@ -3,6 +3,7 @@ package statemgmt
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -642,5 +643,522 @@ func TestSnapshotStore_GetPrevious_SingleSnapshot(t *testing.T) {
 	prev := ss.GetPrevious("file", "test")
 	if prev != nil {
 		t.Error("expected nil when only one snapshot exists")
+	}
+}
+
+func TestRollbackBuilder_FileRollback(t *testing.T) {
+	rb := NewRollbackBuilder()
+
+	tests := []struct {
+		name           string
+		path           string
+		previousContent []byte
+		previousExists bool
+	}{
+		{
+			name:           "file previously existed",
+			path:           "/etc/nginx/nginx.conf",
+			previousContent: []byte("previous content"),
+			previousExists: true,
+		},
+		{
+			name:           "file did not exist",
+			path:           "/tmp/newfile.txt",
+			previousContent: nil,
+			previousExists: false,
+		},
+		{
+			name:           "file with empty content",
+			path:           "/etc/empty.conf",
+			previousContent: []byte{},
+			previousExists: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rollback := rb.FileRollback(tt.path, tt.previousContent, tt.previousExists)
+			if rollback == nil {
+				t.Fatal("expected non-nil rollback function")
+			}
+
+			// Execute the rollback - it's a placeholder so it should not error
+			err := rollback(context.Background())
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestRollbackBuilder_PackageRollback(t *testing.T) {
+	rb := NewRollbackBuilder()
+
+	tests := []struct {
+		name            string
+		pkgName         string
+		previousVersion string
+		wasInstalled    bool
+	}{
+		{
+			name:            "package was installed",
+			pkgName:         "nginx",
+			previousVersion: "1.18.0",
+			wasInstalled:    true,
+		},
+		{
+			name:            "package was not installed",
+			pkgName:         "new-package",
+			previousVersion: "",
+			wasInstalled:    false,
+		},
+		{
+			name:            "package with specific version",
+			pkgName:         "python3",
+			previousVersion: "3.9.5",
+			wasInstalled:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rollback := rb.PackageRollback(tt.pkgName, tt.previousVersion, tt.wasInstalled)
+			if rollback == nil {
+				t.Fatal("expected non-nil rollback function")
+			}
+
+			// Execute the rollback - it's a placeholder so it should not error
+			err := rollback(context.Background())
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestRollbackBuilder_ServiceRollback(t *testing.T) {
+	rb := NewRollbackBuilder()
+
+	tests := []struct {
+		name            string
+		serviceName     string
+		previousState   string
+		previousEnabled bool
+	}{
+		{
+			name:            "service was running and enabled",
+			serviceName:     "nginx",
+			previousState:   "running",
+			previousEnabled: true,
+		},
+		{
+			name:            "service was stopped and disabled",
+			serviceName:     "httpd",
+			previousState:   "stopped",
+			previousEnabled: false,
+		},
+		{
+			name:            "service was running but disabled",
+			serviceName:     "cron",
+			previousState:   "running",
+			previousEnabled: false,
+		},
+		{
+			name:            "service was stopped but enabled",
+			serviceName:     "mysql",
+			previousState:   "stopped",
+			previousEnabled: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rollback := rb.ServiceRollback(tt.serviceName, tt.previousState, tt.previousEnabled)
+			if rollback == nil {
+				t.Fatal("expected non-nil rollback function")
+			}
+
+			// Execute the rollback - it's a placeholder so it should not error
+			err := rollback(context.Background())
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestRollbackBuilder_CompositeRollback_WithErrors(t *testing.T) {
+	rb := NewRollbackBuilder()
+
+	tests := []struct {
+		name          string
+		rollbacks     []RollbackFunc
+		expectError   bool
+		errorContains string
+	}{
+		{
+			name: "single error",
+			rollbacks: []RollbackFunc{
+				func(ctx context.Context) error { return nil },
+				func(ctx context.Context) error { return errors.New("rollback failed") },
+			},
+			expectError:   true,
+			errorContains: "1 errors",
+		},
+		{
+			name: "multiple errors",
+			rollbacks: []RollbackFunc{
+				func(ctx context.Context) error { return errors.New("error 1") },
+				func(ctx context.Context) error { return errors.New("error 2") },
+			},
+			expectError:   true,
+			errorContains: "2 errors",
+		},
+		{
+			name: "all nil rollbacks",
+			rollbacks: []RollbackFunc{
+				nil,
+				nil,
+				nil,
+			},
+			expectError: false,
+		},
+		{
+			name:        "empty rollbacks",
+			rollbacks:   []RollbackFunc{},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			composite := rb.CompositeRollback(tt.rollbacks...)
+			err := composite(context.Background())
+
+			if tt.expectError && err == nil {
+				t.Error("expected error but got none")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			if tt.expectError && err != nil && tt.errorContains != "" {
+				if !strings.Contains(err.Error(), tt.errorContains) {
+					t.Errorf("error message %q should contain %q", err.Error(), tt.errorContains)
+				}
+			}
+		})
+	}
+}
+
+func TestTransactionStatus_Values(t *testing.T) {
+	// Ensure all transaction status constants have expected values
+	tests := []struct {
+		status   TransactionStatus
+		expected string
+	}{
+		{TransactionStatusPending, "pending"},
+		{TransactionStatusActive, "active"},
+		{TransactionStatusCommitted, "committed"},
+		{TransactionStatusRolledBack, "rolled_back"},
+		{TransactionStatusFailed, "failed"},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.status), func(t *testing.T) {
+			if string(tt.status) != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, string(tt.status))
+			}
+		})
+	}
+}
+
+func TestOperationType_Values(t *testing.T) {
+	// Ensure all operation type constants have expected values
+	tests := []struct {
+		opType   OperationType
+		expected string
+	}{
+		{OperationTypeCreate, "create"},
+		{OperationTypeUpdate, "update"},
+		{OperationTypeDelete, "delete"},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.opType), func(t *testing.T) {
+			if string(tt.opType) != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, string(tt.opType))
+			}
+		})
+	}
+}
+
+func TestTransactionOperation_Fields(t *testing.T) {
+	op := &TransactionOperation{
+		ID:          "op-123",
+		Type:        OperationTypeCreate,
+		StateID:     "/etc/nginx/nginx.conf",
+		Module:      "file",
+		Timestamp:   time.Now(),
+		Duration:    100 * time.Millisecond,
+		Success:     true,
+		Error:       nil,
+		Changes:     map[string]interface{}{"created": true},
+		PriorState:  nil,
+		NewState:    "new content",
+		CanRollback: true,
+	}
+
+	if op.ID != "op-123" {
+		t.Errorf("expected ID 'op-123', got %q", op.ID)
+	}
+	if op.Type != OperationTypeCreate {
+		t.Errorf("expected type 'create', got %q", op.Type)
+	}
+	if op.StateID != "/etc/nginx/nginx.conf" {
+		t.Errorf("expected StateID '/etc/nginx/nginx.conf', got %q", op.StateID)
+	}
+	if op.Module != "file" {
+		t.Errorf("expected Module 'file', got %q", op.Module)
+	}
+	if !op.Success {
+		t.Error("expected Success to be true")
+	}
+	if !op.CanRollback {
+		t.Error("expected CanRollback to be true")
+	}
+}
+
+func TestTransactionalExecutor_GetTransactionManager(t *testing.T) {
+	te := NewTransactionalExecutor(nil)
+
+	tm := te.GetTransactionManager()
+	if tm == nil {
+		t.Fatal("expected non-nil transaction manager")
+	}
+}
+
+func TestTransaction_GetResult_AfterRollback(t *testing.T) {
+	tm := NewTransactionManager(&TransactionConfig{
+		RollbackOnPartialFailure: false,
+	})
+	ctx := context.Background()
+
+	txn, _ := tm.Begin(ctx)
+
+	tm.RecordOperation(&TransactionOperation{ID: "op1", Success: true}, func(ctx context.Context) error { return nil })
+	tm.RecordOperation(&TransactionOperation{ID: "op2", Success: true}, func(ctx context.Context) error { return nil })
+
+	tm.Rollback(ctx, errors.New("test rollback"))
+
+	result := txn.GetResult()
+
+	if result.Status != TransactionStatusRolledBack {
+		t.Errorf("expected rolled_back status, got %s", result.Status)
+	}
+	if !result.RolledBack {
+		t.Error("expected RolledBack to be true")
+	}
+	if result.OperationCount != 2 {
+		t.Errorf("expected 2 operations, got %d", result.OperationCount)
+	}
+}
+
+func TestTransactionManager_RollbackToSavepoint_NoTransaction(t *testing.T) {
+	tm := NewTransactionManager(&TransactionConfig{
+		SavepointEnabled: true,
+	})
+	ctx := context.Background()
+
+	savepoint := &Savepoint{ID: "sp1", Index: 0}
+	err := tm.RollbackToSavepoint(ctx, savepoint)
+	if err == nil {
+		t.Error("expected error for rollback without transaction")
+	}
+}
+
+func TestTransactionManager_RollbackToSavepoint_InvalidIndex(t *testing.T) {
+	tm := NewTransactionManager(&TransactionConfig{
+		SavepointEnabled:         true,
+		RollbackOnPartialFailure: false,
+	})
+	ctx := context.Background()
+
+	tm.Begin(ctx)
+	tm.RecordOperation(&TransactionOperation{ID: "op1", Success: true}, nil)
+
+	// Savepoint with index beyond operations count
+	savepoint := &Savepoint{ID: "sp1", Index: 10}
+	err := tm.RollbackToSavepoint(ctx, savepoint)
+	if err == nil {
+		t.Error("expected error for invalid savepoint index")
+	}
+}
+
+func TestTransactionManager_RollbackToSavepoint_WithRollbackError(t *testing.T) {
+	tm := NewTransactionManager(&TransactionConfig{
+		SavepointEnabled:         true,
+		RollbackOnPartialFailure: false,
+	})
+	ctx := context.Background()
+
+	tm.Begin(ctx)
+
+	// Create savepoint
+	sp1, _ := tm.CreateSavepoint("sp1")
+
+	// Add operation with failing rollback
+	tm.RecordOperation(&TransactionOperation{ID: "op1", Success: true}, func(ctx context.Context) error {
+		return errors.New("rollback failed")
+	})
+
+	err := tm.RollbackToSavepoint(ctx, sp1)
+	if err == nil {
+		t.Error("expected error from failed rollback")
+	}
+}
+
+func TestSnapshotStore_GetHistory_Empty(t *testing.T) {
+	ss := NewSnapshotStore(10)
+
+	history := ss.GetHistory("file", "nonexistent")
+	if len(history) != 0 {
+		t.Errorf("expected empty history, got %d items", len(history))
+	}
+}
+
+func TestSnapshotStore_GetLatest_NotFound(t *testing.T) {
+	ss := NewSnapshotStore(10)
+
+	latest := ss.GetLatest("file", "nonexistent")
+	if latest != nil {
+		t.Error("expected nil for nonexistent state")
+	}
+}
+
+func TestStateSnapshot_Fields(t *testing.T) {
+	now := time.Now()
+	snapshot := &StateSnapshot{
+		StateID:   "/etc/config.yaml",
+		Module:    "file",
+		Timestamp: now,
+		State:     "yaml content",
+		Metadata:  map[string]interface{}{"mode": "0644"},
+	}
+
+	if snapshot.StateID != "/etc/config.yaml" {
+		t.Errorf("expected StateID '/etc/config.yaml', got %q", snapshot.StateID)
+	}
+	if snapshot.Module != "file" {
+		t.Errorf("expected Module 'file', got %q", snapshot.Module)
+	}
+	if !snapshot.Timestamp.Equal(now) {
+		t.Error("timestamp mismatch")
+	}
+	if snapshot.State != "yaml content" {
+		t.Errorf("expected State 'yaml content', got %q", snapshot.State)
+	}
+	if snapshot.Metadata["mode"] != "0644" {
+		t.Errorf("expected mode '0644', got %v", snapshot.Metadata["mode"])
+	}
+}
+
+func TestTransactionResult_Fields(t *testing.T) {
+	result := &TransactionResult{
+		TransactionID:  "txn-123",
+		Status:         TransactionStatusCommitted,
+		Duration:       500 * time.Millisecond,
+		OperationCount: 5,
+		SuccessCount:   4,
+		FailureCount:   1,
+		RolledBack:     false,
+		RollbackErrors: nil,
+	}
+
+	if result.TransactionID != "txn-123" {
+		t.Errorf("expected TransactionID 'txn-123', got %q", result.TransactionID)
+	}
+	if result.Status != TransactionStatusCommitted {
+		t.Errorf("expected status committed, got %s", result.Status)
+	}
+	if result.OperationCount != 5 {
+		t.Errorf("expected 5 operations, got %d", result.OperationCount)
+	}
+	if result.SuccessCount != 4 {
+		t.Errorf("expected 4 successes, got %d", result.SuccessCount)
+	}
+	if result.FailureCount != 1 {
+		t.Errorf("expected 1 failure, got %d", result.FailureCount)
+	}
+	if result.RolledBack {
+		t.Error("expected RolledBack to be false")
+	}
+}
+
+func TestSavepoint_Fields(t *testing.T) {
+	now := time.Now()
+	savepoint := &Savepoint{
+		ID:        "sp-before-changes",
+		Index:     3,
+		Timestamp: now,
+	}
+
+	if savepoint.ID != "sp-before-changes" {
+		t.Errorf("expected ID 'sp-before-changes', got %q", savepoint.ID)
+	}
+	if savepoint.Index != 3 {
+		t.Errorf("expected Index 3, got %d", savepoint.Index)
+	}
+	if !savepoint.Timestamp.Equal(now) {
+		t.Error("timestamp mismatch")
+	}
+}
+
+func TestTransactionConfig_Callbacks(t *testing.T) {
+	var (
+		opCompleteCalled int
+		rollbackCalled   bool
+		commitCalled     bool
+	)
+
+	config := &TransactionConfig{
+		RollbackOnPartialFailure: false,
+		OnOperationComplete: func(op *TransactionOperation) {
+			opCompleteCalled++
+		},
+		OnRollback: func(txn *Transaction, err error) {
+			rollbackCalled = true
+		},
+		OnCommit: func(txn *Transaction) {
+			commitCalled = true
+		},
+	}
+
+	tm := NewTransactionManager(config)
+	ctx := context.Background()
+
+	// Test OnOperationComplete
+	tm.Begin(ctx)
+	tm.RecordOperation(&TransactionOperation{ID: "op1", Success: true}, nil)
+	tm.RecordOperation(&TransactionOperation{ID: "op2", Success: true}, nil)
+
+	if opCompleteCalled != 2 {
+		t.Errorf("expected OnOperationComplete called 2 times, got %d", opCompleteCalled)
+	}
+
+	// Test OnCommit
+	tm.Commit(ctx)
+	if !commitCalled {
+		t.Error("expected OnCommit to be called")
+	}
+
+	// Start new transaction for rollback test
+	commitCalled = false
+	tm.Begin(ctx)
+	tm.RecordOperation(&TransactionOperation{ID: "op3", Success: true}, nil)
+
+	// Test OnRollback
+	tm.Rollback(ctx, errors.New("test"))
+	if !rollbackCalled {
+		t.Error("expected OnRollback to be called")
 	}
 }

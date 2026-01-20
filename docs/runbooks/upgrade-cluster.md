@@ -39,7 +39,7 @@ kscorectl upgrade check --target 1.6.0
 kscorectl cluster health
 
 # 6. Create backup
-kscore-backup create \
+kscore-cluster-backup create \
   --dest /backup/pre-upgrade-1.6.0 \
   --label "pre-upgrade-1.6.0"
 ```

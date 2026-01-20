@@ -586,3 +586,557 @@ func TestMinFunction(t *testing.T) {
 		}
 	}
 }
+
+// ============================================================================
+// AuthorizedKeysModule addKey/removeKey Tests
+// ============================================================================
+
+func TestAuthorizedKeysModule_AddKey(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("authorized_keys not supported on Windows")
+	}
+
+	m := NewAuthorizedKeysModule()
+
+	tests := []struct {
+		name     string
+		user     string
+		keyType  string
+		key      string
+		comment  string
+		options  string
+		expected string
+	}{
+		{
+			name:     "simple key without options",
+			user:     "testuser",
+			keyType:  "ssh-rsa",
+			key:      "AAAAB3NzaC1yc2EAAAADAQABAAABAQ1234",
+			comment:  "user@host",
+			options:  "",
+			expected: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ1234 user@host\n",
+		},
+		{
+			name:     "key with options",
+			user:     "testuser",
+			keyType:  "ssh-ed25519",
+			key:      "AAAAC3NzaC1lZDI1NTE5AAAAIG5678",
+			comment:  "restricted@host",
+			options:  "no-port-forwarding,no-agent-forwarding",
+			expected: "no-port-forwarding,no-agent-forwarding ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG5678 restricted@host\n",
+		},
+		{
+			name:     "key without comment",
+			user:     "testuser",
+			keyType:  "ssh-rsa",
+			key:      "AAAAB3NzaC1yc2EAAAADAQABAAABAQ9999",
+			comment:  "",
+			options:  "",
+			expected: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ9999\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			sshDir := filepath.Join(tmpDir, ".ssh")
+			authKeysPath := filepath.Join(sshDir, "authorized_keys")
+
+			err := m.addKey(authKeysPath, tt.user, tt.keyType, tt.key, tt.comment, tt.options)
+			if err != nil {
+				t.Fatalf("addKey failed: %v", err)
+			}
+
+			// Verify file was created and contains expected content
+			content, err := os.ReadFile(authKeysPath)
+			if err != nil {
+				t.Fatalf("failed to read authorized_keys: %v", err)
+			}
+
+			if string(content) != tt.expected {
+				t.Errorf("expected:\n%s\ngot:\n%s", tt.expected, string(content))
+			}
+
+			// Verify directory permissions
+			info, err := os.Stat(sshDir)
+			if err != nil {
+				t.Fatalf("failed to stat .ssh directory: %v", err)
+			}
+			if info.Mode().Perm() != 0700 {
+				t.Errorf("expected .ssh directory permissions 0700, got %o", info.Mode().Perm())
+			}
+
+			// Verify file permissions
+			fileInfo, err := os.Stat(authKeysPath)
+			if err != nil {
+				t.Fatalf("failed to stat authorized_keys: %v", err)
+			}
+			if fileInfo.Mode().Perm() != 0600 {
+				t.Errorf("expected authorized_keys permissions 0600, got %o", fileInfo.Mode().Perm())
+			}
+		})
+	}
+}
+
+func TestAuthorizedKeysModule_AddKey_AppendToExisting(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("authorized_keys not supported on Windows")
+	}
+
+	m := NewAuthorizedKeysModule()
+	tmpDir := t.TempDir()
+	sshDir := filepath.Join(tmpDir, ".ssh")
+	if err := os.MkdirAll(sshDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	authKeysPath := filepath.Join(sshDir, "authorized_keys")
+
+	// Create initial file
+	initial := "ssh-rsa EXISTINGKEY user@existing\n"
+	if err := os.WriteFile(authKeysPath, []byte(initial), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Add another key
+	err := m.addKey(authKeysPath, "testuser", "ssh-ed25519", "NEWKEY", "user@new", "")
+	if err != nil {
+		t.Fatalf("addKey failed: %v", err)
+	}
+
+	content, err := os.ReadFile(authKeysPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := "ssh-rsa EXISTINGKEY user@existing\nssh-ed25519 NEWKEY user@new\n"
+	if string(content) != expected {
+		t.Errorf("expected:\n%s\ngot:\n%s", expected, string(content))
+	}
+}
+
+func TestAuthorizedKeysModule_RemoveKey(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("authorized_keys not supported on Windows")
+	}
+
+	m := NewAuthorizedKeysModule()
+
+	tests := []struct {
+		name     string
+		initial  string
+		keyType  string
+		key      string
+		expected string
+	}{
+		{
+			name: "remove simple key",
+			initial: `ssh-rsa AAAAB3NzaC1yc2EKEY1 user1@host
+ssh-ed25519 AAAAC3NzaC1lZDI1KEY2 user2@host
+ssh-rsa AAAAB3NzaC1yc2EKEY3 user3@host
+`,
+			keyType:  "ssh-ed25519",
+			key:      "AAAAC3NzaC1lZDI1KEY2",
+			expected: "ssh-rsa AAAAB3NzaC1yc2EKEY1 user1@host\nssh-rsa AAAAB3NzaC1yc2EKEY3 user3@host\n",
+		},
+		{
+			name: "remove key with options",
+			initial: `# Comment
+no-port-forwarding ssh-rsa AAAAB3KEY1 user1@host
+ssh-rsa AAAAB3KEY2 user2@host
+`,
+			keyType:  "ssh-rsa",
+			key:      "AAAAB3KEY1",
+			expected: "# Comment\nssh-rsa AAAAB3KEY2 user2@host\n",
+		},
+		{
+			name: "remove key preserves comments and empty lines",
+			initial: `# This is a comment
+
+ssh-rsa AAAAB3KEY1 user@host
+# Another comment
+`,
+			keyType:  "ssh-rsa",
+			key:      "AAAAB3KEY1",
+			expected: "# This is a comment\n\n# Another comment\n",
+		},
+		{
+			name: "remove nonexistent key",
+			initial: `ssh-rsa AAAAB3KEY1 user@host
+`,
+			keyType:  "ssh-rsa",
+			key:      "NONEXISTENT",
+			expected: "ssh-rsa AAAAB3KEY1 user@host\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			authKeysPath := filepath.Join(tmpDir, "authorized_keys")
+
+			if err := os.WriteFile(authKeysPath, []byte(tt.initial), 0600); err != nil {
+				t.Fatal(err)
+			}
+
+			err := m.removeKey(authKeysPath, tt.keyType, tt.key)
+			if err != nil {
+				t.Fatalf("removeKey failed: %v", err)
+			}
+
+			content, err := os.ReadFile(authKeysPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if string(content) != tt.expected {
+				t.Errorf("expected:\n%q\ngot:\n%q", tt.expected, string(content))
+			}
+		})
+	}
+}
+
+func TestAuthorizedKeysModule_RemoveKey_NonExistentFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("authorized_keys not supported on Windows")
+	}
+
+	m := NewAuthorizedKeysModule()
+	tmpDir := t.TempDir()
+	nonExistent := filepath.Join(tmpDir, "nonexistent")
+
+	// Should not return error for non-existent file
+	err := m.removeKey(nonExistent, "ssh-rsa", "AAAAB3KEY")
+	if err != nil {
+		t.Errorf("expected no error for non-existent file, got: %v", err)
+	}
+}
+
+// ============================================================================
+// KnownHostsModule addHostKey/removeHostKey Tests
+// ============================================================================
+
+func TestKnownHostsModule_AddHostKey(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("known_hosts not supported on Windows")
+	}
+
+	m := NewKnownHostsModule()
+
+	tests := []struct {
+		name     string
+		host     string
+		keyType  string
+		key      string
+		hashHost bool
+		expected string
+	}{
+		{
+			name:     "simple host key",
+			host:     "github.com",
+			keyType:  "ssh-rsa",
+			key:      "AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7",
+			hashHost: false,
+			expected: "github.com ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7\n",
+		},
+		{
+			name:     "host with port",
+			host:     "[gitlab.com]:2222",
+			keyType:  "ecdsa-sha2-nistp256",
+			key:      "AAAAE2VjZHNhLXNoYTItbmlzdHAyNTY",
+			hashHost: false,
+			expected: "[gitlab.com]:2222 ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTY\n",
+		},
+		{
+			name:     "ed25519 key",
+			host:     "192.168.1.100",
+			keyType:  "ssh-ed25519",
+			key:      "AAAAC3NzaC1lZDI1NTE5AAAAIG5678",
+			hashHost: false,
+			expected: "192.168.1.100 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG5678\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			knownHostsPath := filepath.Join(tmpDir, "known_hosts")
+
+			err := m.addHostKey(knownHostsPath, tt.host, tt.keyType, tt.key, tt.hashHost)
+			if err != nil {
+				t.Fatalf("addHostKey failed: %v", err)
+			}
+
+			content, err := os.ReadFile(knownHostsPath)
+			if err != nil {
+				t.Fatalf("failed to read known_hosts: %v", err)
+			}
+
+			if string(content) != tt.expected {
+				t.Errorf("expected:\n%s\ngot:\n%s", tt.expected, string(content))
+			}
+		})
+	}
+}
+
+func TestKnownHostsModule_AddHostKey_ReplacesExisting(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("known_hosts not supported on Windows")
+	}
+
+	m := NewKnownHostsModule()
+	tmpDir := t.TempDir()
+	knownHostsPath := filepath.Join(tmpDir, "known_hosts")
+
+	// Create initial file with existing entry
+	initial := "github.com ssh-rsa OLDKEY\nexample.com ssh-rsa OTHERKEY\n"
+	if err := os.WriteFile(knownHostsPath, []byte(initial), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Add key for same host (should replace)
+	err := m.addHostKey(knownHostsPath, "github.com", "ssh-ed25519", "NEWKEY", false)
+	if err != nil {
+		t.Fatalf("addHostKey failed: %v", err)
+	}
+
+	content, err := os.ReadFile(knownHostsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Should have removed old github.com entry and added new one
+	if strings.Contains(string(content), "OLDKEY") {
+		t.Error("expected old key to be removed")
+	}
+	if !strings.Contains(string(content), "NEWKEY") {
+		t.Error("expected new key to be present")
+	}
+	if !strings.Contains(string(content), "OTHERKEY") {
+		t.Error("expected unrelated key to remain")
+	}
+}
+
+func TestKnownHostsModule_RemoveHostKey(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("known_hosts not supported on Windows")
+	}
+
+	m := NewKnownHostsModule()
+
+	tests := []struct {
+		name     string
+		initial  string
+		host     string
+		expected string
+	}{
+		{
+			name: "remove simple host",
+			initial: `github.com ssh-rsa AAAAB3KEY1
+gitlab.com ssh-rsa AAAAB3KEY2
+bitbucket.org ssh-rsa AAAAB3KEY3
+`,
+			host:     "gitlab.com",
+			expected: "github.com ssh-rsa AAAAB3KEY1\nbitbucket.org ssh-rsa AAAAB3KEY3\n",
+		},
+		{
+			name: "remove host with port bracket notation",
+			initial: `github.com ssh-rsa AAAAB3KEY1
+[gitlab.com]:2222 ssh-rsa AAAAB3KEY2
+`,
+			host:     "[gitlab.com]:2222",
+			expected: "github.com ssh-rsa AAAAB3KEY1\n",
+		},
+		{
+			name: "remove host with multiple aliases",
+			initial: `github.com,192.168.1.1 ssh-rsa AAAAB3KEY1
+gitlab.com ssh-rsa AAAAB3KEY2
+`,
+			host:     "192.168.1.1",
+			expected: "gitlab.com ssh-rsa AAAAB3KEY2\n",
+		},
+		{
+			name: "preserve comments",
+			initial: `# GitHub host key
+github.com ssh-rsa AAAAB3KEY1
+# GitLab host key
+gitlab.com ssh-rsa AAAAB3KEY2
+`,
+			host:     "github.com",
+			expected: "# GitHub host key\n# GitLab host key\ngitlab.com ssh-rsa AAAAB3KEY2\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			knownHostsPath := filepath.Join(tmpDir, "known_hosts")
+
+			if err := os.WriteFile(knownHostsPath, []byte(tt.initial), 0644); err != nil {
+				t.Fatal(err)
+			}
+
+			err := m.removeHostKey(knownHostsPath, tt.host)
+			if err != nil {
+				t.Fatalf("removeHostKey failed: %v", err)
+			}
+
+			content, err := os.ReadFile(knownHostsPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if string(content) != tt.expected {
+				t.Errorf("expected:\n%q\ngot:\n%q", tt.expected, string(content))
+			}
+		})
+	}
+}
+
+func TestKnownHostsModule_RemoveHostKey_NonExistentFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("known_hosts not supported on Windows")
+	}
+
+	m := NewKnownHostsModule()
+	tmpDir := t.TempDir()
+	nonExistent := filepath.Join(tmpDir, "nonexistent")
+
+	// Should not return error for non-existent file
+	err := m.removeHostKey(nonExistent, "github.com")
+	if err != nil {
+		t.Errorf("expected no error for non-existent file, got: %v", err)
+	}
+}
+
+// ============================================================================
+// SSHDConfigModule removeConfigValue Tests
+// ============================================================================
+
+func TestSSHDConfigModule_RemoveConfigValue(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("sshd_config not supported on Windows")
+	}
+
+	m := NewSSHDConfigModule()
+
+	tests := []struct {
+		name     string
+		initial  string
+		setting  string
+		backup   bool
+		expected string
+	}{
+		{
+			name: "remove simple setting",
+			initial: `Port 22
+PermitRootLogin no
+PasswordAuthentication yes
+`,
+			setting:  "PermitRootLogin",
+			backup:   false,
+			expected: "Port 22\n#PermitRootLogin no\nPasswordAuthentication yes\n",
+		},
+		{
+			name: "case insensitive removal",
+			initial: `Port 22
+permitrootlogin no
+`,
+			setting:  "PermitRootLogin",
+			backup:   false,
+			expected: "Port 22\n#permitrootlogin no\n",
+		},
+		{
+			name: "preserve comments",
+			initial: `# Comment
+Port 22
+# Another comment
+PasswordAuthentication yes
+`,
+			setting:  "Port",
+			backup:   false,
+			expected: "# Comment\n#Port 22\n# Another comment\nPasswordAuthentication yes\n",
+		},
+		{
+			name: "remove nonexistent setting",
+			initial: `Port 22
+PasswordAuthentication yes
+`,
+			setting:  "NonExistent",
+			backup:   false,
+			expected: "Port 22\nPasswordAuthentication yes\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			configPath := filepath.Join(tmpDir, "sshd_config")
+
+			if err := os.WriteFile(configPath, []byte(tt.initial), 0600); err != nil {
+				t.Fatal(err)
+			}
+
+			err := m.removeConfigValue(configPath, tt.setting, tt.backup)
+			if err != nil {
+				t.Fatalf("removeConfigValue failed: %v", err)
+			}
+
+			content, err := os.ReadFile(configPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if string(content) != tt.expected {
+				t.Errorf("expected:\n%q\ngot:\n%q", tt.expected, string(content))
+			}
+		})
+	}
+}
+
+func TestSSHDConfigModule_RemoveConfigValue_WithBackup(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("sshd_config not supported on Windows")
+	}
+
+	m := NewSSHDConfigModule()
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "sshd_config")
+
+	initial := "Port 22\nPermitRootLogin no\n"
+	if err := os.WriteFile(configPath, []byte(initial), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Remove with backup
+	err := m.removeConfigValue(configPath, "Port", true)
+	if err != nil {
+		t.Fatalf("removeConfigValue failed: %v", err)
+	}
+
+	// Verify backup file exists
+	backupPath := configPath + ".bak"
+	backupContent, err := os.ReadFile(backupPath)
+	if err != nil {
+		t.Fatalf("failed to read backup file: %v", err)
+	}
+
+	if string(backupContent) != initial {
+		t.Errorf("backup content mismatch, expected:\n%s\ngot:\n%s", initial, string(backupContent))
+	}
+}
+
+func TestSSHDConfigModule_RemoveConfigValue_NonExistentFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("sshd_config not supported on Windows")
+	}
+
+	m := NewSSHDConfigModule()
+	tmpDir := t.TempDir()
+	nonExistent := filepath.Join(tmpDir, "nonexistent")
+
+	// Should not return error for non-existent file
+	err := m.removeConfigValue(nonExistent, "Port", false)
+	if err != nil {
+		t.Errorf("expected no error for non-existent file, got: %v", err)
+	}
+}

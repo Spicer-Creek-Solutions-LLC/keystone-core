@@ -55,6 +55,11 @@ Examples:
 	rootCmd.AddCommand(validateCmd)
 	rootCmd.AddCommand(checkCmd)
 	rootCmd.AddCommand(showCmd)
+	rootCmd.AddCommand(createCmd)
+	rootCmd.AddCommand(updateCmd)
+	rootCmd.AddCommand(deleteCmd)
+	rootCmd.AddCommand(activateCmd)
+	rootCmd.AddCommand(deactivateCmd)
 
 	// Add deprecated commands (moving to kscore-audit)
 	rootCmd.AddCommand(auditCmd)
@@ -659,6 +664,498 @@ func showExecute(cmd *cobra.Command, args []string) error {
 }
 
 // =============================================================================
+// Create Command
+// =============================================================================
+
+var (
+	createName            string
+	createDescription     string
+	createType            string
+	createCategory        string
+	createSeverity        string
+	createEnforcementMode string
+	createTags            []string
+	createCode            string
+	createCodeFile        string
+)
+
+var createCmd = &cobra.Command{
+	Use:   "create <policyfile>",
+	Short: "Create a new policy",
+	Long: `Create a new policy and add it to a policy file.
+
+The policy can be defined inline with flags or by providing code from a file.
+
+Examples:
+  # Create a policy with inline code
+  kscorectl policy create policies/security.yaml --name deny-privileged \
+    --type opa --category security --severity high \
+    --code 'package security
+    default allow = false
+    allow { not input.privileged }'
+
+  # Create a policy with code from a file
+  kscorectl policy create policies/security.yaml --name deny-privileged \
+    --type opa --category security --severity high --code-file policy.rego
+
+  # Create a CEL policy
+  kscorectl policy create policies/security.yaml --name require-labels \
+    --type cel --category operational --severity medium \
+    --code 'has(resource.labels) && size(resource.labels) > 0'`,
+	Args: cobra.ExactArgs(1),
+	RunE: createExecute,
+}
+
+func init() {
+	createCmd.Flags().StringVar(&createName, "name", "", "Policy name/ID (required)")
+	createCmd.Flags().StringVar(&createDescription, "description", "", "Policy description")
+	createCmd.Flags().StringVar(&createType, "type", "opa", "Policy type (opa, cel)")
+	createCmd.Flags().StringVar(&createCategory, "category", "custom", "Policy category (security, compliance, operational, cost, custom)")
+	createCmd.Flags().StringVar(&createSeverity, "severity", "medium", "Policy severity (low, medium, high, critical)")
+	createCmd.Flags().StringVar(&createEnforcementMode, "mode", "enforce", "Enforcement mode (enforce, audit, warn)")
+	createCmd.Flags().StringSliceVar(&createTags, "tags", nil, "Policy tags (comma-separated)")
+	createCmd.Flags().StringVar(&createCode, "code", "", "Policy code (inline)")
+	createCmd.Flags().StringVar(&createCodeFile, "code-file", "", "Policy code from file")
+	createCmd.MarkFlagRequired("name")
+}
+
+func createExecute(cmd *cobra.Command, args []string) error {
+	policyFilePath := args[0]
+
+	// Validate name
+	if createName == "" {
+		return fmt.Errorf("--name is required")
+	}
+
+	// Get code from file or inline
+	code := createCode
+	if createCodeFile != "" {
+		data, err := os.ReadFile(createCodeFile)
+		if err != nil {
+			return fmt.Errorf("failed to read code file: %w", err)
+		}
+		code = string(data)
+	}
+
+	if code == "" {
+		return fmt.Errorf("policy code required: use --code or --code-file")
+	}
+
+	// Load existing policy file or create new one
+	var policyFile *PolicyFile
+	if _, err := os.Stat(policyFilePath); os.IsNotExist(err) {
+		policyFile = &PolicyFile{Policies: []PolicyDefinition{}}
+	} else {
+		var err error
+		policyFile, err = loadPolicyFile(policyFilePath)
+		if err != nil {
+			return fmt.Errorf("failed to load policy file: %w", err)
+		}
+	}
+
+	// Check for duplicate ID
+	for _, p := range policyFile.Policies {
+		if p.ID == createName {
+			return fmt.Errorf("policy with ID '%s' already exists", createName)
+		}
+	}
+
+	// Create the new policy
+	newPolicy := PolicyDefinition{
+		ID:              createName,
+		Name:            createName,
+		Description:     createDescription,
+		Type:            createType,
+		Category:        createCategory,
+		Severity:        createSeverity,
+		EnforcementMode: createEnforcementMode,
+		Enabled:         true,
+		Code:            code,
+		Tags:            createTags,
+	}
+
+	// Validate the policy
+	registry := policy.NewRegistry()
+	engine := policy.NewPolicyEngine(registry)
+	ctx := context.Background()
+
+	p := &policy.Policy{
+		ID:     newPolicy.ID,
+		Name:   newPolicy.Name,
+		Type:   policy.PolicyType(strings.ToLower(newPolicy.Type)),
+		Policy: newPolicy.Code,
+	}
+
+	if err := engine.ValidatePolicy(ctx, p); err != nil {
+		return fmt.Errorf("policy validation failed: %w", err)
+	}
+
+	// Add to file
+	policyFile.Policies = append(policyFile.Policies, newPolicy)
+
+	// Write back to file
+	if err := savePolicyFile(policyFilePath, policyFile); err != nil {
+		return fmt.Errorf("failed to save policy file: %w", err)
+	}
+
+	fmt.Printf("✓ Policy '%s' created successfully\n", createName)
+	fmt.Printf("  Type:     %s\n", createType)
+	fmt.Printf("  Category: %s\n", createCategory)
+	fmt.Printf("  Severity: %s\n", createSeverity)
+	fmt.Printf("  Mode:     %s\n", createEnforcementMode)
+	fmt.Printf("  File:     %s\n", policyFilePath)
+
+	return nil
+}
+
+// =============================================================================
+// Update Command
+// =============================================================================
+
+var (
+	updateFile            string
+	updateDescription     string
+	updateSeverity        string
+	updateEnforcementMode string
+	updateTags            []string
+	updateCode            string
+	updateCodeFile        string
+)
+
+var updateCmd = &cobra.Command{
+	Use:   "update <policyfile> <policyid>",
+	Short: "Update an existing policy",
+	Long: `Update an existing policy in a policy file.
+
+Only the specified fields are updated; other fields remain unchanged.
+
+Examples:
+  # Update policy severity
+  kscorectl policy update policies/security.yaml deny-privileged --severity critical
+
+  # Update policy code from file
+  kscorectl policy update policies/security.yaml deny-privileged --code-file updated.rego
+
+  # Update enforcement mode
+  kscorectl policy update policies/security.yaml deny-privileged --mode audit
+
+  # Update description and tags
+  kscorectl policy update policies/security.yaml deny-privileged \
+    --description "Updated description" --tags security,critical`,
+	Args: cobra.ExactArgs(2),
+	RunE: updateExecute,
+}
+
+func init() {
+	updateCmd.Flags().StringVar(&updateDescription, "description", "", "New description")
+	updateCmd.Flags().StringVar(&updateSeverity, "severity", "", "New severity (low, medium, high, critical)")
+	updateCmd.Flags().StringVar(&updateEnforcementMode, "mode", "", "New enforcement mode (enforce, audit, warn)")
+	updateCmd.Flags().StringSliceVar(&updateTags, "tags", nil, "New tags (comma-separated)")
+	updateCmd.Flags().StringVar(&updateCode, "code", "", "New policy code (inline)")
+	updateCmd.Flags().StringVar(&updateCodeFile, "code-file", "", "New policy code from file")
+}
+
+func updateExecute(cmd *cobra.Command, args []string) error {
+	policyFilePath := args[0]
+	policyID := args[1]
+
+	// Load policy file
+	policyFile, err := loadPolicyFile(policyFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to load policy file: %w", err)
+	}
+
+	// Find the policy
+	var targetIndex int = -1
+	for i, p := range policyFile.Policies {
+		if p.ID == policyID {
+			targetIndex = i
+			break
+		}
+	}
+
+	if targetIndex == -1 {
+		return fmt.Errorf("policy not found: %s", policyID)
+	}
+
+	// Update fields if specified
+	updated := false
+
+	if updateDescription != "" {
+		policyFile.Policies[targetIndex].Description = updateDescription
+		updated = true
+	}
+
+	if updateSeverity != "" {
+		policyFile.Policies[targetIndex].Severity = updateSeverity
+		updated = true
+	}
+
+	if updateEnforcementMode != "" {
+		policyFile.Policies[targetIndex].EnforcementMode = updateEnforcementMode
+		updated = true
+	}
+
+	if updateTags != nil {
+		policyFile.Policies[targetIndex].Tags = updateTags
+		updated = true
+	}
+
+	// Handle code update
+	newCode := updateCode
+	if updateCodeFile != "" {
+		data, err := os.ReadFile(updateCodeFile)
+		if err != nil {
+			return fmt.Errorf("failed to read code file: %w", err)
+		}
+		newCode = string(data)
+	}
+
+	if newCode != "" {
+		// Validate the new code
+		registry := policy.NewRegistry()
+		engine := policy.NewPolicyEngine(registry)
+		ctx := context.Background()
+
+		p := &policy.Policy{
+			ID:     policyFile.Policies[targetIndex].ID,
+			Name:   policyFile.Policies[targetIndex].Name,
+			Type:   policy.PolicyType(strings.ToLower(policyFile.Policies[targetIndex].Type)),
+			Policy: newCode,
+		}
+
+		if err := engine.ValidatePolicy(ctx, p); err != nil {
+			return fmt.Errorf("policy validation failed: %w", err)
+		}
+
+		policyFile.Policies[targetIndex].Code = newCode
+		updated = true
+	}
+
+	if !updated {
+		return fmt.Errorf("no updates specified; use flags like --description, --severity, --mode, --tags, --code, or --code-file")
+	}
+
+	// Write back to file
+	if err := savePolicyFile(policyFilePath, policyFile); err != nil {
+		return fmt.Errorf("failed to save policy file: %w", err)
+	}
+
+	fmt.Printf("✓ Policy '%s' updated successfully\n", policyID)
+	return nil
+}
+
+// =============================================================================
+// Delete Command
+// =============================================================================
+
+var deleteForce bool
+
+var deleteCmd = &cobra.Command{
+	Use:   "delete <policyfile> <policyid>",
+	Short: "Delete a policy",
+	Long: `Delete a policy from a policy file.
+
+Examples:
+  # Delete a policy (prompts for confirmation)
+  kscorectl policy delete policies/security.yaml deny-privileged
+
+  # Force delete without confirmation
+  kscorectl policy delete policies/security.yaml deny-privileged --force`,
+	Args: cobra.ExactArgs(2),
+	RunE: deleteExecute,
+}
+
+func init() {
+	deleteCmd.Flags().BoolVarP(&deleteForce, "force", "f", false, "Skip confirmation prompt")
+}
+
+func deleteExecute(cmd *cobra.Command, args []string) error {
+	policyFilePath := args[0]
+	policyID := args[1]
+
+	// Load policy file
+	policyFile, err := loadPolicyFile(policyFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to load policy file: %w", err)
+	}
+
+	// Find the policy
+	var targetIndex int = -1
+	for i, p := range policyFile.Policies {
+		if p.ID == policyID {
+			targetIndex = i
+			break
+		}
+	}
+
+	if targetIndex == -1 {
+		return fmt.Errorf("policy not found: %s", policyID)
+	}
+
+	// Confirm deletion
+	if !deleteForce {
+		fmt.Printf("Delete policy '%s' from %s? [y/N]: ", policyID, policyFilePath)
+		var response string
+		fmt.Scanln(&response)
+		if strings.ToLower(response) != "y" && strings.ToLower(response) != "yes" {
+			fmt.Println("Deletion cancelled.")
+			return nil
+		}
+	}
+
+	// Remove from slice
+	policyFile.Policies = append(policyFile.Policies[:targetIndex], policyFile.Policies[targetIndex+1:]...)
+
+	// Write back to file
+	if err := savePolicyFile(policyFilePath, policyFile); err != nil {
+		return fmt.Errorf("failed to save policy file: %w", err)
+	}
+
+	fmt.Printf("✓ Policy '%s' deleted successfully\n", policyID)
+	return nil
+}
+
+// =============================================================================
+// Activate Command
+// =============================================================================
+
+var activateMode string
+
+var activateCmd = &cobra.Command{
+	Use:   "activate <policyfile> <policyid>",
+	Short: "Activate (enable) a policy",
+	Long: `Activate a policy by setting its enabled flag to true.
+
+Optionally set the enforcement mode when activating.
+
+Examples:
+  # Activate a policy
+  kscorectl policy activate policies/security.yaml deny-privileged
+
+  # Activate with specific enforcement mode
+  kscorectl policy activate policies/security.yaml deny-privileged --mode enforce`,
+	Args: cobra.ExactArgs(2),
+	RunE: activateExecute,
+}
+
+func init() {
+	activateCmd.Flags().StringVar(&activateMode, "mode", "", "Enforcement mode (enforce, audit, warn)")
+}
+
+func activateExecute(cmd *cobra.Command, args []string) error {
+	policyFilePath := args[0]
+	policyID := args[1]
+
+	// Load policy file
+	policyFile, err := loadPolicyFile(policyFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to load policy file: %w", err)
+	}
+
+	// Find the policy
+	var targetIndex int = -1
+	for i, p := range policyFile.Policies {
+		if p.ID == policyID {
+			targetIndex = i
+			break
+		}
+	}
+
+	if targetIndex == -1 {
+		return fmt.Errorf("policy not found: %s", policyID)
+	}
+
+	// Check if already enabled
+	if policyFile.Policies[targetIndex].Enabled {
+		fmt.Printf("Policy '%s' is already active\n", policyID)
+		return nil
+	}
+
+	// Enable the policy
+	policyFile.Policies[targetIndex].Enabled = true
+
+	// Optionally update enforcement mode
+	if activateMode != "" {
+		policyFile.Policies[targetIndex].EnforcementMode = activateMode
+	}
+
+	// Write back to file
+	if err := savePolicyFile(policyFilePath, policyFile); err != nil {
+		return fmt.Errorf("failed to save policy file: %w", err)
+	}
+
+	fmt.Printf("✓ Policy '%s' activated\n", policyID)
+	if activateMode != "" {
+		fmt.Printf("  Mode: %s\n", activateMode)
+	}
+	return nil
+}
+
+// =============================================================================
+// Deactivate Command
+// =============================================================================
+
+var deactivateCmd = &cobra.Command{
+	Use:     "deactivate <policyfile> <policyid>",
+	Aliases: []string{"disable"},
+	Short:   "Deactivate (disable) a policy",
+	Long: `Deactivate a policy by setting its enabled flag to false.
+
+The policy remains in the file but will not be evaluated.
+
+Examples:
+  # Deactivate a policy
+  kscorectl policy deactivate policies/security.yaml deny-privileged
+
+  # Using the alias
+  kscorectl policy disable policies/security.yaml deny-privileged`,
+	Args: cobra.ExactArgs(2),
+	RunE: deactivateExecute,
+}
+
+func deactivateExecute(cmd *cobra.Command, args []string) error {
+	policyFilePath := args[0]
+	policyID := args[1]
+
+	// Load policy file
+	policyFile, err := loadPolicyFile(policyFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to load policy file: %w", err)
+	}
+
+	// Find the policy
+	var targetIndex int = -1
+	for i, p := range policyFile.Policies {
+		if p.ID == policyID {
+			targetIndex = i
+			break
+		}
+	}
+
+	if targetIndex == -1 {
+		return fmt.Errorf("policy not found: %s", policyID)
+	}
+
+	// Check if already disabled
+	if !policyFile.Policies[targetIndex].Enabled {
+		fmt.Printf("Policy '%s' is already inactive\n", policyID)
+		return nil
+	}
+
+	// Disable the policy
+	policyFile.Policies[targetIndex].Enabled = false
+
+	// Write back to file
+	if err := savePolicyFile(policyFilePath, policyFile); err != nil {
+		return fmt.Errorf("failed to save policy file: %w", err)
+	}
+
+	fmt.Printf("✓ Policy '%s' deactivated\n", policyID)
+	return nil
+}
+
+// =============================================================================
 // Audit Command
 // =============================================================================
 
@@ -925,6 +1422,33 @@ func loadPolicyFile(path string) (*PolicyFile, error) {
 	}
 
 	return &policyFile, nil
+}
+
+func savePolicyFile(path string, policyFile *PolicyFile) error {
+	// Resolve path
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("failed to resolve path: %w", err)
+	}
+
+	// Ensure parent directory exists
+	dir := filepath.Dir(absPath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	// Marshal to YAML
+	data, err := yaml.Marshal(policyFile)
+	if err != nil {
+		return fmt.Errorf("failed to marshal YAML: %w", err)
+	}
+
+	// Write file
+	if err := os.WriteFile(absPath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+
+	return nil
 }
 
 func truncate(s string, maxLen int) string {

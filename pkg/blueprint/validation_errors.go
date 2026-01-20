@@ -68,7 +68,13 @@ type ValidationError struct {
 
 // Error implements the error interface
 func (e *ValidationError) Error() string {
-	return e.Message
+	if e.Parameter == "" {
+		return e.Message
+	}
+	if e.Value != nil {
+		return fmt.Sprintf("%s: %s (got: %v)", e.Parameter, e.Message, e.Value)
+	}
+	return fmt.Sprintf("%s: %s", e.Parameter, e.Message)
 }
 
 // DetailedMessage returns a multi-line detailed error message

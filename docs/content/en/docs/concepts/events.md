@@ -144,7 +144,7 @@ type Event struct {
   "timestamp": "2024-01-15T10:23:45Z",
   "severity": "info",
   "correlation_id": "agent-web-01",
-  "tags": ["production", "us-east-1"],
+  "tags": {"env": "production", "region": "us-east-1"},
   "data": {
     "agent_id": "web-01",
     "datacenter": "us-east-1",

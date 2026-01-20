@@ -514,6 +514,66 @@ sequenceDiagram
 }
 ```
 
+## Backpressure
+
+Keystone Core provides publisher backpressure controls to protect NATS and JetStream under high-volume workloads. Backpressure can block, drop, buffer, or throttle publishes when pending messages exceed configured limits.
+
+**Strategies**:
+- `block`: Wait for capacity before publishing
+- `drop`: Drop messages when queue is full
+- `buffer`: Buffer in memory until capacity returns
+- `throttle`: Limit publish rate (messages/sec)
+
+**Backpressure Configuration Fields** (internal API; not yet exposed in config):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `strategy` | string | backpressure strategy |
+| `maxPending` | int64 | Max in-flight messages |
+| `maxBytes` | int64 | Max in-flight bytes |
+| `bufferSize` | int | Buffer length (for `buffer`) |
+| `blockTimeout` | duration | Max wait when blocking |
+| `throttleRate` | int64 | Messages/sec (for `throttle`) |
+| `highWaterMark` | float | Pause threshold (0.0-1.0) |
+| `lowWaterMark` | float | Resume threshold (0.0-1.0) |
+
+**Operational Notes**:
+- Pause/resume events fire when crossing watermarks.
+- Dropped messages increment internal counters for monitoring.
+- Blocking respects context cancellation and timeouts.
+
+## Message Ordering
+
+Ordering controls provide predictable delivery across subjects and partitions. Keystone Core supports multiple ordering modes depending on throughput and correctness needs.
+
+**Ordering Modes**:
+- `none`: No ordering guarantees (highest throughput)
+- `per_subject`: Ordering within a single subject (single publisher)
+- `per_partition`: Ordering within a partition key (recommended)
+- `global`: Strict global order (lowest throughput)
+
+**Common Partition Keys**:
+- `agent-id` header (per-agent ordering)
+- `correlation-id` header (request/response ordering)
+- subject name (per-subject ordering)
+
+**Ordering Configuration Fields** (internal API; not yet exposed in config):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `mode` | string | Ordering mode |
+| `partition_key` | string | Partition key selector |
+| `stream` | string | JetStream stream name |
+| `window_size` | int | Max outstanding publishes per partition |
+| `ack_timeout` | duration | Publish ack timeout |
+| `max_retries` | int | Retry attempts |
+| `retry_delay` | duration | Delay between retries |
+
+**Best Practices**:
+- Use idempotent consumers; JetStream can redeliver.
+- Keep `window_size` small for strict ordering.
+- Monitor sequence gaps to detect out-of-order delivery.
+
 ## See Also
 
 - [NATS Mesh Concepts]({{< ref "../concepts/nats-mesh" >}}) - Architecture overview

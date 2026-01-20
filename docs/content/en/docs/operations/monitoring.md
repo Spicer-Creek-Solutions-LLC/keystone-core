@@ -112,10 +112,10 @@ rate(kscore_api_requests_total[5m])
 histogram_quantile(0.95, rate(kscore_api_request_duration_seconds_bucket[5m]))
 
 # Connected agents
-kscore_agents_connected_total
+kscore_agents_connected
 
 # Command execution rate
-rate(kscore_commands_executed_total[5m])
+rate(kscore_command_executions_total[5m])
 
 # State application success rate
 rate(kscore_states_applied_total{result="success"}[5m]) /
@@ -592,7 +592,7 @@ groups:
     interval: 30s
     rules:
       - alert: AgentFleetLowAvailability
-        expr: (kscore_agents_connected_total / kscore_agents_total) < 0.9
+        expr: (kscore_agents_connected / kscore_agents_total) < 0.9
         for: 5m
         labels:
           severity: warning
@@ -601,7 +601,7 @@ groups:
           description: "Only {{ $value | humanizePercentage }} agents connected"
 
       - alert: AgentFleetCriticalAvailability
-        expr: (kscore_agents_connected_total / kscore_agents_total) < 0.7
+        expr: (kscore_agents_connected / kscore_agents_total) < 0.7
         for: 5m
         labels:
           severity: critical
@@ -883,7 +883,7 @@ groups:
     interval: 30s
     rules:
       - alert: CommandTimeoutRateHigh
-        expr: rate(kscore_command_timeouts_total[5m]) / rate(kscore_commands_executed_total[5m]) > 0.05
+        expr: rate(kscore_command_timeouts_total[5m]) / rate(kscore_command_executions_total[5m]) > 0.05
         for: 10m
         labels:
           severity: warning
@@ -1105,11 +1105,11 @@ histogram_quantile(0.95, rate(kscore_command_dispatch_duration_seconds_bucket[5m
 histogram_quantile(0.95, rate(kscore_command_overhead_duration_seconds_bucket[5m]))
 
 # Command throughput
-rate(kscore_commands_executed_total[5m])
+rate(kscore_command_executions_total[5m])
 
 # By exit code
-rate(kscore_commands_executed_total{exit_code="0"}[5m])  # Success
-rate(kscore_commands_executed_total{exit_code!="0"}[5m]) # Failure
+rate(kscore_command_executions_total{exit_code="0"}[5m])  # Success
+rate(kscore_command_executions_total{exit_code!="0"}[5m]) # Failure
 ```
 
 **Batch Execution Scaling**:
@@ -1394,7 +1394,7 @@ rate(kscore_api_requests_total{status=~"5.."}[5m]) /
 rate(kscore_api_requests_total[5m])
 
 # Agent Availability
-(kscore_agents_connected_total / kscore_agents_total) * 100
+(kscore_agents_connected / kscore_agents_total) * 100
 ```
 
 **Error Budget Alerts:**

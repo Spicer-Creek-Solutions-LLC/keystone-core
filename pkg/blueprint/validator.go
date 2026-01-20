@@ -6,25 +6,6 @@ import (
 	"strings"
 )
 
-// ValidationError represents a validation error with context.
-type ValidationError struct {
-	// Field is the path to the field that failed validation
-	Field string
-
-	// Message is the error message
-	Message string
-
-	// Value is the invalid value (optional)
-	Value interface{}
-}
-
-func (e ValidationError) Error() string {
-	if e.Value != nil {
-		return fmt.Sprintf("%s: %s (got: %v)", e.Field, e.Message, e.Value)
-	}
-	return fmt.Sprintf("%s: %s", e.Field, e.Message)
-}
-
 // ValidationResult holds the results of blueprint validation.
 type ValidationResult struct {
 	// Valid is true if the blueprint is valid
@@ -39,13 +20,13 @@ type ValidationResult struct {
 
 // AddError adds a validation error.
 func (r *ValidationResult) AddError(field, message string, value interface{}) {
-	r.Errors = append(r.Errors, ValidationError{Field: field, Message: message, Value: value})
+	r.Errors = append(r.Errors, ValidationError{Parameter: field, Message: message, Value: value})
 	r.Valid = false
 }
 
 // AddWarning adds a validation warning.
 func (r *ValidationResult) AddWarning(field, message string, value interface{}) {
-	r.Warnings = append(r.Warnings, ValidationError{Field: field, Message: message, Value: value})
+	r.Warnings = append(r.Warnings, ValidationError{Parameter: field, Message: message, Value: value})
 }
 
 // Error returns a combined error message or nil if valid.

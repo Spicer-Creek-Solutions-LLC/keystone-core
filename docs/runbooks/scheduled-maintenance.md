@@ -35,12 +35,12 @@ This runbook covers procedures for performing scheduled maintenance on a Keyston
 
 ```bash
 # Create pre-maintenance backup
-kscore-backup create \
+kscore-cluster-backup create \
   --dest /backup/pre-maintenance-$(date +%Y%m%d) \
   --label "pre-maintenance"
 
 # Verify backup
-kscore-backup verify /backup/pre-maintenance-*/latest.tar.gz
+kscore-cluster-backup verify /backup/pre-maintenance-*/latest.tar.gz
 ```
 
 #### Step 3: Record Current State

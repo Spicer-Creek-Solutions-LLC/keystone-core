@@ -1,6 +1,7 @@
 package events
 
 import (
+	"fmt"
 	"testing"
 	"time"
 )
@@ -699,6 +700,437 @@ func TestFilterExpression_Concurrent(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		<-done
 	}
+}
+
+// Test timestamp() and duration() functions
+func TestFilterExpression_TimestampFunction(t *testing.T) {
+	// Create an event with a specific timestamp
+	baseTime := time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC)
+	event := &Event{
+		ID:     "test-1",
+		Type:   EventTypeAgentConnect,
+		Source: "/test",
+		Time:   baseTime,
+	}
+
+	tests := []struct {
+		name     string
+		expr     string
+		expected bool
+	}{
+		{
+			name:     "timestamp after earlier date",
+			expr:     `timestamp > timestamp('2024-01-14T00:00:00Z')`,
+			expected: true,
+		},
+		{
+			name:     "timestamp before later date",
+			expr:     `timestamp < timestamp('2024-01-16T00:00:00Z')`,
+			expected: true,
+		},
+		{
+			name:     "timestamp equal to exact time",
+			expr:     `timestamp == timestamp('2024-01-15T12:00:00Z')`,
+			expected: true,
+		},
+		{
+			name:     "timestamp not equal to different time",
+			expr:     `timestamp != timestamp('2024-01-15T13:00:00Z')`,
+			expected: true,
+		},
+		{
+			name:     "timestamp greater than or equal to exact time",
+			expr:     `timestamp >= timestamp('2024-01-15T12:00:00Z')`,
+			expected: true,
+		},
+		{
+			name:     "timestamp less than or equal to exact time",
+			expr:     `timestamp <= timestamp('2024-01-15T12:00:00Z')`,
+			expected: true,
+		},
+		{
+			name:     "timestamp not after later date",
+			expr:     `timestamp > timestamp('2024-01-16T00:00:00Z')`,
+			expected: false,
+		},
+		{
+			name:     "timestamp not before earlier date",
+			expr:     `timestamp < timestamp('2024-01-14T00:00:00Z')`,
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			expr, err := ParseFilterExpression(tt.expr)
+			if err != nil {
+				t.Fatalf("Failed to parse expression: %v", err)
+			}
+
+			if expr.Matches(event) != tt.expected {
+				t.Errorf("Expected %v for %s", tt.expected, tt.name)
+			}
+		})
+	}
+}
+
+func TestFilterExpression_DurationFunction(t *testing.T) {
+	// Create an event with duration data
+	event := &Event{
+		ID:     "test-1",
+		Type:   EventTypeJobComplete,
+		Source: "/test",
+		Data: map[string]interface{}{
+			"duration": DurationValue{Duration: 5 * time.Minute},
+		},
+	}
+
+	tests := []struct {
+		name     string
+		expr     string
+		expected bool
+	}{
+		{
+			name:     "duration greater than shorter duration",
+			expr:     `data.duration > duration('3m')`,
+			expected: true,
+		},
+		{
+			name:     "duration less than longer duration",
+			expr:     `data.duration < duration('10m')`,
+			expected: true,
+		},
+		{
+			name:     "duration equal to exact duration",
+			expr:     `data.duration == duration('5m')`,
+			expected: true,
+		},
+		{
+			name:     "duration equal with different format",
+			expr:     `data.duration == duration('300s')`,
+			expected: true,
+		},
+		{
+			name:     "duration not equal to different duration",
+			expr:     `data.duration != duration('6m')`,
+			expected: true,
+		},
+		{
+			name:     "duration greater than or equal to exact",
+			expr:     `data.duration >= duration('5m')`,
+			expected: true,
+		},
+		{
+			name:     "duration less than or equal to exact",
+			expr:     `data.duration <= duration('5m')`,
+			expected: true,
+		},
+		{
+			name:     "duration not greater than longer",
+			expr:     `data.duration > duration('10m')`,
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			expr, err := ParseFilterExpression(tt.expr)
+			if err != nil {
+				t.Fatalf("Failed to parse expression: %v", err)
+			}
+
+			if expr.Matches(event) != tt.expected {
+				t.Errorf("Expected %v for %s", tt.expected, tt.name)
+			}
+		})
+	}
+}
+
+func TestParseValue_Functions(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		expectType  string
+		expectError bool
+	}{
+		{
+			name:       "valid timestamp",
+			input:      "timestamp('2024-01-15T12:00:00Z')",
+			expectType: "TimestampValue",
+		},
+		{
+			name:       "valid duration minutes",
+			input:      "duration('5m')",
+			expectType: "DurationValue",
+		},
+		{
+			name:       "valid duration hours",
+			input:      "duration('2h30m')",
+			expectType: "DurationValue",
+		},
+		{
+			name:       "valid duration seconds",
+			input:      "duration('90s')",
+			expectType: "DurationValue",
+		},
+		{
+			name:       "plain string value",
+			input:      `"hello"`,
+			expectType: "string",
+		},
+		{
+			name:        "invalid timestamp format",
+			input:       "timestamp('not-a-date')",
+			expectError: true,
+		},
+		{
+			name:        "invalid duration format",
+			input:       "duration('not-a-duration')",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			val, err := parseValue(tt.input)
+			if tt.expectError {
+				if err == nil {
+					t.Error("Expected error but got none")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			switch tt.expectType {
+			case "TimestampValue":
+				if _, ok := val.(TimestampValue); !ok {
+					t.Errorf("Expected TimestampValue, got %T", val)
+				}
+			case "DurationValue":
+				if _, ok := val.(DurationValue); !ok {
+					t.Errorf("Expected DurationValue, got %T", val)
+				}
+			case "string":
+				if _, ok := val.(string); !ok {
+					t.Errorf("Expected string, got %T", val)
+				}
+			}
+		})
+	}
+}
+
+func TestTimestampValue_String(t *testing.T) {
+	ts := TimestampValue{Time: time.Date(2024, 1, 15, 12, 30, 0, 0, time.UTC)}
+	expected := "2024-01-15T12:30:00Z"
+	if ts.String() != expected {
+		t.Errorf("Expected %s, got %s", expected, ts.String())
+	}
+}
+
+func TestDurationValue_String(t *testing.T) {
+	dv := DurationValue{Duration: 5*time.Minute + 30*time.Second}
+	expected := "5m30s"
+	if dv.String() != expected {
+		t.Errorf("Expected %s, got %s", expected, dv.String())
+	}
+}
+
+// Test nested data field filtering
+func TestFilterExpression_NestedDataFields(t *testing.T) {
+	event := &Event{
+		ID:     "test-1",
+		Type:   EventTypeJobComplete,
+		Source: "/test",
+		Data: map[string]interface{}{
+			"results": map[string]interface{}{
+				"success":    true,
+				"exitCode":   0,
+				"outputs":    []interface{}{"line1", "line2"},
+				"nested": map[string]interface{}{
+					"deep": "value",
+				},
+			},
+			"items": []interface{}{
+				map[string]interface{}{"name": "first"},
+				map[string]interface{}{"name": "second"},
+			},
+			"simple": "top-level",
+		},
+	}
+
+	tests := []struct {
+		name     string
+		expr     string
+		expected bool
+	}{
+		{
+			name:     "single level access still works",
+			expr:     `data.simple == "top-level"`,
+			expected: true,
+		},
+		{
+			name:     "two level nested access",
+			expr:     `data.results.success == "true"`,
+			expected: true,
+		},
+		{
+			name:     "two level nested numeric",
+			expr:     `data.results.exitCode == "0"`,
+			expected: true,
+		},
+		{
+			name:     "three level nested access",
+			expr:     `data.results.nested.deep == "value"`,
+			expected: true,
+		},
+		{
+			name:     "array index access",
+			expr:     `data.results.outputs.0 == "line1"`,
+			expected: true,
+		},
+		{
+			name:     "array index access second element",
+			expr:     `data.results.outputs.1 == "line2"`,
+			expected: true,
+		},
+		{
+			name:     "array of objects access",
+			expr:     `data.items.0.name == "first"`,
+			expected: true,
+		},
+		{
+			name:     "array of objects access second",
+			expr:     `data.items.1.name == "second"`,
+			expected: true,
+		},
+		{
+			name:     "non-existent nested field",
+			expr:     `data.results.nonexistent == "value"`,
+			expected: false,
+		},
+		{
+			name:     "invalid array index",
+			expr:     `data.results.outputs.99 == "value"`,
+			expected: false,
+		},
+		{
+			name:     "nested not equal",
+			expr:     `data.results.success != "false"`,
+			expected: true,
+		},
+		{
+			name:     "nested contains",
+			expr:     `data.results.nested.deep contains "val"`,
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			expr, err := ParseFilterExpression(tt.expr)
+			if err != nil {
+				t.Fatalf("Failed to parse expression: %v", err)
+			}
+
+			if expr.Matches(event) != tt.expected {
+				t.Errorf("Expected %v for %s", tt.expected, tt.name)
+			}
+		})
+	}
+}
+
+func TestGetNestedValue(t *testing.T) {
+	data := map[string]interface{}{
+		"level1": map[string]interface{}{
+			"level2": map[string]interface{}{
+				"level3": "deep-value",
+			},
+		},
+		"array": []interface{}{"a", "b", "c"},
+		"mixed": []interface{}{
+			map[string]interface{}{"key": "val1"},
+			map[string]interface{}{"key": "val2"},
+		},
+	}
+
+	tests := []struct {
+		name     string
+		path     []string
+		expected interface{}
+	}{
+		{
+			name:     "single level",
+			path:     []string{"level1"},
+			expected: map[string]interface{}{"level2": map[string]interface{}{"level3": "deep-value"}},
+		},
+		{
+			name:     "two levels",
+			path:     []string{"level1", "level2"},
+			expected: map[string]interface{}{"level3": "deep-value"},
+		},
+		{
+			name:     "three levels",
+			path:     []string{"level1", "level2", "level3"},
+			expected: "deep-value",
+		},
+		{
+			name:     "array index",
+			path:     []string{"array", "1"},
+			expected: "b",
+		},
+		{
+			name:     "mixed access",
+			path:     []string{"mixed", "0", "key"},
+			expected: "val1",
+		},
+		{
+			name:     "non-existent key",
+			path:     []string{"nonexistent"},
+			expected: nil,
+		},
+		{
+			name:     "invalid array index",
+			path:     []string{"array", "10"},
+			expected: nil,
+		},
+		{
+			name:     "negative array index",
+			path:     []string{"array", "-1"},
+			expected: nil,
+		},
+		{
+			name:     "non-numeric array access",
+			path:     []string{"array", "abc"},
+			expected: nil,
+		},
+		{
+			name:     "empty path",
+			path:     []string{},
+			expected: data,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := getNestedValue(data, tt.path)
+			if !compareInterfaces(result, tt.expected) {
+				t.Errorf("Expected %v, got %v", tt.expected, result)
+			}
+		})
+	}
+}
+
+// compareInterfaces is a helper to compare interface{} values
+func compareInterfaces(a, b interface{}) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return fmt.Sprintf("%v", a) == fmt.Sprintf("%v", b)
 }
 
 // Test edge cases

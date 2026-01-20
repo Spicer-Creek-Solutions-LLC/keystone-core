@@ -86,7 +86,7 @@ GET /api/v1/agents
         "arch": "amd64",
         "ip": "10.0.1.100"
       },
-      "tags": ["nginx", "frontend"]
+      "labels": {"service": "nginx", "tier": "frontend"}
     }
   ],
   "total": 150,
@@ -126,7 +126,7 @@ GET /api/v1/agents/{agent_id}
     "cpu_count": 4,
     "memory_total": 8589934592
   },
-  "tags": ["nginx", "frontend"],
+  "labels": {"service": "nginx", "tier": "frontend"},
   "resource_usage": {
     "cpu_percent": 45.2,
     "memory_bytes": 4294967296,
@@ -141,17 +141,17 @@ curl -H "Authorization: Bearer $API_KEY" \
   http://control-plane:8080/api/v1/agents/web-01
 ```
 
-#### Update Agent Tags
+#### Update Agent Labels
 
 ```http
-PATCH /api/v1/agents/{agent_id}/tags
+PATCH /api/v1/agents/{agent_id}/labels
 ```
 
 **Request Body**:
 ```json
 {
-  "add_tags": ["monitoring", "backup"],
-  "remove_tags": ["old-tag"]
+  "add": {"monitored": "true", "backup": "enabled"},
+  "remove": ["old-label"]
 }
 ```
 
@@ -159,7 +159,7 @@ PATCH /api/v1/agents/{agent_id}/tags
 ```json
 {
   "id": "web-01",
-  "tags": ["nginx", "frontend", "monitoring", "backup"]
+  "labels": {"service": "nginx", "tier": "frontend", "monitored": "true", "backup": "enabled"}
 }
 ```
 
@@ -459,7 +459,7 @@ GET /api/v1/events
       "timestamp": "2024-01-15T10:30:45Z",
       "severity": "info",
       "correlation_id": "agent-web-01",
-      "tags": ["production", "us-east-1"],
+      "tags": {"env": "production", "region": "us-east-1"},
       "data": {
         "agent_id": "web-01",
         "datacenter": "us-east-1",
@@ -485,7 +485,7 @@ POST /api/v1/events
   "type": "user.custom",
   "source": "external-system",
   "severity": "warning",
-  "tags": ["monitoring"],
+  "tags": {"type": "monitoring"},
   "data": {
     "alert": "disk usage high",
     "threshold": 90
@@ -982,22 +982,56 @@ Redistributes agents across cluster members for better load balancing.
 
 ### AgentService
 
+The AgentService defines the agent-to-control-plane communication protocol. This service is used by agents to register, send heartbeats, execute commands, and retrieve agent information.
+
 ```protobuf
 service AgentService {
-  rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse);
-  rpc GetAgent(GetAgentRequest) returns (Agent);
-  rpc UpdateAgentTags(UpdateAgentTagsRequest) returns (Agent);
+  // Register registers an agent with the control plane
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+
+  // Heartbeat sends periodic health status
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+
+  // ExecuteCommand executes a command on the agent
+  rpc ExecuteCommand(ExecuteCommandRequest) returns (stream ExecuteCommandResponse);
+
+  // GetAgentInfo retrieves agent information
+  rpc GetAgentInfo(GetAgentInfoRequest) returns (GetAgentInfoResponse);
 }
 ```
 
-### ExecutionService
+### ControlPlaneService
+
+The ControlPlaneService is the primary client-facing API for managing agents, executing commands, and viewing execution history.
 
 ```protobuf
-service ExecutionService {
-  rpc ExecuteCommand(ExecuteCommandRequest) returns (ExecuteCommandResponse);
-  rpc GetJob(GetJobRequest) returns (Job);
-  rpc ListJobs(ListJobsRequest) returns (ListJobsResponse);
-  rpc StreamJobOutput(StreamJobOutputRequest) returns (stream JobOutput);
+service ControlPlaneService {
+  // GetServerStatus retrieves the server status and runtime information
+  rpc GetServerStatus(GetServerStatusRequest) returns (GetServerStatusResponse);
+
+  // ListAgents lists all registered agents
+  rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse);
+
+  // GetAgent retrieves information about a specific agent
+  rpc GetAgent(GetAgentRequest) returns (GetAgentResponse);
+
+  // ExecuteCommand executes a command on one or more agents
+  rpc ExecuteCommand(ExecuteCommandRequest) returns (stream ExecuteCommandResponse);
+
+  // GetCommandStatus retrieves the status of a command execution
+  rpc GetCommandStatus(GetCommandStatusRequest) returns (GetCommandStatusResponse);
+
+  // ListCommands lists command execution history
+  rpc ListCommands(ListCommandsRequest) returns (ListCommandsResponse);
+
+  // BatchExecuteCommand executes a command across multiple agents using a target expression
+  rpc BatchExecuteCommand(BatchExecuteCommandRequest) returns (stream BatchExecuteCommandResponse);
+
+  // GetBatchJobStatus retrieves the status of a batch job
+  rpc GetBatchJobStatus(GetBatchJobStatusRequest) returns (GetBatchJobStatusResponse);
+
+  // ListBatchJobs lists batch job execution history
+  rpc ListBatchJobs(ListBatchJobsRequest) returns (ListBatchJobsResponse);
 }
 ```
 
@@ -1005,9 +1039,20 @@ service ExecutionService {
 
 ```protobuf
 service StateService {
-  rpc ApplyState(ApplyStateRequest) returns (ApplyStateResponse);
+  // ApplyState applies state declarations to one or more agents
+  rpc ApplyState(ApplyStateRequest) returns (stream ApplyStateResponse);
+
+  // CheckState checks state without applying (dry-run mode)
   rpc CheckState(CheckStateRequest) returns (CheckStateResponse);
+
+  // DetectDrift detects configuration drift from desired state
   rpc DetectDrift(DetectDriftRequest) returns (DetectDriftResponse);
+
+  // GetStateHistory retrieves state application history
+  rpc GetStateHistory(GetStateHistoryRequest) returns (GetStateHistoryResponse);
+
+  // GetStateStatus retrieves current state status for an agent
+  rpc GetStateStatus(GetStateStatusRequest) returns (GetStateStatusResponse);
 }
 ```
 
@@ -1015,9 +1060,23 @@ service StateService {
 
 ```protobuf
 service EventService {
+  // ListEvents lists events with filtering
   rpc ListEvents(ListEventsRequest) returns (ListEventsResponse);
-  rpc EmitEvent(EmitEventRequest) returns (Event);
+
+  // GetEvent retrieves a specific event
+  rpc GetEvent(GetEventRequest) returns (GetEventResponse);
+
+  // EmitEvent emits a custom event
+  rpc EmitEvent(EmitEventRequest) returns (EmitEventResponse);
+
+  // SubscribeEvents subscribes to events in real-time
   rpc SubscribeEvents(SubscribeEventsRequest) returns (stream Event);
+
+  // GetEventTypes returns available event types
+  rpc GetEventTypes(GetEventTypesRequest) returns (GetEventTypesResponse);
+
+  // GetEventStats returns event statistics
+  rpc GetEventStats(GetEventStatsRequest) returns (GetEventStatsResponse);
 }
 ```
 
@@ -1025,9 +1084,41 @@ service EventService {
 
 ```protobuf
 service PolicyService {
+  // EvaluatePolicy evaluates a policy against input data
   rpc EvaluatePolicy(EvaluatePolicyRequest) returns (EvaluatePolicyResponse);
+
+  // EvaluatePolicySet evaluates all policies in a policy set
+  rpc EvaluatePolicySet(EvaluatePolicySetRequest) returns (EvaluatePolicySetResponse);
+
+  // ListPolicies lists all policies
+  rpc ListPolicies(ListPoliciesRequest) returns (ListPoliciesResponse);
+
+  // GetPolicy retrieves a specific policy
+  rpc GetPolicy(GetPolicyRequest) returns (GetPolicyResponse);
+
+  // CreatePolicy creates a new policy
+  rpc CreatePolicy(CreatePolicyRequest) returns (CreatePolicyResponse);
+
+  // UpdatePolicy updates an existing policy
+  rpc UpdatePolicy(UpdatePolicyRequest) returns (UpdatePolicyResponse);
+
+  // DeletePolicy deletes a policy
+  rpc DeletePolicy(DeletePolicyRequest) returns (DeletePolicyResponse);
+
+  // ListViolations lists policy violations
   rpc ListViolations(ListViolationsRequest) returns (ListViolationsResponse);
-  rpc GetComplianceReport(GetComplianceReportRequest) returns (ComplianceReport);
+
+  // GetComplianceReport generates a compliance report
+  rpc GetComplianceReport(GetComplianceReportRequest) returns (GetComplianceReportResponse);
+
+  // GetAuditLog retrieves policy evaluation audit log
+  rpc GetAuditLog(GetAuditLogRequest) returns (GetAuditLogResponse);
+
+  // ListPolicySets lists policy sets
+  rpc ListPolicySets(ListPolicySetsRequest) returns (ListPolicySetsResponse);
+
+  // GetPolicySet retrieves a policy set
+  rpc GetPolicySet(GetPolicySetRequest) returns (GetPolicySetResponse);
 }
 ```
 
@@ -1035,12 +1126,41 @@ service PolicyService {
 
 ```protobuf
 service ClusterService {
-  rpc GetClusterStatus(GetClusterStatusRequest) returns (ClusterStatus);
+  // GetClusterStatus returns the overall cluster status
+  rpc GetClusterStatus(GetClusterStatusRequest) returns (GetClusterStatusResponse);
+
+  // ListMembers lists all cluster members
   rpc ListMembers(ListMembersRequest) returns (ListMembersResponse);
-  rpc GetLeader(GetLeaderRequest) returns (LeaderInfo);
-  rpc CreateBackup(CreateBackupRequest) returns (BackupData);
-  rpc RestoreBackup(RestoreBackupRequest) returns (RestoreResult);
-  rpc TriggerRebalance(RebalanceRequest) returns (RebalanceResult);
+
+  // GetMember retrieves a specific cluster member
+  rpc GetMember(GetMemberRequest) returns (GetMemberResponse);
+
+  // AddMember adds a new member to the cluster
+  rpc AddMember(AddMemberRequest) returns (AddMemberResponse);
+
+  // RemoveMember removes a member from the cluster
+  rpc RemoveMember(RemoveMemberRequest) returns (RemoveMemberResponse);
+
+  // GetLeader returns the current cluster leader
+  rpc GetLeader(GetLeaderRequest) returns (GetLeaderResponse);
+
+  // TransferLeader transfers leadership to another member
+  rpc TransferLeader(TransferLeaderRequest) returns (TransferLeaderResponse);
+
+  // Rebalance triggers agent rebalancing across cluster members
+  rpc Rebalance(RebalanceRequest) returns (RebalanceResponse);
+
+  // CreateBackup creates a cluster state backup
+  rpc CreateBackup(CreateBackupRequest) returns (CreateBackupResponse);
+
+  // RestoreBackup restores cluster state from a backup
+  rpc RestoreBackup(RestoreBackupRequest) returns (RestoreBackupResponse);
+
+  // WatchMembership watches for membership changes
+  rpc WatchMembership(WatchMembershipRequest) returns (stream MembershipEvent);
+
+  // WatchLeadership watches for leadership changes
+  rpc WatchLeadership(WatchLeadershipRequest) returns (stream LeadershipEvent);
 }
 ```
 

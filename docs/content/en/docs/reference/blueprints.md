@@ -1218,14 +1218,13 @@ name: basic-tests
 description: Basic functionality tests
 
 setup:
-  - module: file
-    state: directory
-    path: /tmp/test-upstream
+  states:
+    - states/test-setup.yaml
 
 teardown:
-  - module: file
-    state: absent
-    path: /tmp/test-upstream
+  always: true
+  states:
+    - states/test-cleanup.yaml
 
 tests:
   - name: test_install_completes
@@ -1237,9 +1236,9 @@ tests:
         - address: localhost
           port: 8080
     assertions:
-      - type: state
-        state_id: nginx_package
-        expected: changed
+      - type: state_changed
+        state:
+          id: nginx_package
 
   - name: test_config_created
     description: Verify configuration file is created
@@ -1247,26 +1246,33 @@ tests:
       domain: test.example.com
       enable_ssl: false
     assertions:
-      - type: file
-        path: /etc/nginx/conf.d/test.example.com.conf
-        exists: true
-        mode: "0644"
-        contains: "server_name test.example.com"
+      - type: file_exists
+        file:
+          path: /etc/nginx/conf.d/test.example.com.conf
+      - type: file_mode
+        file:
+          path: /etc/nginx/conf.d/test.example.com.conf
+          mode: "0644"
+      - type: file_contains
+        file:
+          path: /etc/nginx/conf.d/test.example.com.conf
+          contains: "server_name test.example.com"
 
   - name: test_service_running
     description: Verify nginx service is running
     assertions:
-      - type: service
-        name: nginx
-        running: true
-        enabled: true
+      - type: command_success
+        command:
+          command: systemctl is-active nginx
+          exit_code: 0
 
   - name: test_config_valid
     description: Verify nginx configuration is valid
     assertions:
-      - type: command
-        command: nginx -t
-        exit_code: 0
+      - type: command_success
+        command:
+          command: nginx -t
+          exit_code: 0
 
   - name: test_idempotency
     description: Verify re-running produces no changes
@@ -1274,9 +1280,7 @@ tests:
       domain: test.example.com
       enable_ssl: false
     assertions:
-      - type: idempotency
-        reruns: 2
-        expect_no_changes: true
+      - type: idempotent
 ```
 
 Create `tests/test_ssl.yaml`:
@@ -1291,8 +1295,7 @@ tags:
 tests:
   - name: test_letsencrypt_setup
     description: Test Let's Encrypt certificate setup
-    skip_reason: Requires real domain
-    skip: true
+    skip: "Requires real domain"
     parameters:
       domain: test.example.com
       enable_ssl: true
@@ -1305,16 +1308,17 @@ tests:
       enable_ssl: true
       ssl_provider: selfsigned
     assertions:
-      - type: file
-        path: /etc/nginx/ssl/test.example.com.crt
-        exists: true
-      - type: file
-        path: /etc/nginx/ssl/test.example.com.key
-        exists: true
-        mode: "0600"
-      - type: command
-        command: openssl x509 -in /etc/nginx/ssl/test.example.com.crt -noout -subject
-        stdout_contains: "CN = test.example.com"
+      - type: file_exists
+        file:
+          path: /etc/nginx/ssl/test.example.com.crt
+      - type: file_mode
+        file:
+          path: /etc/nginx/ssl/test.example.com.key
+          mode: "0600"
+      - type: command_output
+        command:
+          command: openssl x509 -in /etc/nginx/ssl/test.example.com.crt -noout -subject
+          stdout_contains: "CN = test.example.com"
 
   - name: test_custom_certificate
     description: Test custom certificate installation
@@ -1331,13 +1335,13 @@ tests:
         [test key content]
         -----END PRIVATE KEY-----
     assertions:
-      - type: file
-        path: /etc/nginx/ssl/test.example.com.crt
-        exists: true
-      - type: file
-        path: /etc/nginx/ssl/test.example.com.key
-        exists: true
-        mode: "0600"
+      - type: file_exists
+        file:
+          path: /etc/nginx/ssl/test.example.com.crt
+      - type: file_mode
+        file:
+          path: /etc/nginx/ssl/test.example.com.key
+          mode: "0600"
 ```
 
 ### Step 8: Validate and Lint
@@ -1463,10 +1467,12 @@ name: my-blueprint-tests
 description: Test suite for my-blueprint
 
 setup:
-  - states/test-setup.yaml
+  states:
+    - states/test-setup.yaml
 
 teardown:
-  - states/test-cleanup.yaml
+  states:
+    - states/test-cleanup.yaml
 
 tests:
   - name: test_basic_install
@@ -1477,76 +1483,179 @@ tests:
     parameters:
       domain: test.example.com
     assertions:
-      - type: state
-        state_id: install_package
-        expected: changed
+      - type: state_changed
+        state:
+          id: install_package
 
   - name: test_config_file
     description: Verify configuration file
     assertions:
-      - type: file
-        path: /etc/myapp/config.yaml
-        exists: true
-        mode: "0644"
-        contains: "domain: test.example.com"
+      - type: file_contains
+        file:
+          path: /etc/myapp/config.yaml
+          contains: "domain: test.example.com"
+      - type: file_mode
+        file:
+          path: /etc/myapp/config.yaml
+          mode: "0644"
 
   - name: test_service_running
     description: Verify service is running
     assertions:
+      - type: command_success
+        command:
+          command: systemctl is-active myapp
+          exit_code: 0
+```
+
+### Setup and Teardown Lifecycle
+
+The test runner executes setup and teardown at both suite and test levels:
+
+1. Suite setup (`setup`)
+2. Per-test setup (`tests[].setup`)
+3. Test execution (entrypoint + parameters)
+4. Assertions
+5. Per-test teardown (`tests[].teardown`)
+6. Suite teardown (`teardown`)
+
+Teardown can be configured to always run even on failure.
+
+```yaml
+setup:
+  states:
+    - states/bootstrap.yaml
+  commands:
+    - command: "systemctl stop myapp"
+
+teardown:
+  always: true
+  states:
+    - states/cleanup.yaml
+  files:
+    - /tmp/test-output.log
+```
+
+### Defaults and Overrides
+
+Defaults apply to all tests unless overridden:
+
+```yaml
+defaults:
+  timeout: 5m
+  dry_run: false
+  parameters:
+    region: us-east-1
+  mocks:
+    - type: command
+      command:
+        pattern: "systemctl status.*"
+        stdout: "active (running)"
+        exit_code: 0
+```
+
+### Mock Configuration
+
+Mocks simulate external dependencies during tests. Supported mock types:
+`command`, `file`, `http`, `package`, `service`.
+
+```yaml
+tests:
+  - name: test_with_mocks
+    mocks:
+      - type: command
+        command:
+          pattern: "curl .*"
+          stdout: "ok"
+          stderr: ""
+          exit_code: 0
+      - type: file
+        file:
+          path: /etc/myapp/config.yaml
+          exists: true
+          mode: "0644"
+          owner: root
+          group: root
+          content: "enabled: true"
+      - type: http
+        http:
+          url: "https://api.example.com/.*"
+          status_code: 200
+          body: "{\"status\":\"ok\"}"
+      - type: package
+        package:
+          name: nginx
+          installed: true
+          version: "1.18.0"
       - type: service
-        name: myapp
-        running: true
-        enabled: true
+        service:
+          name: nginx
+          running: true
+          enabled: true
 ```
 
 ### Assertion Types
 
 | Type | Description |
 |------|-------------|
-| `state` | Assert state result (changed, unchanged, failed) |
-| `file` | Assert file exists, mode, owner, contents |
-| `directory` | Assert directory exists, mode, owner |
-| `command` | Assert command exit code, output |
-| `output` | Assert command output matches pattern |
-| `service` | Assert service running, enabled |
-| `package` | Assert package installed, version |
-| `user` | Assert user exists, groups |
-| `group` | Assert group exists, members |
-| `idempotency` | Assert re-run produces no changes |
+| `state_applied` | State was applied |
+| `state_changed` | State resulted in changes |
+| `state_unchanged` | State made no changes |
+| `state_failed` | State failed |
+| `file_exists` | File exists |
+| `file_not_exists` | File does not exist |
+| `file_contains` | File contains/equals/matches content |
+| `file_mode` | File permissions match |
+| `file_owner` | File owner/group match |
+| `directory_exists` | Directory exists |
+| `command_success` | Command succeeds |
+| `command_failure` | Command fails with expected code |
+| `command_output` | Command output matches expectations |
+| `output_contains` | Blueprint output contains value |
+| `output_equals` | Blueprint output equals value |
+| `output_matches` | Blueprint output matches regex |
+| `expression` | CEL expression evaluates to true |
+| `states_applied` | Total states applied equals expected count |
+| `states_changed` | Total states changed equals expected count |
+| `states_failed` | Total states failed equals expected count |
+| `no_failures` | No state failures occurred |
+| `idempotent` | Re-run produces no changes |
 
 ### File Assertion
 
 ```yaml
 assertions:
-  - type: file
-    path: /etc/myapp/config.yaml
-    exists: true
-    mode: "0644"
-    owner: root
-    group: root
-    contains: "expected content"
-    not_contains: "bad content"
-    matches: "^domain: .*$"
+  - type: file_contains
+    file:
+      path: /etc/myapp/config.yaml
+      contains: "expected content"
+  - type: file_mode
+    file:
+      path: /etc/myapp/config.yaml
+      mode: "0644"
+  - type: file_owner
+    file:
+      path: /etc/myapp/config.yaml
+      owner: root
+      group: root
 ```
 
 ### Command Assertion
 
 ```yaml
 assertions:
-  - type: command
-    command: myapp --version
-    exit_code: 0
-    stdout_contains: "1.0.0"
-    stderr_is_empty: true
+  - type: command_output
+    command:
+      command: myapp --version
+      exit_code: 0
+      stdout_contains: "1.0.0"
 ```
 
 ### Idempotency Assertion
 
 ```yaml
 assertions:
-  - type: idempotency
-    reruns: 3
-    expect_no_changes: true
+  - type: idempotent
 ```
 
 ## Bundle System (Air-Gapped)

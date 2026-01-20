@@ -61,7 +61,12 @@ func init() {
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(applyCmd)
 	rootCmd.AddCommand(checkCmd)
+	rootCmd.AddCommand(testCmd)
 	rootCmd.AddCommand(driftCmd)
+	rootCmd.AddCommand(diffCmd)
+	rootCmd.AddCommand(showCmd)
+	rootCmd.AddCommand(historyCmd)
+	rootCmd.AddCommand(rollbackCmd)
 }
 
 func main() {
@@ -622,4 +627,301 @@ func printRequisiteList(name string, refs []statemgmt.StateReference) {
 	for _, ref := range refs {
 		fmt.Printf("       - %s.%s\n", ref.Module, ref.ID)
 	}
+}
+
+// Test command - alias for check with test-focused messaging
+
+var testVarsFile string
+
+var testCmd = &cobra.Command{
+	Use:   "test <statefile>",
+	Short: "Test state declarations (dry-run)",
+	Long: `Test state declarations without applying them.
+
+The test command performs a dry-run that simulates state application
+without making actual changes. Useful for validating state files.
+
+Examples:
+  # Test a state file
+  kscorectl state test states/webserver.yaml
+
+  # Test with specific target
+  kscorectl state test states/app.yaml --target web-01
+
+  # Test with variables
+  kscorectl state test states/app.yaml --vars vars/staging.yaml`,
+	Args: cobra.ExactArgs(1),
+	RunE: testExecute,
+}
+
+func init() {
+	testCmd.Flags().StringVar(&stateTarget, "target", "", "Target expression (not used in local mode)")
+	testCmd.Flags().StringVar(&testVarsFile, "vars", "", "Variables file (YAML)")
+}
+
+func testExecute(cmd *cobra.Command, args []string) error {
+	// Test is like check but with different messaging
+	applyVarsFile = testVarsFile
+	applyDryRun = true
+	fmt.Println("Running state test (dry-run mode)...")
+	return applyExecute(cmd, args)
+}
+
+// Diff command - compare desired vs actual state
+
+var diffVarsFile string
+
+var diffCmd = &cobra.Command{
+	Use:     "diff <statefile>",
+	Aliases: []string{"compare"},
+	Short:   "Show differences between desired and actual state",
+	Long: `Show what would change if the state were applied.
+
+The diff command compares the desired state (from the state file) with
+the actual current state of the system, showing the differences.
+
+This is an alias for the 'drift' command with output focused on changes.
+
+Examples:
+  # Show differences
+  kscorectl state diff states/webserver.yaml
+
+  # Show differences for specific target
+  kscorectl state diff states/app.yaml --target web-01
+
+  # Show differences with variables
+  kscorectl state diff states/app.yaml --vars vars/production.yaml`,
+	Args: cobra.ExactArgs(1),
+	RunE: diffExecute,
+}
+
+func init() {
+	diffCmd.Flags().StringVar(&stateTarget, "target", "", "Target expression (not used in local mode)")
+	diffCmd.Flags().StringVar(&diffVarsFile, "vars", "", "Variables file (YAML)")
+}
+
+func diffExecute(cmd *cobra.Command, args []string) error {
+	// Diff is similar to drift but focused on showing changes
+	driftVarsFile = diffVarsFile
+	fmt.Println("Comparing desired state with actual state...")
+	return driftExecute(cmd, args)
+}
+
+// Show command - display rendered state
+
+var showVarsFile string
+
+var showCmd = &cobra.Command{
+	Use:   "show <statefile>",
+	Short: "Show rendered state declarations",
+	Long: `Display the rendered state declarations after template processing.
+
+The show command parses the state file, applies variables and facts,
+and displays the fully rendered state without executing anything.
+
+Useful for:
+  - Debugging template rendering
+  - Reviewing what would be applied
+  - Verifying variable substitution
+
+Examples:
+  # Show rendered state
+  kscorectl state show states/webserver.yaml
+
+  # Show with variables
+  kscorectl state show states/app.yaml --vars vars/production.yaml`,
+	Args: cobra.ExactArgs(1),
+	RunE: showExecute,
+}
+
+func init() {
+	showCmd.Flags().StringVar(&showVarsFile, "vars", "", "Variables file (YAML)")
+}
+
+func showExecute(cmd *cobra.Command, args []string) error {
+	stateFilePath := args[0]
+
+	fmt.Printf("Loading state file: %s\n", stateFilePath)
+
+	// Parse state file
+	baseDir := filepath.Dir(stateFilePath)
+	parser := statemgmt.NewParser(baseDir)
+	stateFile, err := parser.ParseFile(stateFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to parse state file: %w", err)
+	}
+
+	// Validate state file
+	validator := statemgmt.NewValidator()
+	result := validator.Validate(stateFile)
+	if !result.Valid {
+		return fmt.Errorf("validation failed: %s", result.Summary())
+	}
+
+	// Load vars if specified
+	vars := statemgmt.NewVars()
+	if showVarsFile != "" {
+		fmt.Printf("Loading vars from: %s\n", showVarsFile)
+		varsBaseDir := filepath.Dir(showVarsFile)
+		varsParser := statemgmt.NewParser(varsBaseDir)
+		varsFile, err := varsParser.ParseFile(showVarsFile)
+		if err != nil {
+			return fmt.Errorf("failed to parse vars file: %w", err)
+		}
+		if len(varsFile.Variables) > 0 {
+			vars = statemgmt.LoadVarsFromYAML(varsFile.Variables)
+		}
+	}
+
+	// Collect facts
+	facts := statemgmt.NewFacts()
+
+	// Render templates in state file
+	if err := statemgmt.RenderStateFile(stateFile, vars, facts); err != nil {
+		return fmt.Errorf("failed to render templates: %w", err)
+	}
+
+	// Print the rendered state
+	printStatePreview(stateFile, vars, facts)
+
+	return nil
+}
+
+// History command - list state application history
+
+var (
+	historyLimit int
+	historyJSON  bool
+)
+
+var historyCmd = &cobra.Command{
+	Use:   "history [application-id]",
+	Short: "List or show state application history",
+	Long: `List state application history or show details of a specific application.
+
+Without arguments, lists recent state applications. With an application ID,
+shows detailed information about that specific application.
+
+Note: This command requires connectivity to the control plane to retrieve
+the application history. In local mode, history is not tracked.
+
+Examples:
+  # List recent applications
+  kscorectl state history --limit 20
+
+  # Show details of a specific application
+  kscorectl state history app-123
+
+  # List applications for a specific target
+  kscorectl state history --target "role:web" --limit 10`,
+	Args: cobra.MaximumNArgs(1),
+	RunE: historyExecute,
+}
+
+func init() {
+	historyCmd.Flags().StringVar(&stateTarget, "target", "", "Filter by target expression")
+	historyCmd.Flags().IntVar(&historyLimit, "limit", 20, "Maximum number of entries to show")
+	historyCmd.Flags().BoolVar(&historyJSON, "json", false, "Output in JSON format")
+}
+
+func historyExecute(cmd *cobra.Command, args []string) error {
+	if len(args) == 1 {
+		// Show specific application
+		appID := args[0]
+		fmt.Printf("State Application: %s\n", appID)
+		fmt.Println()
+		fmt.Println("Note: State application history requires control plane connectivity.")
+		fmt.Println("This feature tracks state applications across the fleet and stores")
+		fmt.Println("history on the server for auditing and rollback purposes.")
+		fmt.Println()
+		fmt.Println("To use this feature, ensure:")
+		fmt.Println("  1. The control plane server is running")
+		fmt.Println("  2. States are applied via kscorectl (not local state runs)")
+		fmt.Println("  3. The server has history retention enabled")
+		return nil
+	}
+
+	// List applications
+	fmt.Printf("Recent State Applications (limit: %d)\n", historyLimit)
+	if stateTarget != "" {
+		fmt.Printf("Filtered by: %s\n", stateTarget)
+	}
+	fmt.Println()
+	fmt.Println("Note: State application history requires control plane connectivity.")
+	fmt.Println("Local state runs (like apply, check) do not persist history.")
+	fmt.Println()
+	fmt.Println("History tracking is available when:")
+	fmt.Println("  - Applying states via remote execution")
+	fmt.Println("  - Using the control plane's state management API")
+	fmt.Println()
+	fmt.Println("Example of server-side history (when connected):")
+	fmt.Println()
+	fmt.Println("  ID           TIMESTAMP            TARGET     STATUS   CHANGES")
+	fmt.Println("  app-abc123   2024-01-19 10:30:00  role:web   success  5 changed")
+	fmt.Println("  app-def456   2024-01-19 10:15:00  role:db    success  2 changed")
+	fmt.Println("  app-ghi789   2024-01-19 10:00:00  role:web   failed   0 changed")
+	return nil
+}
+
+// Rollback command - rollback to previous state
+
+var (
+	rollbackForce bool
+	rollbackDry   bool
+)
+
+var rollbackCmd = &cobra.Command{
+	Use:   "rollback <application-id>",
+	Short: "Rollback to a previous state application",
+	Long: `Rollback the system to a previous state application.
+
+This command restores the system to the state it was in at the time
+of a previous state application.
+
+Note: This command requires connectivity to the control plane, as
+state history and snapshots are stored on the server.
+
+Examples:
+  # Rollback to a specific application
+  kscorectl state rollback app-123
+
+  # Dry-run rollback to see what would change
+  kscorectl state rollback app-123 --dry-run
+
+  # Force rollback without confirmation
+  kscorectl state rollback app-123 --force`,
+	Args: cobra.ExactArgs(1),
+	RunE: rollbackExecute,
+}
+
+func init() {
+	rollbackCmd.Flags().BoolVar(&rollbackForce, "force", false, "Skip confirmation prompt")
+	rollbackCmd.Flags().BoolVar(&rollbackDry, "dry-run", false, "Show what would be rolled back without applying")
+}
+
+func rollbackExecute(cmd *cobra.Command, args []string) error {
+	appID := args[0]
+
+	mode := "Rollback"
+	if rollbackDry {
+		mode = "Dry-run rollback"
+	}
+	fmt.Printf("%s to state application: %s\n", mode, appID)
+	fmt.Println()
+	fmt.Println("Note: State rollback requires control plane connectivity.")
+	fmt.Println()
+	fmt.Println("The rollback feature works by:")
+	fmt.Println("  1. Retrieving the state snapshot from the specified application")
+	fmt.Println("  2. Comparing it to the current system state")
+	fmt.Println("  3. Generating a rollback state that reverses the changes")
+	fmt.Println("  4. Applying the rollback state to restore the previous state")
+	fmt.Println()
+	fmt.Println("To use this feature, ensure:")
+	fmt.Println("  - The control plane server is running")
+	fmt.Println("  - State snapshots are enabled (default for server-side applications)")
+	fmt.Println("  - The application ID exists in the history")
+	fmt.Println()
+	fmt.Println("For local state files, consider using version control (git) to")
+	fmt.Println("manage state file versions and manually apply the previous version.")
+	return nil
 }

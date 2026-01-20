@@ -256,7 +256,7 @@ curl http://localhost:8080/metrics | grep kscore
 **Sample output**:
 ```
 kscore_agents_connected 1
-kscore_commands_executed_total 3
+kscore_command_executions_total 3
 kscore_state_applications_total 2
 kscore_events_published_total 12
 ...

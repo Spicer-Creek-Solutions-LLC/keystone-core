@@ -18,6 +18,7 @@ import (
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 	"github.com/shawnbutts/keystone-core/pkg/config"
 	"github.com/shawnbutts/keystone-core/pkg/controlplane"
+	"github.com/shawnbutts/keystone-core/pkg/events"
 	"github.com/shawnbutts/keystone-core/pkg/gitops/webhook"
 	"github.com/shawnbutts/keystone-core/pkg/logging"
 	natsmgr "github.com/shawnbutts/keystone-core/pkg/nats"
@@ -423,8 +424,18 @@ func runServer(cmd *cobra.Command, args []string) {
 			}
 		}
 
-		// Create a simple event processor that logs events
-		processor := &loggingEventProcessor{logger: logger}
+		var processor webhook.EventProcessor = &loggingEventProcessor{logger: logger}
+		if js := natsManager.JetStream(); js != nil {
+			publisher, err := events.NewJetStreamPublisher(js)
+			if err != nil {
+				logger.Error("Failed to initialize webhook event publisher", logging.Error(err))
+			} else {
+				processor = webhook.NewEventBusProcessor(publisher)
+				defer publisher.Close()
+			}
+		} else {
+			logger.Warn("JetStream unavailable; webhook events will be logged only")
+		}
 		webhookReceiver = webhook.NewReceiver(webhookConfig, processor)
 
 		go func() {

@@ -443,6 +443,10 @@ type BlueprintInclude struct {
 	// Parameters are the values for the blueprint's parameters
 	Parameters map[string]interface{} `yaml:"parameters,omitempty"`
 
+	// Params is an alias for Parameters (for documentation compatibility)
+	// If both are set, Parameters takes precedence and Params is merged in
+	Params map[string]interface{} `yaml:"params,omitempty"`
+
 	// File is a regular state file to include (mutually exclusive with Blueprint)
 	File string `yaml:"file,omitempty"`
 }
@@ -454,15 +458,38 @@ func (i *BlueprintInclude) IsBlueprint() bool {
 
 // ToLoadConfig converts the include to a LoadConfig.
 func (i *BlueprintInclude) ToLoadConfig() *LoadConfig {
+	// Merge Params into Parameters (Parameters takes precedence)
+	params := i.GetParameters()
+
 	return &LoadConfig{
 		Name:       i.Blueprint,
 		Version:    i.Version,
-		Parameters: i.Parameters,
+		Parameters: params,
 		Features:   i.Features,
 		Entrypoint: i.Entrypoint,
 		As:         i.As,
 		Validate:   true,
 	}
+}
+
+// GetParameters returns the merged parameters from both Parameters and Params fields.
+// The Parameters field takes precedence over Params.
+func (i *BlueprintInclude) GetParameters() map[string]interface{} {
+	if len(i.Params) == 0 {
+		return i.Parameters
+	}
+	if len(i.Parameters) == 0 {
+		return i.Params
+	}
+	// Both are set - merge them with Parameters taking precedence
+	result := make(map[string]interface{})
+	for k, v := range i.Params {
+		result[k] = v
+	}
+	for k, v := range i.Parameters {
+		result[k] = v
+	}
+	return result
 }
 
 // Helper functions

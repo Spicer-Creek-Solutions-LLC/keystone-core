@@ -50,7 +50,7 @@ openssl x509 -in /etc/kscore/certs/server.crt -noout -dates
 
 ```bash
 # Backup all certificates
-kscore-backup create \
+kscore-cluster-backup create \
   --components certificates \
   --dest /backup/certs-$(date +%Y%m%d)
 
@@ -184,7 +184,7 @@ If certificate rotation fails:
 
 ```bash
 # Restore previous certificates
-kscore-backup restore \
+kscore-cluster-backup restore \
   --backup /backup/certs-*/latest.tar.gz \
   --components certificates
 

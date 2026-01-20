@@ -49,10 +49,10 @@ kscorectl cluster health || echo "Cluster unreachable"
 
 ```bash
 # List backups from primary location
-kscore-backup list --dest s3://keystone-backups/
+kscore-cluster-backup list --dest s3://keystone-backups/
 
 # List backups from DR location
-kscore-backup list --dest s3://keystone-backups-dr/
+kscore-cluster-backup list --dest s3://keystone-backups-dr/
 
 # Identify most recent valid backup
 # Note: timestamp, size, components
@@ -120,7 +120,7 @@ ssh dr-server-1
 aws s3 cp s3://keystone-backups-dr/backup-2024-01-15T02-00-00.tar.gz /tmp/
 
 # Verify backup integrity
-kscore-backup verify /tmp/backup-2024-01-15T02-00-00.tar.gz
+kscore-cluster-backup verify /tmp/backup-2024-01-15T02-00-00.tar.gz
 
 # Expected: "Backup verification passed"
 ```

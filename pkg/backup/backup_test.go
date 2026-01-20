@@ -677,3 +677,190 @@ func (i *testImporter) Import(ctx context.Context, r io.Reader) error {
 	return err
 }
 func (i *testImporter) Verify(ctx context.Context) error { return nil }
+
+// EtcdExporter tests
+
+func TestEtcdExporter_Creation(t *testing.T) {
+	config := EtcdConfig{
+		Endpoints: []string{"localhost:2379"},
+		CertFile:  "/path/to/cert",
+		KeyFile:   "/path/to/key",
+		CAFile:    "/path/to/ca",
+	}
+
+	exporter := NewEtcdExporter(config, nil)
+
+	if exporter == nil {
+		t.Fatal("expected non-nil exporter")
+	}
+	if len(exporter.endpoints) != 1 {
+		t.Errorf("expected 1 endpoint, got %d", len(exporter.endpoints))
+	}
+	if exporter.endpoints[0] != "localhost:2379" {
+		t.Errorf("expected endpoint localhost:2379, got %s", exporter.endpoints[0])
+	}
+	if exporter.certFile != "/path/to/cert" {
+		t.Errorf("expected certFile /path/to/cert, got %s", exporter.certFile)
+	}
+	if exporter.keyFile != "/path/to/key" {
+		t.Errorf("expected keyFile /path/to/key, got %s", exporter.keyFile)
+	}
+	if exporter.caFile != "/path/to/ca" {
+		t.Errorf("expected caFile /path/to/ca, got %s", exporter.caFile)
+	}
+}
+
+func TestEtcdExporter_Name(t *testing.T) {
+	exporter := NewEtcdExporter(EtcdConfig{}, nil)
+
+	if exporter.Name() != "etcd" {
+		t.Errorf("expected name 'etcd', got %s", exporter.Name())
+	}
+}
+
+func TestEtcdExporter_Component(t *testing.T) {
+	exporter := NewEtcdExporter(EtcdConfig{}, nil)
+
+	if exporter.Component() != ComponentTypeEtcd {
+		t.Errorf("expected component %s, got %s", ComponentTypeEtcd, exporter.Component())
+	}
+}
+
+func TestEtcdExporter_EstimateSize(t *testing.T) {
+	ctx := context.Background()
+	exporter := NewEtcdExporter(EtcdConfig{}, nil)
+
+	size, err := exporter.EstimateSize(ctx)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	// etcd snapshot size is hard to estimate, returns 0
+	if size != 0 {
+		t.Errorf("expected size 0, got %d", size)
+	}
+}
+
+func TestEtcdExporter_MultipleEndpoints(t *testing.T) {
+	config := EtcdConfig{
+		Endpoints: []string{"localhost:2379", "localhost:2380", "localhost:2381"},
+	}
+
+	exporter := NewEtcdExporter(config, nil)
+
+	if len(exporter.endpoints) != 3 {
+		t.Errorf("expected 3 endpoints, got %d", len(exporter.endpoints))
+	}
+}
+
+// EtcdImporter tests
+
+func TestEtcdImporter_Creation(t *testing.T) {
+	config := EtcdConfig{
+		Endpoints: []string{"localhost:2379"},
+		CertFile:  "/path/to/cert",
+		KeyFile:   "/path/to/key",
+		CAFile:    "/path/to/ca",
+	}
+
+	importer := NewEtcdImporter("/var/lib/etcd", config, nil)
+
+	if importer == nil {
+		t.Fatal("expected non-nil importer")
+	}
+	if importer.dataDir != "/var/lib/etcd" {
+		t.Errorf("expected dataDir /var/lib/etcd, got %s", importer.dataDir)
+	}
+	if len(importer.endpoints) != 1 {
+		t.Errorf("expected 1 endpoint, got %d", len(importer.endpoints))
+	}
+	if importer.certFile != "/path/to/cert" {
+		t.Errorf("expected certFile /path/to/cert, got %s", importer.certFile)
+	}
+	if importer.keyFile != "/path/to/key" {
+		t.Errorf("expected keyFile /path/to/key, got %s", importer.keyFile)
+	}
+	if importer.caFile != "/path/to/ca" {
+		t.Errorf("expected caFile /path/to/ca, got %s", importer.caFile)
+	}
+}
+
+func TestEtcdImporter_Name(t *testing.T) {
+	importer := NewEtcdImporter("/var/lib/etcd", EtcdConfig{}, nil)
+
+	if importer.Name() != "etcd" {
+		t.Errorf("expected name 'etcd', got %s", importer.Name())
+	}
+}
+
+func TestEtcdImporter_Component(t *testing.T) {
+	importer := NewEtcdImporter("/var/lib/etcd", EtcdConfig{}, nil)
+
+	if importer.Component() != ComponentTypeEtcd {
+		t.Errorf("expected component %s, got %s", ComponentTypeEtcd, importer.Component())
+	}
+}
+
+func TestEtcdImporter_Verify_Success(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+
+	importer := NewEtcdImporter(tmpDir, EtcdConfig{}, nil)
+
+	err := importer.Verify(ctx)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestEtcdImporter_Verify_Failure(t *testing.T) {
+	ctx := context.Background()
+
+	importer := NewEtcdImporter("/nonexistent/path/to/etcd", EtcdConfig{}, nil)
+
+	err := importer.Verify(ctx)
+	if err == nil {
+		t.Error("expected error for nonexistent directory")
+	}
+}
+
+func TestEtcdExporter_ImplementsExporter(t *testing.T) {
+	var _ Exporter = (*EtcdExporter)(nil)
+}
+
+func TestEtcdImporter_ImplementsImporter(t *testing.T) {
+	var _ Importer = (*EtcdImporter)(nil)
+}
+
+func TestBackupManager_RegisterEtcdExporter(t *testing.T) {
+	bm, _ := NewBackupManager(nil, nil)
+
+	config := EtcdConfig{
+		Endpoints: []string{"localhost:2379"},
+	}
+	exporter := NewEtcdExporter(config, nil)
+	bm.RegisterExporter(exporter)
+
+	if len(bm.exporters) != 1 {
+		t.Errorf("expected 1 exporter, got %d", len(bm.exporters))
+	}
+	if _, exists := bm.exporters[ComponentTypeEtcd]; !exists {
+		t.Error("expected etcd exporter to be registered")
+	}
+}
+
+func TestRestoreManager_RegisterEtcdImporter(t *testing.T) {
+	rm := NewRestoreManager(nil, nil)
+
+	config := EtcdConfig{
+		Endpoints: []string{"localhost:2379"},
+	}
+	importer := NewEtcdImporter("/var/lib/etcd", config, nil)
+	rm.RegisterImporter(importer)
+
+	if len(rm.importers) != 1 {
+		t.Errorf("expected 1 importer, got %d", len(rm.importers))
+	}
+	if _, exists := rm.importers[ComponentTypeEtcd]; !exists {
+		t.Error("expected etcd importer to be registered")
+	}
+}

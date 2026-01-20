@@ -55,6 +55,11 @@ type Config struct {
 	Webhook WebhookConfig
 	Policy  PolicyConfig
 	Logging LoggingConfig
+	CORS    CORSConfig
+	RateLimit RateLimitConfig
+	Metrics MetricsConfig
+	Tracing TracingConfig
+	Health  HealthConfig
 }
 
 // LoggingConfig contains logging settings
@@ -100,6 +105,115 @@ type SyslogTLSConfig struct {
 	Key string
 	// SkipVerify skips TLS verification (insecure)
 	SkipVerify bool
+}
+
+// CORSConfig contains CORS (Cross-Origin Resource Sharing) settings
+type CORSConfig struct {
+	// Enabled controls whether CORS is enabled (default: true)
+	Enabled bool
+	// AllowedOrigins lists the origins allowed to access the API
+	// Use ["*"] to allow all origins (not recommended for production)
+	AllowedOrigins []string
+	// AllowedMethods lists the HTTP methods allowed (default: GET, POST, PUT, DELETE, OPTIONS)
+	AllowedMethods []string
+	// AllowedHeaders lists the headers allowed in requests
+	AllowedHeaders []string
+	// AllowCredentials indicates whether credentials are allowed
+	AllowCredentials bool
+	// MaxAge is the max age (in seconds) for preflight cache
+	MaxAge int
+}
+
+// RateLimitConfig contains API rate limiting settings
+type RateLimitConfig struct {
+	// Enabled controls whether rate limiting is enabled (default: true)
+	Enabled bool
+	// RequestsPerMinute is the maximum requests per minute per key
+	RequestsPerMinute int
+	// Burst is the burst capacity allowing temporary spikes
+	Burst int
+	// KeyExtractor determines how to identify clients: ip, apikey, header
+	KeyExtractor string
+	// HeaderName is the header to use when KeyExtractor is "header"
+	HeaderName string
+}
+
+// MetricsConfig contains metrics endpoint settings
+type MetricsConfig struct {
+	// Enabled controls whether metrics endpoint is enabled (default: true)
+	Enabled bool
+	// Listen address for metrics endpoint (e.g., ":8080" or "0.0.0.0:9100")
+	// If empty, metrics are served on the main API server
+	Listen string
+	// Path for metrics endpoint (default: /metrics)
+	Path string
+	// IncludeGoMetrics includes Go runtime metrics
+	IncludeGoMetrics bool
+	// IncludeProcessMetrics includes process metrics (open FDs, etc.)
+	IncludeProcessMetrics bool
+}
+
+// TracingConfig contains distributed tracing settings
+type TracingConfig struct {
+	// Enabled controls whether tracing is enabled (default: false)
+	Enabled bool
+	// Exporter type: otlp, jaeger, zipkin
+	Exporter string
+	// Endpoint for trace exporter (e.g., "http://jaeger:4318")
+	Endpoint string
+	// Sampling configuration
+	Sampling TracingSamplingConfig
+	// Resource attributes for traces
+	Resource map[string]string
+}
+
+// TracingSamplingConfig contains trace sampling settings
+type TracingSamplingConfig struct {
+	// Strategy: always, never, ratio, parent_based
+	Strategy string
+	// Ratio is the sampling ratio (0.0-1.0) when Strategy is "ratio"
+	Ratio float64
+}
+
+// HealthConfig contains health check settings
+type HealthConfig struct {
+	// Enabled controls whether health checks are enabled (default: true)
+	Enabled bool
+	// StartupGracePeriod is the grace period after startup during which
+	// the service reports as healthy even if checks fail
+	StartupGracePeriod time.Duration
+	// CheckInterval is the interval between health checks
+	CheckInterval time.Duration
+	// Checks configures individual health checks
+	Checks HealthChecksConfig
+}
+
+// HealthChecksConfig contains configuration for individual health checks
+type HealthChecksConfig struct {
+	// NATS health check
+	NATS HealthCheckConfig
+	// Database health check
+	Database HealthCheckConfig
+	// Agents health check
+	Agents AgentHealthCheckConfig
+}
+
+// HealthCheckConfig contains settings for a single health check
+type HealthCheckConfig struct {
+	// Enabled controls whether this check is enabled
+	Enabled bool
+	// Timeout for the health check
+	Timeout time.Duration
+}
+
+// AgentHealthCheckConfig contains settings for agent health check
+type AgentHealthCheckConfig struct {
+	// Enabled controls whether this check is enabled
+	Enabled bool
+	// Timeout for the health check
+	Timeout time.Duration
+	// MinHealthy is the minimum fraction of agents that must be healthy (0.0-1.0)
+	MinHealthy float64
 }
 
 // AuthConfig contains API authentication settings
@@ -167,6 +281,12 @@ type MTLSAuthConfig struct {
 
 // ServerConfig contains control plane server settings
 type ServerConfig struct {
+	// HTTPListen in "host:port" format for HTTP/REST API (e.g., "0.0.0.0:8080")
+	// This is the documented api.listen format. If set, overrides ListenAddr and HTTPPort.
+	HTTPListen string
+	// GRPCListen in "host:port" format for gRPC API (e.g., "0.0.0.0:9090")
+	// This is the documented api.grpc_listen format. If set, overrides ListenAddr and GRPCPort.
+	GRPCListen string
 	// Listen address for API server (single address, backward compatible)
 	// For IPv6, use "[::]:port" or "[::1]:port" format
 	ListenAddr string
@@ -208,6 +328,10 @@ type NATSConfig struct {
 
 // NATSEmbeddedConfig contains settings for embedded NATS mode
 type NATSEmbeddedConfig struct {
+	// Listen address in "host:port" format (e.g., "0.0.0.0:4222")
+	// This is an alternative to setting Host and Port separately.
+	// If Listen is set, it takes precedence over Host and Port.
+	Listen string
 	// Host address for embedded NATS server (default: 127.0.0.1)
 	// For IPv6, use "::1" (loopback) or "::" (all interfaces)
 	Host string
@@ -703,6 +827,34 @@ const (
 	DefaultSyslogNetwork        = "unix"
 	DefaultSyslogAddress        = "/dev/log"
 	DefaultSyslogFacility       = "daemon"
+
+	// CORS defaults
+	DefaultCORSEnabled = true
+
+	// Rate limit defaults
+	DefaultRateLimitEnabled          = true
+	DefaultRateLimitRequestsPerMin   = 100
+	DefaultRateLimitBurst            = 20
+	DefaultRateLimitKeyExtractor     = "ip"
+
+	// Metrics defaults
+	DefaultMetricsEnabled            = true
+	DefaultMetricsPath               = "/metrics"
+	DefaultMetricsIncludeGo          = true
+	DefaultMetricsIncludeProcess     = true
+
+	// Tracing defaults
+	DefaultTracingEnabled            = false
+	DefaultTracingExporter           = "otlp"
+	DefaultTracingSamplingStrategy   = "ratio"
+	DefaultTracingSamplingRatio      = 0.1
+
+	// Health check defaults
+	DefaultHealthEnabled             = true
+	DefaultHealthStartupGracePeriod  = 30 * time.Second
+	DefaultHealthCheckInterval       = 10 * time.Second
+	DefaultHealthCheckTimeout        = 5 * time.Second
+	DefaultHealthAgentMinHealthy     = 0.8
 )
 
 // Production scaling thresholds - beyond these values, users should migrate
@@ -777,7 +929,65 @@ func LoadConfig(cfgFile string) (*Config, error) {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
+	// Post-process listen addresses
+	if err := parseServerListenAddresses(&cfg); err != nil {
+		return nil, err
+	}
+	if err := parseNATSListenAddress(&cfg); err != nil {
+		return nil, err
+	}
+
 	return &cfg, nil
+}
+
+// parseServerListenAddresses parses the Server HTTPListen and GRPCListen fields
+// This allows users to use the documented api.listen and api.grpc_listen formats
+func parseServerListenAddresses(cfg *Config) error {
+	// Parse HTTPListen (api.listen format)
+	if cfg.Server.HTTPListen != "" {
+		addr, err := netutil.ParseAddress(cfg.Server.HTTPListen)
+		if err != nil {
+			return fmt.Errorf("invalid server.httplisten format %q: %w", cfg.Server.HTTPListen, err)
+		}
+		// Override ListenAddr and HTTPPort
+		cfg.Server.ListenAddr = addr.Host
+		cfg.Server.HTTPPort = addr.Port
+	}
+
+	// Parse GRPCListen (api.grpc_listen format)
+	if cfg.Server.GRPCListen != "" {
+		addr, err := netutil.ParseAddress(cfg.Server.GRPCListen)
+		if err != nil {
+			return fmt.Errorf("invalid server.grpclisten format %q: %w", cfg.Server.GRPCListen, err)
+		}
+		// Override ListenAddr (if not already set by HTTPListen) and GRPCPort
+		if cfg.Server.ListenAddr == "" || cfg.Server.ListenAddr == DefaultServerListenAddr {
+			cfg.Server.ListenAddr = addr.Host
+		}
+		cfg.Server.GRPCPort = addr.Port
+	}
+
+	return nil
+}
+
+// parseNATSListenAddress parses the NATS embedded Listen field into Host and Port
+// This allows users to use the combined format "0.0.0.0:4222" as documented
+func parseNATSListenAddress(cfg *Config) error {
+	listen := cfg.NATS.Embedded.Listen
+	if listen == "" {
+		return nil
+	}
+
+	// Use netutil to parse the address (handles IPv4, IPv6, and port)
+	addr, err := netutil.ParseAddress(listen)
+	if err != nil {
+		return fmt.Errorf("invalid nats.embedded.listen format %q: %w", listen, err)
+	}
+
+	// Only override if Listen was explicitly set
+	cfg.NATS.Embedded.Host = addr.Host
+	cfg.NATS.Embedded.Port = addr.Port
+	return nil
 }
 
 // setDefaults sets default configuration values
@@ -787,6 +997,9 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("server.grpcport", DefaultGRPCPort)
 	v.SetDefault("server.httpport", DefaultHTTPPort)
 	v.SetDefault("server.addressfamily", DefaultAddressFamily)
+	// Allow api.listen and api.grpc_listen as aliases (for documentation compatibility)
+	v.RegisterAlias("api.listen", "server.httplisten")
+	v.RegisterAlias("api.grpc_listen", "server.grpclisten")
 
 	// NATS defaults
 	v.SetDefault("nats.mode", DefaultNATSMode)
@@ -802,6 +1015,8 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("nats.jetstream.maxstorage", 10*1024*1024*1024) // 10GB
 	v.SetDefault("nats.maxreconnects", DefaultNATSMaxReconnects)
 	v.SetDefault("nats.reconnectwait", DefaultNATSReconnectWait)
+	// Allow nats.listen as alias for nats.embedded.listen (for documentation compatibility)
+	v.RegisterAlias("nats.listen", "nats.embedded.listen")
 
 	// Storage defaults
 	v.SetDefault("storage.backend", DefaultStorageBackend)
@@ -811,6 +1026,8 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("storage.postgresql.maxopenconns", DefaultPostgreSQLMaxOpen)
 	v.SetDefault("storage.postgresql.maxidleconns", DefaultPostgreSQLMaxIdle)
 	v.SetDefault("storage.postgresql.connmaxlifetime", DefaultPostgreSQLConnLife)
+	// Allow storage.type as alias for storage.backend (for documentation compatibility)
+	v.RegisterAlias("storage.type", "storage.backend")
 
 	// Agent defaults
 	v.SetDefault("agent.heartbeatinterval", DefaultHeartbeatInterval)
@@ -850,6 +1067,51 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("logging.syslog.network", DefaultSyslogNetwork)
 	v.SetDefault("logging.syslog.address", DefaultSyslogAddress)
 	v.SetDefault("logging.syslog.facility", DefaultSyslogFacility)
+
+	// CORS defaults
+	v.SetDefault("cors.enabled", DefaultCORSEnabled)
+	v.SetDefault("cors.allowedorigins", []string{"*"})
+	v.SetDefault("cors.allowedmethods", []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"})
+	v.SetDefault("cors.allowedheaders", []string{"Content-Type", "Authorization", "X-API-Key"})
+	v.SetDefault("cors.allowcredentials", false)
+	v.SetDefault("cors.maxage", 86400) // 24 hours
+	// Allow api.cors.* as aliases for cors.*
+	v.RegisterAlias("api.cors.enabled", "cors.enabled")
+	v.RegisterAlias("api.cors.allowed_origins", "cors.allowedorigins")
+
+	// Rate limit defaults
+	v.SetDefault("ratelimit.enabled", DefaultRateLimitEnabled)
+	v.SetDefault("ratelimit.requestsperminute", DefaultRateLimitRequestsPerMin)
+	v.SetDefault("ratelimit.burst", DefaultRateLimitBurst)
+	v.SetDefault("ratelimit.keyextractor", DefaultRateLimitKeyExtractor)
+	// Allow api.rate_limit.* as aliases for ratelimit.*
+	v.RegisterAlias("api.rate_limit.enabled", "ratelimit.enabled")
+	v.RegisterAlias("api.rate_limit.requests_per_minute", "ratelimit.requestsperminute")
+	v.RegisterAlias("api.rate_limit.burst", "ratelimit.burst")
+
+	// Metrics defaults
+	v.SetDefault("metrics.enabled", DefaultMetricsEnabled)
+	v.SetDefault("metrics.path", DefaultMetricsPath)
+	v.SetDefault("metrics.includegometrics", DefaultMetricsIncludeGo)
+	v.SetDefault("metrics.includeprocessmetrics", DefaultMetricsIncludeProcess)
+
+	// Tracing defaults
+	v.SetDefault("tracing.enabled", DefaultTracingEnabled)
+	v.SetDefault("tracing.exporter", DefaultTracingExporter)
+	v.SetDefault("tracing.sampling.strategy", DefaultTracingSamplingStrategy)
+	v.SetDefault("tracing.sampling.ratio", DefaultTracingSamplingRatio)
+
+	// Health check defaults
+	v.SetDefault("health.enabled", DefaultHealthEnabled)
+	v.SetDefault("health.startupgraceperiod", DefaultHealthStartupGracePeriod)
+	v.SetDefault("health.checkinterval", DefaultHealthCheckInterval)
+	v.SetDefault("health.checks.nats.enabled", true)
+	v.SetDefault("health.checks.nats.timeout", DefaultHealthCheckTimeout)
+	v.SetDefault("health.checks.database.enabled", true)
+	v.SetDefault("health.checks.database.timeout", DefaultHealthCheckTimeout)
+	v.SetDefault("health.checks.agents.enabled", true)
+	v.SetDefault("health.checks.agents.timeout", DefaultHealthCheckTimeout)
+	v.SetDefault("health.checks.agents.minhealthy", DefaultHealthAgentMinHealthy)
 }
 
 // Validate checks if the configuration is valid
@@ -1030,6 +1292,80 @@ func (c *Config) Validate() error {
 			// valid
 		default:
 			return fmt.Errorf("invalid syslog facility: %s", c.Logging.Syslog.Facility)
+		}
+	}
+
+	// Validate rate limit config
+	if c.RateLimit.Enabled {
+		if c.RateLimit.RequestsPerMinute <= 0 {
+			return fmt.Errorf("rate limit requests_per_minute must be positive, got: %d", c.RateLimit.RequestsPerMinute)
+		}
+		if c.RateLimit.Burst <= 0 {
+			return fmt.Errorf("rate limit burst must be positive, got: %d", c.RateLimit.Burst)
+		}
+		switch c.RateLimit.KeyExtractor {
+		case "", "ip", "apikey", "header":
+			// valid (empty uses default)
+		default:
+			return fmt.Errorf("invalid rate limit key_extractor: %s (must be ip, apikey, or header)", c.RateLimit.KeyExtractor)
+		}
+		if c.RateLimit.KeyExtractor == "header" && c.RateLimit.HeaderName == "" {
+			return fmt.Errorf("rate limit header_name is required when key_extractor is 'header'")
+		}
+	}
+
+	// Validate metrics config
+	if c.Metrics.Enabled {
+		if c.Metrics.Path != "" && !strings.HasPrefix(c.Metrics.Path, "/") {
+			return fmt.Errorf("metrics path must start with '/', got: %s", c.Metrics.Path)
+		}
+		if c.Metrics.Listen != "" {
+			if _, err := netutil.ParseAddress(c.Metrics.Listen); err != nil {
+				return fmt.Errorf("invalid metrics listen address %q: %w", c.Metrics.Listen, err)
+			}
+		}
+	}
+
+	// Validate tracing config
+	if c.Tracing.Enabled {
+		switch c.Tracing.Exporter {
+		case "", "otlp", "jaeger", "zipkin":
+			// valid (empty uses default)
+		default:
+			return fmt.Errorf("invalid tracing exporter: %s (must be otlp, jaeger, or zipkin)", c.Tracing.Exporter)
+		}
+		if c.Tracing.Endpoint == "" {
+			return fmt.Errorf("tracing endpoint is required when tracing is enabled")
+		}
+		switch c.Tracing.Sampling.Strategy {
+		case "", "always", "never", "ratio", "parent_based":
+			// valid (empty uses default)
+		default:
+			return fmt.Errorf("invalid tracing sampling strategy: %s (must be always, never, ratio, or parent_based)", c.Tracing.Sampling.Strategy)
+		}
+		if c.Tracing.Sampling.Strategy == "ratio" {
+			if c.Tracing.Sampling.Ratio < 0 || c.Tracing.Sampling.Ratio > 1 {
+				return fmt.Errorf("tracing sampling ratio must be between 0.0 and 1.0, got: %f", c.Tracing.Sampling.Ratio)
+			}
+		}
+	}
+
+	// Validate health check config
+	if c.Health.Enabled {
+		if c.Health.StartupGracePeriod < 0 {
+			return fmt.Errorf("health startup_grace_period cannot be negative")
+		}
+		if c.Health.CheckInterval < 0 {
+			return fmt.Errorf("health check_interval cannot be negative")
+		}
+		if c.Health.CheckInterval > 0 && c.Health.CheckInterval < time.Second {
+			return fmt.Errorf("health check_interval should be at least 1 second, got: %v", c.Health.CheckInterval)
+		}
+		// Validate agent health check min_healthy
+		if c.Health.Checks.Agents.Enabled {
+			if c.Health.Checks.Agents.MinHealthy < 0 || c.Health.Checks.Agents.MinHealthy > 1 {
+				return fmt.Errorf("health checks.agents.min_healthy must be between 0.0 and 1.0, got: %f", c.Health.Checks.Agents.MinHealthy)
+			}
 		}
 	}
 

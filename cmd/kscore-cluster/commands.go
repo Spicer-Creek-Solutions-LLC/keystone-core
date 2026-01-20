@@ -591,9 +591,387 @@ type RebalanceResult struct {
 	Duration    string    `json:"duration" yaml:"duration"`
 }
 
+// HealthReport represents detailed cluster health information
+type HealthReport struct {
+	Healthy            bool             `json:"healthy" yaml:"healthy"`
+	Status             string           `json:"status" yaml:"status"`
+	QuorumEstablished  bool             `json:"quorum_established" yaml:"quorum_established"`
+	LeaderElected      bool             `json:"leader_elected" yaml:"leader_elected"`
+	LeaderID           string           `json:"leader_id" yaml:"leader_id"`
+	EtcdConnected      bool             `json:"etcd_connected" yaml:"etcd_connected"`
+	NATSConnected      bool             `json:"nats_connected" yaml:"nats_connected"`
+	AllAgentsAssigned  bool             `json:"all_agents_assigned" yaml:"all_agents_assigned"`
+	MembersTotal       int              `json:"members_total" yaml:"members_total"`
+	MembersHealthy     int              `json:"members_healthy" yaml:"members_healthy"`
+	AgentsTotal        int              `json:"agents_total" yaml:"agents_total"`
+	AgentDistribution  map[string]int   `json:"agent_distribution" yaml:"agent_distribution"`
+	Checks             []HealthCheck    `json:"checks" yaml:"checks"`
+	UpdatedAt          time.Time        `json:"updated_at" yaml:"updated_at"`
+}
+
+// HealthCheck represents a single health check result
+type HealthCheck struct {
+	Name    string `json:"name" yaml:"name"`
+	Passed  bool   `json:"passed" yaml:"passed"`
+	Message string `json:"message" yaml:"message"`
+}
+
+// ShardReport represents shard assignment information
+type ShardReport struct {
+	TotalShards   int                `json:"total_shards" yaml:"total_shards"`
+	TotalAgents   int                `json:"total_agents" yaml:"total_agents"`
+	Assignments   []ShardAssignment  `json:"assignments" yaml:"assignments"`
+	UpdatedAt     time.Time          `json:"updated_at" yaml:"updated_at"`
+}
+
+// ShardAssignment represents the assignment of agents to a member
+type ShardAssignment struct {
+	MemberID   string   `json:"member_id" yaml:"member_id"`
+	ShardRange string   `json:"shard_range" yaml:"shard_range"`
+	AgentCount int      `json:"agent_count" yaml:"agent_count"`
+	AgentIDs   []string `json:"agent_ids,omitempty" yaml:"agent_ids,omitempty"`
+}
+
 // Sort members by ID for consistent output
 func sortMembers(members []MemberStatus) {
 	sort.Slice(members, func(i, j int) bool {
 		return members[i].ID < members[j].ID
 	})
+}
+
+// newHealthCommand creates the 'health' command
+func newHealthCommand() *cobra.Command {
+	var verbose bool
+
+	cmd := &cobra.Command{
+		Use:   "health",
+		Short: "Perform cluster health check",
+		Long: `Perform a comprehensive health check of the cluster.
+
+Checks:
+  - Quorum established
+  - Leader elected
+  - etcd connectivity
+  - NATS cluster connection
+  - Agent assignments`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runHealth(verbose)
+		},
+	}
+
+	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show detailed health information")
+
+	return cmd
+}
+
+func runHealth(verbose bool) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	client, err := newClusterClient(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to connect to server: %w", err)
+	}
+	defer client.Close()
+
+	health, err := client.GetHealth(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get cluster health: %w", err)
+	}
+
+	switch outputFormat {
+	case "json", "yaml":
+		return outputResult(health, outputFormat)
+	case "table", "text":
+		return outputHealthTable(health, verbose)
+	default:
+		return fmt.Errorf("unsupported output format: %s", outputFormat)
+	}
+}
+
+func outputHealthTable(health *HealthReport, verbose bool) error {
+	statusStr := "HEALTHY"
+	if !health.Healthy {
+		statusStr = "UNHEALTHY"
+	}
+	fmt.Printf("Cluster Health: %s\n\n", statusStr)
+
+	// Output health checks
+	for _, check := range health.Checks {
+		checkMark := "✓"
+		if !check.Passed {
+			checkMark = "✗"
+		}
+		fmt.Printf("%s %s\n", checkMark, check.Message)
+	}
+
+	fmt.Println()
+	fmt.Printf("Total agents: %d\n", health.AgentsTotal)
+
+	if len(health.AgentDistribution) > 0 {
+		parts := make([]string, 0, len(health.AgentDistribution))
+		for member, count := range health.AgentDistribution {
+			parts = append(parts, fmt.Sprintf("%s=%d", member, count))
+		}
+		sort.Strings(parts)
+		fmt.Printf("Agent distribution: %s\n", strings.Join(parts, ", "))
+	}
+
+	if verbose {
+		fmt.Printf("\nMembers: %d/%d healthy\n", health.MembersHealthy, health.MembersTotal)
+		fmt.Printf("Leader: %s\n", health.LeaderID)
+		fmt.Printf("Updated: %s\n", health.UpdatedAt.Format(time.RFC3339))
+	}
+
+	return nil
+}
+
+// newShardsCommand creates the 'shards' command
+func newShardsCommand() *cobra.Command {
+	var showAgents bool
+
+	cmd := &cobra.Command{
+		Use:   "shards",
+		Short: "Show shard assignments",
+		Long: `Display shard assignment information for the cluster.
+
+Shows how agents are distributed across cluster members using consistent hashing.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runShards(showAgents)
+		},
+	}
+
+	cmd.Flags().BoolVar(&showAgents, "show-agents", false, "Show individual agent IDs per shard")
+
+	return cmd
+}
+
+func runShards(showAgents bool) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	client, err := newClusterClient(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to connect to server: %w", err)
+	}
+	defer client.Close()
+
+	shards, err := client.GetShards(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get shard assignments: %w", err)
+	}
+
+	switch outputFormat {
+	case "json", "yaml":
+		return outputResult(shards, outputFormat)
+	case "table", "text":
+		fmt.Printf("Total Shards: %d\n", shards.TotalShards)
+		fmt.Printf("Total Agents: %d\n\n", shards.TotalAgents)
+
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+		fmt.Fprintln(w, "MEMBER\tSHARD RANGE\tAGENTS")
+		for _, a := range shards.Assignments {
+			fmt.Fprintf(w, "%s\t%s\t%d\n", a.MemberID, a.ShardRange, a.AgentCount)
+		}
+		w.Flush()
+
+		if showAgents {
+			fmt.Println()
+			for _, a := range shards.Assignments {
+				if len(a.AgentIDs) > 0 {
+					fmt.Printf("%s:\n", a.MemberID)
+					for _, id := range a.AgentIDs {
+						fmt.Printf("  - %s\n", id)
+					}
+				}
+			}
+		}
+
+		return nil
+	default:
+		return fmt.Errorf("unsupported output format: %s", outputFormat)
+	}
+}
+
+// newJoinCommand creates the 'join' command
+func newJoinCommand() *cobra.Command {
+	var dryRun bool
+
+	cmd := &cobra.Command{
+		Use:   "join <cluster-address>",
+		Short: "Join an existing cluster",
+		Long: `Join this node to an existing Keystone Core cluster.
+
+The cluster address should be the address of any existing cluster member.
+This node will be configured to join the cluster and start participating
+in leader election and agent distribution.`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runJoin(args[0], dryRun)
+		},
+	}
+
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without joining")
+
+	return cmd
+}
+
+func runJoin(clusterAddr string, dryRun bool) error {
+	if dryRun {
+		fmt.Printf("Dry run: would join cluster at %s\n", clusterAddr)
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	client, err := newClusterClient(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to connect to server: %w", err)
+	}
+	defer client.Close()
+
+	if err := client.JoinCluster(ctx, clusterAddr); err != nil {
+		return fmt.Errorf("failed to join cluster: %w", err)
+	}
+
+	fmt.Printf("Successfully joined cluster at %s\n", clusterAddr)
+	return nil
+}
+
+// newLeaveCommand creates the 'leave' command
+func newLeaveCommand() *cobra.Command {
+	var force bool
+	var dryRun bool
+
+	cmd := &cobra.Command{
+		Use:   "leave",
+		Short: "Leave the cluster",
+		Long: `Remove this node from the cluster.
+
+The node's agents will be redistributed to remaining members before leaving.
+Use --force to leave immediately without graceful agent migration.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runLeave(force, dryRun)
+		},
+	}
+
+	cmd.Flags().BoolVar(&force, "force", false, "Force leave without graceful migration")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without leaving")
+
+	return cmd
+}
+
+func runLeave(force bool, dryRun bool) error {
+	if dryRun {
+		fmt.Printf("Dry run: would leave cluster (force=%t)\n", force)
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	client, err := newClusterClient(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to connect to server: %w", err)
+	}
+	defer client.Close()
+
+	if err := client.LeaveCluster(ctx, force); err != nil {
+		return fmt.Errorf("failed to leave cluster: %w", err)
+	}
+
+	fmt.Println("Successfully left the cluster")
+	return nil
+}
+
+// newDrainCommand creates the 'drain' command
+func newDrainCommand() *cobra.Command {
+	var dryRun bool
+
+	cmd := &cobra.Command{
+		Use:   "drain <member-id>",
+		Short: "Drain agents from a cluster member",
+		Long: `Drain all agents from a cluster member.
+
+This moves all agents from the specified member to other healthy members.
+Useful before performing maintenance on a server.`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runDrain(args[0], dryRun)
+		},
+	}
+
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without draining")
+
+	return cmd
+}
+
+func runDrain(memberID string, dryRun bool) error {
+	if dryRun {
+		fmt.Printf("Dry run: would drain agents from %s\n", memberID)
+		return nil
+	}
+
+	fmt.Printf("Draining agents from %s...\n", memberID)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	client, err := newClusterClient(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to connect to server: %w", err)
+	}
+	defer client.Close()
+
+	if err := client.DrainMember(ctx, memberID); err != nil {
+		return fmt.Errorf("failed to drain member: %w", err)
+	}
+
+	fmt.Printf("Successfully drained agents from %s\n", memberID)
+	return nil
+}
+
+// newUndrainCommand creates the 'undrain' command
+func newUndrainCommand() *cobra.Command {
+	var dryRun bool
+
+	cmd := &cobra.Command{
+		Use:   "undrain <member-id>",
+		Short: "Allow agents on a drained cluster member",
+		Long: `Mark a cluster member as available for agent assignment again.
+
+This reverses the effect of the drain command, allowing new agents to be
+assigned to the member and existing agents to migrate back.`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runUndrain(args[0], dryRun)
+		},
+	}
+
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without undraining")
+
+	return cmd
+}
+
+func runUndrain(memberID string, dryRun bool) error {
+	if dryRun {
+		fmt.Printf("Dry run: would undrain %s\n", memberID)
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	client, err := newClusterClient(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to connect to server: %w", err)
+	}
+	defer client.Close()
+
+	if err := client.UndrainMember(ctx, memberID); err != nil {
+		return fmt.Errorf("failed to undrain member: %w", err)
+	}
+
+	fmt.Printf("Successfully undrained %s\n", memberID)
+	return nil
 }

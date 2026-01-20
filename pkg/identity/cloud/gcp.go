@@ -74,6 +74,7 @@ type GCPProvider struct {
 	instanceName         string
 	serviceAccountEmail  string
 	serviceAccountScopes []string
+	ipv6Addresses        []string
 
 	healthCheckCancel context.CancelFunc
 	lastHealthCheck   time.Time
@@ -190,6 +191,9 @@ func (p *GCPProvider) Info(ctx context.Context) identity.ProviderInfo {
 	}
 	if p.serviceAccountEmail != "" {
 		metadata["service_account"] = p.serviceAccountEmail
+	}
+	if len(p.ipv6Addresses) > 0 {
+		metadata["ipv6_addresses"] = strings.Join(p.ipv6Addresses, ",")
 	}
 
 	return identity.ProviderInfo{
@@ -417,6 +421,15 @@ func (p *GCPProvider) detectEnvironment(ctx context.Context) error {
 	p.instanceName = meta.InstanceName
 	p.serviceAccountEmail = meta.ServiceAccountEmail
 	p.mu.Unlock()
+
+	if rawIPv6, err := p.getMetadataValue(ctx, "/computeMetadata/v1/instance/network-interfaces/0/ipv6s"); err == nil {
+		ipv6 := parseIPv6List(rawIPv6)
+		if len(ipv6) > 0 {
+			p.mu.Lock()
+			p.ipv6Addresses = ipv6
+			p.mu.Unlock()
+		}
+	}
 
 	return nil
 }

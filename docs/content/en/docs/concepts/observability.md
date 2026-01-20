@@ -78,7 +78,7 @@ kscore_api_active_connections
 **Agent Metrics**:
 ```
 # Agent status
-kscore_agents_connected_total{datacenter,environment,role}
+kscore_agents_connected{datacenter,environment,role}
 kscore_agents_disconnected_total{reason}
 
 # Heartbeats
@@ -89,7 +89,7 @@ kscore_agent_heartbeat_missed_total
 **Command Execution**:
 ```
 # Commands
-kscore_commands_executed_total{status,datacenter}
+kscore_command_executions_total{status,datacenter}
 kscore_command_duration_seconds{quantile}
 
 # Batch jobs
@@ -197,10 +197,10 @@ kscore_agent_connected{agent_id,status}
 curl http://control-plane:8080/metrics
 
 # Example output
-# HELP kscore_agents_connected_total Total connected agents
-# TYPE kscore_agents_connected_total gauge
-kscore_agents_connected_total{datacenter="us-east-1",environment="production",role="web"} 50
-kscore_agents_connected_total{datacenter="us-west-2",environment="staging",role="db"} 10
+# HELP kscore_agents_connected Total connected agents
+# TYPE kscore_agents_connected gauge
+kscore_agents_connected{datacenter="us-east-1",environment="production",role="web"} 50
+kscore_agents_connected{datacenter="us-west-2",environment="staging",role="db"} 10
 
 # HELP kscore_api_request_duration_seconds API request duration
 # TYPE kscore_api_request_duration_seconds summary
@@ -379,11 +379,11 @@ groups:
     rules:
       # Aggregate command metrics by datacenter only
       - record: kscore:commands_executed:by_dc
-        expr: sum by (datacenter, status) (kscore_commands_executed_total)
+        expr: sum by (datacenter, status) (kscore_command_executions_total)
 
       # Aggregate agent count by environment
       - record: kscore:agents_connected:by_env
-        expr: sum by (environment) (kscore_agents_connected_total)
+        expr: sum by (environment) (kscore_agents_connected)
 ```
 
 **3. Filter unnecessary metrics**:
@@ -394,7 +394,7 @@ scrape_configs:
     metric_relabel_configs:
       # Keep only specified metrics
       - source_labels: [__name__]
-        regex: kscore_(agents_connected|api_requests|commands_executed).*
+        regex: kscore_(agents_connected|api_requests|command_executions).*
         action: keep
 ```
 

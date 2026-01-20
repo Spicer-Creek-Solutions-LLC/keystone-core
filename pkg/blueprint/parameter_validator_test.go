@@ -561,6 +561,174 @@ func TestParameterValidator_RegisterFormatValidator(t *testing.T) {
 	}
 }
 
+func TestParameterValidator_RequiredIf(t *testing.T) {
+	v := NewParameterValidator()
+
+	schemas := map[string]ParameterSchema{
+		"ssl_provider": {
+			Type:    "string",
+			Default: "letsencrypt",
+			Enum:    []interface{}{"letsencrypt", "custom", "selfsigned"},
+		},
+		"ssl_key": {
+			Type:      "string",
+			Sensitive: true,
+			RequiredIf: []map[string]interface{}{
+				{"ssl_provider": "custom"},
+			},
+		},
+		"ssl_cert": {
+			Type:      "string",
+			Sensitive: true,
+			RequiredIf: []map[string]interface{}{
+				{"ssl_provider": "custom"},
+			},
+		},
+	}
+
+	tests := []struct {
+		name      string
+		values    map[string]interface{}
+		wantError bool
+		errorMsg  string
+	}{
+		{
+			name: "ssl_provider letsencrypt - ssl_key not required",
+			values: map[string]interface{}{
+				"ssl_provider": "letsencrypt",
+			},
+			wantError: false,
+		},
+		{
+			name: "ssl_provider custom without ssl_key - error",
+			values: map[string]interface{}{
+				"ssl_provider": "custom",
+			},
+			wantError: true,
+			errorMsg:  "ssl_key is required when ssl_provider=custom",
+		},
+		{
+			name: "ssl_provider custom with ssl_key - ok",
+			values: map[string]interface{}{
+				"ssl_provider": "custom",
+				"ssl_key":      "-----BEGIN PRIVATE KEY-----",
+				"ssl_cert":     "-----BEGIN CERTIFICATE-----",
+			},
+			wantError: false,
+		},
+		{
+			name: "ssl_provider selfsigned - ssl_key not required",
+			values: map[string]interface{}{
+				"ssl_provider": "selfsigned",
+			},
+			wantError: false,
+		},
+		{
+			name:      "ssl_provider default (letsencrypt) - ssl_key not required",
+			values:    map[string]interface{}{},
+			wantError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := v.ValidateParameters(schemas, tt.values, nil)
+			if tt.wantError {
+				if err == nil {
+					t.Errorf("expected error containing %q", tt.errorMsg)
+				} else if !containsSubstring(err.Error(), "ssl_key is required") && !containsSubstring(err.Error(), "ssl_cert is required") {
+					t.Errorf("expected error about ssl_key or ssl_cert being required, got: %v", err)
+				}
+			} else if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestParameterValidator_RequiredIf_MultipleConditions(t *testing.T) {
+	v := NewParameterValidator()
+
+	// Test with multiple conditions (OR logic)
+	schemas := map[string]ParameterSchema{
+		"db_type": {
+			Type: "string",
+			Enum: []interface{}{"mysql", "postgres", "sqlite"},
+		},
+		"db_host": {
+			Type: "string",
+			RequiredIf: []map[string]interface{}{
+				{"db_type": "mysql"},
+				{"db_type": "postgres"},
+			},
+		},
+	}
+
+	tests := []struct {
+		name      string
+		values    map[string]interface{}
+		wantError bool
+	}{
+		{
+			name:      "sqlite - db_host not required",
+			values:    map[string]interface{}{"db_type": "sqlite"},
+			wantError: false,
+		},
+		{
+			name:      "mysql without db_host - error",
+			values:    map[string]interface{}{"db_type": "mysql"},
+			wantError: true,
+		},
+		{
+			name:      "postgres without db_host - error",
+			values:    map[string]interface{}{"db_type": "postgres"},
+			wantError: true,
+		},
+		{
+			name:      "mysql with db_host - ok",
+			values:    map[string]interface{}{"db_type": "mysql", "db_host": "localhost"},
+			wantError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := v.ValidateParameters(schemas, tt.values, nil)
+			if tt.wantError && err == nil {
+				t.Error("expected error for missing conditionally required parameter")
+			}
+			if !tt.wantError && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestParameterValidator_RequiredIf_WithDefault(t *testing.T) {
+	v := NewParameterValidator()
+
+	// If the parameter has a default, required_if should not trigger error
+	schemas := map[string]ParameterSchema{
+		"mode": {
+			Type: "string",
+			Enum: []interface{}{"simple", "advanced"},
+		},
+		"config_file": {
+			Type:    "string",
+			Default: "/etc/default.conf",
+			RequiredIf: []map[string]interface{}{
+				{"mode": "advanced"},
+			},
+		},
+	}
+
+	// Even though mode=advanced triggers required_if, the default value satisfies it
+	_, err := v.ValidateParameters(schemas, map[string]interface{}{"mode": "advanced"}, nil)
+	if err != nil {
+		t.Errorf("unexpected error - default should satisfy required_if: %v", err)
+	}
+}
+
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsSubstring(s, substr))
 }

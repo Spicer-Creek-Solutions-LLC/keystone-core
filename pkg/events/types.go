@@ -29,10 +29,11 @@ type EventType string
 // Event types organized by category
 const (
 	// Agent events
-	EventTypeAgentConnect    EventType = "agent.connect"
-	EventTypeAgentDisconnect EventType = "agent.disconnect"
-	EventTypeAgentHeartbeat  EventType = "agent.heartbeat"
-	EventTypeAgentError      EventType = "agent.error"
+	EventTypeAgentConnect         EventType = "agent.connect"
+	EventTypeAgentDisconnect      EventType = "agent.disconnect"
+	EventTypeAgentHeartbeat       EventType = "agent.heartbeat"
+	EventTypeAgentHeartbeatFailed EventType = "agent.heartbeat_failed"
+	EventTypeAgentError           EventType = "agent.error"
 
 	// Job events
 	EventTypeJobStart    EventType = "job.start"
@@ -60,6 +61,15 @@ const (
 	// Policy events
 	EventTypePolicyPass      EventType = "policy.pass"
 	EventTypePolicyViolation EventType = "policy.violation"
+
+	// Bootstrap events
+	EventTypeBootstrapGenerate EventType = "bootstrap.generate"
+	EventTypeBootstrapValidate EventType = "bootstrap.validate"
+	EventTypeBootstrapUse      EventType = "bootstrap.use"
+	EventTypeBootstrapRegister EventType = "bootstrap.register"
+	EventTypeBootstrapRevoke   EventType = "bootstrap.revoke"
+	EventTypeBootstrapExpire   EventType = "bootstrap.expire"
+	EventTypeBootstrapCleanup  EventType = "bootstrap.cleanup"
 )
 
 // Severity levels for events
@@ -84,8 +94,8 @@ type Event struct {
 	// Source identifies where the event originated (e.g., "/agents/web-01", "/control-plane")
 	Source string `json:"source"`
 
-	// Time is when the event occurred
-	Time time.Time `json:"time"`
+	// Time is when the event occurred (serialized as "timestamp" in JSON)
+	Time time.Time `json:"timestamp"`
 
 	// Severity indicates the importance of the event
 	Severity Severity `json:"severity"`

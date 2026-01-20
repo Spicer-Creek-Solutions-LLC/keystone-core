@@ -241,6 +241,8 @@ func TestAWSMockIMDS(t *testing.T) {
 		switch r.URL.Path {
 		case "/latest/api/token":
 			w.Write([]byte("mock-token"))
+		case "/latest/meta-data/ipv6":
+			w.Write([]byte("2001:db8::1\n2001:db8::2\n"))
 		case "/latest/dynamic/instance-identity/document":
 			doc := AWSInstanceIdentity{
 				InstanceID:       "i-1234567890abcdef0",
@@ -319,6 +321,11 @@ func TestAWSMockIMDS(t *testing.T) {
 	if spiffeID.Path != expectedPath {
 		t.Errorf("unexpected path: %s, expected: %s", spiffeID.Path, expectedPath)
 	}
+
+	info := provider.Info(ctx)
+	if info.Metadata["ipv6_addresses"] != "2001:db8::1,2001:db8::2" {
+		t.Errorf("unexpected ipv6 metadata: %s", info.Metadata["ipv6_addresses"])
+	}
 }
 
 // TestGCPMockMetadata tests GCP with mock metadata server.
@@ -344,6 +351,8 @@ func TestGCPMockMetadata(t *testing.T) {
 			w.Write([]byte("my-instance"))
 		case "/computeMetadata/v1/instance/service-accounts/default/email":
 			w.Write([]byte("default@my-project-123.iam.gserviceaccount.com"))
+		case "/computeMetadata/v1/instance/network-interfaces/0/ipv6s":
+			w.Write([]byte("2001:db8::10\n2001:db8::11\n"))
 		case "/computeMetadata/v1/instance/service-accounts/default/identity":
 			w.Write([]byte("eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.mock"))
 		default:
@@ -400,6 +409,11 @@ func TestGCPMockMetadata(t *testing.T) {
 	if spiffeID.TrustDomain != "example.org" {
 		t.Errorf("unexpected trust domain: %s", spiffeID.TrustDomain)
 	}
+
+	info := provider.Info(ctx)
+	if info.Metadata["ipv6_addresses"] != "2001:db8::10,2001:db8::11" {
+		t.Errorf("unexpected ipv6 metadata: %s", info.Metadata["ipv6_addresses"])
+	}
 }
 
 // TestAzureMockIMDS tests Azure with mock IMDS.
@@ -421,6 +435,18 @@ func TestAzureMockIMDS(t *testing.T) {
 					VMID:              "abcd1234-ef56-7890-abcd-ef1234567890",
 					Name:              "my-vm",
 					Location:          "eastus",
+				},
+				Network: AzureNetworkMetadata{
+					Interface: []AzureNetworkInterface{
+						{
+							IPv6: AzureIPConfig{
+								IPAddress: []AzureIPAddress{
+									{PrivateIP: "2001:db8::20"},
+									{PrivateIP: "2001:db8::21"},
+								},
+							},
+						},
+					},
 				},
 			}
 			json.NewEncoder(w).Encode(meta)
@@ -495,6 +521,11 @@ func TestAzureMockIMDS(t *testing.T) {
 	}
 	if spiffeID.TrustDomain != "example.org" {
 		t.Errorf("unexpected trust domain: %s", spiffeID.TrustDomain)
+	}
+
+	info := provider.Info(ctx)
+	if info.Metadata["ipv6_addresses"] != "2001:db8::20,2001:db8::21" {
+		t.Errorf("unexpected ipv6 metadata: %s", info.Metadata["ipv6_addresses"])
 	}
 }
 

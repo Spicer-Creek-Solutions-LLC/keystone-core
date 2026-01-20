@@ -2114,7 +2114,7 @@ echo "Monitor with: kscorectl agent list --watch"
 sudo systemctl stop kscore-server
 
 # Restore database
-pg_restore -U kscore -d keystonecore -c /backups/kscore-backup.dump
+pg_restore -U kscore -d keystonecore -c /backups/kscore-cluster-backup.dump
 
 # Verify restore
 psql -U kscore -d keystonecore -c "SELECT COUNT(*) FROM agents;"

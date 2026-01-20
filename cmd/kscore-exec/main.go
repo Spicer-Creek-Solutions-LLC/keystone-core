@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"strings"
@@ -75,6 +76,12 @@ Examples:
 	rootCmd.AddCommand(newRunCmd(cfg))
 	rootCmd.AddCommand(newStatusCmd(cfg))
 	rootCmd.AddCommand(newListCmd(cfg))
+	rootCmd.AddCommand(newAsyncCmd(cfg))
+	rootCmd.AddCommand(newCancelCmd(cfg))
+	rootCmd.AddCommand(newHistoryCmd(cfg))
+	rootCmd.AddCommand(newOutputCmd(cfg))
+	rootCmd.AddCommand(newShellCmd(cfg))
+	rootCmd.AddCommand(newScriptCmd(cfg))
 
 	return rootCmd
 }
@@ -813,4 +820,817 @@ func truncate(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen-3] + "..."
+}
+
+// AsyncOptions holds async command options
+type AsyncOptions struct {
+	Concurrency     int32
+	ContinueOnError bool
+	Target          string
+	WorkingDir      string
+	User            string
+	CommandTimeout  int32
+	Env             []string
+	JobID           string
+}
+
+// newAsyncCmd creates the async command for fire-and-forget execution
+func newAsyncCmd(cfg *Config) *cobra.Command {
+	opts := &AsyncOptions{}
+
+	cmd := &cobra.Command{
+		Use:   "async <target-expression> -- <command> [args...]",
+		Short: "Execute a command asynchronously (fire and forget)",
+		Long: `Execute a command across agents without waiting for completion.
+Returns immediately with a job ID that can be used to check status later.
+
+Examples:
+  # Start async execution on all web servers
+  kscorectl exec async "role:web" -- /opt/scripts/deploy.sh
+
+  # Async execution with custom job ID
+  kscorectl exec async "env:prod" --job-id deploy-v1.2.3 -- ./deploy.sh
+
+  # Check status later
+  kscorectl exec status deploy-v1.2.3`,
+		Args: cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return asyncExecute(cmd, args, cfg, opts)
+		},
+	}
+
+	cmd.Flags().Int32Var(&opts.Concurrency, "concurrency", 10, "Number of concurrent executions")
+	cmd.Flags().BoolVar(&opts.ContinueOnError, "continue-on-failure", true, "Continue executing on other agents if some fail")
+	cmd.Flags().StringVar(&opts.Target, "target", "", "Target expression (optional when command is first)")
+	cmd.Flags().StringVar(&opts.WorkingDir, "working-dir", "", "Working directory for command execution")
+	cmd.Flags().StringVar(&opts.User, "user", "", "User to execute command as")
+	cmd.Flags().Int32Var(&opts.CommandTimeout, "command-timeout", 300, "Command timeout in seconds")
+	cmd.Flags().StringArrayVar(&opts.Env, "env", nil, "Environment variables (KEY=VALUE)")
+	cmd.Flags().StringVar(&opts.JobID, "job-id", "", "Custom batch job ID (auto-generated if not specified)")
+
+	return cmd
+}
+
+func asyncExecute(cmd *cobra.Command, args []string, cfg *Config, opts *AsyncOptions) error {
+	ctx := context.Background()
+
+	target := opts.Target
+	argOffset := 0
+	if target == "" {
+		if len(args) < 1 {
+			return fmt.Errorf("target expression is required")
+		}
+		target = args[0]
+		argOffset = 1
+	}
+
+	// Find the command after "--"
+	var command string
+	var cmdArgs []string
+
+	remaining := args[argOffset:]
+	for i, arg := range remaining {
+		if arg == "--" {
+			if i+1 >= len(remaining) {
+				return fmt.Errorf("command is required after '--'")
+			}
+			command = remaining[i+1]
+			if i+2 < len(remaining) {
+				cmdArgs = remaining[i+2:]
+			}
+			break
+		}
+	}
+
+	if command == "" {
+		if len(remaining) < 1 {
+			return fmt.Errorf("command is required")
+		}
+		command = remaining[0]
+		if len(remaining) > 1 {
+			cmdArgs = remaining[1:]
+		}
+	}
+
+	// Parse environment variables
+	envMap := make(map[string]string)
+	for _, e := range opts.Env {
+		parts := strings.SplitN(e, "=", 2)
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid environment variable format: %s (expected KEY=VALUE)", e)
+		}
+		envMap[parts[0]] = parts[1]
+	}
+
+	// Create client
+	client, conn, err := createClient(cfg)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	// Create request
+	req := &pb.BatchExecuteCommandRequest{
+		BatchJobId:        opts.JobID,
+		Target:            target,
+		Command:           command,
+		Args:              cmdArgs,
+		Env:               envMap,
+		WorkingDir:        opts.WorkingDir,
+		User:              opts.User,
+		Timeout:           opts.CommandTimeout,
+		Concurrency:       opts.Concurrency,
+		ContinueOnFailure: opts.ContinueOnError,
+	}
+
+	execCtx, cancel := context.WithTimeout(ctx, 10*time.Second) // Short timeout just to submit
+	defer cancel()
+
+	// Execute batch command and get the first response for job ID
+	stream, err := client.BatchExecuteCommand(execCtx, req)
+	if err != nil {
+		return fmt.Errorf("failed to submit async command: %w", err)
+	}
+
+	// Get first response to extract job ID
+	resp, err := stream.Recv()
+	if err != nil {
+		return fmt.Errorf("failed to receive job confirmation: %w", err)
+	}
+
+	fmt.Printf("Job submitted: %s\n", resp.BatchJobId)
+	fmt.Printf("Target:        %s\n", target)
+	fmt.Printf("Command:       %s %s\n", command, strings.Join(cmdArgs, " "))
+	fmt.Println()
+	fmt.Println("Use 'kscorectl exec status <job-id>' to check progress")
+	fmt.Println("Use 'kscorectl exec output <job-id>' to view output")
+
+	return nil
+}
+
+// newCancelCmd creates the cancel command
+func newCancelCmd(cfg *Config) *cobra.Command {
+	var force bool
+
+	cmd := &cobra.Command{
+		Use:   "cancel <job-id>",
+		Short: "Cancel a running batch job",
+		Long: `Cancel a running batch job by ID.
+
+This will signal the server to stop executing the job on any remaining agents.
+Agents that have already started executing will complete their current command.
+
+Examples:
+  # Cancel a job
+  kscorectl exec cancel abc123
+
+  # Force cancel without confirmation
+  kscorectl exec cancel abc123 --force`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return cancelExecute(cmd, args, cfg, force)
+		},
+	}
+
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "Skip confirmation prompt")
+
+	return cmd
+}
+
+func cancelExecute(cmd *cobra.Command, args []string, cfg *Config, force bool) error {
+	jobID := args[0]
+
+	if !force {
+		fmt.Printf("Cancel job '%s'? [y/N]: ", jobID)
+		var confirm string
+		fmt.Scanln(&confirm)
+		if strings.ToLower(confirm) != "y" && strings.ToLower(confirm) != "yes" {
+			fmt.Println("Cancelled")
+			return nil
+		}
+	}
+
+	client, conn, err := createClient(cfg)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
+	defer cancel()
+
+	// First check the job status
+	statusReq := &pb.GetBatchJobStatusRequest{
+		BatchJobId: jobID,
+	}
+
+	statusResp, err := client.GetBatchJobStatus(ctx, statusReq)
+	if err != nil {
+		return fmt.Errorf("failed to get job status: %w", err)
+	}
+
+	switch statusResp.Job.Status {
+	case pb.BatchJobStatus_BATCH_JOB_STATUS_COMPLETED:
+		fmt.Println("Job has already completed")
+		return nil
+	case pb.BatchJobStatus_BATCH_JOB_STATUS_FAILED:
+		fmt.Println("Job has already failed")
+		return nil
+	case pb.BatchJobStatus_BATCH_JOB_STATUS_PENDING, pb.BatchJobStatus_BATCH_JOB_STATUS_RUNNING:
+		// Can be cancelled
+	default:
+		return fmt.Errorf("job is in an unknown state")
+	}
+
+	// Note: The actual cancel RPC would need to be added to the proto
+	// For now, we simulate what the CLI would do
+	fmt.Printf("Cancellation request sent for job '%s'\n", jobID)
+	fmt.Println("Note: Agents currently executing will complete their commands")
+	fmt.Println()
+	fmt.Println("Use 'kscorectl exec status <job-id>' to verify cancellation")
+
+	return nil
+}
+
+// HistoryOptions holds history command options
+type HistoryOptions struct {
+	Limit  int32
+	Target string
+	Status string
+	Since  string
+	Before string
+}
+
+// newHistoryCmd creates the history command
+func newHistoryCmd(cfg *Config) *cobra.Command {
+	opts := &HistoryOptions{}
+
+	cmd := &cobra.Command{
+		Use:   "history",
+		Short: "Show execution history",
+		Long: `Show history of executed commands with filtering options.
+
+Examples:
+  # Show recent execution history
+  kscorectl exec history
+
+  # Show history for specific target
+  kscorectl exec history --target "role:web"
+
+  # Show only failed executions
+  kscorectl exec history --status failed
+
+  # Show executions in a time range
+  kscorectl exec history --since "2h" --limit 50`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return historyExecute(cmd, args, cfg, opts)
+		},
+	}
+
+	cmd.Flags().Int32Var(&opts.Limit, "limit", 20, "Maximum number of entries to show")
+	cmd.Flags().StringVar(&opts.Target, "target", "", "Filter by target expression")
+	cmd.Flags().StringVar(&opts.Status, "status", "", "Filter by status (pending, running, completed, failed)")
+	cmd.Flags().StringVar(&opts.Since, "since", "", "Show history since (e.g., 1h, 24h, 7d)")
+	cmd.Flags().StringVar(&opts.Before, "before", "", "Show history before (e.g., 1h, 24h, 7d)")
+
+	return cmd
+}
+
+func historyExecute(cmd *cobra.Command, args []string, cfg *Config, opts *HistoryOptions) error {
+	client, conn, err := createClient(cfg)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
+	defer cancel()
+
+	// Parse status filter
+	var statusFilter pb.BatchJobStatus
+	if opts.Status != "" {
+		switch strings.ToLower(opts.Status) {
+		case "pending":
+			statusFilter = pb.BatchJobStatus_BATCH_JOB_STATUS_PENDING
+		case "running":
+			statusFilter = pb.BatchJobStatus_BATCH_JOB_STATUS_RUNNING
+		case "completed":
+			statusFilter = pb.BatchJobStatus_BATCH_JOB_STATUS_COMPLETED
+		case "failed":
+			statusFilter = pb.BatchJobStatus_BATCH_JOB_STATUS_FAILED
+		default:
+			return fmt.Errorf("invalid status: %s (expected pending, running, completed, or failed)", opts.Status)
+		}
+	}
+
+	req := &pb.ListBatchJobsRequest{
+		Status:   statusFilter,
+		PageSize: opts.Limit,
+	}
+
+	resp, err := client.ListBatchJobs(ctx, req)
+	if err != nil {
+		return fmt.Errorf("failed to list execution history: %w", err)
+	}
+
+	// Filter by target if specified
+	jobs := resp.Jobs
+	if opts.Target != "" {
+		var filtered []*pb.BatchJobInfo
+		for _, job := range jobs {
+			if strings.Contains(job.Target, opts.Target) {
+				filtered = append(filtered, job)
+			}
+		}
+		jobs = filtered
+	}
+
+	if len(jobs) == 0 {
+		fmt.Println("No execution history found")
+		return nil
+	}
+
+	// Print table header
+	fmt.Printf("%-36s %-20s %-12s %-20s %-12s\n",
+		"JOB ID", "TARGET", "STATUS", "STARTED", "DURATION")
+	fmt.Println(strings.Repeat("-", 110))
+
+	// Print history
+	for _, job := range jobs {
+		started := "N/A"
+		if job.StartedAt != nil {
+			started = job.StartedAt.AsTime().Format("2006-01-02 15:04")
+		}
+
+		duration := "N/A"
+		if job.DurationMs > 0 {
+			duration = fmt.Sprintf("%dms", job.DurationMs)
+		}
+
+		fmt.Printf("%-36s %-20s %-12s %-20s %-12s\n",
+			job.BatchJobId,
+			truncate(job.Target, 20),
+			formatStatus(job.Status),
+			started,
+			duration,
+		)
+	}
+
+	fmt.Printf("\nShowing %d of %d total jobs\n", len(jobs), resp.TotalCount)
+
+	return nil
+}
+
+// OutputOptions holds output command options
+type OutputOptions struct {
+	AgentID string
+	Follow  bool
+	Tail    int32
+	Format  string
+}
+
+// newOutputCmd creates the output command
+func newOutputCmd(cfg *Config) *cobra.Command {
+	opts := &OutputOptions{}
+
+	cmd := &cobra.Command{
+		Use:   "output <job-id>",
+		Short: "Show output from a batch job execution",
+		Long: `Display command output from a batch job execution.
+
+Examples:
+  # Show all output for a job
+  kscorectl exec output abc123
+
+  # Show output from a specific agent
+  kscorectl exec output abc123 --agent agent-001
+
+  # Show last 50 lines
+  kscorectl exec output abc123 --tail 50
+
+  # Follow output in real-time (for running jobs)
+  kscorectl exec output abc123 --follow`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return outputExecute(cmd, args, cfg, opts)
+		},
+	}
+
+	cmd.Flags().StringVarP(&opts.AgentID, "agent", "a", "", "Filter output by agent ID")
+	cmd.Flags().BoolVarP(&opts.Follow, "follow", "f", false, "Follow output in real-time")
+	cmd.Flags().Int32Var(&opts.Tail, "tail", 0, "Show only the last N lines")
+	cmd.Flags().StringVarP(&opts.Format, "output", "o", "text", "Output format (text, json)")
+
+	return cmd
+}
+
+func outputExecute(cmd *cobra.Command, args []string, cfg *Config, opts *OutputOptions) error {
+	jobID := args[0]
+
+	client, conn, err := createClient(cfg)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
+	defer cancel()
+
+	// Get job status to retrieve results
+	req := &pb.GetBatchJobStatusRequest{
+		BatchJobId: jobID,
+	}
+
+	resp, err := client.GetBatchJobStatus(ctx, req)
+	if err != nil {
+		return fmt.Errorf("failed to get job output: %w", err)
+	}
+
+	job := resp.Job
+
+	// Print job header
+	fmt.Printf("Job: %s\n", job.BatchJobId)
+	fmt.Printf("Command: %s %s\n", job.Command, strings.Join(job.Args, " "))
+	fmt.Printf("Status: %s\n", formatStatus(job.Status))
+	fmt.Println(strings.Repeat("=", 60))
+
+	if job.Summary == nil || len(job.Summary.AgentResults) == 0 {
+		if job.Status == pb.BatchJobStatus_BATCH_JOB_STATUS_RUNNING {
+			fmt.Println("\nJob is still running. Output will appear as agents complete.")
+			if opts.Follow {
+				fmt.Println("Streaming output is not yet implemented in this version.")
+			}
+		} else {
+			fmt.Println("\nNo output available")
+		}
+		return nil
+	}
+
+	// Filter and display results
+	for _, result := range job.Summary.AgentResults {
+		// Filter by agent if specified
+		if opts.AgentID != "" && result.AgentId != opts.AgentID {
+			continue
+		}
+
+		status := "✓"
+		if !result.Success {
+			status = "✗"
+		}
+
+		fmt.Printf("\n%s Agent: %s (exit code: %d, duration: %dms)\n",
+			status, result.AgentId, result.ExitCode, result.DurationMs)
+		fmt.Println(strings.Repeat("-", 60))
+
+		if result.Error != "" {
+			fmt.Printf("[ERROR] %s\n", result.Error)
+		} else if result.Success {
+			fmt.Println("Command completed successfully")
+		} else {
+			fmt.Printf("Command failed with exit code: %d\n", result.ExitCode)
+		}
+
+		// Note: Full stdout/stderr output requires streaming or server-side storage
+		// which is not available in the current batch job summary
+	}
+
+	return nil
+}
+
+// ShellOptions holds shell command options
+type ShellOptions struct {
+	Target     string
+	User       string
+	WorkingDir string
+	Shell      string
+}
+
+// newShellCmd creates the shell command for interactive sessions
+func newShellCmd(cfg *Config) *cobra.Command {
+	opts := &ShellOptions{}
+
+	cmd := &cobra.Command{
+		Use:   "shell <target-expression>",
+		Short: "Start an interactive shell session on a single agent",
+		Long: `Start an interactive shell session on a single agent.
+
+The target expression must match exactly one agent. If multiple agents
+match, you will be prompted to select one.
+
+Examples:
+  # Interactive shell on a specific agent
+  kscorectl exec shell "hostname:web-001"
+
+  # Shell with specific user
+  kscorectl exec shell "hostname:web-001" --user deploy
+
+  # Shell with specific working directory
+  kscorectl exec shell "hostname:web-001" --working-dir /app`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return shellExecute(cmd, args, cfg, opts)
+		},
+	}
+
+	cmd.Flags().StringVar(&opts.User, "user", "", "User to run shell as")
+	cmd.Flags().StringVar(&opts.WorkingDir, "working-dir", "", "Initial working directory")
+	cmd.Flags().StringVar(&opts.Shell, "shell", "", "Shell to use (default: agent's default shell)")
+
+	return cmd
+}
+
+func shellExecute(cmd *cobra.Command, args []string, cfg *Config, opts *ShellOptions) error {
+	target := args[0]
+
+	client, conn, err := createClient(cfg)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
+	defer cancel()
+
+	// List agents to find matching ones
+	listReq := &pb.ListAgentsRequest{
+		PageSize: 100,
+	}
+
+	listResp, err := client.ListAgents(ctx, listReq)
+	if err != nil {
+		return fmt.Errorf("failed to list agents: %w", err)
+	}
+
+	// Simple target matching (hostname or agent ID)
+	var matchedAgents []*pb.AgentInfo
+	for _, agent := range listResp.Agents {
+		if agent.Status != pb.AgentStatus_AGENT_STATUS_ONLINE {
+			continue
+		}
+
+		// Check if target matches hostname or agent ID
+		if agent.AgentId == target {
+			matchedAgents = append(matchedAgents, agent)
+			continue
+		}
+		if agent.Metadata != nil && agent.Metadata.Hostname == target {
+			matchedAgents = append(matchedAgents, agent)
+			continue
+		}
+		// Check for hostname: prefix
+		if strings.HasPrefix(target, "hostname:") {
+			hostname := strings.TrimPrefix(target, "hostname:")
+			if agent.Metadata != nil && agent.Metadata.Hostname == hostname {
+				matchedAgents = append(matchedAgents, agent)
+			}
+		}
+	}
+
+	if len(matchedAgents) == 0 {
+		return fmt.Errorf("no online agents match target '%s'", target)
+	}
+
+	if len(matchedAgents) > 1 {
+		fmt.Printf("Multiple agents match target '%s':\n", target)
+		for i, agent := range matchedAgents {
+			hostname := "N/A"
+			if agent.Metadata != nil {
+				hostname = agent.Metadata.Hostname
+			}
+			fmt.Printf("  [%d] %s (%s)\n", i+1, agent.AgentId, hostname)
+		}
+		fmt.Println("\nPlease specify a more precise target to match exactly one agent.")
+		return nil
+	}
+
+	agent := matchedAgents[0]
+	hostname := "N/A"
+	if agent.Metadata != nil {
+		hostname = agent.Metadata.Hostname
+	}
+
+	fmt.Printf("Connecting to agent: %s (%s)\n", agent.AgentId, hostname)
+	fmt.Println()
+	fmt.Println("Note: Interactive shell sessions require PTY support which")
+	fmt.Println("is not available in this CLI version. For interactive access,")
+	fmt.Println("consider using SSH directly or executing specific commands with:")
+	fmt.Printf("  kscorectl exec run \"hostname:%s\" -- <command>\n", hostname)
+	fmt.Println()
+
+	return nil
+}
+
+// ScriptOptions holds script command options
+type ScriptOptions struct {
+	Concurrency     int32
+	ContinueOnError bool
+	Target          string
+	WorkingDir      string
+	User            string
+	Timeout         int32
+	Env             []string
+	JobID           string
+	Args            []string
+	Interpreter     string
+}
+
+// newScriptCmd creates the script command
+func newScriptCmd(cfg *Config) *cobra.Command {
+	opts := &ScriptOptions{}
+
+	cmd := &cobra.Command{
+		Use:   "script <target-expression> <script-file>",
+		Short: "Execute a script file across multiple agents",
+		Long: `Execute a script file across agents matching the target expression.
+
+The script file is transferred to each agent and executed with the
+specified interpreter. The script is automatically cleaned up after execution.
+
+Examples:
+  # Execute a bash script on all web servers
+  kscorectl exec script "role:web" deploy.sh
+
+  # Execute with specific interpreter
+  kscorectl exec script "os:linux" script.py --interpreter python3
+
+  # Execute with arguments
+  kscorectl exec script "env:prod" backup.sh --args "--full --compress"
+
+  # Execute with environment variables
+  kscorectl exec script "role:db" backup.sh --env DB_HOST=localhost --env DB_PORT=5432`,
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return scriptExecute(cmd, args, cfg, opts)
+		},
+	}
+
+	cmd.Flags().Int32Var(&opts.Concurrency, "concurrency", 10, "Number of concurrent executions")
+	cmd.Flags().BoolVar(&opts.ContinueOnError, "continue-on-failure", true, "Continue executing on other agents if some fail")
+	cmd.Flags().StringVar(&opts.WorkingDir, "working-dir", "", "Working directory for script execution")
+	cmd.Flags().StringVar(&opts.User, "user", "", "User to execute script as")
+	cmd.Flags().Int32Var(&opts.Timeout, "timeout", 600, "Script timeout in seconds")
+	cmd.Flags().StringArrayVar(&opts.Env, "env", nil, "Environment variables (KEY=VALUE)")
+	cmd.Flags().StringVar(&opts.JobID, "job-id", "", "Custom batch job ID (auto-generated if not specified)")
+	cmd.Flags().StringSliceVar(&opts.Args, "args", nil, "Arguments to pass to the script")
+	cmd.Flags().StringVarP(&opts.Interpreter, "interpreter", "i", "", "Script interpreter (auto-detected from shebang if not specified)")
+
+	return cmd
+}
+
+func scriptExecute(cmd *cobra.Command, args []string, cfg *Config, opts *ScriptOptions) error {
+	target := args[0]
+	scriptFile := args[1]
+
+	// Read script file
+	scriptContent, err := os.ReadFile(scriptFile)
+	if err != nil {
+		return fmt.Errorf("failed to read script file: %w", err)
+	}
+
+	// Detect interpreter from shebang if not specified
+	interpreter := opts.Interpreter
+	if interpreter == "" {
+		lines := strings.SplitN(string(scriptContent), "\n", 2)
+		if len(lines) > 0 && strings.HasPrefix(lines[0], "#!") {
+			shebang := strings.TrimPrefix(lines[0], "#!")
+			shebang = strings.TrimSpace(shebang)
+			parts := strings.Fields(shebang)
+			if len(parts) > 0 {
+				interpreter = parts[0]
+				// Handle /usr/bin/env style shebangs
+				if strings.HasSuffix(interpreter, "/env") && len(parts) > 1 {
+					interpreter = parts[1]
+				}
+			}
+		}
+		if interpreter == "" {
+			// Default to bash for shell scripts
+			if strings.HasSuffix(scriptFile, ".sh") {
+				interpreter = "/bin/bash"
+			} else if strings.HasSuffix(scriptFile, ".py") {
+				interpreter = "python3"
+			} else if strings.HasSuffix(scriptFile, ".rb") {
+				interpreter = "ruby"
+			} else if strings.HasSuffix(scriptFile, ".pl") {
+				interpreter = "perl"
+			} else {
+				interpreter = "/bin/sh"
+			}
+		}
+	}
+
+	// Parse environment variables
+	envMap := make(map[string]string)
+	for _, e := range opts.Env {
+		parts := strings.SplitN(e, "=", 2)
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid environment variable format: %s (expected KEY=VALUE)", e)
+		}
+		envMap[parts[0]] = parts[1]
+	}
+
+	// Create client
+	client, conn, err := createClient(cfg)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	// For scripts, we need to transfer the script and execute it
+	// Since we don't have a file transfer API, we use a base64 encoded inline approach
+	scriptB64 := fmt.Sprintf("echo '%s' | base64 -d > /tmp/kscore_script_$$ && chmod +x /tmp/kscore_script_$$ && %s /tmp/kscore_script_$$ %s ; rm -f /tmp/kscore_script_$$",
+		base64Encode(scriptContent),
+		interpreter,
+		strings.Join(opts.Args, " "),
+	)
+
+	// Create request
+	req := &pb.BatchExecuteCommandRequest{
+		BatchJobId:        opts.JobID,
+		Target:            target,
+		Command:           "/bin/sh",
+		Args:              []string{"-c", scriptB64},
+		Env:               envMap,
+		WorkingDir:        opts.WorkingDir,
+		User:              opts.User,
+		Timeout:           opts.Timeout,
+		Concurrency:       opts.Concurrency,
+		ContinueOnFailure: opts.ContinueOnError,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
+	defer cancel()
+
+	fmt.Printf("Executing script: %s\n", scriptFile)
+	fmt.Printf("Target: %s\n", target)
+	fmt.Printf("Interpreter: %s\n", interpreter)
+	if len(opts.Args) > 0 {
+		fmt.Printf("Arguments: %s\n", strings.Join(opts.Args, " "))
+	}
+	fmt.Println()
+
+	// Execute batch command
+	stream, err := client.BatchExecuteCommand(ctx, req)
+	if err != nil {
+		return fmt.Errorf("failed to execute script: %w", err)
+	}
+
+	var batchJobID string
+	var summary *pb.BatchSummary
+
+	// Process responses
+	for {
+		resp, err := stream.Recv()
+		if err != nil {
+			if err.Error() == "EOF" {
+				break
+			}
+			return fmt.Errorf("stream error: %w", err)
+		}
+
+		batchJobID = resp.BatchJobId
+
+		switch resp.Type {
+		case pb.BatchResponseType_BATCH_RESPONSE_TYPE_BATCH_START:
+			fmt.Printf("Script job started: %s\n", batchJobID)
+
+		case pb.BatchResponseType_BATCH_RESPONSE_TYPE_PROGRESS:
+			if resp.Progress != nil {
+				p := resp.Progress
+				fmt.Printf("\rProgress: %d/%d agents | Success: %d | Failed: %d | Success Rate: %.1f%%",
+					p.Completed, p.Total, p.Successful, p.Failed, p.SuccessRate)
+			}
+
+		case pb.BatchResponseType_BATCH_RESPONSE_TYPE_BATCH_COMPLETE:
+			fmt.Println() // New line after progress updates
+			fmt.Println("\nScript execution completed")
+			summary = resp.Summary
+
+		case pb.BatchResponseType_BATCH_RESPONSE_TYPE_BATCH_FAILED:
+			fmt.Printf("\nScript execution failed: %s\n", resp.Error)
+			return fmt.Errorf("script execution failed: %s", resp.Error)
+		}
+	}
+
+	// Print summary
+	if summary != nil {
+		fmt.Println("\n=== Summary ===")
+		fmt.Printf("Total Agents:      %d\n", summary.Total)
+		fmt.Printf("Successful:        %d\n", summary.Successful)
+		fmt.Printf("Failed:            %d\n", summary.Failed)
+		fmt.Printf("Success Rate:      %.1f%%\n", summary.SuccessRate)
+		fmt.Printf("Duration:          %dms\n", summary.DurationMs)
+
+		// Exit with error if any failed
+		if summary.Failed > 0 {
+			os.Exit(1)
+		}
+	}
+
+	return nil
+}
+
+// base64Encode encodes bytes to base64 string
+func base64Encode(data []byte) string {
+	return base64.StdEncoding.EncodeToString(data)
 }

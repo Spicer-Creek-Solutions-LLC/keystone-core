@@ -4,7 +4,10 @@ import (
 	"context"
 	"testing"
 
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 // mockAuthenticator is a test authenticator
@@ -19,6 +22,16 @@ func (m *mockAuthenticator) Name() string {
 
 func (m *mockAuthenticator) Authenticate(ctx context.Context, credentials string) (*Principal, error) {
 	return m.authFunc(ctx, credentials)
+}
+
+type mockAuthorizer struct {
+	err    error
+	called bool
+}
+
+func (m *mockAuthorizer) Authorize(ctx context.Context, principal *Principal, method string) error {
+	m.called = true
+	return m.err
 }
 
 func TestAuthenticate_NoMetadata_NoMTLS(t *testing.T) {
@@ -248,3 +261,139 @@ func TestAuthenticate_MultipleAuthenticators_MTLSFirst(t *testing.T) {
 	}
 }
 
+func TestUnaryServerInterceptor_AuditLoggerSuccess(t *testing.T) {
+	cfg := &InterceptorConfig{
+		MetadataKey: "x-api-key",
+		Authenticators: []Authenticator{
+			&mockAuthenticator{
+				name: "apikey",
+				authFunc: func(ctx context.Context, credentials string) (*Principal, error) {
+					if credentials == "valid-key" {
+						return &Principal{ID: "user-1", Name: "user", Role: RoleOperator}, nil
+					}
+					return nil, ErrInvalidCredentials
+				},
+			},
+		},
+		Authorizer: &mockAuthorizer{},
+	}
+
+	var calls int
+	var lastPrincipal *Principal
+	var lastErr error
+	cfg.AuditLogger = func(ctx context.Context, method string, principal *Principal, err error) {
+		calls++
+		lastPrincipal = principal
+		lastErr = err
+	}
+
+	interceptor := UnaryServerInterceptor(cfg)
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.MD{
+		"x-api-key": []string{"valid-key"},
+	})
+
+	_, err := interceptor(ctx, nil, &grpc.UnaryServerInfo{FullMethod: "/kscore.v1.ControlPlaneService/ListAgents"}, func(ctx context.Context, req interface{}) (interface{}, error) {
+		return "ok", nil
+	})
+	if err != nil {
+		t.Fatalf("interceptor error = %v", err)
+	}
+	if calls != 1 {
+		t.Fatalf("expected 1 audit call, got %d", calls)
+	}
+	if lastErr != nil {
+		t.Errorf("unexpected audit error: %v", lastErr)
+	}
+	if lastPrincipal == nil || lastPrincipal.ID != "user-1" {
+		t.Errorf("unexpected principal: %#v", lastPrincipal)
+	}
+}
+
+func TestUnaryServerInterceptor_AuditLoggerAuthFailure(t *testing.T) {
+	cfg := &InterceptorConfig{
+		MetadataKey: "x-api-key",
+		Authenticators: []Authenticator{
+			&mockAuthenticator{
+				name: "apikey",
+				authFunc: func(ctx context.Context, credentials string) (*Principal, error) {
+					return nil, ErrInvalidCredentials
+				},
+			},
+		},
+	}
+
+	var calls int
+	var lastPrincipal *Principal
+	var lastErr error
+	cfg.AuditLogger = func(ctx context.Context, method string, principal *Principal, err error) {
+		calls++
+		lastPrincipal = principal
+		lastErr = err
+	}
+
+	interceptor := UnaryServerInterceptor(cfg)
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.MD{
+		"x-api-key": []string{"bad-key"},
+	})
+
+	_, err := interceptor(ctx, nil, &grpc.UnaryServerInfo{FullMethod: "/kscore.v1.ControlPlaneService/ListAgents"}, func(ctx context.Context, req interface{}) (interface{}, error) {
+		return "ok", nil
+	})
+	if status.Code(err) != codes.Unauthenticated {
+		t.Fatalf("expected unauthenticated error, got %v", err)
+	}
+	if calls != 1 {
+		t.Fatalf("expected 1 audit call, got %d", calls)
+	}
+	if lastPrincipal != nil {
+		t.Errorf("expected nil principal, got %#v", lastPrincipal)
+	}
+	if lastErr == nil {
+		t.Errorf("expected audit error")
+	}
+}
+
+func TestUnaryServerInterceptor_AuditLoggerAuthzFailure(t *testing.T) {
+	cfg := &InterceptorConfig{
+		MetadataKey: "x-api-key",
+		Authenticators: []Authenticator{
+			&mockAuthenticator{
+				name: "apikey",
+				authFunc: func(ctx context.Context, credentials string) (*Principal, error) {
+					return &Principal{ID: "user-2", Name: "user", Role: RoleReadonly}, nil
+				},
+			},
+		},
+		Authorizer: &mockAuthorizer{err: ErrInsufficientRole},
+	}
+
+	var calls int
+	var lastPrincipal *Principal
+	var lastErr error
+	cfg.AuditLogger = func(ctx context.Context, method string, principal *Principal, err error) {
+		calls++
+		lastPrincipal = principal
+		lastErr = err
+	}
+
+	interceptor := UnaryServerInterceptor(cfg)
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.MD{
+		"x-api-key": []string{"valid-key"},
+	})
+
+	_, err := interceptor(ctx, nil, &grpc.UnaryServerInfo{FullMethod: "/kscore.v1.ControlPlaneService/ExecuteCommand"}, func(ctx context.Context, req interface{}) (interface{}, error) {
+		return "ok", nil
+	})
+	if status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("expected permission denied error, got %v", err)
+	}
+	if calls != 1 {
+		t.Fatalf("expected 1 audit call, got %d", calls)
+	}
+	if lastPrincipal == nil || lastPrincipal.ID != "user-2" {
+		t.Errorf("unexpected principal: %#v", lastPrincipal)
+	}
+	if lastErr == nil {
+		t.Errorf("expected audit error")
+	}
+}

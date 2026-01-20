@@ -164,6 +164,92 @@ func TestCmdModule_Check_Removes_FileNotExists(t *testing.T) {
 	}
 }
 
+func TestCmdModule_Apply_Success(t *testing.T) {
+	m := NewCmdModule()
+	decl := &StateDeclaration{
+		ID:     "true",
+		Module: "cmd",
+		State:  "run",
+	}
+
+	result, err := m.Apply(context.Background(), decl)
+	if err != nil {
+		t.Fatalf("Apply returned error: %v", err)
+	}
+	if !result.Success {
+		t.Fatal("expected success")
+	}
+	if !result.Changed {
+		t.Fatal("expected changed to be true for executed command")
+	}
+}
+
+func TestCmdModule_Apply_StatefulChangedYes(t *testing.T) {
+	m := NewCmdModule()
+	decl := &StateDeclaration{
+		ID:     "printf 'changed=yes\\ncomment=ok\\n'",
+		Module: "cmd",
+		State:  "run",
+		Parameters: map[string]interface{}{
+			"stateful": true,
+		},
+	}
+
+	result, err := m.Apply(context.Background(), decl)
+	if err != nil {
+		t.Fatalf("Apply returned error: %v", err)
+	}
+	if !result.Changed {
+		t.Fatal("expected changed to be true")
+	}
+	if result.Comment != "ok" {
+		t.Fatalf("expected comment 'ok', got %q", result.Comment)
+	}
+}
+
+func TestCmdModule_Apply_StatefulChangedNo(t *testing.T) {
+	m := NewCmdModule()
+	decl := &StateDeclaration{
+		ID:     "printf 'changed=no\\ncomment=skip\\n'",
+		Module: "cmd",
+		State:  "run",
+		Parameters: map[string]interface{}{
+			"stateful": true,
+		},
+	}
+
+	result, err := m.Apply(context.Background(), decl)
+	if err != nil {
+		t.Fatalf("Apply returned error: %v", err)
+	}
+	if !result.Changed {
+		t.Fatal("expected changed to be true (Apply marks changes after execution)")
+	}
+	if result.Comment != "skip" {
+		t.Fatalf("expected comment 'skip', got %q", result.Comment)
+	}
+}
+
+func TestCmdModule_Apply_CommandFailure(t *testing.T) {
+	m := NewCmdModule()
+	decl := &StateDeclaration{
+		ID:     "false",
+		Module: "cmd",
+		State:  "run",
+	}
+
+	result, err := m.Apply(context.Background(), decl)
+	if err != nil {
+		t.Fatalf("expected Apply to return nil error, got %v", err)
+	}
+	if result.Success {
+		t.Fatal("expected success to be false")
+	}
+	if result.Error == nil {
+		t.Fatal("expected error to be set")
+	}
+}
+
 func TestCmdModule_Check_Removes_FileExists(t *testing.T) {
 	// Create a temp file
 	tmpDir := t.TempDir()

@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // FilterExpression represents a parsed filter expression
@@ -37,6 +38,26 @@ const (
 	OpOr  LogicalOp = "OR"
 	OpNot LogicalOp = "NOT"
 )
+
+// TimestampValue wraps a time.Time for filter expressions
+type TimestampValue struct {
+	Time time.Time
+}
+
+// String returns the RFC3339 representation
+func (t TimestampValue) String() string {
+	return t.Time.Format(time.RFC3339)
+}
+
+// DurationValue wraps a time.Duration for filter expressions
+type DurationValue struct {
+	Duration time.Duration
+}
+
+// String returns the duration string representation
+func (d DurationValue) String() string {
+	return d.Duration.String()
+}
 
 // ComparisonExpr represents a comparison expression (e.g., type == "agent.connect")
 type ComparisonExpr struct {
@@ -89,14 +110,16 @@ func (e *ComparisonExpr) getFieldValue(event *Event) interface{} {
 		return string(event.Severity)
 	case "correlation_id":
 		return event.CorrelationID
+	case "timestamp":
+		return TimestampValue{Time: event.Time}
 	case "tags":
 		if len(parts) == 2 {
 			return event.Tags[parts[1]]
 		}
 		return nil
 	case "data":
-		if len(parts) == 2 {
-			return event.Data[parts[1]]
+		if len(parts) >= 2 {
+			return getNestedValue(event.Data, parts[1:])
 		}
 		return nil
 	default:
@@ -104,10 +127,73 @@ func (e *ComparisonExpr) getFieldValue(event *Event) interface{} {
 	}
 }
 
+// getNestedValue navigates through nested maps and slices to retrieve a value
+// path is a slice of keys to navigate, e.g., ["results", "success"]
+func getNestedValue(data interface{}, path []string) interface{} {
+	if len(path) == 0 || data == nil {
+		return data
+	}
+
+	key := path[0]
+	remaining := path[1:]
+
+	// Handle map[string]interface{} (most common for JSON data)
+	if m, ok := data.(map[string]interface{}); ok {
+		value, exists := m[key]
+		if !exists {
+			return nil
+		}
+		if len(remaining) == 0 {
+			return value
+		}
+		return getNestedValue(value, remaining)
+	}
+
+	// Handle map[interface{}]interface{} (YAML-style maps)
+	if m, ok := data.(map[interface{}]interface{}); ok {
+		value, exists := m[key]
+		if !exists {
+			return nil
+		}
+		if len(remaining) == 0 {
+			return value
+		}
+		return getNestedValue(value, remaining)
+	}
+
+	// Handle slices with numeric index
+	if slice, ok := data.([]interface{}); ok {
+		idx, err := strconv.Atoi(key)
+		if err != nil || idx < 0 || idx >= len(slice) {
+			return nil
+		}
+		if len(remaining) == 0 {
+			return slice[idx]
+		}
+		return getNestedValue(slice[idx], remaining)
+	}
+
+	return nil
+}
+
 // compareEqual checks equality
 func (e *ComparisonExpr) compareEqual(a, b interface{}) bool {
 	if a == nil || b == nil {
 		return a == b
+	}
+
+	// For timestamp comparison
+	if aTs, ok := a.(TimestampValue); ok {
+		if bTs, ok := b.(TimestampValue); ok {
+			return aTs.Time.Equal(bTs.Time)
+		}
+	}
+
+	// For duration comparison
+	if aDur, ok := a.(DurationValue); ok {
+		if bDur, ok := b.(DurationValue); ok {
+			return aDur.Duration == bDur.Duration
+		}
 	}
 
 	// Convert to strings for comparison
@@ -118,6 +204,26 @@ func (e *ComparisonExpr) compareEqual(a, b interface{}) bool {
 
 // compareGreater checks if a > b (or >= if orEqual is true)
 func (e *ComparisonExpr) compareGreater(a, b interface{}, orEqual bool) bool {
+	// For timestamp comparison
+	if aTs, ok := a.(TimestampValue); ok {
+		if bTs, ok := b.(TimestampValue); ok {
+			if orEqual {
+				return !aTs.Time.Before(bTs.Time)
+			}
+			return aTs.Time.After(bTs.Time)
+		}
+	}
+
+	// For duration comparison
+	if aDur, ok := a.(DurationValue); ok {
+		if bDur, ok := b.(DurationValue); ok {
+			if orEqual {
+				return aDur.Duration >= bDur.Duration
+			}
+			return aDur.Duration > bDur.Duration
+		}
+	}
+
 	// For severity comparison
 	if aSev, ok := a.(string); ok {
 		if bSev, ok := b.(string); ok {
@@ -140,6 +246,26 @@ func (e *ComparisonExpr) compareGreater(a, b interface{}, orEqual bool) bool {
 
 // compareLess checks if a < b (or <= if orEqual is true)
 func (e *ComparisonExpr) compareLess(a, b interface{}, orEqual bool) bool {
+	// For timestamp comparison
+	if aTs, ok := a.(TimestampValue); ok {
+		if bTs, ok := b.(TimestampValue); ok {
+			if orEqual {
+				return !aTs.Time.After(bTs.Time)
+			}
+			return aTs.Time.Before(bTs.Time)
+		}
+	}
+
+	// For duration comparison
+	if aDur, ok := a.(DurationValue); ok {
+		if bDur, ok := b.(DurationValue); ok {
+			if orEqual {
+				return aDur.Duration <= bDur.Duration
+			}
+			return aDur.Duration < bDur.Duration
+		}
+	}
+
 	// For severity comparison
 	if aSev, ok := a.(string); ok {
 		if bSev, ok := b.(string); ok {
@@ -372,16 +498,50 @@ func parseComparison(expr string) (*ComparisonExpr, error) {
 			field := strings.TrimSpace(parts[0])
 			valueStr := strings.TrimSpace(parts[1])
 
-			// Remove quotes
-			valueStr = strings.Trim(valueStr, "\"'")
+			// Parse function calls
+			value, err := parseValue(valueStr)
+			if err != nil {
+				return nil, fmt.Errorf("invalid value in expression: %v", err)
+			}
 
 			return &ComparisonExpr{
 				Field:    field,
 				Operator: op,
-				Value:    valueStr,
+				Value:    value,
 			}, nil
 		}
 	}
 
 	return nil, fmt.Errorf("invalid comparison expression: %s", expr)
+}
+
+// parseValue parses a value, which can be a string literal, number, or function call
+func parseValue(s string) (interface{}, error) {
+	s = strings.TrimSpace(s)
+
+	// Check for timestamp() function
+	if strings.HasPrefix(s, "timestamp(") && strings.HasSuffix(s, ")") {
+		inner := s[10 : len(s)-1]
+		inner = strings.Trim(inner, "\"'")
+		t, err := time.Parse(time.RFC3339, inner)
+		if err != nil {
+			return nil, fmt.Errorf("invalid timestamp format: %v", err)
+		}
+		return TimestampValue{Time: t}, nil
+	}
+
+	// Check for duration() function
+	if strings.HasPrefix(s, "duration(") && strings.HasSuffix(s, ")") {
+		inner := s[9 : len(s)-1]
+		inner = strings.Trim(inner, "\"'")
+		d, err := time.ParseDuration(inner)
+		if err != nil {
+			return nil, fmt.Errorf("invalid duration format: %v", err)
+		}
+		return DurationValue{Duration: d}, nil
+	}
+
+	// Remove quotes for string literals
+	s = strings.Trim(s, "\"'")
+	return s, nil
 }

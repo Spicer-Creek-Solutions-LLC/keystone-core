@@ -110,12 +110,14 @@ data:
     "application": "myapp",
     "namespace": "production",
     "status": "Healthy",
-    "sync_status": "Synced",
     "revision": "abc123",
-    "environment": "production"
+    "repo_url": "https://github.com/org/repo.git",
+    "target_revision": "main"
   }
 }
 ```
+
+**Note**: The `status` field contains either the sync status (Synced, OutOfSync) or health status (Healthy, Degraded, Progressing) depending on the event type.
 
 ### Flux Webhook
 
@@ -140,17 +142,22 @@ spec:
 **Example event**:
 ```json
 {
-  "type": "gitops.flux.helmrelease",
+  "type": "gitops.flux.ReconciliationSucceeded",
   "source": "flux",
   "data": {
-    "name": "myapp",
-    "namespace": "production",
-    "status": "Ready",
-    "revision": "1.2.3",
-    "message": "Release reconciliation succeeded"
+    "kind": "HelmRelease",
+    "api_version": "helm.toolkit.fluxcd.io/v2beta1",
+    "severity": "info",
+    "message": "Release reconciliation succeeded",
+    "reason": "ReconciliationSucceeded",
+    "metadata": {
+      "revision": "1.2.3"
+    }
   }
 }
 ```
+
+**Note**: The `status` field contains the Flux severity level ("info", "warning", "error"), not a Kubernetes Ready condition.
 
 ### GitHub Webhook
 
@@ -161,8 +168,9 @@ spec:
 - Events: Deployments, Workflow runs, Pushes
 
 **Events received**:
-- `gitops.github.deployment` - Deployment created/updated
-- `gitops.github.workflow` - Workflow run completed
+- `gitops.github.deployment` - Deployment created
+- `gitops.github.deployment_status` - Deployment status updated (success, failure, pending, etc.)
+- `gitops.github.workflow_run` - Workflow run completed
 - `gitops.github.push` - Code pushed
 
 ### GitLab Webhook
@@ -176,6 +184,190 @@ spec:
 - `gitops.gitlab.deployment` - Deployment event
 - `gitops.gitlab.pipeline` - Pipeline completed
 - `gitops.gitlab.push` - Code pushed
+- `gitops.gitlab.merge_request` - Merge request created/updated
+
+### Webhook Payload Field Mappings
+
+Understanding how webhook payloads are parsed and mapped to Keystone Core events is important for writing event filters and reactors.
+
+#### GitHub Payload Mapping
+
+GitHub webhooks are identified by the `X-GitHub-Event` header. The following fields are extracted from the JSON payload:
+
+**Parsed Payload Structure:**
+
+| JSON Field | Type | Description |
+|------------|------|-------------|
+| `action` | string | Event action (e.g., "completed", "created") |
+| `repository.name` | string | Repository name |
+| `repository.full_name` | string | Full repository name (org/repo) |
+| `repository.html_url` | string | Repository URL |
+| `sender.login` | string | User who triggered the event |
+| `deployment.id` | int64 | Deployment ID |
+| `deployment.sha` | string | Commit SHA for deployment |
+| `deployment.ref` | string | Git reference (branch/tag) |
+| `deployment.task` | string | Deployment task name |
+| `deployment.environment` | string | Target environment |
+| `deployment.description` | string | Deployment description |
+| `deployment_status.state` | string | Deployment status (success, failure, pending, etc.) |
+| `deployment_status.description` | string | Status description |
+| `deployment_status.created_at` | timestamp | Status creation time |
+| `workflow_run.id` | int64 | Workflow run ID |
+| `workflow_run.name` | string | Workflow name |
+| `workflow_run.status` | string | Workflow status |
+| `workflow_run.conclusion` | string | Workflow conclusion (success, failure, etc.) |
+| `workflow_run.head_sha` | string | Commit SHA for workflow |
+| `ref` | string | Git ref (for push events) |
+| `after` | string | After commit SHA (for push events) |
+| `before` | string | Before commit SHA (for push events) |
+| `commits` | array | Array of commit objects (for push events) |
+
+**Event Type to WebhookEvent Mapping:**
+
+| Event Type | Application | Namespace | Revision | Status |
+|------------|-------------|-----------|----------|--------|
+| `deployment` | `repository.name` | `deployment.environment` | `deployment.sha` | `"deployed"` |
+| `deployment_status` | `repository.name` | `deployment.environment` | `deployment.sha` | `deployment_status.state` |
+| `workflow_run` | `repository.name` | *(empty)* | `workflow_run.head_sha` | `workflow_run.conclusion` or `workflow_run.status` |
+| `push` | `repository.name` | *(empty)* | `after` | `"pushed"` |
+
+**Data Field Contents:**
+
+The `data` map in the resulting event contains:
+- `action` - Event action
+- `repository` - Full repository name
+- `repository_url` - Repository HTML URL
+- `sender` - Sender login
+- `deployment` - Full deployment object
+- `deployment_status` - Full deployment status object
+- `workflow_run` - Full workflow run object
+- `ref` - Git reference
+- `commits` - Commits array
+
+**Example: Filtering GitHub Deployment Status Events**
+```yaml
+# Filter for successful GitHub deployments
+my_reactor:
+  filter: |
+    type == "gitops.github.deployment_status" and
+    data.deployment_status.state == "success" and
+    data.deployment.environment == "production"
+  actions:
+    - type: log
+      message: "Production deployment succeeded for {{ data.repository }}"
+```
+
+#### GitLab Payload Mapping
+
+GitLab webhooks are identified by the `X-Gitlab-Event` header, or the `object_kind` / `event_name` fields in the payload body.
+
+**Parsed Payload Structure:**
+
+| JSON Field | Type | Description |
+|------------|------|-------------|
+| `object_kind` | string | Event type (deployment, pipeline, push, etc.) |
+| `event_name` | string | Alternative event type field |
+| `project.id` | int64 | Project ID |
+| `project.name` | string | Project name |
+| `project.path_with_namespace` | string | Full project path (group/project) |
+| `project.web_url` | string | Project URL |
+| `user.name` | string | User's full name |
+| `user.username` | string | User's username |
+| `user.email` | string | User's email |
+| `status` | string | Deployment/pipeline status |
+| `environment` | string | Target environment name |
+| `environment_tier` | string | Environment tier (production, staging, etc.) |
+| `ref` | string | Git reference |
+| `sha` | string | Commit SHA |
+| `deployment_id` | int64 | Deployment ID |
+| `created_at` | timestamp | Event creation time |
+| `object_attributes.id` | int64 | Object ID (for pipeline/MR events) |
+| `object_attributes.ref` | string | Git reference |
+| `object_attributes.sha` | string | Commit SHA |
+| `object_attributes.status` | string | Object status |
+| `object_attributes.created_at` | timestamp | Object creation time |
+| `object_attributes.finished_at` | timestamp | Object completion time |
+| `before` | string | Before commit SHA (for push events) |
+| `after` | string | After commit SHA (for push events) |
+| `commits` | array | Array of commit objects (for push events) |
+
+**Event Type Detection Priority:**
+
+1. `X-Gitlab-Event` header (e.g., "Deployment Hook", "Pipeline Hook")
+2. `object_kind` field in payload
+3. `event_name` field in payload
+
+**Event Type to WebhookEvent Mapping:**
+
+| Event Type | Application | Namespace | Revision | Status |
+|------------|-------------|-----------|----------|--------|
+| `deployment` | `project.name` | `environment` | `sha` | `status` |
+| `pipeline` | `project.name` | *(empty)* | `object_attributes.sha` | `object_attributes.status` |
+| `merge_request` | `project.name` | *(empty)* | `object_attributes.sha` | `object_attributes.status` |
+| `push` | `project.name` | *(empty)* | `after` | `"pushed"` |
+
+**Data Field Contents:**
+
+The `data` map in the resulting event contains:
+- `object_kind` - Event type
+- `event_name` - Event name
+- `project` - Full project path
+- `project_url` - Project web URL
+- `user` - Username
+- `environment_tier` - Environment tier
+- `ref` - Git reference
+- `deployment_id` - Deployment ID
+- `created_at` - Creation timestamp
+- `object_attributes` - Full object attributes (for pipeline/MR)
+- `commits` - Commits array (for push)
+- `before` - Before commit SHA (for push)
+- `after` - After commit SHA (for push)
+
+**Example: Filtering GitLab Pipeline Events**
+```yaml
+# Filter for successful GitLab production pipelines
+my_reactor:
+  filter: |
+    type == "gitops.gitlab.pipeline" and
+    data.object_attributes.status == "success" and
+    data.ref == "main"
+  actions:
+    - type: log
+      message: "Main branch pipeline succeeded for {{ data.project }}"
+```
+
+#### Common WebhookEvent Structure
+
+All webhook sources produce events with this common structure:
+
+```go
+type WebhookEvent struct {
+    ID          string                 // Unique event ID
+    Type        WebhookType            // "github" or "gitlab"
+    EventType   string                 // Specific event (deployment, pipeline, push)
+    Source      string                 // "github" or "gitlab"
+    Timestamp   time.Time              // Event processing time
+    Application string                 // Repository/project name
+    Namespace   string                 // Environment (if applicable)
+    Revision    string                 // Commit SHA
+    Status      string                 // Event-specific status
+    Data        map[string]interface{} // All parsed fields
+}
+```
+
+**Keystone Core Event Conversion:**
+
+When converted to a Keystone Core event, the `type` field becomes:
+- GitHub: `gitops.github.<event_type>` (e.g., `gitops.github.deployment_status`)
+- GitLab: `gitops.gitlab.<event_type>` (e.g., `gitops.gitlab.pipeline`)
+
+All `Data` fields are merged into the event's data map, along with:
+- `webhook_id` - Original webhook event ID
+- `webhook_type` - Source type (github/gitlab)
+- `application` - Application name
+- `namespace` - Target namespace
+- `revision` - Commit revision
+- `status` - Event status
 
 ## Deployment Verification
 

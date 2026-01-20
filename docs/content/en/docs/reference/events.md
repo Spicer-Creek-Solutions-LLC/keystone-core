@@ -7,15 +7,17 @@ description: >
 
 ## Overview
 
-Keystone Core emits 22 standard event types across 6 categories. All events follow a consistent schema and support CEL-based filtering.
+Keystone Core emits 29 standard event types across 8 categories, plus dynamic GitOps webhook events. All events follow a consistent schema and support CEL-based filtering.
 
 **Event Categories**:
-- [Agent Events](#agent-events) (4 types)
-- [Job Events](#job-events) (3 types)
+- [Agent Events](#agent-events) (5 types)
+- [Job Events](#job-events) (4 types)
 - [State Events](#state-events) (5 types)
+- [GitOps Webhook Events](#gitops-webhook-events) (dynamic)
 - [Bootstrap Events](#bootstrap-events) (7 types)
-- [System Events](#system-events) (2 types)
-- [User Events](#user-events) (1 type)
+- [System Events](#system-events) (3 types)
+- [User Events](#user-events) (3 types)
+- [Policy Events](#policy-events) (2 types)
 
 ## Event Schema
 
@@ -29,7 +31,7 @@ All events follow this structure:
   "timestamp": "2024-01-15T10:30:45Z",
   "severity": "info",
   "correlation_id": "correlation-id",
-  "tags": ["tag1", "tag2"],
+  "tags": {"env": "production", "region": "us-east-1"},
   "data": {
     "event-specific": "fields"
   }
@@ -63,9 +65,9 @@ All events follow this structure:
 - For tracking related events
 - Example: `job-abc123`, `agent-web-01`
 
-**tags** (array of strings)
-- Custom tags
-- Example: `["production", "us-east-1"]`
+**tags** (object, map of string to string)
+- Custom key-value tags
+- Example: `{"env": "production", "region": "us-east-1"}`
 
 **data** (object)
 - Event-specific data
@@ -109,7 +111,7 @@ Emitted when agent registers with control plane.
   "timestamp": "2024-01-15T10:30:45Z",
   "severity": "info",
   "correlation_id": "agent-web-01",
-  "tags": ["production", "us-east-1"],
+  "tags": {"env": "production", "region": "us-east-1"},
   "data": {
     "agent_id": "web-01",
     "datacenter": "us-east-1",
@@ -140,6 +142,22 @@ Emitted when agent disconnects.
 - `graceful` - Graceful shutdown
 - `error` - Connection error
 
+### agent.heartbeat
+
+Emitted when agent sends a heartbeat.
+
+**Severity**: `debug`
+
+**Data Fields**:
+```json
+{
+  "agent_id": "web-01",
+  "uptime": "5d2h30m",
+  "load_avg": 0.75,
+  "memory_used_percent": 62.5
+}
+```
+
 ### agent.heartbeat_failed
 
 Emitted when agent misses heartbeats.
@@ -155,25 +173,20 @@ Emitted when agent misses heartbeats.
 }
 ```
 
-### agent.metadata_changed
+### agent.error
 
-Emitted when agent metadata updates.
+Emitted when an agent encounters an error.
 
-**Severity**: `info`
+**Severity**: `error`
 
 **Data Fields**:
 ```json
 {
   "agent_id": "web-01",
-  "changed_fields": ["tags", "role"],
-  "old_metadata": {
-    "role": "web",
-    "tags": ["nginx"]
-  },
-  "new_metadata": {
-    "role": "web",
-    "tags": ["nginx", "monitoring"]
-  }
+  "error": "connection timeout",
+  "error_code": "CONN_TIMEOUT",
+  "component": "nats",
+  "recoverable": true
 }
 ```
 
@@ -242,6 +255,27 @@ Emitted when command execution fails.
   }
 }
 ```
+
+### job.output
+
+Emitted when streaming output from a job execution.
+
+**Severity**: `info`
+
+**Data Fields**:
+```json
+{
+  "job_id": "job-abc123",
+  "agent_id": "web-01",
+  "stream": "stdout",
+  "output": "nginx: the configuration file /etc/nginx/nginx.conf syntax is ok",
+  "sequence": 1
+}
+```
+
+**Stream Values**:
+- `stdout` - Standard output
+- `stderr` - Standard error
 
 ## State Events
 
@@ -368,6 +402,61 @@ Emitted when configuration drift detected.
 - `medium` → event severity: `warning`
 - `high` → event severity: `error`
 - `critical` → event severity: `critical`
+
+## GitOps Webhook Events
+
+GitOps webhook events are dynamic and follow a consistent naming pattern based on the webhook source. These events are emitted when webhook payloads are parsed in `pkg/gitops/webhook/`.
+
+**Event Type Patterns**:
+- `gitops.argocd.<event_type>`: Event type from ArgoCD payload (`type`) or operation phase
+- `gitops.flux.<event_type>`: Event type from `X-Flux-Event` header or payload `reason`
+- `gitops.github.<event_type>`: Event type from `X-GitHub-Event` header
+- `gitops.gitlab.<event_type>`: Event type from `X-Gitlab-Event` header or payload `object_kind`/`event_name`
+- `gitops.webhook`: Fallback when a specific type cannot be determined
+
+**Common Examples**:
+- `gitops.argocd.sync`, `gitops.argocd.health`, `gitops.argocd.Succeeded`
+- `gitops.flux.ReconciliationSucceeded`, `gitops.flux.ReconciliationFailed`
+- `gitops.github.deployment`, `gitops.github.deployment_status`, `gitops.github.workflow_run`, `gitops.github.push`
+- `gitops.gitlab.deployment`, `gitops.gitlab.pipeline`, `gitops.gitlab.push`, `gitops.gitlab.merge_request`
+
+**Data Fields** (superset; varies by source):
+```json
+{
+  "webhook_id": "uuid",
+  "webhook_type": "argocd|flux|github|gitlab",
+  "application": "app-name",
+  "namespace": "namespace-or-env",
+  "revision": "git-sha",
+  "status": "status-or-severity",
+  "repo_url": "https://example.com/repo.git",
+  "target_revision": "main",
+  "message": "source-specific message",
+  "reason": "source-specific reason"
+}
+```
+
+**Example (ArgoCD Sync Event)**:
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "type": "gitops.argocd.sync",
+  "source": "webhook/argocd",
+  "timestamp": "2024-01-15T10:30:45Z",
+  "severity": "info",
+  "correlation_id": "webhook-2f734e9b-1f3f-4b63-8cb2-61a0f1b6b4c8",
+  "data": {
+    "webhook_id": "2f734e9b-1f3f-4b63-8cb2-61a0f1b6b4c8",
+    "webhook_type": "argocd",
+    "application": "test-app",
+    "namespace": "argocd",
+    "revision": "abc123",
+    "status": "Synced",
+    "repo_url": "https://github.com/org/repo.git",
+    "target_revision": "main"
+  }
+}
+```
 
 ## Bootstrap Events
 
@@ -520,37 +609,133 @@ Emitted when control plane shuts down gracefully.
 }
 ```
 
-## User Events
+### system.error
 
-Custom events emitted by users or scripts.
+Emitted when a system-level error occurs.
 
-### user.custom
-
-Custom events with user-defined payloads.
-
-**Severity**: User-defined (default: `info`)
+**Severity**: `error`
 
 **Data Fields**:
-User-defined (arbitrary JSON)
-
-**Example**:
 ```json
 {
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "type": "user.custom",
-  "source": "backup-script",
-  "timestamp": "2024-01-15T10:30:45Z",
-  "severity": "info",
-  "tags": ["backup", "database"],
-  "data": {
-    "action": "backup",
-    "database": "mydb",
-    "size_bytes": 1073741824,
-    "status": "success",
-    "duration": "5m30s"
-  }
+  "error": "database connection lost",
+  "error_code": "DB_CONN_LOST",
+  "component": "state-manager",
+  "recoverable": true,
+  "retry_count": 3
 }
 ```
+
+## User Events
+
+Events related to user actions and authentication.
+
+### user.login
+
+Emitted when a user authenticates.
+
+**Severity**: `info`
+
+**Data Fields**:
+```json
+{
+  "user": "admin@example.com",
+  "method": "api_key",
+  "source_ip": "192.168.1.100",
+  "user_agent": "kscorectl/1.0.0"
+}
+```
+
+**Method Values**:
+- `api_key` - API key authentication
+- `mtls` - mTLS certificate authentication
+- `jwt` - JWT token authentication
+
+### user.command
+
+Emitted when a user executes a command via CLI or API.
+
+**Severity**: `info`
+
+**Data Fields**:
+```json
+{
+  "user": "admin@example.com",
+  "command": "exec run",
+  "args": ["systemctl restart nginx", "--target", "role:web"],
+  "source_ip": "192.168.1.100"
+}
+```
+
+### user.error
+
+Emitted when a user action fails.
+
+**Severity**: `error`
+
+**Data Fields**:
+```json
+{
+  "user": "admin@example.com",
+  "action": "state apply",
+  "error": "permission denied",
+  "error_code": "AUTHZ_DENIED",
+  "resource": "states/production.yaml"
+}
+```
+
+## Policy Events
+
+Events related to policy evaluation and enforcement.
+
+### policy.pass
+
+Emitted when a policy evaluation passes.
+
+**Severity**: `info`
+
+**Data Fields**:
+```json
+{
+  "policy_id": "require-labels",
+  "policy_name": "Require Labels",
+  "resource_type": "state",
+  "resource_id": "nginx_config",
+  "mode": "enforce",
+  "duration_ms": 5
+}
+```
+
+### policy.violation
+
+Emitted when a policy violation is detected.
+
+**Severity**: `warning` (audit mode) / `error` (enforce mode)
+
+**Data Fields**:
+```json
+{
+  "policy_id": "require-labels",
+  "policy_name": "Require Labels",
+  "resource_type": "state",
+  "resource_id": "nginx_config",
+  "mode": "enforce",
+  "violations": [
+    {
+      "rule": "labels-required",
+      "message": "Resource missing required label: owner",
+      "severity": "high",
+      "path": "metadata.labels"
+    }
+  ],
+  "duration_ms": 8
+}
+```
+
+**Mode Values**:
+- `enforce` - Violations are blocked
+- `audit` - Violations are logged only
+- `warn` - Violations generate warnings but are not blocked
 
 ## Filtering Expressions
 

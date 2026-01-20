@@ -64,7 +64,7 @@ Each state declaration has:
 
 ## State Modules
 
-Keystone Core includes 6 built-in modules:
+Keystone Core includes 94 built-in modules across 20+ categories. This section highlights the core modules; see the full [Module Reference](/docs/reference/modules/) for the complete list.
 
 ### 1. File Module
 

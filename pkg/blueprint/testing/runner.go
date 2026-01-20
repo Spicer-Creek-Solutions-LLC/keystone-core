@@ -392,19 +392,6 @@ func (r *Runner) evaluateAssertion(ctx context.Context, assertion *Assertion, ex
 	}
 	startTime := time.Now()
 
-	defer func() {
-		result.Duration = time.Since(startTime)
-		// Handle negate
-		if assertion.Negate {
-			result.Passed = !result.Passed
-			if result.Passed {
-				result.Message = "negated assertion passed"
-			} else {
-				result.Message = "negated assertion failed: " + result.Message
-			}
-		}
-	}()
-
 	switch assertion.Type {
 	case AssertStateApplied:
 		result = r.assertStateApplied(assertion, execResult)
@@ -466,6 +453,16 @@ func (r *Runner) evaluateAssertion(ctx context.Context, assertion *Assertion, ex
 	default:
 		result.Passed = false
 		result.Message = fmt.Sprintf("unknown assertion type: %s", assertion.Type)
+	}
+
+	result.Duration = time.Since(startTime)
+	if assertion.Negate {
+		result.Passed = !result.Passed
+		if result.Passed {
+			result.Message = "negated assertion passed"
+		} else {
+			result.Message = "negated assertion failed: " + result.Message
+		}
 	}
 
 	return result

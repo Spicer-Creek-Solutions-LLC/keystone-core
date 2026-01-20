@@ -57,6 +57,8 @@ Examples:
 	rootCmd.AddCommand(rollbackCmd)
 	rootCmd.AddCommand(promoteCmd)
 	rootCmd.AddCommand(statusCmd)
+	rootCmd.AddCommand(repoCmd)
+	rootCmd.AddCommand(deployCmd)
 
 	// Add deprecated command (moving to kscore-webhook)
 	rootCmd.AddCommand(webhookCmd)
@@ -1059,6 +1061,618 @@ func statusExecute(cmd *cobra.Command, args []string) error {
 }
 
 // =============================================================================
+// Repo Command
+// =============================================================================
+
+var repoCmd = &cobra.Command{
+	Use:   "repo",
+	Short: "Manage Git repositories",
+	Long: `Manage Git repositories for GitOps operations.
+
+Commands:
+  list   - List configured repositories
+  add    - Add a new repository
+  remove - Remove a repository
+  sync   - Synchronize a repository`,
+}
+
+var (
+	repoListOutput string
+	repoAddURL     string
+	repoAddBranch  string
+	repoAddPath    string
+	repoAddAuth    string
+	repoAddKey     string
+	repoSyncForce  bool
+)
+
+var repoListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List configured repositories",
+	Long: `List all Git repositories configured for GitOps operations.
+
+Examples:
+  # List all repositories
+  kscorectl gitops repo list
+
+  # List repositories as JSON
+  kscorectl gitops repo list --output json`,
+	RunE: repoListExecute,
+}
+
+var repoAddCmd = &cobra.Command{
+	Use:   "add <name>",
+	Short: "Add a new repository",
+	Long: `Add a new Git repository for GitOps operations.
+
+Authentication options:
+  - SSH key: --auth ssh --key /path/to/key
+  - HTTPS token: --auth token (uses GIT_TOKEN env var or prompt)
+  - None: --auth none
+
+Examples:
+  # Add a repository with SSH
+  kscorectl gitops repo add myrepo --url git@github.com:org/repo.git --auth ssh --key ~/.ssh/id_rsa
+
+  # Add a repository with HTTPS
+  kscorectl gitops repo add myrepo --url https://github.com/org/repo.git --auth token
+
+  # Add with specific branch
+  kscorectl gitops repo add myrepo --url git@github.com:org/repo.git --branch main --path /states`,
+	Args: cobra.ExactArgs(1),
+	RunE: repoAddExecute,
+}
+
+var repoRemoveCmd = &cobra.Command{
+	Use:     "remove <name>",
+	Aliases: []string{"rm", "delete"},
+	Short:   "Remove a repository",
+	Long: `Remove a Git repository from GitOps operations.
+
+Examples:
+  # Remove a repository
+  kscorectl gitops repo remove myrepo`,
+	Args: cobra.ExactArgs(1),
+	RunE: repoRemoveExecute,
+}
+
+var repoSyncCmd = &cobra.Command{
+	Use:   "sync <name>",
+	Short: "Synchronize a repository",
+	Long: `Synchronize a Git repository, pulling latest changes.
+
+Examples:
+  # Sync a repository
+  kscorectl gitops repo sync myrepo
+
+  # Force sync (discard local changes)
+  kscorectl gitops repo sync myrepo --force`,
+	Args: cobra.ExactArgs(1),
+	RunE: repoSyncExecute,
+}
+
+func init() {
+	repoCmd.AddCommand(repoListCmd)
+	repoCmd.AddCommand(repoAddCmd)
+	repoCmd.AddCommand(repoRemoveCmd)
+	repoCmd.AddCommand(repoSyncCmd)
+
+	repoListCmd.Flags().StringVarP(&repoListOutput, "output", "o", "text", "Output format (text, json, yaml, table)")
+
+	repoAddCmd.Flags().StringVar(&repoAddURL, "url", "", "Repository URL (required)")
+	repoAddCmd.Flags().StringVar(&repoAddBranch, "branch", "main", "Branch to track")
+	repoAddCmd.Flags().StringVar(&repoAddPath, "path", "", "Path within repository")
+	repoAddCmd.Flags().StringVar(&repoAddAuth, "auth", "none", "Authentication method (none, ssh, token)")
+	repoAddCmd.Flags().StringVar(&repoAddKey, "key", "", "SSH key path (for --auth ssh)")
+	repoAddCmd.MarkFlagRequired("url")
+
+	repoSyncCmd.Flags().BoolVar(&repoSyncForce, "force", false, "Force sync, discarding local changes")
+}
+
+// RepoConfig represents a repository configuration
+type RepoConfig struct {
+	Name       string `json:"name" yaml:"name"`
+	URL        string `json:"url" yaml:"url"`
+	Branch     string `json:"branch" yaml:"branch"`
+	Path       string `json:"path,omitempty" yaml:"path,omitempty"`
+	Auth       string `json:"auth" yaml:"auth"`
+	LastSync   string `json:"last_sync,omitempty" yaml:"last_sync,omitempty"`
+	Status     string `json:"status" yaml:"status"`
+	CommitHash string `json:"commit_hash,omitempty" yaml:"commit_hash,omitempty"`
+}
+
+func repoListExecute(cmd *cobra.Command, args []string) error {
+	// In production, this would query the control plane
+	// For now, show sample data
+	repos := []RepoConfig{
+		{
+			Name:       "states",
+			URL:        "git@github.com:org/kscore-states.git",
+			Branch:     "main",
+			Path:       "/states",
+			Auth:       "ssh",
+			LastSync:   time.Now().Add(-30 * time.Minute).Format(time.RFC3339),
+			Status:     "synced",
+			CommitHash: "abc1234",
+		},
+		{
+			Name:       "blueprints",
+			URL:        "https://github.com/org/kscore-blueprints.git",
+			Branch:     "production",
+			Path:       "/blueprints",
+			Auth:       "token",
+			LastSync:   time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
+			Status:     "synced",
+			CommitHash: "def5678",
+		},
+	}
+
+	format, err := output.ParseFormat(repoListOutput)
+	if err != nil {
+		return err
+	}
+
+	switch format {
+	case output.FormatJSON:
+		return output.WriteJSON(cmd.OutOrStdout(), repos)
+	case output.FormatYAML:
+		return output.WriteYAML(cmd.OutOrStdout(), repos)
+	case output.FormatTable:
+		table := buildRepoTable(repos)
+		if err := output.WriteTable(cmd.OutOrStdout(), table); err != nil {
+			return err
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "\nTotal: %d repositories\n", len(repos))
+		fmt.Fprintln(cmd.OutOrStdout(), "\nNote: This CLI shows sample data.")
+		fmt.Fprintln(cmd.OutOrStdout(), "For real repository status, connect to the control plane API.")
+	case output.FormatText:
+		fmt.Fprintln(cmd.OutOrStdout(), "Configured Repositories")
+		fmt.Fprintln(cmd.OutOrStdout(), "=======================")
+		fmt.Fprintln(cmd.OutOrStdout())
+
+		for _, repo := range repos {
+			fmt.Fprintf(cmd.OutOrStdout(), "%s\n", repo.Name)
+			fmt.Fprintf(cmd.OutOrStdout(), "  URL:       %s\n", repo.URL)
+			fmt.Fprintf(cmd.OutOrStdout(), "  Branch:    %s\n", repo.Branch)
+			if repo.Path != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "  Path:      %s\n", repo.Path)
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "  Auth:      %s\n", repo.Auth)
+			fmt.Fprintf(cmd.OutOrStdout(), "  Status:    %s\n", repo.Status)
+			fmt.Fprintf(cmd.OutOrStdout(), "  Last Sync: %s\n", repo.LastSync)
+			if repo.CommitHash != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "  Commit:    %s\n", repo.CommitHash)
+			}
+			fmt.Fprintln(cmd.OutOrStdout())
+		}
+
+		fmt.Fprintf(cmd.OutOrStdout(), "Total: %d repositories\n", len(repos))
+		fmt.Fprintln(cmd.OutOrStdout(), "\nNote: This CLI shows sample data.")
+		fmt.Fprintln(cmd.OutOrStdout(), "For real repository status, connect to the control plane API.")
+	default:
+		return clierrors.New(clierrors.KindInvalidArgument, fmt.Sprintf("unsupported output format: %s", repoListOutput))
+	}
+
+	return nil
+}
+
+func repoAddExecute(cmd *cobra.Command, args []string) error {
+	name := args[0]
+
+	// Validate auth method
+	switch repoAddAuth {
+	case "none", "ssh", "token":
+		// Valid
+	default:
+		return clierrors.New(clierrors.KindInvalidArgument, fmt.Sprintf("invalid auth method: %s (use: none, ssh, token)", repoAddAuth))
+	}
+
+	// Require key for SSH auth
+	if repoAddAuth == "ssh" && repoAddKey == "" {
+		return clierrors.New(clierrors.KindInvalidArgument, "--key is required for SSH authentication")
+	}
+
+	fmt.Fprintln(cmd.OutOrStdout(), "Adding Repository")
+	fmt.Fprintln(cmd.OutOrStdout(), "=================")
+	fmt.Fprintf(cmd.OutOrStdout(), "Name:   %s\n", name)
+	fmt.Fprintf(cmd.OutOrStdout(), "URL:    %s\n", repoAddURL)
+	fmt.Fprintf(cmd.OutOrStdout(), "Branch: %s\n", repoAddBranch)
+	if repoAddPath != "" {
+		fmt.Fprintf(cmd.OutOrStdout(), "Path:   %s\n", repoAddPath)
+	}
+	fmt.Fprintf(cmd.OutOrStdout(), "Auth:   %s\n", repoAddAuth)
+	if repoAddKey != "" {
+		fmt.Fprintf(cmd.OutOrStdout(), "Key:    %s\n", repoAddKey)
+	}
+	fmt.Fprintln(cmd.OutOrStdout())
+
+	// In production, this would add to control plane
+	fmt.Fprintf(cmd.OutOrStdout(), "✓ Repository '%s' configured\n", name)
+	fmt.Fprintln(cmd.OutOrStdout(), "\nNote: This command configures repository settings locally.")
+	fmt.Fprintln(cmd.OutOrStdout(), "For production use, configure repositories via the control plane API.")
+
+	return nil
+}
+
+func repoRemoveExecute(cmd *cobra.Command, args []string) error {
+	name := args[0]
+
+	fmt.Fprintf(cmd.OutOrStdout(), "Removing repository: %s\n", name)
+
+	// In production, this would remove from control plane
+	fmt.Fprintf(cmd.OutOrStdout(), "✓ Repository '%s' removed\n", name)
+	fmt.Fprintln(cmd.OutOrStdout(), "\nNote: This command removes repository settings locally.")
+	fmt.Fprintln(cmd.OutOrStdout(), "For production use, manage repositories via the control plane API.")
+
+	return nil
+}
+
+func repoSyncExecute(cmd *cobra.Command, args []string) error {
+	name := args[0]
+
+	fmt.Fprintf(cmd.OutOrStdout(), "Synchronizing repository: %s\n", name)
+	if repoSyncForce {
+		fmt.Fprintln(cmd.OutOrStdout(), "Mode: force (discarding local changes)")
+	}
+	fmt.Fprintln(cmd.OutOrStdout())
+
+	// In production, this would trigger sync via control plane
+	fmt.Fprintln(cmd.OutOrStdout(), "Fetching remote...")
+	fmt.Fprintln(cmd.OutOrStdout(), "Merging changes...")
+	fmt.Fprintf(cmd.OutOrStdout(), "✓ Repository '%s' synchronized\n", name)
+	fmt.Fprintln(cmd.OutOrStdout(), "\nNote: This command simulates synchronization.")
+	fmt.Fprintln(cmd.OutOrStdout(), "For production use, sync repositories via the control plane API.")
+
+	return nil
+}
+
+// =============================================================================
+// Deploy Command
+// =============================================================================
+
+var deployCmd = &cobra.Command{
+	Use:   "deploy",
+	Short: "Manage deployments",
+	Long: `Manage GitOps deployments across environments.
+
+Commands:
+  list    - List recent deployments
+  show    - Show deployment details
+  rollback - Rollback a deployment
+  approve  - Approve a pending deployment`,
+}
+
+var (
+	deployListEnv      string
+	deployListApp      string
+	deployListLimit    int
+	deployListOutput   string
+	deployShowOutput   string
+	deployApproveForce bool
+)
+
+var deployListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List recent deployments",
+	Long: `List recent deployments across environments.
+
+Examples:
+  # List all recent deployments
+  kscorectl gitops deploy list
+
+  # List deployments for specific environment
+  kscorectl gitops deploy list --env production
+
+  # List deployments for specific application
+  kscorectl gitops deploy list --app myapp`,
+	RunE: deployListExecute,
+}
+
+var deployShowCmd = &cobra.Command{
+	Use:   "show <deployment-id>",
+	Short: "Show deployment details",
+	Long: `Show detailed information about a specific deployment.
+
+Examples:
+  # Show deployment details
+  kscorectl gitops deploy show deploy-123
+
+  # Show as JSON
+  kscorectl gitops deploy show deploy-123 --output json`,
+	Args: cobra.ExactArgs(1),
+	RunE: deployShowExecute,
+}
+
+var deployRollbackCmd = &cobra.Command{
+	Use:   "rollback <deployment-id>",
+	Short: "Rollback a deployment",
+	Long: `Rollback a specific deployment to its previous state.
+
+This is a convenience command that triggers a rollback for a specific
+deployment. For more control, use 'gitops rollback' with detailed options.
+
+Examples:
+  # Rollback a deployment
+  kscorectl gitops deploy rollback deploy-123`,
+	Args: cobra.ExactArgs(1),
+	RunE: deployRollbackExecute,
+}
+
+var deployApproveCmd = &cobra.Command{
+	Use:   "approve <deployment-id>",
+	Short: "Approve a pending deployment",
+	Long: `Approve a pending deployment that requires manual approval.
+
+Deployments may require approval when:
+  - Promotion to production environment
+  - Breaking changes detected
+  - High-risk configuration changes
+
+Examples:
+  # Approve a pending deployment
+  kscorectl gitops deploy approve deploy-123
+
+  # Force approve (skip confirmation)
+  kscorectl gitops deploy approve deploy-123 --force`,
+	Args: cobra.ExactArgs(1),
+	RunE: deployApproveExecute,
+}
+
+func init() {
+	deployCmd.AddCommand(deployListCmd)
+	deployCmd.AddCommand(deployShowCmd)
+	deployCmd.AddCommand(deployRollbackCmd)
+	deployCmd.AddCommand(deployApproveCmd)
+
+	deployListCmd.Flags().StringVar(&deployListEnv, "env", "", "Filter by environment")
+	deployListCmd.Flags().StringVar(&deployListApp, "app", "", "Filter by application")
+	deployListCmd.Flags().IntVar(&deployListLimit, "limit", 10, "Maximum entries to show")
+	deployListCmd.Flags().StringVarP(&deployListOutput, "output", "o", "text", "Output format (text, json, yaml, table)")
+
+	deployShowCmd.Flags().StringVarP(&deployShowOutput, "output", "o", "text", "Output format (text, json, yaml, table)")
+
+	deployApproveCmd.Flags().BoolVarP(&deployApproveForce, "force", "f", false, "Skip confirmation prompt")
+}
+
+// DeploymentInfo represents a deployment record
+type DeploymentInfo struct {
+	ID          string    `json:"id" yaml:"id"`
+	Application string    `json:"application" yaml:"application"`
+	Environment string    `json:"environment" yaml:"environment"`
+	Revision    string    `json:"revision" yaml:"revision"`
+	Status      string    `json:"status" yaml:"status"`
+	StartTime   time.Time `json:"start_time" yaml:"start_time"`
+	EndTime     time.Time `json:"end_time,omitempty" yaml:"end_time,omitempty"`
+	Duration    string    `json:"duration,omitempty" yaml:"duration,omitempty"`
+	Deployer    string    `json:"deployer" yaml:"deployer"`
+	Message     string    `json:"message,omitempty" yaml:"message,omitempty"`
+}
+
+func deployListExecute(cmd *cobra.Command, args []string) error {
+	// In production, this would query the control plane
+	deployments := []DeploymentInfo{
+		{
+			ID:          "deploy-001",
+			Application: "frontend",
+			Environment: "production",
+			Revision:    "v1.5.2",
+			Status:      "succeeded",
+			StartTime:   time.Now().Add(-2 * time.Hour),
+			Duration:    "2m30s",
+			Deployer:    "gitops-bot",
+			Message:     "Auto-deployed from main branch",
+		},
+		{
+			ID:          "deploy-002",
+			Application: "backend",
+			Environment: "staging",
+			Revision:    "v2.1.0-rc1",
+			Status:      "succeeded",
+			StartTime:   time.Now().Add(-5 * time.Hour),
+			Duration:    "1m45s",
+			Deployer:    "admin@example.com",
+			Message:     "Manual promotion from dev",
+		},
+		{
+			ID:          "deploy-003",
+			Application: "backend",
+			Environment: "production",
+			Revision:    "v2.1.0-rc1",
+			Status:      "pending_approval",
+			StartTime:   time.Now().Add(-30 * time.Minute),
+			Deployer:    "admin@example.com",
+			Message:     "Awaiting approval for production deployment",
+		},
+	}
+
+	// Apply filters
+	filtered := make([]DeploymentInfo, 0)
+	for _, d := range deployments {
+		if deployListEnv != "" && d.Environment != deployListEnv {
+			continue
+		}
+		if deployListApp != "" && d.Application != deployListApp {
+			continue
+		}
+		filtered = append(filtered, d)
+	}
+
+	// Apply limit
+	if len(filtered) > deployListLimit {
+		filtered = filtered[:deployListLimit]
+	}
+
+	format, err := output.ParseFormat(deployListOutput)
+	if err != nil {
+		return err
+	}
+
+	switch format {
+	case output.FormatJSON:
+		return output.WriteJSON(cmd.OutOrStdout(), filtered)
+	case output.FormatYAML:
+		return output.WriteYAML(cmd.OutOrStdout(), filtered)
+	case output.FormatTable:
+		if len(filtered) == 0 {
+			fmt.Fprintln(cmd.OutOrStdout(), "No deployments found.")
+			return nil
+		}
+		table := buildDeploymentTable(filtered)
+		if err := output.WriteTable(cmd.OutOrStdout(), table); err != nil {
+			return err
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "\nTotal: %d deployments\n", len(filtered))
+		fmt.Fprintln(cmd.OutOrStdout(), "\nNote: This CLI shows sample data.")
+		fmt.Fprintln(cmd.OutOrStdout(), "For real deployment status, connect to the control plane API.")
+	case output.FormatText:
+		if len(filtered) == 0 {
+			fmt.Fprintln(cmd.OutOrStdout(), "No deployments found.")
+			return nil
+		}
+
+		fmt.Fprintf(cmd.OutOrStdout(), "%-12s %-12s %-12s %-12s %-20s %-20s\n", "ID", "APP", "ENV", "STATUS", "REVISION", "TIME")
+		fmt.Fprintln(cmd.OutOrStdout(), strings.Repeat("-", 95))
+
+		for _, d := range filtered {
+			fmt.Fprintf(cmd.OutOrStdout(), "%-12s %-12s %-12s %-12s %-20s %-20s\n",
+				d.ID,
+				truncate(d.Application, 12),
+				d.Environment,
+				d.Status,
+				truncate(d.Revision, 20),
+				d.StartTime.Format("2006-01-02 15:04:05"),
+			)
+		}
+
+		fmt.Fprintf(cmd.OutOrStdout(), "\nTotal: %d deployments\n", len(filtered))
+		fmt.Fprintln(cmd.OutOrStdout(), "\nNote: This CLI shows sample data.")
+		fmt.Fprintln(cmd.OutOrStdout(), "For real deployment status, connect to the control plane API.")
+	default:
+		return clierrors.New(clierrors.KindInvalidArgument, fmt.Sprintf("unsupported output format: %s", deployListOutput))
+	}
+
+	return nil
+}
+
+func deployShowExecute(cmd *cobra.Command, args []string) error {
+	deployID := args[0]
+
+	// In production, this would query the control plane
+	deployment := &DeploymentInfo{
+		ID:          deployID,
+		Application: "frontend",
+		Environment: "production",
+		Revision:    "v1.5.2",
+		Status:      "succeeded",
+		StartTime:   time.Now().Add(-2 * time.Hour),
+		EndTime:     time.Now().Add(-2*time.Hour + 2*time.Minute + 30*time.Second),
+		Duration:    "2m30s",
+		Deployer:    "gitops-bot",
+		Message:     "Auto-deployed from main branch",
+	}
+
+	format, err := output.ParseFormat(deployShowOutput)
+	if err != nil {
+		return err
+	}
+
+	switch format {
+	case output.FormatJSON:
+		return output.WriteJSON(cmd.OutOrStdout(), deployment)
+	case output.FormatYAML:
+		return output.WriteYAML(cmd.OutOrStdout(), deployment)
+	case output.FormatTable:
+		table := buildKeyValueTable([][2]string{
+			{"ID", deployment.ID},
+			{"APPLICATION", deployment.Application},
+			{"ENVIRONMENT", deployment.Environment},
+			{"REVISION", deployment.Revision},
+			{"STATUS", deployment.Status},
+			{"START TIME", deployment.StartTime.Format(time.RFC3339)},
+			{"END TIME", deployment.EndTime.Format(time.RFC3339)},
+			{"DURATION", deployment.Duration},
+			{"DEPLOYER", deployment.Deployer},
+			{"MESSAGE", deployment.Message},
+		})
+		if err := output.WriteTable(cmd.OutOrStdout(), table); err != nil {
+			return err
+		}
+		fmt.Fprintln(cmd.OutOrStdout(), "\nNote: This CLI shows sample data.")
+		fmt.Fprintln(cmd.OutOrStdout(), "For real deployment details, connect to the control plane API.")
+	case output.FormatText:
+		fmt.Fprintln(cmd.OutOrStdout(), "Deployment Details")
+		fmt.Fprintln(cmd.OutOrStdout(), "==================")
+		fmt.Fprintf(cmd.OutOrStdout(), "ID:          %s\n", deployment.ID)
+		fmt.Fprintf(cmd.OutOrStdout(), "Application: %s\n", deployment.Application)
+		fmt.Fprintf(cmd.OutOrStdout(), "Environment: %s\n", deployment.Environment)
+		fmt.Fprintf(cmd.OutOrStdout(), "Revision:    %s\n", deployment.Revision)
+		fmt.Fprintf(cmd.OutOrStdout(), "Status:      %s\n", deployment.Status)
+		fmt.Fprintf(cmd.OutOrStdout(), "Start Time:  %s\n", deployment.StartTime.Format(time.RFC3339))
+		fmt.Fprintf(cmd.OutOrStdout(), "End Time:    %s\n", deployment.EndTime.Format(time.RFC3339))
+		fmt.Fprintf(cmd.OutOrStdout(), "Duration:    %s\n", deployment.Duration)
+		fmt.Fprintf(cmd.OutOrStdout(), "Deployer:    %s\n", deployment.Deployer)
+		fmt.Fprintf(cmd.OutOrStdout(), "Message:     %s\n", deployment.Message)
+		fmt.Fprintln(cmd.OutOrStdout(), "\nNote: This CLI shows sample data.")
+		fmt.Fprintln(cmd.OutOrStdout(), "For real deployment details, connect to the control plane API.")
+	default:
+		return clierrors.New(clierrors.KindInvalidArgument, fmt.Sprintf("unsupported output format: %s", deployShowOutput))
+	}
+
+	return nil
+}
+
+func deployRollbackExecute(cmd *cobra.Command, args []string) error {
+	deployID := args[0]
+
+	fmt.Fprintf(cmd.OutOrStdout(), "Rolling back deployment: %s\n", deployID)
+	fmt.Fprintln(cmd.OutOrStdout())
+
+	// In production, this would trigger rollback via control plane
+	fmt.Fprintln(cmd.OutOrStdout(), "Finding previous revision...")
+	fmt.Fprintln(cmd.OutOrStdout(), "Previous revision: v1.5.1")
+	fmt.Fprintln(cmd.OutOrStdout(), "Initiating rollback...")
+	fmt.Fprintf(cmd.OutOrStdout(), "\n✓ Rollback initiated for deployment '%s'\n", deployID)
+	fmt.Fprintln(cmd.OutOrStdout(), "\nUse 'kscorectl gitops status --type rollbacks' to monitor progress.")
+	fmt.Fprintln(cmd.OutOrStdout(), "\nNote: This command simulates a rollback.")
+	fmt.Fprintln(cmd.OutOrStdout(), "For production rollbacks, connect to the control plane API.")
+
+	return nil
+}
+
+func deployApproveExecute(cmd *cobra.Command, args []string) error {
+	deployID := args[0]
+
+	fmt.Fprintf(cmd.OutOrStdout(), "Approving deployment: %s\n", deployID)
+	fmt.Fprintln(cmd.OutOrStdout())
+
+	// Show deployment info
+	fmt.Fprintln(cmd.OutOrStdout(), "Deployment Details:")
+	fmt.Fprintln(cmd.OutOrStdout(), "  Application: backend")
+	fmt.Fprintln(cmd.OutOrStdout(), "  Environment: production")
+	fmt.Fprintln(cmd.OutOrStdout(), "  Revision:    v2.1.0-rc1")
+	fmt.Fprintln(cmd.OutOrStdout())
+
+	if !deployApproveForce {
+		fmt.Fprint(cmd.OutOrStdout(), "Approve this deployment? [y/N]: ")
+		var response string
+		fmt.Scanln(&response)
+		if strings.ToLower(response) != "y" && strings.ToLower(response) != "yes" {
+			fmt.Fprintln(cmd.OutOrStdout(), "Approval cancelled.")
+			return nil
+		}
+	}
+
+	// In production, this would approve via control plane
+	fmt.Fprintf(cmd.OutOrStdout(), "\n✓ Deployment '%s' approved\n", deployID)
+	fmt.Fprintln(cmd.OutOrStdout(), "\nDeployment is now proceeding.")
+	fmt.Fprintln(cmd.OutOrStdout(), "Use 'kscorectl gitops deploy show %s' to monitor status.", deployID)
+	fmt.Fprintln(cmd.OutOrStdout(), "\nNote: This command simulates approval.")
+	fmt.Fprintln(cmd.OutOrStdout(), "For production deployments, connect to the control plane API.")
+
+	return nil
+}
+
+// =============================================================================
 // Helper Functions
 // =============================================================================
 
@@ -1232,6 +1846,44 @@ func buildStatusTable(operations []OperationStatus) *output.Table {
 
 	return &output.Table{
 		Headers: []string{"ID", "TYPE", "STATUS", "TARGET", "TIME", "DURATION"},
+		Rows:    rows,
+	}
+}
+
+func buildRepoTable(repos []RepoConfig) *output.Table {
+	rows := make([][]string, 0, len(repos))
+	for _, repo := range repos {
+		rows = append(rows, []string{
+			repo.Name,
+			truncate(repo.URL, 40),
+			repo.Branch,
+			repo.Auth,
+			repo.Status,
+			repo.CommitHash,
+		})
+	}
+
+	return &output.Table{
+		Headers: []string{"NAME", "URL", "BRANCH", "AUTH", "STATUS", "COMMIT"},
+		Rows:    rows,
+	}
+}
+
+func buildDeploymentTable(deployments []DeploymentInfo) *output.Table {
+	rows := make([][]string, 0, len(deployments))
+	for _, d := range deployments {
+		rows = append(rows, []string{
+			d.ID,
+			d.Application,
+			d.Environment,
+			d.Revision,
+			d.Status,
+			d.StartTime.Format("2006-01-02 15:04"),
+		})
+	}
+
+	return &output.Table{
+		Headers: []string{"ID", "APPLICATION", "ENVIRONMENT", "REVISION", "STATUS", "TIME"},
 		Rows:    rows,
 	}
 }

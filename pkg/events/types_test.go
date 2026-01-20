@@ -290,3 +290,25 @@ func TestEventSubject(t *testing.T) {
 		t.Errorf("Expected subject to be %s, got %s", EventTypeAgentConnect, event.Subject)
 	}
 }
+
+func TestBootstrapEventTypes(t *testing.T) {
+	tests := []EventType{
+		EventTypeBootstrapGenerate,
+		EventTypeBootstrapValidate,
+		EventTypeBootstrapUse,
+		EventTypeBootstrapRegister,
+		EventTypeBootstrapRevoke,
+		EventTypeBootstrapExpire,
+		EventTypeBootstrapCleanup,
+	}
+
+	for _, eventType := range tests {
+		event := NewEvent(eventType).Build()
+		if event.Type != eventType {
+			t.Errorf("Expected type %s, got %s", eventType, event.Type)
+		}
+		if event.Subject != string(eventType) {
+			t.Errorf("Expected subject %s, got %s", eventType, event.Subject)
+		}
+	}
+}

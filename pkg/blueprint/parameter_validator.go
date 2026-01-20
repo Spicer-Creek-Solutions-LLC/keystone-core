@@ -213,7 +213,89 @@ func (v *ParameterValidator) ValidateParameters(schemas map[string]ParameterSche
 		}
 	}
 
+	// Second pass: check required_if conditions
+	for name, schema := range schemas {
+		// Skip feature-gated parameters if feature not enabled
+		if schema.Feature != "" && !containsString(enabledFeatures, schema.Feature) {
+			continue
+		}
+
+		// Check required_if conditions
+		if len(schema.RequiredIf) > 0 {
+			if err := v.validateRequiredIf(name, schema, result); err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	return result, nil
+}
+
+// validateRequiredIf checks if a parameter is required based on other parameter values.
+// The parameter is required if ANY of the conditions match (OR logic).
+func (v *ParameterValidator) validateRequiredIf(name string, schema ParameterSchema, values map[string]interface{}) error {
+	// If the parameter already has a value, no need to check
+	if values[name] != nil {
+		return nil
+	}
+
+	// If the parameter has a default, no need to check
+	if schema.Default != nil {
+		return nil
+	}
+
+	// Check each condition (OR logic - any match makes parameter required)
+	for _, condition := range schema.RequiredIf {
+		if v.conditionMatches(condition, values) {
+			// Build a description of the condition for the error message
+			condDesc := formatCondition(condition)
+			return fmt.Errorf("parameter %s is required when %s", name, condDesc)
+		}
+	}
+
+	return nil
+}
+
+// conditionMatches checks if all key-value pairs in a condition match the current values.
+func (v *ParameterValidator) conditionMatches(condition map[string]interface{}, values map[string]interface{}) bool {
+	for paramName, expectedValue := range condition {
+		actualValue := values[paramName]
+
+		// Compare values - handle type coercion for common cases
+		if !valuesEqual(actualValue, expectedValue) {
+			return false
+		}
+	}
+	return true
+}
+
+// valuesEqual compares two values with type coercion for common cases.
+func valuesEqual(a, b interface{}) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+
+	// Direct comparison
+	if a == b {
+		return true
+	}
+
+	// String comparison
+	aStr := fmt.Sprintf("%v", a)
+	bStr := fmt.Sprintf("%v", b)
+	return aStr == bStr
+}
+
+// formatCondition formats a condition map for error messages.
+func formatCondition(condition map[string]interface{}) string {
+	parts := make([]string, 0, len(condition))
+	for k, v := range condition {
+		parts = append(parts, fmt.Sprintf("%s=%v", k, v))
+	}
+	return strings.Join(parts, " and ")
 }
 
 // validateType validates that a value matches the expected type.

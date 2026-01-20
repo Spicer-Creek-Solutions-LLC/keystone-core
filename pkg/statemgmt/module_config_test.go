@@ -261,6 +261,58 @@ func TestLimitsModule_BuildContent(t *testing.T) {
 	}
 }
 
+func TestLimitsModule_Test(t *testing.T) {
+	m := NewLimitsModule()
+	decl := &StateDeclaration{
+		ID:         "limits",
+		Module:     "limits",
+		State:      "present",
+		Parameters: map[string]interface{}{},
+	}
+
+	ok, err := m.Test(context.Background(), decl)
+	if err == nil || ok {
+		t.Fatal("expected error for missing name")
+	}
+
+	decl.Parameters["name"] = "test"
+	ok, err = m.Test(context.Background(), decl)
+	if err != nil || !ok {
+		t.Fatalf("expected ok after setting name, err=%v", err)
+	}
+}
+
+func TestLimitsModule_BuildContent_MultipleLimits(t *testing.T) {
+	m := NewLimitsModule()
+	decl := &StateDeclaration{
+		ID:     "limits",
+		Module: "limits",
+		State:  "present",
+		Parameters: map[string]interface{}{
+			"name": "multi",
+			"limits": []interface{}{
+				map[string]interface{}{
+					"domain":     "*",
+					"limit_type": "soft",
+					"item":       "nofile",
+					"value":      "4096",
+				},
+				map[string]interface{}{
+					"domain":     "root",
+					"limit_type": "hard",
+					"item":       "nproc",
+					"value":      "8192",
+				},
+			},
+		},
+	}
+
+	content := m.buildLimitsContent(decl)
+	if !strings.Contains(content, "soft nofile 4096") || !strings.Contains(content, "root soft nproc 8192") {
+		t.Fatalf("expected limits to be rendered, got:\n%s", content)
+	}
+}
+
 // =============================================================================
 // Modprobe Module Tests
 // =============================================================================
@@ -343,6 +395,45 @@ func TestSyslogModule_BuildContent(t *testing.T) {
 	}
 	if !strings.Contains(content, "/var/log/myapp.log") {
 		t.Error("expected content to contain destination")
+	}
+}
+
+func TestSyslogModule_Test(t *testing.T) {
+	m := NewSyslogModule()
+	decl := &StateDeclaration{
+		ID:         "syslog",
+		Module:     "syslog",
+		State:      "present",
+		Parameters: map[string]interface{}{},
+	}
+
+	ok, err := m.Test(context.Background(), decl)
+	if err == nil || ok {
+		t.Fatal("expected error for missing name")
+	}
+
+	decl.Parameters["name"] = "test"
+	ok, err = m.Test(context.Background(), decl)
+	if err != nil || !ok {
+		t.Fatalf("expected ok after setting name, err=%v", err)
+	}
+}
+
+func TestModprobeModule_IsModuleLoadedFalse(t *testing.T) {
+	m := NewModprobeModule()
+	loaded, err := m.isModuleLoaded("kscore-not-a-real-module")
+	if err != nil {
+		t.Fatalf("isModuleLoaded returned error: %v", err)
+	}
+	if loaded {
+		t.Fatal("expected module to not be loaded")
+	}
+}
+
+func TestModprobeModule_IsModuleBlacklistedFalse(t *testing.T) {
+	m := NewModprobeModule()
+	if m.isModuleBlacklisted("kscore-not-a-real-module") {
+		t.Fatal("expected module to not be blacklisted")
 	}
 }
 

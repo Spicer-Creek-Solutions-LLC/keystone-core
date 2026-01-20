@@ -583,6 +583,580 @@ func TestIsValidFileMode(t *testing.T) {
 	}
 }
 
+func TestValidationResult_ErrorMessages(t *testing.T) {
+	tests := []struct {
+		name     string
+		issues   []*ValidationIssue
+		expected []string
+	}{
+		{
+			name:     "no issues",
+			issues:   nil,
+			expected: nil,
+		},
+		{
+			name: "only warnings and info",
+			issues: []*ValidationIssue{
+				{Level: ValidationLevelWarning, Message: "warning message"},
+				{Level: ValidationLevelInfo, Message: "info message"},
+			},
+			expected: nil,
+		},
+		{
+			name: "only errors",
+			issues: []*ValidationIssue{
+				{Level: ValidationLevelError, Message: "error 1"},
+				{Level: ValidationLevelError, Message: "error 2"},
+			},
+			expected: []string{"error: error 1", "error: error 2"},
+		},
+		{
+			name: "mixed issues",
+			issues: []*ValidationIssue{
+				{Level: ValidationLevelError, Message: "error message"},
+				{Level: ValidationLevelWarning, Message: "warning message"},
+				{Level: ValidationLevelInfo, Message: "info message"},
+			},
+			expected: []string{"error: error message"},
+		},
+		{
+			name: "error with module and state ID",
+			issues: []*ValidationIssue{
+				{Level: ValidationLevelError, Module: "file", StateID: "test", Message: "error message"},
+			},
+			expected: []string{"[file.test] error: error message"},
+		},
+		{
+			name: "error with field",
+			issues: []*ValidationIssue{
+				{Level: ValidationLevelError, Message: "error message", Field: "mode"},
+			},
+			expected: []string{"error: error message (field: mode)"},
+		},
+		{
+			name: "error with line and column",
+			issues: []*ValidationIssue{
+				{Level: ValidationLevelError, Message: "error message", Line: 10, Column: 5},
+			},
+			expected: []string{"error: error message at line 10, column 5"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := &ValidationResult{Valid: true}
+			for _, issue := range tt.issues {
+				result.AddIssue(issue)
+			}
+
+			msgs := result.ErrorMessages()
+
+			if len(msgs) != len(tt.expected) {
+				t.Errorf("Expected %d error messages, got %d", len(tt.expected), len(msgs))
+				return
+			}
+
+			for i, msg := range msgs {
+				if msg != tt.expected[i] {
+					t.Errorf("Expected error message %d to be %q, got %q", i, tt.expected[i], msg)
+				}
+			}
+		})
+	}
+}
+
+func TestValidateFieldType(t *testing.T) {
+	tests := []struct {
+		name      string
+		field     string
+		value     interface{}
+		expected  FieldType
+		wantError bool
+	}{
+		// String type
+		{
+			name:      "valid string",
+			field:     "source",
+			value:     "/path/to/file",
+			expected:  FieldTypeString,
+			wantError: false,
+		},
+		{
+			name:      "invalid string - int",
+			field:     "source",
+			value:     123,
+			expected:  FieldTypeString,
+			wantError: true,
+		},
+		{
+			name:      "invalid string - bool",
+			field:     "source",
+			value:     true,
+			expected:  FieldTypeString,
+			wantError: true,
+		},
+		// Bool type
+		{
+			name:      "valid bool",
+			field:     "enabled",
+			value:     true,
+			expected:  FieldTypeBool,
+			wantError: false,
+		},
+		{
+			name:      "invalid bool - string",
+			field:     "enabled",
+			value:     "true",
+			expected:  FieldTypeBool,
+			wantError: true,
+		},
+		{
+			name:      "invalid bool - int",
+			field:     "enabled",
+			value:     1,
+			expected:  FieldTypeBool,
+			wantError: true,
+		},
+		// Int type
+		{
+			name:      "valid int",
+			field:     "uid",
+			value:     1000,
+			expected:  FieldTypeInt,
+			wantError: false,
+		},
+		{
+			name:      "valid int - int32",
+			field:     "uid",
+			value:     int32(1000),
+			expected:  FieldTypeInt,
+			wantError: false,
+		},
+		{
+			name:      "valid int - int64",
+			field:     "uid",
+			value:     int64(1000),
+			expected:  FieldTypeInt,
+			wantError: false,
+		},
+		{
+			name:      "valid int - float64",
+			field:     "uid",
+			value:     float64(1000),
+			expected:  FieldTypeInt,
+			wantError: false,
+		},
+		{
+			name:      "invalid int - string",
+			field:     "uid",
+			value:     "1000",
+			expected:  FieldTypeInt,
+			wantError: true,
+		},
+		// Float type
+		{
+			name:      "valid float - float64",
+			field:     "ratio",
+			value:     3.14,
+			expected:  FieldTypeFloat,
+			wantError: false,
+		},
+		{
+			name:      "valid float - float32",
+			field:     "ratio",
+			value:     float32(3.14),
+			expected:  FieldTypeFloat,
+			wantError: false,
+		},
+		{
+			name:      "valid float - int",
+			field:     "ratio",
+			value:     3,
+			expected:  FieldTypeFloat,
+			wantError: false,
+		},
+		{
+			name:      "valid float - int64",
+			field:     "ratio",
+			value:     int64(3),
+			expected:  FieldTypeFloat,
+			wantError: false,
+		},
+		{
+			name:      "invalid float - string",
+			field:     "ratio",
+			value:     "3.14",
+			expected:  FieldTypeFloat,
+			wantError: true,
+		},
+		// List type
+		{
+			name:      "valid list",
+			field:     "groups",
+			value:     []interface{}{"admin", "users"},
+			expected:  FieldTypeList,
+			wantError: false,
+		},
+		{
+			name:      "invalid list - string slice",
+			field:     "groups",
+			value:     []string{"admin", "users"},
+			expected:  FieldTypeList,
+			wantError: true,
+		},
+		{
+			name:      "invalid list - string",
+			field:     "groups",
+			value:     "admin,users",
+			expected:  FieldTypeList,
+			wantError: true,
+		},
+		// Map type
+		{
+			name:      "valid map",
+			field:     "metadata",
+			value:     map[string]interface{}{"key": "value"},
+			expected:  FieldTypeMap,
+			wantError: false,
+		},
+		{
+			name:      "invalid map - string map",
+			field:     "metadata",
+			value:     map[string]string{"key": "value"},
+			expected:  FieldTypeMap,
+			wantError: true,
+		},
+		{
+			name:      "invalid map - slice",
+			field:     "metadata",
+			value:     []interface{}{"key", "value"},
+			expected:  FieldTypeMap,
+			wantError: true,
+		},
+		// Any type (always valid)
+		{
+			name:      "any type - string",
+			field:     "data",
+			value:     "string value",
+			expected:  FieldTypeAny,
+			wantError: false,
+		},
+		{
+			name:      "any type - int",
+			field:     "data",
+			value:     123,
+			expected:  FieldTypeAny,
+			wantError: false,
+		},
+		{
+			name:      "any type - nil",
+			field:     "data",
+			value:     nil,
+			expected:  FieldTypeAny,
+			wantError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateFieldType(tt.field, tt.value, tt.expected)
+			if tt.wantError && err == nil {
+				t.Errorf("Expected error but got none")
+			}
+			if !tt.wantError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+		})
+	}
+}
+
+func TestContainsStr(t *testing.T) {
+	tests := []struct {
+		name     string
+		slice    []string
+		item     string
+		expected bool
+	}{
+		{
+			name:     "found in slice",
+			slice:    []string{"apple", "banana", "cherry"},
+			item:     "banana",
+			expected: true,
+		},
+		{
+			name:     "not found in slice",
+			slice:    []string{"apple", "banana", "cherry"},
+			item:     "grape",
+			expected: false,
+		},
+		{
+			name:     "empty slice",
+			slice:    []string{},
+			item:     "apple",
+			expected: false,
+		},
+		{
+			name:     "nil slice",
+			slice:    nil,
+			item:     "apple",
+			expected: false,
+		},
+		{
+			name:     "first element",
+			slice:    []string{"apple", "banana", "cherry"},
+			item:     "apple",
+			expected: true,
+		},
+		{
+			name:     "last element",
+			slice:    []string{"apple", "banana", "cherry"},
+			item:     "cherry",
+			expected: true,
+		},
+		{
+			name:     "case sensitive",
+			slice:    []string{"Apple", "Banana"},
+			item:     "apple",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := containsStr(tt.slice, tt.item)
+			if result != tt.expected {
+				t.Errorf("Expected %v, got %v", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestKnownModuleNames(t *testing.T) {
+	tests := []struct {
+		name     string
+		modules  map[string]*ModuleSchema
+		expected []string
+	}{
+		{
+			name:     "empty map",
+			modules:  map[string]*ModuleSchema{},
+			expected: []string{},
+		},
+		{
+			name: "single module",
+			modules: map[string]*ModuleSchema{
+				"file": {Name: "file"},
+			},
+			expected: []string{"file"},
+		},
+		{
+			name: "multiple modules sorted",
+			modules: map[string]*ModuleSchema{
+				"service": {Name: "service"},
+				"file":    {Name: "file"},
+				"package": {Name: "package"},
+			},
+			expected: []string{"file", "package", "service"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := knownModuleNames(tt.modules)
+
+			if len(result) != len(tt.expected) {
+				t.Errorf("Expected %d names, got %d", len(tt.expected), len(result))
+				return
+			}
+
+			for i, name := range result {
+				if name != tt.expected[i] {
+					t.Errorf("Expected name %d to be %q, got %q", i, tt.expected[i], name)
+				}
+			}
+		})
+	}
+}
+
+func TestValidationIssue_Error(t *testing.T) {
+	tests := []struct {
+		name     string
+		issue    *ValidationIssue
+		expected string
+	}{
+		{
+			name: "basic error",
+			issue: &ValidationIssue{
+				Level:   ValidationLevelError,
+				Message: "test error",
+			},
+			expected: "error: test error",
+		},
+		{
+			name: "with module only",
+			issue: &ValidationIssue{
+				Level:   ValidationLevelWarning,
+				Module:  "file",
+				Message: "test warning",
+			},
+			expected: "[file] warning: test warning",
+		},
+		{
+			name: "with module and state ID",
+			issue: &ValidationIssue{
+				Level:   ValidationLevelError,
+				Module:  "file",
+				StateID: "test-file",
+				Message: "test error",
+			},
+			expected: "[file.test-file] error: test error",
+		},
+		{
+			name: "with field",
+			issue: &ValidationIssue{
+				Level:   ValidationLevelError,
+				Message: "test error",
+				Field:   "mode",
+			},
+			expected: "error: test error (field: mode)",
+		},
+		{
+			name: "with line only",
+			issue: &ValidationIssue{
+				Level:   ValidationLevelError,
+				Message: "test error",
+				Line:    10,
+			},
+			expected: "error: test error at line 10",
+		},
+		{
+			name: "with line and column",
+			issue: &ValidationIssue{
+				Level:   ValidationLevelError,
+				Message: "test error",
+				Line:    10,
+				Column:  5,
+			},
+			expected: "error: test error at line 10, column 5",
+		},
+		{
+			name: "full details",
+			issue: &ValidationIssue{
+				Level:   ValidationLevelError,
+				Module:  "file",
+				StateID: "test-file",
+				Message: "test error",
+				Field:   "mode",
+				Line:    10,
+				Column:  5,
+			},
+			expected: "[file.test-file] error: test error (field: mode) at line 10, column 5",
+		},
+		{
+			name: "info level",
+			issue: &ValidationIssue{
+				Level:   ValidationLevelInfo,
+				Message: "info message",
+			},
+			expected: "info: info message",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.issue.Error()
+			if result != tt.expected {
+				t.Errorf("Expected %q, got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestValidationResult_AddIssue(t *testing.T) {
+	tests := []struct {
+		name           string
+		levels         []ValidationLevel
+		wantErrors     int
+		wantWarnings   int
+		wantInfos      int
+		wantValid      bool
+	}{
+		{
+			name:         "no issues",
+			levels:       nil,
+			wantErrors:   0,
+			wantWarnings: 0,
+			wantInfos:    0,
+			wantValid:    true,
+		},
+		{
+			name:         "single error",
+			levels:       []ValidationLevel{ValidationLevelError},
+			wantErrors:   1,
+			wantWarnings: 0,
+			wantInfos:    0,
+			wantValid:    false,
+		},
+		{
+			name:         "single warning",
+			levels:       []ValidationLevel{ValidationLevelWarning},
+			wantErrors:   0,
+			wantWarnings: 1,
+			wantInfos:    0,
+			wantValid:    true,
+		},
+		{
+			name:         "single info",
+			levels:       []ValidationLevel{ValidationLevelInfo},
+			wantErrors:   0,
+			wantWarnings: 0,
+			wantInfos:    1,
+			wantValid:    true,
+		},
+		{
+			name: "mixed issues",
+			levels: []ValidationLevel{
+				ValidationLevelError,
+				ValidationLevelWarning,
+				ValidationLevelInfo,
+				ValidationLevelError,
+				ValidationLevelWarning,
+			},
+			wantErrors:   2,
+			wantWarnings: 2,
+			wantInfos:    1,
+			wantValid:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := &ValidationResult{Valid: true}
+
+			for i, level := range tt.levels {
+				result.AddIssue(&ValidationIssue{
+					Level:   level,
+					Message: "test",
+					Code:    "TEST" + string(rune('0'+i)),
+				})
+			}
+
+			if result.Errors != tt.wantErrors {
+				t.Errorf("Expected %d errors, got %d", tt.wantErrors, result.Errors)
+			}
+			if result.Warnings != tt.wantWarnings {
+				t.Errorf("Expected %d warnings, got %d", tt.wantWarnings, result.Warnings)
+			}
+			if result.Infos != tt.wantInfos {
+				t.Errorf("Expected %d infos, got %d", tt.wantInfos, result.Infos)
+			}
+			if result.Valid != tt.wantValid {
+				t.Errorf("Expected valid=%v, got valid=%v", tt.wantValid, result.Valid)
+			}
+		})
+	}
+}
+
 func BenchmarkValidator_Validate(b *testing.B) {
 	validator := NewValidator()
 

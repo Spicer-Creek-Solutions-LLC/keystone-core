@@ -25,6 +25,152 @@ Internal project policies, design philosophies, and architectural guardrails ins
   - Sensitive data handling and redaction guidelines
   - Contributor security guidelines with code patterns to avoid
 
+### Epic 35: Network Protocol Expansion (Planned)
+
+Expand network device management with additional protocols and vendor support.
+
+- **NETCONF Protocol Adapter** (RFC 6241)
+  - Full NETCONF 1.0/1.1 implementation over SSH
+  - YANG model support for configuration validation
+  - Capability negotiation and session management
+  - Candidate/running datastore operations
+
+- **RESTCONF Protocol Adapter** (RFC 8040)
+  - RESTful interface to YANG-modeled data
+  - JSON and XML encoding support
+  - Event notifications via SSE
+
+- **gNMI/gNOI Protocol Adapter**
+  - gRPC Network Management Interface
+  - Streaming telemetry subscription
+  - gNOI for operational commands (reboot, cert rotation)
+
+- **Telnet Protocol Adapter**
+  - Legacy device support with expect-style automation
+  - Prompt detection and command parsing
+  - Session management with connection pooling
+
+- **Expanded Vendor Support** (15+ vendors)
+  - HP/Aruba, Dell/Force10, Fortinet FortiOS
+  - F5 BIG-IP, Palo Alto PAN-OS, Checkpoint Gaia
+  - Extreme, Brocade, MikroTik, Ubiquiti
+  - Nokia SR OS, Huawei VRP, ZTE ZXR
+
+- **Universal Credential Rotation**
+  - Protocol-aware rotation strategies
+  - Dual-credential verification
+  - Rollback on rotation failure
+  - Audit logging for all credential changes
+
+### Epic 34: Blueprint Marketplace & Ecosystem (Planned)
+
+Create a complete ecosystem for sharing, discovering, and managing blueprints.
+
+- **OCI-Compatible Registry**
+  - Blueprint storage with content-addressable layers
+  - Semantic versioning with tag support
+  - Replication between registries
+  - Garbage collection for unused layers
+
+- **Marketplace Web UI**
+  - React-based single-page application
+  - Blueprint search with faceted filtering
+  - Publisher profiles and verification badges
+  - Usage analytics and download statistics
+
+- **Publisher Verification**
+  - Cosign-based signature verification
+  - Publisher identity attestation
+  - Automated security scanning
+  - License compliance checking
+
+- **Blueprint Testing Framework**
+  - Unit testing for blueprint logic
+  - Integration testing with mock environments
+  - Compliance validation against policies
+  - Performance benchmarking
+
+- **Automatic Update Mechanism**
+  - Update policies (auto, manual, scheduled)
+  - Staged rollouts with health checks
+  - Rollback on update failure
+  - Update notifications and changelogs
+
+### Epic 33: Multi-Cloud & Real Environment CI/CD (Planned)
+
+Establish real-world testing infrastructure across cloud providers and network environments.
+
+- **Multi-Cloud Kubernetes Testing**
+  - AWS EKS cluster provisioning and testing
+  - GCP GKE cluster provisioning and testing
+  - Azure AKS cluster provisioning and testing
+  - Cross-cloud agent federation testing
+
+- **Chaos Engineering Framework**
+  - Network partition simulation
+  - Latency injection with configurable profiles
+  - Pod/node kill experiments
+  - Leader failover testing
+  - Steady-state hypothesis probes
+
+- **Network Device Test Lab**
+  - Virtual network device environments (GNS3, EVE-NG)
+  - Real hardware integration for vendor validation
+  - Protocol compliance testing
+  - Firmware version matrix testing
+
+- **Performance Baseline Tracking**
+  - Automated performance regression detection
+  - Historical trend analysis
+  - Benchmark comparison across versions
+  - Alerting on significant degradation
+
+- **Cloud Provider Integration Testing**
+  - Real environment attestation validation
+  - IPv6 dual-stack testing per provider
+  - Metadata service integration testing
+  - Cost-optimized ephemeral infrastructure (<$500/month)
+
+### Epic 32: Cross-Platform Testing Infrastructure (Planned)
+
+Comprehensive testing infrastructure for Windows and macOS platforms.
+
+- **VM Provisioning Framework**
+  - Windows Server 2019/2022 VM templates
+  - Windows 10/11 desktop VM templates
+  - macOS Intel and ARM64 VM templates
+  - Automated VM lifecycle management
+
+- **Windows CI/CD Matrix**
+  - PowerShell 5.1 and 7.x testing
+  - Windows service installation and management
+  - Registry and Windows Features module testing
+  - MSI installer validation
+  - NTFS permissions and ACL testing
+
+- **macOS CI/CD Matrix**
+  - launchd service testing
+  - Homebrew package provider testing
+  - dscl user/group management testing
+  - Intel and Apple Silicon architecture testing
+
+- **Cross-Platform Stdlib Testing**
+  - All 84 stdlib modules tested on Windows/macOS
+  - Platform-specific module behavior validation
+  - Path handling and normalization testing
+  - Permission model differences documentation
+
+- **Bootstrap Testing**
+  - Windows bootstrap with MSI/Chocolatey
+  - macOS bootstrap with Homebrew/PKG
+  - Silent installation validation
+  - Upgrade path testing
+
+- **Starlark Debugger**
+  - Breakpoint support for module development
+  - Step execution and variable inspection
+  - Cross-platform debugger UI
+
 - **GLOSSARY.md** - Security and infrastructure terminology
   - 30+ security terms (attestation, CA, CEL, cipher suite, mTLS, OPA, SPIFFE, etc.)
   - 20+ infrastructure terms (agent, cluster, control plane, etcd, NATS, etc.)

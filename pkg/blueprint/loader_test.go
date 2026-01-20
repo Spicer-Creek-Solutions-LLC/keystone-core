@@ -887,3 +887,93 @@ func (m *mockStorage) Exists(ctx context.Context, name string, version string) (
 func (m *mockStorage) Close() error {
 	return nil
 }
+
+func TestBlueprintInclude_GetParameters(t *testing.T) {
+	tests := []struct {
+		name       string
+		include    BlueprintInclude
+		wantParams map[string]interface{}
+	}{
+		{
+			name: "parameters only",
+			include: BlueprintInclude{
+				Parameters: map[string]interface{}{
+					"domain": "example.com",
+					"port":   443,
+				},
+			},
+			wantParams: map[string]interface{}{
+				"domain": "example.com",
+				"port":   443,
+			},
+		},
+		{
+			name: "params only (alias)",
+			include: BlueprintInclude{
+				Params: map[string]interface{}{
+					"domain": "example.com",
+					"port":   443,
+				},
+			},
+			wantParams: map[string]interface{}{
+				"domain": "example.com",
+				"port":   443,
+			},
+		},
+		{
+			name: "both params and parameters - parameters takes precedence",
+			include: BlueprintInclude{
+				Parameters: map[string]interface{}{
+					"domain": "override.com",
+				},
+				Params: map[string]interface{}{
+					"domain": "original.com",
+					"port":   443,
+				},
+			},
+			wantParams: map[string]interface{}{
+				"domain": "override.com",
+				"port":   443,
+			},
+		},
+		{
+			name:       "neither params nor parameters",
+			include:    BlueprintInclude{},
+			wantParams: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.include.GetParameters()
+			if len(got) != len(tt.wantParams) {
+				t.Errorf("GetParameters() = %v, want %v", got, tt.wantParams)
+				return
+			}
+			for k, v := range tt.wantParams {
+				if got[k] != v {
+					t.Errorf("GetParameters()[%s] = %v, want %v", k, got[k], v)
+				}
+			}
+		})
+	}
+}
+
+func TestBlueprintInclude_ToLoadConfig_UsesParams(t *testing.T) {
+	include := BlueprintInclude{
+		Blueprint: "community/web-stack",
+		Version:   "1.0.0",
+		Params: map[string]interface{}{
+			"domain": "example.com",
+		},
+	}
+
+	config := include.ToLoadConfig()
+
+	if config.Parameters == nil {
+		t.Fatal("ToLoadConfig() Parameters is nil")
+	}
+	if config.Parameters["domain"] != "example.com" {
+		t.Errorf("ToLoadConfig() did not include params: got %v", config.Parameters)
+	}
+}

@@ -162,6 +162,49 @@ func TestCommandAction_Error(t *testing.T) {
 	}
 }
 
+func TestStateApplyAction(t *testing.T) {
+	called := false
+	var gotStateFile string
+	var gotCheckOnly bool
+
+	action := NewStateApplyAction("state-apply", "/etc/kscore/state.yaml", func(ctx context.Context, stateFile string, checkOnly bool) error {
+		called = true
+		gotStateFile = stateFile
+		gotCheckOnly = checkOnly
+		return nil
+	}).SetCheckOnly(true)
+
+	event := NewEvent(EventTypeStateChange).Source("/test").Build()
+	err := action.Execute(context.Background(), event)
+
+	if err != nil {
+		t.Fatalf("StateApplyAction failed: %v", err)
+	}
+	if !called {
+		t.Error("Expected state apply handler to be called")
+	}
+	if gotStateFile != "/etc/kscore/state.yaml" {
+		t.Errorf("unexpected state file: %s", gotStateFile)
+	}
+	if !gotCheckOnly {
+		t.Error("expected check-only mode")
+	}
+	if action.Type() != "state_apply" {
+		t.Errorf("Expected type=state_apply, got %s", action.Type())
+	}
+}
+
+func TestStateApplyAction_Error(t *testing.T) {
+	action := NewStateApplyAction("state-apply", "", nil)
+
+	event := NewEvent(EventTypeStateChange).Source("/test").Build()
+	err := action.Execute(context.Background(), event)
+
+	if err == nil {
+		t.Error("Expected error from missing handler/state file")
+	}
+}
+
 func TestFunctionAction(t *testing.T) {
 	executed := false
 	action := NewFunctionAction("test-function", func(ctx context.Context, event *Event) error {

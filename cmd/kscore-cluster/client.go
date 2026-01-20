@@ -283,6 +283,152 @@ func (c *ClusterClient) Restore(ctx context.Context, data []byte) error {
 	return nil
 }
 
+// GetHealth retrieves detailed cluster health information.
+func (c *ClusterClient) GetHealth(ctx context.Context) (*HealthReport, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/health", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("server error: %s - %s", resp.Status, string(body))
+	}
+
+	var health HealthReport
+	if err := json.NewDecoder(resp.Body).Decode(&health); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &health, nil
+}
+
+// GetShards retrieves the shard assignments for agents.
+func (c *ClusterClient) GetShards(ctx context.Context) (*ShardReport, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/shards", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("server error: %s - %s", resp.Status, string(body))
+	}
+
+	var shards ShardReport
+	if err := json.NewDecoder(resp.Body).Decode(&shards); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &shards, nil
+}
+
+// JoinCluster joins this node to an existing cluster.
+func (c *ClusterClient) JoinCluster(ctx context.Context, clusterAddr string) error {
+	body := fmt.Sprintf(`{"cluster_address": "%s"}`, clusterAddr)
+	req, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/join",
+		strings.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("server error: %s - %s", resp.Status, string(respBody))
+	}
+
+	return nil
+}
+
+// LeaveCluster removes this node from the cluster.
+func (c *ClusterClient) LeaveCluster(ctx context.Context, force bool) error {
+	url := c.baseURL + "/leave"
+	if force {
+		url += "?force=true"
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("server error: %s - %s", resp.Status, string(body))
+	}
+
+	return nil
+}
+
+// DrainMember drains agents from a cluster member.
+func (c *ClusterClient) DrainMember(ctx context.Context, memberID string) error {
+	req, err := http.NewRequestWithContext(ctx, "POST",
+		fmt.Sprintf("%s/members/%s/drain", c.baseURL, memberID), nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("server error: %s - %s", resp.Status, string(body))
+	}
+
+	return nil
+}
+
+// UndrainMember allows agents to be assigned to a cluster member again.
+func (c *ClusterClient) UndrainMember(ctx context.Context, memberID string) error {
+	req, err := http.NewRequestWithContext(ctx, "POST",
+		fmt.Sprintf("%s/members/%s/undrain", c.baseURL, memberID), nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("server error: %s - %s", resp.Status, string(body))
+	}
+
+	return nil
+}
+
 // getAPIScheme returns "https" by default, "http" only for localhost addresses.
 // This ensures production deployments use TLS while allowing HTTP for local development.
 func getAPIScheme(addr string) string {

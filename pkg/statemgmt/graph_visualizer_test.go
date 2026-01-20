@@ -280,7 +280,7 @@ func TestGraphVisualizer_EdgeTypes(t *testing.T) {
 					Module: "service",
 					State:  "running",
 					Requisites: Requisites{
-						Watch: []StateReference{{Module: "file", ID: "config"}},
+						Watch:   []StateReference{{Module: "file", ID: "config"}},
 						Require: []StateReference{{Module: "file", ID: "data"}},
 					},
 				},
@@ -473,6 +473,77 @@ func TestGraphVisualizer_ComplexGraph(t *testing.T) {
 		if output == "" {
 			t.Errorf("Format %s produced empty output", format)
 		}
+	}
+}
+
+func TestGraphVisualizer_DefaultFormat(t *testing.T) {
+	stateFile := &StateFile{
+		States: map[string][]StateDeclaration{
+			"file": {
+				{
+					ID:     "A",
+					Module: "file",
+					State:  "present",
+				},
+			},
+		},
+	}
+
+	viz := NewGraphVisualizer()
+	if err := viz.BuildFromStateFile(stateFile); err != nil {
+		t.Fatalf("Failed to build graph: %v", err)
+	}
+
+	output := viz.Render(GraphFormat("unknown"))
+	if !strings.Contains(output, "State Dependency Graph") {
+		t.Error("Expected default format to render text")
+	}
+}
+
+func TestVisualizeDependencies_Error(t *testing.T) {
+	stateFile := &StateFile{
+		States: map[string][]StateDeclaration{
+			"file": {
+				{
+					ID:     "A",
+					Module: "file",
+					State:  "present",
+					Requisites: Requisites{
+						Require: []StateReference{{Module: "file", ID: "missing"}},
+					},
+				},
+			},
+		},
+	}
+
+	_, err := VisualizeDependencies(stateFile, GraphFormatText)
+	if err == nil {
+		t.Fatal("Expected error when dependencies are missing")
+	}
+}
+
+func TestGraphVisualizer_HelperFunctions(t *testing.T) {
+	errMsg := "circular dependency detected: [file:A, file:B, file:A]"
+	path := extractCyclePath(errMsg)
+	if len(path) != 3 {
+		t.Errorf("Expected cycle path length 3, got %d", len(path))
+	}
+
+	if sanitizeMermaidID("file:/tmp/test.txt") != "file__tmp_test_txt" {
+		t.Error("Expected sanitizeMermaidID to replace invalid characters")
+	}
+
+	escaped := escapeJSON("line1\nline2\t\"quoted\"")
+	if !strings.Contains(escaped, "\\n") || !strings.Contains(escaped, "\\t") || !strings.Contains(escaped, "\\\"") {
+		t.Error("Expected escapeJSON to escape control characters")
+	}
+
+	if truncateID("short", 10) != "short" {
+		t.Error("Expected truncateID to keep short strings")
+	}
+
+	if truncateID("0123456789", 5) != "01..." {
+		t.Errorf("Expected truncateID to shorten, got %q", truncateID("0123456789", 5))
 	}
 }
 

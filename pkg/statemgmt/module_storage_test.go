@@ -2,6 +2,7 @@ package statemgmt
 
 import (
 	"context"
+	"os"
 	"runtime"
 	"testing"
 )
@@ -992,5 +993,216 @@ func TestStorageModules_ValidStates(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// =============================================================================
+// Mount Module Helper Function Tests
+// =============================================================================
+
+func TestMountModule_ParseFstab(t *testing.T) {
+	m := NewMountModule()
+
+	tests := []struct {
+		name     string
+		content  string
+		expected []FstabEntry
+	}{
+		{
+			name:     "empty file",
+			content:  "",
+			expected: nil,
+		},
+		{
+			name:     "only comments",
+			content:  "# This is a comment\n# Another comment\n",
+			expected: nil,
+		},
+		{
+			name:     "single valid entry",
+			content:  "/dev/sda1 /mnt/data ext4 defaults 0 2\n",
+			expected: []FstabEntry{{Device: "/dev/sda1", Path: "/mnt/data", FSType: "ext4", Options: "defaults", Dump: 0, Pass: 2}},
+		},
+		{
+			name:     "entry without dump and pass",
+			content:  "/dev/sdb1 /mnt/backup xfs rw,noatime\n",
+			expected: []FstabEntry{{Device: "/dev/sdb1", Path: "/mnt/backup", FSType: "xfs", Options: "rw,noatime", Dump: 0, Pass: 0}},
+		},
+		{
+			name:     "multiple entries",
+			content:  "/dev/sda1 / ext4 defaults 0 1\n/dev/sda2 /home ext4 defaults 0 2\n",
+			expected: []FstabEntry{
+				{Device: "/dev/sda1", Path: "/", FSType: "ext4", Options: "defaults", Dump: 0, Pass: 1},
+				{Device: "/dev/sda2", Path: "/home", FSType: "ext4", Options: "defaults", Dump: 0, Pass: 2},
+			},
+		},
+		{
+			name:     "mixed with comments and empty lines",
+			content:  "# Root filesystem\n/dev/sda1 / ext4 defaults 0 1\n\n# Home\n/dev/sda2 /home ext4 defaults 0 2\n",
+			expected: []FstabEntry{
+				{Device: "/dev/sda1", Path: "/", FSType: "ext4", Options: "defaults", Dump: 0, Pass: 1},
+				{Device: "/dev/sda2", Path: "/home", FSType: "ext4", Options: "defaults", Dump: 0, Pass: 2},
+			},
+		},
+		{
+			name:     "malformed entry (less than 4 fields)",
+			content:  "/dev/sda1 /mnt\n/dev/sdb1 /data ext4 defaults 0 2\n",
+			expected: []FstabEntry{{Device: "/dev/sdb1", Path: "/data", FSType: "ext4", Options: "defaults", Dump: 0, Pass: 2}},
+		},
+		{
+			name:     "entry with only 5 fields",
+			content:  "/dev/sda1 /mnt/data ext4 defaults 1\n",
+			expected: []FstabEntry{{Device: "/dev/sda1", Path: "/mnt/data", FSType: "ext4", Options: "defaults", Dump: 1, Pass: 0}},
+		},
+		{
+			name:     "uuid device",
+			content:  "UUID=abc-123-def /mnt/data ext4 defaults 0 2\n",
+			expected: []FstabEntry{{Device: "UUID=abc-123-def", Path: "/mnt/data", FSType: "ext4", Options: "defaults", Dump: 0, Pass: 2}},
+		},
+		{
+			name:     "multiple mount options",
+			content:  "/dev/sda1 /mnt/data ext4 rw,noatime,nodiratime,errors=remount-ro 0 2\n",
+			expected: []FstabEntry{{Device: "/dev/sda1", Path: "/mnt/data", FSType: "ext4", Options: "rw,noatime,nodiratime,errors=remount-ro", Dump: 0, Pass: 2}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create temp file with content
+			tmpFile, err := os.CreateTemp("", "fstab-test-*")
+			if err != nil {
+				t.Fatalf("failed to create temp file: %v", err)
+			}
+			defer os.Remove(tmpFile.Name())
+
+			if _, err := tmpFile.WriteString(tt.content); err != nil {
+				t.Fatalf("failed to write to temp file: %v", err)
+			}
+			tmpFile.Close()
+
+			entries, err := m.parseFstab(tmpFile.Name())
+			if err != nil {
+				t.Fatalf("parseFstab failed: %v", err)
+			}
+
+			if len(entries) != len(tt.expected) {
+				t.Errorf("got %d entries, want %d", len(entries), len(tt.expected))
+				return
+			}
+
+			for i, entry := range entries {
+				if entry.Device != tt.expected[i].Device {
+					t.Errorf("entry[%d].Device = %s, want %s", i, entry.Device, tt.expected[i].Device)
+				}
+				if entry.Path != tt.expected[i].Path {
+					t.Errorf("entry[%d].Path = %s, want %s", i, entry.Path, tt.expected[i].Path)
+				}
+				if entry.FSType != tt.expected[i].FSType {
+					t.Errorf("entry[%d].FSType = %s, want %s", i, entry.FSType, tt.expected[i].FSType)
+				}
+				if entry.Options != tt.expected[i].Options {
+					t.Errorf("entry[%d].Options = %s, want %s", i, entry.Options, tt.expected[i].Options)
+				}
+				if entry.Dump != tt.expected[i].Dump {
+					t.Errorf("entry[%d].Dump = %d, want %d", i, entry.Dump, tt.expected[i].Dump)
+				}
+				if entry.Pass != tt.expected[i].Pass {
+					t.Errorf("entry[%d].Pass = %d, want %d", i, entry.Pass, tt.expected[i].Pass)
+				}
+			}
+		})
+	}
+}
+
+func TestMountModule_ParseFstab_NonExistent(t *testing.T) {
+	m := NewMountModule()
+
+	entries, err := m.parseFstab("/nonexistent/file/path/fstab")
+	if err != nil {
+		t.Errorf("expected nil error for non-existent file, got: %v", err)
+	}
+	if entries != nil {
+		t.Errorf("expected nil entries for non-existent file, got: %v", entries)
+	}
+}
+
+func TestMountModule_FindInFstabEntries(t *testing.T) {
+	// Test the logic of finding paths in parsed fstab entries
+	tests := []struct {
+		name     string
+		entries  []FstabEntry
+		path     string
+		expected bool
+	}{
+		{
+			name:     "path exists",
+			entries:  []FstabEntry{{Device: "/dev/sda1", Path: "/mnt/data", FSType: "ext4", Options: "defaults"}},
+			path:     "/mnt/data",
+			expected: true,
+		},
+		{
+			name:     "path not found",
+			entries:  []FstabEntry{{Device: "/dev/sda1", Path: "/mnt/data", FSType: "ext4", Options: "defaults"}},
+			path:     "/mnt/other",
+			expected: false,
+		},
+		{
+			name:     "empty entries",
+			entries:  []FstabEntry{},
+			path:     "/mnt/data",
+			expected: false,
+		},
+		{
+			name: "multiple entries",
+			entries: []FstabEntry{
+				{Device: "/dev/sda1", Path: "/", FSType: "ext4", Options: "defaults"},
+				{Device: "/dev/sda2", Path: "/home", FSType: "ext4", Options: "defaults"},
+				{Device: "/dev/sda3", Path: "/var", FSType: "ext4", Options: "defaults"},
+			},
+			path:     "/home",
+			expected: true,
+		},
+		{
+			name:     "nil entries",
+			entries:  nil,
+			path:     "/mnt/data",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Find path in entries (simulating what isInFstabLinux does)
+			found := false
+			for _, entry := range tt.entries {
+				if entry.Path == tt.path {
+					found = true
+					break
+				}
+			}
+			if found != tt.expected {
+				t.Errorf("find path %q in entries = %v, want %v", tt.path, found, tt.expected)
+			}
+		})
+	}
+}
+
+func TestMountModule_IsInFstab_WithConfig(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fstab not applicable on Windows")
+	}
+	m := NewMountModule()
+
+	// Test with a path that definitely doesn't exist in system fstab
+	config := &MountConfig{
+		Path:   "/nonexistent/mount/path/that/should/not/exist",
+		Device: "/dev/null",
+		FSType: "tmpfs",
+	}
+
+	// This should return false since the path is not in system fstab
+	result := m.isInFstab(config)
+	if result {
+		t.Error("expected false for non-existent path in system fstab")
 	}
 }

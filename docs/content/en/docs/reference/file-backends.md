@@ -20,6 +20,83 @@ backend:
     # Backend-specific options
 ```
 
+## Compression System
+
+The file distribution service includes an optional compression library for stored files and transfer payloads. Compression is MIME-aware, can skip already compressed formats, and automatically avoids compression when it would increase size. Integration is available for file distribution components but is not yet exposed through the public configuration.
+
+**Supported Algorithms**:
+- `none` (disabled)
+- `gzip`
+- `zstd`
+- `lz4`
+- `snappy`
+- `auto` (size-based selection, currently falls back to gzip when other libraries are not available)
+> **Note**: The current implementation uses gzip as a fallback for zstd/lz4/snappy until native libraries are wired in.
+
+**Compression Configuration Fields** (internal API; not yet exposed in `files.yaml`):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `algorithm` | string | Compression algorithm (`none`, `gzip`, `zstd`, `lz4`, `snappy`, `auto`) |
+| `level` | int | Compression level (`0` default, 1 fastest, 5 balanced, 7 better, 9 best) |
+| `min_size` | int64 | Minimum size (bytes) to consider compression |
+| `max_size` | int64 | Maximum size (bytes) to attempt compression |
+| `skip_compressed` | bool | Skip already compressed content types |
+| `compressible_types` | []string | MIME types to always compress |
+| `incompressible_types` | []string | MIME types to never compress |
+
+**Behavior Notes**:
+- If `compressible_types` is set, only those types are compressed.
+- If compression yields larger data, the original payload is preserved.
+- MIME checks use both content type and file extension hints.
+
+## Storage Failover
+
+Keystone Core includes a storage failover manager that can monitor backend health and switch to alternate backends. Health checks track latency, consecutive failures, and recovery thresholds, and the failover manager can queue operations while a backend is unavailable. This is currently a library component for file distribution and not yet exposed in the public configuration.
+
+**Failover Configuration Fields** (internal API; not yet exposed in `files.yaml`):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `health_check_interval` | duration | Interval between health checks |
+| `health_check_timeout` | duration | Timeout for a single health check |
+| `max_consecutive_failures` | int | Failures before marking unhealthy |
+| `recovery_threshold` | int | Successes required to mark healthy |
+| `queue_size` | int | Maximum queued operations |
+| `queue_timeout` | duration | Time to keep operations in queue |
+| `retry_attempts` | int | Retry attempts for failed ops |
+| `retry_delay` | duration | Delay between retries |
+| `enable_queue` | bool | Enable queueing during failover |
+
+**Failover Behavior**:
+- Health checks run continuously and update backend status.
+- When a backend becomes unhealthy, operations can be queued or retried.
+- Backends recover automatically after reaching the recovery threshold.
+
+## Mirror Sync Strategies
+
+Mirror groups support incremental sync based on metadata comparison (checksum, size, and modification time). Sync plans classify actions per file: `copy`, `delete`, `conflict`, or `skip`.
+
+**Conflict Strategies**:
+- `newest-wins`: Choose the file with the most recent modification time.
+- `largest-wins`: Choose the file with the largest size.
+- `primary-wins`: Always select the primary mirror's version.
+- `manual`: Flag conflicts for manual resolution.
+
+**Sync Configuration Fields** (internal engine config; not yet exposed in `files.yaml`):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `interval` | duration | Automatic sync interval (0 disables) |
+| `batch_size` | int | Number of files per sync batch |
+| `bandwidth_limit` | int64 | Bytes/sec limit (0 = unlimited) |
+| `conflict_strategy` | string | Conflict resolution strategy |
+| `retry_attempts` | int | Retries for failed operations |
+| `retry_delay` | duration | Delay between retries |
+| `exclude_patterns` | []string | Glob/regex patterns to skip |
+| `prioritize_small_files` | bool | Sync small files first |
+| `small_file_size_threshold` | int64 | Threshold for "small" files |
+
 ## Local Filesystem Backend
 
 Stores files on the local filesystem.

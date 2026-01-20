@@ -247,19 +247,12 @@ func (m *NginxSiteModule) Apply(ctx context.Context, decl *StateDeclaration) (*S
 }
 
 // Test validates the configuration without making changes
-func (m *NginxSiteModule) Test(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+func (m *NginxSiteModule) Test(ctx context.Context, decl *StateDeclaration) (bool, error) {
 	checkResult, err := m.Check(ctx, decl)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-
-	return &StateResult{
-		StateID: decl.ID,
-		Module:  m.Name(),
-		Success: true,
-		Changed: !checkResult.Matches,
-		Comment: fmt.Sprintf("Site would be %s (currently %s)", decl.State, checkResult.CurrentState),
-	}, nil
+	return checkResult.Matches, nil
 }
 
 type nginxPaths struct {
@@ -520,19 +513,12 @@ func (m *NginxConfigModule) Apply(ctx context.Context, decl *StateDeclaration) (
 }
 
 // Test validates the configuration without making changes
-func (m *NginxConfigModule) Test(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+func (m *NginxConfigModule) Test(ctx context.Context, decl *StateDeclaration) (bool, error) {
 	checkResult, err := m.Check(ctx, decl)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-
-	return &StateResult{
-		StateID: decl.ID,
-		Module:  m.Name(),
-		Success: true,
-		Changed: !checkResult.Matches,
-		Comment: fmt.Sprintf("Config would be %s (currently %s)", decl.State, checkResult.CurrentState),
-	}, nil
+	return checkResult.Matches, nil
 }
 
 // ============================================================================
@@ -685,19 +671,12 @@ func (m *NginxUpstreamModule) Apply(ctx context.Context, decl *StateDeclaration)
 }
 
 // Test validates the configuration without making changes
-func (m *NginxUpstreamModule) Test(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+func (m *NginxUpstreamModule) Test(ctx context.Context, decl *StateDeclaration) (bool, error) {
 	checkResult, err := m.Check(ctx, decl)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-
-	return &StateResult{
-		StateID: decl.ID,
-		Module:  m.Name(),
-		Success: true,
-		Changed: !checkResult.Matches,
-		Comment: fmt.Sprintf("Upstream would be %s (currently %s)", decl.State, checkResult.CurrentState),
-	}, nil
+	return checkResult.Matches, nil
 }
 
 func (m *NginxUpstreamModule) getUpstreamPath(name string) string {
@@ -946,19 +925,12 @@ func (m *NginxProxyModule) Apply(ctx context.Context, decl *StateDeclaration) (*
 }
 
 // Test validates the configuration without making changes
-func (m *NginxProxyModule) Test(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+func (m *NginxProxyModule) Test(ctx context.Context, decl *StateDeclaration) (bool, error) {
 	checkResult, err := m.Check(ctx, decl)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-
-	return &StateResult{
-		StateID: decl.ID,
-		Module:  m.Name(),
-		Success: true,
-		Changed: !checkResult.Matches,
-		Comment: fmt.Sprintf("Proxy would be %s (currently %s)", decl.State, checkResult.CurrentState),
-	}, nil
+	return checkResult.Matches, nil
 }
 
 func (m *NginxProxyModule) getProxyPath(name string) string {
@@ -1213,19 +1185,12 @@ func (m *NginxSSLModule) Apply(ctx context.Context, decl *StateDeclaration) (*St
 }
 
 // Test validates the configuration without making changes
-func (m *NginxSSLModule) Test(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+func (m *NginxSSLModule) Test(ctx context.Context, decl *StateDeclaration) (bool, error) {
 	checkResult, err := m.Check(ctx, decl)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-
-	return &StateResult{
-		StateID: decl.ID,
-		Module:  m.Name(),
-		Success: true,
-		Changed: !checkResult.Matches,
-		Comment: fmt.Sprintf("SSL config would be %s (currently %s)", decl.State, checkResult.CurrentState),
-	}, nil
+	return checkResult.Matches, nil
 }
 
 func (m *NginxSSLModule) getSSLPath(name string) string {
@@ -1482,19 +1447,12 @@ func (m *NginxLocationModule) Apply(ctx context.Context, decl *StateDeclaration)
 }
 
 // Test validates the configuration without making changes
-func (m *NginxLocationModule) Test(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+func (m *NginxLocationModule) Test(ctx context.Context, decl *StateDeclaration) (bool, error) {
 	checkResult, err := m.Check(ctx, decl)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-
-	return &StateResult{
-		StateID: decl.ID,
-		Module:  m.Name(),
-		Success: true,
-		Changed: !checkResult.Matches,
-		Comment: fmt.Sprintf("Location would be %s (currently %s)", decl.State, checkResult.CurrentState),
-	}, nil
+	return checkResult.Matches, nil
 }
 
 func (m *NginxLocationModule) getLocationPath(name string) string {
@@ -1774,19 +1732,12 @@ func (m *NginxRateLimitModule) Apply(ctx context.Context, decl *StateDeclaration
 }
 
 // Test validates the configuration without making changes
-func (m *NginxRateLimitModule) Test(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+func (m *NginxRateLimitModule) Test(ctx context.Context, decl *StateDeclaration) (bool, error) {
 	checkResult, err := m.Check(ctx, decl)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-
-	return &StateResult{
-		StateID: decl.ID,
-		Module:  m.Name(),
-		Success: true,
-		Changed: !checkResult.Matches,
-		Comment: fmt.Sprintf("Rate limit would be %s (currently %s)", decl.State, checkResult.CurrentState),
-	}, nil
+	return checkResult.Matches, nil
 }
 
 func (m *NginxRateLimitModule) getRateLimitPath(name string) string {
@@ -2081,19 +2032,12 @@ func (m *ApacheSiteModule) Apply(ctx context.Context, decl *StateDeclaration) (*
 }
 
 // Test validates the configuration without making changes
-func (m *ApacheSiteModule) Test(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+func (m *ApacheSiteModule) Test(ctx context.Context, decl *StateDeclaration) (bool, error) {
 	checkResult, err := m.Check(ctx, decl)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-
-	return &StateResult{
-		StateID: decl.ID,
-		Module:  m.Name(),
-		Success: true,
-		Changed: !checkResult.Matches,
-		Comment: fmt.Sprintf("Site would be %s (currently %s)", decl.State, checkResult.CurrentState),
-	}, nil
+	return checkResult.Matches, nil
 }
 
 type apachePaths struct {
@@ -2309,19 +2253,12 @@ func (m *ApacheModuleModule) Apply(ctx context.Context, decl *StateDeclaration) 
 }
 
 // Test validates the configuration without making changes
-func (m *ApacheModuleModule) Test(ctx context.Context, decl *StateDeclaration) (*StateResult, error) {
+func (m *ApacheModuleModule) Test(ctx context.Context, decl *StateDeclaration) (bool, error) {
 	checkResult, err := m.Check(ctx, decl)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-
-	return &StateResult{
-		StateID: decl.ID,
-		Module:  m.Name(),
-		Success: true,
-		Changed: !checkResult.Matches,
-		Comment: fmt.Sprintf("Module would be %s (currently %s)", decl.State, checkResult.CurrentState),
-	}, nil
+	return checkResult.Matches, nil
 }
 
 func (m *ApacheModuleModule) isModuleEnabled(name string) bool {
@@ -2397,4 +2334,16 @@ func (m *ApacheModuleModule) reloadApache() error {
 		return fmt.Errorf("failed to reload apache: %s", string(output))
 	}
 	return nil
+}
+
+func init() {
+	RegisterModule(NewNginxSiteModule())
+	RegisterModule(NewNginxConfigModule())
+	RegisterModule(NewNginxUpstreamModule())
+	RegisterModule(NewNginxProxyModule())
+	RegisterModule(NewNginxSSLModule())
+	RegisterModule(NewNginxLocationModule())
+	RegisterModule(NewNginxRateLimitModule())
+	RegisterModule(NewApacheSiteModule())
+	RegisterModule(NewApacheModuleModule())
 }

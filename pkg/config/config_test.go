@@ -562,6 +562,321 @@ func TestConfig_Validate_AdvertiseAddrs(t *testing.T) {
 	}
 }
 
+func TestConfig_Validate_WebhookConfig(t *testing.T) {
+	baseConfig := func() *Config {
+		return &Config{
+			Server: ServerConfig{
+				GRPCPort: 9090,
+				HTTPPort: 8080,
+			},
+			NATS: NATSConfig{
+				Mode: NATSModeEmbedded,
+			},
+			Storage: StorageConfig{
+				Backend: StorageBackendSQLite,
+			},
+		}
+	}
+
+	tests := []struct {
+		name        string
+		config      func(*Config)
+		errContains string
+	}{
+		{
+			name: "invalid webhook port",
+			config: func(cfg *Config) {
+				cfg.Webhook.Enabled = true
+				cfg.Webhook.Port = 0
+			},
+			errContains: "invalid webhook port",
+		},
+		{
+			name: "invalid webhook auth type",
+			config: func(cfg *Config) {
+				cfg.Webhook.Enabled = true
+				cfg.Webhook.AuthType = "token"
+			},
+			errContains: "invalid webhook auth type",
+		},
+		{
+			name: "missing HMAC secret",
+			config: func(cfg *Config) {
+				cfg.Webhook.Enabled = true
+				cfg.Webhook.AuthType = "hmac"
+			},
+			errContains: "HMAC secret",
+		},
+		{
+			name: "missing bearer token",
+			config: func(cfg *Config) {
+				cfg.Webhook.Enabled = true
+				cfg.Webhook.AuthType = "bearer"
+			},
+			errContains: "bearer token",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := baseConfig()
+			tt.config(cfg)
+
+			err := cfg.Validate()
+			if err == nil {
+				t.Fatal("Expected validation error, got nil")
+			}
+			if !contains(err.Error(), tt.errContains) {
+				t.Fatalf("Expected error to contain %q, got %v", tt.errContains, err)
+			}
+		})
+	}
+}
+
+func TestConfig_Validate_PolicyConfig(t *testing.T) {
+	baseConfig := func() *Config {
+		return &Config{
+			Server: ServerConfig{
+				GRPCPort: 9090,
+				HTTPPort: 8080,
+			},
+			NATS: NATSConfig{
+				Mode: NATSModeEmbedded,
+			},
+			Storage: StorageConfig{
+				Backend: StorageBackendSQLite,
+			},
+		}
+	}
+
+	tests := []struct {
+		name        string
+		config      func(*Config)
+		errContains string
+	}{
+		{
+			name: "invalid policy engine",
+			config: func(cfg *Config) {
+				cfg.Policy.Enabled = true
+				cfg.Policy.Engine = "rego"
+			},
+			errContains: "invalid policy engine",
+		},
+		{
+			name: "invalid enforcement mode",
+			config: func(cfg *Config) {
+				cfg.Policy.Enabled = true
+				cfg.Policy.Engine = "opa"
+				cfg.Policy.EnforcementMode = "block"
+			},
+			errContains: "invalid enforcement mode",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := baseConfig()
+			tt.config(cfg)
+
+			err := cfg.Validate()
+			if err == nil {
+				t.Fatal("Expected validation error, got nil")
+			}
+			if !contains(err.Error(), tt.errContains) {
+				t.Fatalf("Expected error to contain %q, got %v", tt.errContains, err)
+			}
+		})
+	}
+}
+
+func TestConfig_Validate_AuthConfig(t *testing.T) {
+	baseConfig := func() *Config {
+		return &Config{
+			Server: ServerConfig{
+				GRPCPort: 9090,
+				HTTPPort: 8080,
+			},
+			NATS: NATSConfig{
+				Mode: NATSModeEmbedded,
+			},
+			Storage: StorageConfig{
+				Backend: StorageBackendSQLite,
+			},
+			TLS: TLSConfig{
+				Enabled: true,
+				CAFile:  "/etc/kscore/ca.crt",
+			},
+		}
+	}
+
+	longKey := "12345678901234567890123456789012"
+
+	tests := []struct {
+		name        string
+		config      func(*Config)
+		errContains string
+	}{
+		{
+			name: "apikey requires keys",
+			config: func(cfg *Config) {
+				cfg.Auth.Enabled = true
+				cfg.Auth.Type = "apikey"
+				cfg.Auth.APIKey.Keys = map[string]APIKeyConfig{}
+			},
+			errContains: "at least one API key",
+		},
+		{
+			name: "apikey too short",
+			config: func(cfg *Config) {
+				cfg.Auth.Enabled = true
+				cfg.Auth.Type = "apikey"
+				cfg.Auth.APIKey.Keys = map[string]APIKeyConfig{
+					"short": {Name: "short", Role: "admin"},
+				}
+			},
+			errContains: "too short",
+		},
+		{
+			name: "apikey invalid role",
+			config: func(cfg *Config) {
+				cfg.Auth.Enabled = true
+				cfg.Auth.Type = "apikey"
+				cfg.Auth.APIKey.Keys = map[string]APIKeyConfig{
+					longKey: {Name: "bad-role", Role: "owner"},
+				}
+			},
+			errContains: "invalid role",
+		},
+		{
+			name: "jwt requires secret or public key",
+			config: func(cfg *Config) {
+				cfg.Auth.Enabled = true
+				cfg.Auth.Type = "jwt"
+			},
+			errContains: "JWT secret or public key file",
+		},
+		{
+			name: "jwt secret and public key mutually exclusive",
+			config: func(cfg *Config) {
+				cfg.Auth.Enabled = true
+				cfg.Auth.Type = "jwt"
+				cfg.Auth.JWT.Secret = "secret"
+				cfg.Auth.JWT.PublicKeyFile = "/etc/kscore/jwt.pub"
+			},
+			errContains: "mutually exclusive",
+		},
+		{
+			name: "mtls requires TLS enabled",
+			config: func(cfg *Config) {
+				cfg.Auth.Enabled = true
+				cfg.Auth.Type = "mtls"
+				cfg.TLS.Enabled = false
+			},
+			errContains: "TLS must be enabled",
+		},
+		{
+			name: "mtls requires CA file",
+			config: func(cfg *Config) {
+				cfg.Auth.Enabled = true
+				cfg.Auth.Type = "mtls"
+				cfg.TLS.CAFile = ""
+			},
+			errContains: "CA file must be configured",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := baseConfig()
+			tt.config(cfg)
+
+			err := cfg.Validate()
+			if err == nil {
+				t.Fatal("Expected validation error, got nil")
+			}
+			if !contains(err.Error(), tt.errContains) {
+				t.Fatalf("Expected error to contain %q, got %v", tt.errContains, err)
+			}
+		})
+	}
+}
+
+func TestConfig_Validate_LoggingConfig(t *testing.T) {
+	baseConfig := func() *Config {
+		return &Config{
+			Server: ServerConfig{
+				GRPCPort: 9090,
+				HTTPPort: 8080,
+			},
+			NATS: NATSConfig{
+				Mode: NATSModeEmbedded,
+			},
+			Storage: StorageConfig{
+				Backend: StorageBackendSQLite,
+			},
+		}
+	}
+
+	tests := []struct {
+		name        string
+		config      func(*Config)
+		errContains string
+	}{
+		{
+			name: "invalid log level",
+			config: func(cfg *Config) {
+				cfg.Logging.Level = "trace"
+			},
+			errContains: "invalid log level",
+		},
+		{
+			name: "invalid log format",
+			config: func(cfg *Config) {
+				cfg.Logging.Format = "console"
+			},
+			errContains: "invalid log format",
+		},
+		{
+			name: "invalid log output",
+			config: func(cfg *Config) {
+				cfg.Logging.Output = "file"
+			},
+			errContains: "invalid log output",
+		},
+		{
+			name: "invalid syslog network",
+			config: func(cfg *Config) {
+				cfg.Logging.Output = "syslog"
+				cfg.Logging.Syslog.Network = "http"
+			},
+			errContains: "invalid syslog network",
+		},
+		{
+			name: "invalid syslog facility",
+			config: func(cfg *Config) {
+				cfg.Logging.Output = "syslog"
+				cfg.Logging.Syslog.Facility = "local9"
+			},
+			errContains: "invalid syslog facility",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := baseConfig()
+			tt.config(cfg)
+
+			err := cfg.Validate()
+			if err == nil {
+				t.Fatal("Expected validation error, got nil")
+			}
+			if !contains(err.Error(), tt.errContains) {
+				t.Fatalf("Expected error to contain %q, got %v", tt.errContains, err)
+			}
+		})
+	}
+}
+
 func TestConfig_Validate_TLSForNonLoopback(t *testing.T) {
 	// Base config helper
 	baseConfig := func() *Config {

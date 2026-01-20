@@ -840,7 +840,7 @@ Policies receive rich context:
     "environment": "production",
     "role": "web",
     "os": "linux",
-    "tags": ["nginx", "frontend"]
+    "labels": {"service": "nginx", "tier": "frontend"}
   }
 }
 ```

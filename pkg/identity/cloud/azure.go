@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -81,6 +82,7 @@ type AzureProvider struct {
 	vmName          string
 	location        string
 	vmScaleSetName  string
+	ipv6Addresses   []string
 
 	healthCheckCancel context.CancelFunc
 	lastHealthCheck   time.Time
@@ -259,6 +261,9 @@ func (p *AzureProvider) Info(ctx context.Context) identity.ProviderInfo {
 	}
 	if p.location != "" {
 		metadata["location"] = p.location
+	}
+	if len(p.ipv6Addresses) > 0 {
+		metadata["ipv6_addresses"] = strings.Join(p.ipv6Addresses, ",")
 	}
 
 	return identity.ProviderInfo{
@@ -476,6 +481,20 @@ func (p *AzureProvider) detectEnvironment(ctx context.Context) error {
 	p.location = meta.Compute.Location
 	p.vmScaleSetName = meta.Compute.VMScaleSetName
 	p.mu.Unlock()
+
+	ipv6 := make([]string, 0)
+	for _, iface := range meta.Network.Interface {
+		for _, addr := range iface.IPv6.IPAddress {
+			if addr.PrivateIP != "" {
+				ipv6 = append(ipv6, addr.PrivateIP)
+			}
+		}
+	}
+	if len(ipv6) > 0 {
+		p.mu.Lock()
+		p.ipv6Addresses = ipv6
+		p.mu.Unlock()
+	}
 
 	// Get tenant ID from token
 	token, err := p.GetAccessToken(ctx, p.config.Resource)

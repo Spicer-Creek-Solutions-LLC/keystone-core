@@ -505,7 +505,7 @@ actions:
     type: email
     to: ops@example.com
     subject: "Daily Maintenance Report - {{ now | date \"2006-01-02\" }}"
-    template: maintenance-report.html.j2
+    template: maintenance-report.html.tmpl
     vars:
       security_scan: "{{ .actions.run_security_scan }}"
       log_rotation: "{{ .actions.rotate_logs }}"

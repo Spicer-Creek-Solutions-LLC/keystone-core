@@ -17,19 +17,19 @@ This runbook covers backup creation, verification, and restoration procedures fo
 
 ```bash
 # Create full backup to local storage
-kscore-backup create \
+kscore-cluster-backup create \
   --type full \
   --dest /backup/keystone
 
 # Create full backup to S3
-kscore-backup create \
+kscore-cluster-backup create \
   --type full \
   --dest s3://keystone-backups/$(date +%Y/%m/%d)/ \
   --encrypt \
   --encrypt-recipient age1...
 
 # Create backup with specific label
-kscore-backup create \
+kscore-cluster-backup create \
   --type full \
   --dest /backup/keystone \
   --label "pre-upgrade-1.6.0"
@@ -39,7 +39,7 @@ kscore-backup create \
 
 ```bash
 # Incremental backup (database changes only)
-kscore-backup create \
+kscore-cluster-backup create \
   --type incremental \
   --dest /backup/keystone \
   --base-backup /backup/keystone/full-2024-01-15.tar.gz
@@ -49,17 +49,17 @@ kscore-backup create \
 
 ```bash
 # Database only
-kscore-backup create \
+kscore-cluster-backup create \
   --components database \
   --dest /backup/db-only
 
 # Configuration only
-kscore-backup create \
+kscore-cluster-backup create \
   --components config,certificates \
   --dest /backup/config-only
 
 # JetStream only
-kscore-backup create \
+kscore-cluster-backup create \
   --components jetstream \
   --dest /backup/jetstream-only
 ```
@@ -68,7 +68,7 @@ kscore-backup create \
 
 ```bash
 # Verify backup integrity
-kscore-backup verify /backup/keystone/backup-2024-01-15.tar.gz
+kscore-cluster-backup verify /backup/keystone/backup-2024-01-15.tar.gz
 
 # Expected output:
 # Verifying backup...
@@ -83,13 +83,13 @@ kscore-backup verify /backup/keystone/backup-2024-01-15.tar.gz
 
 ```bash
 # List local backups
-kscore-backup list --dest /backup/keystone
+kscore-cluster-backup list --dest /backup/keystone
 
 # List S3 backups
-kscore-backup list --dest s3://keystone-backups/
+kscore-cluster-backup list --dest s3://keystone-backups/
 
 # List with details
-kscore-backup list --dest /backup/keystone --verbose
+kscore-cluster-backup list --dest /backup/keystone --verbose
 
 # Output:
 # Backup                           Size      Date                 Components
@@ -200,17 +200,17 @@ ls -la /backup/
 aws s3 ls s3://keystone-backups/
 
 # Run with debug logging
-kscore-backup create --dest /backup --debug
+kscore-cluster-backup create --dest /backup --debug
 ```
 
 ### Restore Fails
 
 ```bash
 # Verify backup integrity
-kscore-backup verify /backup/backup.tar.gz
+kscore-cluster-backup verify /backup/backup.tar.gz
 
 # Check decryption key
-kscore-backup verify /backup/backup.tar.gz --decrypt-identity /path/to/key
+kscore-cluster-backup verify /backup/backup.tar.gz --decrypt-identity /path/to/key
 
 # Extract and inspect manually
 tar -tzf /backup/backup.tar.gz
@@ -494,14 +494,14 @@ backup:
 
 ```bash
 # Encrypt backup for multiple recipients
-kscore-backup create \
+kscore-cluster-backup create \
   --dest s3://keystone-backups/ \
   --encrypt \
   --encrypt-recipient age1primary... \
   --encrypt-recipient age1dr...
 
 # Restore with decryption
-kscore-backup restore \
+kscore-cluster-backup restore \
   --backup s3://keystone-backups/backup.tar.gz.age \
   --decrypt-identity /secure/backup-key.txt
 ```
@@ -580,7 +580,7 @@ vault kv put secret/keystone/backup passphrase="$(cat /secure/backup-passphrase)
 
 # Retrieve during backup
 export BACKUP_ENCRYPTION_PASSPHRASE=$(vault kv get -field=passphrase secret/keystone/backup)
-kscore-backup create --dest /backup --encrypt
+kscore-cluster-backup create --dest /backup --encrypt
 ```
 
 ### Hardware Security Modules (HSM)
@@ -654,17 +654,17 @@ file backup.tar.gz.age
 # Output: backup.tar.gz.age: data
 
 # Verify with specific identity
-kscore-backup verify \
+kscore-cluster-backup verify \
   --backup backup.tar.gz.age \
   --decrypt-identity /secure/backup-key.txt
 
 # Test decryption without full restore
-kscore-backup test-decrypt \
+kscore-cluster-backup test-decrypt \
   --backup backup.tar.gz.age \
   --identity /secure/backup-key.txt
 
 # List available decryption identities
-kscore-backup info \
+kscore-cluster-backup info \
   --backup backup.tar.gz.age
 # Output:
 # Encryption: age
@@ -694,7 +694,7 @@ ssss-combine -t 3 > /tmp/recovered-key.txt
 # Enter 3 shares...
 
 # Use recovered key for restore
-kscore-backup restore \
+kscore-cluster-backup restore \
   --backup backup.tar.gz.age \
   --decrypt-identity /tmp/recovered-key.txt
 

@@ -447,3 +447,242 @@ func TestRenderTemplateFile_InvalidTemplate(t *testing.T) {
 		t.Error("Expected error for invalid template syntax")
 	}
 }
+
+// Test additional template functions that weren't fully covered
+func TestTemplateRenderer_StringFunctions(t *testing.T) {
+	renderer := NewTemplateRenderer()
+	ctx := &TemplateContext{
+		Vars: map[string]interface{}{
+			"text":      "  hello world  ",
+			"csv":       "a,b,c",
+			"name":      "world",
+			"message":   "hello world",
+			"filename":  "config.yaml",
+			"prefix":    "pre_value",
+		},
+		Facts: map[string]interface{}{},
+	}
+
+	tests := []struct {
+		name     string
+		template string
+		expected string
+	}{
+		{"trim", "{{.vars.text | trim}}", "hello world"},
+		{"split", `{{$parts := split .vars.csv ","}}{{index $parts 1}}`, "b"},
+		{"join", `{{$list := split .vars.csv ","}}{{join $list "-"}}`, "a-b-c"},
+		{"replace", `{{replace .vars.message "world" "universe"}}`, "hello universe"},
+		{"contains_true", `{{if contains .vars.message "world"}}yes{{else}}no{{end}}`, "yes"},
+		{"contains_false", `{{if contains .vars.message "foo"}}yes{{else}}no{{end}}`, "no"},
+		{"hasPrefix_true", `{{if hasPrefix .vars.prefix "pre_"}}yes{{else}}no{{end}}`, "yes"},
+		{"hasPrefix_false", `{{if hasPrefix .vars.prefix "post_"}}yes{{else}}no{{end}}`, "no"},
+		{"hasSuffix_true", `{{if hasSuffix .vars.filename ".yaml"}}yes{{else}}no{{end}}`, "yes"},
+		{"hasSuffix_false", `{{if hasSuffix .vars.filename ".json"}}yes{{else}}no{{end}}`, "no"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := renderer.Render(tt.template, ctx)
+			if err != nil {
+				t.Fatalf("Render failed: %v", err)
+			}
+			if result != tt.expected {
+				t.Errorf("Expected '%s', got '%s'", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestTemplateRenderer_TernaryFunction(t *testing.T) {
+	renderer := NewTemplateRenderer()
+
+	tests := []struct {
+		name       string
+		condition  bool
+		trueVal    string
+		falseVal   string
+		expected   string
+	}{
+		{"condition_true", true, "yes", "no", "yes"},
+		{"condition_false", false, "yes", "no", "no"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := &TemplateContext{
+				Vars: map[string]interface{}{
+					"condition": tt.condition,
+					"trueVal":   tt.trueVal,
+					"falseVal":  tt.falseVal,
+				},
+				Facts: map[string]interface{}{},
+			}
+			template := `{{ternary .vars.condition .vars.trueVal .vars.falseVal}}`
+			result, err := renderer.Render(template, ctx)
+			if err != nil {
+				t.Fatalf("Render failed: %v", err)
+			}
+			if result != tt.expected {
+				t.Errorf("Expected '%s', got '%s'", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestTemplateRenderer_DefaultEmptyString(t *testing.T) {
+	renderer := NewTemplateRenderer()
+	ctx := &TemplateContext{
+		Vars: map[string]interface{}{
+			"empty_string": "",
+			"actual_value": "real",
+		},
+		Facts: map[string]interface{}{},
+	}
+
+	tests := []struct {
+		name     string
+		template string
+		expected string
+	}{
+		{"default_empty_string", `{{.vars.empty_string | default "fallback"}}`, "fallback"},
+		{"default_actual_value", `{{.vars.actual_value | default "fallback"}}`, "real"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := renderer.Render(tt.template, ctx)
+			if err != nil {
+				t.Fatalf("Render failed: %v", err)
+			}
+			if result != tt.expected {
+				t.Errorf("Expected '%s', got '%s'", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestFacts_GetString_NonString(t *testing.T) {
+	facts := NewFacts()
+	facts.Set("number", 42)
+	facts.Set("boolean", true)
+	facts.Set("float", 3.14)
+
+	tests := []struct {
+		name     string
+		key      string
+		expected string
+	}{
+		{"integer", "number", "42"},
+		{"boolean", "boolean", "true"},
+		{"float", "float", "3.14"},
+		{"nonexistent", "missing", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := facts.GetString(tt.key)
+			if result != tt.expected {
+				t.Errorf("Expected '%s', got '%s'", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestRenderStateFile_NoTemplates(t *testing.T) {
+	// Test with a state file that has no templates
+	stateFile := &StateFile{
+		Path: "test.yaml",
+		Metadata: StateMetadata{
+			Description: "Simple description with no templates",
+		},
+		States: map[string][]StateDeclaration{
+			"file": {
+				{
+					Module: "file",
+					ID:     "/etc/app/config.yml",
+					State:  "present",
+					Parameters: map[string]interface{}{
+						"contents": "static content",
+					},
+				},
+			},
+		},
+	}
+
+	vars := NewVars()
+	facts := NewFacts()
+
+	err := RenderStateFile(stateFile, vars, facts)
+	if err != nil {
+		t.Fatalf("RenderStateFile failed: %v", err)
+	}
+
+	// Verify content is unchanged
+	if stateFile.Metadata.Description != "Simple description with no templates" {
+		t.Error("Description was modified when it shouldn't have been")
+	}
+}
+
+func TestRenderStateFile_EmptyDescription(t *testing.T) {
+	stateFile := &StateFile{
+		Path: "test.yaml",
+		Metadata: StateMetadata{
+			Description: "", // Empty description
+		},
+		States: map[string][]StateDeclaration{
+			"file": {
+				{
+					Module: "file",
+					ID:     "/etc/test",
+					State:  "present",
+					Parameters: map[string]interface{}{
+						"contents": "test",
+					},
+				},
+			},
+		},
+	}
+
+	vars := NewVars()
+	facts := NewFacts()
+
+	err := RenderStateFile(stateFile, vars, facts)
+	if err != nil {
+		t.Fatalf("RenderStateFile failed: %v", err)
+	}
+}
+
+func TestRenderStateFile_NonStringParameter(t *testing.T) {
+	stateFile := &StateFile{
+		Path: "test.yaml",
+		Metadata: StateMetadata{
+			Description: "Test",
+		},
+		States: map[string][]StateDeclaration{
+			"file": {
+				{
+					Module: "file",
+					ID:     "/etc/test",
+					State:  "present",
+					Parameters: map[string]interface{}{
+						"mode":     0644, // integer parameter - should not be rendered as template
+						"contents": "static content",
+					},
+				},
+			},
+		},
+	}
+
+	vars := NewVars()
+	facts := NewFacts()
+
+	err := RenderStateFile(stateFile, vars, facts)
+	if err != nil {
+		t.Fatalf("RenderStateFile failed: %v", err)
+	}
+
+	// Verify mode is unchanged
+	if stateFile.States["file"][0].Parameters["mode"] != 0644 {
+		t.Error("Integer parameter was modified")
+	}
+}

@@ -272,6 +272,38 @@ kscore-files mirrors health --group us-mirrors
 # us-east    | healthy | 45ms    | 15,432  | 2024-01-15T10:20:00Z
 ```
 
+### Mirror Sync Strategies
+
+Mirror sync uses incremental comparisons (checksum, size, and modification time) to decide whether to copy, delete, or flag conflicts. Each file falls into one of these actions:
+
+- `copy`: Transfer the newer or preferred version to the target mirror.
+- `delete`: Remove a file that no longer exists in the source.
+- `conflict`: A file differs on both sides and needs resolution.
+- `skip`: File is unchanged or excluded.
+
+**Conflict Resolution Strategies**:
+
+| Strategy | Behavior |
+|----------|----------|
+| `newest-wins` | Choose the file with the most recent modified time |
+| `largest-wins` | Choose the file with the largest size |
+| `primary-wins` | Always select the primary mirror's version |
+| `manual` | Leave conflict unresolved for manual action |
+
+**Sync Tuning Options** (engine defaults shown; not yet exposed in `files.yaml`):
+
+| Option | Default | Purpose |
+|--------|---------|---------|
+| `interval` | 15m | Automatic sync interval (0 disables) |
+| `batch_size` | 100 | Files per batch |
+| `bandwidth_limit` | 0 | Bytes/sec (0 = unlimited) |
+| `conflict_strategy` | newest-wins | Default conflict behavior |
+| `retry_attempts` | 3 | Retries per failed operation |
+| `retry_delay` | 5s | Delay between retries |
+| `exclude_patterns` | [] | Skip patterns |
+| `prioritize_small_files` | true | Sync small files first |
+| `small_file_size_threshold` | 1MB | Threshold for "small" files |
+
 ### Sync Operations
 
 ```bash

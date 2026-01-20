@@ -328,7 +328,7 @@ login_defs:
   module: file
   state: present
   path: /etc/login.defs
-  template: login.defs.j2
+  template: login.defs.tmpl
   vars:
     pass_max_days: 365
     pass_min_days: 7
@@ -498,7 +498,7 @@ grafana_dashboard:
   module: file
   state: present
   path: /var/lib/grafana/dashboards/compliance.json
-  template: compliance-dashboard.json.j2
+  template: compliance-dashboard.json.tmpl
   vars:
     refresh_interval: "5m"
     frameworks:
