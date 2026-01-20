@@ -31,7 +31,6 @@ Epic 1: Core Infrastructure            Epic 32: Cross-Platform Testing
                                        Epic 33: Multi-Cloud Real Env Testing
                                        Epic 34: Blueprint Marketplace
                                        Epic 35: Network Protocol Expansion
-                                       Epic 100: 0.1.0 Release Readiness
 
 Epic 2: Remote Execution
 Epic 30: CLI UX Restructuring
@@ -735,22 +734,19 @@ Internal project policies, design philosophies, and architectural guardrails ins
 
 ---
 
-### Epic 100: 0.1.0 Release Readiness
+## Future Considerations
 
-**Status**: Planned | **Depends on**: All completed epics
+These items are under consideration for future development:
+
+#### 0.1.0 Release Readiness
 
 Final polish and release readiness for the 0.1.0 project announcement:
 
 - Blueprint signing + registry verification for official catalog
 - Version string normalization (reset project references to 0.1.0)
 - Full audit of docs + examples for version consistency
+- VM-based bootstrap validation on real hosts
 - Release checklist and announcement notes
-
----
-
-## Future Considerations
-
-These items are under consideration for future development:
 
 #### Multi-Tenancy & Namespace Isolation
 

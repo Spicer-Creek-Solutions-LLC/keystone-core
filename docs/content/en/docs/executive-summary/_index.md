@@ -43,7 +43,7 @@ Modern infrastructure uses tools like Terraform and ArgoCD to *deploy* systems, 
 
 ## Current Status
 
-Epics 1-29 complete (VM validation deferred to Epic 100):
+Epics 1-29 complete:
 
 | Category | Status |
 |----------|--------|
@@ -79,9 +79,12 @@ Counts are derived from repository-wide `*_test.go` scans (e.g., `rg -o "^func\\
 
 ### Planned Epics
 
-- **Epic 100**: 0.1.0 Release Readiness - signing, version reset, docs audit, VM validation
+- **Epic 30**: CLI UX Restructuring
+- **Epic 31**: NIST Design Principles - documentation only
 
 ### Future Considerations
+
+- **0.1.0 Release Readiness** - Blueprint signing, version reset, docs audit, VM validation
 
 | Category | Description |
 |----------|-------------|

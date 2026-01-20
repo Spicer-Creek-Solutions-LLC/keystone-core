@@ -40,7 +40,7 @@ This repository contains working implementations of **Epics 1-29**. The project 
 - Single-binary bootstrap experience
 - Comprehensive test suite (>79% coverage across all core packages)
 
-**Current Status**: Epic 1-29 COMPLETE ✅ | Epic 30 (CLI UX Restructuring) PLANNED | Epic 31 (NIST Design Principles) PLANNED
+**Current Status**: Epics 1-29 COMPLETE ✅ | Epics 30-31 PLANNED
 
 ## Repository Structure
 
@@ -77,7 +77,8 @@ This repository contains working implementations of **Epics 1-29**. The project 
     ├── 27-agent-bootstrap-experience.md  # Single-binary bootstrap
     ├── 28-standard-deployment-blueprints.md  # Official blueprints
     ├── 29-bootstrap-testing-infrastructure.md  # Bootstrap tests
-    └── 30-nist-design-principles.md      # NIST design principles
+    ├── 30-cli-ux-restructuring.md        # CLI UX restructuring
+    └── 31-nist-design-principles.md      # NIST design principles
 ```
 
 ## Architecture Overview
@@ -133,9 +134,12 @@ Implementation order:
 27. **Epic 27** (Agent Bootstrap Experience) - ✅ COMPLETE - Depends on Epic 23, 25
 28. **Epic 28** (Standard Deployment Blueprints) - ✅ COMPLETE - Depends on Epic 25, 27
 29. **Epic 29** (Bootstrap Testing Infrastructure) - ✅ COMPLETE - Depends on Epic 27, 28
-30. **Epic 30** (NIST Design Principles) - NOT STARTED - Documentation only
+30. **Epic 30** (CLI UX Restructuring) - NOT STARTED
+31. **Epic 31** (NIST Design Principles) - NOT STARTED - Documentation only
 
 ### Future Epics (Not Yet Planned)
+
+- **0.1.0 Release Readiness** - Blueprint signing, version reset, docs audit, VM validation
 
 - **Release & Distribution** - Release automation, package repos, artifact signing
 - **Multi-Tenancy** - Namespace isolation, per-tenant RBAC/quotas, SSO integration
