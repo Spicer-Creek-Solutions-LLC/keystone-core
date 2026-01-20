@@ -242,6 +242,97 @@ database_migration:
 - `unless`: Skip if this command succeeds
 - `only_if`: Run only if this command succeeds
 
+### 7. Docker Image Module
+
+Manages Docker container images:
+
+**States**:
+- `present`: Ensure image is pulled
+- `absent`: Ensure image is removed
+
+**Example**:
+```yaml
+app_image:
+  module: docker_image
+  state: present
+  name: myregistry.azurecr.io/myapp
+  tag: v1.2.3
+  registry_auth: cloud-auto
+```
+
+**Parameters**:
+- `name`: Image name (required)
+- `tag`: Image tag (default: `latest`)
+- `registry_auth`: Authentication method for private registries (optional)
+
+**Registry Authentication Methods**:
+- `""` (empty): No authentication (public registries)
+- `docker-config`: Use local Docker config (`~/.docker/config.json`)
+- `cloud-auto`: Auto-detect cloud provider (AWS ECR, GCP GCR, Azure ACR)
+- `k8s:namespace/secret`: Use Kubernetes imagePullSecret
+
+See [Container Registry Authentication](/docs/concepts/container-registry-auth/) for details.
+
+### 8. Docker Container Module
+
+Manages Docker containers:
+
+**States**:
+- `present`: Ensure container exists and is running
+- `absent`: Ensure container does not exist
+
+**Example**:
+```yaml
+web_container:
+  module: docker_container
+  state: present
+  name: web
+  image: nginx:latest
+  ports:
+    - "80:80"
+  volumes:
+    - "/data:/usr/share/nginx/html:ro"
+  require:
+    - nginx_image
+```
+
+**Parameters**:
+- `name`: Container name (required)
+- `image`: Image to use (required for `present`)
+- `ports`: Port mappings
+- `volumes`: Volume mounts
+- `env`: Environment variables
+- `restart`: Restart policy
+
+### 9. Podman Image Module
+
+Manages Podman container images (same interface as Docker):
+
+**Example**:
+```yaml
+app_image:
+  module: podman_image
+  state: present
+  name: gcr.io/myproject/myapp
+  tag: latest
+  registry_auth: cloud-auto
+```
+
+### 10. Podman Container Module
+
+Manages Podman containers (same interface as Docker):
+
+**Example**:
+```yaml
+app_container:
+  module: podman_container
+  state: present
+  name: myapp
+  image: myapp:latest
+  ports:
+    - "8080:8080"
+```
+
 ## Requisites (Dependencies)
 
 Requisites define relationships between state declarations:

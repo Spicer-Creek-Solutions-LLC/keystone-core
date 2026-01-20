@@ -2448,3 +2448,130 @@ func (c *Client) StreamExecOutput(opts PodExecOptions, stdout, stderr io.Writer)
 		Tty:    opts.TTY,
 	})
 }
+
+// GetNetworkPolicy retrieves a NetworkPolicy from Kubernetes
+func (c *Client) GetNetworkPolicy(namespace, name string) (*NetworkPolicy, error) {
+	np, err := c.clientset.NetworkingV1().NetworkPolicies(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get network policy: %w", err)
+	}
+	return FromK8sNetworkPolicy(np), nil
+}
+
+// ListNetworkPolicies lists NetworkPolicies in a namespace
+func (c *Client) ListNetworkPolicies(namespace string, labelSelector string) ([]*NetworkPolicy, error) {
+	listOpts := metav1.ListOptions{}
+	if labelSelector != "" {
+		listOpts.LabelSelector = labelSelector
+	}
+
+	var npList *networkingv1.NetworkPolicyList
+	var err error
+
+	if namespace == "" {
+		npList, err = c.clientset.NetworkingV1().NetworkPolicies(corev1.NamespaceAll).List(context.Background(), listOpts)
+	} else {
+		npList, err = c.clientset.NetworkingV1().NetworkPolicies(namespace).List(context.Background(), listOpts)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to list network policies: %w", err)
+	}
+
+	policies := make([]*NetworkPolicy, len(npList.Items))
+	for i := range npList.Items {
+		policies[i] = FromK8sNetworkPolicy(&npList.Items[i])
+	}
+	return policies, nil
+}
+
+// CreateNetworkPolicy creates a NetworkPolicy in Kubernetes
+func (c *Client) CreateNetworkPolicy(namespace string, policy *NetworkPolicy) error {
+	if policy.Namespace == "" {
+		policy.Namespace = namespace
+	}
+
+	k8sPolicy := ToK8sNetworkPolicy(policy)
+	_, err := c.clientset.NetworkingV1().NetworkPolicies(namespace).Create(context.Background(), k8sPolicy, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to create network policy: %w", err)
+	}
+	return nil
+}
+
+// UpdateNetworkPolicy updates a NetworkPolicy in Kubernetes
+func (c *Client) UpdateNetworkPolicy(namespace string, policy *NetworkPolicy) error {
+	if policy.Namespace == "" {
+		policy.Namespace = namespace
+	}
+
+	// Get the existing policy to preserve resourceVersion
+	existing, err := c.clientset.NetworkingV1().NetworkPolicies(namespace).Get(context.Background(), policy.Name, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get existing network policy: %w", err)
+	}
+
+	k8sPolicy := ToK8sNetworkPolicy(policy)
+	k8sPolicy.ResourceVersion = existing.ResourceVersion
+
+	_, err = c.clientset.NetworkingV1().NetworkPolicies(namespace).Update(context.Background(), k8sPolicy, metav1.UpdateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to update network policy: %w", err)
+	}
+	return nil
+}
+
+// DeleteNetworkPolicy deletes a NetworkPolicy from Kubernetes
+func (c *Client) DeleteNetworkPolicy(namespace, name string) error {
+	err := c.clientset.NetworkingV1().NetworkPolicies(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to delete network policy: %w", err)
+	}
+	return nil
+}
+
+// WatchNetworkPolicies watches for NetworkPolicy changes
+func (c *Client) WatchNetworkPolicies(namespace string, labelSelector string) (<-chan NetworkPolicyWatchEvent, error) {
+	listOpts := metav1.ListOptions{
+		Watch: true,
+	}
+	if labelSelector != "" {
+		listOpts.LabelSelector = labelSelector
+	}
+
+	ns := namespace
+	if ns == "" {
+		ns = corev1.NamespaceAll
+	}
+
+	watcher, err := c.clientset.NetworkingV1().NetworkPolicies(ns).Watch(context.Background(), listOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to watch network policies: %w", err)
+	}
+
+	eventChan := make(chan NetworkPolicyWatchEvent, 100)
+
+	go func() {
+		defer close(eventChan)
+		for event := range watcher.ResultChan() {
+			np, ok := event.Object.(*networkingv1.NetworkPolicy)
+			if !ok {
+				continue
+			}
+
+			eventChan <- NetworkPolicyWatchEvent{
+				Type:      string(event.Type),
+				Policy:    FromK8sNetworkPolicy(np),
+				Timestamp: time.Now(),
+			}
+		}
+	}()
+
+	return eventChan, nil
+}
+
+// NetworkPolicyWatchEvent represents a NetworkPolicy watch event
+type NetworkPolicyWatchEvent struct {
+	Type      string         `json:"type"` // ADDED, MODIFIED, DELETED
+	Policy    *NetworkPolicy `json:"policy"`
+	Timestamp time.Time      `json:"timestamp"`
+}

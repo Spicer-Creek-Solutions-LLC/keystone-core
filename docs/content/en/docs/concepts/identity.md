@@ -328,6 +328,89 @@ spec:
                   audience: kscore
 ```
 
+### Automatic Attestation Fallback
+
+Keystone Core supports automatic fallback between attestation methods when the primary method fails. This is useful in hybrid environments where agents may run on different platforms.
+
+#### Enable Fallback
+
+```yaml
+identity:
+  attestation:
+    # Enable automatic fallback when primary attestor fails
+    enable_fallback: true
+
+    # Specify the order to try attestors (optional)
+    # If not specified, uses allowed_attestors order
+    fallback_order:
+      - k8s_sat      # Try Kubernetes first
+      - aws_iid      # Then AWS
+      - gcp_iit      # Then GCP
+      - azure_imds   # Then Azure
+      - join_token   # Finally join token
+
+    allowed_attestors:
+      - k8s_sat
+      - aws_iid
+      - gcp_iit
+      - azure_imds
+      - join_token
+```
+
+#### Auto-Detection Mode
+
+Agents can use automatic attestation type detection:
+
+```yaml
+# Agent configuration
+identity:
+  attestation:
+    type: auto  # Automatically detect the best attestation method
+```
+
+When `type: auto` is specified, the agent sends evidence to the control plane, which tries each enabled attestor in `fallback_order` until one succeeds. This is useful for:
+
+- **Portable agent images**: Same image works on AWS, GCP, Azure, or Kubernetes
+- **Gradual migration**: Move from join tokens to cloud attestation without config changes
+- **Resilient bootstrap**: If cloud metadata is temporarily unavailable, fall back to join tokens
+
+#### How Fallback Works
+
+```mermaid
+flowchart TD
+    A[Agent Sends Evidence] --> B{Type = auto?}
+    B -->|Yes| C[Try First Attestor in FallbackOrder]
+    B -->|No| D[Try Specified Attestor]
+    D --> E{Success?}
+    E -->|Yes| F[Return SVID]
+    E -->|No| G{Fallback Enabled?}
+    G -->|Yes| H[Try Next Attestor]
+    G -->|No| I[Return Error]
+    C --> J{Can Attest?}
+    J -->|Yes| K{Success?}
+    J -->|No| L[Skip to Next]
+    K -->|Yes| F
+    K -->|No| L
+    L --> M{More Attestors?}
+    M -->|Yes| C
+    M -->|No| I
+    H --> M
+```
+
+#### Viewing Attempted Attestors
+
+When fallback is used, the attestation result includes which attestors were tried:
+
+```bash
+# Check agent attestation details
+kscorectl agent show web-server-1 --verbose
+
+# Output includes:
+# Attestation:
+#   Method: aws_iid
+#   Attempted: [k8s_sat, aws_iid]  # k8s_sat tried first but failed
+```
+
 ## SVID Lifecycle
 
 ### Issuance
@@ -1039,28 +1122,66 @@ stateDiagram-v2
     Revoked --> [*]
 ```
 
+### Interactive Federation Wizard
+
+For guided federation setup, use the interactive wizard:
+
+```bash
+# Launch the interactive wizard
+kscore-federation wizard
+```
+
+The wizard guides you through:
+
+1. **Trust Domain**: Enter the partner trust domain name
+2. **Endpoint Discovery**: Auto-discover or manually specify the bundle endpoint
+3. **Federation Type**: Choose bidirectional or unidirectional trust
+4. **Policy Template**: Select from pre-built policy templates:
+   - **Services Only** (recommended): Allow `/service/**`, deny `/admin/**` and `/internal/**`
+   - **Allow All**: Trust all identities from the partner domain
+   - **Agents Only**: Only allow `/agent/**` paths
+   - **Kubernetes**: Allow Kubernetes service account paths (`/ns/*/sa/*`)
+   - **Custom**: Define your own allowed/denied paths
+5. **Settings**: Configure refresh interval and mTLS requirements
+6. **Policy Testing**: Test SPIFFE IDs against your policy before activation
+7. **Review**: Confirm the configuration and create the federation
+
+For non-interactive (scripted) setup:
+
+```bash
+kscore-federation wizard \
+  --non-interactive \
+  --domain partner.example.org \
+  --endpoint https://partner.example.org/.well-known/spiffe-bundle \
+  --type bidirectional \
+  --policy services-only \
+  --refresh 5m \
+  --mtls \
+  --auto-activate
+```
+
 ### Managing Federation
 
 ```bash
 # List federated domains
-kscorectl identity federation list
+kscore-federation list
 
 # Add a federated domain
-kscorectl identity federation add cluster-b.example.org \
+kscore-federation add cluster-b.example.org \
   --bundle-endpoint https://cluster-b.example.org/.well-known/spiffe-bundle \
   --type bidirectional
 
 # Suspend federation (stops accepting SVIDs)
-kscorectl identity federation suspend cluster-b.example.org
+kscore-federation suspend cluster-b.example.org
 
 # Reactivate federation
-kscorectl identity federation activate cluster-b.example.org
+kscore-federation activate cluster-b.example.org
 
 # Remove federation
-kscorectl identity federation remove cluster-b.example.org
+kscore-federation remove cluster-b.example.org
 
 # Refresh trust bundle manually
-kscorectl identity federation refresh cluster-b.example.org
+kscore-federation refresh cluster-b.example.org
 ```
 
 ### SPIFFE Bundle Endpoint

@@ -669,3 +669,484 @@ func TestXMLRoundTrip(t *testing.T) {
 	}
 }
 
+func TestXMLNode_Namespace(t *testing.T) {
+	t.Run("element with namespace", func(t *testing.T) {
+		node := &XMLNode{
+			XMLName: xml.Name{
+				Local: "element",
+				Space: "http://example.com/ns",
+			},
+		}
+		if ns := node.Namespace(); ns != "http://example.com/ns" {
+			t.Errorf("Namespace() = %q, want %q", ns, "http://example.com/ns")
+		}
+	})
+
+	t.Run("element without namespace", func(t *testing.T) {
+		node := &XMLNode{
+			XMLName: xml.Name{Local: "element"},
+		}
+		if ns := node.Namespace(); ns != "" {
+			t.Errorf("Namespace() = %q, want empty string", ns)
+		}
+	})
+
+	t.Run("parsed XML with namespace", func(t *testing.T) {
+		mod := NewXMLModule()
+		xmlData := `<root xmlns="http://default.ns"><child xmlns:custom="http://custom.ns"/></root>`
+		node, err := mod.Parse([]byte(xmlData))
+		if err != nil {
+			t.Fatalf("Parse failed: %v", err)
+		}
+
+		// Root should have default namespace
+		if ns := node.Namespace(); ns != "http://default.ns" {
+			t.Errorf("root Namespace() = %q, want %q", ns, "http://default.ns")
+		}
+	})
+}
+
+func TestYAMLModule_EncodeIndent(t *testing.T) {
+	mod := NewYAMLModule()
+
+	t.Run("custom 4-space indent", func(t *testing.T) {
+		data := map[string]interface{}{
+			"parent": map[string]interface{}{
+				"child": "value",
+			},
+		}
+
+		result, err := mod.EncodeIndent(data, 4)
+		if err != nil {
+			t.Fatalf("EncodeIndent failed: %v", err)
+		}
+
+		// With 4-space indent, nested items should be indented by 4 spaces
+		output := string(result)
+		if !strings.Contains(output, "parent:") {
+			t.Error("Output should contain 'parent:'")
+		}
+		if !strings.Contains(output, "    child:") {
+			t.Errorf("Output should contain '    child:' (4-space indent), got:\n%s", output)
+		}
+	})
+
+	t.Run("single space indent", func(t *testing.T) {
+		data := map[string]interface{}{
+			"root": map[string]interface{}{
+				"nested": "val",
+			},
+		}
+
+		result, err := mod.EncodeIndent(data, 1)
+		if err != nil {
+			t.Fatalf("EncodeIndent failed: %v", err)
+		}
+
+		output := string(result)
+		if !strings.Contains(output, " nested:") {
+			t.Errorf("Output should contain ' nested:' (1-space indent), got:\n%s", output)
+		}
+	})
+
+	t.Run("zero indent", func(t *testing.T) {
+		data := map[string]interface{}{
+			"key": "value",
+		}
+
+		result, err := mod.EncodeIndent(data, 0)
+		if err != nil {
+			t.Fatalf("EncodeIndent failed: %v", err)
+		}
+
+		output := string(result)
+		if !strings.Contains(output, "key: value") {
+			t.Errorf("Output should contain 'key: value', got:\n%s", output)
+		}
+	})
+}
+
+func TestWriteYAML_AllTypes(t *testing.T) {
+	mod := NewYAMLModule()
+
+	t.Run("nil value", func(t *testing.T) {
+		result, err := mod.Encode(nil)
+		if err != nil {
+			t.Fatalf("Encode failed: %v", err)
+		}
+		if string(result) != "null" {
+			t.Errorf("nil should encode to 'null', got %q", string(result))
+		}
+	})
+
+	t.Run("bool values", func(t *testing.T) {
+		result, err := mod.Encode(true)
+		if err != nil {
+			t.Fatalf("Encode failed: %v", err)
+		}
+		if string(result) != "true" {
+			t.Errorf("true should encode to 'true', got %q", string(result))
+		}
+
+		result, err = mod.Encode(false)
+		if err != nil {
+			t.Fatalf("Encode failed: %v", err)
+		}
+		if string(result) != "false" {
+			t.Errorf("false should encode to 'false', got %q", string(result))
+		}
+	})
+
+	t.Run("integer types", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			value    interface{}
+			expected string
+		}{
+			{"int", int(42), "42"},
+			{"int64", int64(42), "42"},
+			{"int32", int32(42), "42"},
+			{"int16", int16(42), "42"},
+			{"int8", int8(42), "42"},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				result, err := mod.Encode(tt.value)
+				if err != nil {
+					t.Fatalf("Encode failed: %v", err)
+				}
+				if string(result) != tt.expected {
+					t.Errorf("%s should encode to %q, got %q", tt.name, tt.expected, string(result))
+				}
+			})
+		}
+	})
+
+	t.Run("unsigned integer types", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			value    interface{}
+			expected string
+		}{
+			{"uint", uint(42), "42"},
+			{"uint64", uint64(42), "42"},
+			{"uint32", uint32(42), "42"},
+			{"uint16", uint16(42), "42"},
+			{"uint8", uint8(42), "42"},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				result, err := mod.Encode(tt.value)
+				if err != nil {
+					t.Fatalf("Encode failed: %v", err)
+				}
+				if string(result) != tt.expected {
+					t.Errorf("%s should encode to %q, got %q", tt.name, tt.expected, string(result))
+				}
+			})
+		}
+	})
+
+	t.Run("float types", func(t *testing.T) {
+		result, err := mod.Encode(float64(3.14))
+		if err != nil {
+			t.Fatalf("Encode failed: %v", err)
+		}
+		if !strings.Contains(string(result), "3.14") {
+			t.Errorf("float64(3.14) should encode to contain '3.14', got %q", string(result))
+		}
+
+		result, err = mod.Encode(float32(2.5))
+		if err != nil {
+			t.Fatalf("Encode failed: %v", err)
+		}
+		if !strings.Contains(string(result), "2.5") {
+			t.Errorf("float32(2.5) should encode to contain '2.5', got %q", string(result))
+		}
+	})
+
+	t.Run("string needing quotes", func(t *testing.T) {
+		tests := []struct {
+			value    string
+			contains string
+		}{
+			{"key:value", "\"key:value\""},
+			{"true", "\"true\""},
+			{"null", "\"null\""},
+			{"yes", "\"yes\""},
+			{"", "\"\""},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.value, func(t *testing.T) {
+				result, err := mod.Encode(tt.value)
+				if err != nil {
+					t.Fatalf("Encode failed: %v", err)
+				}
+				if string(result) != tt.contains {
+					t.Errorf("string %q should encode to %q, got %q", tt.value, tt.contains, string(result))
+				}
+			})
+		}
+	})
+
+	t.Run("nested list in map", func(t *testing.T) {
+		data := map[string]interface{}{
+			"items": []interface{}{"a", "b", "c"},
+		}
+
+		result, err := mod.Encode(data)
+		if err != nil {
+			t.Fatalf("Encode failed: %v", err)
+		}
+
+		output := string(result)
+		if !strings.Contains(output, "items:") {
+			t.Error("Output should contain 'items:'")
+		}
+		if !strings.Contains(output, "- a") {
+			t.Error("Output should contain '- a'")
+		}
+	})
+
+	t.Run("list with map items", func(t *testing.T) {
+		data := []interface{}{
+			map[string]interface{}{"name": "first"},
+			map[string]interface{}{"name": "second"},
+		}
+
+		result, err := mod.Encode(data)
+		if err != nil {
+			t.Fatalf("Encode failed: %v", err)
+		}
+
+		output := string(result)
+		if !strings.Contains(output, "- name: first") {
+			t.Errorf("Output should contain '- name: first', got:\n%s", output)
+		}
+	})
+
+	t.Run("complex type fallback to JSON", func(t *testing.T) {
+		// Use a struct that will trigger JSON marshaling
+		type customType struct {
+			Field string `json:"field"`
+		}
+		data := customType{Field: "value"}
+
+		result, err := mod.Encode(data)
+		if err != nil {
+			t.Fatalf("Encode failed: %v", err)
+		}
+
+		// Should fall back to JSON representation
+		if !strings.Contains(string(result), "field") {
+			t.Errorf("Complex type should be JSON marshaled, got: %s", string(result))
+		}
+	})
+
+	t.Run("empty map in list item", func(t *testing.T) {
+		data := []interface{}{
+			map[string]interface{}{},
+			"simple",
+		}
+
+		result, err := mod.Encode(data)
+		if err != nil {
+			t.Fatalf("Encode failed: %v", err)
+		}
+
+		output := string(result)
+		if !strings.Contains(output, "- simple") {
+			t.Errorf("Output should contain '- simple', got:\n%s", output)
+		}
+	})
+}
+
+func TestXMLModule_FromMap_EdgeCases(t *testing.T) {
+	mod := NewXMLModule()
+
+	t.Run("with text content", func(t *testing.T) {
+		data := map[string]interface{}{
+			"#text": "Hello World",
+		}
+
+		node := mod.FromMap("greeting", data)
+
+		if node.Name() != "greeting" {
+			t.Errorf("Name() = %s, want greeting", node.Name())
+		}
+		if node.Content != "Hello World" {
+			t.Errorf("Content = %s, want 'Hello World'", node.Content)
+		}
+	})
+
+	t.Run("with string child", func(t *testing.T) {
+		data := map[string]interface{}{
+			"title": "Document Title",
+		}
+
+		node := mod.FromMap("doc", data)
+
+		if len(node.Children) != 1 {
+			t.Fatalf("Expected 1 child, got %d", len(node.Children))
+		}
+
+		child := node.Child("title")
+		if child == nil {
+			t.Fatal("Expected child 'title'")
+		}
+		if child.Content != "Document Title" {
+			t.Errorf("child Content = %s, want 'Document Title'", child.Content)
+		}
+	})
+
+	t.Run("with array of maps", func(t *testing.T) {
+		data := map[string]interface{}{
+			"item": []interface{}{
+				map[string]interface{}{"#text": "first"},
+				map[string]interface{}{"#text": "second"},
+			},
+		}
+
+		node := mod.FromMap("list", data)
+
+		items := node.ChildrenByName("item")
+		if len(items) != 2 {
+			t.Fatalf("Expected 2 item children, got %d", len(items))
+		}
+
+		if items[0].Content != "first" {
+			t.Errorf("First item content = %s, want 'first'", items[0].Content)
+		}
+		if items[1].Content != "second" {
+			t.Errorf("Second item content = %s, want 'second'", items[1].Content)
+		}
+	})
+
+	t.Run("with array containing non-maps", func(t *testing.T) {
+		data := map[string]interface{}{
+			"values": []interface{}{"not a map", 123},
+		}
+
+		// Should not crash, non-map items are skipped
+		node := mod.FromMap("root", data)
+
+		if node.Name() != "root" {
+			t.Errorf("Name() = %s, want root", node.Name())
+		}
+		// No children should be created for non-map array items
+		if len(node.ChildrenByName("values")) != 0 {
+			t.Error("Non-map array items should not create children")
+		}
+	})
+
+	t.Run("attrs with wrong type", func(t *testing.T) {
+		data := map[string]interface{}{
+			"@attrs": "not a map", // Wrong type
+		}
+
+		// Should not crash
+		node := mod.FromMap("root", data)
+		if node.Name() != "root" {
+			t.Errorf("Name() = %s, want root", node.Name())
+		}
+		if len(node.Attrs) != 0 {
+			t.Error("Invalid @attrs should not create attributes")
+		}
+	})
+
+	t.Run("text with wrong type", func(t *testing.T) {
+		data := map[string]interface{}{
+			"#text": 12345, // Not a string
+		}
+
+		// Should not crash
+		node := mod.FromMap("root", data)
+		if node.Content != "" {
+			t.Errorf("Content should be empty for non-string #text, got %s", node.Content)
+		}
+	})
+}
+
+func TestXPathSearch_EdgeCases(t *testing.T) {
+	mod := NewXMLModule()
+
+	xmlData := `<root>
+		<items>
+			<item id="1">first</item>
+			<item id="2">second</item>
+			<other>not an item</other>
+		</items>
+		<metadata>
+			<author>test</author>
+		</metadata>
+	</root>`
+
+	node, err := mod.Parse([]byte(xmlData))
+	if err != nil {
+		t.Fatalf("Parse failed: %v", err)
+	}
+
+	t.Run("attribute selector path", func(t *testing.T) {
+		// Attribute selectors return empty (not supported for node selection)
+		results := mod.XPath(node, "/items/@id")
+		// Should not crash, returns empty since attribute access doesn't return nodes
+		if len(results) != 0 {
+			t.Errorf("Attribute selector should return empty, got %d results", len(results))
+		}
+	})
+
+	t.Run("predicate selector", func(t *testing.T) {
+		// Predicate in path like /items/item[1]
+		results := mod.XPath(node, "/items/item[1]")
+		if len(results) != 2 {
+			t.Errorf("Expected 2 items (predicate stripped), got %d", len(results))
+		}
+	})
+
+	t.Run("path with double slash", func(t *testing.T) {
+		results := mod.XPath(node, "//items")
+		// Double slash creates empty part - behavior is to search children for empty string
+		// which won't match, so this returns the intermediate result or empty
+		// The important thing is it doesn't crash
+		_ = results
+	})
+
+	t.Run("deep nesting search", func(t *testing.T) {
+		results := mod.XPath(node, "/items/item")
+		if len(results) != 2 {
+			t.Errorf("Expected 2 results, got %d", len(results))
+		}
+	})
+
+	t.Run("wildcard at leaf", func(t *testing.T) {
+		results := mod.XPath(node, "/items/*")
+		if len(results) != 3 {
+			t.Errorf("Expected 3 children (2 items + 1 other), got %d", len(results))
+		}
+	})
+
+	t.Run("non-matching path", func(t *testing.T) {
+		results := mod.XPath(node, "/nonexistent/path")
+		if len(results) != 0 {
+			t.Errorf("Expected 0 results for non-matching path, got %d", len(results))
+		}
+	})
+
+	t.Run("empty input nodes", func(t *testing.T) {
+		results := xpathSearch([]*XMLNode{}, []string{"path"})
+		if len(results) != 0 {
+			t.Errorf("Expected 0 results for empty input, got %d", len(results))
+		}
+	})
+
+	t.Run("empty path parts", func(t *testing.T) {
+		results := xpathSearch([]*XMLNode{node}, []string{})
+		if len(results) != 1 {
+			t.Errorf("Expected 1 result (original node) for empty parts, got %d", len(results))
+		}
+	})
+}
+

@@ -80,6 +80,18 @@ type AttestationConfig struct {
 	// AllowNone allows the "none" attestor (dev only). Default: false.
 	AllowNone bool `yaml:"allow_none" json:"allow_none"`
 
+	// EnableFallback enables automatic fallback to alternative attestors when
+	// the primary attestation method fails. When enabled and attestation fails,
+	// the engine will try each attestor in FallbackOrder until one succeeds.
+	// Default: false.
+	EnableFallback bool `yaml:"enable_fallback" json:"enable_fallback"`
+
+	// FallbackOrder specifies the order in which to try attestors when using
+	// auto-detection (type="auto") or when EnableFallback is true and the
+	// primary attestor fails. If empty, uses AllowedAttestors order.
+	// Example: ["k8s_sat", "aws_iid", "gcp_iit", "azure_imds", "join_token"]
+	FallbackOrder []string `yaml:"fallback_order,omitempty" json:"fallback_order,omitempty"`
+
 	// JoinToken contains join token attestor configuration.
 	JoinToken JoinTokenConfig `yaml:"join_token" json:"join_token"`
 

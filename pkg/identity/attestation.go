@@ -23,6 +23,16 @@ type AttestationEngineConfig struct {
 	// AllowNone allows the "none" attestor (dev only).
 	AllowNone bool
 
+	// EnableFallback enables automatic fallback to alternative attestors.
+	// When true and attestation fails, the engine tries each attestor in
+	// FallbackOrder until one succeeds.
+	EnableFallback bool
+
+	// FallbackOrder specifies the order in which to try attestors when using
+	// auto-detection (type="auto") or when EnableFallback is true.
+	// If empty, uses AllowedAttestors order.
+	FallbackOrder []string
+
 	// JoinTokenStore is the store for join tokens.
 	// If nil, join token attestation will not be available.
 	//
@@ -100,6 +110,9 @@ func NewAttestationEngine(config *AttestationEngineConfig) (*AttestationEngine, 
 }
 
 // Attest performs attestation using the appropriate attestor.
+// If evidence.Type is "auto", the engine tries each enabled attestor in
+// FallbackOrder until one succeeds. If EnableFallback is true and the
+// primary attestor fails, fallback attestors are tried.
 func (e *AttestationEngine) Attest(ctx context.Context, evidence *AttestationEvidence) (*AttestationResult, error) {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
@@ -109,6 +122,11 @@ func (e *AttestationEngine) Attest(ctx context.Context, evidence *AttestationEvi
 			Success: false,
 			Error:   "no attestation evidence provided",
 		}, nil
+	}
+
+	// Handle auto-detection mode
+	if evidence.Type == AttestationTypeAuto {
+		return e.attestWithFallback(ctx, evidence, e.getFallbackOrder())
 	}
 
 	// Find attestor that can handle this evidence
@@ -127,7 +145,97 @@ func (e *AttestationEngine) Attest(ctx context.Context, evidence *AttestationEvi
 		}, nil
 	}
 
-	return attestor.Attest(ctx, evidence)
+	result, err := attestor.Attest(ctx, evidence)
+	if err != nil {
+		return nil, err
+	}
+
+	// If attestation failed and fallback is enabled, try other attestors
+	if !result.Success && e.config.EnableFallback {
+		fallbackOrder := e.getFallbackOrderExcluding(evidence.Type)
+		if len(fallbackOrder) > 0 {
+			fallbackResult, fallbackErr := e.attestWithFallback(ctx, evidence, fallbackOrder)
+			if fallbackErr != nil {
+				return nil, fallbackErr
+			}
+			// Prepend the original attestor to the attempted list
+			fallbackResult.AttemptedAttestors = append([]string{evidence.Type}, fallbackResult.AttemptedAttestors...)
+			return fallbackResult, nil
+		}
+	}
+
+	return result, nil
+}
+
+// attestWithFallback tries each attestor in order until one succeeds.
+func (e *AttestationEngine) attestWithFallback(ctx context.Context, evidence *AttestationEvidence, attestorOrder []string) (*AttestationResult, error) {
+	var attempted []string
+	var lastError string
+
+	for _, attestorName := range attestorOrder {
+		attestor, ok := e.attestors[attestorName]
+		if !ok {
+			continue
+		}
+
+		// Create evidence copy with this attestor's type for CanAttest check
+		testEvidence := &AttestationEvidence{
+			Type:     attestorName,
+			Data:     evidence.Data,
+			Metadata: evidence.Metadata,
+		}
+
+		if !attestor.CanAttest(ctx, testEvidence) {
+			continue
+		}
+
+		attempted = append(attempted, attestorName)
+
+		result, err := attestor.Attest(ctx, testEvidence)
+		if err != nil {
+			lastError = fmt.Sprintf("%s: %v", attestorName, err)
+			continue
+		}
+
+		if result.Success {
+			result.AttemptedAttestors = attempted
+			return result, nil
+		}
+
+		lastError = fmt.Sprintf("%s: %s", attestorName, result.Error)
+	}
+
+	// All attestors failed
+	errorMsg := "all attestors failed"
+	if lastError != "" {
+		errorMsg = fmt.Sprintf("all attestors failed, last error: %s", lastError)
+	}
+
+	return &AttestationResult{
+		Success:            false,
+		Error:              errorMsg,
+		AttemptedAttestors: attempted,
+	}, nil
+}
+
+// getFallbackOrder returns the configured fallback order or defaults to AllowedAttestors.
+func (e *AttestationEngine) getFallbackOrder() []string {
+	if len(e.config.FallbackOrder) > 0 {
+		return e.config.FallbackOrder
+	}
+	return e.config.AllowedAttestors
+}
+
+// getFallbackOrderExcluding returns the fallback order excluding the specified attestor.
+func (e *AttestationEngine) getFallbackOrderExcluding(exclude string) []string {
+	order := e.getFallbackOrder()
+	result := make([]string, 0, len(order))
+	for _, name := range order {
+		if name != exclude {
+			result = append(result, name)
+		}
+	}
+	return result
 }
 
 // RegisterAttestor registers a custom attestor.

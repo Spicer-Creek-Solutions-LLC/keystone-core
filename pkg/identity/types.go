@@ -377,6 +377,10 @@ type AttestationResult struct {
 
 	// Attestor is the name of the attestor that handled this.
 	Attestor string
+
+	// AttemptedAttestors lists attestors that were tried during fallback.
+	// Only populated when using auto-detection or fallback mode.
+	AttemptedAttestors []string
 }
 
 // AttestationEvidenceType constants for built-in attestors.
@@ -395,6 +399,9 @@ const (
 	AttestationTypeConsulConnect = "consul_connect"
 	// AttestationTypeNone allows unauthenticated attestation (dev only).
 	AttestationTypeNone = "none"
+	// AttestationTypeAuto enables automatic attestation method detection.
+	// The engine will try each enabled attestor in FallbackOrder until one succeeds.
+	AttestationTypeAuto = "auto"
 )
 
 // JoinToken represents a one-time token for agent registration.

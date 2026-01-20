@@ -607,6 +607,262 @@ func TestAttestationEngine(t *testing.T) {
 	})
 }
 
+func TestAttestationEngineFallback(t *testing.T) {
+	store := NewInMemoryTokenStore()
+	ctx := context.Background()
+
+	t.Run("auto detection mode", func(t *testing.T) {
+		config := &AttestationEngineConfig{
+			TrustDomain:      "test.local",
+			AllowedAttestors: []string{AttestationTypeJoinToken, AttestationTypeNone},
+			AllowNone:        true,
+			EnableFallback:   true,
+			FallbackOrder:    []string{AttestationTypeJoinToken, AttestationTypeNone},
+			JoinTokenStore:   store,
+		}
+
+		engine, err := NewAttestationEngine(config)
+		if err != nil {
+			t.Fatalf("failed to create attestation engine: %v", err)
+		}
+
+		// Use auto-detection with none attestor data (should fall back to none)
+		evidence := &AttestationEvidence{
+			Type:     AttestationTypeAuto,
+			Metadata: map[string]string{"agent_id": "auto-agent"},
+		}
+
+		result, err := engine.Attest(ctx, evidence)
+		if err != nil {
+			t.Fatalf("attestation failed: %v", err)
+		}
+
+		if !result.Success {
+			t.Errorf("expected auto attestation to succeed, got error: %s", result.Error)
+		}
+
+		// Should have tried attestors and recorded them
+		if len(result.AttemptedAttestors) == 0 {
+			t.Error("expected AttemptedAttestors to be populated")
+		}
+
+		// Should have used the none attestor since join_token would fail without valid token
+		if result.Attestor != AttestationTypeNone {
+			t.Errorf("expected attestor to be 'none', got %s", result.Attestor)
+		}
+	})
+
+	t.Run("auto detection with valid token", func(t *testing.T) {
+		config := &AttestationEngineConfig{
+			TrustDomain:      "test.local",
+			AllowedAttestors: []string{AttestationTypeJoinToken, AttestationTypeNone},
+			AllowNone:        true,
+			EnableFallback:   true,
+			FallbackOrder:    []string{AttestationTypeJoinToken, AttestationTypeNone},
+			JoinTokenStore:   store,
+		}
+
+		engine, err := NewAttestationEngine(config)
+		if err != nil {
+			t.Fatalf("failed to create attestation engine: %v", err)
+		}
+
+		// Create a valid token
+		token := &JoinToken{
+			Token:     "auto-fallback-token",
+			ExpiresAt: time.Now().Add(5 * time.Minute),
+			CreatedAt: time.Now(),
+		}
+		_ = store.Create(ctx, token)
+
+		// Use auto-detection with valid token data
+		evidence := &AttestationEvidence{
+			Type:     AttestationTypeAuto,
+			Data:     []byte("auto-fallback-token"),
+			Metadata: map[string]string{"agent_id": "token-agent"},
+		}
+
+		result, err := engine.Attest(ctx, evidence)
+		if err != nil {
+			t.Fatalf("attestation failed: %v", err)
+		}
+
+		if !result.Success {
+			t.Errorf("expected attestation to succeed, got error: %s", result.Error)
+		}
+
+		// Should have used join_token attestor first
+		if result.Attestor != AttestationTypeJoinToken {
+			t.Errorf("expected attestor to be 'join_token', got %s", result.Attestor)
+		}
+
+		if len(result.AttemptedAttestors) != 1 {
+			t.Errorf("expected 1 attempted attestor, got %d", len(result.AttemptedAttestors))
+		}
+	})
+
+	t.Run("fallback on primary failure", func(t *testing.T) {
+		config := &AttestationEngineConfig{
+			TrustDomain:      "test.local",
+			AllowedAttestors: []string{AttestationTypeJoinToken, AttestationTypeNone},
+			AllowNone:        true,
+			EnableFallback:   true,
+			FallbackOrder:    []string{AttestationTypeJoinToken, AttestationTypeNone},
+			JoinTokenStore:   store,
+		}
+
+		engine, err := NewAttestationEngine(config)
+		if err != nil {
+			t.Fatalf("failed to create attestation engine: %v", err)
+		}
+
+		// Try join_token with invalid token - should fallback to none
+		evidence := &AttestationEvidence{
+			Type:     AttestationTypeJoinToken,
+			Data:     []byte("invalid-token-for-fallback"),
+			Metadata: map[string]string{"agent_id": "fallback-agent"},
+		}
+
+		result, err := engine.Attest(ctx, evidence)
+		if err != nil {
+			t.Fatalf("attestation failed: %v", err)
+		}
+
+		if !result.Success {
+			t.Errorf("expected fallback attestation to succeed, got error: %s", result.Error)
+		}
+
+		// Should have used the none attestor after join_token failed
+		if result.Attestor != AttestationTypeNone {
+			t.Errorf("expected attestor to be 'none', got %s", result.Attestor)
+		}
+
+		// AttemptedAttestors should include both
+		if len(result.AttemptedAttestors) < 2 {
+			t.Errorf("expected at least 2 attempted attestors, got %d: %v", len(result.AttemptedAttestors), result.AttemptedAttestors)
+		}
+	})
+
+	t.Run("no fallback when disabled", func(t *testing.T) {
+		config := &AttestationEngineConfig{
+			TrustDomain:      "test.local",
+			AllowedAttestors: []string{AttestationTypeJoinToken, AttestationTypeNone},
+			AllowNone:        true,
+			EnableFallback:   false, // Fallback disabled
+			JoinTokenStore:   store,
+		}
+
+		engine, err := NewAttestationEngine(config)
+		if err != nil {
+			t.Fatalf("failed to create attestation engine: %v", err)
+		}
+
+		// Try join_token with invalid token - should NOT fallback
+		evidence := &AttestationEvidence{
+			Type:     AttestationTypeJoinToken,
+			Data:     []byte("another-invalid-token"),
+			Metadata: map[string]string{"agent_id": "no-fallback-agent"},
+		}
+
+		result, err := engine.Attest(ctx, evidence)
+		if err != nil {
+			t.Fatalf("attestation call failed: %v", err)
+		}
+
+		// Should fail without fallback
+		if result.Success {
+			t.Error("expected attestation to fail without fallback")
+		}
+
+		// AttemptedAttestors should be empty (not using fallback)
+		if len(result.AttemptedAttestors) != 0 {
+			t.Errorf("expected 0 attempted attestors when fallback disabled, got %d", len(result.AttemptedAttestors))
+		}
+	})
+
+	t.Run("custom fallback order", func(t *testing.T) {
+		config := &AttestationEngineConfig{
+			TrustDomain:      "test.local",
+			AllowedAttestors: []string{AttestationTypeJoinToken, AttestationTypeNone},
+			AllowNone:        true,
+			EnableFallback:   true,
+			FallbackOrder:    []string{AttestationTypeNone, AttestationTypeJoinToken}, // None first
+			JoinTokenStore:   store,
+		}
+
+		engine, err := NewAttestationEngine(config)
+		if err != nil {
+			t.Fatalf("failed to create attestation engine: %v", err)
+		}
+
+		// Use auto-detection - should try none first
+		evidence := &AttestationEvidence{
+			Type:     AttestationTypeAuto,
+			Metadata: map[string]string{"agent_id": "custom-order-agent"},
+		}
+
+		result, err := engine.Attest(ctx, evidence)
+		if err != nil {
+			t.Fatalf("attestation failed: %v", err)
+		}
+
+		if !result.Success {
+			t.Errorf("expected attestation to succeed, got error: %s", result.Error)
+		}
+
+		// Should have used none attestor first (per custom order)
+		if result.Attestor != AttestationTypeNone {
+			t.Errorf("expected attestor to be 'none' (first in custom order), got %s", result.Attestor)
+		}
+
+		// Should have only tried the first one since it succeeded
+		if len(result.AttemptedAttestors) != 1 {
+			t.Errorf("expected 1 attempted attestor, got %d", len(result.AttemptedAttestors))
+		}
+	})
+
+	t.Run("all attestors fail", func(t *testing.T) {
+		// Create engine with only join_token (no none attestor)
+		config := &AttestationEngineConfig{
+			TrustDomain:      "test.local",
+			AllowedAttestors: []string{AttestationTypeJoinToken},
+			AllowNone:        false,
+			EnableFallback:   true,
+			JoinTokenStore:   store,
+		}
+
+		engine, err := NewAttestationEngine(config)
+		if err != nil {
+			t.Fatalf("failed to create attestation engine: %v", err)
+		}
+
+		// Use auto-detection with no valid token
+		evidence := &AttestationEvidence{
+			Type:     AttestationTypeAuto,
+			Data:     []byte("definitely-not-valid"),
+			Metadata: map[string]string{"agent_id": "failing-agent"},
+		}
+
+		result, err := engine.Attest(ctx, evidence)
+		if err != nil {
+			t.Fatalf("attestation call failed: %v", err)
+		}
+
+		if result.Success {
+			t.Error("expected all attestors to fail")
+		}
+
+		if result.Error == "" {
+			t.Error("expected error message when all attestors fail")
+		}
+
+		// Should have recorded the attempted attestor
+		if len(result.AttemptedAttestors) != 1 {
+			t.Errorf("expected 1 attempted attestor, got %d", len(result.AttemptedAttestors))
+		}
+	})
+}
+
 func TestMatchSPIFFEPattern(t *testing.T) {
 	tests := []struct {
 		pattern  string

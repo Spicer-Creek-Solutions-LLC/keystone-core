@@ -298,9 +298,15 @@ not role:db                 # Negation
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `identity federation list` | List federations | `identity federation list` |
-| `identity federation add` | Add federation | `identity federation add --domain other.local` |
-| `identity federation remove` | Remove federation | `identity federation remove other.local` |
+| `federation wizard` | Interactive setup wizard | `federation wizard` |
+| `federation wizard --non-interactive` | Scripted setup | `federation wizard --non-interactive --domain partner.example.org` |
+| `federation list` | List federations | `federation list` |
+| `federation add` | Add federation | `federation add partner.example.org --bundle-endpoint URL` |
+| `federation show` | Show federation details | `federation show partner.example.org` |
+| `federation suspend` | Suspend federation | `federation suspend partner.example.org` |
+| `federation activate` | Activate federation | `federation activate partner.example.org` |
+| `federation remove` | Remove federation | `federation remove partner.example.org` |
+| `federation refresh` | Refresh trust bundle | `federation refresh partner.example.org` |
 
 ---
 

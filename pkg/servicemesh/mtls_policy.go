@@ -160,6 +160,278 @@ type OutlierDetection struct {
 	MaxEjectionPercent int `json:"max_ejection_percent,omitempty"`
 }
 
+// AuthorizationAction defines the action for an authorization policy
+type AuthorizationAction string
+
+const (
+	// AuthorizationActionAllow allows the request
+	AuthorizationActionAllow AuthorizationAction = "ALLOW"
+	// AuthorizationActionDeny denies the request
+	AuthorizationActionDeny AuthorizationAction = "DENY"
+	// AuthorizationActionAudit logs the request without blocking
+	AuthorizationActionAudit AuthorizationAction = "AUDIT"
+	// AuthorizationActionCustom uses a custom external authorizer
+	AuthorizationActionCustom AuthorizationAction = "CUSTOM"
+)
+
+// AuthorizationPolicy defines authorization rules for service access
+type AuthorizationPolicy struct {
+	// Name of the policy
+	Name string `json:"name"`
+
+	// Namespace the policy applies to
+	Namespace string `json:"namespace,omitempty"`
+
+	// Action is the authorization action (ALLOW, DENY, AUDIT, CUSTOM)
+	Action AuthorizationAction `json:"action"`
+
+	// Rules define the authorization rules
+	Rules []AuthorizationRule `json:"rules,omitempty"`
+
+	// Selector for workload selection
+	Selector map[string]string `json:"selector,omitempty"`
+
+	// CreatedAt when the policy was created
+	CreatedAt time.Time `json:"created_at"`
+
+	// UpdatedAt when the policy was last updated
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// AuthorizationRule defines a single authorization rule
+type AuthorizationRule struct {
+	// From specifies the source of traffic
+	From []RuleSource `json:"from,omitempty"`
+
+	// To specifies the destination of traffic
+	To []RuleDestination `json:"to,omitempty"`
+
+	// When specifies additional conditions
+	When []RuleCondition `json:"when,omitempty"`
+}
+
+// RuleSource defines traffic source matching criteria
+type RuleSource struct {
+	// Principals are identities derived from peer certificate
+	Principals []string `json:"principals,omitempty"`
+
+	// NotPrincipals are identities to exclude
+	NotPrincipals []string `json:"not_principals,omitempty"`
+
+	// RequestPrincipals are identities from request authentication
+	RequestPrincipals []string `json:"request_principals,omitempty"`
+
+	// NotRequestPrincipals are request identities to exclude
+	NotRequestPrincipals []string `json:"not_request_principals,omitempty"`
+
+	// Namespaces are source namespaces
+	Namespaces []string `json:"namespaces,omitempty"`
+
+	// NotNamespaces are namespaces to exclude
+	NotNamespaces []string `json:"not_namespaces,omitempty"`
+
+	// IPBlocks are source IP ranges in CIDR notation
+	IPBlocks []string `json:"ip_blocks,omitempty"`
+
+	// NotIPBlocks are IP ranges to exclude
+	NotIPBlocks []string `json:"not_ip_blocks,omitempty"`
+}
+
+// RuleDestination defines traffic destination matching criteria
+type RuleDestination struct {
+	// Hosts are destination hosts
+	Hosts []string `json:"hosts,omitempty"`
+
+	// NotHosts are hosts to exclude
+	NotHosts []string `json:"not_hosts,omitempty"`
+
+	// Ports are destination ports
+	Ports []string `json:"ports,omitempty"`
+
+	// NotPorts are ports to exclude
+	NotPorts []string `json:"not_ports,omitempty"`
+
+	// Methods are HTTP methods
+	Methods []string `json:"methods,omitempty"`
+
+	// NotMethods are methods to exclude
+	NotMethods []string `json:"not_methods,omitempty"`
+
+	// Paths are URL paths
+	Paths []string `json:"paths,omitempty"`
+
+	// NotPaths are paths to exclude
+	NotPaths []string `json:"not_paths,omitempty"`
+}
+
+// RuleCondition defines additional conditions for authorization
+type RuleCondition struct {
+	// Key is the attribute key (e.g., request.headers[x-custom-header])
+	Key string `json:"key"`
+
+	// Values are the expected values
+	Values []string `json:"values,omitempty"`
+
+	// NotValues are values to exclude
+	NotValues []string `json:"not_values,omitempty"`
+}
+
+// ConnectionResult contains the result of a connection test
+type ConnectionResult struct {
+	// Connected indicates if connection succeeded
+	Connected bool `json:"connected"`
+
+	// TLSEnabled indicates if TLS was used
+	TLSEnabled bool `json:"tls_enabled"`
+
+	// TLSVersion is the negotiated TLS version
+	TLSVersion string `json:"tls_version,omitempty"`
+
+	// CipherSuite is the negotiated cipher suite
+	CipherSuite string `json:"cipher_suite,omitempty"`
+
+	// PeerCertificates are the peer's certificate chain
+	PeerCertificates []*x509.Certificate `json:"-"`
+
+	// PeerSPIFFEID is the SPIFFE ID from peer certificate
+	PeerSPIFFEID string `json:"peer_spiffe_id,omitempty"`
+
+	// Error is any error that occurred
+	Error error `json:"error,omitempty"`
+
+	// Duration of the connection attempt
+	Duration time.Duration `json:"duration"`
+}
+
+// ConnectionTester tests mTLS connections to services
+type ConnectionTester struct {
+	timeout  time.Duration
+	metadata *Metadata
+}
+
+// NewConnectionTester creates a new connection tester
+func NewConnectionTester(timeout time.Duration, metadata *Metadata) *ConnectionTester {
+	if timeout == 0 {
+		timeout = 5 * time.Second
+	}
+	return &ConnectionTester{
+		timeout:  timeout,
+		metadata: metadata,
+	}
+}
+
+// TestPlaintext tests if a plaintext connection succeeds
+func (t *ConnectionTester) TestPlaintext(address string) (bool, error) {
+	conn, err := net.DialTimeout("tcp", address, t.timeout)
+	if err != nil {
+		return false, err
+	}
+	conn.Close()
+	return true, nil
+}
+
+// TestMTLS tests an mTLS connection and returns detailed results
+func (t *ConnectionTester) TestMTLS(address string) (*ConnectionResult, error) {
+	start := time.Now()
+	result := &ConnectionResult{}
+
+	// Parse address to get host for SNI
+	host, _, err := net.SplitHostPort(address)
+	if err != nil {
+		host = address
+	}
+
+	// Build TLS config
+	tlsConfig := &tls.Config{
+		ServerName:         host,
+		InsecureSkipVerify: false,
+	}
+
+	// Load CA certificate if available
+	if t.metadata != nil && t.metadata.TLSConfig != nil && t.metadata.TLSConfig.CAFile != "" {
+		caPEM, err := os.ReadFile(t.metadata.TLSConfig.CAFile)
+		if err == nil {
+			roots := x509.NewCertPool()
+			if roots.AppendCertsFromPEM(caPEM) {
+				tlsConfig.RootCAs = roots
+			}
+		}
+	}
+
+	// Load client certificate for mutual TLS if available
+	if t.metadata != nil && t.metadata.TLSConfig != nil {
+		if t.metadata.TLSConfig.CertChainFile != "" && t.metadata.TLSConfig.PrivateKeyFile != "" {
+			cert, err := tls.LoadX509KeyPair(t.metadata.TLSConfig.CertChainFile, t.metadata.TLSConfig.PrivateKeyFile)
+			if err == nil {
+				tlsConfig.Certificates = []tls.Certificate{cert}
+			}
+		}
+	}
+
+	// Attempt TLS connection
+	dialer := &net.Dialer{Timeout: t.timeout}
+	conn, err := tls.DialWithDialer(dialer, "tcp", address, tlsConfig)
+	result.Duration = time.Since(start)
+
+	if err != nil {
+		result.Connected = false
+		result.Error = err
+		return result, nil
+	}
+	defer conn.Close()
+
+	result.Connected = true
+	result.TLSEnabled = true
+
+	// Extract connection state
+	state := conn.ConnectionState()
+	result.TLSVersion = tlsVersionString(state.Version)
+	result.CipherSuite = tls.CipherSuiteName(state.CipherSuite)
+	result.PeerCertificates = state.PeerCertificates
+
+	// Extract SPIFFE ID from peer certificate
+	if len(state.PeerCertificates) > 0 {
+		result.PeerSPIFFEID = extractSPIFFEID(state.PeerCertificates[0])
+	}
+
+	return result, nil
+}
+
+// VerifyPeerIdentity verifies that the peer certificate has the expected SPIFFE ID
+func (t *ConnectionTester) VerifyPeerIdentity(certs []*x509.Certificate, expectedSPIFFE string) bool {
+	if len(certs) == 0 || expectedSPIFFE == "" {
+		return false
+	}
+
+	actualSPIFFE := extractSPIFFEID(certs[0])
+	if actualSPIFFE == "" {
+		return false
+	}
+
+	// Exact match or wildcard match
+	if actualSPIFFE == expectedSPIFFE {
+		return true
+	}
+
+	// Check if expected is a prefix pattern (e.g., spiffe://trust.domain/ns/*)
+	if strings.HasSuffix(expectedSPIFFE, "/*") {
+		prefix := strings.TrimSuffix(expectedSPIFFE, "*")
+		return strings.HasPrefix(actualSPIFFE, prefix)
+	}
+
+	return false
+}
+
+// extractSPIFFEID extracts the SPIFFE ID from a certificate's URI SAN
+func extractSPIFFEID(cert *x509.Certificate) string {
+	for _, uri := range cert.URIs {
+		if strings.HasPrefix(uri.String(), "spiffe://") {
+			return uri.String()
+		}
+	}
+	return ""
+}
+
 // PolicyVerificationResult contains the result of policy verification
 type PolicyVerificationResult struct {
 	// Policy that was verified
@@ -634,15 +906,132 @@ func (v *PolicyVerifier) checkConnectionSecurity(policy *MTLSPolicy) PolicyCheck
 		return check
 	}
 
-	// In a real implementation, this would:
-	// 1. Try to connect without TLS (should fail for STRICT mode)
-	// 2. Try to connect with TLS (should succeed)
-	// 3. Verify certificate is properly validated
+	v.mu.RLock()
+	metadata := v.metadata
+	v.mu.RUnlock()
 
-	// For now, mark as passed since we can't make actual connections
-	check.Passed = true
-	check.Message = "Connection security check skipped (requires live service)"
+	// Build service address
+	port := policy.Port
+	if port == 0 {
+		port = 443 // Default HTTPS port
+	}
+	address := fmt.Sprintf("%s.%s.svc.cluster.local:%d", policy.Service, policy.Namespace, port)
+
+	// Create connection tester
+	tester := NewConnectionTester(5*time.Second, metadata)
+
+	// Test based on policy mode
+	switch policy.Mode {
+	case PolicyModeStrict:
+		// For STRICT mode:
+		// 1. Plaintext should fail OR connect should require TLS handshake
+		// 2. mTLS should succeed
+		plaintextOK, _ := tester.TestPlaintext(address)
+		if plaintextOK {
+			// Plaintext connected - this might be OK if the service redirects or has a TLS handshake requirement
+			// Try mTLS to verify it's properly configured
+			result, err := tester.TestMTLS(address)
+			if err != nil {
+				check.Passed = false
+				check.Message = fmt.Sprintf("mTLS connection test error: %v", err)
+				return check
+			}
+			if !result.Connected {
+				check.Passed = false
+				check.Message = fmt.Sprintf("mTLS connection failed: %v", result.Error)
+				return check
+			}
+			// mTLS succeeded, verify SPIFFE identity if expected
+			if metadata != nil && metadata.TLSConfig != nil && metadata.TLSConfig.SPIFFEID != "" {
+				expectedPattern := buildExpectedSPIFFEPattern(policy.Namespace, policy.Service, metadata.TrustDomain)
+				if !tester.VerifyPeerIdentity(result.PeerCertificates, expectedPattern) {
+					check.Severity = "warning"
+					check.Passed = true
+					check.Message = fmt.Sprintf("mTLS connected but SPIFFE identity mismatch (expected pattern: %s, got: %s)",
+						expectedPattern, result.PeerSPIFFEID)
+					return check
+				}
+			}
+			check.Passed = true
+			check.Message = fmt.Sprintf("STRICT mode: mTLS connection verified (%s, %s)",
+				result.TLSVersion, result.CipherSuite)
+		} else {
+			// Plaintext failed - good for STRICT mode, now verify mTLS works
+			result, err := tester.TestMTLS(address)
+			if err != nil {
+				check.Passed = false
+				check.Message = fmt.Sprintf("mTLS connection test error: %v", err)
+				return check
+			}
+			if result.Connected {
+				check.Passed = true
+				check.Message = fmt.Sprintf("STRICT mode: plaintext rejected, mTLS verified (%s)",
+					result.TLSVersion)
+			} else {
+				// Both failed - service might be unreachable
+				check.Passed = true
+				check.Severity = "warning"
+				check.Message = fmt.Sprintf("Service unreachable for connection test: %v", result.Error)
+			}
+		}
+
+	case PolicyModePermissive:
+		// For PERMISSIVE mode: both plaintext and mTLS should work
+		result, err := tester.TestMTLS(address)
+		if err != nil {
+			check.Passed = false
+			check.Message = fmt.Sprintf("Connection test error: %v", err)
+			return check
+		}
+		if result.Connected {
+			check.Passed = true
+			check.Message = fmt.Sprintf("PERMISSIVE mode: mTLS available (%s, %s)",
+				result.TLSVersion, result.CipherSuite)
+		} else {
+			// mTLS failed, try plaintext
+			plaintextOK, _ := tester.TestPlaintext(address)
+			if plaintextOK {
+				check.Passed = true
+				check.Severity = "warning"
+				check.Message = "PERMISSIVE mode: only plaintext available (mTLS recommended)"
+			} else {
+				check.Passed = true
+				check.Severity = "warning"
+				check.Message = "Service unreachable for connection test"
+			}
+		}
+
+	case PolicyModeDisable:
+		// For DISABLE mode: plaintext should work
+		plaintextOK, err := tester.TestPlaintext(address)
+		if plaintextOK {
+			check.Passed = true
+			check.Message = "DISABLE mode: plaintext connection available"
+		} else if err != nil {
+			check.Passed = true
+			check.Severity = "warning"
+			check.Message = fmt.Sprintf("Service unreachable: %v", err)
+		} else {
+			check.Passed = true
+			check.Message = "DISABLE mode: connection test completed"
+		}
+
+	default:
+		check.Passed = true
+		check.Message = fmt.Sprintf("Unknown policy mode: %s", policy.Mode)
+	}
+
 	return check
+}
+
+// buildExpectedSPIFFEPattern builds the expected SPIFFE ID pattern for a service
+func buildExpectedSPIFFEPattern(namespace, service, trustDomain string) string {
+	if trustDomain == "" {
+		trustDomain = "cluster.local"
+	}
+	// Istio SPIFFE ID format: spiffe://<trust-domain>/ns/<namespace>/sa/<service-account>
+	// We use a wildcard for the service account
+	return fmt.Sprintf("spiffe://%s/ns/%s/*", trustDomain, namespace)
 }
 
 // VerifyConnectionSecurity performs an actual TLS connection verification

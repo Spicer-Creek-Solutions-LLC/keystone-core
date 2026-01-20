@@ -469,15 +469,29 @@ func (m *DockerImageModule) Apply(ctx context.Context, decl *StateDeclaration) (
 
 	switch decl.State {
 	case "present":
-		// Pull image
-		cmd := exec.Command("docker", "pull", fullName)
-		output, err := cmd.CombinedOutput()
-		if err != nil {
+		// Pull image with optional authentication
+		authMethod := GetAuthMethodFromDeclaration(decl)
+		var output string
+		var pullErr error
+
+		if authMethod != "" {
+			// Use authenticated pull
+			puller := NewImagePuller(nil)
+			output, pullErr = puller.PullImage(ctx, fullName, authMethod)
+		} else {
+			// Standard pull without auth
+			cmd := exec.Command("docker", "pull", fullName)
+			outputBytes, err := cmd.CombinedOutput()
+			output = string(outputBytes)
+			pullErr = err
+		}
+
+		if pullErr != nil {
 			return &StateResult{
 				StateID: decl.ID,
 				Module:  m.Name(),
 				Success: false,
-				Comment: fmt.Sprintf("Failed to pull image: %v - %s", err, string(output)),
+				Comment: fmt.Sprintf("Failed to pull image: %v - %s", pullErr, output),
 			}, nil
 		}
 
@@ -1334,14 +1348,29 @@ func (m *PodmanImageModule) Apply(ctx context.Context, decl *StateDeclaration) (
 
 	switch decl.State {
 	case "present":
-		cmd := exec.Command("podman", "pull", fullName)
-		output, err := cmd.CombinedOutput()
-		if err != nil {
+		// Pull image with optional authentication
+		authMethod := GetAuthMethodFromDeclaration(decl)
+		var output string
+		var pullErr error
+
+		if authMethod != "" {
+			// Use authenticated pull
+			puller := NewPodmanPuller(nil)
+			output, pullErr = puller.PullImage(ctx, fullName, authMethod)
+		} else {
+			// Standard pull without auth
+			cmd := exec.Command("podman", "pull", fullName)
+			outputBytes, err := cmd.CombinedOutput()
+			output = string(outputBytes)
+			pullErr = err
+		}
+
+		if pullErr != nil {
 			return &StateResult{
 				StateID: decl.ID,
 				Module:  m.Name(),
 				Success: false,
-				Comment: fmt.Sprintf("Failed to pull image: %v - %s", err, string(output)),
+				Comment: fmt.Sprintf("Failed to pull image: %v - %s", pullErr, output),
 			}, nil
 		}
 

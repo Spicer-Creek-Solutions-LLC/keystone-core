@@ -79,6 +79,7 @@ Examples:
 	rootCmd.PersistentFlags().StringVar(&auditOutput, "audit-output", "auto", "Audit output backend (auto, syslog, journald, stderr, none)")
 
 	rootCmd.AddCommand(newVersionCmd())
+	rootCmd.AddCommand(wizardCmd)
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(addCmd)
 	rootCmd.AddCommand(showCmd)

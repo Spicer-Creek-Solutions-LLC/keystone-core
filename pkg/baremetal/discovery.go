@@ -354,13 +354,14 @@ type ServerFilter struct {
 
 // Engine is the main discovery engine.
 type Engine struct {
-	config    *DiscoveryConfig
-	store     DiscoveryStore
-	drivers   map[DiscoveryMethod]DiscoveryDriver
-	listeners []DiscoveryListener
-	mu        sync.RWMutex
-	stopCh    chan struct{}
-	running   bool
+	config         *DiscoveryConfig
+	store          DiscoveryStore
+	drivers        map[DiscoveryMethod]DiscoveryDriver
+	listeners      []DiscoveryListener
+	profileMatcher *HardwareProfileMatcher
+	mu             sync.RWMutex
+	stopCh         chan struct{}
+	running        bool
 }
 
 // DiscoveryListener is called when discovery events occur.
@@ -391,6 +392,49 @@ func (e *Engine) RegisterDriver(driver DiscoveryDriver) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.drivers[driver.Method()] = driver
+}
+
+// SetProfileMatcher sets the hardware profile matcher for automatic profile assignment.
+func (e *Engine) SetProfileMatcher(matcher *HardwareProfileMatcher) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.profileMatcher = matcher
+}
+
+// applyProfile applies hardware profile matching to a server.
+func (e *Engine) applyProfile(server *Server) {
+	e.mu.RLock()
+	matcher := e.profileMatcher
+	e.mu.RUnlock()
+
+	if matcher == nil {
+		return
+	}
+
+	profile := matcher.Match(server)
+	if profile == nil {
+		return
+	}
+
+	// Initialize labels map if needed
+	if server.Labels == nil {
+		server.Labels = make(map[string]string)
+	}
+
+	// Apply profile labels (don't override existing labels)
+	for k, v := range profile.Labels {
+		if _, exists := server.Labels[k]; !exists {
+			server.Labels[k] = v
+		}
+	}
+
+	// Set hardware-profile label
+	server.Labels["hardware-profile"] = profile.Name
+
+	// Set pool if specified and not already set
+	if profile.Pool != "" && server.Pool == "" {
+		server.Pool = profile.Pool
+	}
 }
 
 // AddListener adds a discovery event listener.
@@ -596,6 +640,9 @@ func (e *Engine) RunDiscovery(ctx context.Context) (*DiscoveryResult, error) {
 			server.DiscoveredAt = time.Now()
 			result.ServersFound++
 
+			// Apply hardware profile matching for new servers
+			e.applyProfile(server)
+
 			e.emit(&DiscoveryEvent{
 				Type:      "server_discovered",
 				ServerID:  server.ID,
@@ -657,6 +704,9 @@ func (e *Engine) DiscoverServer(ctx context.Context, ip string) (*Server, error)
 			server.DiscoveredAt = time.Now()
 			server.LastSeenAt = time.Now()
 			server.State = StateAvailable
+
+			// Apply hardware profile matching
+			e.applyProfile(server)
 
 			if err := e.store.Save(ctx, server); err != nil {
 				return nil, fmt.Errorf("failed to save server: %w", err)

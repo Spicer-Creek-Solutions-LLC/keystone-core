@@ -2,6 +2,7 @@ package upgrade
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -1100,4 +1101,906 @@ func BenchmarkVersionString(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_ = v.String()
 	}
+}
+
+// =============================================================================
+// Rollback Failure Tests
+// =============================================================================
+
+// failingMockNodeManager extends mockNodeManager with configurable failure behaviors
+type failingMockNodeManager struct {
+	mockNodeManager
+	upgradeFailNodes    map[string]bool // Nodes that fail during upgrade
+	rollbackFailNodes   map[string]bool // Nodes that fail during rollback (downgrade)
+	healthFailNodes     map[string]bool // Nodes that never become healthy
+	versionMismatch     map[string]bool // Nodes that report wrong version after upgrade
+	drainFailNodes      map[string]bool // Nodes that fail to drain
+	upgradeCalls        []string        // Track order of upgrade calls
+	rollbackCalls       []string        // Track order of rollback calls
+	healthCheckCount    map[string]int  // Count health checks per node
+	healthCheckDelay    time.Duration   // Delay before health check returns
+}
+
+func newFailingMockNodeManager() *failingMockNodeManager {
+	return &failingMockNodeManager{
+		mockNodeManager: mockNodeManager{
+			nodes:         []NodeInfo{},
+			healthMap:     make(map[string]HealthStatus),
+			drainCalled:   make(map[string]bool),
+			versionMap:    make(map[string]Version),
+			upgradedNodes: make(map[string]string),
+		},
+		upgradeFailNodes:  make(map[string]bool),
+		rollbackFailNodes: make(map[string]bool),
+		healthFailNodes:   make(map[string]bool),
+		versionMismatch:   make(map[string]bool),
+		drainFailNodes:    make(map[string]bool),
+		upgradeCalls:      make([]string, 0),
+		rollbackCalls:     make([]string, 0),
+		healthCheckCount:  make(map[string]int),
+	}
+}
+
+func (m *failingMockNodeManager) UpgradeNode(ctx context.Context, nodeID, version string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	targetVersion, _ := ParseVersion(version)
+	currentVersion := m.versionMap[nodeID]
+
+	// Detect rollback (downgrade) - target version is older than current
+	isRollback := targetVersion.Compare(currentVersion) < 0
+
+	if isRollback {
+		m.rollbackCalls = append(m.rollbackCalls, nodeID)
+		if m.rollbackFailNodes[nodeID] {
+			return fmt.Errorf("rollback failed for node %s", nodeID)
+		}
+	} else {
+		m.upgradeCalls = append(m.upgradeCalls, nodeID)
+		if m.upgradeFailNodes[nodeID] {
+			return fmt.Errorf("upgrade failed for node %s", nodeID)
+		}
+	}
+
+	m.upgradedNodes[nodeID] = version
+
+	// Simulate version mismatch
+	if m.versionMismatch[nodeID] {
+		// Store a different version than requested
+		m.versionMap[nodeID] = Version{Major: 99, Minor: 99, Patch: 99}
+	} else {
+		m.versionMap[nodeID] = targetVersion
+	}
+
+	return nil
+}
+
+func (m *failingMockNodeManager) DrainNode(ctx context.Context, nodeID string, timeout time.Duration) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.drainCalled[nodeID] = true
+
+	if m.drainFailNodes[nodeID] {
+		return fmt.Errorf("drain failed for node %s", nodeID)
+	}
+
+	return nil
+}
+
+func (m *failingMockNodeManager) GetNodeHealth(ctx context.Context, nodeID string) (HealthStatus, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.healthCheckCount[nodeID]++
+
+	// Simulate delay
+	if m.healthCheckDelay > 0 {
+		m.mu.Unlock()
+		select {
+		case <-ctx.Done():
+			m.mu.Lock()
+			return HealthUnknown, ctx.Err()
+		case <-time.After(m.healthCheckDelay):
+		}
+		m.mu.Lock()
+	}
+
+	if m.healthFailNodes[nodeID] {
+		return HealthUnhealthy, nil
+	}
+
+	if status, ok := m.healthMap[nodeID]; ok {
+		return status, nil
+	}
+
+	return HealthHealthy, nil
+}
+
+func TestRollbackOnUpgradeFailure(t *testing.T) {
+	nm := newFailingMockNodeManager()
+	nm.nodes = []NodeInfo{
+		{ID: "node-1", Component: ComponentAgent, Version: Version{Major: 1, Minor: 0, Patch: 0}},
+		{ID: "node-2", Component: ComponentAgent, Version: Version{Major: 1, Minor: 0, Patch: 0}},
+		{ID: "node-3", Component: ComponentAgent, Version: Version{Major: 1, Minor: 0, Patch: 0}},
+	}
+	// node-1 was upgraded to 1.1.0 successfully, so initialize its version map
+	// to reflect the post-upgrade state for rollback detection
+	nm.versionMap["node-1"] = Version{Major: 1, Minor: 1, Patch: 0}
+	nm.healthMap["node-1"] = HealthHealthy
+	nm.healthMap["node-2"] = HealthHealthy
+	nm.healthMap["node-3"] = HealthHealthy
+
+	// node-2 will fail during upgrade
+	nm.upgradeFailNodes["node-2"] = true
+
+	rollbackConfig := DefaultRollbackConfig()
+	rollbackConfig.OnFailureCount = 1 // Trigger rollback after 1 failure
+	rollbackConfig.Automatic = true
+
+	rollbackMgr := NewRollbackManager(nm, nil, nil, rollbackConfig)
+
+	// Create an upgrade state simulating a failed upgrade
+	fromVersion := Version{Major: 1, Minor: 0, Patch: 0}
+	toVersion := Version{Major: 1, Minor: 1, Patch: 0}
+
+	upgradeState := &UpgradeState{
+		ID:          "upgrade-test-1",
+		FromVersion: fromVersion,
+		ToVersion:   toVersion,
+		Phase:       PhaseFailed,
+		NodeStates: map[string]*NodeUpgradeState{
+			"node-1": {
+				NodeID:      "node-1",
+				Component:   ComponentAgent,
+				Status:      StatusCompleted,
+				FromVersion: fromVersion,
+				ToVersion:   toVersion,
+				StartTime:   time.Now().Add(-2 * time.Minute),
+				EndTime:     timePtr(time.Now().Add(-1 * time.Minute)),
+			},
+		},
+	}
+
+	// Evaluate if rollback is needed
+	decision := rollbackMgr.EvaluateRollbackNeed(context.Background(), upgradeState)
+
+	// Should not rollback since node-1 succeeded (no failures in state)
+	// But let's test the rollback execution
+	ctx := context.Background()
+	op, err := rollbackMgr.RollbackUpgrade(ctx, upgradeState, "test rollback", true)
+
+	if err != nil {
+		t.Fatalf("RollbackUpgrade() error = %v", err)
+	}
+
+	if op.Status != StatusCompleted {
+		t.Errorf("Rollback status = %v, want %v", op.Status, StatusCompleted)
+	}
+
+	if op.NodesRolledBack != 1 {
+		t.Errorf("NodesRolledBack = %d, want 1", op.NodesRolledBack)
+	}
+
+	// Check that decision struct is valid
+	if decision == nil {
+		t.Fatal("EvaluateRollbackNeed returned nil")
+	}
+}
+
+func TestRollbackPartialSuccess(t *testing.T) {
+	nm := newFailingMockNodeManager()
+	nm.nodes = []NodeInfo{
+		{ID: "node-1", Component: ComponentAgent, Version: Version{Major: 1, Minor: 1, Patch: 0}},
+		{ID: "node-2", Component: ComponentAgent, Version: Version{Major: 1, Minor: 1, Patch: 0}},
+		{ID: "node-3", Component: ComponentAgent, Version: Version{Major: 1, Minor: 1, Patch: 0}},
+	}
+	// Initialize version map for rollback detection (current version is 1.1.0)
+	nm.versionMap["node-1"] = Version{Major: 1, Minor: 1, Patch: 0}
+	nm.versionMap["node-2"] = Version{Major: 1, Minor: 1, Patch: 0}
+	nm.versionMap["node-3"] = Version{Major: 1, Minor: 1, Patch: 0}
+	nm.healthMap["node-1"] = HealthHealthy
+	nm.healthMap["node-2"] = HealthHealthy
+	nm.healthMap["node-3"] = HealthHealthy
+
+	// node-2 will fail during rollback (downgrade)
+	nm.rollbackFailNodes["node-2"] = true
+
+	rollbackConfig := DefaultRollbackConfig()
+	rollbackConfig.Automatic = true // Continue on failure
+
+	rollbackMgr := NewRollbackManager(nm, nil, nil, rollbackConfig)
+
+	fromVersion := Version{Major: 1, Minor: 0, Patch: 0}
+	toVersion := Version{Major: 1, Minor: 1, Patch: 0}
+	now := time.Now()
+
+	upgradeState := &UpgradeState{
+		ID:          "upgrade-test-2",
+		FromVersion: fromVersion,
+		ToVersion:   toVersion,
+		NodeStates: map[string]*NodeUpgradeState{
+			"node-1": {
+				NodeID:      "node-1",
+				Component:   ComponentAgent,
+				Status:      StatusCompleted,
+				FromVersion: fromVersion,
+				ToVersion:   toVersion,
+				StartTime:   now.Add(-3 * time.Minute),
+				EndTime:     timePtr(now.Add(-2 * time.Minute)),
+			},
+			"node-2": {
+				NodeID:      "node-2",
+				Component:   ComponentAgent,
+				Status:      StatusCompleted,
+				FromVersion: fromVersion,
+				ToVersion:   toVersion,
+				StartTime:   now.Add(-2 * time.Minute),
+				EndTime:     timePtr(now.Add(-1 * time.Minute)),
+			},
+			"node-3": {
+				NodeID:      "node-3",
+				Component:   ComponentAgent,
+				Status:      StatusCompleted,
+				FromVersion: fromVersion,
+				ToVersion:   toVersion,
+				StartTime:   now.Add(-1 * time.Minute),
+				EndTime:     timePtr(now),
+			},
+		},
+	}
+
+	ctx := context.Background()
+	op, err := rollbackMgr.RollbackUpgrade(ctx, upgradeState, "partial rollback test", true)
+
+	// For automatic rollbacks, should complete even with partial failures
+	if err != nil {
+		t.Fatalf("RollbackUpgrade() unexpected error = %v", err)
+	}
+
+	if op.Status != StatusCompleted {
+		t.Errorf("Rollback status = %v, want %v", op.Status, StatusCompleted)
+	}
+
+	// Should have rolled back 2 nodes (node-1 and node-3), failed 1 (node-2)
+	if op.NodesRolledBack != 2 {
+		t.Errorf("NodesRolledBack = %d, want 2", op.NodesRolledBack)
+	}
+
+	if op.NodesFailed != 1 {
+		t.Errorf("NodesFailed = %d, want 1", op.NodesFailed)
+	}
+}
+
+func TestManualRollbackAbortOnFailure(t *testing.T) {
+	nm := newFailingMockNodeManager()
+	nm.nodes = []NodeInfo{
+		{ID: "node-1", Component: ComponentAgent, Version: Version{Major: 1, Minor: 1, Patch: 0}},
+		{ID: "node-2", Component: ComponentAgent, Version: Version{Major: 1, Minor: 1, Patch: 0}},
+		{ID: "node-3", Component: ComponentAgent, Version: Version{Major: 1, Minor: 1, Patch: 0}},
+	}
+	// Initialize version map for rollback detection (current version is 1.1.0)
+	nm.versionMap["node-1"] = Version{Major: 1, Minor: 1, Patch: 0}
+	nm.versionMap["node-2"] = Version{Major: 1, Minor: 1, Patch: 0}
+	nm.versionMap["node-3"] = Version{Major: 1, Minor: 1, Patch: 0}
+	nm.healthMap["node-1"] = HealthHealthy
+	nm.healthMap["node-2"] = HealthHealthy
+	nm.healthMap["node-3"] = HealthHealthy
+
+	// node-2 will fail during rollback
+	nm.rollbackFailNodes["node-2"] = true
+
+	rollbackConfig := DefaultRollbackConfig()
+	rollbackConfig.Automatic = false // Manual: abort on first failure
+
+	rollbackMgr := NewRollbackManager(nm, nil, nil, rollbackConfig)
+
+	fromVersion := Version{Major: 1, Minor: 0, Patch: 0}
+	toVersion := Version{Major: 1, Minor: 1, Patch: 0}
+	now := time.Now()
+
+	upgradeState := &UpgradeState{
+		ID:          "upgrade-test-3",
+		FromVersion: fromVersion,
+		ToVersion:   toVersion,
+		NodeStates: map[string]*NodeUpgradeState{
+			"node-1": {
+				NodeID:      "node-1",
+				Component:   ComponentAgent,
+				Status:      StatusCompleted,
+				FromVersion: fromVersion,
+				ToVersion:   toVersion,
+				StartTime:   now.Add(-3 * time.Minute),
+				EndTime:     timePtr(now.Add(-2 * time.Minute)),
+			},
+			"node-2": {
+				NodeID:      "node-2",
+				Component:   ComponentAgent,
+				Status:      StatusCompleted,
+				FromVersion: fromVersion,
+				ToVersion:   toVersion,
+				StartTime:   now.Add(-2 * time.Minute),
+				EndTime:     timePtr(now.Add(-1 * time.Minute)),
+			},
+			"node-3": {
+				NodeID:      "node-3",
+				Component:   ComponentAgent,
+				Status:      StatusCompleted,
+				FromVersion: fromVersion,
+				ToVersion:   toVersion,
+				StartTime:   now.Add(-1 * time.Minute),
+				EndTime:     timePtr(now),
+			},
+		},
+	}
+
+	ctx := context.Background()
+	op, err := rollbackMgr.RollbackUpgrade(ctx, upgradeState, "manual rollback test", false)
+
+	// For manual rollbacks, should fail on first node failure
+	if err == nil {
+		t.Fatal("RollbackUpgrade() expected error for manual rollback with failure")
+	}
+
+	if op.Status != StatusFailed {
+		t.Errorf("Rollback status = %v, want %v", op.Status, StatusFailed)
+	}
+
+	// Should have failed (stopped early)
+	if op.NodesFailed != 1 {
+		t.Errorf("NodesFailed = %d, want 1", op.NodesFailed)
+	}
+}
+
+func TestRollbackHealthCheckTimeout(t *testing.T) {
+	nm := newFailingMockNodeManager()
+	nm.nodes = []NodeInfo{
+		{ID: "node-1", Component: ComponentAgent, Version: Version{Major: 1, Minor: 1, Patch: 0}},
+		{ID: "node-2", Component: ComponentAgent, Version: Version{Major: 1, Minor: 1, Patch: 0}},
+	}
+	// Initialize version map for rollback detection
+	nm.versionMap["node-1"] = Version{Major: 1, Minor: 1, Patch: 0}
+	nm.versionMap["node-2"] = Version{Major: 1, Minor: 1, Patch: 0}
+	nm.healthMap["node-2"] = HealthHealthy
+
+	// node-1 never becomes healthy after rollback, node-2 succeeds
+	nm.healthFailNodes["node-1"] = true
+
+	rollbackConfig := DefaultRollbackConfig()
+	rollbackConfig.Automatic = true
+	rollbackConfig.Timeout = 5 * time.Second // Short timeout for test
+
+	rollbackMgr := NewRollbackManager(nm, nil, nil, rollbackConfig)
+
+	fromVersion := Version{Major: 1, Minor: 0, Patch: 0}
+	toVersion := Version{Major: 1, Minor: 1, Patch: 0}
+	now := time.Now()
+
+	upgradeState := &UpgradeState{
+		ID:          "upgrade-test-4",
+		FromVersion: fromVersion,
+		ToVersion:   toVersion,
+		NodeStates: map[string]*NodeUpgradeState{
+			"node-1": {
+				NodeID:      "node-1",
+				Component:   ComponentAgent,
+				Status:      StatusCompleted,
+				FromVersion: fromVersion,
+				ToVersion:   toVersion,
+				StartTime:   now.Add(-2 * time.Minute),
+				EndTime:     timePtr(now.Add(-1 * time.Minute)),
+			},
+			"node-2": {
+				NodeID:      "node-2",
+				Component:   ComponentAgent,
+				Status:      StatusCompleted,
+				FromVersion: fromVersion,
+				ToVersion:   toVersion,
+				StartTime:   now.Add(-1 * time.Minute),
+				EndTime:     timePtr(now),
+			},
+		},
+	}
+
+	ctx := context.Background()
+	op, err := rollbackMgr.RollbackUpgrade(ctx, upgradeState, "health timeout test", true)
+
+	// Should complete (one node succeeded) with node-1 marked as failed
+	if err != nil {
+		t.Fatalf("RollbackUpgrade() unexpected error = %v", err)
+	}
+
+	if op.NodesFailed != 1 {
+		t.Errorf("NodesFailed = %d, want 1 (health check failed)", op.NodesFailed)
+	}
+
+	if op.NodesRolledBack != 1 {
+		t.Errorf("NodesRolledBack = %d, want 1", op.NodesRolledBack)
+	}
+
+	nodeState := op.NodeStates["node-1"]
+	if nodeState == nil {
+		t.Fatal("Expected node state for node-1")
+	}
+
+	if nodeState.Status != StatusFailed {
+		t.Errorf("Node status = %v, want %v", nodeState.Status, StatusFailed)
+	}
+
+	if nodeState.Error != "node did not become healthy after rollback" {
+		t.Errorf("Node error = %q, want health check failure message", nodeState.Error)
+	}
+}
+
+func TestRollbackVersionMismatch(t *testing.T) {
+	nm := newFailingMockNodeManager()
+	nm.nodes = []NodeInfo{
+		{ID: "node-1", Component: ComponentAgent, Version: Version{Major: 1, Minor: 1, Patch: 0}},
+		{ID: "node-2", Component: ComponentAgent, Version: Version{Major: 1, Minor: 1, Patch: 0}},
+	}
+	// Initialize version map for rollback detection
+	nm.versionMap["node-1"] = Version{Major: 1, Minor: 1, Patch: 0}
+	nm.versionMap["node-2"] = Version{Major: 1, Minor: 1, Patch: 0}
+	nm.healthMap["node-1"] = HealthHealthy
+	nm.healthMap["node-2"] = HealthHealthy
+
+	// Version will be wrong after rollback for node-1 only
+	nm.versionMismatch["node-1"] = true
+
+	rollbackConfig := DefaultRollbackConfig()
+	rollbackConfig.Automatic = true
+
+	rollbackMgr := NewRollbackManager(nm, nil, nil, rollbackConfig)
+
+	fromVersion := Version{Major: 1, Minor: 0, Patch: 0}
+	toVersion := Version{Major: 1, Minor: 1, Patch: 0}
+	now := time.Now()
+
+	upgradeState := &UpgradeState{
+		ID:          "upgrade-test-5",
+		FromVersion: fromVersion,
+		ToVersion:   toVersion,
+		NodeStates: map[string]*NodeUpgradeState{
+			"node-1": {
+				NodeID:      "node-1",
+				Component:   ComponentAgent,
+				Status:      StatusCompleted,
+				FromVersion: fromVersion,
+				ToVersion:   toVersion,
+				StartTime:   now.Add(-2 * time.Minute),
+				EndTime:     timePtr(now.Add(-1 * time.Minute)),
+			},
+			"node-2": {
+				NodeID:      "node-2",
+				Component:   ComponentAgent,
+				Status:      StatusCompleted,
+				FromVersion: fromVersion,
+				ToVersion:   toVersion,
+				StartTime:   now.Add(-1 * time.Minute),
+				EndTime:     timePtr(now),
+			},
+		},
+	}
+
+	ctx := context.Background()
+	op, err := rollbackMgr.RollbackUpgrade(ctx, upgradeState, "version mismatch test", true)
+
+	// Should complete (one node succeeded) with node-1 marked as failed due to version mismatch
+	if err != nil {
+		t.Fatalf("RollbackUpgrade() unexpected error = %v", err)
+	}
+
+	if op.NodesFailed != 1 {
+		t.Errorf("NodesFailed = %d, want 1 (version mismatch)", op.NodesFailed)
+	}
+
+	if op.NodesRolledBack != 1 {
+		t.Errorf("NodesRolledBack = %d, want 1", op.NodesRolledBack)
+	}
+
+	nodeState := op.NodeStates["node-1"]
+	if nodeState == nil {
+		t.Fatal("Expected node state for node-1")
+	}
+
+	if nodeState.Status != StatusFailed {
+		t.Errorf("Node status = %v, want %v", nodeState.Status, StatusFailed)
+	}
+}
+
+func TestRollbackReverseOrder(t *testing.T) {
+	nm := newFailingMockNodeManager()
+	nm.nodes = []NodeInfo{
+		{ID: "node-1", Component: ComponentAgent, Version: Version{Major: 1, Minor: 1, Patch: 0}},
+		{ID: "node-2", Component: ComponentAgent, Version: Version{Major: 1, Minor: 1, Patch: 0}},
+		{ID: "node-3", Component: ComponentAgent, Version: Version{Major: 1, Minor: 1, Patch: 0}},
+	}
+	// Initialize version map for rollback detection (current version is 1.1.0)
+	nm.versionMap["node-1"] = Version{Major: 1, Minor: 1, Patch: 0}
+	nm.versionMap["node-2"] = Version{Major: 1, Minor: 1, Patch: 0}
+	nm.versionMap["node-3"] = Version{Major: 1, Minor: 1, Patch: 0}
+	nm.healthMap["node-1"] = HealthHealthy
+	nm.healthMap["node-2"] = HealthHealthy
+	nm.healthMap["node-3"] = HealthHealthy
+
+	rollbackConfig := DefaultRollbackConfig()
+	rollbackConfig.Automatic = true
+
+	rollbackMgr := NewRollbackManager(nm, nil, nil, rollbackConfig)
+
+	fromVersion := Version{Major: 1, Minor: 0, Patch: 0}
+	toVersion := Version{Major: 1, Minor: 1, Patch: 0}
+	now := time.Now()
+
+	// Simulate upgrade order: node-1, node-2, node-3
+	upgradeState := &UpgradeState{
+		ID:          "upgrade-test-6",
+		FromVersion: fromVersion,
+		ToVersion:   toVersion,
+		NodeStates: map[string]*NodeUpgradeState{
+			"node-1": {
+				NodeID:      "node-1",
+				Component:   ComponentAgent,
+				Status:      StatusCompleted,
+				FromVersion: fromVersion,
+				ToVersion:   toVersion,
+				StartTime:   now.Add(-30 * time.Minute),
+				EndTime:     timePtr(now.Add(-20 * time.Minute)), // Completed first
+			},
+			"node-2": {
+				NodeID:      "node-2",
+				Component:   ComponentAgent,
+				Status:      StatusCompleted,
+				FromVersion: fromVersion,
+				ToVersion:   toVersion,
+				StartTime:   now.Add(-20 * time.Minute),
+				EndTime:     timePtr(now.Add(-10 * time.Minute)), // Completed second
+			},
+			"node-3": {
+				NodeID:      "node-3",
+				Component:   ComponentAgent,
+				Status:      StatusCompleted,
+				FromVersion: fromVersion,
+				ToVersion:   toVersion,
+				StartTime:   now.Add(-10 * time.Minute),
+				EndTime:     timePtr(now), // Completed last
+			},
+		},
+	}
+
+	ctx := context.Background()
+	_, err := rollbackMgr.RollbackUpgrade(ctx, upgradeState, "reverse order test", true)
+
+	if err != nil {
+		t.Fatalf("RollbackUpgrade() error = %v", err)
+	}
+
+	// Check that nodes were rolled back in reverse order: node-3, node-2, node-1
+	expectedOrder := []string{"node-3", "node-2", "node-1"}
+	if len(nm.rollbackCalls) != 3 {
+		t.Fatalf("Expected 3 rollback calls, got %d", len(nm.rollbackCalls))
+	}
+
+	for i, nodeID := range expectedOrder {
+		if nm.rollbackCalls[i] != nodeID {
+			t.Errorf("Rollback order[%d] = %s, want %s", i, nm.rollbackCalls[i], nodeID)
+		}
+	}
+}
+
+func TestRollbackSkipsNonCompletedNodes(t *testing.T) {
+	nm := newFailingMockNodeManager()
+	nm.nodes = []NodeInfo{
+		{ID: "node-1", Component: ComponentAgent, Version: Version{Major: 1, Minor: 1, Patch: 0}},
+		{ID: "node-2", Component: ComponentAgent, Version: Version{Major: 1, Minor: 0, Patch: 0}}, // Never upgraded
+		{ID: "node-3", Component: ComponentAgent, Version: Version{Major: 1, Minor: 1, Patch: 0}},
+	}
+	// Initialize version map for rollback detection
+	nm.versionMap["node-1"] = Version{Major: 1, Minor: 1, Patch: 0}
+	nm.versionMap["node-2"] = Version{Major: 1, Minor: 0, Patch: 0} // Still on old version
+	nm.versionMap["node-3"] = Version{Major: 1, Minor: 1, Patch: 0}
+	nm.healthMap["node-1"] = HealthHealthy
+	nm.healthMap["node-2"] = HealthHealthy
+	nm.healthMap["node-3"] = HealthHealthy
+
+	rollbackConfig := DefaultRollbackConfig()
+	rollbackConfig.Automatic = true
+
+	rollbackMgr := NewRollbackManager(nm, nil, nil, rollbackConfig)
+
+	fromVersion := Version{Major: 1, Minor: 0, Patch: 0}
+	toVersion := Version{Major: 1, Minor: 1, Patch: 0}
+	now := time.Now()
+
+	upgradeState := &UpgradeState{
+		ID:          "upgrade-test-7",
+		FromVersion: fromVersion,
+		ToVersion:   toVersion,
+		NodeStates: map[string]*NodeUpgradeState{
+			"node-1": {
+				NodeID:      "node-1",
+				Component:   ComponentAgent,
+				Status:      StatusCompleted, // Will be rolled back
+				FromVersion: fromVersion,
+				ToVersion:   toVersion,
+				StartTime:   now.Add(-2 * time.Minute),
+				EndTime:     timePtr(now.Add(-1 * time.Minute)),
+			},
+			"node-2": {
+				NodeID:      "node-2",
+				Component:   ComponentAgent,
+				Status:      StatusFailed, // Should be skipped
+				FromVersion: fromVersion,
+				ToVersion:   toVersion,
+				StartTime:   now.Add(-1 * time.Minute),
+				EndTime:     timePtr(now),
+			},
+			"node-3": {
+				NodeID:      "node-3",
+				Component:   ComponentAgent,
+				Status:      StatusCompleted, // Will be rolled back
+				FromVersion: fromVersion,
+				ToVersion:   toVersion,
+				StartTime:   now,
+				EndTime:     timePtr(now),
+			},
+		},
+	}
+
+	ctx := context.Background()
+	op, err := rollbackMgr.RollbackUpgrade(ctx, upgradeState, "skip non-completed test", true)
+
+	if err != nil {
+		t.Fatalf("RollbackUpgrade() error = %v", err)
+	}
+
+	// Only node-1 and node-3 should be rolled back (node-2 was not completed)
+	if op.NodesRolledBack != 2 {
+		t.Errorf("NodesRolledBack = %d, want 2", op.NodesRolledBack)
+	}
+
+	// node-2 should not have been called
+	for _, nodeID := range nm.rollbackCalls {
+		if nodeID == "node-2" {
+			t.Error("node-2 should not have been rolled back (was not completed)")
+		}
+	}
+}
+
+func TestRollbackCancellation(t *testing.T) {
+	nm := newFailingMockNodeManager()
+	nm.nodes = []NodeInfo{
+		{ID: "node-1", Component: ComponentAgent, Version: Version{Major: 1, Minor: 1, Patch: 0}},
+		{ID: "node-2", Component: ComponentAgent, Version: Version{Major: 1, Minor: 1, Patch: 0}},
+	}
+	// Initialize version map for rollback detection
+	nm.versionMap["node-1"] = Version{Major: 1, Minor: 1, Patch: 0}
+	nm.versionMap["node-2"] = Version{Major: 1, Minor: 1, Patch: 0}
+	nm.healthMap["node-1"] = HealthHealthy
+	nm.healthMap["node-2"] = HealthHealthy
+
+	// Add delay to health check so we can cancel mid-operation
+	nm.healthCheckDelay = 100 * time.Millisecond
+
+	rollbackConfig := DefaultRollbackConfig()
+	rollbackConfig.Automatic = true
+
+	rollbackMgr := NewRollbackManager(nm, nil, nil, rollbackConfig)
+
+	fromVersion := Version{Major: 1, Minor: 0, Patch: 0}
+	toVersion := Version{Major: 1, Minor: 1, Patch: 0}
+	now := time.Now()
+
+	upgradeState := &UpgradeState{
+		ID:          "upgrade-test-8",
+		FromVersion: fromVersion,
+		ToVersion:   toVersion,
+		NodeStates: map[string]*NodeUpgradeState{
+			"node-1": {
+				NodeID:      "node-1",
+				Component:   ComponentAgent,
+				Status:      StatusCompleted,
+				FromVersion: fromVersion,
+				ToVersion:   toVersion,
+				StartTime:   now.Add(-2 * time.Minute),
+				EndTime:     timePtr(now.Add(-1 * time.Minute)),
+			},
+			"node-2": {
+				NodeID:      "node-2",
+				Component:   ComponentAgent,
+				Status:      StatusCompleted,
+				FromVersion: fromVersion,
+				ToVersion:   toVersion,
+				StartTime:   now.Add(-1 * time.Minute),
+				EndTime:     timePtr(now),
+			},
+		},
+	}
+
+	// Create a context that will be cancelled quickly
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	op, err := rollbackMgr.RollbackUpgrade(ctx, upgradeState, "cancellation test", true)
+
+	// Should fail due to context cancellation
+	if err == nil {
+		t.Fatal("RollbackUpgrade() expected error for cancelled context")
+	}
+
+	if op.Status != StatusFailed {
+		t.Errorf("Rollback status = %v, want %v", op.Status, StatusFailed)
+	}
+}
+
+func TestEvaluateRollbackNeed(t *testing.T) {
+	nm := newFailingMockNodeManager()
+
+	rollbackConfig := DefaultRollbackConfig()
+	rollbackConfig.OnFailureCount = 2 // Rollback if 2+ nodes fail
+	rollbackConfig.Automatic = true
+
+	rollbackMgr := NewRollbackManager(nm, nil, nil, rollbackConfig)
+
+	fromVersion := Version{Major: 1, Minor: 0, Patch: 0}
+	toVersion := Version{Major: 1, Minor: 1, Patch: 0}
+	now := time.Now()
+
+	t.Run("no rollback needed", func(t *testing.T) {
+		upgradeState := &UpgradeState{
+			ID:          "upgrade-eval-1",
+			FromVersion: fromVersion,
+			ToVersion:   toVersion,
+			NodeStates: map[string]*NodeUpgradeState{
+				"node-1": {
+					NodeID: "node-1",
+					Status: StatusCompleted,
+				},
+				"node-2": {
+					NodeID: "node-2",
+					Status: StatusCompleted,
+				},
+			},
+		}
+
+		decision := rollbackMgr.EvaluateRollbackNeed(context.Background(), upgradeState)
+
+		if decision.ShouldRollback {
+			t.Error("Should not recommend rollback when all nodes succeeded")
+		}
+	})
+
+	t.Run("rollback needed - threshold met", func(t *testing.T) {
+		upgradeState := &UpgradeState{
+			ID:          "upgrade-eval-2",
+			FromVersion: fromVersion,
+			ToVersion:   toVersion,
+			NodeStates: map[string]*NodeUpgradeState{
+				"node-1": {
+					NodeID:    "node-1",
+					Status:    StatusFailed,
+					StartTime: now,
+				},
+				"node-2": {
+					NodeID:    "node-2",
+					Status:    StatusFailed,
+					StartTime: now,
+				},
+				"node-3": {
+					NodeID:    "node-3",
+					Status:    StatusCompleted,
+					StartTime: now,
+				},
+			},
+		}
+
+		decision := rollbackMgr.EvaluateRollbackNeed(context.Background(), upgradeState)
+
+		if !decision.ShouldRollback {
+			t.Error("Should recommend rollback when failure threshold met")
+		}
+
+		if len(decision.Reasons) == 0 {
+			t.Error("Decision should have reasons")
+		}
+
+		if decision.Confidence < 0.5 {
+			t.Errorf("Confidence = %f, expected >= 0.5", decision.Confidence)
+		}
+	})
+
+	t.Run("below threshold", func(t *testing.T) {
+		upgradeState := &UpgradeState{
+			ID:          "upgrade-eval-3",
+			FromVersion: fromVersion,
+			ToVersion:   toVersion,
+			NodeStates: map[string]*NodeUpgradeState{
+				"node-1": {
+					NodeID: "node-1",
+					Status: StatusFailed, // Only 1 failure, threshold is 2
+				},
+				"node-2": {
+					NodeID: "node-2",
+					Status: StatusCompleted,
+				},
+				"node-3": {
+					NodeID: "node-3",
+					Status: StatusCompleted,
+				},
+			},
+		}
+
+		decision := rollbackMgr.EvaluateRollbackNeed(context.Background(), upgradeState)
+
+		// Should have reasons but not recommend rollback (below threshold)
+		if len(decision.Reasons) == 0 {
+			t.Error("Decision should have reasons about the failure")
+		}
+	})
+}
+
+func TestRollbackDrainFailureContinues(t *testing.T) {
+	nm := newFailingMockNodeManager()
+	nm.nodes = []NodeInfo{
+		{ID: "node-1", Component: ComponentAgent, Version: Version{Major: 1, Minor: 1, Patch: 0}},
+	}
+	// Initialize version map for rollback detection
+	nm.versionMap["node-1"] = Version{Major: 1, Minor: 1, Patch: 0}
+	nm.healthMap["node-1"] = HealthHealthy
+
+	// Drain will fail, but rollback should continue
+	nm.drainFailNodes["node-1"] = true
+
+	rollbackConfig := DefaultRollbackConfig()
+	rollbackConfig.Automatic = true
+
+	rollbackMgr := NewRollbackManager(nm, nil, nil, rollbackConfig)
+
+	fromVersion := Version{Major: 1, Minor: 0, Patch: 0}
+	toVersion := Version{Major: 1, Minor: 1, Patch: 0}
+	now := time.Now()
+
+	upgradeState := &UpgradeState{
+		ID:          "upgrade-test-drain",
+		FromVersion: fromVersion,
+		ToVersion:   toVersion,
+		NodeStates: map[string]*NodeUpgradeState{
+			"node-1": {
+				NodeID:      "node-1",
+				Component:   ComponentAgent,
+				Status:      StatusCompleted,
+				FromVersion: fromVersion,
+				ToVersion:   toVersion,
+				StartTime:   now.Add(-1 * time.Minute),
+				EndTime:     timePtr(now),
+			},
+		},
+	}
+
+	ctx := context.Background()
+	op, err := rollbackMgr.RollbackUpgrade(ctx, upgradeState, "drain failure test", true)
+
+	// Should succeed - drain failure is best effort
+	if err != nil {
+		t.Fatalf("RollbackUpgrade() unexpected error = %v", err)
+	}
+
+	if op.Status != StatusCompleted {
+		t.Errorf("Rollback status = %v, want %v", op.Status, StatusCompleted)
+	}
+
+	if op.NodesRolledBack != 1 {
+		t.Errorf("NodesRolledBack = %d, want 1", op.NodesRolledBack)
+	}
+
+	// Verify drain was still called
+	if !nm.drainCalled["node-1"] {
+		t.Error("Drain should have been called even if it fails")
+	}
+}
+
+// Helper function
+func timePtr(t time.Time) *time.Time {
+	return &t
 }

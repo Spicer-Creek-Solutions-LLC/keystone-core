@@ -379,3 +379,29 @@ func NormalizeArchType(goarch string) ArchType {
 		return ArchUnknown
 	}
 }
+
+// PackageManagerFromString converts a string to PackageManager
+func PackageManagerFromString(s string) PackageManager {
+	switch s {
+	case "apt":
+		return PackageManagerAPT
+	case "yum":
+		return PackageManagerYum
+	case "dnf":
+		return PackageManagerDNF
+	case "zypper":
+		return PackageManagerZypper
+	case "pacman":
+		return PackageManagerPacman
+	case "apk":
+		return PackageManagerAPK
+	case "brew":
+		return PackageManagerBrew
+	case "chocolatey":
+		return PackageManagerChocolatey
+	case "winget":
+		return PackageManagerWinget
+	default:
+		return PackageManagerUnknown
+	}
+}

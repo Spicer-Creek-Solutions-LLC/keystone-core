@@ -3771,6 +3771,47 @@ These flags apply to all kscore-federation commands:
 - `--audit-level string`: Audit logging level: all, errors, none (default: all)
 - `--audit-output string`: Audit output backend: auto, syslog, journald, stderr, none
 
+### federation wizard
+
+Interactive wizard for trust federation setup.
+
+```bash
+kscorectl federation wizard [flags]
+```
+
+**Flags**:
+- `--non-interactive`: Run with prompts from flags only
+- `--domain string`: Partner trust domain
+- `--endpoint string`: Bundle endpoint URL
+- `--type string`: Federation type: bidirectional, unidirectional (default: bidirectional)
+- `--policy string`: Policy template: allow-all, services-only, agents-only, kubernetes (default: services-only)
+- `--refresh duration`: Bundle refresh interval (default: 5m)
+- `--mtls`: Require mutual TLS (default: true)
+- `--auto-activate`: Activate immediately without confirmation
+
+**Examples**:
+```bash
+# Interactive mode - guided setup
+kscorectl federation wizard
+
+# Non-interactive mode
+kscorectl federation wizard \
+  --non-interactive \
+  --domain partner.example.org \
+  --endpoint https://partner.example.org/.well-known/spiffe-bundle \
+  --type bidirectional \
+  --policy services-only \
+  --auto-activate
+```
+
+**Policy Templates**:
+| Template | Description |
+|----------|-------------|
+| `services-only` | Allow `/service/**`, deny `/admin/**` and `/internal/**` (recommended) |
+| `allow-all` | Trust all identities from the partner domain |
+| `agents-only` | Only allow `/agent/**` paths |
+| `kubernetes` | Allow Kubernetes service account paths (`/ns/*/sa/*`) |
+
 ### federation list
 
 List federated trust domains.

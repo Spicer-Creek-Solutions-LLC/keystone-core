@@ -832,3 +832,330 @@ func TestLocationFilter(t *testing.T) {
 		t.Errorf("Region filter: got %d, want 1", len(result))
 	}
 }
+
+func TestEngine_SetProfileMatcher(t *testing.T) {
+	config := &DiscoveryConfig{
+		Networks: []string{"192.168.1.0/24"},
+		Methods:  []DiscoveryMethod{MethodIPMI},
+	}
+	store := NewInMemoryStore()
+	engine := NewEngine(config, store)
+
+	matcher := NewHardwareProfileMatcher()
+	matcher.AddProfile(&HardwareProfile{
+		Name:     "test-profile",
+		Priority: 100,
+		Criteria: HardwareProfileCriteria{
+			MinCPUCores: 8,
+		},
+		Labels: map[string]string{
+			"role": "compute",
+		},
+		Pool: "compute-pool",
+	})
+
+	engine.SetProfileMatcher(matcher)
+
+	if engine.profileMatcher == nil {
+		t.Error("Expected profile matcher to be set")
+	}
+}
+
+func TestEngine_RunDiscovery_WithProfileMatching(t *testing.T) {
+	trueBool := true
+
+	config := &DiscoveryConfig{
+		Networks:    []string{"192.168.1.0/24"},
+		Methods:     []DiscoveryMethod{MethodIPMI},
+		Concurrency: 5,
+		Timeout:     5 * time.Second,
+	}
+	store := NewInMemoryStore()
+	engine := NewEngine(config, store)
+
+	// Set up profile matcher
+	matcher := NewHardwareProfileMatcher()
+	matcher.AddProfile(&HardwareProfile{
+		Name:        "compute-gpu",
+		Description: "GPU compute nodes",
+		Priority:    200,
+		Criteria: HardwareProfileCriteria{
+			RequireGPU:  &trueBool,
+			MinCPUCores: 16,
+		},
+		Labels: map[string]string{
+			"role":     "compute",
+			"workload": "gpu",
+		},
+		Pool: "gpu-pool",
+	})
+	matcher.AddProfile(&HardwareProfile{
+		Name:        "compute-standard",
+		Description: "Standard compute nodes",
+		Priority:    100,
+		Criteria: HardwareProfileCriteria{
+			MinCPUCores: 8,
+			MinMemoryMB: 32768,
+		},
+		Labels: map[string]string{
+			"role": "compute",
+		},
+		Pool: "compute-pool",
+	})
+	engine.SetProfileMatcher(matcher)
+
+	// Create mock servers
+	mockServers := []*Server{
+		{
+			ID: "gpu-server",
+			Hardware: HardwareInfo{
+				CPU:    CPUInfo{Cores: 32},
+				Memory: MemoryInfo{TotalMB: 131072},
+				GPUs:   []GPUInfo{{Vendor: "NVIDIA", MemoryMB: 40960}},
+			},
+		},
+		{
+			ID: "standard-server",
+			Hardware: HardwareInfo{
+				CPU:    CPUInfo{Cores: 16},
+				Memory: MemoryInfo{TotalMB: 65536},
+			},
+		},
+		{
+			ID: "small-server",
+			Hardware: HardwareInfo{
+				CPU:    CPUInfo{Cores: 4},
+				Memory: MemoryInfo{TotalMB: 8192},
+			},
+		},
+	}
+
+	driver := &mockDriver{
+		method:  MethodIPMI,
+		servers: mockServers,
+	}
+	engine.RegisterDriver(driver)
+
+	ctx := context.Background()
+	result, err := engine.RunDiscovery(ctx)
+	if err != nil {
+		t.Fatalf("RunDiscovery failed: %v", err)
+	}
+
+	if result.ServersFound != 3 {
+		t.Errorf("ServersFound = %d, want 3", result.ServersFound)
+	}
+
+	// Check GPU server got compute-gpu profile
+	gpuServer, _ := store.Get(ctx, "gpu-server")
+	if gpuServer.Labels["hardware-profile"] != "compute-gpu" {
+		t.Errorf("GPU server profile = %s, want compute-gpu", gpuServer.Labels["hardware-profile"])
+	}
+	if gpuServer.Labels["role"] != "compute" {
+		t.Errorf("GPU server role = %s, want compute", gpuServer.Labels["role"])
+	}
+	if gpuServer.Labels["workload"] != "gpu" {
+		t.Errorf("GPU server workload = %s, want gpu", gpuServer.Labels["workload"])
+	}
+	if gpuServer.Pool != "gpu-pool" {
+		t.Errorf("GPU server pool = %s, want gpu-pool", gpuServer.Pool)
+	}
+
+	// Check standard server got compute-standard profile
+	stdServer, _ := store.Get(ctx, "standard-server")
+	if stdServer.Labels["hardware-profile"] != "compute-standard" {
+		t.Errorf("Standard server profile = %s, want compute-standard", stdServer.Labels["hardware-profile"])
+	}
+	if stdServer.Pool != "compute-pool" {
+		t.Errorf("Standard server pool = %s, want compute-pool", stdServer.Pool)
+	}
+
+	// Check small server has no profile (doesn't meet any criteria)
+	smallServer, _ := store.Get(ctx, "small-server")
+	if smallServer.Labels["hardware-profile"] != "" {
+		t.Errorf("Small server should have no profile, got %s", smallServer.Labels["hardware-profile"])
+	}
+}
+
+func TestEngine_RunDiscovery_ProfileDoesNotOverrideExistingLabels(t *testing.T) {
+	config := &DiscoveryConfig{
+		Networks:    []string{"192.168.1.0/24"},
+		Methods:     []DiscoveryMethod{MethodIPMI},
+		Concurrency: 5,
+		Timeout:     5 * time.Second,
+	}
+	store := NewInMemoryStore()
+	engine := NewEngine(config, store)
+
+	// Set up profile matcher
+	matcher := NewHardwareProfileMatcher()
+	matcher.AddProfile(&HardwareProfile{
+		Name:     "compute",
+		Priority: 100,
+		Criteria: HardwareProfileCriteria{
+			MinCPUCores: 8,
+		},
+		Labels: map[string]string{
+			"role":        "compute",
+			"environment": "default",
+		},
+		Pool: "default-pool",
+	})
+	engine.SetProfileMatcher(matcher)
+
+	// Create mock server with existing labels
+	mockServers := []*Server{
+		{
+			ID: "server-with-labels",
+			Hardware: HardwareInfo{
+				CPU:    CPUInfo{Cores: 16},
+				Memory: MemoryInfo{TotalMB: 65536},
+			},
+			Labels: map[string]string{
+				"environment": "production", // This should NOT be overridden
+			},
+		},
+	}
+
+	driver := &mockDriver{
+		method:  MethodIPMI,
+		servers: mockServers,
+	}
+	engine.RegisterDriver(driver)
+
+	ctx := context.Background()
+	_, err := engine.RunDiscovery(ctx)
+	if err != nil {
+		t.Fatalf("RunDiscovery failed: %v", err)
+	}
+
+	server, _ := store.Get(ctx, "server-with-labels")
+
+	// Profile should be applied
+	if server.Labels["hardware-profile"] != "compute" {
+		t.Errorf("Profile label = %s, want compute", server.Labels["hardware-profile"])
+	}
+
+	// Role should be added (didn't exist before)
+	if server.Labels["role"] != "compute" {
+		t.Errorf("Role label = %s, want compute", server.Labels["role"])
+	}
+
+	// Existing label should NOT be overridden
+	if server.Labels["environment"] != "production" {
+		t.Errorf("Environment label = %s, want production (should not be overridden)", server.Labels["environment"])
+	}
+}
+
+func TestEngine_DiscoverServer_WithProfileMatching(t *testing.T) {
+	config := &DiscoveryConfig{
+		Networks: []string{"192.168.1.0/24"},
+		Methods:  []DiscoveryMethod{MethodIPMI},
+		Timeout:  5 * time.Second,
+	}
+	store := NewInMemoryStore()
+	engine := NewEngine(config, store)
+
+	// Set up profile matcher
+	matcher := NewHardwareProfileMatcher()
+	matcher.AddProfile(&HardwareProfile{
+		Name:     "compute",
+		Priority: 100,
+		Criteria: HardwareProfileCriteria{
+			MinCPUCores: 8,
+		},
+		Labels: map[string]string{
+			"role": "compute",
+		},
+		Pool: "compute-pool",
+	})
+	engine.SetProfileMatcher(matcher)
+
+	// Create mock server with IP
+	mockServers := []*Server{
+		{
+			ID: "server-001",
+			Hardware: HardwareInfo{
+				CPU:    CPUInfo{Cores: 16},
+				Memory: MemoryInfo{TotalMB: 65536},
+				Network: NetworkInfo{
+					Interfaces: []NetworkInterface{
+						{IPs: []string{"192.168.1.100"}},
+					},
+				},
+			},
+		},
+	}
+
+	driver := &mockDriver{
+		method:  MethodIPMI,
+		servers: mockServers,
+	}
+	engine.RegisterDriver(driver)
+
+	ctx := context.Background()
+	server, err := engine.DiscoverServer(ctx, "192.168.1.100")
+	if err != nil {
+		t.Fatalf("DiscoverServer failed: %v", err)
+	}
+
+	if server == nil {
+		t.Fatal("Expected server to be returned")
+	}
+
+	// Check profile was applied
+	if server.Labels["hardware-profile"] != "compute" {
+		t.Errorf("Profile = %s, want compute", server.Labels["hardware-profile"])
+	}
+	if server.Labels["role"] != "compute" {
+		t.Errorf("Role = %s, want compute", server.Labels["role"])
+	}
+	if server.Pool != "compute-pool" {
+		t.Errorf("Pool = %s, want compute-pool", server.Pool)
+	}
+}
+
+func TestEngine_RunDiscovery_WithoutProfileMatcher(t *testing.T) {
+	config := &DiscoveryConfig{
+		Networks:    []string{"192.168.1.0/24"},
+		Methods:     []DiscoveryMethod{MethodIPMI},
+		Concurrency: 5,
+		Timeout:     5 * time.Second,
+	}
+	store := NewInMemoryStore()
+	engine := NewEngine(config, store)
+
+	// No profile matcher set
+
+	mockServers := []*Server{
+		{
+			ID: "server-001",
+			Hardware: HardwareInfo{
+				CPU:    CPUInfo{Cores: 16},
+				Memory: MemoryInfo{TotalMB: 65536},
+			},
+		},
+	}
+
+	driver := &mockDriver{
+		method:  MethodIPMI,
+		servers: mockServers,
+	}
+	engine.RegisterDriver(driver)
+
+	ctx := context.Background()
+	result, err := engine.RunDiscovery(ctx)
+	if err != nil {
+		t.Fatalf("RunDiscovery failed: %v", err)
+	}
+
+	if result.ServersFound != 1 {
+		t.Errorf("ServersFound = %d, want 1", result.ServersFound)
+	}
+
+	// Server should have no hardware-profile label
+	server, _ := store.Get(ctx, "server-001")
+	if server.Labels != nil && server.Labels["hardware-profile"] != "" {
+		t.Errorf("Expected no profile label, got %s", server.Labels["hardware-profile"])
+	}
+}
