@@ -25,7 +25,6 @@ import (
 var (
 	version = "dev"
 
-	// Global flags
 	serverAddr  string
 	outputFmt   string
 	auditLevel  string
@@ -42,7 +41,6 @@ func main() {
 	}
 }
 
-// newRootCmd creates the root command with all subcommands attached.
 // This is exported for testing purposes.
 func newRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{

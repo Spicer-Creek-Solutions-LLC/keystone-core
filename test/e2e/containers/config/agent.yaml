@@ -8,6 +8,8 @@ nats:
   url: "nats://server:4222"
   maxreconnects: 30
   reconnectwait: 2s
+  jetstream:
+    storedir: ""
 
 # Agent configuration
 agent:

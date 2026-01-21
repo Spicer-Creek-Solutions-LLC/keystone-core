@@ -11,7 +11,6 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
-// newRootCmd creates the root command for kscore-blueprint
 func newRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "kscore-blueprint",
@@ -99,7 +98,6 @@ Examples:
 	return rootCmd
 }
 
-// newVersionCmd creates the version command
 func newVersionCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",

@@ -10,7 +10,6 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
-// newRootCmd creates the root command for kscore-blueprint-state
 func newRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "kscore-blueprint-state",
@@ -43,7 +42,6 @@ Examples:
 	rootCmd.PersistentFlags().StringVar(&auditLevel, "audit-level", "all", "Audit logging level (all, errors, none)")
 	rootCmd.PersistentFlags().StringVar(&auditOutput, "audit-output", "auto", "Audit output backend (auto, syslog, journald, stderr, none)")
 
-	// Add subcommands
 	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(rollbackCmd)
 	rootCmd.AddCommand(snapshotCmd)
@@ -52,7 +50,6 @@ Examples:
 	return rootCmd
 }
 
-// newVersionCmd creates the version command
 func newVersionCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",

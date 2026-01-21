@@ -16,7 +16,6 @@ import (
 )
 
 var (
-	// Global flags
 	serverAddr   string
 	outputFormat string
 	verbose      bool
@@ -87,7 +86,6 @@ type DriftItem struct {
 	Severity  string `json:"severity" yaml:"severity"`
 }
 
-// newRootCmd creates the root command for kscore-proxy
 func newRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "kscore-proxy",
@@ -108,14 +106,12 @@ Usage via kscorectl:
 		SilenceErrors: true,
 	}
 
-	// Global flags
 	rootCmd.PersistentFlags().StringVarP(&serverAddr, "server", "s", "localhost:9090", "Control plane server address")
 	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "table", "Output format (table, json, yaml)")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
 	rootCmd.PersistentFlags().StringVar(&auditLevel, "audit-level", "all", "Audit logging level (all, errors, none)")
 	rootCmd.PersistentFlags().StringVar(&auditOutput, "audit-output", "auto", "Audit output backend (auto, syslog, journald, stderr, none)")
 
-	// Add subcommands
 	rootCmd.AddCommand(newDeviceCmd())
 	rootCmd.AddCommand(newCredentialCmd())
 	rootCmd.AddCommand(newDiscoverCmd())
@@ -127,7 +123,6 @@ Usage via kscorectl:
 	return rootCmd
 }
 
-// newVersionCmd creates the version command
 func newVersionCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",

@@ -423,24 +423,20 @@ func NewRateLimitedReader(ctx context.Context, reader io.Reader, bm *BandwidthMa
 
 // Read reads up to len(p) bytes with rate limiting.
 func (r *RateLimitedReader) Read(p []byte) (n int, err error) {
-	// Check context.
 	select {
 	case <-r.ctx.Done():
 		return 0, r.ctx.Err()
 	default:
 	}
 
-	// Rate limit if configured.
 	if r.bm != nil {
 		if err := r.bm.AcquireBytes(r.ctx, r.agentID, int64(len(p))); err != nil {
 			return 0, err
 		}
 	}
 
-	// Read from underlying reader.
 	n, err = r.reader.Read(p)
 
-	// Record the transfer.
 	if r.bm != nil && n > 0 {
 		r.bm.RecordTransfer(int64(n))
 	}
@@ -468,24 +464,20 @@ func NewRateLimitedWriter(ctx context.Context, writer io.Writer, bm *BandwidthMa
 
 // Write writes len(p) bytes with rate limiting.
 func (w *RateLimitedWriter) Write(p []byte) (n int, err error) {
-	// Check context.
 	select {
 	case <-w.ctx.Done():
 		return 0, w.ctx.Err()
 	default:
 	}
 
-	// Rate limit if configured.
 	if w.bm != nil {
 		if err := w.bm.AcquireBytes(w.ctx, w.agentID, int64(len(p))); err != nil {
 			return 0, err
 		}
 	}
 
-	// Write to underlying writer.
 	n, err = w.writer.Write(p)
 
-	// Record the transfer.
 	if w.bm != nil && n > 0 {
 		w.bm.RecordTransfer(int64(n))
 	}

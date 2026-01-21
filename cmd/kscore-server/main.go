@@ -32,7 +32,6 @@ var logger logging.Logger
 
 var cfgFile string
 
-// newRootCmd creates the root command for kscore-server
 func newRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "kscore-server",
@@ -50,7 +49,6 @@ the API for remote execution, state management, and policy enforcement.`,
 	return rootCmd
 }
 
-// newVersionCmd creates the version command
 func newVersionCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",

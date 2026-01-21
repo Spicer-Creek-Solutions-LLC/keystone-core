@@ -13,7 +13,6 @@ import (
 )
 
 var (
-	// Global flags
 	verbose     bool
 	auditLevel  string
 	auditOutput string
@@ -27,7 +26,6 @@ var (
 	skipExisting  bool
 )
 
-// newRootCmd creates the root command for kscore-migrate
 func newRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "kscore-migrate",
@@ -46,12 +44,10 @@ Usage via kscorectl:
 		SilenceErrors: true,
 	}
 
-	// Global flags
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
 	rootCmd.PersistentFlags().StringVar(&auditLevel, "audit-level", "all", "Audit logging level (all, errors, none)")
 	rootCmd.PersistentFlags().StringVar(&auditOutput, "audit-output", "auto", "Audit output backend (auto, syslog, journald, stderr, none)")
 
-	// Add subcommands
 	rootCmd.AddCommand(
 		newRunCommand(),
 		newValidateCommand(),
@@ -61,7 +57,6 @@ Usage via kscorectl:
 	return rootCmd
 }
 
-// newVersionCmd creates the version command
 func newVersionCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",

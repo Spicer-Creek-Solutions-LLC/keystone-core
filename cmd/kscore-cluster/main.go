@@ -12,7 +12,6 @@ import (
 )
 
 var (
-	// Global flags
 	serverAddr   string
 	outputFormat string
 	verbose      bool
@@ -20,7 +19,6 @@ var (
 	auditOutput  string
 )
 
-// newRootCmd creates the root command for kscore-cluster
 func newRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "kscore-cluster",
@@ -41,7 +39,6 @@ Usage via kscorectl:
 		SilenceErrors: true,
 	}
 
-	// Global flags
 	rootCmd.PersistentFlags().StringVarP(&serverAddr, "server", "s", "localhost:9090", "Control plane server address")
 	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "table", "Output format (table, text, json, yaml)")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
@@ -80,7 +77,6 @@ Usage via kscorectl:
 	return rootCmd
 }
 
-// newVersionCmd creates the version command
 func newVersionCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",

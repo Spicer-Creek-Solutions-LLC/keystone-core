@@ -22,7 +22,6 @@ var logger logging.Logger
 
 var cfgFile string
 
-// newRootCmd creates the root command for kscore-agent
 func newRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "kscore-agent",
@@ -48,7 +47,6 @@ from the control plane. It supports embedded NATS mode for edge deployments.`,
 	return rootCmd
 }
 
-// newVersionCmd creates the version command
 func newVersionCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",

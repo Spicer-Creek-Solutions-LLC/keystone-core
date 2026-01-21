@@ -1065,14 +1065,14 @@ kscorectl agent list
 
 **2. Export SQLite data:**
 ```bash
-kscore-migrate export \
+kscorectl migrate export \
   --source sqlite:///var/lib/kscore/state.db \
   --output /tmp/state-export.sql
 ```
 
 **3. Import to PostgreSQL:**
 ```bash
-kscore-migrate import \
+kscorectl migrate import \
   --input /tmp/state-export.sql \
   --target postgres://kscore:password@localhost/kscore
 ```
@@ -1384,7 +1384,7 @@ When you outgrow embedded mode, migrate to external NATS cluster and PostgreSQL.
 **Migration Path:**
 1. Deploy external NATS cluster
 2. Deploy PostgreSQL
-3. Migrate using `kscore-migrate` tool
+3. Migrate using `kscorectl migrate` tool
 4. Update configuration
 5. Test thoroughly
 6. Switch production

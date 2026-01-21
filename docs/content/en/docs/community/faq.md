@@ -63,9 +63,9 @@ This is perfect for development, testing, home labs, or small deployments (<100 
 
 1. Deploy external NATS cluster
 2. Deploy PostgreSQL (if desired)
-3. Use `kscore-migrate` tool for database migration:
+3. Use `kscorectl migrate` tool for database migration:
    ```bash
-   kscore-migrate run \
+   kscorectl migrate run \
      --source sqlite:///var/lib/keystone/keystone.db \
      --target postgres://keystone:pass@localhost/keystone
    ```

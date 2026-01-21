@@ -15,7 +15,6 @@ import (
 )
 
 var (
-	// Global flags
 	auditLevel  string
 	auditOutput string
 	stateTarget string
@@ -53,11 +52,9 @@ Examples:
 )
 
 func init() {
-	// Global flags
 	rootCmd.PersistentFlags().StringVar(&auditLevel, "audit-level", "all", "Audit logging level (all, errors, none)")
 	rootCmd.PersistentFlags().StringVar(&auditOutput, "audit-output", "auto", "Audit output backend (auto, syslog, journald, stderr, none)")
 
-	// Add subcommands
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(applyCmd)
 	rootCmd.AddCommand(checkCmd)

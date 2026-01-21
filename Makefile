@@ -10,7 +10,7 @@
        e2e-ipv6 e2e-ipv6-up e2e-ipv6-down e2e-ipv6-logs \
        e2e-ha-ipv6 e2e-ha-ipv6-up e2e-ha-ipv6-down e2e-ha-ipv6-logs \
        e2e-allinone e2e-all-topologies \
-       server agent cli exec state monitor policy gitops cluster migrate module registry identity gateway
+       server agent cli exec state monitor policy gitops cluster migrate module registry identity gateway schedule loadtest
 
 # Version information
 VERSION ?= dev
@@ -48,7 +48,9 @@ BINARIES := \
 	kscore-cluster-backup:kscore-cluster-backup \
 	kscore-files-storage:kscore-files-storage \
 	kscore-audit:kscore-audit \
-	kscore-webhook:kscore-webhook
+	kscore-webhook:kscore-webhook \
+	kscore-schedule:kscore-schedule \
+	kscore-loadtest:kscore-loadtest
 
 # Extract just the binary names for .PHONY
 BINARY_NAMES := $(foreach b,$(BINARIES),$(firstword $(subst :, ,$(b))))
@@ -81,6 +83,8 @@ help:
 	@echo "    migrate          - Build kscore-migrate plugin"
 	@echo "    module           - Build kscore-module plugin"
 	@echo "    identity         - Build kscore-identity plugin"
+	@echo "    schedule         - Build kscore-schedule plugin"
+	@echo "    loadtest         - Build kscore-loadtest utility"
 	@echo ""
 	@echo "  test               - Run tests"
 	@echo "  lint               - Run linters"
@@ -240,6 +244,12 @@ identity:
 gateway:
 	$(call build-binary,kscore-telemetry-gateway,kscore-telemetry-gateway)
 
+schedule:
+	$(call build-binary,kscore-schedule,kscore-schedule)
+
+loadtest:
+	$(call build-binary,kscore-loadtest,kscore-loadtest)
+
 # =============================================================================
 # Cross-Platform Builds
 # =============================================================================
@@ -286,6 +296,8 @@ clean:
 	rm -rf build/
 	rm -rf dist/
 	rm -rf data/
+	rm -rf reports/
+	rm -rf internal/loadtest/reports/
 	rm -f coverage.out
 	rm -f docvalidation scripts/docvalidation/docvalidation
 	# Rust build artifacts

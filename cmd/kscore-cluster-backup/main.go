@@ -19,7 +19,6 @@ import (
 )
 
 var (
-	// Global flags
 	serverAddr   string
 	outputFormat string
 	verbose      bool
@@ -27,7 +26,6 @@ var (
 	auditOutput  string
 )
 
-// newRootCmd creates the root command for kscore-cluster-backup
 func newRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "kscore-cluster-backup",
@@ -64,14 +62,12 @@ Examples:
 		SilenceErrors: true,
 	}
 
-	// Global flags
 	rootCmd.PersistentFlags().StringVarP(&serverAddr, "server", "s", "localhost:9090", "Control plane server address")
 	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "table", "Output format (table, text, json, yaml)")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
 	rootCmd.PersistentFlags().StringVar(&auditLevel, "audit-level", "all", "Audit logging level (all, errors, none)")
 	rootCmd.PersistentFlags().StringVar(&auditOutput, "audit-output", "auto", "Audit output backend (auto, syslog, journald, stderr, none)")
 
-	// Add subcommands
 	rootCmd.AddCommand(
 		newVersionCmd(),
 		newBackupCommand(),
@@ -84,7 +80,6 @@ Examples:
 	return rootCmd
 }
 
-// newVersionCmd creates the version command
 func newVersionCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",

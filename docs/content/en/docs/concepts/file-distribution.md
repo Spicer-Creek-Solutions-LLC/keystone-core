@@ -24,7 +24,7 @@ The file distribution system enables:
 
 ```mermaid
 flowchart TB
-    CP["Control Plane<br>(kscore-files)"]
+    CP["Control Plane<br>(kscorectl files)"]
 
     CP --> S3["Backend<br>(S3)"]
     CP --> Local["Backend<br>(Local)"]
@@ -42,7 +42,7 @@ flowchart TB
 The simplest backend, storing files on the local disk:
 
 ```yaml
-# kscore-files configuration
+# kscorectl files configuration
 backend:
   type: local
   local:
@@ -57,7 +57,7 @@ Store files in S3 with optional encryption:
 backend:
   type: s3
   s3:
-    bucket: my-kscore-files
+    bucket: my-kscorectl files
     region: us-west-2
     prefix: files/
     # Optional: use IAM roles or explicit credentials
@@ -73,7 +73,7 @@ Store files in GCS:
 backend:
   type: gcs
   gcs:
-    bucket: my-kscore-files
+    bucket: my-kscorectl files
     prefix: files/
     # Uses GOOGLE_APPLICATION_CREDENTIALS
 ```
@@ -86,7 +86,7 @@ Store files in Azure:
 backend:
   type: azure
   azure:
-    container: kscore-files
+    container: kscorectl files
     account: mystorageaccount
     # Uses AZURE_STORAGE_KEY or managed identity
 ```
@@ -99,7 +99,7 @@ Store files in a Git repository with full version history:
 backend:
   type: git
   git:
-    url: https://github.com/myorg/kscore-files.git
+    url: https://github.com/myorg/kscorectl files.git
     branch: main
     local_path: /var/lib/kscore/git-files
     # Auth: token, ssh-key, or ssh-agent
@@ -116,7 +116,7 @@ Use NATS JetStream for file storage:
 backend:
   type: nats
   nats:
-    bucket: kscore-files
+    bucket: kscorectl files
     # Uses existing NATS connection
 ```
 
@@ -140,15 +140,15 @@ Files are organized into namespaces for access control:
 
 ```yaml
 # Create a namespace
-kscore-files namespace create prod-configs --description "Production configs"
+kscorectl files namespace create prod-configs --description "Production configs"
 
 # Set ACLs
-kscore-files namespace acl add prod-configs \
+kscorectl files namespace acl add prod-configs \
   --principal role:ops \
   --permission read,write
 
 # List files in namespace
-kscore-files ls prod-configs/
+kscorectl files ls prod-configs/
 ```
 
 ### Namespace Permissions
@@ -204,13 +204,13 @@ Mirrors automatically synchronize:
 
 ```bash
 # View sync status
-kscore-files mirrors sync-status --group us-mirrors
+kscorectl files mirrors sync-status --group us-mirrors
 
 # Trigger manual sync
-kscore-files mirrors sync --group us-mirrors
+kscorectl files mirrors sync --group us-mirrors
 
 # View sync history
-kscore-files mirrors history --group us-mirrors
+kscorectl files mirrors history --group us-mirrors
 ```
 
 ### Conflict Resolution
@@ -219,10 +219,10 @@ When files conflict across mirrors:
 
 ```bash
 # List conflicts
-kscore-files mirrors conflicts --group us-mirrors
+kscorectl files mirrors conflicts --group us-mirrors
 
 # Resolve conflict
-kscore-files mirrors resolve-conflict <conflict-id> \
+kscorectl files mirrors resolve-conflict <conflict-id> \
   --strategy source  # or: target, manual
 ```
 
@@ -254,51 +254,51 @@ files:
 
 ```bash
 # Upload a file
-kscore-files put local-file.txt namespace/path/file.txt
+kscorectl files put local-file.txt namespace/path/file.txt
 
 # Download a file
-kscore-files get namespace/path/file.txt local-file.txt
+kscorectl files get namespace/path/file.txt local-file.txt
 
 # List files
-kscore-files ls namespace/
+kscorectl files ls namespace/
 
 # Delete a file
-kscore-files rm namespace/path/file.txt
+kscorectl files rm namespace/path/file.txt
 
 # Get file metadata
-kscore-files stat namespace/path/file.txt
+kscorectl files stat namespace/path/file.txt
 
 # Get file hash
-kscore-files hash namespace/path/file.txt
+kscorectl files hash namespace/path/file.txt
 ```
 
 ### Mirror Management
 
 ```bash
 # List mirror groups
-kscore-files mirrors list
+kscorectl files mirrors list
 
 # Show mirror group details
-kscore-files mirrors show <group-id>
+kscorectl files mirrors show <group-id>
 
 # Check mirror health
-kscore-files mirrors health --group <group-id>
+kscorectl files mirrors health --group <group-id>
 
 # Trigger failover
-kscore-files mirrors failover <group-id> --from <mirror-id>
+kscorectl files mirrors failover <group-id> --from <mirror-id>
 ```
 
 ### Server Administration
 
 ```bash
 # Start file server
-kscore-files serve --config /etc/kscore/files.yaml
+kscorectl files serve --config /etc/kscore/files.yaml
 
 # Check backend status
-kscore-files backend status
+kscorectl files backend status
 
 # Run garbage collection
-kscore-files backend gc
+kscorectl files backend gc
 ```
 
 ## State Module Integration
@@ -397,33 +397,33 @@ Alerting rules are provided at `deploy/grafana/alerts/file-mirrors-alerts.yml`:
 
 ```bash
 # Check sync status
-kscore-files mirrors sync-status --group <group>
+kscorectl files mirrors sync-status --group <group>
 
 # Force resync
-kscore-files mirrors sync --group <group> --force
+kscorectl files mirrors sync --group <group> --force
 ```
 
 ### High Latency
 
 ```bash
 # Check latency metrics
-kscore-files mirrors latency --group <group>
+kscorectl files mirrors latency --group <group>
 
 # Verify network connectivity to mirrors
-kscore-files mirrors health --group <group> --verbose
+kscorectl files mirrors health --group <group> --verbose
 ```
 
 ### Conflict Resolution
 
 ```bash
 # List all conflicts
-kscore-files mirrors conflicts
+kscorectl files mirrors conflicts
 
 # View conflict details
-kscore-files mirrors conflicts --id <conflict-id>
+kscorectl files mirrors conflicts --id <conflict-id>
 
 # Auto-resolve using source version
-kscore-files mirrors resolve-conflict <id> --strategy source
+kscorectl files mirrors resolve-conflict <id> --strategy source
 ```
 
 ## See Also

@@ -34,7 +34,6 @@ type Config struct {
 	TLSServerName string
 }
 
-// newRootCmd creates the root command
 func newRootCmd() *cobra.Command {
 	cfg := &Config{}
 
@@ -57,7 +56,6 @@ Examples:
   kscorectl exec list --status completed`,
 	}
 
-	// Global flags
 	rootCmd.PersistentFlags().StringVar(&cfg.ServerAddr, "server", "localhost:50051", "Keystone Core server address")
 	rootCmd.PersistentFlags().DurationVar(&cfg.Timeout, "timeout", 5*time.Minute, "Request timeout")
 	rootCmd.PersistentFlags().StringVar(&cfg.AuditLevel, "audit-level", "all", "Audit logging level (all, errors, none)")
@@ -71,7 +69,6 @@ Examples:
 	rootCmd.PersistentFlags().BoolVar(&cfg.TLSSkipVerify, "tls-skip-verify", false, "Skip TLS certificate verification (INSECURE - for development only)")
 	rootCmd.PersistentFlags().StringVar(&cfg.TLSServerName, "tls-server-name", "", "Server name for TLS verification (defaults to server host)")
 
-	// Add subcommands
 	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(newRunCmd(cfg))
 	rootCmd.AddCommand(newStatusCmd(cfg))
@@ -86,7 +83,6 @@ Examples:
 	return rootCmd
 }
 
-// newVersionCmd creates the version command
 func newVersionCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",

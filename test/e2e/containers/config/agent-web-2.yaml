@@ -4,6 +4,8 @@ nats:
   url: "nats://server:4222"
   maxreconnects: 30
   reconnectwait: 2s
+  jetstream:
+    storedir: ""
 
 agent:
   id: "agent-web-2"

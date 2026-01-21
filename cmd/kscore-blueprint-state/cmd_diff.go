@@ -12,7 +12,6 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/blueprint"
 )
 
-// Diff command
 var diffCmd = &cobra.Command{
 	Use:   "diff <snapshot1> <snapshot2>",
 	Short: "Compare two snapshots",
@@ -120,7 +119,6 @@ func diffExecute(cmd *cobra.Command, args []string) error {
 	snapshot1ID := args[0]
 	snapshot2ID := args[1]
 
-	// Get snapshot directory
 	snapshotPath := diffDir
 	if snapshotPath == "" {
 		home, err := os.UserHomeDir()
@@ -130,7 +128,6 @@ func diffExecute(cmd *cobra.Command, args []string) error {
 		snapshotPath = filepath.Join(home, ".kscore", "snapshots")
 	}
 
-	// Create snapshot manager
 	snapshotManager, err := blueprint.NewSnapshotManager(&blueprint.SnapshotConfig{
 		StorePath: snapshotPath,
 	})
@@ -138,7 +135,6 @@ func diffExecute(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create snapshot manager: %w", err)
 	}
 
-	// Get both snapshots
 	snapshot1, err := snapshotManager.GetSnapshot(snapshot1ID)
 	if err != nil {
 		return fmt.Errorf("failed to get snapshot %s: %w", snapshot1ID, err)
@@ -149,7 +145,6 @@ func diffExecute(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get snapshot %s: %w", snapshot2ID, err)
 	}
 
-	// Compare snapshots
 	result := compareSnapshots(snapshot1, snapshot2)
 
 	if diffJSON {
@@ -158,7 +153,6 @@ func diffExecute(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Print human-readable diff
 	printDiff(result)
 	return nil
 }
@@ -169,14 +163,12 @@ func compareSnapshots(s1, s2 *blueprint.Snapshot) *DiffResult {
 		Snapshot2: s2.ID,
 	}
 
-	// Compare files
 	if s1.StateCapture != nil && s2.StateCapture != nil {
 		result.Files = compareFiles(s1.StateCapture.Files, s2.StateCapture.Files)
 		result.Packages = comparePackages(s1.StateCapture.Packages, s2.StateCapture.Packages)
 		result.Services = compareServices(s1.StateCapture.Services, s2.StateCapture.Services)
 	}
 
-	// Calculate summary
 	result.Summary = DiffSummary{
 		FilesAdded:      len(result.Files.Added),
 		FilesRemoved:    len(result.Files.Removed),
@@ -195,7 +187,6 @@ func compareSnapshots(s1, s2 *blueprint.Snapshot) *DiffResult {
 func compareFiles(files1, files2 []blueprint.FileCaptureEntry) FileDiff {
 	diff := FileDiff{}
 
-	// Build maps for comparison
 	map1 := make(map[string]blueprint.FileCaptureEntry)
 	map2 := make(map[string]blueprint.FileCaptureEntry)
 
@@ -206,21 +197,18 @@ func compareFiles(files1, files2 []blueprint.FileCaptureEntry) FileDiff {
 		map2[f.Path] = f
 	}
 
-	// Find added files (in s2 but not s1)
 	for path := range map2 {
 		if _, exists := map1[path]; !exists {
 			diff.Added = append(diff.Added, path)
 		}
 	}
 
-	// Find removed files (in s1 but not s2)
 	for path := range map1 {
 		if _, exists := map2[path]; !exists {
 			diff.Removed = append(diff.Removed, path)
 		}
 	}
 
-	// Find modified files
 	for path, f1 := range map1 {
 		if f2, exists := map2[path]; exists {
 			if f1.Checksum != f2.Checksum || f1.Mode != f2.Mode {
@@ -235,7 +223,6 @@ func compareFiles(files1, files2 []blueprint.FileCaptureEntry) FileDiff {
 		}
 	}
 
-	// Sort for consistent output
 	sort.Strings(diff.Added)
 	sort.Strings(diff.Removed)
 	sort.Slice(diff.Modified, func(i, j int) bool {
@@ -248,7 +235,6 @@ func compareFiles(files1, files2 []blueprint.FileCaptureEntry) FileDiff {
 func comparePackages(pkgs1, pkgs2 []blueprint.PackageCaptureEntry) PackageDiff {
 	diff := PackageDiff{}
 
-	// Build maps for comparison
 	map1 := make(map[string]blueprint.PackageCaptureEntry)
 	map2 := make(map[string]blueprint.PackageCaptureEntry)
 
@@ -259,7 +245,6 @@ func comparePackages(pkgs1, pkgs2 []blueprint.PackageCaptureEntry) PackageDiff {
 		map2[p.Name] = p
 	}
 
-	// Find added packages
 	for name, p := range map2 {
 		if _, exists := map1[name]; !exists {
 			diff.Added = append(diff.Added, PackageInfo{
@@ -269,7 +254,6 @@ func comparePackages(pkgs1, pkgs2 []blueprint.PackageCaptureEntry) PackageDiff {
 		}
 	}
 
-	// Find removed packages
 	for name, p := range map1 {
 		if _, exists := map2[name]; !exists {
 			diff.Removed = append(diff.Removed, PackageInfo{
@@ -279,7 +263,6 @@ func comparePackages(pkgs1, pkgs2 []blueprint.PackageCaptureEntry) PackageDiff {
 		}
 	}
 
-	// Find changed packages
 	for name, p1 := range map1 {
 		if p2, exists := map2[name]; exists {
 			if p1.Version != p2.Version {
@@ -292,7 +275,6 @@ func comparePackages(pkgs1, pkgs2 []blueprint.PackageCaptureEntry) PackageDiff {
 		}
 	}
 
-	// Sort for consistent output
 	sort.Slice(diff.Added, func(i, j int) bool {
 		return diff.Added[i].Name < diff.Added[j].Name
 	})
@@ -309,7 +291,6 @@ func comparePackages(pkgs1, pkgs2 []blueprint.PackageCaptureEntry) PackageDiff {
 func compareServices(svcs1, svcs2 []blueprint.ServiceCaptureEntry) ServiceDiff {
 	diff := ServiceDiff{}
 
-	// Build maps for comparison
 	map1 := make(map[string]blueprint.ServiceCaptureEntry)
 	map2 := make(map[string]blueprint.ServiceCaptureEntry)
 
@@ -320,7 +301,6 @@ func compareServices(svcs1, svcs2 []blueprint.ServiceCaptureEntry) ServiceDiff {
 		map2[s.Name] = s
 	}
 
-	// Find added services
 	for name, s := range map2 {
 		if _, exists := map1[name]; !exists {
 			diff.Added = append(diff.Added, ServiceInfo{
@@ -330,7 +310,6 @@ func compareServices(svcs1, svcs2 []blueprint.ServiceCaptureEntry) ServiceDiff {
 		}
 	}
 
-	// Find removed services
 	for name, s := range map1 {
 		if _, exists := map2[name]; !exists {
 			diff.Removed = append(diff.Removed, ServiceInfo{
@@ -340,7 +319,6 @@ func compareServices(svcs1, svcs2 []blueprint.ServiceCaptureEntry) ServiceDiff {
 		}
 	}
 
-	// Find changed services
 	for name, s1 := range map1 {
 		if s2, exists := map2[name]; exists {
 			state1 := serviceState(s1)
@@ -355,7 +333,6 @@ func compareServices(svcs1, svcs2 []blueprint.ServiceCaptureEntry) ServiceDiff {
 		}
 	}
 
-	// Sort for consistent output
 	sort.Slice(diff.Added, func(i, j int) bool {
 		return diff.Added[i].Name < diff.Added[j].Name
 	})
@@ -374,7 +351,6 @@ func printDiff(result *DiffResult) {
 
 	hasChanges := false
 
-	// Files
 	if !diffFilesOnly || len(result.Files.Added) > 0 || len(result.Files.Removed) > 0 || len(result.Files.Modified) > 0 {
 		if len(result.Files.Added) > 0 {
 			hasChanges = true
@@ -411,7 +387,6 @@ func printDiff(result *DiffResult) {
 	}
 
 	if !diffFilesOnly {
-		// Packages
 		if len(result.Packages.Added) > 0 {
 			hasChanges = true
 			fmt.Printf("Packages Added (%d):\n", len(result.Packages.Added))
@@ -439,7 +414,6 @@ func printDiff(result *DiffResult) {
 			fmt.Println()
 		}
 
-		// Services
 		if len(result.Services.Added) > 0 {
 			hasChanges = true
 			fmt.Printf("Services Added (%d):\n", len(result.Services.Added))
@@ -473,7 +447,6 @@ func printDiff(result *DiffResult) {
 		return
 	}
 
-	// Print summary
 	fmt.Printf("Summary:\n")
 	fmt.Printf("  Files:    +%d -%d ~%d\n",
 		result.Summary.FilesAdded,
@@ -498,7 +471,6 @@ func truncateHash(hash string) string {
 	return hash
 }
 
-// serviceState returns a human-readable state for a service
 func serviceState(s blueprint.ServiceCaptureEntry) string {
 	if s.Running && s.Enabled {
 		return "running, enabled"

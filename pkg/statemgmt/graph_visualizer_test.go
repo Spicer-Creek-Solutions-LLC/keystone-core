@@ -585,3 +585,181 @@ func TestTruncateID(t *testing.T) {
 		}
 	}
 }
+
+func TestGraphVisualizer_AllEdgeTypes(t *testing.T) {
+	// Test all edge types: require, require_in, watch, watch_in, prereq, prereq_in, onchanges, onchanges_in
+	stateFile := &StateFile{
+		States: map[string][]StateDeclaration{
+			"file": {
+				{
+					ID:     "base",
+					Module: "file",
+					State:  "present",
+				},
+				{
+					ID:     "config",
+					Module: "file",
+					State:  "present",
+					Requisites: Requisites{
+						Require: []StateReference{{Module: "file", ID: "base"}},
+					},
+				},
+				{
+					ID:     "data",
+					Module: "file",
+					State:  "present",
+					Requisites: Requisites{
+						RequireIn: []StateReference{{Module: "service", ID: "app"}},
+					},
+				},
+				{
+					ID:     "watch_target",
+					Module: "file",
+					State:  "present",
+				},
+				{
+					ID:     "watch_in_target",
+					Module: "file",
+					State:  "present",
+					Requisites: Requisites{
+						WatchIn: []StateReference{{Module: "service", ID: "watcher"}},
+					},
+				},
+				{
+					ID:     "prereq_target",
+					Module: "file",
+					State:  "present",
+				},
+				{
+					ID:     "prereq_in_target",
+					Module: "file",
+					State:  "present",
+					Requisites: Requisites{
+						PrereqIn: []StateReference{{Module: "service", ID: "prereq_consumer"}},
+					},
+				},
+				{
+					ID:     "onchanges_target",
+					Module: "file",
+					State:  "present",
+				},
+				{
+					ID:     "onchanges_in_target",
+					Module: "file",
+					State:  "present",
+					Requisites: Requisites{
+						OnchangesIn: []StateReference{{Module: "service", ID: "notifier"}},
+					},
+				},
+			},
+			"service": {
+				{
+					ID:     "app",
+					Module: "service",
+					State:  "running",
+					Requisites: Requisites{
+						Require: []StateReference{{Module: "file", ID: "config"}},
+					},
+				},
+				{
+					ID:     "watcher",
+					Module: "service",
+					State:  "running",
+					Requisites: Requisites{
+						Watch: []StateReference{{Module: "file", ID: "watch_target"}},
+					},
+				},
+				{
+					ID:     "prereq_consumer",
+					Module: "service",
+					State:  "running",
+					Requisites: Requisites{
+						Prereq: []StateReference{{Module: "file", ID: "prereq_target"}},
+					},
+				},
+				{
+					ID:     "notifier",
+					Module: "service",
+					State:  "running",
+					Requisites: Requisites{
+						Onchanges: []StateReference{{Module: "file", ID: "onchanges_target"}},
+					},
+				},
+			},
+		},
+	}
+
+	viz := NewGraphVisualizer()
+	err := viz.BuildFromStateFile(stateFile)
+	if err != nil {
+		t.Fatalf("Failed to build graph: %v", err)
+	}
+
+	graph := viz.GetGraph()
+
+	// Verify we have edges
+	if graph.TotalEdges == 0 {
+		t.Error("Expected graph to have edges")
+	}
+
+	// Verify we have different edge types
+	edgeTypes := make(map[string]bool)
+	for _, edge := range graph.Edges {
+		edgeTypes[edge.EdgeType] = true
+	}
+
+	expectedTypes := []string{"require", "require_in", "watch", "watch_in", "prereq", "prereq_in", "onchanges", "onchanges_in"}
+	for _, expectedType := range expectedTypes {
+		if !edgeTypes[expectedType] {
+			t.Errorf("Expected edge type %q not found in graph", expectedType)
+		}
+	}
+}
+
+func TestGraphVisualizer_DuplicateEdgeHandling(t *testing.T) {
+	// Test that duplicate edges are properly deduplicated
+	stateFile := &StateFile{
+		States: map[string][]StateDeclaration{
+			"file": {
+				{
+					ID:     "config",
+					Module: "file",
+					State:  "present",
+				},
+			},
+			"service": {
+				{
+					ID:     "app",
+					Module: "service",
+					State:  "running",
+					Requisites: Requisites{
+						// Both require and watch point to the same target
+						Require: []StateReference{{Module: "file", ID: "config"}},
+						Watch:   []StateReference{{Module: "file", ID: "config"}},
+					},
+				},
+			},
+		},
+	}
+
+	viz := NewGraphVisualizer()
+	err := viz.BuildFromStateFile(stateFile)
+	if err != nil {
+		t.Fatalf("Failed to build graph: %v", err)
+	}
+
+	graph := viz.GetGraph()
+
+	// Should have only one edge (deduplicated, require takes precedence)
+	edgeCount := 0
+	for _, edge := range graph.Edges {
+		if edge.From == "file:config" && edge.To == "service:app" {
+			edgeCount++
+		}
+	}
+
+	// The require edge is added first, then watch check for existence
+	if edgeCount != 1 {
+		t.Errorf("Expected 1 edge from config to app, got %d", edgeCount)
+	}
+}

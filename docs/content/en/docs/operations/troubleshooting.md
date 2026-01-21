@@ -249,7 +249,7 @@ See [Maintenance - NATS Recovery](/docs/operations/maintenance/#nats-recovery-ha
 **1. Check State File Syntax:**
 ```bash
 # Validate YAML syntax
-kscore-state check web-server.yaml
+kscorectl state check web-server.yaml
 
 # Look for syntax errors
 yamllint web-server.yaml
@@ -264,7 +264,7 @@ sudo journalctl -u kscore-agent | grep state
 **3. Test Individual States:**
 ```bash
 # Apply single state for debugging
-kscore-state apply nginx-package.yaml
+kscorectl state apply nginx-package.yaml
 ```
 
 ### Common Causes and Solutions

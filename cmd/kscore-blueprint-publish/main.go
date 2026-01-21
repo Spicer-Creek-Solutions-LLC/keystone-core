@@ -56,7 +56,6 @@ management, use 'kscore-blueprint'.`,
 	rootCmd.PersistentFlags().StringVar(&auditLevel, "audit-level", "all", "Audit logging level (all, errors, none)")
 	rootCmd.PersistentFlags().StringVar(&auditOutput, "audit-output", "auto", "Audit output backend (auto, syslog, journald, stderr, none)")
 
-	// Add subcommands
 	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(publishCmd)
 	rootCmd.AddCommand(signCmd)

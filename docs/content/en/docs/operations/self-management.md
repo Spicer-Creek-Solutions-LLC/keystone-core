@@ -24,13 +24,13 @@ Bootstrap a new Keystone Core cluster from a seed configuration:
 
 ```bash
 # Validate seed configuration first
-kscore-bootstrap validate --config seed.yaml
+kscorectl bootstrap validate --config seed.yaml
 
 # Bootstrap the cluster
-kscore-bootstrap seed --config seed.yaml
+kscorectl bootstrap seed --config seed.yaml
 
 # Check bootstrap status
-kscore-bootstrap status
+kscorectl bootstrap status
 ```
 
 #### Seed Configuration Example
@@ -118,9 +118,9 @@ certificates:
 
 | Mode | Command | Use Case |
 |------|---------|----------|
-| Seed | `kscore-bootstrap seed` | New cluster from scratch |
-| Restore | `kscore-bootstrap restore` | Restore from backup |
-| Import | `kscore-bootstrap import` | Import existing installation |
+| Seed | `kscorectl bootstrap seed` | New cluster from scratch |
+| Restore | `kscorectl bootstrap restore` | Restore from backup |
+| Import | `kscorectl bootstrap import` | Import existing installation |
 
 ### Bootstrap Troubleshooting
 
@@ -129,10 +129,10 @@ certificates:
 journalctl -u kscore-server -f
 
 # Clean up failed bootstrap
-kscore-bootstrap cleanup --force
+kscorectl bootstrap cleanup --force
 
 # Retry bootstrap with debug logging
-kscore-bootstrap seed --config seed.yaml --debug
+kscorectl bootstrap seed --config seed.yaml --debug
 ```
 
 ## Backup Operations
@@ -170,23 +170,23 @@ kscore_backup:
 
 ```bash
 # Full backup to local directory
-kscore-cluster-backup create --dest /backup/keystone
+kscorectl cluster-backup create --dest /backup/keystone
 
 # Backup to S3
-kscore-cluster-backup create \
+kscorectl cluster-backup create \
   --dest s3://keystone-backups/manual/ \
   --encrypt --encrypt-recipient age1...
 
 # Database-only backup
-kscore-cluster-backup create \
+kscorectl cluster-backup create \
   --components database \
   --dest /backup/db-only
 
 # List available backups
-kscore-cluster-backup list --dest s3://keystone-backups/
+kscorectl cluster-backup list --dest s3://keystone-backups/
 
 # Verify backup integrity
-kscore-cluster-backup verify /backup/keystone/backup-2024-01-15.tar.gz
+kscorectl cluster-backup verify /backup/keystone/backup-2024-01-15.tar.gz
 ```
 
 ### Backup Components
@@ -271,20 +271,20 @@ retention:
 
 ```bash
 # List available backups
-kscore-cluster-backup list --dest s3://keystone-backups/
+kscorectl cluster-backup list --dest s3://keystone-backups/
 
 # Restore full backup
-kscore-bootstrap restore \
+kscorectl bootstrap restore \
   --backup s3://keystone-backups/backup-2024-01-15.tar.gz \
   --decrypt-identity /etc/kscore/backup-key.txt
 
 # Restore specific components only
-kscore-bootstrap restore \
+kscorectl bootstrap restore \
   --backup /backup/backup-2024-01-15.tar.gz \
   --components database,config
 
 # Dry-run restore (validate only)
-kscore-bootstrap restore \
+kscorectl bootstrap restore \
   --backup /backup/backup-2024-01-15.tar.gz \
   --dry-run
 ```
@@ -294,7 +294,7 @@ kscore-bootstrap restore \
 ```bash
 # PostgreSQL PITR requires WAL archiving configured
 # Restore to specific timestamp
-kscore-bootstrap restore \
+kscorectl bootstrap restore \
   --backup /backup/base-backup.tar.gz \
   --target-time "2024-01-15 14:30:00 UTC" \
   --wal-archive s3://keystone-wal/
@@ -304,13 +304,13 @@ kscore-bootstrap restore \
 
 ```bash
 # Restore only configuration (keep existing data)
-kscore-bootstrap restore \
+kscorectl bootstrap restore \
   --backup /backup/backup.tar.gz \
   --components config \
   --no-restart
 
 # Restore certificates only
-kscore-bootstrap restore \
+kscorectl bootstrap restore \
   --backup /backup/backup.tar.gz \
   --components certificates \
   --no-restart
@@ -693,7 +693,7 @@ kscorectl cluster remove ks-server-2
 # 2. Provision replacement node
 
 # 3. Join new node to cluster
-kscore-bootstrap import \
+kscorectl bootstrap import \
   --join https://ks-server-1:8080 \
   --token $(kscorectl cluster token)
 ```
@@ -704,7 +704,7 @@ kscore-bootstrap import \
 # 1. Provision new infrastructure
 
 # 2. Restore from latest backup
-kscore-bootstrap restore \
+kscorectl bootstrap restore \
   --backup s3://keystone-backups-dr/latest.tar.gz \
   --decrypt-identity /secure/backup-key.txt
 
@@ -728,7 +728,7 @@ kscorectl cluster health
 # 3. Restore network connectivity
 
 # 4. Re-join nodes from non-authoritative partition
-kscore-bootstrap import \
+kscorectl bootstrap import \
   --join https://authoritative-leader:8080 \
   --force-rejoin
 ```
@@ -746,7 +746,7 @@ kscorectl agent list --status
 kscorectl state check /etc/kscore/states/*.yaml
 
 # Run integration tests
-kscore-test integration --suite recovery
+kscorectl test integration --suite recovery
 ```
 
 ## Operational Runbooks
@@ -756,8 +756,8 @@ kscore-test integration --suite recovery
 ```markdown
 ## Pre-Maintenance
 1. Notify stakeholders
-2. Create backup: `kscore-cluster-backup create --dest /backup/pre-maintenance`
-3. Verify backup: `kscore-cluster-backup verify /backup/pre-maintenance/...`
+2. Create backup: `kscorectl cluster-backup create --dest /backup/pre-maintenance`
+3. Verify backup: `kscorectl cluster-backup verify /backup/pre-maintenance/...`
 
 ## During Maintenance
 4. Enable maintenance mode: `kscorectl maintenance enable`
@@ -795,7 +795,7 @@ kscore-test integration --suite recovery
 ```markdown
 ## Pre-Rotation
 1. Verify current cert expiry: `kscorectl certs status`
-2. Create backup: `kscore-cluster-backup create --components certificates`
+2. Create backup: `kscorectl cluster-backup create --components certificates`
 
 ## Rotation
 3. Generate new certificates:

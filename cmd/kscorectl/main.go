@@ -28,7 +28,6 @@ func main() {
 	}
 }
 
-// newRootCmd creates the root command for kscorectl
 func newRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "kscorectl",
@@ -38,7 +37,6 @@ It uses a Git-style plugin architecture where subcommands are
 implemented as separate binaries (kscore-*).`,
 	}
 
-	// Global flags
 	rootCmd.PersistentFlags().StringVarP(&serverAddr, "server", "s", "localhost:9090", "Control plane server address")
 
 	rootCmd.AddCommand(newConfigCmd())
@@ -102,7 +100,6 @@ func newConfigValidateCmd() *cobra.Command {
 	return cmd
 }
 
-// newVersionCmd creates the version command
 func newVersionCmd() *cobra.Command {
 	var shortFlag bool
 	var verboseFlag bool
@@ -245,7 +242,6 @@ Shows the overall health status and component status.`,
 
 	cmd.Flags().BoolVar(&fullCheck, "full", false, "Perform a full health check")
 
-	// Add subcommands
 	cmd.AddCommand(&cobra.Command{
 		Use:   "check",
 		Short: "Full health check",

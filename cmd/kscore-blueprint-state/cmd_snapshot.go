@@ -12,7 +12,6 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/blueprint"
 )
 
-// Snapshot parent command
 var snapshotCmd = &cobra.Command{
 	Use:   "snapshot",
 	Short: "Manage blueprint snapshots",
@@ -33,7 +32,6 @@ func init() {
 	snapshotCmd.AddCommand(snapshotInfoCmd)
 }
 
-// Snapshot list command
 var snapshotListCmd = &cobra.Command{
 	Use:   "list [blueprint]",
 	Short: "List available snapshots",
@@ -69,7 +67,6 @@ func snapshotListExecute(cmd *cobra.Command, args []string) error {
 		blueprintName = parseReference(args[0])
 	}
 
-	// Get snapshot directory
 	snapshotPath := snapshotListDir
 	if snapshotPath == "" {
 		home, err := os.UserHomeDir()
@@ -79,7 +76,6 @@ func snapshotListExecute(cmd *cobra.Command, args []string) error {
 		snapshotPath = filepath.Join(home, ".kscore", "snapshots")
 	}
 
-	// Create snapshot manager
 	snapshotManager, err := blueprint.NewSnapshotManager(&blueprint.SnapshotConfig{
 		StorePath:                snapshotPath,
 		MaxSnapshotsPerBlueprint: 100,
@@ -89,13 +85,11 @@ func snapshotListExecute(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create snapshot manager: %w", err)
 	}
 
-	// Get agent ID
 	agentID, err := os.Hostname()
 	if err != nil {
 		agentID = ""
 	}
 
-	// List snapshots
 	snapshots, err := snapshotManager.ListSnapshots(agentID, blueprintName, "")
 	if err != nil {
 		return fmt.Errorf("failed to list snapshots: %w", err)
@@ -106,7 +100,6 @@ func snapshotListExecute(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Apply limit
 	if snapshotListLimit > 0 && len(snapshots) > snapshotListLimit {
 		snapshots = snapshots[:snapshotListLimit]
 	}
@@ -145,7 +138,6 @@ func snapshotListExecute(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// Snapshot delete command
 var snapshotDeleteCmd = &cobra.Command{
 	Use:   "delete <snapshot-id>",
 	Short: "Delete a snapshot",
@@ -167,7 +159,6 @@ func init() {
 func snapshotDeleteExecute(cmd *cobra.Command, args []string) error {
 	snapshotID := args[0]
 
-	// Get snapshot directory
 	snapshotPath := snapshotDeleteDir
 	if snapshotPath == "" {
 		home, err := os.UserHomeDir()
@@ -177,7 +168,6 @@ func snapshotDeleteExecute(cmd *cobra.Command, args []string) error {
 		snapshotPath = filepath.Join(home, ".kscore", "snapshots")
 	}
 
-	// Create snapshot manager
 	snapshotManager, err := blueprint.NewSnapshotManager(&blueprint.SnapshotConfig{
 		StorePath: snapshotPath,
 	})
@@ -185,7 +175,6 @@ func snapshotDeleteExecute(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create snapshot manager: %w", err)
 	}
 
-	// Delete snapshot
 	if err := snapshotManager.DeleteSnapshot(snapshotID); err != nil {
 		return fmt.Errorf("failed to delete snapshot: %w", err)
 	}
@@ -194,7 +183,6 @@ func snapshotDeleteExecute(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// Snapshot info command
 var snapshotInfoCmd = &cobra.Command{
 	Use:   "info <snapshot-id>",
 	Short: "Show detailed snapshot information",

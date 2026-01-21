@@ -189,7 +189,7 @@ for sls in /srv/salt/**/*.sls; do
   echo "Converting $sls -> $yaml_file"
 
   # Use migration tool
-  kscore-migrate convert-salt \
+  kscorectl migrate convert-salt \
     --input "$sls" \
     --output "$yaml_file" \
     --pillar-dir /srv/pillar
@@ -203,7 +203,7 @@ for pillar in /srv/pillar/**/*.sls; do
 
   echo "Converting pillar $pillar -> $vars_file"
 
-  kscore-migrate convert-pillar \
+  kscorectl migrate convert-pillar \
     --input "$pillar" \
     --output "$vars_file"
 done
@@ -488,14 +488,14 @@ for role in roles/*/; do
   role_name=$(basename "$role")
   echo "Converting role: $role_name"
 
-  kscore-migrate convert-ansible \
+  kscorectl migrate convert-ansible \
     --role "$role" \
     --output "states/$role_name.yaml" \
     --vars-output "vars/$role_name.yaml"
 done
 
 # Convert inventory to targeting metadata
-kscore-migrate convert-inventory \
+kscorectl migrate convert-inventory \
   --input inventory/hosts \
   --output agent-tags.yaml
 
@@ -784,19 +784,19 @@ for module in /etc/puppetlabs/code/modules/*/; do
   mod_name=$(basename "$module")
   echo "Converting module: $mod_name"
 
-  kscore-migrate convert-puppet \
+  kscorectl migrate convert-puppet \
     --module "$module" \
     --output "states/$mod_name/" \
     --hiera-dir /etc/puppetlabs/code/data
 done
 
 # Convert Hiera data
-kscore-migrate convert-hiera \
+kscorectl migrate convert-hiera \
   --input /etc/puppetlabs/code/data \
   --output vars/
 
 # Generate node-to-agent mapping
-kscore-migrate convert-node-definitions \
+kscorectl migrate convert-node-definitions \
   --input /etc/puppetlabs/code/manifests/site.pp \
   --output agent-classification.yaml
 
@@ -869,22 +869,22 @@ kscorectl migrate verify \
 
 ## SQLite -> PostgreSQL
 
-Use `kscore-migrate` to move state data safely.
+Use `kscorectl migrate` to move state data safely.
 
 ```bash
 # Dry-run migration
-kscore-migrate run \
+kscorectl migrate run \
   --source sqlite:///var/lib/keystone/keystone.db \
   --target postgres://kscore:pass@postgres.example.com/kscore \
   --dry-run
 
 # Execute migration
-kscore-migrate run \
+kscorectl migrate run \
   --source sqlite:///var/lib/keystone/keystone.db \
   --target postgres://kscore:pass@postgres.example.com/kscore
 
 # Verify migration
-kscore-migrate validate \
+kscorectl migrate validate \
   --source sqlite:///var/lib/keystone/keystone.db \
   --target postgres://kscore:pass@postgres.example.com/kscore
 ```

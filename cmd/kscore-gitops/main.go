@@ -22,7 +22,6 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
-// newRootCmd creates the root command for kscore-gitops
 func newRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "kscore-gitops",
@@ -71,7 +70,6 @@ Examples:
 	return rootCmd
 }
 
-// newVersionCmd creates the version command
 func newVersionCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",

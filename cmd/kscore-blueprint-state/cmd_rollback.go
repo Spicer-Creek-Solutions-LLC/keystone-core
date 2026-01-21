@@ -73,7 +73,6 @@ func rollbackExecute(cmd *cobra.Command, args []string) error {
 	blueprintRef := args[0]
 	name := parseReference(blueprintRef)
 
-	// Get directories
 	blueprintPath := rollbackDir
 	if blueprintPath == "" {
 		home, err := os.UserHomeDir()
@@ -86,12 +85,10 @@ func rollbackExecute(cmd *cobra.Command, args []string) error {
 	snapshotPath := filepath.Join(filepath.Dir(blueprintPath), "snapshots")
 	trackerPath := filepath.Join(filepath.Dir(blueprintPath), "tracker.json")
 
-	// If showing history, just display and return
 	if rollbackShowHistory {
 		return showRollbackHistory(name, trackerPath)
 	}
 
-	// Create snapshot manager
 	snapshotManager, err := blueprint.NewSnapshotManager(&blueprint.SnapshotConfig{
 		StorePath:                snapshotPath,
 		MaxSnapshotsPerBlueprint: 10,
@@ -101,7 +98,6 @@ func rollbackExecute(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create snapshot manager: %w", err)
 	}
 
-	// Create tracker
 	tracker, err := blueprint.NewTracker(&blueprint.TrackerConfig{
 		StorePath:          trackerPath,
 		MaxHistoryPerAgent: 100,
@@ -111,25 +107,21 @@ func rollbackExecute(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create tracker: %w", err)
 	}
 
-	// Get current agent ID (use hostname for now)
 	agentID, err := os.Hostname()
 	if err != nil {
 		agentID = "local"
 	}
 
-	// Determine the rollback target
 	var targetSnapshot *blueprint.Snapshot
 	var targetVersion string
 
 	if rollbackToSnapshot != "" {
-		// Use specified snapshot
 		targetSnapshot, err = snapshotManager.GetSnapshot(rollbackToSnapshot)
 		if err != nil {
 			return fmt.Errorf("failed to get snapshot %s: %w", rollbackToSnapshot, err)
 		}
 		targetVersion = targetSnapshot.BlueprintVersion
 	} else if rollbackToVersion != "" {
-		// Find snapshot for specified version
 		snapshots, err := snapshotManager.ListSnapshots(agentID, name, "")
 		if err != nil {
 			return fmt.Errorf("failed to list snapshots: %w", err)
@@ -145,17 +137,14 @@ func rollbackExecute(cmd *cobra.Command, args []string) error {
 		}
 		targetVersion = rollbackToVersion
 	} else {
-		// Find previous version from history
 		targetVersion, err = tracker.FindRollbackTarget(agentID, name)
 		if err != nil {
-			// Try to find from snapshots
 			targetSnapshot, err = snapshotManager.GetLatestSnapshot(agentID, name, "")
 			if err != nil {
 				return fmt.Errorf("no previous version found for rollback: %w", err)
 			}
 			targetVersion = targetSnapshot.BlueprintVersion
 		} else {
-			// Find snapshot for this version
 			snapshots, err := snapshotManager.ListSnapshots(agentID, name, "")
 			if err != nil {
 				return fmt.Errorf("failed to list snapshots: %w", err)
@@ -169,14 +158,12 @@ func rollbackExecute(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Get current applied blueprint info
 	currentInfo := tracker.GetAppliedBlueprint(agentID, name)
 	currentVersion := ""
 	if currentInfo != nil {
 		currentVersion = currentInfo.Version
 	}
 
-	// Print rollback plan
 	fmt.Printf("Rollback Plan:\n")
 	fmt.Printf("  Blueprint:       %s\n", name)
 	fmt.Printf("  Current version: %s\n", currentVersion)
@@ -187,7 +174,6 @@ func rollbackExecute(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Println()
 
-	// Detect breaking changes
 	breakingReport, err := detectRollbackBreakingChanges(blueprintPath, name, currentVersion, targetVersion)
 	if err != nil {
 		fmt.Printf("Warning: Could not detect breaking changes: %v\n", err)
@@ -209,7 +195,6 @@ func rollbackExecute(cmd *cobra.Command, args []string) error {
 		fmt.Println()
 	}
 
-	// Check for rollback entrypoint
 	rollbackEntrypoint := ""
 	manifestPath := filepath.Join(blueprintPath, name, "blueprint.yaml")
 	if manifest, err := loadManifest(manifestPath); err == nil {
@@ -240,10 +225,8 @@ func rollbackExecute(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Execute rollback
 	startTime := time.Now()
 
-	// Create rollback executor
 	rollbackExecutor, err := blueprint.NewRollbackExecutor(&blueprint.RollbackExecutorConfig{
 		BlueprintPath: blueprintPath,
 		DryRun:        false,
@@ -253,7 +236,6 @@ func rollbackExecute(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create rollback executor: %w", err)
 	}
 
-	// Step 1: Execute rollback entrypoint if present
 	if rollbackEntrypoint != "" {
 		fmt.Printf("Executing rollback entrypoint: %s\n", rollbackEntrypoint)
 
@@ -282,7 +264,6 @@ func rollbackExecute(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Step 2: Restore state from snapshot
 	if targetSnapshot != nil && targetSnapshot.StateCapture != nil {
 		fmt.Printf("Restoring state from snapshot %s...\n", targetSnapshot.ID)
 		restoreResult, restoreErr := rollbackExecutor.ExecuteStateRestore(cmd.Context(), targetSnapshot)
@@ -292,14 +273,12 @@ func rollbackExecute(cmd *cobra.Command, args []string) error {
 
 		if restoreResult.StatesApplied > 0 {
 			fmt.Printf("  Generated %d restore states from snapshot\n", restoreResult.StatesApplied)
-			// Print summary of what would be restored
 			printRestoreSummary(restoreResult.ExpandedStates)
 		}
 	}
 
 	duration := time.Since(startTime)
 
-	// Step 3: Record the rollback
 	err = tracker.RecordRollback(agentID, name, targetVersion, "kscore-blueprint-state", duration, nil)
 	if err != nil {
 		fmt.Printf("Warning: Failed to record rollback in tracker: %v\n", err)
@@ -322,7 +301,6 @@ func showRollbackHistory(blueprintName, trackerPath string) error {
 		return fmt.Errorf("failed to create tracker: %w", err)
 	}
 
-	// Get agent ID
 	agentID, err := os.Hostname()
 	if err != nil {
 		agentID = "local"
@@ -334,7 +312,6 @@ func showRollbackHistory(blueprintName, trackerPath string) error {
 		return nil
 	}
 
-	// Filter to only show entries for this blueprint
 	var filtered []blueprint.BlueprintHistoryEntry
 	for _, entry := range history {
 		if entry.BlueprintName == blueprintName || entry.Namespace == blueprintName {
@@ -427,13 +404,11 @@ func printRestoreSummary(states map[string][]blueprint.BlueprintStateDeclaration
 		return
 	}
 
-	// Count by module
 	counts := make(map[string]int)
 	for module, declarations := range states {
 		counts[module] = len(declarations)
 	}
 
-	// Print in a consistent order
 	modules := []string{"file", "package", "service", "user", "group"}
 	for _, module := range modules {
 		if count, ok := counts[module]; ok && count > 0 {
@@ -441,7 +416,6 @@ func printRestoreSummary(states map[string][]blueprint.BlueprintStateDeclaration
 		}
 	}
 
-	// Print any other modules not in the standard list
 	for module, count := range counts {
 		found := false
 		for _, m := range modules {

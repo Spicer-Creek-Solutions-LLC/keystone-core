@@ -401,6 +401,151 @@ func TestValidator_ValidateRetryConfig(t *testing.T) {
 	}
 }
 
+func TestValidator_ValidateRetryConfigDelay(t *testing.T) {
+	validator := NewValidator()
+
+	stateFile := &StateFile{
+		States: map[string][]StateDeclaration{
+			"file": {
+				{
+					ID:     "/tmp/test.txt",
+					Module: "file",
+					State:  "present",
+					Retry: &RetryConfig{
+						Attempts: 3,
+						Delay:    -1, // Invalid negative delay
+					},
+				},
+			},
+		},
+	}
+
+	result := validator.Validate(stateFile)
+
+	if result.Valid {
+		t.Error("Expected validation to fail with invalid retry delay")
+	}
+
+	found := false
+	for _, issue := range result.Issues {
+		if issue.Code == "INVALID_RETRY_DELAY" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("Expected INVALID_RETRY_DELAY error")
+	}
+}
+
+func TestValidator_ValidateRetryConfigBackoffMultiplier(t *testing.T) {
+	validator := NewValidator()
+
+	// Test negative backoff multiplier (error)
+	stateFile := &StateFile{
+		States: map[string][]StateDeclaration{
+			"file": {
+				{
+					ID:     "/tmp/test.txt",
+					Module: "file",
+					State:  "present",
+					Retry: &RetryConfig{
+						Attempts:          3,
+						Delay:             1,
+						BackoffMultiplier: -2, // Invalid negative multiplier
+					},
+				},
+			},
+		},
+	}
+
+	result := validator.Validate(stateFile)
+
+	if result.Valid {
+		t.Error("Expected validation to fail with invalid backoff multiplier")
+	}
+
+	found := false
+	for _, issue := range result.Issues {
+		if issue.Code == "INVALID_BACKOFF_MULTIPLIER" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("Expected INVALID_BACKOFF_MULTIPLIER error")
+	}
+}
+
+func TestValidator_ValidateRetryConfigBackoffMultiplierWarning(t *testing.T) {
+	validator := NewValidator()
+
+	// Test backoff multiplier between 0 and 1 (warning - reduces delay over time)
+	stateFile := &StateFile{
+		States: map[string][]StateDeclaration{
+			"file": {
+				{
+					ID:     "/tmp/test.txt",
+					Module: "file",
+					State:  "present",
+					Retry: &RetryConfig{
+						Attempts:          3,
+						Delay:             1,
+						BackoffMultiplier: 0.5, // Unusual - reduces delay over time
+					},
+				},
+			},
+		},
+	}
+
+	result := validator.Validate(stateFile)
+
+	// This should be valid but have a warning
+	foundWarning := false
+	for _, issue := range result.Issues {
+		if issue.Level == ValidationLevelWarning && issue.Field == "retry.backoff_multiplier" {
+			foundWarning = true
+			break
+		}
+	}
+	if !foundWarning {
+		t.Error("Expected warning for backoff multiplier between 0 and 1")
+	}
+}
+
+func TestValidator_ValidateRetryConfigValid(t *testing.T) {
+	validator := NewValidator()
+
+	// Test valid retry config
+	stateFile := &StateFile{
+		States: map[string][]StateDeclaration{
+			"file": {
+				{
+					ID:     "/tmp/test.txt",
+					Module: "file",
+					State:  "present",
+					Retry: &RetryConfig{
+						Attempts:          3,
+						Delay:             5,
+						BackoffMultiplier: 2.0, // Valid exponential backoff
+					},
+				},
+			},
+		},
+	}
+
+	result := validator.Validate(stateFile)
+
+	// Should be valid with no retry-related errors
+	for _, issue := range result.Issues {
+		if issue.Level == ValidationLevelError && (issue.Code == "INVALID_RETRY_ATTEMPTS" ||
+			issue.Code == "INVALID_RETRY_DELAY" ||
+			issue.Code == "INVALID_BACKOFF_MULTIPLIER") {
+			t.Errorf("Unexpected retry validation error: %s", issue.Code)
+		}
+	}
+}
+
 func TestValidator_ValidateValidStateFile(t *testing.T) {
 	validator := NewValidator()
 

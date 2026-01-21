@@ -29,7 +29,6 @@ type Config struct {
 	TracesEnabled  bool
 }
 
-// newRootCmd creates the root command
 func newRootCmd() *cobra.Command {
 	cfg := &Config{
 		MetricsEnabled: true,
@@ -59,7 +58,6 @@ Examples:
   kscore-telemetry-gateway serve --listen 0.0.0.0:9091 --nats-url nats://localhost:4222`,
 	}
 
-	// Global flags
 	rootCmd.PersistentFlags().StringVar(&cfg.ConfigFile, "config", "", "Path to configuration file")
 	rootCmd.PersistentFlags().StringVar(&cfg.ListenAddr, "listen", "", "Listen address (e.g., 0.0.0.0:9091)")
 	rootCmd.PersistentFlags().StringVar(&cfg.NATSURL, "nats-url", "", "NATS server URL")
@@ -67,14 +65,12 @@ Examples:
 	rootCmd.PersistentFlags().BoolVar(&cfg.LogsEnabled, "logs", true, "Enable logs gateway")
 	rootCmd.PersistentFlags().BoolVar(&cfg.TracesEnabled, "traces", true, "Enable traces gateway")
 
-	// Add subcommands
 	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(newServeCmd(cfg))
 
 	return rootCmd
 }
 
-// newVersionCmd creates the version command
 func newVersionCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
@@ -115,7 +111,6 @@ Examples:
 }
 
 func runServe(cfg *Config) error {
-	// Load configuration
 	config := gateway.DefaultConfig()
 
 	if cfg.ConfigFile != "" {
@@ -129,7 +124,6 @@ func runServe(cfg *Config) error {
 		log.Printf("Loaded configuration from %s", cfg.ConfigFile)
 	}
 
-	// Override with command line flags
 	if cfg.ListenAddr != "" {
 		config.Server.Listen = cfg.ListenAddr
 	}
@@ -140,7 +134,6 @@ func runServe(cfg *Config) error {
 	config.Logs.Enabled = cfg.LogsEnabled
 	config.Traces.Enabled = cfg.TracesEnabled
 
-	// Create and start the server
 	server := gateway.NewServer(config)
 
 	if err := server.Start(); err != nil {
@@ -153,7 +146,6 @@ func runServe(cfg *Config) error {
 	log.Printf("  Logs: %v (subject: %s)", config.Logs.Enabled, config.Logs.Subject)
 	log.Printf("  Traces: %v (subject: %s)", config.Traces.Enabled, config.Traces.Subject)
 
-	// Print endpoints
 	log.Printf("Endpoints:")
 	log.Printf("  GET %s - Prometheus metrics", config.Server.MetricsPath)
 	log.Printf("  GET %s - Health check", config.Server.HealthPath)
@@ -162,11 +154,9 @@ func runServe(cfg *Config) error {
 		log.Printf("  GET %s - Prometheus federation", config.Server.FederatePath)
 	}
 
-	// Wait for shutdown signal
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
-	// Stats logging
 	go func() {
 		ticker := time.NewTicker(60 * time.Second)
 		defer ticker.Stop()

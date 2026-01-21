@@ -16,7 +16,6 @@ import (
 )
 
 var (
-	// Global flags
 	serverAddr   string
 	outputFormat string
 	verbose      bool
@@ -24,7 +23,6 @@ var (
 	auditOutput  string
 )
 
-// Config holds CLI configuration
 type Config struct {
 	ServerAddr   string
 	OutputFormat string
@@ -62,7 +60,6 @@ Usage via kscorectl:
 		SilenceErrors: true,
 	}
 
-	// Global flags
 	rootCmd.PersistentFlags().StringVarP(&serverAddr, "server", "s", "localhost:9090", "Control plane server address")
 	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "table", "Output format (table, json, yaml)")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
@@ -75,7 +72,6 @@ Usage via kscorectl:
 		Verbose:      verbose,
 	}
 
-	// Add subcommands
 	rootCmd.AddCommand(
 		newSmokeCmd(cfg),
 		newIntegrationCmd(cfg),

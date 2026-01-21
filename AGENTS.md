@@ -11,6 +11,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   Example: `Co-Authored-By: Codex <noreply@openai.com>` (adjust name/email per agent).
 
 ---
+## Coding notes
+- Do not add superflous comments
+
+
+---
 
 ## Repository Purpose
 

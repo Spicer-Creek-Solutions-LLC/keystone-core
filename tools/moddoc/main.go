@@ -482,7 +482,7 @@ func writeMarkdown(w io.Writer, pkg *PackageDoc) error {
 
 	// Table of contents
 	if len(pkg.Modules) > 0 {
-		fmt.Fprintln(w, "## Contents\n")
+		fmt.Fprint(w, "## Contents\n\n")
 		for _, mod := range pkg.Modules {
 			anchor := strings.ToLower(strings.ReplaceAll(mod.Name, " ", "-"))
 			fmt.Fprintf(w, "- [%s](#%s)\n", mod.Name, anchor)
@@ -492,7 +492,7 @@ func writeMarkdown(w io.Writer, pkg *PackageDoc) error {
 
 	// Constants
 	if len(pkg.Constants) > 0 {
-		fmt.Fprintln(w, "## Constants\n")
+		fmt.Fprint(w, "## Constants\n\n")
 		fmt.Fprintln(w, "```go")
 		for _, c := range pkg.Constants {
 			if c.Value != "" {
@@ -501,12 +501,12 @@ func writeMarkdown(w io.Writer, pkg *PackageDoc) error {
 				fmt.Fprintf(w, "%s %s\n", c.Name, c.Type)
 			}
 		}
-		fmt.Fprintln(w, "```\n")
+		fmt.Fprint(w, "```\n\n")
 	}
 
 	// Variables
 	if len(pkg.Variables) > 0 {
-		fmt.Fprintln(w, "## Variables\n")
+		fmt.Fprint(w, "## Variables\n\n")
 		for _, v := range pkg.Variables {
 			fmt.Fprintf(w, "### %s\n\n", v.Name)
 			if v.Doc != "" {
@@ -526,7 +526,7 @@ func writeMarkdown(w io.Writer, pkg *PackageDoc) error {
 
 		// Fields
 		if len(mod.Fields) > 0 {
-			fmt.Fprintln(w, "### Fields\n")
+			fmt.Fprint(w, "### Fields\n\n")
 			fmt.Fprintln(w, "| Field | Type | Description |")
 			fmt.Fprintln(w, "|-------|------|-------------|")
 			for _, f := range mod.Fields {
@@ -538,7 +538,7 @@ func writeMarkdown(w io.Writer, pkg *PackageDoc) error {
 
 		// Constructor
 		if mod.Constructor != nil {
-			fmt.Fprintln(w, "### Constructor\n")
+			fmt.Fprint(w, "### Constructor\n\n")
 			fmt.Fprintf(w, "```go\n%s\n```\n\n", mod.Constructor.Signature)
 			if mod.Constructor.Doc != "" {
 				fmt.Fprintf(w, "%s\n\n", strings.TrimSpace(mod.Constructor.Doc))
@@ -547,7 +547,7 @@ func writeMarkdown(w io.Writer, pkg *PackageDoc) error {
 
 		// Methods
 		if len(mod.Methods) > 0 {
-			fmt.Fprintln(w, "### Methods\n")
+			fmt.Fprint(w, "### Methods\n\n")
 			for _, m := range mod.Methods {
 				fmt.Fprintf(w, "#### %s\n\n", m.Name)
 				fmt.Fprintf(w, "```go\n%s\n```\n\n", m.Signature)
@@ -557,7 +557,7 @@ func writeMarkdown(w io.Writer, pkg *PackageDoc) error {
 
 				// Parameters
 				if len(m.Parameters) > 0 {
-					fmt.Fprintln(w, "**Parameters:**\n")
+					fmt.Fprint(w, "**Parameters:**\n\n")
 					for _, p := range m.Parameters {
 						if p.Name != "" {
 							fmt.Fprintf(w, "- `%s` (`%s`)\n", p.Name, p.Type)
@@ -570,7 +570,7 @@ func writeMarkdown(w io.Writer, pkg *PackageDoc) error {
 
 				// Returns
 				if len(m.Returns) > 0 {
-					fmt.Fprintln(w, "**Returns:**\n")
+					fmt.Fprint(w, "**Returns:**\n\n")
 					for _, r := range m.Returns {
 						if r.Name != "" {
 							fmt.Fprintf(w, "- `%s` (`%s`)\n", r.Name, r.Type)
@@ -583,12 +583,12 @@ func writeMarkdown(w io.Writer, pkg *PackageDoc) error {
 			}
 		}
 
-		fmt.Fprintln(w, "---\n")
+		fmt.Fprint(w, "---\n\n")
 	}
 
 	// Package-level functions
 	if len(pkg.Functions) > 0 {
-		fmt.Fprintln(w, "## Functions\n")
+		fmt.Fprint(w, "## Functions\n\n")
 		for _, fn := range pkg.Functions {
 			fmt.Fprintf(w, "### %s\n\n", fn.Name)
 			fmt.Fprintf(w, "```go\n%s\n```\n\n", fn.Signature)

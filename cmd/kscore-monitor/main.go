@@ -40,7 +40,6 @@ func main() {
 	}
 }
 
-// newRootCmd creates the root command
 func newRootCmd() *cobra.Command {
 	opts := &Options{}
 
@@ -83,7 +82,6 @@ Press 'q' to quit, '?' for help.`,
 	return rootCmd
 }
 
-// newVersionCmd creates the version command
 func newVersionCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",

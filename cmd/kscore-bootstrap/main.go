@@ -54,7 +54,6 @@ This tool handles:
   - Handing off to self-management`,
 	}
 
-	// Add subcommands
 	rootCmd.AddCommand(seedCmd())
 	rootCmd.AddCommand(restoreCmd())
 	rootCmd.AddCommand(importCmd())

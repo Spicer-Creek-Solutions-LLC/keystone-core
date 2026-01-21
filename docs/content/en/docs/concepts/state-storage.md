@@ -276,28 +276,28 @@ storage:
 
 Keystone Core provides automated migration tooling for moving from SQLite to PostgreSQL.
 
-### Using kscore-migrate
+### Using kscorectl migrate
 
 ```bash
 # Validate source and target
-kscore-migrate validate \
+kscorectl migrate validate \
   --source sqlite:///var/lib/keystone/keystone.db \
   --target postgres://keystone:pass@localhost/keystone
 
 # Run migration (dry-run first)
-kscore-migrate run \
+kscorectl migrate run \
   --source sqlite:///var/lib/keystone/keystone.db \
   --target postgres://keystone:pass@localhost/keystone \
   --dry-run
 
 # Execute migration
-kscore-migrate run \
+kscorectl migrate run \
   --source sqlite:///var/lib/keystone/keystone.db \
   --target postgres://keystone:pass@localhost/keystone \
   --batch-size 1000
 
 # Verify migration
-kscore-migrate validate \
+kscorectl migrate validate \
   --source sqlite:///var/lib/keystone/keystone.db \
   --target postgres://keystone:pass@localhost/keystone \
   --compare-counts
@@ -306,7 +306,7 @@ kscore-migrate validate \
 ### Migration Options
 
 ```bash
-kscore-migrate run \
+kscorectl migrate run \
   --source <source-dsn> \
   --target <target-dsn> \
   --batch-size 1000       # Records per batch
@@ -438,8 +438,8 @@ default_pool_size = 25
 # Online backup using SQLite's backup API
 sqlite3 /var/lib/keystone/keystone.db ".backup /backup/keystone-$(date +%Y%m%d).db"
 
-# Or with kscore-cluster-backup
-kscore-cluster-backup create --type database
+# Or with kscorectl cluster-backup
+kscorectl cluster-backup create --type database
 ```
 
 ### PostgreSQL Backup
@@ -451,8 +451,8 @@ pg_dump -h localhost -U keystone -d keystone -F c -f keystone-backup.dump
 # Physical backup
 pg_basebackup -h localhost -U replication -D /backup/pg-base -Fp -Xs -P
 
-# Or with kscore-cluster-backup
-kscore-cluster-backup create --type database
+# Or with kscorectl cluster-backup
+kscorectl cluster-backup create --type database
 ```
 
 ## Best Practices
@@ -553,13 +553,13 @@ If migration fails:
 
 ```bash
 # Check for constraint violations
-kscore-migrate validate --verbose
+kscorectl migrate validate --verbose
 
 # Resume from checkpoint
-kscore-migrate run --resume
+kscorectl migrate run --resume
 
 # Skip problematic records
-kscore-migrate run --skip-errors --log-errors=/tmp/errors.log
+kscorectl migrate run --skip-errors --log-errors=/tmp/errors.log
 ```
 
 ### Performance Issues

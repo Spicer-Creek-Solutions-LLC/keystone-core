@@ -76,6 +76,8 @@ docs/resources
 
 # E2E test reports
 test/e2e/performance/reports/
+/reports/
+/internal/loadtest/reports/
 /.python-version
 
 # Claude Code / AI session artifacts

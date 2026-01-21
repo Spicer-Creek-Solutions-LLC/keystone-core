@@ -1007,13 +1007,13 @@ Community-contributed blueprints are available from third-party registries.
 
 ```bash
 # Add community registry
-kscore-blueprint registry add community https://community.kscore.io
+kscorectl blueprint registry add community https://community.kscore.io
 
 # Search community blueprints
-kscore-blueprint search wordpress --registry community
+kscorectl blueprint search wordpress --registry community
 
 # Install community blueprint
-kscore-blueprint install community/wordpress@1.0.0
+kscorectl blueprint install community/wordpress@1.0.0
 
 # Use in state file
 ```

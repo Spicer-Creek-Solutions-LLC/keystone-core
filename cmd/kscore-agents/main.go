@@ -100,7 +100,6 @@ Usage via kscorectl:
 		SilenceErrors: true,
 	}
 
-	// Global flags
 	rootCmd.PersistentFlags().StringVarP(&cfg.ServerAddr, "server", "s", "localhost:9090", "Control plane server address")
 	rootCmd.PersistentFlags().StringVarP(&cfg.Output, "output", "o", "table", "Output format (table, json, yaml, wide)")
 	rootCmd.PersistentFlags().BoolVarP(&cfg.Verbose, "verbose", "v", false, "Enable verbose output")

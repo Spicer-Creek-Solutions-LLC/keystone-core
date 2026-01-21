@@ -17,7 +17,6 @@ import (
 )
 
 var (
-	// Global flags
 	serverAddr  string
 	outputFmt   string
 	auditLevel  string
@@ -34,7 +33,6 @@ func main() {
 	}
 }
 
-// newRootCmd creates the root command with all subcommands attached.
 func newRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "kscore-federation",
@@ -92,7 +90,6 @@ Examples:
 	return rootCmd
 }
 
-// newVersionCmd creates the version command
 func newVersionCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",

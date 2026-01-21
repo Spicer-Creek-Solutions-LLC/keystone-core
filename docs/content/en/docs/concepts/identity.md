@@ -1128,7 +1128,7 @@ For guided federation setup, use the interactive wizard:
 
 ```bash
 # Launch the interactive wizard
-kscore-federation wizard
+kscorectl federation wizard
 ```
 
 The wizard guides you through:
@@ -1149,7 +1149,7 @@ The wizard guides you through:
 For non-interactive (scripted) setup:
 
 ```bash
-kscore-federation wizard \
+kscorectl federation wizard \
   --non-interactive \
   --domain partner.example.org \
   --endpoint https://partner.example.org/.well-known/spiffe-bundle \
@@ -1164,24 +1164,24 @@ kscore-federation wizard \
 
 ```bash
 # List federated domains
-kscore-federation list
+kscorectl federation list
 
 # Add a federated domain
-kscore-federation add cluster-b.example.org \
+kscorectl federation add cluster-b.example.org \
   --bundle-endpoint https://cluster-b.example.org/.well-known/spiffe-bundle \
   --type bidirectional
 
 # Suspend federation (stops accepting SVIDs)
-kscore-federation suspend cluster-b.example.org
+kscorectl federation suspend cluster-b.example.org
 
 # Reactivate federation
-kscore-federation activate cluster-b.example.org
+kscorectl federation activate cluster-b.example.org
 
 # Remove federation
-kscore-federation remove cluster-b.example.org
+kscorectl federation remove cluster-b.example.org
 
 # Refresh trust bundle manually
-kscore-federation refresh cluster-b.example.org
+kscorectl federation refresh cluster-b.example.org
 ```
 
 ### SPIFFE Bundle Endpoint

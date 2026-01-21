@@ -269,7 +269,7 @@ kscore_events_published_total 12
 Launch the TUI monitor:
 
 ```bash
-kscore-monitor
+kscorectl monitor
 ```
 
 **What you'll see**:

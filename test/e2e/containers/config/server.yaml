@@ -5,6 +5,7 @@ server:
   listenaddr: "0.0.0.0"
   grpcport: 8080
   httpport: 8081
+  allowinsecurenonloopback: true
 
 # NATS configuration - embedded mode for all-in-one testing
 nats:

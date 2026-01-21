@@ -206,7 +206,7 @@ parameters:
 Use `--params` with commands that need parameter values:
 
 ```bash
-kscore-blueprint validate ./my-blueprint --params params.yaml
+kscorectl blueprint validate ./my-blueprint --params params.yaml
 ```
 
 **String Validation:**
@@ -383,7 +383,7 @@ include:
 **Initialize New Blueprint:**
 
 ```bash
-kscore-blueprint init vendor/my-blueprint \
+kscorectl blueprint init vendor/my-blueprint \
   --description "My blueprint description" \
   --author "Your Name" \
   --email "you@example.com" \
@@ -395,28 +395,28 @@ kscore-blueprint init vendor/my-blueprint \
 **Validate Manifest:**
 
 ```bash
-kscore-blueprint validate ./my-blueprint
+kscorectl blueprint validate ./my-blueprint
 
 # Validate with parameter values
-kscore-blueprint validate ./my-blueprint --params params.yaml
+kscorectl blueprint validate ./my-blueprint --params params.yaml
 ```
 
 **Lint for Best Practices:**
 
 ```bash
-kscore-blueprint lint ./my-blueprint
+kscorectl blueprint lint ./my-blueprint
 
 # Strict mode (warnings as errors)
-kscore-blueprint lint --strict ./my-blueprint
+kscorectl blueprint lint --strict ./my-blueprint
 ```
 
 **Generate Documentation:**
 
 ```bash
-kscore-blueprint docs ./my-blueprint
+kscorectl blueprint docs ./my-blueprint
 
 # Output to file
-kscore-blueprint docs ./my-blueprint -o README.md
+kscorectl blueprint docs ./my-blueprint -o README.md
 ```
 
 ### Discovery Commands
@@ -424,25 +424,25 @@ kscore-blueprint docs ./my-blueprint -o README.md
 **Search Registry:**
 
 ```bash
-kscore-blueprint search nginx
+kscorectl blueprint search nginx
 
 # Search with filters
-kscore-blueprint search web --category web-server --min-version 1.0.0
+kscorectl blueprint search web --category web-server --min-version 1.0.0
 ```
 
 **Show Blueprint Info:**
 
 ```bash
-kscore-blueprint info vendor/nginx
+kscorectl blueprint info vendor/nginx
 
 # Show specific version
-kscore-blueprint info vendor/nginx@1.2.0
+kscorectl blueprint info vendor/nginx@1.2.0
 ```
 
 **List Versions:**
 
 ```bash
-kscore-blueprint versions vendor/nginx
+kscorectl blueprint versions vendor/nginx
 ```
 
 ### Management Commands
@@ -450,57 +450,57 @@ kscore-blueprint versions vendor/nginx
 **Install Blueprint:**
 
 ```bash
-kscore-blueprint install vendor/nginx@1.2.0
+kscorectl blueprint install vendor/nginx@1.2.0
 
 # Install multiple
-kscore-blueprint install vendor/nginx vendor/mysql
+kscorectl blueprint install vendor/nginx vendor/mysql
 
 # Custom registry
-kscore-blueprint install vendor/nginx --registry https://registry.example.com
+kscorectl blueprint install vendor/nginx --registry https://registry.example.com
 
 # Without dependencies
-kscore-blueprint install vendor/nginx --no-deps
+kscorectl blueprint install vendor/nginx --no-deps
 
 # Dry run
-kscore-blueprint install vendor/nginx --dry-run
+kscorectl blueprint install vendor/nginx --dry-run
 ```
 
 **Update Blueprints:**
 
 ```bash
 # Update specific blueprint
-kscore-blueprint update vendor/nginx
+kscorectl blueprint update vendor/nginx
 
 # Update all
-kscore-blueprint update --all
+kscorectl blueprint update --all
 
 # Dry run
-kscore-blueprint update --all --dry-run
+kscorectl blueprint update --all --dry-run
 ```
 
 **Remove Blueprint:**
 
 ```bash
-kscore-blueprint remove vendor/nginx
+kscorectl blueprint remove vendor/nginx
 
 # Force remove (ignore dependencies)
-kscore-blueprint remove vendor/nginx --force
+kscorectl blueprint remove vendor/nginx --force
 ```
 
 **Rollback Blueprint:**
 
 ```bash
 # Rollback to previous version
-kscore-blueprint rollback vendor/nginx
+kscorectl blueprint rollback vendor/nginx
 
 # Rollback to specific version
-kscore-blueprint rollback vendor/nginx --version 1.1.0
+kscorectl blueprint rollback vendor/nginx --version 1.1.0
 
 # Rollback to snapshot
-kscore-blueprint rollback vendor/nginx --snapshot snap-123456
+kscorectl blueprint rollback vendor/nginx --snapshot snap-123456
 
 # Accept breaking changes
-kscore-blueprint rollback vendor/nginx --accept-breaking-changes
+kscorectl blueprint rollback vendor/nginx --accept-breaking-changes
 ```
 
 ### Distribution Commands
@@ -508,38 +508,38 @@ kscore-blueprint rollback vendor/nginx --accept-breaking-changes
 **Publish to Registry:**
 
 ```bash
-kscore-blueprint publish ./my-blueprint
+kscorectl blueprint publish ./my-blueprint
 
 # Custom registry
-kscore-blueprint publish ./my-blueprint --registry https://registry.example.com
+kscorectl blueprint publish ./my-blueprint --registry https://registry.example.com
 
 # Dry run
-kscore-blueprint publish ./my-blueprint --dry-run
+kscorectl blueprint publish ./my-blueprint --dry-run
 ```
 
 **Sign Blueprint:**
 
 ```bash
 # Sign with key file
-kscore-blueprint sign ./my-blueprint --key cosign.key
+kscorectl blueprint sign ./my-blueprint --key cosign.key
 
 # Keyless signing (OIDC)
-kscore-blueprint sign ./my-blueprint --keyless
+kscorectl blueprint sign ./my-blueprint --keyless
 
 # Custom output
-kscore-blueprint sign ./my-blueprint --key cosign.key -o signature.sig
+kscorectl blueprint sign ./my-blueprint --key cosign.key -o signature.sig
 ```
 
 **Verify Signature:**
 
 ```bash
-kscore-blueprint verify vendor/nginx
+kscorectl blueprint verify vendor/nginx
 
 # With specific key
-kscore-blueprint verify vendor/nginx --key cosign.pub
+kscorectl blueprint verify vendor/nginx --key cosign.pub
 
 # Strict mode (fail on missing signature)
-kscore-blueprint verify vendor/nginx --strict
+kscorectl blueprint verify vendor/nginx --strict
 ```
 
 ### Testing Commands
@@ -547,29 +547,29 @@ kscore-blueprint verify vendor/nginx --strict
 **Run Tests:**
 
 ```bash
-kscore-blueprint test ./my-blueprint
+kscorectl blueprint test ./my-blueprint
 
 # Verbose output
-kscore-blueprint test ./my-blueprint -v
+kscorectl blueprint test ./my-blueprint -v
 
 # Run specific tests by tag
-kscore-blueprint test ./my-blueprint --tags integration
+kscorectl blueprint test ./my-blueprint --tags integration
 
 # Exclude tags
-kscore-blueprint test ./my-blueprint --exclude-tags slow
+kscorectl blueprint test ./my-blueprint --exclude-tags slow
 
 # Pattern matching
-kscore-blueprint test ./my-blueprint --pattern "test_install*"
+kscorectl blueprint test ./my-blueprint --pattern "test_install*"
 
 # Parallel execution
-kscore-blueprint test ./my-blueprint --parallel --max-parallel 4
+kscorectl blueprint test ./my-blueprint --parallel --max-parallel 4
 
 # Output format
-kscore-blueprint test ./my-blueprint --format json -o results.json
-kscore-blueprint test ./my-blueprint --format junit -o junit.xml
+kscorectl blueprint test ./my-blueprint --format json -o results.json
+kscorectl blueprint test ./my-blueprint --format junit -o junit.xml
 
 # Dry run
-kscore-blueprint test ./my-blueprint --dry-run
+kscorectl blueprint test ./my-blueprint --dry-run
 ```
 
 ### Snapshot Commands
@@ -577,19 +577,19 @@ kscore-blueprint test ./my-blueprint --dry-run
 **List Snapshots:**
 
 ```bash
-kscore-blueprint snapshot list vendor/nginx
+kscorectl blueprint snapshot list vendor/nginx
 ```
 
 **Show Snapshot Details:**
 
 ```bash
-kscore-blueprint snapshot show vendor/nginx snap-123456
+kscorectl blueprint snapshot show vendor/nginx snap-123456
 ```
 
 **Delete Snapshot:**
 
 ```bash
-kscore-blueprint snapshot delete vendor/nginx snap-123456
+kscorectl blueprint snapshot delete vendor/nginx snap-123456
 ```
 
 ## Directory Structure
@@ -626,7 +626,7 @@ This section provides a complete walkthrough for creating blueprints from scratc
 Create a new blueprint with the init command:
 
 ```bash
-kscore-blueprint init myorg/nginx-stack \
+kscorectl blueprint init myorg/nginx-stack \
   --description "Production-ready Nginx web server stack" \
   --author "Your Name" \
   --email "you@example.com" \
@@ -1350,16 +1350,16 @@ Run validation and linting:
 
 ```bash
 # Validate manifest structure
-kscore-blueprint validate ./myorg-nginx-stack
+kscorectl blueprint validate ./myorg-nginx-stack
 
 # Validate with test parameters
-kscore-blueprint validate ./myorg-nginx-stack --params tests/params.yaml
+kscorectl blueprint validate ./myorg-nginx-stack --params tests/params.yaml
 
 # Lint for best practices
-kscore-blueprint lint ./myorg-nginx-stack
+kscorectl blueprint lint ./myorg-nginx-stack
 
 # Lint with strict mode
-kscore-blueprint lint --strict ./myorg-nginx-stack
+kscorectl blueprint lint --strict ./myorg-nginx-stack
 ```
 
 ### Step 9: Generate Documentation
@@ -1368,10 +1368,10 @@ Generate README and documentation:
 
 ```bash
 # Generate README.md
-kscore-blueprint docs ./myorg-nginx-stack -o README.md
+kscorectl blueprint docs ./myorg-nginx-stack -o README.md
 
 # Generate full documentation
-kscore-blueprint docs ./myorg-nginx-stack --full -o docs/
+kscorectl blueprint docs ./myorg-nginx-stack --full -o docs/
 ```
 
 ### Step 10: Test Locally
@@ -1380,19 +1380,19 @@ Run the test suite:
 
 ```bash
 # Run all tests
-kscore-blueprint test ./myorg-nginx-stack
+kscorectl blueprint test ./myorg-nginx-stack
 
 # Run specific test
-kscore-blueprint test ./myorg-nginx-stack --pattern "test_install*"
+kscorectl blueprint test ./myorg-nginx-stack --pattern "test_install*"
 
 # Run tests with specific tags
-kscore-blueprint test ./myorg-nginx-stack --tags basic
+kscorectl blueprint test ./myorg-nginx-stack --tags basic
 
 # Verbose output
-kscore-blueprint test ./myorg-nginx-stack -v
+kscorectl blueprint test ./myorg-nginx-stack -v
 
 # Generate test report
-kscore-blueprint test ./myorg-nginx-stack --format junit -o test-results.xml
+kscorectl blueprint test ./myorg-nginx-stack --format junit -o test-results.xml
 ```
 
 ### Step 11: Version and Publish
@@ -1404,13 +1404,13 @@ Prepare for release:
 sed -i 's/version: "1.0.0"/version: "1.1.0"/' blueprint.yaml
 
 # Sign the blueprint
-kscore-blueprint sign ./myorg-nginx-stack --key ~/.kscore/signing.key
+kscorectl blueprint sign ./myorg-nginx-stack --key ~/.kscore/signing.key
 
 # Publish to registry
-kscore-blueprint publish ./myorg-nginx-stack
+kscorectl blueprint publish ./myorg-nginx-stack
 
 # Or publish to custom registry
-kscore-blueprint publish ./myorg-nginx-stack --registry https://registry.myorg.com
+kscorectl blueprint publish ./myorg-nginx-stack --registry https://registry.myorg.com
 ```
 
 ### Best Practices
@@ -1664,13 +1664,13 @@ assertions:
 
 ```bash
 # Create bundle from blueprint
-kscore-blueprint bundle create vendor/nginx@1.2.0 -o nginx-bundle.tar.gz
+kscorectl blueprint bundle create vendor/nginx@1.2.0 -o nginx-bundle.tar.gz
 
 # Include all dependencies
-kscore-blueprint bundle create vendor/nginx@1.2.0 --include-deps -o nginx-bundle.tar.gz
+kscorectl blueprint bundle create vendor/nginx@1.2.0 --include-deps -o nginx-bundle.tar.gz
 
 # Sign bundle
-kscore-blueprint bundle create vendor/nginx@1.2.0 --sign --key cosign.key -o nginx-bundle.tar.gz
+kscorectl blueprint bundle create vendor/nginx@1.2.0 --sign --key cosign.key -o nginx-bundle.tar.gz
 ```
 
 ### Bundle Manifest
@@ -1708,10 +1708,10 @@ checksum: "sha256:overall..."
 
 ```bash
 # Install from bundle file
-kscore-blueprint bundle install nginx-bundle.tar.gz
+kscorectl blueprint bundle install nginx-bundle.tar.gz
 
 # Verify signatures
-kscore-blueprint bundle install nginx-bundle.tar.gz --verify --key cosign.pub
+kscorectl blueprint bundle install nginx-bundle.tar.gz --verify --key cosign.pub
 ```
 
 ## Mirror Server
@@ -1734,16 +1734,16 @@ trusted_keys:
 
 ```bash
 # Start mirror server
-kscore-blueprint mirror serve --config mirror-config.yaml
+kscorectl blueprint mirror serve --config mirror-config.yaml
 
 # Sync from upstream
-kscore-blueprint mirror sync
+kscorectl blueprint mirror sync
 
 # Export to directory
-kscore-blueprint mirror export --output /backup/blueprints
+kscorectl blueprint mirror export --output /backup/blueprints
 
 # Import from directory
-kscore-blueprint mirror import --input /backup/blueprints
+kscorectl blueprint mirror import --input /backup/blueprints
 ```
 
 ### Mirror API Endpoints
@@ -1810,10 +1810,10 @@ When upgrading blueprints, Keystone Core detects breaking changes:
 
 ```bash
 # Upgrade with breaking changes
-kscore-blueprint update vendor/nginx --accept-breaking-changes
+kscorectl blueprint update vendor/nginx --accept-breaking-changes
 
 # Review changes first
-kscore-blueprint info vendor/nginx@2.0.0 --show-breaking-changes
+kscorectl blueprint info vendor/nginx@2.0.0 --show-breaking-changes
 ```
 
 ## See Also

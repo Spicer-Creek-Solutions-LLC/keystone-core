@@ -860,7 +860,7 @@ sudo -u postgres createdb -O kscore keystonecore
 sudo systemctl stop kscore-server
 
 # Dry run to see what will be migrated
-kscore-migrate run \
+kscorectl migrate run \
   --sqlite /var/lib/kscore/state.db \
   --postgres "postgres://kscore:password@localhost/keystonecore" \
   --dry-run --verbose
@@ -869,7 +869,7 @@ kscore-migrate run \
 **3. Run the Migration:**
 ```bash
 # Migrate all data from SQLite to PostgreSQL
-kscore-migrate run \
+kscorectl migrate run \
   --sqlite /var/lib/kscore/state.db \
   --postgres "postgres://kscore:password@localhost/keystonecore"
 
@@ -890,7 +890,7 @@ kscore-migrate run \
 **4. Validate the Migration:**
 ```bash
 # Verify all data was migrated correctly
-kscore-migrate validate \
+kscorectl migrate validate \
   --sqlite /var/lib/kscore/state.db \
   --postgres "postgres://kscore:password@localhost/keystonecore"
 
@@ -949,10 +949,10 @@ mv /var/lib/kscore/state.db.gz /var/backups/kscore/sqlite-archive-$(date +%Y%m%d
 If you need to migrate while the system is running (not recommended for production):
 ```bash
 # First migration
-kscore-migrate run --sqlite ... --postgres ... --skip-existing
+kscorectl migrate run --sqlite ... --postgres ... --skip-existing
 
 # Later, migrate any new records
-kscore-migrate run --sqlite ... --postgres ... --skip-existing
+kscorectl migrate run --sqlite ... --postgres ... --skip-existing
 ```
 
 **Rollback:**

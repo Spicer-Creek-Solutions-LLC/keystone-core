@@ -9651,14 +9651,14 @@ Custom modules are versioned, capability-scoped packages that integrate with the
 
 ### Creating Custom Modules
 
-Use the `kscore-module` CLI to scaffold and manage custom modules:
+Use the `kscorectl module` CLI to scaffold and manage custom modules:
 
 ```bash
 # Initialize a new Starlark module
-kscore-module init myorg/custom-state
+kscorectl module init myorg/custom-state
 
 # Initialize a Rust WASM module
-kscore-module init --template rust myorg/custom-provider
+kscorectl module init --template rust myorg/custom-provider
 ```
 
 This creates the module structure:
@@ -9699,19 +9699,19 @@ metadata:
 
 ```bash
 # Validate module manifest
-kscore-module validate ./myorg/custom-state
+kscorectl module validate ./myorg/custom-state
 
 # Run module tests
-kscore-module test ./myorg/custom-state
+kscorectl module test ./myorg/custom-state
 
 # Resolve dependencies
-kscore-module resolve ./myorg/custom-state
+kscorectl module resolve ./myorg/custom-state
 
 # Build distributable package
-kscore-module build ./myorg/custom-state
+kscorectl module build ./myorg/custom-state
 
 # Verify module integrity
-kscore-module verify ./myorg/custom-state/myorg-custom-state-0.1.0.zip
+kscorectl module verify ./myorg/custom-state/myorg-custom-state-0.1.0.zip
 ```
 
 ### Capability System
@@ -9798,10 +9798,10 @@ After development, modules can be distributed via:
 Distribution commands (coming soon):
 ```bash
 # Sign module
-kscore-module sign ./myorg/custom-state/myorg-custom-state-0.1.0.zip
+kscorectl module sign ./myorg/custom-state/myorg-custom-state-0.1.0.zip
 
 # Publish to registry
-kscore-module publish ./myorg/custom-state/myorg-custom-state-0.1.0.zip
+kscorectl module publish ./myorg/custom-state/myorg-custom-state-0.1.0.zip
 ```
 
 ## Custom Module Development Guide
@@ -10552,16 +10552,16 @@ app_deploy:
 
 ```bash
 # Validate module before building
-kscore-module validate ./myorg-my-custom-module
+kscorectl module validate ./myorg-my-custom-module
 
 # Run all tests
-kscore-module test ./myorg-my-custom-module
+kscorectl module test ./myorg-my-custom-module
 
 # Build distributable package
-kscore-module build ./myorg-my-custom-module
+kscorectl module build ./myorg-my-custom-module
 
 # Sign with your key
-kscore-module sign \
+kscorectl module sign \
   --key ~/.kscore/signing-key.pem \
   ./myorg-my-custom-module/myorg-my-custom-module-1.0.0.zip
 ```
@@ -10570,7 +10570,7 @@ kscore-module sign \
 
 ```bash
 # Publish to OCI registry
-kscore-module publish \
+kscorectl module publish \
   --registry ghcr.io/myorg \
   ./myorg-my-custom-module/myorg-my-custom-module-1.0.0.zip
 
@@ -13787,4 +13787,4 @@ loki_firewall:
 - [State Management Concepts](../../concepts/state-management/) - State management overview
 - [Configuration Reference](../configuration/#state-file-configuration) - State file configuration
 - [CLI Reference](../cli/#kscore-state-state-management) - State CLI commands
-- [CLI Reference - Module Management](../cli/#kscore-module-module-management) - Module CLI commands
+- [CLI Reference - Module Management](../cli/#kscorectl module-module-management) - Module CLI commands
