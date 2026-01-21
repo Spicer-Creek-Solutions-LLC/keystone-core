@@ -6,7 +6,7 @@ Restructure the Keystone Core CLI commands to improve user experience by splitti
 
 **Goal**: Reduce command complexity by splitting 6 oversized commands into 12 focused commands, improving UX without breaking existing functionality.
 
-**Status**: Planned
+**Status**: Complete ✅
 
 ## Rationale
 

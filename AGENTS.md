@@ -45,7 +45,7 @@ This repository contains working implementations of **Epics 1-29**. The project 
 - Single-binary bootstrap experience
 - Comprehensive test suite (>79% coverage across all core packages)
 
-**Current Status**: Epics 1-29 COMPLETE ✅ | Epics 30-31 PLANNED
+**Current Status**: Epics 1-31 COMPLETE ✅
 
 ## Repository Structure
 
@@ -139,8 +139,8 @@ Implementation order:
 27. **Epic 27** (Agent Bootstrap Experience) - ✅ COMPLETE - Depends on Epic 23, 25
 28. **Epic 28** (Standard Deployment Blueprints) - ✅ COMPLETE - Depends on Epic 25, 27
 29. **Epic 29** (Bootstrap Testing Infrastructure) - ✅ COMPLETE - Depends on Epic 27, 28
-30. **Epic 30** (CLI UX Restructuring) - NOT STARTED
-31. **Epic 31** (NIST Design Principles) - NOT STARTED - Documentation only
+30. **Epic 30** (CLI UX Restructuring) - ✅ COMPLETE - Depends on Epic 1, 2, 3
+31. **Epic 31** (NIST Design Principles) - ✅ COMPLETE - Documentation only
 
 ### Future Epics (Not Yet Planned)
 
