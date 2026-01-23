@@ -112,6 +112,7 @@ This repository contains working implementations of **Epics 1-29**. The project 
     ├── 29-bootstrap-testing-infrastructure.md  # Bootstrap tests
     ├── 30-cli-ux-restructuring.md        # CLI UX restructuring
     ├── 31-nist-design-principles.md      # NIST design principles
+    ├── 32-advanced-networking.md         # Advanced networking (WiFi, 802.1X, etc.)
     ├── 36-deep-secrets-management.md     # Deep secrets management integration
     ├── 37-enhanced-runbooks.md           # Enhanced runbook automation
     ├── 38-air-gapped-deployments.md      # Air-gapped deployment support
@@ -173,6 +174,7 @@ Implementation order:
 29. **Epic 29** (Bootstrap Testing Infrastructure) - ✅ COMPLETE - Depends on Epic 27, 28
 30. **Epic 30** (CLI UX Restructuring) - ✅ COMPLETE - Depends on Epic 1, 2, 3
 31. **Epic 31** (NIST Design Principles) - ✅ COMPLETE - Documentation only
+32. **Epic 32** (Advanced Networking) - NOT STARTED - WiFi, 802.1X, link settings, promiscuous mode
 36. **Epic 36** (Deep Secrets Management) - PLANNED - Depends on Epic 1, 3, 4, 6, 17
 37. **Epic 37** (Enhanced Runbooks) - PLANNED - Depends on Epic 1, 2, 3, 4
 38. **Epic 38** (Air-Gapped Deployments) - PLANNED - Depends on Epic 1, 9, 22, 23, 25
