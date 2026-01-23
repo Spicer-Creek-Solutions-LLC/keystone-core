@@ -2,10 +2,6 @@ package registry
 
 import (
 	"context"
-	"crypto"
-	"crypto/ecdsa"
-	"crypto/ed25519"
-	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
@@ -15,6 +11,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/signing"
 )
 
 // VerificationResult contains the result of a signature verification.
@@ -71,11 +69,11 @@ type VerificationConfig struct {
 	ExpectedAnnotations map[string]string
 }
 
-// Verifier handles blueprint signature verification.
+// Verifier handles blueprint signature verification using the shared signing package.
 type Verifier struct {
-	config    *VerificationConfig
-	publicKey crypto.PublicKey
-	keyType   KeyType
+	config      *VerificationConfig
+	keyVerifier *signing.KeyVerifier
+	keyType     KeyType
 }
 
 // NewVerifier creates a new Verifier with the given configuration.
@@ -84,58 +82,32 @@ func NewVerifier(config *VerificationConfig) (*Verifier, error) {
 		return nil, fmt.Errorf("verification config is required")
 	}
 
-	verifier := &Verifier{
-		config: config,
-	}
-
-	// Load public key from path or data
-	var keyData []byte
-	if config.PublicKeyPath != "" {
-		data, err := os.ReadFile(config.PublicKeyPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read public key file: %w", err)
-		}
-		keyData = data
-	} else if len(config.PublicKeyData) > 0 {
-		keyData = config.PublicKeyData
-	} else {
-		return nil, fmt.Errorf("public key path or data is required")
-	}
-
-	if err := verifier.loadPublicKey(keyData); err != nil {
-		return nil, fmt.Errorf("failed to load public key: %w", err)
-	}
-
-	return verifier, nil
-}
-
-// loadPublicKey loads the public key from PEM data.
-func (v *Verifier) loadPublicKey(data []byte) error {
-	block, _ := pem.Decode(data)
-	if block == nil {
-		return fmt.Errorf("failed to decode PEM block")
-	}
-
-	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+	// Create the underlying verifier using the shared signing package
+	keyVerifier, err := signing.NewKeyVerifier(&signing.KeyVerifierConfig{
+		PublicKeyPEM:  config.PublicKeyData,
+		PublicKeyPath: config.PublicKeyPath,
+		HashAlgorithm: signing.HashSHA256,
+	})
 	if err != nil {
-		return fmt.Errorf("failed to parse public key: %w", err)
+		return nil, fmt.Errorf("failed to create verifier: %w", err)
 	}
 
-	switch key := pub.(type) {
-	case *ecdsa.PublicKey:
-		v.publicKey = key
-		v.keyType = KeyTypeECDSA
-	case *rsa.PublicKey:
-		v.publicKey = key
-		v.keyType = KeyTypeRSA
-	case ed25519.PublicKey:
-		v.publicKey = key
-		v.keyType = KeyTypeEd25519
-	default:
-		return fmt.Errorf("unsupported public key type: %T", pub)
+	// Map signing.KeyType to registry.KeyType
+	var kt KeyType
+	switch keyVerifier.KeyType() {
+	case signing.KeyTypeECDSA:
+		kt = KeyTypeECDSA
+	case signing.KeyTypeRSA:
+		kt = KeyTypeRSA
+	case signing.KeyTypeEd25519:
+		kt = KeyTypeEd25519
 	}
 
-	return nil
+	return &Verifier{
+		config:      config,
+		keyVerifier: keyVerifier,
+		keyType:     kt,
+	}, nil
 }
 
 // Verify verifies a signature against data.
@@ -158,8 +130,8 @@ func (v *Verifier) Verify(ctx context.Context, data []byte, signature string) (*
 	hash := sha256.Sum256(data)
 	result.Digest = fmt.Sprintf("sha256:%x", hash)
 
-	// Verify signature
-	valid, err := v.verifySignature(hash[:], sigBytes)
+	// Verify signature using the shared signing package
+	valid, err := v.keyVerifier.Verify(ctx, data, sigBytes)
 	if err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("signature verification failed: %v", err))
 		return result, nil
@@ -171,24 +143,6 @@ func (v *Verifier) Verify(ctx context.Context, data []byte, signature string) (*
 	}
 
 	return result, nil
-}
-
-// verifySignature verifies the signature against the hash.
-func (v *Verifier) verifySignature(hash, signature []byte) (bool, error) {
-	switch key := v.publicKey.(type) {
-	case *ecdsa.PublicKey:
-		return ecdsa.VerifyASN1(key, hash, signature), nil
-
-	case *rsa.PublicKey:
-		err := rsa.VerifyPKCS1v15(key, crypto.SHA256, hash, signature)
-		return err == nil, nil
-
-	case ed25519.PublicKey:
-		return ed25519.Verify(key, hash, signature), nil
-
-	default:
-		return false, fmt.Errorf("unsupported key type: %T", key)
-	}
 }
 
 // VerifyBundle verifies a signature bundle.
@@ -265,9 +219,8 @@ func (v *Verifier) VerifyBundle(ctx context.Context, data []byte, bundle *Signat
 		return result, nil
 	}
 
-	// Verify against payload hash
-	payloadHash := sha256.Sum256(payloadBytes)
-	valid, err := v.verifySignature(payloadHash[:], sigBytes)
+	// Verify against payload using the shared signing package
+	valid, err := v.keyVerifier.Verify(ctx, payloadBytes, sigBytes)
 	if err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("signature verification failed: %v", err))
 		return result, nil
@@ -405,13 +358,11 @@ func (v *Verifier) KeyType() KeyType {
 
 // GetPublicKeyFingerprint returns the fingerprint of the public key.
 func (v *Verifier) GetPublicKeyFingerprint() string {
-	pubBytes, err := x509.MarshalPKIXPublicKey(v.publicKey)
+	identity, err := v.keyVerifier.GetSignerIdentity(nil)
 	if err != nil {
 		return ""
 	}
-
-	hash := sha256.Sum256(pubBytes)
-	return fmt.Sprintf("sha256:%s", formatHexFingerprint(hash[:]))
+	return identity
 }
 
 // VerifyDigest verifies that the data matches the expected digest.

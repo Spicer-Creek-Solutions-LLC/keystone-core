@@ -616,3 +616,56 @@ func TestDiffSummary(t *testing.T) {
 		t.Errorf("Empty diff summary = %s, want 'No changes'", emptyDiff.Summary())
 	}
 }
+
+func TestModuleChange_GetUpdateType(t *testing.T) {
+	tests := []struct {
+		name       string
+		oldVersion string
+		newVersion string
+		want       UpdateType
+	}{
+		// Major upgrades
+		{"major upgrade", "1.0.0", "2.0.0", UpdateTypeMajor},
+		{"major upgrade with reset", "1.5.3", "2.0.0", UpdateTypeMajor},
+
+		// Minor upgrades
+		{"minor upgrade", "1.0.0", "1.1.0", UpdateTypeMinor},
+		{"minor upgrade with reset", "1.2.5", "1.3.0", UpdateTypeMinor},
+
+		// Patch upgrades
+		{"patch upgrade", "1.0.0", "1.0.1", UpdateTypePatch},
+		{"patch upgrade large", "1.0.0", "1.0.100", UpdateTypePatch},
+
+		// Prerelease changes
+		{"prerelease to release", "1.0.0-alpha", "1.0.0", UpdateTypePrerelease},
+
+		// Downgrades
+		{"major downgrade", "2.0.0", "1.0.0", UpdateTypeDowngrade},
+		{"minor downgrade", "1.5.0", "1.4.0", UpdateTypeDowngrade},
+		{"patch downgrade", "1.0.5", "1.0.4", UpdateTypeDowngrade},
+
+		// Edge cases - verify numeric comparison not string
+		{"1.9 to 1.10", "1.9.0", "1.10.0", UpdateTypeMinor},   // String comparison would fail
+		{"2.0 to 10.0", "2.0.0", "10.0.0", UpdateTypeMajor},   // String comparison would fail
+
+		// Same version
+		{"no change", "1.0.0", "1.0.0", UpdateTypeUnknown},
+
+		// Invalid versions fall back to string comparison
+		// "also-invalid" < "invalid" alphabetically, so treated as downgrade
+		{"invalid versions string downgrade", "invalid", "also-invalid", UpdateTypeDowngrade},
+		{"invalid versions string upgrade", "aaa", "zzz", UpdateTypeUnknown}, // neither < nor ==, returns unknown
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			change := &ModuleChange{
+				OldVersion: tt.oldVersion,
+				NewVersion: tt.newVersion,
+			}
+			if got := change.GetUpdateType(); got != tt.want {
+				t.Errorf("GetUpdateType() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

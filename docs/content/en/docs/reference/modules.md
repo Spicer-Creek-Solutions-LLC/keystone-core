@@ -1129,10 +1129,11 @@ Configure network interfaces with static IP, DHCP, and advanced settings.
 - Defaults to state ID if not specified
 - Example: `eth0`, `enp0s3`, `en0`
 
-**address** (string, optional)
-- IP address with CIDR notation
-- Required for `configured` state
-- Example: `192.168.1.100/24`
+**address** (string or list, optional)
+- IPv4 address(es) with CIDR notation
+- Required for `configured` state (unless using DHCP)
+- Accepts single address or list for multiple addresses on one interface
+- Example: `192.168.1.100/24` or `["192.168.1.100/24", "192.168.1.101/24"]`
 
 **gateway** (string, optional)
 - Default gateway IP address
@@ -1156,8 +1157,55 @@ Configure network interfaces with static IP, DHCP, and advanced settings.
 - Example: `example.com,corp.example.com`
 
 **dhcp** (bool, optional)
-- Enable DHCP (alternative to static configuration)
+- Enable DHCP for IPv4 (alternative to static configuration)
 - Example: `true`
+
+#### IPv6 Parameters
+
+**address6** (string or list, optional)
+- IPv6 address(es) with prefix length
+- Accepts single address or list for multiple addresses on one interface
+- Example: `2001:db8::1/64` or `["2001:db8::1/64", "2001:db8::2/64"]`
+
+**gateway6** (string, optional)
+- IPv6 default gateway address
+- Example: `2001:db8::ffff`
+
+**dhcp6** (bool, optional)
+- Enable DHCPv6 for IPv6 address assignment
+- When `true`, uses DHCPv6 for stateful configuration
+- Example: `true`
+
+**ipv6_enabled** (bool, optional)
+- Enable IPv6 on the interface
+- Automatically set to `true` when `address6`, `gateway6`, or `dhcp6` is specified
+- Example: `true`
+
+**ipv6_privacy** (bool, optional)
+- Enable IPv6 privacy extensions (RFC 4941)
+- Generates temporary addresses for outgoing connections
+- Example: `true`
+
+**accept_ra** (bool, optional)
+- Accept IPv6 Router Advertisements
+- When `nil` (not specified), uses system default
+- Set to `true` for SLAAC, `false` for purely static configuration
+- Example: `true`
+
+#### Link-Layer Parameters
+
+**mac_address** (string, optional)
+- Override the interface MAC address
+- Format: `xx:xx:xx:xx:xx:xx`
+- Note: Not supported on Windows
+- Example: `02:42:ac:11:00:02`
+
+**wol** (string, optional)
+- Wake-on-LAN mode
+- Values: `magic`, `unicast`, `multicast`, `broadcast`, `arp`, `off`
+- Also accepts ethtool flags: `g`, `u`, `m`, `b`, `a`, `d`
+- Note: macOS uses system-wide setting (pmset), netplan only supports boolean
+- Example: `magic`
 
 ### Platform Support
 
@@ -1228,6 +1276,88 @@ old_interface:
   interface: eth1
 ```
 
+#### Dual-Stack IPv4/IPv6 Configuration
+
+```yaml
+eth0_dual_stack:
+  module: network
+  state: configured
+  interface: eth0
+  # IPv4 configuration
+  address: 192.168.1.100/24
+  gateway: 192.168.1.1
+  # IPv6 configuration
+  address6: 2001:db8::100/64
+  gateway6: 2001:db8::1
+  dns:
+    - 8.8.8.8
+    - 2001:4860:4860::8888
+  search_domains:
+    - example.com
+```
+
+#### Multiple Addresses on One Interface
+
+```yaml
+eth0_multi_ip:
+  module: network
+  state: configured
+  interface: eth0
+  # Multiple IPv4 addresses
+  address:
+    - 192.168.1.100/24
+    - 192.168.1.101/24
+    - 10.0.0.5/8
+  gateway: 192.168.1.1
+  # Multiple IPv6 addresses
+  address6:
+    - 2001:db8::100/64
+    - 2001:db8::101/64
+  gateway6: 2001:db8::1
+  dns:
+    - 8.8.8.8
+    - 2001:4860:4860::8888
+```
+
+#### IPv6-Only with Static Address
+
+```yaml
+eth0_ipv6_only:
+  module: network
+  state: configured
+  interface: eth0
+  address6: 2001:db8::1/64
+  gateway6: 2001:db8::ffff
+  ipv6_enabled: true
+  dns:
+    - 2001:4860:4860::8888
+    - 2606:4700:4700::1111
+```
+
+#### DHCPv6 Configuration
+
+```yaml
+eth0_dhcpv6:
+  module: network
+  state: dhcp
+  interface: eth0
+  dhcp: true
+  dhcp6: true
+```
+
+#### IPv6 SLAAC with Privacy Extensions
+
+```yaml
+eth0_slaac:
+  module: network
+  state: configured
+  interface: eth0
+  address: 192.168.1.100/24
+  ipv6_enabled: true
+  accept_ra: true
+  ipv6_privacy: true
+```
+
 ### Return Values
 
 ```yaml
@@ -1273,6 +1403,296 @@ Common errors:
 - **Interface not found**: Interface must exist on the system
 - **Invalid address format**: Use CIDR notation (e.g., `192.168.1.100/24`)
 - **Permission denied**: Network configuration typically requires root/admin privileges
+
+## VLAN Module
+
+Create and manage VLAN sub-interfaces.
+
+### States
+
+- `present` - Ensure VLAN interface exists
+- `absent` - Ensure VLAN interface does not exist
+
+### Parameters
+
+**parent** (string, required)
+- Parent interface for the VLAN
+- Example: `eth0`, `enp0s3`
+
+**id** (int, required)
+- VLAN ID (1-4094)
+- Also accepts `vlan_id` as parameter name
+- Example: `100`, `200`
+
+**addresses** (string or list, optional)
+- IP address(es) for the VLAN interface
+- Example: `["192.168.100.1/24"]`
+
+**gateway** (string, optional)
+- Default gateway for the VLAN
+- Example: `192.168.100.254`
+
+**dns** (string or list, optional)
+- DNS servers
+- Example: `["8.8.8.8"]`
+
+**mtu** (int, optional)
+- MTU (inherits from parent if not set)
+- Example: `1500`
+
+### Platform Support
+
+| Platform | Support |
+|----------|---------|
+| Linux | Full (nmcli, netplan, systemd-networkd, ifupdown) |
+| macOS | Not supported |
+| Windows | Not supported |
+
+### Examples
+
+#### Basic VLAN
+
+```yaml
+eth0.100:
+  module: vlan
+  state: present
+  parent: eth0
+  id: 100
+```
+
+#### VLAN with IP Configuration
+
+```yaml
+vlan_office:
+  module: vlan
+  state: present
+  parent: eth0
+  id: 200
+  addresses:
+    - 192.168.200.1/24
+  gateway: 192.168.200.254
+  dns:
+    - 8.8.8.8
+```
+
+---
+
+## Bond Module
+
+Create and manage network bonding/teaming for link aggregation.
+
+### States
+
+- `present` - Ensure bond interface exists
+- `absent` - Ensure bond interface does not exist
+
+### Parameters
+
+**slaves** (list, required)
+- Slave/member interfaces
+- Minimum 1 interface required
+- Example: `["eth0", "eth1"]`
+
+**mode** (string, required)
+- Bonding mode
+- Values: `balance-rr` (0), `active-backup` (1), `balance-xor` (2), `broadcast` (3), `802.3ad` (4), `balance-tlb` (5), `balance-alb` (6)
+- Example: `active-backup`, `802.3ad`
+
+**miimon** (int, optional)
+- MII link monitoring interval in milliseconds
+- Default: `100`
+- Example: `50`
+
+**primary** (string, optional)
+- Primary interface for active-backup mode
+- Example: `eth0`
+
+**lacp_rate** (string, optional)
+- LACP rate for 802.3ad mode
+- Values: `slow`, `fast`
+- Example: `fast`
+
+**xmit_hash_policy** (string, optional)
+- Transmit hash policy
+- Values: `layer2`, `layer2+3`, `layer3+4`
+- Example: `layer3+4`
+
+**updelay** (int, optional)
+- Delay before enabling slave (ms)
+- Example: `200`
+
+**downdelay** (int, optional)
+- Delay before disabling slave (ms)
+- Example: `200`
+
+**addresses** (string or list, optional)
+- IP address(es) for the bond interface
+- Example: `["10.0.0.1/24"]`
+
+**gateway** (string, optional)
+- Default gateway
+- Example: `10.0.0.254`
+
+**dns** (string or list, optional)
+- DNS servers
+- Example: `["8.8.8.8"]`
+
+**mtu** (int, optional)
+- MTU for the bond interface
+- Example: `9000`
+
+### Platform Support
+
+| Platform | Support |
+|----------|---------|
+| Linux | Full (nmcli, netplan, systemd-networkd, ifupdown) |
+| macOS | Not supported |
+| Windows | NIC Teaming via PowerShell |
+
+### Examples
+
+#### Active-Backup Bond
+
+```yaml
+bond0:
+  module: bond
+  state: present
+  slaves:
+    - eth0
+    - eth1
+  mode: active-backup
+  primary: eth0
+  addresses:
+    - 10.0.0.1/24
+  gateway: 10.0.0.254
+```
+
+#### LACP Bond
+
+```yaml
+bond0:
+  module: bond
+  state: present
+  slaves:
+    - eth0
+    - eth1
+  mode: 802.3ad
+  lacp_rate: fast
+  xmit_hash_policy: layer3+4
+  miimon: 50
+  addresses:
+    - 10.0.0.1/24
+```
+
+---
+
+## Bridge Module
+
+Create and manage network bridges for virtualization and container networking.
+
+### States
+
+- `present` - Ensure bridge interface exists
+- `absent` - Ensure bridge interface does not exist
+
+### Parameters
+
+**ports** (list, optional)
+- Port/member interfaces
+- Also accepts `interfaces` as parameter name
+- Example: `["eth0", "eth1"]`
+
+**stp** (bool, optional)
+- Enable Spanning Tree Protocol
+- Default: `false`
+- Example: `true`
+
+**forward_delay** (int, optional)
+- STP forward delay in seconds
+- Default: `15`
+- Example: `4`
+
+**hello_time** (int, optional)
+- STP hello time in seconds
+- Default: `2`
+- Example: `1`
+
+**max_age** (int, optional)
+- STP max age in seconds
+- Default: `20`
+- Example: `10`
+
+**ageing_time** (int, optional)
+- MAC address ageing time in seconds
+- Default: `300`
+- Example: `600`
+
+**addresses** (string or list, optional)
+- IP address(es) for the bridge interface
+- Example: `["192.168.1.1/24"]`
+
+**gateway** (string, optional)
+- Default gateway
+- Example: `192.168.1.254`
+
+**dns** (string or list, optional)
+- DNS servers
+- Example: `["8.8.8.8"]`
+
+**mtu** (int, optional)
+- MTU for the bridge interface
+- Example: `1500`
+
+### Platform Support
+
+| Platform | Support |
+|----------|---------|
+| Linux | Full (nmcli, netplan, systemd-networkd, ifupdown) |
+| macOS | Not supported |
+| Windows | Hyper-V Virtual Switch via PowerShell |
+
+### Examples
+
+#### Basic Bridge
+
+```yaml
+br0:
+  module: bridge
+  state: present
+  ports:
+    - eth0
+    - eth1
+  addresses:
+    - 192.168.1.1/24
+  gateway: 192.168.1.254
+```
+
+#### Bridge with STP
+
+```yaml
+br0:
+  module: bridge
+  state: present
+  ports:
+    - eth0
+    - eth1
+  stp: true
+  forward_delay: 4
+  addresses:
+    - 192.168.1.1/24
+```
+
+#### Isolated Bridge (no ports)
+
+```yaml
+br_internal:
+  module: bridge
+  state: present
+  addresses:
+    - 172.16.0.1/24
+```
+
+---
 
 ## Route Module
 

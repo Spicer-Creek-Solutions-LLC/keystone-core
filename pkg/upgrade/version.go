@@ -287,6 +287,7 @@ type HTTPVersionProvider struct {
 	httpClient *http.Client
 	logger     Logger
 	cacheDir   string
+	inspectors *InspectorRegistry
 }
 
 // NewHTTPVersionProvider creates a new HTTP version provider.
@@ -294,13 +295,21 @@ func NewHTTPVersionProvider(baseURL string, logger Logger) *HTTPVersionProvider 
 	if logger == nil {
 		logger = &noopLogger{}
 	}
+
+	// Initialize inspector registry with default self inspector
+	inspectors := NewInspectorRegistry()
+	// Register self inspectors for server and agent (both use same embedded version)
+	inspectors.Register(NewSelfInspector(ComponentServer))
+	inspectors.Register(NewSelfInspector(ComponentAgent))
+
 	return &HTTPVersionProvider{
 		baseURL: strings.TrimSuffix(baseURL, "/"),
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		logger:   logger,
-		cacheDir: filepath.Join(os.TempDir(), "kscore-versions"),
+		logger:     logger,
+		cacheDir:   filepath.Join(os.TempDir(), "kscore-versions"),
+		inspectors: inspectors,
 	}
 }
 
@@ -309,11 +318,33 @@ func (p *HTTPVersionProvider) SetCacheDir(dir string) {
 	p.cacheDir = dir
 }
 
-// GetCurrentVersion returns the current installed version.
+// RegisterInspector registers a component inspector for version detection.
+// This allows adding inspectors for NATS, Database, or Etcd after creation.
+func (p *HTTPVersionProvider) RegisterInspector(inspector ComponentInspector) {
+	p.inspectors.Register(inspector)
+}
+
+// GetInspectorRegistry returns the inspector registry for direct access.
+func (p *HTTPVersionProvider) GetInspectorRegistry() *InspectorRegistry {
+	return p.inspectors
+}
+
+// GetCurrentVersion returns the current installed version of a component.
+// For server/agent, it uses the embedded version from build flags.
+// For other components (NATS, Database, Etcd), an inspector must be registered.
 func (p *HTTPVersionProvider) GetCurrentVersion(ctx context.Context, component ComponentType) (Version, error) {
-	// This would typically read from the installed binary or a version file
-	// For now, return a placeholder
-	return Version{}, errors.New("GetCurrentVersion not implemented - requires local inspection")
+	inspector, ok := p.inspectors.Get(component)
+	if !ok {
+		return Version{}, fmt.Errorf("no inspector registered for component %s: register one using RegisterInspector()", component)
+	}
+
+	version, err := inspector.GetVersion(ctx)
+	if err != nil {
+		return Version{}, fmt.Errorf("inspecting %s version: %w", component, err)
+	}
+
+	p.logger.Debug("Detected component version", "component", component, "version", version.String())
+	return version, nil
 }
 
 // GetAvailableVersions returns available versions for a component.

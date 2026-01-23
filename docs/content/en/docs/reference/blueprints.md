@@ -523,12 +523,15 @@ kscorectl blueprint publish ./my-blueprint --dry-run
 # Sign with key file
 kscorectl blueprint sign ./my-blueprint --key cosign.key
 
-# Keyless signing (OIDC)
+# Keyless signing (CI/CD only - requires OIDC token in environment)
+# Set SIGSTORE_ID_TOKEN or use GitHub Actions/GitLab CI built-in OIDC
 kscorectl blueprint sign ./my-blueprint --keyless
 
 # Custom output
 kscorectl blueprint sign ./my-blueprint --key cosign.key -o signature.sig
 ```
+
+> **Note**: Keyless signing uses Sigstore/Fulcio and currently requires a pre-provided OIDC token (e.g., from GitHub Actions or GitLab CI). Interactive browser-based OIDC authentication is planned for a future release.
 
 **Verify Signature:**
 

@@ -1,23 +1,16 @@
 package registry
 
 import (
-	"bytes"
 	"context"
-	"crypto"
-	"crypto/ecdsa"
-	"crypto/ed25519"
-	"crypto/elliptic"
-	"crypto/rand"
-	"crypto/rsa"
 	"crypto/sha256"
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
-	"encoding/pem"
 	"fmt"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/signing"
 )
 
 // SignatureFormat represents the format of a signature.
@@ -139,12 +132,11 @@ type SignerIdentity struct {
 	DockerReference string `json:"docker-reference,omitempty"`
 }
 
-// Signer handles blueprint signing operations.
+// Signer handles blueprint signing operations using the shared signing package.
 type Signer struct {
-	config     *SigningConfig
-	privateKey crypto.PrivateKey
-	publicKey  crypto.PublicKey
-	keyType    KeyType
+	config    *SigningConfig
+	keySigner *signing.KeySigner
+	keyType   KeyType
 }
 
 // NewSigner creates a new Signer with the given configuration.
@@ -159,144 +151,53 @@ func NewSigner(config *SigningConfig) (*Signer, error) {
 		config.Format = SignatureFormatCosign
 	}
 
-	signer := &Signer{
-		config: config,
-	}
-
-	// Load the private key
-	if err := signer.loadKey(); err != nil {
-		return nil, fmt.Errorf("failed to load key: %w", err)
-	}
-
-	return signer, nil
-}
-
-// loadKey loads the private key from file.
-func (s *Signer) loadKey() error {
-	keyData, err := os.ReadFile(s.config.KeyPath)
+	// Create the underlying signer using the shared signing package
+	keySigner, err := signing.NewKeySigner(&signing.KeySignerConfig{
+		PrivateKeyPath: config.KeyPath,
+		Password:       config.KeyPassword,
+		HashAlgorithm:  signing.HashSHA256,
+		Annotations:    config.Annotations,
+	})
 	if err != nil {
-		return fmt.Errorf("failed to read key file: %w", err)
+		return nil, fmt.Errorf("failed to create signer: %w", err)
 	}
 
-	block, _ := pem.Decode(keyData)
-	if block == nil {
-		return fmt.Errorf("failed to decode PEM block")
+	// Map signing.KeyType to registry.KeyType
+	var kt KeyType
+	switch keySigner.KeyType() {
+	case signing.KeyTypeECDSA:
+		kt = KeyTypeECDSA
+	case signing.KeyTypeRSA:
+		kt = KeyTypeRSA
+	case signing.KeyTypeEd25519:
+		kt = KeyTypeEd25519
 	}
 
-	var keyBytes []byte
-	if x509.IsEncryptedPEMBlock(block) { //nolint:staticcheck // Deprecated but still used
-		if s.config.KeyPassword == "" {
-			return fmt.Errorf("key is encrypted but no password provided")
-		}
-		keyBytes, err = x509.DecryptPEMBlock(block, []byte(s.config.KeyPassword)) //nolint:staticcheck
-		if err != nil {
-			return fmt.Errorf("failed to decrypt key: %w", err)
-		}
-	} else {
-		keyBytes = block.Bytes
-	}
-
-	// Try to parse as different key types
-	switch block.Type {
-	case "EC PRIVATE KEY":
-		key, err := x509.ParseECPrivateKey(keyBytes)
-		if err != nil {
-			return fmt.Errorf("failed to parse EC private key: %w", err)
-		}
-		s.privateKey = key
-		s.publicKey = &key.PublicKey
-		s.keyType = KeyTypeECDSA
-		return nil
-
-	case "RSA PRIVATE KEY":
-		key, err := x509.ParsePKCS1PrivateKey(keyBytes)
-		if err != nil {
-			return fmt.Errorf("failed to parse RSA private key: %w", err)
-		}
-		s.privateKey = key
-		s.publicKey = &key.PublicKey
-		s.keyType = KeyTypeRSA
-		return nil
-
-	case "PRIVATE KEY":
-		key, err := x509.ParsePKCS8PrivateKey(keyBytes)
-		if err != nil {
-			return fmt.Errorf("failed to parse PKCS8 private key: %w", err)
-		}
-		return s.setKeyFromParsed(key)
-
-	case "ED25519 PRIVATE KEY":
-		if len(keyBytes) != ed25519.PrivateKeySize {
-			// Try PKCS8 format
-			key, err := x509.ParsePKCS8PrivateKey(keyBytes)
-			if err != nil {
-				return fmt.Errorf("failed to parse Ed25519 private key: %w", err)
-			}
-			return s.setKeyFromParsed(key)
-		}
-		s.privateKey = ed25519.PrivateKey(keyBytes)
-		s.publicKey = ed25519.PrivateKey(keyBytes).Public()
-		s.keyType = KeyTypeEd25519
-		return nil
-
-	default:
-		// Try PKCS8 as fallback
-		key, err := x509.ParsePKCS8PrivateKey(keyBytes)
-		if err != nil {
-			return fmt.Errorf("unsupported key type: %s", block.Type)
-		}
-		return s.setKeyFromParsed(key)
-	}
-}
-
-func (s *Signer) setKeyFromParsed(key interface{}) error {
-	switch k := key.(type) {
-	case *ecdsa.PrivateKey:
-		s.privateKey = k
-		s.publicKey = &k.PublicKey
-		s.keyType = KeyTypeECDSA
-	case *rsa.PrivateKey:
-		s.privateKey = k
-		s.publicKey = &k.PublicKey
-		s.keyType = KeyTypeRSA
-	case ed25519.PrivateKey:
-		s.privateKey = k
-		s.publicKey = k.Public()
-		s.keyType = KeyTypeEd25519
-	default:
-		return fmt.Errorf("unsupported key type: %T", key)
-	}
-	return nil
+	return &Signer{
+		config:    config,
+		keySigner: keySigner,
+		keyType:   kt,
+	}, nil
 }
 
 // Sign signs the given data and returns a SigningResult.
 func (s *Signer) Sign(ctx context.Context, data []byte) (*SigningResult, error) {
-	// Calculate digest
-	hash := sha256.Sum256(data)
-	digest := fmt.Sprintf("sha256:%s", base64.StdEncoding.EncodeToString(hash[:]))
-
-	// Create signature based on format
-	var signature []byte
-	var err error
-
 	switch s.config.Format {
-	case SignatureFormatCosign, SignatureFormatDetached:
-		signature, err = s.signData(hash[:])
-		if err != nil {
-			return nil, fmt.Errorf("failed to sign data: %w", err)
-		}
-
 	case SignatureFormatBundle:
+		hash := sha256.Sum256(data)
 		return s.signBundle(ctx, data, hash[:])
+	}
 
-	default:
-		return nil, fmt.Errorf("unsupported signature format: %s", s.config.Format)
+	// Use the shared signing package for cosign and detached formats
+	sigResult, err := s.keySigner.Sign(ctx, data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to sign data: %w", err)
 	}
 
 	result := &SigningResult{
-		Signature:   base64.StdEncoding.EncodeToString(signature),
-		Digest:      digest,
-		Timestamp:   time.Now().UTC(),
+		Signature:   sigResult.SignatureBase64,
+		Digest:      sigResult.Digest,
+		Timestamp:   sigResult.Timestamp,
 		Annotations: s.config.Annotations,
 	}
 
@@ -310,23 +211,6 @@ func (s *Signer) Sign(ctx context.Context, data []byte) (*SigningResult, error) 
 	}
 
 	return result, nil
-}
-
-// signData signs the hash using the private key.
-func (s *Signer) signData(hash []byte) ([]byte, error) {
-	switch key := s.privateKey.(type) {
-	case *ecdsa.PrivateKey:
-		return ecdsa.SignASN1(rand.Reader, key, hash)
-
-	case *rsa.PrivateKey:
-		return rsa.SignPKCS1v15(rand.Reader, key, crypto.SHA256, hash)
-
-	case ed25519.PrivateKey:
-		return ed25519.Sign(key, hash), nil
-
-	default:
-		return nil, fmt.Errorf("unsupported key type: %T", key)
-	}
 }
 
 // signBundle creates a signature bundle.
@@ -352,9 +236,8 @@ func (s *Signer) signBundle(ctx context.Context, data, hash []byte) (*SigningRes
 		return nil, fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
-	// Sign the payload
-	payloadHash := sha256.Sum256(payloadBytes)
-	signature, err := s.signData(payloadHash[:])
+	// Sign the payload using the shared signer
+	sigResult, err := s.keySigner.Sign(ctx, payloadBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign payload: %w", err)
 	}
@@ -364,7 +247,7 @@ func (s *Signer) signBundle(ctx context.Context, data, hash []byte) (*SigningRes
 		Payload:     base64.StdEncoding.EncodeToString(payloadBytes),
 		Signatures: []BundleSignature{
 			{
-				Sig: base64.StdEncoding.EncodeToString(signature),
+				Sig: sigResult.SignatureBase64,
 			},
 		},
 	}
@@ -379,7 +262,7 @@ func (s *Signer) signBundle(ctx context.Context, data, hash []byte) (*SigningRes
 	}
 
 	return &SigningResult{
-		Signature:   base64.StdEncoding.EncodeToString(signature),
+		Signature:   sigResult.SignatureBase64,
 		Digest:      fmt.Sprintf("sha256:%x", hash),
 		Timestamp:   time.Now().UTC(),
 		Annotations: s.config.Annotations,
@@ -399,35 +282,7 @@ func (s *Signer) SignBlueprint(ctx context.Context, archivePath string) (*Signin
 
 // GetPublicKey returns the public key in PEM format.
 func (s *Signer) GetPublicKey() ([]byte, error) {
-	var keyBytes []byte
-	var err error
-
-	switch key := s.publicKey.(type) {
-	case *ecdsa.PublicKey:
-		keyBytes, err = x509.MarshalPKIXPublicKey(key)
-	case *rsa.PublicKey:
-		keyBytes, err = x509.MarshalPKIXPublicKey(key)
-	case ed25519.PublicKey:
-		keyBytes, err = x509.MarshalPKIXPublicKey(key)
-	default:
-		return nil, fmt.Errorf("unsupported key type: %T", key)
-	}
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal public key: %w", err)
-	}
-
-	block := &pem.Block{
-		Type:  "PUBLIC KEY",
-		Bytes: keyBytes,
-	}
-
-	var buf bytes.Buffer
-	if err := pem.Encode(&buf, block); err != nil {
-		return nil, fmt.Errorf("failed to encode PEM: %w", err)
-	}
-
-	return buf.Bytes(), nil
+	return s.keySigner.PublicKey()
 }
 
 // KeyType returns the type of the signing key.
@@ -435,103 +290,31 @@ func (s *Signer) KeyType() KeyType {
 	return s.keyType
 }
 
-// GenerateKeyPair generates a new key pair.
+// GenerateKeyPair generates a new key pair using the shared signing package.
 func GenerateKeyPair(keyType KeyType, bits int) (privateKey, publicKey []byte, err error) {
-	var priv crypto.PrivateKey
-	var pub crypto.PublicKey
-
+	var kt signing.KeyType
 	switch keyType {
 	case KeyTypeECDSA:
-		curve := elliptic.P256()
-		if bits >= 384 {
-			curve = elliptic.P384()
-		} else if bits >= 521 {
-			curve = elliptic.P521()
-		}
-		key, err := ecdsa.GenerateKey(curve, rand.Reader)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to generate ECDSA key: %w", err)
-		}
-		priv = key
-		pub = &key.PublicKey
-
+		kt = signing.KeyTypeECDSA
 	case KeyTypeRSA:
-		if bits < 2048 {
-			bits = 2048
-		}
-		key, err := rsa.GenerateKey(rand.Reader, bits)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to generate RSA key: %w", err)
-		}
-		priv = key
-		pub = &key.PublicKey
-
+		kt = signing.KeyTypeRSA
 	case KeyTypeEd25519:
-		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to generate Ed25519 key: %w", err)
-		}
-		priv = privKey
-		pub = pubKey
-
+		kt = signing.KeyTypeEd25519
 	default:
 		return nil, nil, fmt.Errorf("unsupported key type: %s", keyType)
 	}
 
-	// Marshal private key
-	privBytes, err := x509.MarshalPKCS8PrivateKey(priv)
+	keyPair, err := signing.GenerateKeyPair(kt, bits)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to marshal private key: %w", err)
+		return nil, nil, err
 	}
 
-	privBlock := &pem.Block{
-		Type:  "PRIVATE KEY",
-		Bytes: privBytes,
-	}
-
-	var privBuf bytes.Buffer
-	if err := pem.Encode(&privBuf, privBlock); err != nil {
-		return nil, nil, fmt.Errorf("failed to encode private key PEM: %w", err)
-	}
-
-	// Marshal public key
-	pubBytes, err := x509.MarshalPKIXPublicKey(pub)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to marshal public key: %w", err)
-	}
-
-	pubBlock := &pem.Block{
-		Type:  "PUBLIC KEY",
-		Bytes: pubBytes,
-	}
-
-	var pubBuf bytes.Buffer
-	if err := pem.Encode(&pubBuf, pubBlock); err != nil {
-		return nil, nil, fmt.Errorf("failed to encode public key PEM: %w", err)
-	}
-
-	return privBuf.Bytes(), pubBuf.Bytes(), nil
+	return keyPair.PrivateKey, keyPair.PublicKey, nil
 }
 
-// EncryptPrivateKey encrypts a private key with a password.
+// EncryptPrivateKey encrypts a private key with a password using the shared signing package.
 func EncryptPrivateKey(privateKey []byte, password string) ([]byte, error) {
-	block, _ := pem.Decode(privateKey)
-	if block == nil {
-		return nil, fmt.Errorf("failed to decode PEM block")
-	}
-
-	//nolint:staticcheck // Using deprecated function for compatibility
-	encBlock, err := x509.EncryptPEMBlock(rand.Reader, block.Type, block.Bytes, []byte(password), x509.PEMCipherAES256)
-	if err != nil {
-		return nil, fmt.Errorf("failed to encrypt private key: %w", err)
-	}
-
-	var buf bytes.Buffer
-	if err := pem.Encode(&buf, encBlock); err != nil {
-		return nil, fmt.Errorf("failed to encode encrypted PEM: %w", err)
-	}
-
-	return buf.Bytes(), nil
+	return signing.EncryptPrivateKey(privateKey, password)
 }
 
 // ParseSignature parses a base64-encoded signature.
@@ -548,15 +331,9 @@ func ParseSignatureBundle(data []byte) (*SignatureBundle, error) {
 	return &bundle, nil
 }
 
-// FormatFingerprint formats a public key fingerprint.
+// FormatFingerprint formats a public key fingerprint using the shared signing package.
 func FormatFingerprint(publicKey []byte) string {
-	block, _ := pem.Decode(publicKey)
-	if block == nil {
-		return ""
-	}
-
-	hash := sha256.Sum256(block.Bytes)
-	return fmt.Sprintf("sha256:%s", formatHexFingerprint(hash[:]))
+	return signing.KeyFingerprint(publicKey)
 }
 
 // formatHexFingerprint formats bytes as a colon-separated hex string.

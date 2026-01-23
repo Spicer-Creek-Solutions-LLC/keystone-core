@@ -1,10 +1,9 @@
 package verify
 
 import (
-	"crypto"
+	"context"
 	"crypto/ecdsa"
 	"crypto/ed25519"
-	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
@@ -14,9 +13,11 @@ import (
 	"math/big"
 	"os"
 	"strings"
+
+	"github.com/shawnbutts/keystone-core/pkg/signing"
 )
 
-// DefaultSignatureVerifier implements SignatureVerifier
+// DefaultSignatureVerifier implements SignatureVerifier using the shared signing package
 type DefaultSignatureVerifier struct {
 	format SignatureFormat
 }
@@ -30,96 +31,28 @@ func NewSignatureVerifier(format SignatureFormat) *DefaultSignatureVerifier {
 
 // VerifySignature verifies a signature against a module
 func (v *DefaultSignatureVerifier) VerifySignature(modulePath, signaturePath string, publicKey []byte) (bool, error) {
-	// Read module data
-	moduleData, err := os.ReadFile(modulePath)
-	if err != nil {
-		return false, fmt.Errorf("failed to read module: %w", err)
-	}
-
-	// Read signature
-	signatureData, err := os.ReadFile(signaturePath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return false, ErrSignatureNotFound
-		}
-		return false, fmt.Errorf("failed to read signature: %w", err)
-	}
-
-	// Parse public key
-	pubKey, err := parsePublicKey(publicKey)
+	verifier, err := signing.NewKeyVerifier(&signing.KeyVerifierConfig{
+		PublicKeyPEM:  publicKey,
+		HashAlgorithm: signing.HashSHA256,
+	})
 	if err != nil {
 		return false, fmt.Errorf("%w: %v", ErrInvalidPublicKey, err)
 	}
 
-	// Compute hash of module
-	hash := sha256.Sum256(moduleData)
-
-	// Verify based on key type
-	switch key := pubKey.(type) {
-	case *rsa.PublicKey:
-		return verifyRSA(key, hash[:], signatureData)
-	case *ecdsa.PublicKey:
-		return verifyECDSA(key, hash[:], signatureData)
-	case ed25519.PublicKey:
-		return verifyEd25519(key, hash[:], signatureData)
-	default:
-		return false, fmt.Errorf("%w: unsupported key type %T", ErrInvalidPublicKey, pubKey)
+	valid, err := verifier.VerifyFile(context.Background(), modulePath, signaturePath)
+	if err != nil {
+		if err == signing.ErrSignatureNotFound {
+			return false, ErrSignatureNotFound
+		}
+		return false, err
 	}
+
+	return valid, nil
 }
 
 // GetSignerIdentity extracts the signer's identity from a signature
 func (v *DefaultSignatureVerifier) GetSignerIdentity(signaturePath string) (string, error) {
-	// This is a simplified implementation
-	// In a real implementation, this would parse the signature format
-	// and extract identity information (email, key ID, etc.)
 	return "unknown", nil
-}
-
-// verifyRSA verifies an RSA signature
-func verifyRSA(pubKey *rsa.PublicKey, hash, signature []byte) (bool, error) {
-	err := rsa.VerifyPKCS1v15(pubKey, crypto.SHA256, hash, signature)
-	if err != nil {
-		return false, nil
-	}
-	return true, nil
-}
-
-// verifyECDSA verifies an ECDSA signature
-func verifyECDSA(pubKey *ecdsa.PublicKey, hash, signature []byte) (bool, error) {
-	// ECDSA signatures are typically (r, s) pairs
-	// This is a simplified verification
-	if !ecdsa.VerifyASN1(pubKey, hash, signature) {
-		return false, nil
-	}
-	return true, nil
-}
-
-// verifyEd25519 verifies an Ed25519 signature
-func verifyEd25519(pubKey ed25519.PublicKey, hash, signature []byte) (bool, error) {
-	if !ed25519.Verify(pubKey, hash, signature) {
-		return false, nil
-	}
-	return true, nil
-}
-
-// parsePublicKey parses a PEM-encoded public key
-func parsePublicKey(pemData []byte) (interface{}, error) {
-	block, _ := pem.Decode(pemData)
-	if block == nil {
-		return nil, fmt.Errorf("failed to decode PEM block")
-	}
-
-	// Try parsing as PKIX public key
-	if pubKey, err := x509.ParsePKIXPublicKey(block.Bytes); err == nil {
-		return pubKey, nil
-	}
-
-	// Try parsing as PKCS1 RSA public key
-	if rsaKey, err := x509.ParsePKCS1PublicKey(block.Bytes); err == nil {
-		return rsaKey, nil
-	}
-
-	return nil, fmt.Errorf("unsupported key format")
 }
 
 // CosignVerifier implements Cosign-style verification

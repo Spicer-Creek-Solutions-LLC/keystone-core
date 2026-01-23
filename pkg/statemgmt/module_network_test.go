@@ -151,8 +151,14 @@ func TestNetworkModule_ParseConfig(t *testing.T) {
 			if config.Interface != tt.wantIface {
 				t.Errorf("Interface = %s, want %s", config.Interface, tt.wantIface)
 			}
-			if config.Address != tt.wantAddr {
-				t.Errorf("Address = %s, want %s", config.Address, tt.wantAddr)
+			if tt.wantAddr != "" {
+				if len(config.Addresses) == 0 || config.Addresses[0] != tt.wantAddr {
+					gotAddr := ""
+					if len(config.Addresses) > 0 {
+						gotAddr = config.Addresses[0]
+					}
+					t.Errorf("Address = %s, want %s", gotAddr, tt.wantAddr)
+				}
 			}
 			if config.Gateway != tt.wantGW {
 				t.Errorf("Gateway = %s, want %s", config.Gateway, tt.wantGW)
@@ -372,5 +378,401 @@ func TestNetworkManagerConstants(t *testing.T) {
 		if string(nm) != expected[i] {
 			t.Errorf("NetworkManager constant %d = %s, want %s", i, string(nm), expected[i])
 		}
+	}
+}
+
+func TestNetworkModule_UpdateIfupdownConfig_NewInterface(t *testing.T) {
+	m := NewNetworkModule()
+
+	config := &NetworkConfig{
+		Interface: "eth0",
+		Addresses: []string{"192.168.1.100"},
+		Gateway:   "192.168.1.1",
+		DNS:       []string{"8.8.8.8", "8.8.4.4"},
+	}
+
+	// Empty file - should add new interface
+	result := m.updateIfupdownConfig("", config, "192.168.1.100", "255.255.255.0", false)
+
+	if !networkTestContains(result, "auto eth0") {
+		t.Error("expected 'auto eth0' in result")
+	}
+	if !networkTestContains(result, "iface eth0 inet static") {
+		t.Error("expected 'iface eth0 inet static' in result")
+	}
+	if !networkTestContains(result, "address 192.168.1.100") {
+		t.Error("expected 'address 192.168.1.100' in result")
+	}
+	if !networkTestContains(result, "netmask 255.255.255.0") {
+		t.Error("expected 'netmask 255.255.255.0' in result")
+	}
+	if !networkTestContains(result, "gateway 192.168.1.1") {
+		t.Error("expected 'gateway 192.168.1.1' in result")
+	}
+	if !networkTestContains(result, "dns-nameservers 8.8.8.8 8.8.4.4") {
+		t.Error("expected 'dns-nameservers 8.8.8.8 8.8.4.4' in result")
+	}
+}
+
+func TestNetworkModule_UpdateIfupdownConfig_DHCP(t *testing.T) {
+	m := NewNetworkModule()
+
+	config := &NetworkConfig{
+		Interface: "eth0",
+	}
+
+	result := m.updateIfupdownConfig("", config, "", "", true)
+
+	if !networkTestContains(result, "auto eth0") {
+		t.Error("expected 'auto eth0' in result")
+	}
+	if !networkTestContains(result, "iface eth0 inet dhcp") {
+		t.Error("expected 'iface eth0 inet dhcp' in result")
+	}
+}
+
+func TestNetworkModule_UpdateIfupdownConfig_ReplaceExisting(t *testing.T) {
+	m := NewNetworkModule()
+
+	existingContent := `# Interfaces file
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet static
+    address 10.0.0.5
+    netmask 255.0.0.0
+    gateway 10.0.0.1
+
+auto eth1
+iface eth1 inet dhcp
+`
+
+	config := &NetworkConfig{
+		Interface: "eth0",
+		Addresses: []string{"192.168.1.100"},
+		Gateway:   "192.168.1.1",
+	}
+
+	result := m.updateIfupdownConfig(existingContent, config, "192.168.1.100", "255.255.255.0", false)
+
+	// Should preserve lo and eth1
+	if !networkTestContains(result, "auto lo") {
+		t.Error("expected 'auto lo' to be preserved")
+	}
+	if !networkTestContains(result, "iface lo inet loopback") {
+		t.Error("expected 'iface lo inet loopback' to be preserved")
+	}
+	if !networkTestContains(result, "auto eth1") {
+		t.Error("expected 'auto eth1' to be preserved")
+	}
+	if !networkTestContains(result, "iface eth1 inet dhcp") {
+		t.Error("expected 'iface eth1 inet dhcp' to be preserved")
+	}
+
+	// Should have updated eth0 config
+	if !networkTestContains(result, "iface eth0 inet static") {
+		t.Error("expected 'iface eth0 inet static' in result")
+	}
+	if !networkTestContains(result, "address 192.168.1.100") {
+		t.Error("expected new 'address 192.168.1.100' in result")
+	}
+	if !networkTestContains(result, "gateway 192.168.1.1") {
+		t.Error("expected new 'gateway 192.168.1.1' in result")
+	}
+
+	// Should NOT have old config
+	if networkTestContains(result, "address 10.0.0.5") {
+		t.Error("old address should be replaced")
+	}
+	if networkTestContains(result, "gateway 10.0.0.1") {
+		t.Error("old gateway should be replaced")
+	}
+}
+
+func TestNetworkModule_UpdateIfupdownConfig_WithMTUAndMetric(t *testing.T) {
+	m := NewNetworkModule()
+
+	config := &NetworkConfig{
+		Interface:     "eth0",
+		Addresses:     []string{"192.168.1.100"},
+		MTU:           9000,
+		Metric:        100,
+		SearchDomains: []string{"example.com", "local"},
+	}
+
+	result := m.updateIfupdownConfig("", config, "192.168.1.100", "255.255.255.0", false)
+
+	if !networkTestContains(result, "mtu 9000") {
+		t.Error("expected 'mtu 9000' in result")
+	}
+	if !networkTestContains(result, "metric 100") {
+		t.Error("expected 'metric 100' in result")
+	}
+	if !networkTestContains(result, "dns-search example.com local") {
+		t.Error("expected 'dns-search example.com local' in result")
+	}
+}
+
+// helper function for string contains check
+func networkTestContains(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
+func TestNetworkModule_ParseIPv6Config(t *testing.T) {
+	m := NewNetworkModule()
+
+	tests := []struct {
+		name           string
+		decl           *StateDeclaration
+		wantAddr6      string
+		wantGW6        string
+		wantDHCP6      bool
+		wantIPv6       bool
+		wantIPv6Priv   bool
+		wantAcceptRA   *bool
+		wantSearchDoms []string
+	}{
+		{
+			name: "basic IPv6 static config",
+			decl: &StateDeclaration{
+				ID:     "eth0",
+				State:  "configured",
+				Module: "network",
+				Parameters: map[string]interface{}{
+					"address":      "192.168.1.100/24",
+					"address6":     "2001:db8::1/64",
+					"gateway6":     "2001:db8::ffff",
+					"ipv6_enabled": true,
+				},
+			},
+			wantAddr6: "2001:db8::1/64",
+			wantGW6:   "2001:db8::ffff",
+			wantIPv6:  true,
+		},
+		{
+			name: "DHCPv6 config",
+			decl: &StateDeclaration{
+				ID:     "eth0",
+				State:  "dhcp",
+				Module: "network",
+				Parameters: map[string]interface{}{
+					"dhcp":  true,
+					"dhcp6": true,
+				},
+			},
+			wantDHCP6: true,
+			wantIPv6:  true, // Auto-enabled when dhcp6 is true
+		},
+		{
+			name: "IPv6 with privacy extensions",
+			decl: &StateDeclaration{
+				ID:     "eth0",
+				State:  "configured",
+				Module: "network",
+				Parameters: map[string]interface{}{
+					"address6":      "2001:db8::1/64",
+					"ipv6_privacy":  true,
+					"ipv6_enabled":  true,
+				},
+			},
+			wantAddr6:    "2001:db8::1/64",
+			wantIPv6:     true,
+			wantIPv6Priv: true,
+		},
+		{
+			name: "IPv6 with accept_ra disabled",
+			decl: &StateDeclaration{
+				ID:     "eth0",
+				State:  "configured",
+				Module: "network",
+				Parameters: map[string]interface{}{
+					"address6":     "2001:db8::1/64",
+					"accept_ra":    false,
+					"ipv6_enabled": true,
+				},
+			},
+			wantAddr6:    "2001:db8::1/64",
+			wantIPv6:     true,
+			wantAcceptRA: boolPtr(false),
+		},
+		{
+			name: "config with search domains",
+			decl: &StateDeclaration{
+				ID:     "eth0",
+				State:  "configured",
+				Module: "network",
+				Parameters: map[string]interface{}{
+					"address":        "192.168.1.100/24",
+					"search_domains": "example.com,local.lan",
+				},
+			},
+			wantSearchDoms: []string{"example.com", "local.lan"},
+		},
+		{
+			name: "config with search domains array",
+			decl: &StateDeclaration{
+				ID:     "eth0",
+				State:  "configured",
+				Module: "network",
+				Parameters: map[string]interface{}{
+					"address":        "192.168.1.100/24",
+					"search_domains": []string{"corp.example.com", "internal"},
+				},
+			},
+			wantSearchDoms: []string{"corp.example.com", "internal"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config, err := m.parseNetworkConfig(tt.decl)
+			if err != nil {
+				t.Fatalf("parseNetworkConfig() error = %v", err)
+			}
+
+			if tt.wantAddr6 != "" {
+				if len(config.Addresses6) == 0 || config.Addresses6[0] != tt.wantAddr6 {
+					gotAddr6 := ""
+					if len(config.Addresses6) > 0 {
+						gotAddr6 = config.Addresses6[0]
+					}
+					t.Errorf("Address6 = %s, want %s", gotAddr6, tt.wantAddr6)
+				}
+			}
+			if config.Gateway6 != tt.wantGW6 {
+				t.Errorf("Gateway6 = %s, want %s", config.Gateway6, tt.wantGW6)
+			}
+			if config.DHCP6 != tt.wantDHCP6 {
+				t.Errorf("DHCP6 = %v, want %v", config.DHCP6, tt.wantDHCP6)
+			}
+			if config.IPv6Enabled != tt.wantIPv6 {
+				t.Errorf("IPv6Enabled = %v, want %v", config.IPv6Enabled, tt.wantIPv6)
+			}
+			if config.IPv6Privacy != tt.wantIPv6Priv {
+				t.Errorf("IPv6Privacy = %v, want %v", config.IPv6Privacy, tt.wantIPv6Priv)
+			}
+			if tt.wantAcceptRA != nil {
+				if config.AcceptRA == nil {
+					t.Errorf("AcceptRA = nil, want %v", *tt.wantAcceptRA)
+				} else if *config.AcceptRA != *tt.wantAcceptRA {
+					t.Errorf("AcceptRA = %v, want %v", *config.AcceptRA, *tt.wantAcceptRA)
+				}
+			}
+			if len(tt.wantSearchDoms) > 0 {
+				if len(config.SearchDomains) != len(tt.wantSearchDoms) {
+					t.Errorf("SearchDomains len = %d, want %d", len(config.SearchDomains), len(tt.wantSearchDoms))
+				} else {
+					for i, dom := range tt.wantSearchDoms {
+						if config.SearchDomains[i] != dom {
+							t.Errorf("SearchDomains[%d] = %s, want %s", i, config.SearchDomains[i], dom)
+						}
+					}
+				}
+			}
+		})
+	}
+}
+
+func boolPtr(b bool) *bool {
+	return &b
+}
+
+func TestNetworkModule_UpdateIfupdownConfig_IPv6Static(t *testing.T) {
+	m := NewNetworkModule()
+
+	raEnabled := true
+	config := &NetworkConfig{
+		Interface:   "eth0",
+		Addresses:   []string{"192.168.1.100"},
+		Gateway:     "192.168.1.1",
+		DNS:         []string{"8.8.8.8", "2001:4860:4860::8888"},
+		Addresses6:  []string{"2001:db8::1/64"},
+		Gateway6:    "2001:db8::ffff",
+		IPv6Enabled: true,
+		AcceptRA:    &raEnabled,
+	}
+
+	result := m.updateIfupdownConfig("", config, "192.168.1.100", "255.255.255.0", false)
+
+	// IPv4 stanza
+	if !networkTestContains(result, "iface eth0 inet static") {
+		t.Error("expected 'iface eth0 inet static' in result")
+	}
+	if !networkTestContains(result, "address 192.168.1.100") {
+		t.Error("expected 'address 192.168.1.100' in result")
+	}
+	if !networkTestContains(result, "dns-nameservers 8.8.8.8") {
+		t.Error("expected IPv4 DNS in inet stanza")
+	}
+
+	// IPv6 stanza
+	if !networkTestContains(result, "iface eth0 inet6 static") {
+		t.Error("expected 'iface eth0 inet6 static' in result")
+	}
+	if !networkTestContains(result, "address 2001:db8::1") {
+		t.Error("expected IPv6 address in inet6 stanza")
+	}
+	if !networkTestContains(result, "netmask 64") {
+		t.Error("expected IPv6 prefix length as netmask")
+	}
+	if !networkTestContains(result, "gateway 2001:db8::ffff") {
+		t.Error("expected IPv6 gateway in inet6 stanza")
+	}
+	if !networkTestContains(result, "accept_ra 1") {
+		t.Error("expected accept_ra setting in inet6 stanza")
+	}
+	if !networkTestContains(result, "dns-nameservers 2001:4860:4860::8888") {
+		t.Error("expected IPv6 DNS in inet6 stanza")
+	}
+}
+
+func TestNetworkModule_UpdateIfupdownConfig_DHCPv6(t *testing.T) {
+	m := NewNetworkModule()
+
+	config := &NetworkConfig{
+		Interface:   "eth0",
+		DHCP:        true,
+		DHCP6:       true,
+		IPv6Enabled: true,
+	}
+
+	result := m.updateIfupdownConfig("", config, "", "", true)
+
+	// IPv4 DHCP stanza
+	if !networkTestContains(result, "iface eth0 inet dhcp") {
+		t.Error("expected 'iface eth0 inet dhcp' in result")
+	}
+
+	// IPv6 DHCPv6 stanza
+	if !networkTestContains(result, "iface eth0 inet6 dhcp") {
+		t.Error("expected 'iface eth0 inet6 dhcp' in result")
+	}
+}
+
+func TestNetworkModule_UpdateIfupdownConfig_IPv6SLAAC(t *testing.T) {
+	m := NewNetworkModule()
+
+	config := &NetworkConfig{
+		Interface:   "eth0",
+		Addresses:   []string{"192.168.1.100"},
+		IPv6Enabled: true,
+		IPv6Privacy: true,
+		// No Addresses6 or DHCP6, so SLAAC mode
+	}
+
+	result := m.updateIfupdownConfig("", config, "192.168.1.100", "255.255.255.0", false)
+
+	// IPv6 SLAAC (auto) stanza
+	if !networkTestContains(result, "iface eth0 inet6 auto") {
+		t.Error("expected 'iface eth0 inet6 auto' in result")
+	}
+	if !networkTestContains(result, "privext 2") {
+		t.Error("expected 'privext 2' for privacy extensions")
 	}
 }

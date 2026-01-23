@@ -3,6 +3,8 @@ package lockfile
 import (
 	"fmt"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/semver"
 )
 
 // LockFileNotFoundError indicates the lock file doesn't exist
@@ -180,13 +182,43 @@ const (
 
 // GetUpdateType returns the type of update from old to new version
 func (c *ModuleChange) GetUpdateType() UpdateType {
-	// Simple version comparison - would need semver library for proper comparison
-	if c.NewVersion < c.OldVersion {
-		return UpdateTypeDowngrade
-	}
-	if c.NewVersion == c.OldVersion {
+	// Parse versions using semver package
+	oldVer, oldErr := semver.Parse(c.OldVersion)
+	newVer, newErr := semver.Parse(c.NewVersion)
+
+	// If either version fails to parse, fall back to string comparison
+	if oldErr != nil || newErr != nil {
+		if c.NewVersion < c.OldVersion {
+			return UpdateTypeDowngrade
+		}
+		if c.NewVersion == c.OldVersion {
+			return UpdateTypeUnknown
+		}
 		return UpdateTypeUnknown
 	}
-	// TODO: Implement proper semver comparison
+
+	// Use semver comparison to determine change type
+	diff := semver.Compare(oldVer, newVer)
+
+	switch diff.Direction {
+	case semver.DirectionNone:
+		return UpdateTypeUnknown
+	case semver.DirectionDowngrade:
+		return UpdateTypeDowngrade
+	case semver.DirectionUpgrade:
+		switch diff.Type {
+		case semver.ChangeMajor:
+			return UpdateTypeMajor
+		case semver.ChangeMinor:
+			return UpdateTypeMinor
+		case semver.ChangePatch:
+			return UpdateTypePatch
+		case semver.ChangePrerelease:
+			return UpdateTypePrerelease
+		default:
+			return UpdateTypeUnknown
+		}
+	}
+
 	return UpdateTypeUnknown
 }

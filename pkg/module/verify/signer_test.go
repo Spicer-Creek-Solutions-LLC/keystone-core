@@ -20,8 +20,8 @@ func TestGenerateKeyPair_RSA(t *testing.T) {
 		t.Error("public key is empty")
 	}
 
-	// Verify PEM format using contains check
-	if !strings.Contains(string(privateKey), "-----BEGIN RSA PRIVATE KEY-----") {
+	// Verify PEM format (PKCS8 for all key types)
+	if !strings.Contains(string(privateKey), "-----BEGIN PRIVATE KEY-----") {
 		t.Errorf("private key not in PEM format: %s", string(privateKey[:50]))
 	}
 	if !strings.Contains(string(publicKey), "-----BEGIN PUBLIC KEY-----") {
@@ -42,8 +42,8 @@ func TestGenerateKeyPair_ECDSA(t *testing.T) {
 		t.Error("public key is empty")
 	}
 
-	// Verify PEM format
-	if string(privateKey[:26]) != "-----BEGIN EC PRIVATE KEY-" {
+	// Verify PEM format (PKCS8 for all key types)
+	if !strings.Contains(string(privateKey), "-----BEGIN PRIVATE KEY-----") {
 		t.Errorf("private key not in PEM format: %s", string(privateKey[:50]))
 	}
 }
@@ -61,8 +61,8 @@ func TestGenerateKeyPair_Ed25519(t *testing.T) {
 		t.Error("public key is empty")
 	}
 
-	// Verify PEM format
-	if string(privateKey[:22]) != "-----BEGIN PRIVATE KEY" {
+	// Verify PEM format (PKCS8 for all key types)
+	if !strings.Contains(string(privateKey), "-----BEGIN PRIVATE KEY-----") {
 		t.Errorf("private key not in PEM format: %s", string(privateKey[:50]))
 	}
 }

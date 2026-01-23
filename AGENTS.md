@@ -114,7 +114,8 @@ This repository contains working implementations of **Epics 1-29**. The project 
     ├── 31-nist-design-principles.md      # NIST design principles
     ├── 36-deep-secrets-management.md     # Deep secrets management integration
     ├── 37-enhanced-runbooks.md           # Enhanced runbook automation
-    └── 38-air-gapped-deployments.md      # Air-gapped deployment support
+    ├── 38-air-gapped-deployments.md      # Air-gapped deployment support
+    └── future-web-ui-management-console.md  # Web UI (future, not scheduled)
 ```
 
 ## Architecture Overview
@@ -182,8 +183,9 @@ Implementation order:
 
 - **Release & Distribution** - Release automation, package repos, artifact signing
 - **Multi-Tenancy** - Namespace isolation, per-tenant RBAC/quotas, SSO integration
+- **Interactive OIDC Signing** - OAuth 2.0 device flow or browser-based authorization for keyless signing without pre-provided tokens
 - **Scheduled Operations** - Centralized job scheduler, maintenance windows
-- **Web UI / Management Console** - Web-based dashboard, topology visualization
+- **Web UI / Management Console** - Web-based dashboard, enterprise auth (2FA, SSO), user/group management - See `epics/future-web-ui-management-console.md`
 - **Mobile Monitoring App** - Native mobile app for monitoring and alerts
 - **Natural Language Interface** - AI-powered natural language queries and commands
 - **Automatic Drift Remediation** - Opt-in auto-fix, approval workflows
