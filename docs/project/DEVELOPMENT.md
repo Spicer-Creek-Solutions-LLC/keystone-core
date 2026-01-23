@@ -188,6 +188,11 @@ go test -race ./...
 KSCORE_E2E_TESTS=1 make e2e-test
 ```
 
+### VM E2E Testing
+
+For VM-based E2E testing (all-in-one, HA, IPv6, performance), see
+`docs/project/E2E-VM-TESTING.md`.
+
 ### Writing Tests
 
 - **Table-driven tests**: Use for multiple test cases
@@ -278,6 +283,7 @@ When adding features, update documentation:
 - **Reference docs**: API/CLI changes go in `docs/content/en/docs/reference/`
 - **Guides**: Tutorials and how-tos go in `docs/content/en/docs/guides/`
 - **Examples**: Add to `examples/` directory
+- **Diagrams**: Use Mermaid syntax for all diagrams
 
 ## AI-Assisted Contributions
 

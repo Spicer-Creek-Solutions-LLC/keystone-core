@@ -6037,6 +6037,1570 @@ kscore-telemetry-gateway serve --config /etc/kscore/gateway.yaml
 
 Agents are distributed across instances using NATS queue groups. Leader election coordinates tasks that should only run on one instance (like remote write).
 
+## kscore-backup (Backup Management)
+
+Create, manage, verify, and restore backups of Keystone Core data including database, configuration, secrets, JetStream, etcd, and certificates.
+
+### Global Flags
+
+These flags apply to all kscore-backup commands:
+
+- `--server string`: Control plane server address (default: localhost:9090)
+- `-o, --output string`: Output format: table, json, yaml (default: table)
+- `-v, --verbose`: Enable verbose output
+- `--audit-level string`: Audit logging level: all, errors, none (default: all)
+- `--audit-output string`: Audit output backend: auto, syslog, journald, stderr, none
+
+### backup create
+
+Create a new backup of Keystone Core data.
+
+```bash
+kscorectl backup create [flags]
+```
+
+**Flags**:
+- `-t, --type string`: Backup type: full, incremental, database, configuration, jetstream, etcd, secrets (default: full)
+- `-c, --components strings`: Specific components to backup (database, config, secrets, jetstream, etcd, certificates)
+- `-d, --destination string`: Backup destination (local, s3://bucket/path, gs://bucket/path, azure://container/path)
+- `-e, --encrypt`: Encrypt the backup
+- `--compress`: Compress the backup (default: true)
+- `--compression string`: Compression type: none, gzip, bzip2, xz, zstd, lz4 (default: gzip)
+- `--compression-level int`: Compression level (0=default, algorithm-specific range)
+- `-l, --label strings`: Labels to attach (key=value format)
+- `--async`: Run backup asynchronously
+
+**Rclone Flags** (for cloud storage via rclone):
+- `--rclone-remote string`: Rclone remote name (configured via 'rclone config')
+- `--rclone-path string`: Path within the rclone remote
+- `--rclone-config string`: Path to rclone config file (default: ~/.config/rclone/rclone.conf)
+- `--rclone-streaming`: Use streaming mode for rclone - pipes data directly without temp files (default: true)
+
+**Compression Types**:
+| Type | Extension | Description |
+|------|-----------|-------------|
+| none | (none) | No compression |
+| gzip | .gz | Standard gzip, good balance of speed and ratio (default) |
+| bzip2 | .bz2 | Higher compression ratio, slower than gzip |
+| xz | .xz | Highest compression ratio, slowest |
+| zstd | .zst | Fast compression with good ratio (recommended) |
+| lz4 | .lz4 | Fastest compression, lower ratio |
+
+**Rclone Destinations**:
+
+The `--rclone-remote` flag enables backup to any of 50+ cloud storage providers supported by rclone, including:
+- Dropbox, Google Drive, OneDrive, Box
+- Backblaze B2, Wasabi, DigitalOcean Spaces
+- SFTP, FTP, WebDAV
+- And many more...
+
+Configure remotes first with `rclone config`. With streaming mode enabled (default), data is piped directly to cloud storage without requiring local temporary storage.
+
+**Examples**:
+```bash
+# Create a full backup
+kscorectl backup create --type full
+
+# Create an incremental backup
+kscorectl backup create --type incremental
+
+# Create a database-only backup to S3
+kscorectl backup create --type database --destination s3://mybucket/backups
+
+# Create encrypted backup with specific components
+kscorectl backup create --type full --components database,config --encrypt
+
+# Create backup with labels
+kscorectl backup create --type full --label env=prod --label schedule=daily
+
+# Create backup with zstd compression (fast and efficient)
+kscorectl backup create --type full --compression zstd
+
+# Create backup with maximum xz compression
+kscorectl backup create --type full --compression xz --compression-level 9
+
+# Create backup to Dropbox via rclone (streaming, no temp files)
+kscorectl backup create --type full --rclone-remote dropbox --rclone-path /backups
+
+# Create backup to Google Drive via rclone
+kscorectl backup create --type full --rclone-remote gdrive --rclone-path backups/kscore
+
+# Create backup to Backblaze B2 via rclone
+kscorectl backup create --type full --rclone-remote b2 --rclone-path bucket/backups
+
+# Create encrypted backup to S3-compatible storage via rclone
+kscorectl backup create --type full --encrypt --rclone-remote minio --rclone-path backups
+```
+
+### backup list
+
+List backups with optional filtering.
+
+```bash
+kscorectl backup list [flags]
+```
+
+**Flags**:
+- `--last string`: Show backups from last duration (e.g., 24h, 7d)
+- `-t, --type string`: Filter by backup type
+- `--status string`: Filter by status (completed, failed, running)
+- `-n, --limit int`: Maximum number of backups to show (default: 20)
+
+**Examples**:
+```bash
+# List all backups
+kscorectl backup list
+
+# List backups from last 24 hours
+kscorectl backup list --last 24h
+
+# List only full backups
+kscorectl backup list --type full
+
+# List completed backups
+kscorectl backup list --status completed
+
+# List as JSON
+kscorectl backup list -o json
+```
+
+### backup show
+
+Show detailed information about a specific backup.
+
+```bash
+kscorectl backup show <backup-id>
+```
+
+**Examples**:
+```bash
+kscorectl backup show backup-20240115-060000
+kscorectl backup show backup-20240115-060000 -o yaml
+```
+
+### backup verify
+
+Verify the integrity and restorability of a backup.
+
+```bash
+kscorectl backup verify <backup-id> [flags]
+```
+
+**Flags**:
+- `--check-integrity`: Verify component integrity (default: true)
+- `--check-restorable`: Verify backup can be restored (performs restore simulation)
+- `-v, --verbose`: Show detailed verification output
+
+**Examples**:
+```bash
+# Basic verification
+kscorectl backup verify backup-20240115-060000
+
+# Full verification with restore check
+kscorectl backup verify backup-20240115-060000 --check-restorable
+
+# Verbose output
+kscorectl backup verify backup-20240115-060000 --verbose
+```
+
+### backup restore
+
+Restore Keystone Core data from a backup.
+
+```bash
+kscorectl backup restore <backup-id> [flags]
+```
+
+**Flags**:
+- `-t, --target string`: Target cluster for restore
+- `-c, --components strings`: Specific components to restore
+- `--dry-run`: Show what would be restored without making changes
+- `-f, --force`: Skip confirmation prompts
+- `--async`: Run restore asynchronously
+
+**Examples**:
+```bash
+# Dry-run restore (preview)
+kscorectl backup restore backup-20240115-060000 --dry-run
+
+# Restore to test cluster
+kscorectl backup restore backup-20240115-060000 --target test-cluster
+
+# Restore specific components
+kscorectl backup restore backup-20240115-060000 --components database,config
+
+# Force restore without confirmation
+kscorectl backup restore backup-20240115-060000 --force
+```
+
+### backup delete
+
+Delete a backup from storage.
+
+```bash
+kscorectl backup delete [backup-id] [flags]
+```
+
+**Flags**:
+- `-f, --force`: Skip confirmation prompts
+- `--older-than string`: Delete backups older than duration (e.g., 30d, 1w)
+
+**Examples**:
+```bash
+# Delete a specific backup
+kscorectl backup delete backup-20240115-060000
+
+# Delete without confirmation
+kscorectl backup delete backup-20240115-060000 --force
+
+# Delete backups older than 30 days
+kscorectl backup delete --older-than 30d --force
+```
+
+### backup replication-status
+
+Show the status of backup replication to secondary destinations.
+
+```bash
+kscorectl backup replication-status
+```
+
+**Example Output**:
+```
+Backup Replication Status
+=========================
+
+Enabled:       true
+Status:        healthy
+Sync Interval: 12h
+Last Sync:     2024-01-15T06:10:00Z
+Next Sync:     2024-01-15T18:00:00Z
+
+DESTINATION      TYPE   STATUS     LAST SYNC             BACKUPS   SIZE
+us-west-2        s3     ✓ synced   2024-01-15T06:10:00Z  30        15.2 GB
+eu-central-1     s3     ✓ synced   2024-01-15T06:10:05Z  30        15.2 GB
+local-archive    sftp   ◐ syncing  2024-01-14T18:00:00Z  28        14.5 GB
+```
+
+### backup schedule
+
+Manage automated backup schedules.
+
+#### backup schedule list
+
+List all backup schedules.
+
+```bash
+kscorectl backup schedule list
+```
+
+#### backup schedule create
+
+Create a new backup schedule.
+
+```bash
+kscorectl backup schedule create <name> [flags]
+```
+
+**Flags**:
+- `--schedule string`: Cron schedule expression (default: "0 6 * * *")
+- `-t, --type string`: Backup type (default: full)
+- `-c, --components strings`: Components to backup
+- `-d, --destination string`: Backup destination
+- `--retain int`: Number of backups to retain (default: 7)
+
+**Examples**:
+```bash
+# Create daily full backup schedule
+kscorectl backup schedule create daily-full --schedule "0 6 * * *" --type full
+
+# Create hourly incremental schedule
+kscorectl backup schedule create hourly-incr --schedule "0 * * * *" --type incremental
+
+# Create weekly archive schedule
+kscorectl backup schedule create weekly-archive --schedule "0 2 * * 0" --destination s3://archive/weekly --retain 52
+```
+
+#### backup schedule delete
+
+Delete a backup schedule.
+
+```bash
+kscorectl backup schedule delete <name>
+```
+
+#### backup schedule enable/disable
+
+Enable or disable a backup schedule.
+
+```bash
+kscorectl backup schedule enable <name>
+kscorectl backup schedule disable <name>
+```
+
+### backup retention
+
+Manage backup retention policies.
+
+#### backup retention show
+
+Show current retention policies.
+
+```bash
+kscorectl backup retention show
+```
+
+#### backup retention set
+
+Set retention policy parameters.
+
+```bash
+kscorectl backup retention set <policy-name> [flags]
+```
+
+**Flags**:
+- `--max-backups int`: Maximum number of backups to keep
+- `--max-age string`: Maximum age of backups (e.g., 30d)
+- `--keep-daily int`: Daily backups to keep
+- `--keep-weekly int`: Weekly backups to keep
+- `--keep-monthly int`: Monthly backups to keep
+- `--keep-yearly int`: Yearly backups to keep
+
+**Examples**:
+```bash
+# Set default retention policy
+kscorectl backup retention set default --max-backups 30 --max-age 30d
+
+# Set archive retention policy
+kscorectl backup retention set archive --keep-weekly 52 --keep-monthly 12 --keep-yearly 5
+```
+
+#### backup retention apply
+
+Apply retention policies to clean up old backups.
+
+```bash
+kscorectl backup retention apply [flags]
+```
+
+**Flags**:
+- `--dry-run`: Show what would be deleted without making changes
+
+**Examples**:
+```bash
+# Preview cleanup
+kscorectl backup retention apply --dry-run
+
+# Apply retention policies
+kscorectl backup retention apply
+```
+
+## kscore-events (Event Management)
+
+List, query, emit, replay, and watch events in the Keystone Core event system. Manage event retention and the dead letter queue.
+
+### Global Flags
+
+These flags apply to all kscore-events commands:
+
+- `--server string`: Control plane server address (default: localhost:9090)
+- `-o, --output string`: Output format: table, text, json, yaml (default: table)
+- `-v, --verbose`: Enable verbose output
+
+### events list
+
+List events with optional filtering.
+
+```bash
+kscorectl events list [flags]
+```
+
+**Flags**:
+- `--type string`: Filter by event type (e.g., agent.registered, state.applied)
+- `--source string`: Filter by event source
+- `--severity string`: Filter by severity (info, warning, error, critical)
+- `--since string`: Show events since time (RFC3339 or duration like 1h, 24h)
+- `--until string`: Show events until time
+- `--correlation-id string`: Filter by correlation ID
+- `-n, --limit int`: Maximum events to show (default: 100)
+
+**Examples**:
+```bash
+# List recent events
+kscorectl events list
+
+# List agent events from last hour
+kscorectl events list --type "agent.*" --since 1h
+
+# List error events
+kscorectl events list --severity error
+
+# List events with correlation ID
+kscorectl events list --correlation-id abc123
+
+# Output as JSON
+kscorectl events list --since 24h -o json
+```
+
+### events query
+
+Query events using CEL expressions.
+
+```bash
+kscorectl events query <expression> [flags]
+```
+
+**Flags**:
+- `--since string`: Query events since time
+- `--until string`: Query events until time
+- `-n, --limit int`: Maximum events to return (default: 100)
+
+**Examples**:
+```bash
+# Query state drift events
+kscorectl events query 'type == "state.drift" && severity == "warning"'
+
+# Query events from specific agent
+kscorectl events query 'source.agent_id == "agent-001"'
+
+# Query failed job events
+kscorectl events query 'type == "job.failed" && data.exit_code != 0'
+```
+
+### events emit
+
+Emit a custom event.
+
+```bash
+kscorectl events emit [flags]
+```
+
+**Flags**:
+- `--type string`: Event type (required)
+- `--data string`: Event data as JSON
+- `--severity string`: Event severity: info, warning, error, critical (default: info)
+- `--source string`: Event source identifier
+- `--correlation-id string`: Correlation ID for event tracing
+
+**Examples**:
+```bash
+# Emit a simple event
+kscorectl events emit --type custom.deployment.started --data '{"version":"1.2.3"}'
+
+# Emit warning event
+kscorectl events emit --type custom.threshold.exceeded --severity warning --data '{"metric":"cpu","value":95}'
+
+# Emit with correlation ID
+kscorectl events emit --type custom.task.started --correlation-id task-123 --data '{"task":"backup"}'
+```
+
+### events replay
+
+Replay historical events for testing or recovery.
+
+```bash
+kscorectl events replay [flags]
+```
+
+**Flags**:
+- `--type string`: Filter events to replay by type
+- `--since string`: Replay events since time
+- `--until string`: Replay events until time
+- `--target string`: Target for replayed events (reactor name or webhook URL)
+- `--dry-run`: Show events that would be replayed without replaying
+- `--rate float`: Replay rate multiplier (default: 1.0)
+
+**Examples**:
+```bash
+# Dry-run replay of drift events
+kscorectl events replay --type "state.drift" --since 24h --dry-run
+
+# Replay to specific reactor
+kscorectl events replay --type "agent.failed" --target reactor:auto-remediate --since 1h
+
+# Replay at 2x speed
+kscorectl events replay --since 1h --rate 2.0
+```
+
+### events watch
+
+Watch events in real-time.
+
+```bash
+kscorectl events watch [flags]
+```
+
+**Flags**:
+- `--type string`: Filter by event type pattern
+- `--severity string`: Minimum severity to show
+- `--source string`: Filter by source
+- `--format string`: Output format: text, json, jsonl (default: text)
+
+**Examples**:
+```bash
+# Watch all events
+kscorectl events watch
+
+# Watch agent events
+kscorectl events watch --type "agent.*"
+
+# Watch errors and above
+kscorectl events watch --severity error
+
+# Watch as JSON lines (for piping)
+kscorectl events watch --format jsonl | jq .
+```
+
+### events retention
+
+Manage event retention settings.
+
+#### events retention show
+
+Show current retention configuration.
+
+```bash
+kscorectl events retention show
+```
+
+#### events retention set
+
+Update retention settings.
+
+```bash
+kscorectl events retention set [flags]
+```
+
+**Flags**:
+- `--max-age string`: Maximum event age (e.g., 7d, 30d)
+- `--max-count int`: Maximum number of events to retain
+- `--type string`: Apply settings to specific event type
+
+**Examples**:
+```bash
+# Set global retention to 30 days
+kscorectl events retention set --max-age 30d
+
+# Set retention for error events to 90 days
+kscorectl events retention set --type "*.error" --max-age 90d
+
+# Set maximum event count
+kscorectl events retention set --max-count 1000000
+```
+
+### events dlq
+
+Manage the dead letter queue for failed event processing.
+
+#### events dlq list
+
+List events in the dead letter queue.
+
+```bash
+kscorectl events dlq list [flags]
+```
+
+**Flags**:
+- `--reason string`: Filter by failure reason
+- `-n, --limit int`: Maximum events to show (default: 50)
+
+#### events dlq show
+
+Show details of a DLQ event.
+
+```bash
+kscorectl events dlq show <event-id>
+```
+
+#### events dlq retry
+
+Retry processing DLQ events.
+
+```bash
+kscorectl events dlq retry [event-id] [flags]
+```
+
+**Flags**:
+- `--all`: Retry all DLQ events
+- `--type string`: Retry events of specific type
+
+**Examples**:
+```bash
+# Retry specific event
+kscorectl events dlq retry evt-12345
+
+# Retry all DLQ events
+kscorectl events dlq retry --all
+
+# Retry events of specific type
+kscorectl events dlq retry --type "webhook.delivery"
+```
+
+#### events dlq purge
+
+Remove events from the dead letter queue.
+
+```bash
+kscorectl events dlq purge [flags]
+```
+
+**Flags**:
+- `--older-than string`: Purge events older than duration
+- `--reason string`: Purge events with specific failure reason
+- `-f, --force`: Skip confirmation
+
+**Examples**:
+```bash
+# Purge events older than 7 days
+kscorectl events dlq purge --older-than 7d --force
+
+# Purge events with specific reason
+kscorectl events dlq purge --reason "timeout" --force
+```
+
+## kscore-schedule (Schedule and Maintenance Window Management)
+
+Manage scheduled operations and maintenance windows for automated task execution and operational coordination.
+
+### Global Flags
+
+These flags apply to all kscore-schedule commands:
+
+- `--server string`: Control plane server address (default: localhost:9090)
+- `-o, --output string`: Output format: table, json, yaml (default: table)
+- `-v, --verbose`: Enable verbose output
+
+### schedule list
+
+List scheduled operations.
+
+```bash
+kscorectl schedule list [flags]
+```
+
+**Flags**:
+- `--type string`: Filter by schedule type (command, state, blueprint, reactor)
+- `--status string`: Filter by status (active, paused, disabled)
+- `--label strings`: Filter by label (key:value format)
+- `--limit int`: Maximum schedules to show (default: 50)
+
+**Examples**:
+```bash
+# List all schedules
+kscorectl schedule list
+
+# List only command schedules
+kscorectl schedule list --type command
+
+# List active schedules
+kscorectl schedule list --status active
+
+# Filter by labels
+kscorectl schedule list --label env:prod
+```
+
+### schedule show
+
+Show schedule details.
+
+```bash
+kscorectl schedule show <schedule-id>
+```
+
+### schedule create
+
+Create a new scheduled operation.
+
+```bash
+kscorectl schedule create [flags]
+```
+
+**Flags**:
+- `--name string`: Schedule name (required)
+- `--description string`: Schedule description
+- `--type string`: Schedule type: command, state, blueprint, reactor (default: command)
+- `--cron string`: Cron expression (e.g., "0 2 * * *")
+- `--interval string`: Interval duration (e.g., "1h", "30m")
+- `--timezone string`: Timezone for schedule evaluation (default: UTC)
+- `--target-all`: Target all agents
+- `--target-agent strings`: Target specific agents
+- `--target-glob string`: Target agents matching glob pattern
+- `--target-tags strings`: Target agents with tags (key:value)
+- `--target-roles strings`: Target agents with roles
+- `--command string`: Command to execute (for command type)
+- `--state-path string`: State file path (for state type)
+- `--blueprint string`: Blueprint name (for blueprint type)
+- `--priority int`: Schedule priority 0-10 (default: 5)
+- `--timeout string`: Execution timeout (default: 1h)
+- `--require-approval`: Require approval before execution
+- `--label strings`: Labels (key:value format)
+- `--maintenance-window string`: Link to maintenance window
+
+**Examples**:
+```bash
+# Create a cron-based command schedule
+kscorectl schedule create --name daily-backup --type command \
+  --cron "0 2 * * *" --target-all --command "backup.sh"
+
+# Create an interval-based state schedule
+kscorectl schedule create --name hourly-sync --type state \
+  --interval 1h --state-path /states/sync.yaml --target-tags role:web
+
+# Create a blueprint schedule with approval
+kscorectl schedule create --name weekly-patching --type blueprint \
+  --cron "0 3 * * 0" --blueprint security-patches \
+  --require-approval --target-tags env:prod
+```
+
+### schedule trigger
+
+Trigger a schedule immediately.
+
+```bash
+kscorectl schedule trigger <schedule-id>
+```
+
+### schedule pause
+
+Pause a schedule.
+
+```bash
+kscorectl schedule pause <schedule-id>
+```
+
+### schedule resume
+
+Resume a paused schedule.
+
+```bash
+kscorectl schedule resume <schedule-id>
+```
+
+### schedule enable
+
+Enable a disabled schedule.
+
+```bash
+kscorectl schedule enable <schedule-id>
+```
+
+### schedule disable
+
+Disable a schedule.
+
+```bash
+kscorectl schedule disable <schedule-id>
+```
+
+### schedule delete
+
+Delete a schedule.
+
+```bash
+kscorectl schedule delete <schedule-id> [flags]
+```
+
+**Flags**:
+- `-f, --force`: Force deletion without confirmation
+
+### schedule history
+
+Show execution history for a schedule.
+
+```bash
+kscorectl schedule history <schedule-id> [flags]
+```
+
+**Flags**:
+- `--limit int`: Number of executions to show (default: 20)
+- `--status string`: Filter by execution status
+
+**Examples**:
+```bash
+# Show last 20 executions
+kscorectl schedule history sched-001
+
+# Show only failed executions
+kscorectl schedule history sched-001 --status failed
+```
+
+### maintenance list
+
+List maintenance windows.
+
+```bash
+kscorectl maintenance list [flags]
+```
+
+**Flags**:
+- `--status string`: Filter by status (scheduled, active, completed, cancelled)
+- `--type string`: Filter by type (planned, emergency, recurring)
+- `--label strings`: Filter by label (key:value format)
+- `--limit int`: Maximum windows to show (default: 50)
+
+**Examples**:
+```bash
+# List all maintenance windows
+kscorectl maintenance list
+
+# List only active windows
+kscorectl maintenance list --status active
+
+# List emergency windows
+kscorectl maintenance list --type emergency
+```
+
+### maintenance show
+
+Show maintenance window details.
+
+```bash
+kscorectl maintenance show <window-id>
+```
+
+### maintenance create
+
+Create a new maintenance window.
+
+```bash
+kscorectl maintenance create [flags]
+```
+
+**Flags**:
+- `--name string`: Window name (required)
+- `--description string`: Window description
+- `--type string`: Window type: planned, emergency, recurring (default: planned)
+- `--start string`: Start time (RFC3339 format or "now")
+- `--end string`: End time (RFC3339 format)
+- `--timezone string`: Timezone (default: UTC)
+- `--scope-all`: Affect all agents
+- `--scope-agents strings`: Specific agents
+- `--scope-glob string`: Agent glob pattern
+- `--scope-tags strings`: Agent tags (key:value)
+- `--scope-roles strings`: Agent roles
+- `--suppress-alerts`: Suppress alerts during window (default: true)
+- `--suppress-drift`: Suppress drift detection
+- `--allow-operations`: Allow manual operations (default: true)
+- `--require-approval`: Require approval to start
+- `--notify-before string`: Notification lead time (default: 15m)
+- `--notify-channel strings`: Notification channels
+- `--label strings`: Labels (key:value format)
+
+**Examples**:
+```bash
+# Create a planned maintenance window
+kscorectl maintenance create --name "weekly-patching" \
+  --start "2024-01-15T02:00:00Z" --end "2024-01-15T06:00:00Z" \
+  --scope-tags env:prod --suppress-alerts
+
+# Create an emergency maintenance window
+kscorectl maintenance create --name "urgent-fix" --type emergency \
+  --start now --end "2024-01-15T04:00:00Z" --scope-all
+
+# Create with approval requirement
+kscorectl maintenance create --name "db-migration" \
+  --start "2024-01-20T00:00:00Z" --end "2024-01-20T04:00:00Z" \
+  --require-approval --scope-agents db-01,db-02
+```
+
+### maintenance start
+
+Start a scheduled maintenance window.
+
+```bash
+kscorectl maintenance start <window-id>
+```
+
+### maintenance end
+
+End an active maintenance window.
+
+```bash
+kscorectl maintenance end <window-id>
+```
+
+### maintenance cancel
+
+Cancel a maintenance window.
+
+```bash
+kscorectl maintenance cancel <window-id> [flags]
+```
+
+**Flags**:
+- `--reason string`: Cancellation reason
+
+### maintenance extend
+
+Extend a maintenance window.
+
+```bash
+kscorectl maintenance extend <window-id> [flags]
+```
+
+**Flags**:
+- `--end string`: New end time (RFC3339 format)
+- `--duration string`: Extend by duration (e.g., 1h, 30m)
+
+**Examples**:
+```bash
+# Extend to new end time
+kscorectl maintenance extend maint-001 --end "2024-01-15T08:00:00Z"
+
+# Extend by 2 hours
+kscorectl maintenance extend maint-001 --duration 2h
+```
+
+### maintenance active
+
+List currently active maintenance windows.
+
+```bash
+kscorectl maintenance active
+```
+
+### maintenance upcoming
+
+List upcoming maintenance windows.
+
+```bash
+kscorectl maintenance upcoming [flags]
+```
+
+**Flags**:
+- `--within string`: Show windows starting within duration (default: 24h)
+
+### maintenance conflicts
+
+Check for conflicts with other windows.
+
+```bash
+kscorectl maintenance conflicts <window-id>
+```
+
+### maintenance delete
+
+Delete a maintenance window.
+
+```bash
+kscorectl maintenance delete <window-id> [flags]
+```
+
+**Flags**:
+- `-f, --force`: Force deletion without confirmation
+
+## kscore-upgrade (Upgrade Management)
+
+Plan, execute, and manage Keystone Core upgrades including rolling upgrades, canary deployments, and rollbacks.
+
+### Global Flags
+
+These flags apply to all kscore-upgrade commands:
+
+- `--server string`: Control plane server address (default: localhost:9090)
+- `-o, --output string`: Output format: table, json, yaml (default: table)
+- `-v, --verbose`: Enable verbose output
+- `--audit-level string`: Audit logging level: all, errors, none (default: all)
+- `--audit-output string`: Audit output backend: auto, syslog, journald, stderr, none
+
+### upgrade check
+
+Check for available upgrades.
+
+```bash
+kscorectl upgrade check [flags]
+```
+
+**Flags**:
+- `--include-prerelease`: Include prerelease versions
+- `--channel string`: Release channel: stable, beta, edge (default: stable)
+
+**Examples**:
+```bash
+# Check for available upgrades
+kscorectl upgrade check
+
+# Include beta versions
+kscorectl upgrade check --include-prerelease
+
+# Check specific channel
+kscorectl upgrade check --channel beta
+```
+
+**Example Output**:
+```
+Upgrade Check
+=============
+
+Current Version: 1.5.2
+Latest Version:  1.6.0
+Upgrade Available: yes
+
+Release Notes Summary:
+  - New file distribution backend: Azure Blob Storage
+  - Improved agent reconnection handling
+  - CEL policy engine optimizations
+
+Compatibility: ✓ Compatible
+Breaking Changes: None
+
+Run 'kscorectl upgrade plan --target 1.6.0' to create an upgrade plan.
+```
+
+### upgrade plan
+
+Create an upgrade plan.
+
+```bash
+kscorectl upgrade plan [flags]
+```
+
+**Flags**:
+- `--target string`: Target version (required)
+- `--strategy string`: Upgrade strategy: rolling, canary, blue-green (default: rolling)
+- `--batch-size int`: Number of agents per batch (default: 10)
+- `--batch-delay string`: Delay between batches (default: 30s)
+- `--health-check-timeout string`: Health check timeout (default: 5m)
+- `--rollback-on-failure`: Automatically rollback on failure (default: true)
+- `--save string`: Save plan to file
+
+**Examples**:
+```bash
+# Create rolling upgrade plan
+kscorectl upgrade plan --target 1.6.0
+
+# Create canary upgrade plan
+kscorectl upgrade plan --target 1.6.0 --strategy canary --batch-size 5
+
+# Save plan to file
+kscorectl upgrade plan --target 1.6.0 --save upgrade-plan.yaml
+```
+
+### upgrade execute
+
+Execute an upgrade plan.
+
+```bash
+kscorectl upgrade execute [flags]
+```
+
+**Flags**:
+- `--target string`: Target version
+- `--plan string`: Path to saved upgrade plan
+- `--confirm`: Confirm execution without prompting
+- `--async`: Run upgrade asynchronously
+
+**Examples**:
+```bash
+# Execute upgrade to target version
+kscorectl upgrade execute --target 1.6.0 --confirm
+
+# Execute from saved plan
+kscorectl upgrade execute --plan upgrade-plan.yaml --confirm
+
+# Async execution
+kscorectl upgrade execute --target 1.6.0 --async
+```
+
+### upgrade status
+
+Show upgrade status.
+
+```bash
+kscorectl upgrade status [upgrade-id]
+```
+
+**Examples**:
+```bash
+# Show current upgrade status
+kscorectl upgrade status
+
+# Show specific upgrade status
+kscorectl upgrade status upgrade-20240115-120000
+```
+
+### upgrade cancel
+
+Cancel an in-progress upgrade.
+
+```bash
+kscorectl upgrade cancel [upgrade-id] [flags]
+```
+
+**Flags**:
+- `--rollback`: Rollback completed upgrades
+- `-f, --force`: Force cancellation
+
+### upgrade canary
+
+Manage canary deployments.
+
+#### upgrade canary status
+
+Show canary deployment status.
+
+```bash
+kscorectl upgrade canary status
+```
+
+#### upgrade canary promote
+
+Promote canary to full rollout.
+
+```bash
+kscorectl upgrade canary promote [flags]
+```
+
+**Flags**:
+- `--confirm`: Confirm promotion
+
+#### upgrade canary rollback
+
+Rollback canary deployment.
+
+```bash
+kscorectl upgrade canary rollback [flags]
+```
+
+**Flags**:
+- `--confirm`: Confirm rollback
+
+### upgrade agents
+
+Manage agent upgrades.
+
+#### upgrade agents list
+
+List agents and their versions.
+
+```bash
+kscorectl upgrade agents list [flags]
+```
+
+**Flags**:
+- `--version string`: Filter by version
+- `--outdated`: Show only outdated agents
+- `--target string`: Target filter expression
+
+#### upgrade agents status
+
+Show agent upgrade status.
+
+```bash
+kscorectl upgrade agents status <agent-id>
+```
+
+### upgrade rollback
+
+Rollback to previous version.
+
+```bash
+kscorectl upgrade rollback [flags]
+```
+
+**Flags**:
+- `--target string`: Target version to rollback to
+- `--confirm`: Confirm rollback
+- `--force`: Force rollback even if unhealthy
+
+**Examples**:
+```bash
+# Rollback to previous version
+kscorectl upgrade rollback --confirm
+
+# Rollback to specific version
+kscorectl upgrade rollback --target 1.5.2 --confirm
+```
+
+### upgrade history
+
+Show upgrade history.
+
+```bash
+kscorectl upgrade history [flags]
+```
+
+**Flags**:
+- `-n, --limit int`: Number of upgrades to show (default: 10)
+- `--status string`: Filter by status
+
+### upgrade logs
+
+Show upgrade logs.
+
+```bash
+kscorectl upgrade logs [upgrade-id] [flags]
+```
+
+**Flags**:
+- `--follow`: Follow log output
+- `--tail int`: Number of lines to show (default: 100)
+
+## kscore-proxy (Proxy Agent and Device Management)
+
+Manage proxy agents that handle devices unable to run native Keystone Core agents, including network devices, legacy systems, and appliances via SSH, SNMP, REST, and WinRM protocols.
+
+### Global Flags
+
+These flags apply to all kscore-proxy commands:
+
+- `--server string`: Control plane server address (default: localhost:9090)
+- `-o, --output string`: Output format: table, json, yaml (default: table)
+- `-v, --verbose`: Enable verbose output
+- `--audit-level string`: Audit logging level: all, errors, none (default: all)
+- `--audit-output string`: Audit output backend: auto, syslog, journald, stderr, none
+
+### proxy status
+
+Show overall proxy agent status.
+
+```bash
+kscorectl proxy status
+```
+
+**Example Output**:
+```
+Proxy Agent Status
+==================
+
+Proxy Agents:
+  Total:     3
+  Healthy:   2
+  Degraded:  1
+  Unhealthy: 0
+
+Managed Devices:
+  Total:     45
+  Healthy:   42
+  Degraded:  2
+  Unhealthy: 1
+
+Credentials:
+  Total:    12
+  Expiring: 2
+
+Discovery:
+  Pending:  5
+  Approved: 40
+  Rejected: 3
+```
+
+### proxy device
+
+Manage proxied devices.
+
+#### proxy device list
+
+List managed devices.
+
+```bash
+kscorectl proxy device list [flags]
+```
+
+**Flags**:
+- `--protocol string`: Filter by protocol (ssh, snmp, rest, winrm)
+- `--vendor string`: Filter by vendor
+- `--status string`: Filter by status (healthy, degraded, unhealthy)
+- `--profile string`: Filter by device profile
+- `--proxy-agent string`: Filter by proxy agent
+- `--label strings`: Filter by labels (key:value)
+- `-n, --limit int`: Maximum devices to show (default: 50)
+
+**Examples**:
+```bash
+# List all devices
+kscorectl proxy device list
+
+# List network devices
+kscorectl proxy device list --vendor cisco
+
+# List devices by protocol
+kscorectl proxy device list --protocol ssh
+
+# List unhealthy devices
+kscorectl proxy device list --status unhealthy
+```
+
+#### proxy device show
+
+Show device details.
+
+```bash
+kscorectl proxy device show <device-id>
+```
+
+#### proxy device add
+
+Add a new managed device.
+
+```bash
+kscorectl proxy device add [flags]
+```
+
+**Flags**:
+- `--name string`: Device name (required)
+- `--address string`: Device address (required)
+- `--protocol string`: Protocol: ssh, snmp, rest, winrm (required)
+- `--vendor string`: Device vendor
+- `--device-type string`: Device type (router, switch, firewall, server, etc.)
+- `--profile string`: Device profile to use
+- `--credential string`: Credential set to use
+- `--proxy-agent string`: Proxy agent to handle this device
+- `--label strings`: Labels (key:value format)
+- `--port int`: Connection port (protocol default if not specified)
+
+**Examples**:
+```bash
+# Add a Cisco router
+kscorectl proxy device add --name core-router-01 \
+  --address 192.168.1.1 --protocol ssh \
+  --vendor cisco --device-type router \
+  --credential cisco-ssh --profile cisco-ios
+
+# Add a Windows server via WinRM
+kscorectl proxy device add --name legacy-server-01 \
+  --address 10.0.0.50 --protocol winrm \
+  --credential win-admin --device-type server
+
+# Add SNMP-monitored device
+kscorectl proxy device add --name ups-01 \
+  --address 192.168.1.100 --protocol snmp \
+  --credential snmp-v3 --device-type ups
+```
+
+#### proxy device remove
+
+Remove a managed device.
+
+```bash
+kscorectl proxy device remove <device-id> [flags]
+```
+
+**Flags**:
+- `-f, --force`: Force removal without confirmation
+
+#### proxy device test
+
+Test connectivity to a device.
+
+```bash
+kscorectl proxy device test <device-id>
+```
+
+### proxy credential
+
+Manage credentials for proxied devices.
+
+#### proxy credential list
+
+List credential sets.
+
+```bash
+kscorectl proxy credential list [flags]
+```
+
+**Flags**:
+- `--protocol string`: Filter by protocol
+- `--backend string`: Filter by backend (local, vault, k8s-secret)
+
+#### proxy credential add
+
+Add a new credential set.
+
+```bash
+kscorectl proxy credential add [flags]
+```
+
+**Flags**:
+- `--name string`: Credential name (required)
+- `--type string`: Credential type: ssh-password, ssh-key, snmp-v2c, snmp-v3, rest-token, rest-basic, winrm (required)
+- `--protocol string`: Associated protocol
+- `--username string`: Username
+- `--password string`: Password (prompted if not provided)
+- `--key-file string`: SSH private key file
+- `--community string`: SNMP community string
+- `--token string`: API token
+- `--backend string`: Storage backend: local, vault, k8s-secret (default: local)
+- `--device-types strings`: Device types this credential applies to
+
+**Examples**:
+```bash
+# Add SSH key credential
+kscorectl proxy credential add --name cisco-ssh \
+  --type ssh-key --username admin --key-file ~/.ssh/cisco_key
+
+# Add SNMP v3 credential
+kscorectl proxy credential add --name snmp-v3 \
+  --type snmp-v3 --username snmpuser
+
+# Add REST API token
+kscorectl proxy credential add --name api-token \
+  --type rest-token --token "secret-token"
+
+# Add credential stored in Vault
+kscorectl proxy credential add --name vault-ssh \
+  --type ssh-password --backend vault \
+  --username admin
+```
+
+#### proxy credential remove
+
+Remove a credential set.
+
+```bash
+kscorectl proxy credential remove <credential-name> [flags]
+```
+
+**Flags**:
+- `-f, --force`: Force removal
+
+#### proxy credential update
+
+Update a credential set.
+
+```bash
+kscorectl proxy credential update <credential-name> [flags]
+```
+
+### proxy discover
+
+Discover devices on the network.
+
+#### proxy discover scan
+
+Scan for devices.
+
+```bash
+kscorectl proxy discover scan [flags]
+```
+
+**Flags**:
+- `--subnet string`: Subnet to scan (CIDR notation)
+- `--protocols strings`: Protocols to probe (ssh, snmp, rest, winrm)
+- `--ports strings`: Ports to scan
+- `--timeout string`: Scan timeout (default: 5s)
+- `--workers int`: Number of parallel workers (default: 20)
+
+**Examples**:
+```bash
+# Scan subnet for SSH and SNMP devices
+kscorectl proxy discover scan --subnet 192.168.1.0/24 --protocols ssh,snmp
+
+# Scan with custom ports
+kscorectl proxy discover scan --subnet 10.0.0.0/24 --ports 22,161,443
+```
+
+#### proxy discover list
+
+List discovered devices.
+
+```bash
+kscorectl proxy discover list [flags]
+```
+
+**Flags**:
+- `--status string`: Filter by status (pending, approved, rejected, ignored)
+
+#### proxy discover approve
+
+Approve a discovered device for management.
+
+```bash
+kscorectl proxy discover approve <discovery-id> [flags]
+```
+
+**Flags**:
+- `--name string`: Device name
+- `--profile string`: Device profile
+- `--credential string`: Credential set
+
+#### proxy discover reject
+
+Reject a discovered device.
+
+```bash
+kscorectl proxy discover reject <discovery-id>
+```
+
+### proxy drift
+
+Detect and report configuration drift on proxied devices.
+
+#### proxy drift check
+
+Check for drift on devices.
+
+```bash
+kscorectl proxy drift check [flags]
+```
+
+**Flags**:
+- `--device string`: Check specific device
+- `--profile string`: Check devices with profile
+- `--severity string`: Minimum severity to report
+
+**Examples**:
+```bash
+# Check all devices for drift
+kscorectl proxy drift check
+
+# Check specific device
+kscorectl proxy drift check --device router-01
+
+# Check with severity filter
+kscorectl proxy drift check --severity high
+```
+
+#### proxy drift show
+
+Show drift details for a device.
+
+```bash
+kscorectl proxy drift show <device-id>
+```
+
+### proxy state
+
+Apply state to proxied devices.
+
+#### proxy state apply
+
+Apply configuration state to devices.
+
+```bash
+kscorectl proxy state apply <state-file> [flags]
+```
+
+**Flags**:
+- `--device string`: Apply to specific device
+- `--target string`: Target expression
+- `--dry-run`: Preview changes without applying
+- `-f, --force`: Apply without confirmation
+
+**Examples**:
+```bash
+# Apply state to device
+kscorectl proxy state apply network-config.yaml --device router-01
+
+# Dry-run
+kscorectl proxy state apply network-config.yaml --device router-01 --dry-run
+
+# Apply to multiple devices
+kscorectl proxy state apply security-baseline.yaml --target "vendor:cisco"
+```
+
+#### proxy state check
+
+Check state compliance on devices.
+
+```bash
+kscorectl proxy state check <state-file> [flags]
+```
+
+**Flags**:
+- `--device string`: Check specific device
+- `--target string`: Target expression
+
 ## Command Migration Guide
 
 This section documents the CLI command restructuring in version 0.4.0 and provides migration guidance for scripts and automation.

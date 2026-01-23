@@ -320,6 +320,26 @@ make e2e-ha
 # - 5 agents
 ```
 
+**VM E2E Tests:**
+```bash
+# All-in-one topology
+KSCORE_E2E_TESTS=1 KSCORE_E2E_MODE=vm \
+  KSCORE_E2E_CONFIG=test/bootstrap/vm/allinone-config.yaml \
+  go test -v ./test/e2e/topology/... -run TestAllInOne
+
+# HA cluster topology
+KSCORE_E2E_TESTS=1 KSCORE_E2E_MODE=vm \
+  KSCORE_E2E_CONFIG=test/bootstrap/vm/ha-config.yaml \
+  KSCORE_TOPOLOGY=ha-cluster \
+  go test -v ./test/e2e/topology/... -run HACluster
+
+# IPv6 topology
+KSCORE_E2E_TESTS=1 KSCORE_E2E_MODE=vm \
+  KSCORE_E2E_CONFIG=test/bootstrap/vm/ipv6-config.yaml \
+  KSCORE_TOPOLOGY=ipv6 \
+  go test -v ./test/e2e/topology/... -run IPv6
+```
+
 **Manual E2E Environment:**
 ```bash
 # Start E2E environment without running tests
@@ -347,6 +367,8 @@ make e2e-down
 | `KSCORE_TOPOLOGY` | `all-in-one` | Set to `ha-cluster` for HA tests |
 | `KSCORE_SKIP_BUILD` | `0` | Set to `1` to skip image builds |
 | `KSCORE_ROOT` | - | Path to repository root |
+| `KSCORE_E2E_MODE` | - | Set to `vm` to use VM inventories |
+| `KSCORE_E2E_CONFIG` | - | Path to VM inventory file |
 
 **Test Organization:**
 ```

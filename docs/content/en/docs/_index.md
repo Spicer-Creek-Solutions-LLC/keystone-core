@@ -38,6 +38,8 @@ Production deployment guides, monitoring setup, troubleshooting, backup/restore,
 - [CLI Reference](/docs/reference/cli/)
 - [State Modules](/docs/reference/modules/)
 - [GitOps Integration](/docs/concepts/gitops/)
+- [Project Docs](/docs/community/project-docs/)
+- [Runbooks](/docs/operations/runbooks/)
 
 ## Need Help?
 
@@ -70,7 +72,7 @@ The project has **21 of 23 epics complete** with comprehensive test coverage (18
 - Plugin System (Starlark, WASM modules)
 - Documentation (45 pages, comprehensive guides)
 - HA Clustering (etcd-based, automatic failover)
-- E2E Testing (Docker-based test harness)
+- E2E Testing (Docker and VM-based test harness)
 - CGO Removal (pure Go, cross-compilation)
 - NATS Mesh (superclusters, NAT traversal, WebSocket)
 

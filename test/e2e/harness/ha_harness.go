@@ -16,10 +16,13 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
+	"github.com/shawnbutts/keystone-core/test/bootstrap/vm"
 )
 
 // HAClusterEnvironment represents a running HA cluster E2E test environment
 type HAClusterEnvironment struct {
+	mode string
+
 	// ComposeFile is the path to the docker-compose.yml file
 	ComposeFile string
 
@@ -40,6 +43,8 @@ type HAClusterEnvironment struct {
 
 	// clients holds gRPC clients for each server
 	clients []pb.ControlPlaneServiceClient
+
+	vmProvider vm.Provider
 }
 
 // ServerInfo contains information about a control plane server
@@ -51,6 +56,9 @@ type ServerInfo struct {
 
 // HAClusterConfig holds configuration for the HA cluster test environment
 type HAClusterConfig struct {
+	// Mode selects how the environment is provisioned (e.g., "docker" or "vm").
+	Mode string
+
 	// ComposeFile is the path to the docker-compose.yml file
 	ComposeFile string
 
@@ -68,6 +76,9 @@ type HAClusterConfig struct {
 
 	// ExpectedAgents is the number of agents expected
 	ExpectedAgents int
+
+	// VMProvider enables SSH control of VM nodes in VM mode.
+	VMProvider vm.Provider
 }
 
 // DefaultHAClusterConfig returns the default HA cluster configuration
@@ -91,44 +102,49 @@ func NewHACluster(cfg *HAClusterConfig) (*HAClusterEnvironment, error) {
 		cfg = DefaultHAClusterConfig()
 	}
 
-	// Find compose file
 	composeFile := cfg.ComposeFile
-	if composeFile == "" {
-		candidates := []string{
-			"test/e2e/topologies/ha-cluster/docker-compose.yml",
-			"../topologies/ha-cluster/docker-compose.yml",
-			"../../topologies/ha-cluster/docker-compose.yml",
-		}
+	if cfg.Mode != "vm" {
+		// Find compose file
+		if composeFile == "" {
+			candidates := []string{
+				"test/e2e/topologies/ha-cluster/docker-compose.yml",
+				"../topologies/ha-cluster/docker-compose.yml",
+				"../../topologies/ha-cluster/docker-compose.yml",
+			}
 
-		if root := os.Getenv("KSCORE_ROOT"); root != "" {
-			candidates = append(candidates, filepath.Join(root, "test/e2e/topologies/ha-cluster/docker-compose.yml"))
-		}
+			if root := os.Getenv("KSCORE_ROOT"); root != "" {
+				candidates = append(candidates, filepath.Join(root, "test/e2e/topologies/ha-cluster/docker-compose.yml"))
+			}
 
-		for _, c := range candidates {
-			if _, err := os.Stat(c); err == nil {
-				composeFile = c
-				break
+			for _, c := range candidates {
+				if _, err := os.Stat(c); err == nil {
+					composeFile = c
+					break
+				}
 			}
 		}
-	}
 
-	if composeFile == "" {
-		return nil, fmt.Errorf("could not find ha-cluster docker-compose.yml")
-	}
+		if composeFile == "" {
+			return nil, fmt.Errorf("could not find ha-cluster docker-compose.yml")
+		}
 
-	absPath, err := filepath.Abs(composeFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get absolute path: %w", err)
+		absPath, err := filepath.Abs(composeFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get absolute path: %w", err)
+		}
+		composeFile = absPath
 	}
 
 	return &HAClusterEnvironment{
-		ComposeFile:    absPath,
+		mode:           cfg.Mode,
+		ComposeFile:    composeFile,
 		ProjectName:    cfg.ProjectName,
 		Servers:        cfg.Servers,
 		ExpectedAgents: cfg.ExpectedAgents,
 		httpClient:     &http.Client{Timeout: 5 * time.Second},
 		grpcConns:      make([]*grpc.ClientConn, len(cfg.Servers)),
 		clients:        make([]pb.ControlPlaneServiceClient, len(cfg.Servers)),
+		vmProvider:     cfg.VMProvider,
 	}, nil
 }
 
@@ -138,35 +154,41 @@ func (e *HAClusterEnvironment) Start(ctx context.Context, cfg *HAClusterConfig) 
 		cfg = DefaultHAClusterConfig()
 	}
 
-	args := []string{
-		"-f", e.ComposeFile,
-		"-p", e.ProjectName,
-	}
+	if cfg.Mode != "vm" {
+		args := []string{
+			"-f", e.ComposeFile,
+			"-p", e.ProjectName,
+		}
 
-	// Always clean up first
-	fmt.Print("Cleaning up any existing containers...")
-	downArgs := append(args, "down", "-v", "--remove-orphans")
-	_ = e.runCompose(ctx, downArgs...)
-	fmt.Println(" done")
+		// Always clean up first
+		fmt.Print("Cleaning up any existing containers...")
+		downArgs := append(args, "down", "-v", "--remove-orphans")
+		_ = e.runCompose(ctx, downArgs...)
+		fmt.Println(" done")
 
-	if cfg.BuildImages {
-		fmt.Print("Building container images (this may take a while)...")
-		buildArgs := append(args, "build", "-q")
-		if err := e.runCompose(ctx, buildArgs...); err != nil {
+		if cfg.BuildImages {
+			fmt.Print("Building container images (this may take a while)...")
+			buildArgs := append(args, "build", "-q")
+			if err := e.runCompose(ctx, buildArgs...); err != nil {
+				fmt.Println(" FAILED")
+				return fmt.Errorf("failed to build images: %w", err)
+			}
+			fmt.Println(" done")
+		}
+
+		// Start containers
+		fmt.Print("Starting HA cluster containers...")
+		upArgs := append(args, "up", "-d", "--wait")
+		if err := e.runCompose(ctx, upArgs...); err != nil {
 			fmt.Println(" FAILED")
-			return fmt.Errorf("failed to build images: %w", err)
+			return fmt.Errorf("failed to start containers: %w", err)
 		}
 		fmt.Println(" done")
+	} else if e.vmProvider != nil {
+		if err := e.vmProvider.Setup(ctx); err != nil {
+			return fmt.Errorf("vm provider setup failed: %w", err)
+		}
 	}
-
-	// Start containers
-	fmt.Print("Starting HA cluster containers...")
-	upArgs := append(args, "up", "-d", "--wait")
-	if err := e.runCompose(ctx, upArgs...); err != nil {
-		fmt.Println(" FAILED")
-		return fmt.Errorf("failed to start containers: %w", err)
-	}
-	fmt.Println(" done")
 
 	// Wait for all servers to be healthy
 	fmt.Print("Waiting for all control plane servers...")
@@ -206,6 +228,13 @@ func (e *HAClusterEnvironment) Stop(ctx context.Context) error {
 		if conn != nil {
 			conn.Close()
 		}
+	}
+
+	if e.ComposeFile == "" {
+		if e.vmProvider != nil {
+			return e.vmProvider.Cleanup(ctx)
+		}
+		return nil
 	}
 
 	// Stop and remove containers
@@ -296,6 +325,10 @@ func (e *HAClusterEnvironment) StopServer(ctx context.Context, index int) error 
 		return fmt.Errorf("invalid server index: %d", index)
 	}
 
+	if e.mode == "vm" {
+		return e.execServerCommand(ctx, e.Servers[index].Name, "systemctl stop kscore-server")
+	}
+
 	args := []string{
 		"-f", e.ComposeFile,
 		"-p", e.ProjectName,
@@ -309,6 +342,10 @@ func (e *HAClusterEnvironment) StopServer(ctx context.Context, index int) error 
 func (e *HAClusterEnvironment) StartServer(ctx context.Context, index int) error {
 	if index < 0 || index >= len(e.Servers) {
 		return fmt.Errorf("invalid server index: %d", index)
+	}
+
+	if e.mode == "vm" {
+		return e.execServerCommand(ctx, e.Servers[index].Name, "systemctl start kscore-server")
 	}
 
 	args := []string{
@@ -326,6 +363,10 @@ func (e *HAClusterEnvironment) RestartServer(ctx context.Context, index int) err
 		return fmt.Errorf("invalid server index: %d", index)
 	}
 
+	if e.mode == "vm" {
+		return e.execServerCommand(ctx, e.Servers[index].Name, "systemctl restart kscore-server")
+	}
+
 	args := []string{
 		"-f", e.ComposeFile,
 		"-p", e.ProjectName,
@@ -339,6 +380,10 @@ func (e *HAClusterEnvironment) RestartServer(ctx context.Context, index int) err
 func (e *HAClusterEnvironment) KillServer(ctx context.Context, index int) error {
 	if index < 0 || index >= len(e.Servers) {
 		return fmt.Errorf("invalid server index: %d", index)
+	}
+
+	if e.mode == "vm" {
+		return e.execServerCommand(ctx, e.Servers[index].Name, "pkill -9 kscore-server")
 	}
 
 	args := []string{
@@ -414,6 +459,24 @@ func executeCommandAndWaitWithClient(ctx context.Context, client pb.ControlPlane
 // runCompose runs a docker-compose command
 func (e *HAClusterEnvironment) runCompose(ctx context.Context, args ...string) error {
 	return e.runComposeWithOutput(ctx, false, args...)
+}
+
+func (e *HAClusterEnvironment) execServerCommand(ctx context.Context, serverName, command string) error {
+	if e.vmProvider == nil {
+		return fmt.Errorf("vm provider is not configured")
+	}
+	node, err := e.vmProvider.GetNode(serverName)
+	if err != nil {
+		return err
+	}
+	result, err := node.Exec(ctx, "sh", "-c", command)
+	if err != nil {
+		return fmt.Errorf("exec %s on %s: %w", command, serverName, err)
+	}
+	if result.ExitCode != 0 {
+		return fmt.Errorf("exec %s on %s failed: %s", command, serverName, result.Stderr)
+	}
+	return nil
 }
 
 // runComposeWithOutput runs a docker-compose command with optional output

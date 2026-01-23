@@ -183,13 +183,19 @@ type RetentionPolicy struct {
 
 func newCreateCmd(cfg *Config) *cobra.Command {
 	var (
-		backupType  string
-		components  []string
-		destination string
-		encrypt     bool
-		compress    bool
-		labels      []string
-		async       bool
+		backupType      string
+		components      []string
+		destination     string
+		encrypt         bool
+		compress        bool
+		compression     string
+		compressionLvl  int
+		labels          []string
+		async           bool
+		rcloneRemote    string
+		rclonePath      string
+		rcloneConfig    string
+		rcloneStreaming bool
 	)
 
 	cmd := &cobra.Command{
@@ -206,6 +212,19 @@ Backup types:
   etcd          - etcd cluster data only
   secrets       - Secrets and credentials only
 
+Compression types:
+  none   - No compression
+  gzip   - gzip compression (default, good balance)
+  bzip2  - bzip2 compression (higher ratio, slower)
+  xz     - xz/LZMA compression (highest ratio, slowest)
+  zstd   - Zstandard compression (fast with good ratio)
+  lz4    - LZ4 compression (fastest, lower ratio)
+
+Rclone destinations:
+  Use --rclone-remote to backup to any of 50+ cloud storage providers
+  supported by rclone (Dropbox, Google Drive, OneDrive, Backblaze B2, etc.)
+  Configure remotes with 'rclone config' before use.
+
 Examples:
   # Create a full backup
   kscorectl backup create --type full
@@ -217,9 +236,18 @@ Examples:
   kscorectl backup create --type database --destination s3://mybucket/backups
 
   # Create encrypted backup with specific components
-  kscorectl backup create --type full --components database,config --encrypt`,
+  kscorectl backup create --type full --components database,config --encrypt
+
+  # Create backup with zstd compression (fast and efficient)
+  kscorectl backup create --type full --compression zstd
+
+  # Create backup to Dropbox via rclone (streaming, no temp files)
+  kscorectl backup create --type full --rclone-remote dropbox --rclone-path /backups
+
+  # Create backup to Google Drive via rclone
+  kscorectl backup create --type full --rclone-remote gdrive --rclone-path backups/kscore`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCreate(cfg, backupType, components, destination, encrypt, compress, labels, async)
+			return runCreate(cfg, backupType, components, destination, encrypt, compress, compression, compressionLvl, labels, async, rcloneRemote, rclonePath, rcloneConfig, rcloneStreaming)
 		},
 	}
 
@@ -227,14 +255,20 @@ Examples:
 	cmd.Flags().StringSliceVarP(&components, "components", "c", nil, "Specific components to backup (database, config, secrets, jetstream, etcd, certificates)")
 	cmd.Flags().StringVarP(&destination, "destination", "d", "", "Backup destination (local, s3://bucket/path, gs://bucket/path, azure://container/path)")
 	cmd.Flags().BoolVarP(&encrypt, "encrypt", "e", false, "Encrypt the backup")
-	cmd.Flags().BoolVar(&compress, "compress", true, "Compress the backup")
+	cmd.Flags().BoolVar(&compress, "compress", true, "Compress the backup (use --compression to specify type)")
+	cmd.Flags().StringVar(&compression, "compression", "gzip", "Compression type (none, gzip, bzip2, xz, zstd, lz4)")
+	cmd.Flags().IntVar(&compressionLvl, "compression-level", 0, "Compression level (0=default, algorithm-specific range)")
 	cmd.Flags().StringSliceVarP(&labels, "label", "l", nil, "Labels to attach to backup (key=value)")
 	cmd.Flags().BoolVar(&async, "async", false, "Run backup asynchronously")
+	cmd.Flags().StringVar(&rcloneRemote, "rclone-remote", "", "Rclone remote name (configured via 'rclone config')")
+	cmd.Flags().StringVar(&rclonePath, "rclone-path", "", "Path within the rclone remote")
+	cmd.Flags().StringVar(&rcloneConfig, "rclone-config", "", "Path to rclone config file (default: ~/.config/rclone/rclone.conf)")
+	cmd.Flags().BoolVar(&rcloneStreaming, "rclone-streaming", true, "Use streaming mode for rclone (pipes data directly, no temp files)")
 
 	return cmd
 }
 
-func runCreate(cfg *Config, backupType string, components []string, destination string, encrypt, compress bool, labels []string, async bool) error {
+func runCreate(cfg *Config, backupType string, components []string, destination string, encrypt, compress bool, compression string, compressionLevel int, labels []string, async bool, rcloneRemote, rclonePath, rcloneConfig string, rcloneStreaming bool) error {
 	// Parse labels
 	labelMap := make(map[string]string)
 	for _, l := range labels {
@@ -247,8 +281,18 @@ func runCreate(cfg *Config, backupType string, components []string, destination 
 	// Generate backup info (sample for demonstration)
 	backupID := fmt.Sprintf("backup-%s", time.Now().Format("20060102-150405"))
 
-	if destination == "" {
+	// Determine destination
+	if rcloneRemote != "" {
+		// Using rclone destination
+		destination = fmt.Sprintf("rclone:%s:%s", rcloneRemote, rclonePath)
+	} else if destination == "" {
 		destination = "local:/var/lib/kscore/backups"
+	}
+
+	// Handle compression
+	compressionType := compression
+	if !compress {
+		compressionType = "none"
 	}
 
 	if len(components) == 0 {
@@ -279,7 +323,7 @@ func runCreate(cfg *Config, backupType string, components []string, destination 
 		Components:  components,
 		Destination: destination,
 		Encrypted:   encrypt,
-		Compressed:  compress,
+		Compressed:  compressionType != "none",
 		Checksum:    "sha256:a1b2c3d4e5f6...",
 		CreatedAt:   time.Now().Format(time.RFC3339),
 		CompletedAt: time.Now().Add(2 * time.Minute).Format(time.RFC3339),
@@ -307,9 +351,15 @@ func runCreate(cfg *Config, backupType string, components []string, destination 
 			fmt.Printf("Components:  %s\n", strings.Join(backup.Components, ", "))
 			fmt.Printf("Destination: %s\n", backup.Destination)
 			fmt.Printf("Encrypted:   %v\n", backup.Encrypted)
-			fmt.Printf("Compressed:  %v\n", backup.Compressed)
+			fmt.Printf("Compression: %s\n", compressionType)
+			if compressionLevel > 0 {
+				fmt.Printf("Comp Level:  %d\n", compressionLevel)
+			}
 			fmt.Printf("Duration:    %s\n", backup.Duration)
 			fmt.Printf("Checksum:    %s\n", backup.Checksum)
+			if rcloneRemote != "" {
+				fmt.Printf("Rclone:      %s (streaming: %v)\n", rcloneRemote, rcloneStreaming)
+			}
 		}
 	})
 }

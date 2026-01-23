@@ -31,6 +31,11 @@ func NewArtifactBuilder(sourceDir string, logger Logger) (*ArtifactBuilder, erro
 
 // Build creates a backup artifact from the source directory
 func (b *ArtifactBuilder) Build(ctx context.Context, outputPath string, manifest *BackupManifest, compression CompressionType) error {
+	return b.BuildWithConfig(ctx, outputPath, manifest, CompressionConfig{Type: compression})
+}
+
+// BuildWithConfig creates a backup artifact with advanced compression settings
+func (b *ArtifactBuilder) BuildWithConfig(ctx context.Context, outputPath string, manifest *BackupManifest, compressionCfg CompressionConfig) error {
 	// Create output file
 	outFile, err := os.Create(outputPath)
 	if err != nil {
@@ -38,22 +43,18 @@ func (b *ArtifactBuilder) Build(ctx context.Context, outputPath string, manifest
 	}
 	defer outFile.Close()
 
-	// Create gzip writer if compression is enabled
-	var tarWriter *tar.Writer
-	var gzWriter *gzip.Writer
+	// Create compressor
+	compressor := NewCompressor(compressionCfg, b.logger)
 
-	switch compression {
-	case CompressionTypeGzip:
-		gzWriter = gzip.NewWriter(outFile)
-		defer gzWriter.Close()
-		tarWriter = tar.NewWriter(gzWriter)
-	case CompressionTypeNone:
-		tarWriter = tar.NewWriter(outFile)
-	default:
-		gzWriter = gzip.NewWriter(outFile)
-		defer gzWriter.Close()
-		tarWriter = tar.NewWriter(gzWriter)
+	// Get a compression writer
+	compressWriter, err := compressor.CompressToWriter(ctx, outFile)
+	if err != nil {
+		return fmt.Errorf("failed to create compression writer: %w", err)
 	}
+	defer compressWriter.Close()
+
+	// Create tar writer on top of compression
+	tarWriter := tar.NewWriter(compressWriter)
 	defer tarWriter.Close()
 
 	// Track files for manifest
@@ -176,25 +177,76 @@ func NewArtifactReader(artifactPath string, logger Logger) *ArtifactReader {
 	}
 }
 
-// ReadManifest reads the manifest from a backup artifact
-func (r *ArtifactReader) ReadManifest(ctx context.Context) (*BackupManifest, error) {
+// openTarReader opens the artifact and returns a tar reader with appropriate decompression
+// Returns the tar reader, a cleanup function, and any error
+func (r *ArtifactReader) openTarReader(ctx context.Context) (*tar.Reader, func(), error) {
 	file, err := os.Open(r.artifactPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open artifact: %w", err)
+		return nil, nil, fmt.Errorf("failed to open artifact: %w", err)
 	}
-	defer file.Close()
 
-	// Detect if gzipped
-	gzReader, err := gzip.NewReader(file)
-	var tarReader *tar.Reader
-	if err != nil {
-		// Not gzipped, seek back and use raw tar
+	// Detect compression type from filename
+	compression := DetectCompressionFromFilename(r.artifactPath)
+
+	if compression == CompressionTypeNone {
+		// Try gzip detection by reading magic bytes
 		file.Seek(0, 0)
-		tarReader = tar.NewReader(file)
-	} else {
-		defer gzReader.Close()
-		tarReader = tar.NewReader(gzReader)
+		gzReader, err := gzip.NewReader(file)
+		if err == nil {
+			cleanup := func() {
+				gzReader.Close()
+				file.Close()
+			}
+			return tar.NewReader(gzReader), cleanup, nil
+		}
+		// Not gzipped, use raw tar
+		file.Seek(0, 0)
+		cleanup := func() {
+			file.Close()
+		}
+		return tar.NewReader(file), cleanup, nil
 	}
+
+	// For gzip, use Go's built-in reader
+	if compression == CompressionTypeGzip {
+		gzReader, err := gzip.NewReader(file)
+		if err != nil {
+			file.Close()
+			return nil, nil, fmt.Errorf("failed to create gzip reader: %w", err)
+		}
+		cleanup := func() {
+			gzReader.Close()
+			file.Close()
+		}
+		return tar.NewReader(gzReader), cleanup, nil
+	}
+
+	// For other compression types, use external commands via pipe
+	compressor := NewCompressor(CompressionConfig{Type: compression}, r.logger)
+	pr, pw := io.Pipe()
+
+	go func() {
+		defer pw.Close()
+		if err := compressor.Decompress(ctx, file, pw); err != nil {
+			pw.CloseWithError(err)
+		}
+	}()
+
+	cleanup := func() {
+		pr.Close()
+		file.Close()
+	}
+
+	return tar.NewReader(pr), cleanup, nil
+}
+
+// ReadManifest reads the manifest from a backup artifact
+func (r *ArtifactReader) ReadManifest(ctx context.Context) (*BackupManifest, error) {
+	tarReader, cleanup, err := r.openTarReader(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer cleanup()
 
 	// Find manifest.json
 	for {
@@ -224,23 +276,11 @@ func (r *ArtifactReader) ReadManifest(ctx context.Context) (*BackupManifest, err
 
 // Extract extracts the backup artifact to a directory
 func (r *ArtifactReader) Extract(ctx context.Context, destDir string) error {
-	file, err := os.Open(r.artifactPath)
+	tarReader, cleanup, err := r.openTarReader(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to open artifact: %w", err)
+		return err
 	}
-	defer file.Close()
-
-	// Detect if gzipped
-	gzReader, err := gzip.NewReader(file)
-	var tarReader *tar.Reader
-	if err != nil {
-		// Not gzipped, seek back and use raw tar
-		file.Seek(0, 0)
-		tarReader = tar.NewReader(file)
-	} else {
-		defer gzReader.Close()
-		tarReader = tar.NewReader(gzReader)
-	}
+	defer cleanup()
 
 	// Create destination directory
 	if err := os.MkdirAll(destDir, 0755); err != nil {
@@ -321,22 +361,11 @@ func (r *ArtifactReader) VerifyIntegrity(ctx context.Context) (*VerificationResu
 	}
 
 	// Open artifact again for verification
-	file, err := os.Open(r.artifactPath)
+	tarReader, cleanup, err := r.openTarReader(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open artifact: %w", err)
+		return nil, err
 	}
-	defer file.Close()
-
-	// Detect if gzipped
-	gzReader, err := gzip.NewReader(file)
-	var tarReader *tar.Reader
-	if err != nil {
-		file.Seek(0, 0)
-		tarReader = tar.NewReader(file)
-	} else {
-		defer gzReader.Close()
-		tarReader = tar.NewReader(gzReader)
-	}
+	defer cleanup()
 
 	// Build map of expected checksums
 	expectedChecksums := make(map[string]string)
@@ -437,22 +466,11 @@ func hasPathPrefix(path, prefix string) bool {
 
 // ExtractFile extracts a single file from the artifact
 func (r *ArtifactReader) ExtractFile(ctx context.Context, fileName string, w io.Writer) error {
-	file, err := os.Open(r.artifactPath)
+	tarReader, cleanup, err := r.openTarReader(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to open artifact: %w", err)
+		return err
 	}
-	defer file.Close()
-
-	// Detect if gzipped
-	gzReader, err := gzip.NewReader(file)
-	var tarReader *tar.Reader
-	if err != nil {
-		file.Seek(0, 0)
-		tarReader = tar.NewReader(file)
-	} else {
-		defer gzReader.Close()
-		tarReader = tar.NewReader(gzReader)
-	}
+	defer cleanup()
 
 	// Find the file
 	for {
@@ -481,22 +499,11 @@ func (r *ArtifactReader) ExtractFile(ctx context.Context, fileName string, w io.
 
 // ListFiles lists all files in the artifact
 func (r *ArtifactReader) ListFiles(ctx context.Context) ([]string, error) {
-	file, err := os.Open(r.artifactPath)
+	tarReader, cleanup, err := r.openTarReader(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open artifact: %w", err)
+		return nil, err
 	}
-	defer file.Close()
-
-	// Detect if gzipped
-	gzReader, err := gzip.NewReader(file)
-	var tarReader *tar.Reader
-	if err != nil {
-		file.Seek(0, 0)
-		tarReader = tar.NewReader(file)
-	} else {
-		defer gzReader.Close()
-		tarReader = tar.NewReader(gzReader)
-	}
+	defer cleanup()
 
 	var files []string
 	for {

@@ -56,25 +56,36 @@ func setupHAClusterIPv6Environment(t *testing.T) {
 		return // Already set up
 	}
 
-	composeFile := findHAClusterIPv6ComposeFile()
-	if composeFile == "" {
-		t.Fatal("Could not find HA cluster IPv6 docker-compose.yml")
-	}
+	var cfg *harness.HAClusterConfig
+	if harness.IsVMMode() {
+		vmCfg, _, _, err := harness.HAClusterConfigFromVM("", 5)
+		if err != nil {
+			t.Fatalf("Failed to load VM config: %v", err)
+		}
+		cfg = vmCfg
+		cfg.ProjectName = "kscore-e2e-ha-ipv6"
+		cfg.StartupTimeout = 300 * time.Second
+	} else {
+		composeFile := findHAClusterIPv6ComposeFile()
+		if composeFile == "" {
+			t.Fatal("Could not find HA cluster IPv6 docker-compose.yml")
+		}
 
-	// Skip building if KSCORE_SKIP_BUILD=1 (images already exist)
-	buildImages := os.Getenv("KSCORE_SKIP_BUILD") != "1"
+		// Skip building if KSCORE_SKIP_BUILD=1 (images already exist)
+		buildImages := os.Getenv("KSCORE_SKIP_BUILD") != "1"
 
-	cfg := &harness.HAClusterConfig{
-		ComposeFile:    composeFile,
-		ProjectName:    "kscore-e2e-ha-ipv6",
-		BuildImages:    buildImages,
-		StartupTimeout: 300 * time.Second, // HA cluster takes longer to start
-		Servers: []harness.ServerInfo{
-			{Name: "server-1", GRPCAddr: "localhost:8080", HTTPAddr: "http://localhost:8081"},
-			{Name: "server-2", GRPCAddr: "localhost:8082", HTTPAddr: "http://localhost:8083"},
-			{Name: "server-3", GRPCAddr: "localhost:8084", HTTPAddr: "http://localhost:8085"},
-		},
-		ExpectedAgents: 5,
+		cfg = &harness.HAClusterConfig{
+			ComposeFile:    composeFile,
+			ProjectName:    "kscore-e2e-ha-ipv6",
+			BuildImages:    buildImages,
+			StartupTimeout: 300 * time.Second, // HA cluster takes longer to start
+			Servers: []harness.ServerInfo{
+				{Name: "server-1", GRPCAddr: "localhost:8080", HTTPAddr: "http://localhost:8081"},
+				{Name: "server-2", GRPCAddr: "localhost:8082", HTTPAddr: "http://localhost:8083"},
+				{Name: "server-3", GRPCAddr: "localhost:8084", HTTPAddr: "http://localhost:8085"},
+			},
+			ExpectedAgents: 5,
+		}
 	}
 
 	var err error

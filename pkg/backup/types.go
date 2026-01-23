@@ -55,14 +55,19 @@ const (
 	DestinationTypeGCS       DestinationType = "gcs"        // Google Cloud Storage
 	DestinationTypeAzureBlob DestinationType = "azure-blob" // Azure Blob Storage
 	DestinationTypeSFTP      DestinationType = "sftp"       // SFTP server
+	DestinationTypeRclone    DestinationType = "rclone"     // Rclone remote (50+ backends)
 )
 
 // CompressionType identifies the compression method for backup artifacts
 type CompressionType string
 
 const (
-	CompressionTypeNone CompressionType = "none"
-	CompressionTypeGzip CompressionType = "gzip"
+	CompressionTypeNone  CompressionType = "none"
+	CompressionTypeGzip  CompressionType = "gzip"  // gzip compression (default)
+	CompressionTypeBzip2 CompressionType = "bzip2" // bzip2 compression (higher ratio, slower)
+	CompressionTypeXz    CompressionType = "xz"    // xz/LZMA compression (highest ratio, slowest)
+	CompressionTypeZstd  CompressionType = "zstd"  // Zstandard compression (fast, good ratio)
+	CompressionTypeLz4   CompressionType = "lz4"   // LZ4 compression (fastest, lower ratio)
 )
 
 // ComponentType identifies cluster components that can be backed up
@@ -185,6 +190,9 @@ type DestinationConfig struct {
 
 	// SFTP configuration
 	SFTP *SFTPConfig `yaml:"sftp,omitempty" json:"sftp,omitempty"`
+
+	// Rclone configuration (supports 50+ cloud storage backends)
+	Rclone *RcloneConfig `yaml:"rclone,omitempty" json:"rclone,omitempty"`
 }
 
 // S3Config holds S3-specific configuration
@@ -230,6 +238,32 @@ type SFTPConfig struct {
 	KeyPath        string `yaml:"key_path" json:"key_path"` // Alias for PrivateKeyFile
 	HostKeyFile    string `yaml:"host_key_file" json:"host_key_file"`
 	RemotePath     string `yaml:"remote_path" json:"remote_path"` // Remote directory path
+}
+
+// RcloneConfig holds rclone-specific configuration for streaming to 50+ cloud providers
+type RcloneConfig struct {
+	// Remote is the rclone remote name (configured via rclone config)
+	Remote string `yaml:"remote" json:"remote"`
+	// Path is the path within the remote (e.g., "bucket/backups" or "folder/subdir")
+	Path string `yaml:"path" json:"path"`
+	// ConfigFile is an optional path to the rclone config file (default: ~/.config/rclone/rclone.conf)
+	ConfigFile string `yaml:"config_file" json:"config_file"`
+	// BinaryPath is an optional path to the rclone binary (default: searches PATH)
+	BinaryPath string `yaml:"binary_path" json:"binary_path"`
+	// Flags are additional rclone flags to pass (e.g., ["--fast-list", "--transfers=4"])
+	Flags []string `yaml:"flags" json:"flags"`
+	// Streaming enables streaming mode (pipes data directly without temp files)
+	Streaming bool `yaml:"streaming" json:"streaming"`
+}
+
+// CompressionConfig holds compression settings with more control
+type CompressionConfig struct {
+	// Type is the compression algorithm to use
+	Type CompressionType `yaml:"type" json:"type"`
+	// Level is the compression level (algorithm-specific, 0=default)
+	Level int `yaml:"level" json:"level"`
+	// Threads is the number of threads for parallel compression (0=auto, zstd/xz only)
+	Threads int `yaml:"threads" json:"threads"`
 }
 
 // RetentionConfig holds backup retention settings

@@ -21,23 +21,34 @@ func TestMain(m *testing.M) {
 		os.Exit(0)
 	}
 
-	// Find compose file
-	composeFile := findComposeFile()
-	if composeFile == "" {
-		panic("could not find docker-compose.yml")
-	}
+	var cfg *harness.Config
+	if harness.IsVMMode() {
+		vmCfg, _, err := harness.ConfigFromVM("")
+		if err != nil {
+			panic("failed to load VM config: " + err.Error())
+		}
+		cfg = vmCfg
+		cfg.ProjectName = "kscore-e2e-scenarios"
+		cfg.StartupTimeout = 180 * time.Second
+	} else {
+		// Find compose file
+		composeFile := findComposeFile()
+		if composeFile == "" {
+			panic("could not find docker-compose.yml")
+		}
 
-	// Check if we should skip building images (useful when images already exist)
-	skipBuild := os.Getenv("KSCORE_SKIP_BUILD") == "1"
+		// Check if we should skip building images (useful when images already exist)
+		skipBuild := os.Getenv("KSCORE_SKIP_BUILD") == "1"
 
-	cfg := &harness.Config{
-		ComposeFile:    composeFile,
-		ProjectName:    "kscore-e2e-scenarios",
-		BuildImages:    !skipBuild,
-		StartupTimeout: 180 * time.Second,
-		ServerGRPCPort: 8080,
-		ServerHTTPPort: 8081,
-		WebhookPort:    8082,
+		cfg = &harness.Config{
+			ComposeFile:    composeFile,
+			ProjectName:    "kscore-e2e-scenarios",
+			BuildImages:    !skipBuild,
+			StartupTimeout: 180 * time.Second,
+			ServerGRPCPort: 8080,
+			ServerHTTPPort: 8081,
+			WebhookPort:    8082,
+		}
 	}
 
 	var err error

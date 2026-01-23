@@ -61,25 +61,36 @@ func setupHACluster(t *testing.T) *harness.HAClusterEnvironment {
 		return haTestEnv
 	}
 
-	// Find compose file
-	composeFile := findHAClusterComposeFile()
-	if composeFile == "" {
-		t.Fatal("Could not find ha-cluster docker-compose.yml")
-	}
+	var cfg *harness.HAClusterConfig
+	if harness.IsVMMode() {
+		vmCfg, _, _, err := harness.HAClusterConfigFromVM("", 5)
+		if err != nil {
+			t.Fatalf("Failed to load VM config: %v", err)
+		}
+		cfg = vmCfg
+		cfg.ProjectName = "kscore-e2e-ha"
+		cfg.StartupTimeout = 300 * time.Second
+	} else {
+		// Find compose file
+		composeFile := findHAClusterComposeFile()
+		if composeFile == "" {
+			t.Fatal("Could not find ha-cluster docker-compose.yml")
+		}
 
-	buildImages := os.Getenv("KSCORE_SKIP_BUILD") != "1"
+		buildImages := os.Getenv("KSCORE_SKIP_BUILD") != "1"
 
-	cfg := &harness.HAClusterConfig{
-		ComposeFile:    composeFile,
-		ProjectName:    "kscore-e2e-ha",
-		BuildImages:    buildImages,
-		StartupTimeout: 300 * time.Second,
-		Servers: []harness.ServerInfo{
-			{Name: "server-1", GRPCAddr: "localhost:8080", HTTPAddr: "http://localhost:8081"},
-			{Name: "server-2", GRPCAddr: "localhost:8082", HTTPAddr: "http://localhost:8083"},
-			{Name: "server-3", GRPCAddr: "localhost:8084", HTTPAddr: "http://localhost:8085"},
-		},
-		ExpectedAgents: 5,
+		cfg = &harness.HAClusterConfig{
+			ComposeFile:    composeFile,
+			ProjectName:    "kscore-e2e-ha",
+			BuildImages:    buildImages,
+			StartupTimeout: 300 * time.Second,
+			Servers: []harness.ServerInfo{
+				{Name: "server-1", GRPCAddr: "localhost:8080", HTTPAddr: "http://localhost:8081"},
+				{Name: "server-2", GRPCAddr: "localhost:8082", HTTPAddr: "http://localhost:8083"},
+				{Name: "server-3", GRPCAddr: "localhost:8084", HTTPAddr: "http://localhost:8085"},
+			},
+			ExpectedAgents: 5,
+		}
 	}
 
 	var err error

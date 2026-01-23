@@ -1,0 +1,67 @@
+vm_provider: ssh
+
+ssh:
+  clean_nodes: false
+  nodes:
+    - name: server-1
+      host: 192.168.2.10
+      port: 22
+      user: root
+      key_file: ~/.ssh/id_rsa
+      os: ubuntu-22.04
+      role: control-plane
+    - name: server-2
+      host: 192.168.2.11
+      port: 22
+      user: root
+      key_file: ~/.ssh/id_rsa
+      os: ubuntu-22.04
+      role: control-plane
+    - name: server-3
+      host: 192.168.2.12
+      port: 22
+      user: root
+      key_file: ~/.ssh/id_rsa
+      os: ubuntu-22.04
+      role: control-plane
+    - name: agent-1
+      host: 192.168.2.20
+      port: 22
+      user: root
+      key_file: ~/.ssh/id_rsa
+      os: ubuntu-22.04
+      role: agent
+    - name: agent-2
+      host: 192.168.2.21
+      port: 22
+      user: root
+      key_file: ~/.ssh/id_rsa
+      os: debian-12
+      role: agent
+    - name: agent-3
+      host: 192.168.2.22
+      port: 22
+      user: root
+      key_file: ~/.ssh/id_rsa
+      os: rocky-9
+      role: agent
+    - name: agent-4
+      host: 192.168.2.23
+      port: 22
+      user: root
+      key_file: ~/.ssh/id_rsa
+      os: fedora-40
+      role: agent
+    - name: agent-5
+      host: 192.168.2.24
+      port: 22
+      user: root
+      key_file: ~/.ssh/id_rsa
+      os: alpine-3.20
+      role: agent
+  postgres:
+    host: 192.168.2.30
+    port: 5432
+    user: kscore
+    password: kscore_e2e_password
+    database: kscore

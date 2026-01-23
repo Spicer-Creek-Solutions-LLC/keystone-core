@@ -34,23 +34,34 @@ func TestMain(m *testing.M) {
 		os.Exit(code)
 	}
 
-	// Default: all-in-one topology
-	// Find compose file
-	composeFile := findComposeFile()
-	if composeFile == "" {
-		panic("could not find docker-compose.yml")
-	}
+	var cfg *harness.Config
+	if harness.IsVMMode() {
+		vmCfg, _, err := harness.ConfigFromVM("")
+		if err != nil {
+			panic("failed to load VM config: " + err.Error())
+		}
+		cfg = vmCfg
+		cfg.ProjectName = "kscore-e2e-allinone"
+		cfg.StartupTimeout = 180 * time.Second
+	} else {
+		// Default: all-in-one topology
+		// Find compose file
+		composeFile := findComposeFile()
+		if composeFile == "" {
+			panic("could not find docker-compose.yml")
+		}
 
-	// Skip building if KSCORE_SKIP_BUILD=1 (images already exist)
-	buildImages := os.Getenv("KSCORE_SKIP_BUILD") != "1"
+		// Skip building if KSCORE_SKIP_BUILD=1 (images already exist)
+		buildImages := os.Getenv("KSCORE_SKIP_BUILD") != "1"
 
-	cfg := &harness.Config{
-		ComposeFile:    composeFile,
-		ProjectName:    "kscore-e2e-allinone",
-		BuildImages:    buildImages,
-		StartupTimeout: 180 * time.Second,
-		ServerGRPCPort: 8080,
-		ServerHTTPPort: 8081,
+		cfg = &harness.Config{
+			ComposeFile:    composeFile,
+			ProjectName:    "kscore-e2e-allinone",
+			BuildImages:    buildImages,
+			StartupTimeout: 180 * time.Second,
+			ServerGRPCPort: 8080,
+			ServerHTTPPort: 8081,
+		}
 	}
 
 	var err error

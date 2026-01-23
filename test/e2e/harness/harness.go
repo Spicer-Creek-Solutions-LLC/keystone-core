@@ -47,6 +47,9 @@ type TestEnvironment struct {
 
 // Config holds configuration for the test environment
 type Config struct {
+	// Mode selects how the environment is provisioned (e.g., "docker" or "vm").
+	Mode string
+
 	// ComposeFile is the path to the docker-compose.yml file
 	// If empty, defaults to test/e2e/containers/docker-compose.yml
 	ComposeFile string
@@ -65,13 +68,22 @@ type Config struct {
 	// Default: 8080
 	ServerGRPCPort int
 
+	// ServerGRPCAddr overrides the gRPC address (used for VM mode)
+	ServerGRPCAddr string
+
 	// ServerHTTPPort is the host port for the HTTP server
 	// Default: 8081
 	ServerHTTPPort int
 
+	// ServerHTTPAddr overrides the HTTP address (used for VM mode)
+	ServerHTTPAddr string
+
 	// WebhookPort is the host port for the webhook receiver
 	// Default: 8082
 	WebhookPort int
+
+	// WebhookAddr overrides the webhook address (used for VM mode)
+	WebhookAddr string
 }
 
 // DefaultConfig returns the default configuration
@@ -92,38 +104,41 @@ func New(cfg *Config) (*TestEnvironment, error) {
 		cfg = DefaultConfig()
 	}
 
-	// Find compose file
 	composeFile := cfg.ComposeFile
-	if composeFile == "" {
-		// Try to find it relative to common locations
-		candidates := []string{
-			"test/e2e/containers/docker-compose.yml",
-			"../containers/docker-compose.yml",
-			"docker-compose.yml",
-		}
-		for _, c := range candidates {
-			if _, err := os.Stat(c); err == nil {
-				composeFile = c
-				break
+	if cfg.Mode != "vm" {
+		// Find compose file
+		if composeFile == "" {
+			// Try to find it relative to common locations
+			candidates := []string{
+				"test/e2e/containers/docker-compose.yml",
+				"../containers/docker-compose.yml",
+				"docker-compose.yml",
+			}
+			for _, c := range candidates {
+				if _, err := os.Stat(c); err == nil {
+					composeFile = c
+					break
+				}
 			}
 		}
-	}
 
-	if composeFile == "" {
-		return nil, fmt.Errorf("could not find docker-compose.yml")
-	}
+		if composeFile == "" {
+			return nil, fmt.Errorf("could not find docker-compose.yml")
+		}
 
-	absPath, err := filepath.Abs(composeFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get absolute path: %w", err)
+		absPath, err := filepath.Abs(composeFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get absolute path: %w", err)
+		}
+		composeFile = absPath
 	}
 
 	return &TestEnvironment{
-		ComposeFile:    absPath,
+		ComposeFile:    composeFile,
 		ProjectName:    cfg.ProjectName,
-		ServerGRPCAddr: fmt.Sprintf("localhost:%d", cfg.ServerGRPCPort),
-		ServerHTTPAddr: fmt.Sprintf("http://localhost:%d", cfg.ServerHTTPPort),
-		WebhookAddr:    fmt.Sprintf("http://localhost:%d", cfg.WebhookPort),
+		ServerGRPCAddr: firstNonEmpty(cfg.ServerGRPCAddr, fmt.Sprintf("localhost:%d", cfg.ServerGRPCPort)),
+		ServerHTTPAddr: firstNonEmpty(cfg.ServerHTTPAddr, fmt.Sprintf("http://localhost:%d", cfg.ServerHTTPPort)),
+		WebhookAddr:    firstNonEmpty(cfg.WebhookAddr, fmt.Sprintf("http://localhost:%d", cfg.WebhookPort)),
 		httpClient:     &http.Client{Timeout: 5 * time.Second},
 	}, nil
 }
@@ -134,39 +149,41 @@ func (e *TestEnvironment) Start(ctx context.Context, cfg *Config) error {
 		cfg = DefaultConfig()
 	}
 
-	// Build and start containers
-	args := []string{
-		"-f", e.ComposeFile,
-		"-p", e.ProjectName,
-	}
+	if cfg.Mode != "vm" {
+		// Build and start containers
+		args := []string{
+			"-f", e.ComposeFile,
+			"-p", e.ProjectName,
+		}
 
-	// Always clean up any existing containers first to avoid name conflicts
-	// This handles cases where previous test runs crashed or containers
-	// were started manually outside the test harness
-	fmt.Print("Cleaning up any existing containers...")
-	downArgs := append(args, "down", "-v", "--remove-orphans")
-	_ = e.runCompose(ctx, downArgs...) // Ignore errors - containers might not exist
-	fmt.Println(" done")
+		// Always clean up any existing containers first to avoid name conflicts
+		// This handles cases where previous test runs crashed or containers
+		// were started manually outside the test harness
+		fmt.Print("Cleaning up any existing containers...")
+		downArgs := append(args, "down", "-v", "--remove-orphans")
+		_ = e.runCompose(ctx, downArgs...) // Ignore errors - containers might not exist
+		fmt.Println(" done")
 
-	if cfg.BuildImages {
-		// Build images first (quiet mode to avoid flooding terminal)
-		fmt.Print("Building container images...")
-		buildArgs := append(args, "build", "-q")
-		if err := e.runCompose(ctx, buildArgs...); err != nil {
+		if cfg.BuildImages {
+			// Build images first (quiet mode to avoid flooding terminal)
+			fmt.Print("Building container images...")
+			buildArgs := append(args, "build", "-q")
+			if err := e.runCompose(ctx, buildArgs...); err != nil {
+				fmt.Println(" FAILED")
+				return fmt.Errorf("failed to build images: %w", err)
+			}
+			fmt.Println(" done")
+		}
+
+		// Start containers
+		fmt.Print("Starting containers...")
+		upArgs := append(args, "up", "-d", "--wait")
+		if err := e.runCompose(ctx, upArgs...); err != nil {
 			fmt.Println(" FAILED")
-			return fmt.Errorf("failed to build images: %w", err)
+			return fmt.Errorf("failed to start containers: %w", err)
 		}
 		fmt.Println(" done")
 	}
-
-	// Start containers
-	fmt.Print("Starting containers...")
-	upArgs := append(args, "up", "-d", "--wait")
-	if err := e.runCompose(ctx, upArgs...); err != nil {
-		fmt.Println(" FAILED")
-		return fmt.Errorf("failed to start containers: %w", err)
-	}
-	fmt.Println(" done")
 
 	// Wait for server to be healthy
 	fmt.Print("Waiting for server health check...")
@@ -198,6 +215,10 @@ func (e *TestEnvironment) Stop(ctx context.Context) error {
 	// Close gRPC connection
 	if e.grpcConn != nil {
 		e.grpcConn.Close()
+	}
+
+	if e.ComposeFile == "" {
+		return nil
 	}
 
 	// Stop and remove containers
@@ -293,6 +314,15 @@ func (e *TestEnvironment) WaitForAgents(ctx context.Context, expectedCount int, 
 // Output is captured and only printed on error to avoid flooding the terminal
 func (e *TestEnvironment) runCompose(ctx context.Context, args ...string) error {
 	return e.runComposeWithOutput(ctx, false, args...)
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 // runComposeWithOutput runs a docker-compose command

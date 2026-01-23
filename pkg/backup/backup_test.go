@@ -864,3 +864,556 @@ func TestRestoreManager_RegisterEtcdImporter(t *testing.T) {
 		t.Error("expected etcd importer to be registered")
 	}
 }
+
+// Compression tests
+
+func TestCompressionTypes(t *testing.T) {
+	tests := []struct {
+		compType CompressionType
+		expected string
+	}{
+		{CompressionTypeNone, "none"},
+		{CompressionTypeGzip, "gzip"},
+		{CompressionTypeBzip2, "bzip2"},
+		{CompressionTypeXz, "xz"},
+		{CompressionTypeZstd, "zstd"},
+		{CompressionTypeLz4, "lz4"},
+	}
+
+	for _, tt := range tests {
+		if string(tt.compType) != tt.expected {
+			t.Errorf("expected %s, got %s", tt.expected, string(tt.compType))
+		}
+	}
+}
+
+func TestParseCompressionType(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected CompressionType
+		wantErr  bool
+	}{
+		{"none", CompressionTypeNone, false},
+		{"", CompressionTypeNone, false},
+		{"gzip", CompressionTypeGzip, false},
+		{"gz", CompressionTypeGzip, false},
+		{"bzip2", CompressionTypeBzip2, false},
+		{"bz2", CompressionTypeBzip2, false},
+		{"xz", CompressionTypeXz, false},
+		{"lzma", CompressionTypeXz, false},
+		{"zstd", CompressionTypeZstd, false},
+		{"zstandard", CompressionTypeZstd, false},
+		{"lz4", CompressionTypeLz4, false},
+		{"GZIP", CompressionTypeGzip, false}, // case insensitive
+		{"invalid", CompressionTypeNone, true},
+		{"unknown", CompressionTypeNone, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result, err := ParseCompressionType(tt.input)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("expected error for input %q", tt.input)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error for input %q: %v", tt.input, err)
+				}
+				if result != tt.expected {
+					t.Errorf("expected %s, got %s", tt.expected, result)
+				}
+			}
+		})
+	}
+}
+
+func TestDetectCompressionFromFilename(t *testing.T) {
+	tests := []struct {
+		filename string
+		expected CompressionType
+	}{
+		{"backup.tar", CompressionTypeNone},
+		{"backup.tar.gz", CompressionTypeGzip},
+		{"backup.tar.gzip", CompressionTypeGzip},
+		{"backup.tar.bz2", CompressionTypeBzip2},
+		{"backup.tar.bzip2", CompressionTypeBzip2},
+		{"backup.tar.xz", CompressionTypeXz},
+		{"backup.tar.lzma", CompressionTypeXz},
+		{"backup.tar.zst", CompressionTypeZstd},
+		{"backup.tar.zstd", CompressionTypeZstd},
+		{"backup.tar.lz4", CompressionTypeLz4},
+		{"backup.unknown", CompressionTypeNone},
+		{"", CompressionTypeNone},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.filename, func(t *testing.T) {
+			result := DetectCompressionFromFilename(tt.filename)
+			if result != tt.expected {
+				t.Errorf("expected %s for %q, got %s", tt.expected, tt.filename, result)
+			}
+		})
+	}
+}
+
+func TestGetCompressionInfo(t *testing.T) {
+	tests := []struct {
+		compType  CompressionType
+		extension string
+		exists    bool
+	}{
+		{CompressionTypeNone, "", true},
+		{CompressionTypeGzip, ".gz", true},
+		{CompressionTypeBzip2, ".bz2", true},
+		{CompressionTypeXz, ".xz", true},
+		{CompressionTypeZstd, ".zst", true},
+		{CompressionTypeLz4, ".lz4", true},
+		{CompressionType("invalid"), "", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.compType), func(t *testing.T) {
+			info, ok := GetCompressionInfo(tt.compType)
+			if ok != tt.exists {
+				t.Errorf("expected exists=%v, got %v", tt.exists, ok)
+			}
+			if ok && info.Extension != tt.extension {
+				t.Errorf("expected extension %q, got %q", tt.extension, info.Extension)
+			}
+		})
+	}
+}
+
+func TestGetFileExtension(t *testing.T) {
+	tests := []struct {
+		compType  CompressionType
+		extension string
+	}{
+		{CompressionTypeNone, ""},
+		{CompressionTypeGzip, ".gz"},
+		{CompressionTypeBzip2, ".bz2"},
+		{CompressionTypeXz, ".xz"},
+		{CompressionTypeZstd, ".zst"},
+		{CompressionTypeLz4, ".lz4"},
+		{CompressionType("invalid"), ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.compType), func(t *testing.T) {
+			result := GetFileExtension(tt.compType)
+			if result != tt.extension {
+				t.Errorf("expected %q, got %q", tt.extension, result)
+			}
+		})
+	}
+}
+
+func TestCompressor_NoCompression(t *testing.T) {
+	ctx := context.Background()
+	config := CompressionConfig{Type: CompressionTypeNone}
+	compressor := NewCompressor(config, nil)
+
+	testData := []byte("test data for compression")
+
+	// Test compress
+	var compressed bytes.Buffer
+	err := compressor.Compress(ctx, bytes.NewReader(testData), &compressed)
+	if err != nil {
+		t.Fatalf("compress failed: %v", err)
+	}
+
+	// With no compression, output should equal input
+	if !bytes.Equal(compressed.Bytes(), testData) {
+		t.Error("no compression should pass data through unchanged")
+	}
+
+	// Test decompress
+	var decompressed bytes.Buffer
+	err = compressor.Decompress(ctx, bytes.NewReader(testData), &decompressed)
+	if err != nil {
+		t.Fatalf("decompress failed: %v", err)
+	}
+
+	if !bytes.Equal(decompressed.Bytes(), testData) {
+		t.Error("no decompression should pass data through unchanged")
+	}
+}
+
+func TestCompressor_Gzip(t *testing.T) {
+	ctx := context.Background()
+	config := CompressionConfig{Type: CompressionTypeGzip}
+	compressor := NewCompressor(config, nil)
+
+	testData := []byte("test data for gzip compression - this should compress well with repeated content repeated content repeated content")
+
+	// Test compress
+	var compressed bytes.Buffer
+	err := compressor.Compress(ctx, bytes.NewReader(testData), &compressed)
+	if err != nil {
+		t.Fatalf("compress failed: %v", err)
+	}
+
+	// Compressed should be smaller (for compressible data)
+	if compressed.Len() >= len(testData) {
+		t.Logf("warning: compressed size %d >= original size %d", compressed.Len(), len(testData))
+	}
+
+	// Test decompress
+	var decompressed bytes.Buffer
+	err = compressor.Decompress(ctx, bytes.NewReader(compressed.Bytes()), &decompressed)
+	if err != nil {
+		t.Fatalf("decompress failed: %v", err)
+	}
+
+	if !bytes.Equal(decompressed.Bytes(), testData) {
+		t.Error("decompressed data does not match original")
+	}
+}
+
+func TestCompressor_CompressToWriter_None(t *testing.T) {
+	ctx := context.Background()
+	config := CompressionConfig{Type: CompressionTypeNone}
+	compressor := NewCompressor(config, nil)
+
+	var buf bytes.Buffer
+	writer, err := compressor.CompressToWriter(ctx, &buf)
+	if err != nil {
+		t.Fatalf("failed to create compress writer: %v", err)
+	}
+
+	testData := []byte("test data")
+	_, err = writer.Write(testData)
+	if err != nil {
+		t.Fatalf("write failed: %v", err)
+	}
+
+	err = writer.Close()
+	if err != nil {
+		t.Fatalf("close failed: %v", err)
+	}
+
+	if !bytes.Equal(buf.Bytes(), testData) {
+		t.Error("no compression writer should pass data through unchanged")
+	}
+}
+
+func TestCompressor_CompressToWriter_Gzip(t *testing.T) {
+	ctx := context.Background()
+	config := CompressionConfig{Type: CompressionTypeGzip}
+	compressor := NewCompressor(config, nil)
+
+	var buf bytes.Buffer
+	writer, err := compressor.CompressToWriter(ctx, &buf)
+	if err != nil {
+		t.Fatalf("failed to create compress writer: %v", err)
+	}
+
+	testData := []byte("test data for streaming compression")
+	_, err = writer.Write(testData)
+	if err != nil {
+		t.Fatalf("write failed: %v", err)
+	}
+
+	err = writer.Close()
+	if err != nil {
+		t.Fatalf("close failed: %v", err)
+	}
+
+	// Verify we can decompress
+	var decompressed bytes.Buffer
+	err = compressor.Decompress(ctx, bytes.NewReader(buf.Bytes()), &decompressed)
+	if err != nil {
+		t.Fatalf("decompress failed: %v", err)
+	}
+
+	if !bytes.Equal(decompressed.Bytes(), testData) {
+		t.Error("decompressed data does not match original")
+	}
+}
+
+func TestIsCompressionAvailable(t *testing.T) {
+	// None and gzip are always available
+	if !IsCompressionAvailable(CompressionTypeNone) {
+		t.Error("none compression should always be available")
+	}
+	if !IsCompressionAvailable(CompressionTypeGzip) {
+		t.Error("gzip compression should always be available")
+	}
+
+	// Other types depend on external commands - just ensure no panic
+	_ = IsCompressionAvailable(CompressionTypeBzip2)
+	_ = IsCompressionAvailable(CompressionTypeXz)
+	_ = IsCompressionAvailable(CompressionTypeZstd)
+	_ = IsCompressionAvailable(CompressionTypeLz4)
+}
+
+func TestListAvailableCompression(t *testing.T) {
+	available := ListAvailableCompression()
+
+	// Should always include none and gzip
+	hasNone := false
+	hasGzip := false
+	for _, c := range available {
+		if c == CompressionTypeNone {
+			hasNone = true
+		}
+		if c == CompressionTypeGzip {
+			hasGzip = true
+		}
+	}
+
+	if !hasNone {
+		t.Error("available compression should include none")
+	}
+	if !hasGzip {
+		t.Error("available compression should include gzip")
+	}
+}
+
+func TestArtifactBuilder_BuildWithConfig(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+
+	// Create test files
+	testFile := filepath.Join(tmpDir, "test.txt")
+	if err := os.WriteFile(testFile, []byte("test content for compression"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	builder, err := NewArtifactBuilder(tmpDir, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	outputPath := filepath.Join(t.TempDir(), "backup.tar.gz")
+	manifest := &BackupManifest{
+		ManifestVersion: ManifestVersion,
+		Backup: BackupInfo{
+			ID:   "test-backup",
+			Name: "test",
+		},
+		CreatedAt: time.Now(),
+	}
+
+	compressionCfg := CompressionConfig{
+		Type:  CompressionTypeGzip,
+		Level: 6,
+	}
+
+	err = builder.BuildWithConfig(ctx, outputPath, manifest, compressionCfg)
+	if err != nil {
+		t.Fatalf("build failed: %v", err)
+	}
+
+	// Verify output exists
+	if _, err := os.Stat(outputPath); os.IsNotExist(err) {
+		t.Error("output file not created")
+	}
+
+	// Verify we can read it back
+	reader := NewArtifactReader(outputPath, nil)
+	readManifest, err := reader.ReadManifest(ctx)
+	if err != nil {
+		t.Fatalf("read manifest failed: %v", err)
+	}
+
+	if readManifest.Backup.ID != "test-backup" {
+		t.Errorf("expected backup ID %s, got %s", "test-backup", readManifest.Backup.ID)
+	}
+}
+
+// RcloneDestination tests
+
+func TestRcloneDestination_Type(t *testing.T) {
+	config := RcloneConfig{
+		Remote: "myremote",
+		Path:   "backups",
+	}
+	dest := NewRcloneDestination(config, nil)
+
+	if dest.Type() != DestinationTypeRclone {
+		t.Errorf("expected type %s, got %s", DestinationTypeRclone, dest.Type())
+	}
+}
+
+func TestRcloneDestination_remotePath(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   RcloneConfig
+		artifact string
+		expected string
+	}{
+		{
+			name:     "with path",
+			config:   RcloneConfig{Remote: "myremote", Path: "backups"},
+			artifact: "backup.tar.gz",
+			expected: "myremote:backups/backup.tar.gz",
+		},
+		{
+			name:     "without path",
+			config:   RcloneConfig{Remote: "myremote"},
+			artifact: "backup.tar.gz",
+			expected: "myremote:backup.tar.gz",
+		},
+		{
+			name:     "nested path",
+			config:   RcloneConfig{Remote: "gdrive", Path: "folder/subfolder"},
+			artifact: "daily-backup.tar.gz",
+			expected: "gdrive:folder/subfolder/daily-backup.tar.gz",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dest := NewRcloneDestination(tt.config, nil)
+			result := dest.remotePath(tt.artifact)
+			if result != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestRcloneDestination_rcloneBinary(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   RcloneConfig
+		expected string
+	}{
+		{
+			name:     "default binary",
+			config:   RcloneConfig{Remote: "test"},
+			expected: "rclone",
+		},
+		{
+			name:     "custom binary path",
+			config:   RcloneConfig{Remote: "test", BinaryPath: "/usr/local/bin/rclone"},
+			expected: "/usr/local/bin/rclone",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dest := NewRcloneDestination(tt.config, nil)
+			result := dest.rcloneBinary()
+			if result != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestRcloneDestination_baseArgs(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   RcloneConfig
+		expected []string
+	}{
+		{
+			name:     "no extra config",
+			config:   RcloneConfig{Remote: "test"},
+			expected: []string{},
+		},
+		{
+			name:     "with config file",
+			config:   RcloneConfig{Remote: "test", ConfigFile: "/path/to/rclone.conf"},
+			expected: []string{"--config", "/path/to/rclone.conf"},
+		},
+		{
+			name:     "with flags",
+			config:   RcloneConfig{Remote: "test", Flags: []string{"--fast-list", "--transfers=4"}},
+			expected: []string{"--fast-list", "--transfers=4"},
+		},
+		{
+			name:     "with config file and flags",
+			config:   RcloneConfig{Remote: "test", ConfigFile: "/path/to/rclone.conf", Flags: []string{"--verbose"}},
+			expected: []string{"--config", "/path/to/rclone.conf", "--verbose"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dest := NewRcloneDestination(tt.config, nil)
+			result := dest.baseArgs()
+
+			if len(result) != len(tt.expected) {
+				t.Errorf("expected %d args, got %d: %v", len(tt.expected), len(result), result)
+				return
+			}
+
+			for i, arg := range result {
+				if arg != tt.expected[i] {
+					t.Errorf("arg %d: expected %q, got %q", i, tt.expected[i], arg)
+				}
+			}
+		})
+	}
+}
+
+func TestNewDestination_Rclone(t *testing.T) {
+	tests := []struct {
+		name      string
+		config    *DestinationConfig
+		expectErr bool
+	}{
+		{
+			name: "rclone without config returns error",
+			config: &DestinationConfig{
+				Type: DestinationTypeRclone,
+			},
+			expectErr: true,
+		},
+		{
+			name: "rclone without remote returns error",
+			config: &DestinationConfig{
+				Type:   DestinationTypeRclone,
+				Rclone: &RcloneConfig{},
+			},
+			expectErr: true,
+		},
+		{
+			name: "rclone with remote succeeds",
+			config: &DestinationConfig{
+				Type:   DestinationTypeRclone,
+				Rclone: &RcloneConfig{Remote: "myremote", Path: "backups"},
+			},
+			expectErr: false,
+		},
+		{
+			name: "rclone with streaming enabled",
+			config: &DestinationConfig{
+				Type:   DestinationTypeRclone,
+				Rclone: &RcloneConfig{Remote: "dropbox", Path: "backups", Streaming: true},
+			},
+			expectErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dest, err := NewDestination(tt.config, nil)
+			if tt.expectErr {
+				if err == nil {
+					t.Error("expected error")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+				if dest == nil {
+					t.Error("expected destination")
+				}
+				if dest.Type() != DestinationTypeRclone {
+					t.Errorf("expected type %s, got %s", DestinationTypeRclone, dest.Type())
+				}
+			}
+		})
+	}
+}
+
+func TestDestinationTypes_IncludesRclone(t *testing.T) {
+	if string(DestinationTypeRclone) != "rclone" {
+		t.Errorf("expected 'rclone', got %s", string(DestinationTypeRclone))
+	}
+}

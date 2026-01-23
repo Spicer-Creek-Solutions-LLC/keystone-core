@@ -59,6 +59,13 @@ Diagnostic and resolution guides:
 - **Common errors** - Error message catalog with solutions
 - **Debug logging** - Enable detailed logging for diagnosis
 
+### [Runbooks](runbooks/)
+Operational runbooks for incidents, maintenance, and recovery:
+- **Incident response** - Security and operational incident handling
+- **Backup & restore** - Data protection workflows
+- **Disaster recovery** - DR procedures and validation
+- **Upgrades** - Rolling upgrade checklists
+
 ### [Security](security/)
 Security hardening and compliance:
 - **Authentication** - Token and certificate-based auth

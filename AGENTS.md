@@ -12,8 +12,36 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 ## Coding notes
-- Do not add superflous comments
+- Do not add superfluous comments
+- Commit and push as progress is made (don't wait until the end of a task)
+- Keep user documentation updated as tasks are completed:
+  - `docs/` - User-facing documentation
+  - `AGENTS.md` - Agent instructions and project status
+  - `README.md` - Project overview
+  - `docs/content/en/docs/executive-summary/_index.md` - Executive summary
+  - Other related documentation files as appropriate
 
+### Documentation Requirements
+
+All code changes **must** include corresponding documentation updates:
+- **CLI changes**: Update `docs/content/en/docs/reference/cli.md` and `cli-quick-reference.md`
+- **New features**: Add user-facing documentation explaining usage and examples
+- **API changes**: Update relevant API documentation
+- **Configuration changes**: Update configuration reference docs
+
+### Testing Requirements
+
+All code changes **must** include corresponding tests:
+- **New functions/methods**: Add unit tests covering normal operation, edge cases, and error conditions
+- **New types**: Add tests for constructors, methods, and interface compliance
+- **Bug fixes**: Add regression tests that would have caught the bug
+- **Test coverage targets**: >70% for critical packages, >40% for CLI (see TODO.md)
+
+Tests should follow existing patterns in the codebase:
+- Use table-driven tests where appropriate
+- Use `t.TempDir()` for filesystem isolation
+- Test both success and error paths
+- Include interface compliance tests (e.g., `var _ Interface = (*Type)(nil)`)
 
 ---
 
@@ -288,19 +316,56 @@ kscorectl custom-backup run  # Executes kscore-custom-backup run
 - **`kscore-telemetry-gateway`** - Telemetry aggregation gateway
 
 ### 3. **CLI Plugins** (invoked via kscorectl)
-- **`kscore-module`** - Module management
-- **`kscore-state`** - State management
+
+**Core Operations:**
 - **`kscore-exec`** - Remote execution
+- **`kscore-state`** - State management
+- **`kscore-module`** - Module management
 - **`kscore-monitor`** - Real-time TUI monitoring
+- **`kscore-agents`** - Agent management (list, show, delete, tags)
+
+**Policy & Compliance:**
 - **`kscore-policy`** - Policy enforcement
+- **`kscore-audit`** - Audit logs and compliance reporting
+
+**GitOps & Webhooks:**
 - **`kscore-gitops`** - GitOps integration
-- **`kscore-migrate`** - Database migration tool
+- **`kscore-webhook`** - Webhook handler management
+
+**Cluster & Identity:**
+- **`kscore-cluster`** - Cluster management
+- **`kscore-cluster-backup`** - Cluster backup and restore
 - **`kscore-identity`** - SPIFFE identity management
+- **`kscore-federation`** - Trust federation management
+
+**Blueprints:**
+- **`kscore-blueprint`** - Blueprint management
+- **`kscore-blueprint-publish`** - Blueprint publishing
+- **`kscore-blueprint-state`** - Blueprint state operations
+
+**File Distribution:**
+- **`kscore-files`** - File distribution client/server
+- **`kscore-files-storage`** - File storage administration
+
+**Proxy & Devices:**
+- **`kscore-proxy`** - Proxy agent and device management
+
+**Operations & Maintenance:**
+- **`kscore-backup`** - Backup management
+- **`kscore-events`** - Event management
+- **`kscore-schedule`** - Schedule and maintenance windows
+- **`kscore-upgrade`** - Upgrade management
+- **`kscore-migrate`** - Database migration tool
+- **`kscore-bootstrap`** - Cluster bootstrap
 
 ### 4. **Third-Party Plugins** (optional)
 - Any binary named `kscore-<name>` in $PATH automatically works as `kscorectl <name>`
 
-**Total Core Binaries**: 11 (1 CLI + 4 servers + 6 built-in plugins)
+### 5. **Development/Testing Utilities**
+- **`kscore-loadtest`** - Load testing harness
+- **`kscore-test`** - Test runner
+
+**Total Core Binaries**: 30 (1 CLI + 4 servers + 25 built-in plugins)
 
 ## Key Design Principles
 

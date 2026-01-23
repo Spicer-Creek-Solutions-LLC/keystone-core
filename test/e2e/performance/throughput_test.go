@@ -42,22 +42,33 @@ func TestMain(m *testing.M) {
 		os.Exit(0)
 	}
 
-	// Find compose file
-	composeFile := findComposeFile()
-	if composeFile == "" {
-		panic("could not find docker-compose.yml")
-	}
+	var cfg *harness.Config
+	if harness.IsVMMode() {
+		vmCfg, _, err := harness.ConfigFromVM("")
+		if err != nil {
+			panic("failed to load VM config: " + err.Error())
+		}
+		cfg = vmCfg
+		cfg.ProjectName = "kscore-e2e-performance"
+		cfg.StartupTimeout = 180 * time.Second
+	} else {
+		// Find compose file
+		composeFile := findComposeFile()
+		if composeFile == "" {
+			panic("could not find docker-compose.yml")
+		}
 
-	// Skip building if KSCORE_SKIP_BUILD=1
-	buildImages := os.Getenv("KSCORE_SKIP_BUILD") != "1"
+		// Skip building if KSCORE_SKIP_BUILD=1
+		buildImages := os.Getenv("KSCORE_SKIP_BUILD") != "1"
 
-	cfg := &harness.Config{
-		ComposeFile:    composeFile,
-		ProjectName:    "kscore-e2e-performance",
-		BuildImages:    buildImages,
-		StartupTimeout: 180 * time.Second,
-		ServerGRPCPort: 8080,
-		ServerHTTPPort: 8081,
+		cfg = &harness.Config{
+			ComposeFile:    composeFile,
+			ProjectName:    "kscore-e2e-performance",
+			BuildImages:    buildImages,
+			StartupTimeout: 180 * time.Second,
+			ServerGRPCPort: 8080,
+			ServerHTTPPort: 8081,
+		}
 	}
 
 	var err error
@@ -119,20 +130,20 @@ func findComposeFile() string {
 
 // ThroughputResult holds the results of a throughput test
 type ThroughputResult struct {
-	TestName       string        `json:"test_name"`
-	TotalOps       int           `json:"total_ops"`
-	SuccessfulOps  int           `json:"successful_ops"`
-	FailedOps      int           `json:"failed_ops"`
-	Duration       time.Duration `json:"duration_ns"`
-	OpsPerSecond   float64       `json:"ops_per_second"`
-	AvgLatency     time.Duration `json:"avg_latency_ns"`
-	MinLatency     time.Duration `json:"min_latency_ns"`
-	MaxLatency     time.Duration `json:"max_latency_ns"`
-	P50Latency     time.Duration `json:"p50_latency_ns"`
-	P95Latency     time.Duration `json:"p95_latency_ns"`
-	P99Latency     time.Duration `json:"p99_latency_ns"`
-	ErrorRate      float64       `json:"error_rate"`
-	Timestamp      time.Time     `json:"timestamp"`
+	TestName      string        `json:"test_name"`
+	TotalOps      int           `json:"total_ops"`
+	SuccessfulOps int           `json:"successful_ops"`
+	FailedOps     int           `json:"failed_ops"`
+	Duration      time.Duration `json:"duration_ns"`
+	OpsPerSecond  float64       `json:"ops_per_second"`
+	AvgLatency    time.Duration `json:"avg_latency_ns"`
+	MinLatency    time.Duration `json:"min_latency_ns"`
+	MaxLatency    time.Duration `json:"max_latency_ns"`
+	P50Latency    time.Duration `json:"p50_latency_ns"`
+	P95Latency    time.Duration `json:"p95_latency_ns"`
+	P99Latency    time.Duration `json:"p99_latency_ns"`
+	ErrorRate     float64       `json:"error_rate"`
+	Timestamp     time.Time     `json:"timestamp"`
 }
 
 // LatencyCollector collects latency measurements

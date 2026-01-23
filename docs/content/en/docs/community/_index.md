@@ -29,6 +29,9 @@ Learn about project governance, decision making, and the RFC process.
 ### [Compatibility & Support Policy](compatibility/)
 Understand release compatibility, support windows, upgrade paths, and versioning guarantees.
 
+### [Project Docs](project-docs/)
+Design, security, and contributor-facing project documentation.
+
 ## Community Principles
 
 **Open and Inclusive**: We welcome contributors of all skill levels and backgrounds.

@@ -1,0 +1,33 @@
+vm_provider: ssh
+
+ssh:
+  clean_nodes: false
+  nodes:
+    - name: cp1
+      host: fd00::100
+      port: 22
+      user: root
+      key_file: ~/.ssh/id_rsa
+      os: ubuntu-22.04
+      role: control-plane
+    - name: agent-ipv6-web-1
+      host: fd00::110
+      port: 22
+      user: root
+      key_file: ~/.ssh/id_rsa
+      os: ubuntu-22.04
+      role: agent
+    - name: agent-ipv6-web-2
+      host: fd00::111
+      port: 22
+      user: root
+      key_file: ~/.ssh/id_rsa
+      os: debian-12
+      role: agent
+    - name: agent-ipv6-db-1
+      host: fd00::112
+      port: 22
+      user: root
+      key_file: ~/.ssh/id_rsa
+      os: rocky-9
+      role: agent

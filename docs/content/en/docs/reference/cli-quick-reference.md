@@ -344,15 +344,200 @@ not role:db                 # Negation
 
 ---
 
-## Proxy Agent Management
+## Backup Management (kscore-backup)
+
+### Backup Operations
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `proxy list` | List proxy agents | `proxy list` |
-| `proxy status <id>` | Proxy status | `proxy status proxy-01` |
-| `proxy device list` | List devices | `proxy device list --proxy proxy-01` |
-| `proxy device test <id>` | Test device | `proxy device test cisco-sw-01` |
-| `proxy credentials update` | Update creds | `proxy credentials update cisco-sw-01` |
+| `backup create` | Create backup | `backup create --type full --encrypt` |
+| `backup list` | List backups | `backup list --last 24h` |
+| `backup show <id>` | Show backup | `backup show backup-20240115-060000` |
+| `backup verify <id>` | Verify backup | `backup verify backup-20240115-060000` |
+| `backup restore <id>` | Restore backup | `backup restore backup-20240115-060000 --dry-run` |
+| `backup delete <id>` | Delete backup | `backup delete backup-20240115-060000 --force` |
+
+### Backup Types
+
+```
+--type full          # All components
+--type incremental   # Changes since last backup
+--type database      # Database only
+--type configuration # Config files only
+--type jetstream     # NATS JetStream data
+--type etcd          # etcd cluster data
+--type secrets       # Secrets and credentials
+```
+
+### Compression Options
+
+```
+--compression none   # No compression
+--compression gzip   # gzip (default, good balance)
+--compression bzip2  # bzip2 (higher ratio, slower)
+--compression xz     # xz (highest ratio, slowest)
+--compression zstd   # Zstandard (fast, good ratio - recommended)
+--compression lz4    # LZ4 (fastest, lower ratio)
+--compression-level 6  # Compression level (algorithm-specific)
+```
+
+### Rclone Cloud Storage
+
+Backup to 50+ cloud providers via rclone (Dropbox, Google Drive, OneDrive, Backblaze B2, etc.):
+
+```bash
+# Backup to Dropbox (streaming, no temp files)
+backup create --type full --rclone-remote dropbox --rclone-path /backups
+
+# Backup to Google Drive
+backup create --type full --rclone-remote gdrive --rclone-path backups/kscore
+
+# Backup to Backblaze B2
+backup create --type full --rclone-remote b2 --rclone-path bucket/backups
+```
+
+Configure remotes first with `rclone config`.
+
+### Backup Schedules & Retention
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `backup schedule list` | List schedules | `backup schedule list` |
+| `backup schedule create` | Create schedule | `backup schedule create daily --schedule "0 6 * * *"` |
+| `backup retention show` | Show policies | `backup retention show` |
+| `backup retention apply` | Apply policies | `backup retention apply --dry-run` |
+| `backup replication-status` | Replication status | `backup replication-status` |
+
+---
+
+## Event Management (kscore-events)
+
+### Event Operations
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `events list` | List events | `events list --type "agent.*" --since 1h` |
+| `events query <expr>` | Query with CEL | `events query 'severity == "error"'` |
+| `events emit` | Emit custom event | `events emit --type custom.deploy --data '{"v":"1.0"}'` |
+| `events watch` | Watch real-time | `events watch --type "state.*"` |
+| `events replay` | Replay events | `events replay --type "agent.failed" --dry-run` |
+
+### Event Retention & DLQ
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `events retention show` | Show retention | `events retention show` |
+| `events retention set` | Set retention | `events retention set --max-age 30d` |
+| `events dlq list` | List DLQ events | `events dlq list` |
+| `events dlq retry` | Retry DLQ events | `events dlq retry --all` |
+| `events dlq purge` | Purge DLQ | `events dlq purge --older-than 7d` |
+
+---
+
+## Schedule & Maintenance (kscore-schedule)
+
+### Schedule Operations
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `schedule list` | List schedules | `schedule list --status active` |
+| `schedule show <id>` | Show schedule | `schedule show sched-001` |
+| `schedule create` | Create schedule | `schedule create --name daily-backup --cron "0 2 * * *"` |
+| `schedule trigger <id>` | Trigger now | `schedule trigger sched-001` |
+| `schedule pause <id>` | Pause schedule | `schedule pause sched-001` |
+| `schedule resume <id>` | Resume schedule | `schedule resume sched-001` |
+| `schedule delete <id>` | Delete schedule | `schedule delete sched-001 --force` |
+| `schedule history <id>` | Show history | `schedule history sched-001` |
+
+### Maintenance Windows
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `maintenance list` | List windows | `maintenance list --status active` |
+| `maintenance create` | Create window | `maintenance create --name patch --start "..." --end "..."` |
+| `maintenance start <id>` | Start window | `maintenance start maint-001` |
+| `maintenance end <id>` | End window | `maintenance end maint-001` |
+| `maintenance extend <id>` | Extend window | `maintenance extend maint-001 --duration 2h` |
+| `maintenance active` | Active windows | `maintenance active` |
+| `maintenance upcoming` | Upcoming windows | `maintenance upcoming --within 24h` |
+
+---
+
+## Upgrade Management (kscore-upgrade)
+
+### Upgrade Operations
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `upgrade check` | Check for upgrades | `upgrade check` |
+| `upgrade plan` | Create upgrade plan | `upgrade plan --target 1.6.0` |
+| `upgrade execute` | Execute upgrade | `upgrade execute --target 1.6.0 --confirm` |
+| `upgrade status` | Upgrade status | `upgrade status` |
+| `upgrade cancel` | Cancel upgrade | `upgrade cancel --rollback` |
+| `upgrade rollback` | Rollback version | `upgrade rollback --target 1.5.2 --confirm` |
+| `upgrade history` | Upgrade history | `upgrade history --limit 10` |
+| `upgrade logs` | Upgrade logs | `upgrade logs --follow` |
+
+### Canary Deployments
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `upgrade canary status` | Canary status | `upgrade canary status` |
+| `upgrade canary promote` | Promote canary | `upgrade canary promote --confirm` |
+| `upgrade canary rollback` | Rollback canary | `upgrade canary rollback --confirm` |
+
+### Agent Upgrades
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `upgrade agents list` | List agent versions | `upgrade agents list --outdated` |
+| `upgrade agents status <id>` | Agent upgrade status | `upgrade agents status web-01` |
+
+---
+
+## Proxy Agent Management (kscore-proxy)
+
+### Proxy Status
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `proxy status` | Overall status | `proxy status` |
+
+### Device Management
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `proxy device list` | List devices | `proxy device list --protocol ssh` |
+| `proxy device show <id>` | Show device | `proxy device show router-01` |
+| `proxy device add` | Add device | `proxy device add --name sw-01 --address 10.0.0.1 --protocol ssh` |
+| `proxy device remove <id>` | Remove device | `proxy device remove sw-01 --force` |
+| `proxy device test <id>` | Test connectivity | `proxy device test sw-01` |
+
+### Credential Management
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `proxy credential list` | List credentials | `proxy credential list` |
+| `proxy credential add` | Add credential | `proxy credential add --name ssh-admin --type ssh-key` |
+| `proxy credential remove` | Remove credential | `proxy credential remove ssh-admin` |
+| `proxy credential update` | Update credential | `proxy credential update ssh-admin` |
+
+### Discovery & Drift
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `proxy discover scan` | Scan for devices | `proxy discover scan --subnet 192.168.1.0/24` |
+| `proxy discover list` | List discovered | `proxy discover list --status pending` |
+| `proxy discover approve` | Approve device | `proxy discover approve disc-123` |
+| `proxy drift check` | Check for drift | `proxy drift check --device router-01` |
+| `proxy drift show <id>` | Show drift details | `proxy drift show router-01` |
+
+### State Operations
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `proxy state apply <file>` | Apply state | `proxy state apply config.yaml --device sw-01` |
+| `proxy state check <file>` | Check state | `proxy state check config.yaml --device sw-01` |
 
 ---
 

@@ -1126,6 +1126,284 @@ func (d *HTTPDestination) Exists(ctx context.Context, name string) (bool, error)
 	return resp.StatusCode < 400, nil
 }
 
+// RcloneDestination stores backups via rclone (supports 50+ cloud storage backends)
+// Uses streaming pipes to avoid temporary local storage
+type RcloneDestination struct {
+	config RcloneConfig
+	logger Logger
+}
+
+// NewRcloneDestination creates a new rclone destination
+func NewRcloneDestination(config RcloneConfig, logger Logger) *RcloneDestination {
+	if logger == nil {
+		logger = &noopLogger{}
+	}
+	if config.Streaming {
+		// Streaming is enabled by default for new configs
+	}
+	return &RcloneDestination{
+		config: config,
+		logger: logger,
+	}
+}
+
+// Type returns the destination type
+func (d *RcloneDestination) Type() DestinationType {
+	return DestinationTypeRclone
+}
+
+// rcloneBinary returns the rclone binary path
+func (d *RcloneDestination) rcloneBinary() string {
+	if d.config.BinaryPath != "" {
+		return d.config.BinaryPath
+	}
+	return "rclone"
+}
+
+// remotePath builds the full remote path for an artifact
+func (d *RcloneDestination) remotePath(artifact string) string {
+	if d.config.Path != "" {
+		return fmt.Sprintf("%s:%s/%s", d.config.Remote, d.config.Path, artifact)
+	}
+	return fmt.Sprintf("%s:%s", d.config.Remote, artifact)
+}
+
+// baseArgs returns base rclone arguments
+func (d *RcloneDestination) baseArgs() []string {
+	args := []string{}
+	if d.config.ConfigFile != "" {
+		args = append(args, "--config", d.config.ConfigFile)
+	}
+	args = append(args, d.config.Flags...)
+	return args
+}
+
+// Upload uploads a backup using rclone rcat for streaming
+func (d *RcloneDestination) Upload(ctx context.Context, artifact string, reader io.Reader, size int64) error {
+	remotePath := d.remotePath(artifact)
+
+	if d.config.Streaming {
+		// Use rclone rcat for streaming upload (data piped via stdin)
+		args := d.baseArgs()
+		args = append(args, "rcat", remotePath)
+		if size > 0 {
+			args = append(args, "--size", fmt.Sprintf("%d", size))
+		}
+
+		cmd := exec.CommandContext(ctx, d.rcloneBinary(), args...)
+		cmd.Stdin = reader
+
+		var stderr bytes.Buffer
+		cmd.Stderr = &stderr
+
+		d.logger.Debug("uploading via rclone rcat (streaming)", "remote", remotePath)
+
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("rclone rcat failed: %w - %s", err, stderr.String())
+		}
+
+		d.logger.Info("uploaded backup via rclone", "remote", remotePath, "size", size)
+		return nil
+	}
+
+	// Non-streaming: write to temp file first
+	tmpFile, err := os.CreateTemp("", "kscore-backup-*")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	defer os.Remove(tmpPath)
+
+	if _, err := io.Copy(tmpFile, reader); err != nil {
+		tmpFile.Close()
+		return fmt.Errorf("failed to write temp file: %w", err)
+	}
+	tmpFile.Close()
+
+	args := d.baseArgs()
+	args = append(args, "copyto", tmpPath, remotePath)
+
+	cmd := exec.CommandContext(ctx, d.rcloneBinary(), args...)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	d.logger.Debug("uploading via rclone copyto", "remote", remotePath)
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("rclone copyto failed: %w - %s", err, stderr.String())
+	}
+
+	d.logger.Info("uploaded backup via rclone", "remote", remotePath)
+	return nil
+}
+
+// Download downloads a backup using rclone cat for streaming
+func (d *RcloneDestination) Download(ctx context.Context, artifact string, writer io.Writer) error {
+	remotePath := d.remotePath(artifact)
+
+	if d.config.Streaming {
+		// Use rclone cat for streaming download (data piped via stdout)
+		args := d.baseArgs()
+		args = append(args, "cat", remotePath)
+
+		cmd := exec.CommandContext(ctx, d.rcloneBinary(), args...)
+		cmd.Stdout = writer
+
+		var stderr bytes.Buffer
+		cmd.Stderr = &stderr
+
+		d.logger.Debug("downloading via rclone cat (streaming)", "remote", remotePath)
+
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("rclone cat failed: %w - %s", err, stderr.String())
+		}
+
+		d.logger.Info("downloaded backup via rclone", "remote", remotePath)
+		return nil
+	}
+
+	// Non-streaming: download to temp file first
+	tmpFile, err := os.CreateTemp("", "kscore-restore-*")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	tmpFile.Close()
+	defer os.Remove(tmpPath)
+
+	args := d.baseArgs()
+	args = append(args, "copyto", remotePath, tmpPath)
+
+	cmd := exec.CommandContext(ctx, d.rcloneBinary(), args...)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	d.logger.Debug("downloading via rclone copyto", "remote", remotePath)
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("rclone copyto failed: %w - %s", err, stderr.String())
+	}
+
+	// Read temp file and write to output
+	file, err := os.Open(tmpPath)
+	if err != nil {
+		return fmt.Errorf("failed to open temp file: %w", err)
+	}
+	defer file.Close()
+
+	if _, err := io.Copy(writer, file); err != nil {
+		return fmt.Errorf("failed to copy from temp file: %w", err)
+	}
+
+	d.logger.Info("downloaded backup via rclone", "remote", remotePath)
+	return nil
+}
+
+// List lists available backups via rclone lsjson
+func (d *RcloneDestination) List(ctx context.Context) ([]BackupInfo, error) {
+	remotePath := d.config.Remote + ":"
+	if d.config.Path != "" {
+		remotePath = fmt.Sprintf("%s:%s", d.config.Remote, d.config.Path)
+	}
+
+	args := d.baseArgs()
+	args = append(args, "lsjson", remotePath)
+
+	cmd := exec.CommandContext(ctx, d.rcloneBinary(), args...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	d.logger.Debug("listing backups via rclone lsjson", "remote", remotePath)
+
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("rclone lsjson failed: %w - %s", err, stderr.String())
+	}
+
+	var items []struct {
+		Path    string    `json:"Path"`
+		Name    string    `json:"Name"`
+		Size    int64     `json:"Size"`
+		ModTime time.Time `json:"ModTime"`
+		IsDir   bool      `json:"IsDir"`
+	}
+
+	if err := json.Unmarshal(stdout.Bytes(), &items); err != nil {
+		return nil, fmt.Errorf("failed to parse rclone output: %w", err)
+	}
+
+	var backups []BackupInfo
+	for _, item := range items {
+		if item.IsDir {
+			continue
+		}
+		// Only include backup files
+		if !strings.HasSuffix(item.Name, ".tar") &&
+			!strings.HasSuffix(item.Name, ".tar.gz") &&
+			!strings.HasSuffix(item.Name, ".tar.bz2") &&
+			!strings.HasSuffix(item.Name, ".tar.xz") &&
+			!strings.HasSuffix(item.Name, ".tar.zst") &&
+			!strings.HasSuffix(item.Name, ".tar.lz4") {
+			continue
+		}
+
+		backups = append(backups, BackupInfo{
+			Name:        item.Name,
+			Size:        item.Size,
+			StartTime:   item.ModTime,
+			Destination: fmt.Sprintf("rclone:%s/%s", d.config.Remote, item.Path),
+		})
+	}
+
+	// Sort by time descending
+	sort.Slice(backups, func(i, j int) bool {
+		return backups[i].StartTime.After(backups[j].StartTime)
+	})
+
+	return backups, nil
+}
+
+// Delete deletes a backup via rclone deletefile
+func (d *RcloneDestination) Delete(ctx context.Context, artifact string) error {
+	remotePath := d.remotePath(artifact)
+
+	args := d.baseArgs()
+	args = append(args, "deletefile", remotePath)
+
+	cmd := exec.CommandContext(ctx, d.rcloneBinary(), args...)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	d.logger.Debug("deleting backup via rclone", "remote", remotePath)
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("rclone deletefile failed: %w - %s", err, stderr.String())
+	}
+
+	d.logger.Info("deleted backup via rclone", "remote", remotePath)
+	return nil
+}
+
+// Exists checks if a backup exists via rclone lsjson
+func (d *RcloneDestination) Exists(ctx context.Context, artifact string) (bool, error) {
+	remotePath := d.remotePath(artifact)
+
+	args := d.baseArgs()
+	args = append(args, "lsjson", remotePath)
+
+	cmd := exec.CommandContext(ctx, d.rcloneBinary(), args...)
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+
+	if err := cmd.Run(); err != nil {
+		// File doesn't exist
+		return false, nil
+	}
+
+	// If lsjson returns something, file exists
+	return stdout.Len() > 2, nil // > 2 because empty array is "[]"
+}
+
 // NewDestination creates a destination based on configuration
 func NewDestination(config *DestinationConfig, logger Logger) (Destination, error) {
 	if config == nil {
@@ -1162,6 +1440,12 @@ func NewDestination(config *DestinationConfig, logger Logger) (Destination, erro
 			return nil, fmt.Errorf("SFTP destination requires host and user configuration")
 		}
 		return NewSFTPDestination(*config.SFTP, logger), nil
+
+	case DestinationTypeRclone:
+		if config.Rclone == nil || config.Rclone.Remote == "" {
+			return nil, fmt.Errorf("rclone destination requires remote configuration")
+		}
+		return NewRcloneDestination(*config.Rclone, logger), nil
 
 	default:
 		return nil, fmt.Errorf("unsupported destination type: %s", config.Type)
