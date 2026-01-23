@@ -113,7 +113,8 @@ This repository contains working implementations of **Epics 1-29**. The project 
     ├── 30-cli-ux-restructuring.md        # CLI UX restructuring
     ├── 31-nist-design-principles.md      # NIST design principles
     ├── 36-deep-secrets-management.md     # Deep secrets management integration
-    └── 37-enhanced-runbooks.md           # Enhanced runbook automation
+    ├── 37-enhanced-runbooks.md           # Enhanced runbook automation
+    └── 38-air-gapped-deployments.md      # Air-gapped deployment support
 ```
 
 ## Architecture Overview
@@ -173,6 +174,7 @@ Implementation order:
 31. **Epic 31** (NIST Design Principles) - ✅ COMPLETE - Documentation only
 36. **Epic 36** (Deep Secrets Management) - PLANNED - Depends on Epic 1, 3, 4, 6, 17
 37. **Epic 37** (Enhanced Runbooks) - PLANNED - Depends on Epic 1, 2, 3, 4
+38. **Epic 38** (Air-Gapped Deployments) - PLANNED - Depends on Epic 1, 9, 22, 23, 25
 
 ### Future Epics (Not Yet Planned)
 
