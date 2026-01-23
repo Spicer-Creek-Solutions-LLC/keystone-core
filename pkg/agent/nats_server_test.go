@@ -115,13 +115,22 @@ func TestEmbeddedNATSConfig_Validate(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "valid standalone config",
+			name: "valid standalone config on localhost",
+			config: &EmbeddedNATSConfig{
+				Mode: EmbeddedNATSModeStandalone,
+				Host: "127.0.0.1",
+				Port: 4222,
+			},
+			wantErr: false,
+		},
+		{
+			name: "non-localhost without TLS requires error",
 			config: &EmbeddedNATSConfig{
 				Mode: EmbeddedNATSModeStandalone,
 				Host: "0.0.0.0",
 				Port: 4222,
 			},
-			wantErr: false,
+			wantErr: true,
 		},
 		{
 			name: "invalid port zero",

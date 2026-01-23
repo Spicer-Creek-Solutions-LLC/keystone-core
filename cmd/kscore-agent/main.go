@@ -35,6 +35,7 @@ from the control plane. It supports embedded NATS mode for edge deployments.`,
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is ./keystone-core-agent.yaml)")
 	rootCmd.AddCommand(newVersionCmd())
+	rootCmd.AddCommand(newConfigCmd())
 	rootCmd.AddCommand(agentbootstrap.NewCommand())
 
 	// Add Windows service management commands
@@ -77,9 +78,13 @@ func runAgent(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	// For agents, default to embedded NATS if not configured
+	// Security: Require explicit NATS mode configuration
+	// Embedded mode must be explicitly enabled for security
 	if cfg.NATS.Mode == "" {
-		cfg.NATS.Mode = config.NATSModeEmbedded
+		logger.Error("NATS mode must be explicitly configured",
+			logging.String("hint", "Set nats.mode to 'external' to connect to a NATS cluster, or use 'kscore-agent config enable-embedded-nats' to enable embedded mode"),
+		)
+		os.Exit(1)
 	}
 
 	// Validate configuration
@@ -215,9 +220,10 @@ func runAsWindowsService() {
 		os.Exit(1)
 	}
 
-	// For agents, default to embedded NATS if not configured
+	// Security: Require explicit NATS mode configuration
 	if cfg.NATS.Mode == "" {
-		cfg.NATS.Mode = config.NATSModeEmbedded
+		logger.Error("NATS mode must be explicitly configured")
+		os.Exit(1)
 	}
 
 	// Validate configuration

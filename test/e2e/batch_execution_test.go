@@ -20,6 +20,7 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/controlplane"
 	natsmgr "github.com/shawnbutts/keystone-core/pkg/nats"
 	"github.com/shawnbutts/keystone-core/pkg/state"
+	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
 )
 
 // testEnvironment holds all components for e2e testing
@@ -46,11 +47,12 @@ func setupTestEnvironment(t *testing.T) *testEnvironment {
 		os.RemoveAll(tmpDir)
 	}
 
-	// Initialize NATS
+	// Initialize NATS with dynamic port
+	natsPort := helpers.FreePort(t)
 	natsConfig := &config.NATSConfig{
 		Mode: config.NATSModeEmbedded,
 		Embedded: config.NATSEmbeddedConfig{
-			Port:            15222, // Different port for e2e tests
+			Port:            natsPort,
 			EnableJetStream: true,
 			StoreDir:        filepath.Join(tmpDir, "nats"),
 		},

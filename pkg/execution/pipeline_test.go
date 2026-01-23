@@ -488,8 +488,10 @@ func TestStageResult_Methods(t *testing.T) {
 		t.Errorf("expected 'error', got '%s'", sr.StderrString())
 	}
 
-	if sr.Duration() != 50*time.Millisecond {
-		t.Errorf("expected 50ms, got %v", sr.Duration())
+	// Allow small tolerance for duration comparison due to floating-point precision
+	expectedDuration := 50 * time.Millisecond
+	if sr.Duration() < expectedDuration || sr.Duration() > expectedDuration+time.Microsecond {
+		t.Errorf("expected ~50ms, got %v", sr.Duration())
 	}
 }
 

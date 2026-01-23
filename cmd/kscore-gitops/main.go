@@ -1663,7 +1663,7 @@ func deployApproveExecute(cmd *cobra.Command, args []string) error {
 	// In production, this would approve via control plane
 	fmt.Fprintf(cmd.OutOrStdout(), "\n✓ Deployment '%s' approved\n", deployID)
 	fmt.Fprintln(cmd.OutOrStdout(), "\nDeployment is now proceeding.")
-	fmt.Fprintln(cmd.OutOrStdout(), "Use 'kscorectl gitops deploy show %s' to monitor status.", deployID)
+	fmt.Fprintf(cmd.OutOrStdout(), "Use 'kscorectl gitops deploy show %s' to monitor status.\n", deployID)
 	fmt.Fprintln(cmd.OutOrStdout(), "\nNote: This command simulates approval.")
 	fmt.Fprintln(cmd.OutOrStdout(), "For production deployments, connect to the control plane API.")
 

@@ -294,10 +294,27 @@ func (a *V2cAdapter) SendInform(ctx context.Context, target string, port uint16,
 		}
 	}
 
-	// Note: gosnmp doesn't have a direct Inform method in v1.35.0
-	// This would need custom implementation or use SendTrap
-	// For now, return not implemented
-	return nil, fmt.Errorf("INFORM not fully implemented in gosnmp")
+	// Send INFORM using SendTrap with IsInform=true
+	// Unlike traps, INFORMs wait for acknowledgement from the NMS
+	trap := gosnmp.SnmpTrap{
+		Variables: pdus,
+		IsInform:  true,
+	}
+
+	result, err := client.SendTrap(trap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send inform: %w", err)
+	}
+
+	// Convert response
+	response := &InformResponse{
+		RequestID: int32(result.RequestID),
+		Error:     result.Error,
+		ErrorIdx:  result.ErrorIndex,
+		Variables: convertVariables(result.Variables),
+	}
+
+	return response, nil
 }
 
 // CommonOIDs provides common SNMP OIDs.

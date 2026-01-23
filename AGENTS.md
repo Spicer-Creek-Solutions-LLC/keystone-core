@@ -45,6 +45,13 @@ Tests should follow existing patterns in the codebase:
 
 ---
 
+## Recent Updates
+
+- Expanded configuration reference coverage for control plane, auth, webhook, NATS, storage, and agent settings.
+- Documented module registry configuration and added CLI coverage for agent management, load testing, and test runner tools.
+- Aligned registry config documentation with CLI flags and added agent bootstrap env/flag reference plus blueprint registry/cache env variables.
+- Added Docsy Hugo module placeholder setup steps for local docs builds.
+
 ## Repository Purpose
 
 This is the **design documentation repository** for Keystone Core, a cloud-native runtime infrastructure control plane. Keystone Core is positioned as the operational layer between GitOps/IaC deployments and runtime infrastructure, inspired by Salt Project but modernized for cloud-native environments.

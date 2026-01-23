@@ -27,11 +27,12 @@ func TestBatchExecution_EndToEnd(t *testing.T) {
 
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	// Initialize NATS manager
+	// Initialize NATS manager with dynamic port
+	natsPort := helpers.FreePort(t)
 	natsConfig := &config.NATSConfig{
 		Mode: config.NATSModeEmbedded,
 		Embedded: config.NATSEmbeddedConfig{
-			Port:            14222, // Use different port to avoid conflicts
+			Port:            natsPort,
 			EnableJetStream: true,
 			StoreDir:        filepath.Join(tmpDir, "nats"),
 		},

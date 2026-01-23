@@ -14,11 +14,12 @@ import (
 )
 
 func setupTestConnectionManager(t *testing.T) (*ConnectionManager, *natsmgr.Manager, func()) {
-	// Create embedded NATS for testing
+	// Create embedded NATS for testing with dynamic port
+	port := helpers.FreePort(t)
 	cfg := &config.NATSConfig{
 		Mode: config.NATSModeEmbedded,
 		Embedded: config.NATSEmbeddedConfig{
-			Port:            4222, // Use standard NATS port for testing
+			Port:            port,
 			EnableJetStream: true,
 		},
 	}

@@ -595,6 +595,7 @@ func TestConfig_Validate_WebhookConfig(t *testing.T) {
 			name: "invalid webhook auth type",
 			config: func(cfg *Config) {
 				cfg.Webhook.Enabled = true
+				cfg.Webhook.Port = 8081
 				cfg.Webhook.AuthType = "token"
 			},
 			errContains: "invalid webhook auth type",
@@ -603,6 +604,7 @@ func TestConfig_Validate_WebhookConfig(t *testing.T) {
 			name: "missing HMAC secret",
 			config: func(cfg *Config) {
 				cfg.Webhook.Enabled = true
+				cfg.Webhook.Port = 8081
 				cfg.Webhook.AuthType = "hmac"
 			},
 			errContains: "HMAC secret",
@@ -611,6 +613,7 @@ func TestConfig_Validate_WebhookConfig(t *testing.T) {
 			name: "missing bearer token",
 			config: func(cfg *Config) {
 				cfg.Webhook.Enabled = true
+				cfg.Webhook.Port = 8081
 				cfg.Webhook.AuthType = "bearer"
 			},
 			errContains: "bearer token",

@@ -443,7 +443,7 @@ func TestHybridModeManager_ManualHostRole(t *testing.T) {
 	config.ManualRole = ConnectionRoleHost
 	config.EmbeddedConfig = &EmbeddedNATSConfig{
 		Mode: EmbeddedNATSModeStandalone,
-		Port: 14322,
+		Port: helpers.FreePort(t),
 	}
 
 	manager, err := NewHybridModeManager(config)
@@ -466,7 +466,7 @@ func TestHybridModeManager_PreferHost(t *testing.T) {
 	config.ExternalNATSURLs = []string{"nats://localhost:4222"}
 	config.EmbeddedConfig = &EmbeddedNATSConfig{
 		Mode: EmbeddedNATSModeStandalone,
-		Port: 14323,
+		Port: helpers.FreePort(t),
 	}
 
 	manager, err := NewHybridModeManager(config)
@@ -490,7 +490,7 @@ func TestHybridModeManager_PreferClient(t *testing.T) {
 	config.ExternalNATSURLs = []string{"nats://localhost:4222"}
 	config.EmbeddedConfig = &EmbeddedNATSConfig{
 		Mode: EmbeddedNATSModeStandalone,
-		Port: 14324,
+		Port: helpers.FreePort(t),
 	}
 
 	manager, err := NewHybridModeManager(config)
@@ -515,7 +515,7 @@ func TestHybridModeManager_PreferClientFallbackToHost(t *testing.T) {
 	config.ExternalNATSURLs = nil
 	config.EmbeddedConfig = &EmbeddedNATSConfig{
 		Mode: EmbeddedNATSModeStandalone,
-		Port: 14325,
+		Port: helpers.FreePort(t),
 	}
 
 	manager, err := NewHybridModeManager(config)
@@ -629,7 +629,7 @@ func TestHybridModeManager_StartWithHostMode(t *testing.T) {
 	config.EmbeddedConfig = &EmbeddedNATSConfig{
 		Mode:           EmbeddedNATSModeStandalone,
 		Host:           "127.0.0.1",
-		Port:           14350,
+		Port:           helpers.FreePort(t),
 		MaxConnections: 10,
 	}
 
@@ -675,7 +675,7 @@ func TestHybridModeManager_StartTwice(t *testing.T) {
 	config.EmbeddedConfig = &EmbeddedNATSConfig{
 		Mode: EmbeddedNATSModeStandalone,
 		Host: "127.0.0.1",
-		Port: 14351,
+		Port: helpers.FreePort(t),
 	}
 
 	manager, err := NewHybridModeManager(config)
@@ -711,7 +711,7 @@ func TestHybridModeManager_StartWithLeafMode(t *testing.T) {
 	config.EmbeddedConfig = &EmbeddedNATSConfig{
 		Mode: EmbeddedNATSModeLeaf,
 		Host: "127.0.0.1",
-		Port: 14352,
+		Port: helpers.FreePort(t),
 		LeafRemotes: []LeafRemoteConfig{
 			{URLs: []string{"nats://localhost:4222"}},
 		},
@@ -777,7 +777,7 @@ func TestHybridModeManager_StatsAfterStart(t *testing.T) {
 	config.EmbeddedConfig = &EmbeddedNATSConfig{
 		Mode: EmbeddedNATSModeStandalone,
 		Host: "127.0.0.1",
-		Port: 14353,
+		Port: helpers.FreePort(t),
 	}
 
 	manager, err := NewHybridModeManager(config)

@@ -27,6 +27,10 @@ Complete configuration reference for `kscore-server`.
 api:
   listen: "0.0.0.0:8080"           # HTTP API listen address
   grpc_listen: "0.0.0.0:9090"       # gRPC API listen address
+  listen_addrs: []                  # Optional multi-address binding
+                                    # Example: ["[::]:8080", "0.0.0.0:8080"]
+  address_family: "prefer_ipv4"     # prefer_ipv4, prefer_ipv6, ipv4_only, ipv6_only
+  allow_insecure_non_loopback: false # Allow non-loopback listen without TLS (dev only)
   tls:
     enabled: false                  # Enable TLS
     cert_file: ""                   # TLS certificate file
@@ -35,10 +39,16 @@ api:
   cors:
     enabled: true                   # Enable CORS
     allowed_origins: ["*"]          # Allowed origins
+    allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    allowed_headers: ["Content-Type", "Authorization", "X-API-Key"]
+    allow_credentials: false
+    max_age: 86400                  # Preflight cache max age (seconds)
   rate_limit:
     enabled: true                   # Enable rate limiting
     requests_per_minute: 100        # Requests per minute per key
     burst: 20                       # Burst capacity
+    key_extractor: "ip"             # ip, apikey, header
+    header_name: "X-API-Key"        # Header to use when key_extractor: header
 
 # NATS Configuration
 nats:
@@ -47,8 +57,11 @@ nats:
   # Examples: "0.0.0.0:4222" (all interfaces), "127.0.0.1:4222" (localhost only)
   #           "[::]:4222" (IPv6 all interfaces), "[::1]:4222" (IPv6 localhost)
   listen: "0.0.0.0:4222"           # NATS listen address (embedded mode)
-  urls: []                          # NATS server URLs (external mode)
-  credentials: ""                   # NATS credentials file
+  url: "nats://nats:4222"           # NATS URL(s) (external/leaf; comma-separated allowed)
+  token: ""                         # NATS auth token (mutually exclusive with credential)
+  credential: ""                    # NATS credentials file (NKey/JWT)
+  max_reconnects: -1                # -1 = unlimited, 0 = disabled
+  reconnect_wait: "2s"
   tls:
     enabled: false
     cert_file: ""
@@ -59,17 +72,24 @@ nats:
     store_dir: "/var/lib/kscore/nats"
     max_memory: "1GB"               # Max memory for streams
     max_file: "10GB"                # Max file storage
+    max_storage: "10GB"             # Max total storage (bytes)
+  embedded:
+    listen: "0.0.0.0:4222"           # Combined host:port (overrides host/port)
+    address_family: "prefer_ipv4"    # prefer_ipv4, prefer_ipv6, ipv4_only, ipv6_only
+    leaf_node_urls: []               # Parent leaf URLs when mode: leaf
 
 # State Storage
 storage:
   type: "sqlite"                    # sqlite, postgresql
   sqlite:
     path: "/var/lib/kscore/kscore.db"
+    wal: true                        # Enable WAL mode
     # Note: SQLite doesn't use traditional connection pooling.
     # max_connections controls the serialized access queue size
     max_connections: 10
     busy_timeout: "5s"
   postgresql:
+    dsn: ""                          # Optional DSN (overrides host/port/credentials)
     host: "localhost"
     port: 5432
     database: "kscore"
@@ -79,6 +99,9 @@ storage:
     max_connections: 25
     idle_connections: 5
     connection_lifetime: "1h"
+    max_open_conns: 25
+    max_idle_conns: 5
+    conn_max_lifetime: "5m"
 
 # Logging
 # Note: File output is not supported - use journald, container log drivers, or syslog
@@ -98,12 +121,15 @@ logging:
       ca_cert: ""
       cert: ""
       key: ""
+      skip_verify: false
 
 # Metrics
 metrics:
   enabled: true
   listen: ":8080"                   # Metrics endpoint (usually same as API)
   path: "/metrics"                  # Metrics path
+  include_go_metrics: true
+  include_process_metrics: true
 
 # Tracing
 tracing:
@@ -198,9 +224,21 @@ events:
 # Policy enforcement settings
 policy:
   enabled: true
+  engine: "both"                    # opa, cel, both
   enforcement_mode: "enforce"       # enforce, audit, warn
   cache_ttl: "5m"                   # Policy cache TTL
   evaluation_timeout: "10s"         # Policy evaluation timeout
+  policies:                         # Built-in policy definitions
+    - id: "deny-ssh-root"
+      name: "Deny SSH Root Login"
+      description: "Block SSH root login"
+      type: "opa"                   # opa, cel
+      category: "security"          # security, compliance, operational
+      severity: "high"              # low, medium, high, critical
+      enabled: true
+      code: |
+        package kscore.security
+        deny[msg] { input.resource.type == "ssh" }
   opa:
     enabled: true
     memory_limit: "512MB"
@@ -239,6 +277,19 @@ gitops:
         sync_interval: "5m"
 ```
 
+### Webhook Receiver
+
+```yaml
+webhook:
+  enabled: false
+  port: 8082
+  path: "/webhooks"
+  auth_type: "none"                 # none, hmac, bearer
+  hmac_secret: ""
+  bearer_token: ""
+  handlers: ["argocd", "flux", "github", "gitlab"]
+```
+
 ### Security
 
 ```yaml
@@ -260,6 +311,49 @@ security:
     rbac:
       enabled: true
       policy_file: "/etc/kscore/rbac.yaml"
+```
+
+### API Authentication (Control Plane)
+
+```yaml
+auth:
+  enabled: true
+  type: "apikey"                    # apikey, jwt, mtls, multi
+  bypass_methods:
+    - "/kscore.v1.ControlPlaneService/HealthCheck"
+
+  apikey:
+    header_name: "X-API-Key"
+    metadata_key: "x-api-key"
+    keys:
+      "<your-api-key>":
+        name: "admin"
+        role: "admin"               # admin, operator, readonly
+        enabled: true
+        expires_at: ""              # RFC3339 timestamp
+
+  jwt:
+    secret: ""                      # HS256 secret (or use public_key_file)
+    public_key_file: ""             # RS256/ES256 public key
+    issuer: ""
+    audience: ""
+    role_claim: "role"
+
+  mtls:
+    require_client_cert: true
+    cert_roles:
+      "*.admin.example.com": "admin"
+```
+
+### TLS Client Settings
+
+```yaml
+tls:
+  enabled: false
+  cert_file: ""
+  key_file: ""
+  ca_file: ""
+  insecure_skip_verify: false       # Dev/test only
 ```
 
 ### Cluster Configuration
@@ -517,6 +611,65 @@ ha:
   enabled: false
   instance_id: ""                     # Auto-generated if empty
   shards: 1                           # Number of shards
+```
+
+## Module Registry Configuration
+
+Configuration reference for `kscore-registry`.
+
+`kscore-registry` is configured via CLI flags and environment variables. The following YAML mirrors `deploy/config/registry.yaml` used by deployment tooling (the server does not read this file directly).
+
+```yaml
+# /etc/kscore/registry.yaml
+
+server:
+  listen_address: "0.0.0.0:8081"
+
+storage:
+  data_dir: "/var/lib/kscore/registry"
+  max_upload_size: 104857600          # 100MB
+
+auth:
+  enabled: false
+  api_key: ""                         # Use with X-API-Key or Authorization: Bearer
+
+security:
+  read_only: false
+  cors_enabled: true
+  cors_origins: []                    # Comma-separated list, empty = deny
+
+logging:
+  level: "info"
+  format: "json"
+  output: "stdout"
+
+telemetry:
+  enabled: true
+  prometheus:
+    enabled: true
+    path: "/metrics"
+```
+
+Flag mapping:
+
+| YAML field | CLI flag/env |
+|-----------|--------------|
+| `server.listen_address` | `--listen` |
+| `storage.data_dir` | `--data` |
+| `storage.max_upload_size` | `--max-upload-size` |
+| `auth.api_key` | `--api-key` or `KSCORE_REGISTRY_API_KEY` |
+| `security.read_only` | `--readonly` |
+| `security.cors_enabled` | `--cors` |
+| `security.cors_origins` | `--cors-origins` |
+
+Notes:
+- `auth.enabled` is deployment metadata only; the server enables write auth when `api_key` is provided.
+- `auth.api_key_file` is not supported by `kscore-registry` flags (use `KSCORE_REGISTRY_API_KEY`).
+
+Environment override:
+
+```
+KSCORE_REGISTRY_API_KEY="your-secret-api-key"
 ```
 
 ## File Server Configuration
@@ -801,15 +954,44 @@ Complete configuration reference for `kscore-agent`.
 ```yaml
 # /etc/kscore/agent.yaml
 
-# Control Plane Connection
-control_plane:
-  url: "nats://control-plane.example.com:4222"
+# NATS Configuration
+# The agent requires explicit NATS mode configuration for security
+nats:
+  mode: "external"                  # external, embedded, leaf (REQUIRED)
+  url: "nats://control-plane:4222"  # External NATS URL (when mode: external)
   credentials: "/etc/kscore/agent.creds"
   tls:
     enabled: false
     ca_file: "/etc/kscore/ca.crt"
     cert_file: "/etc/kscore/agent.crt"
     key_file: "/etc/kscore/agent.key"
+
+  # Embedded NATS settings (when mode: embedded or leaf)
+  # Security: TLS and authentication are REQUIRED when binding to non-localhost
+  embedded:
+    host: "0.0.0.0"                 # Bind address (default: all interfaces)
+    port: 4222                      # NATS port
+    server_name: ""                 # Optional server name
+    max_connections: 100            # Max client connections
+    max_payload: 1048576            # 1MB max message size
+
+    # TLS configuration (REQUIRED for non-localhost binding)
+    tls:
+      cert_file: "/etc/kscore/nats-server.crt"
+      key_file: "/etc/kscore/nats-server.key"
+      ca_file: "/etc/kscore/ca.crt"
+      verify: true                  # Verify client certificates
+
+    # Authentication (REQUIRED for non-localhost binding)
+    auth:
+      token: ""                     # Simple token auth
+      users: []                     # User/password authentication
+      nkey_users: []                # NKey-based authentication
+
+    # Leaf node configuration (when mode: leaf)
+    leaf_remotes:
+      - urls: ["nats://upstream:4222"]
+        credentials: "/etc/kscore/leaf.creds"
 
   # Connection settings
   max_reconnects: -1                # Unlimited reconnects
@@ -828,6 +1010,10 @@ agent:
   datacenter: "us-east-1"
   environment: "production"
   role: "web"
+  address_family: "prefer_ipv4"     # prefer_ipv4, prefer_ipv6, ipv4_only, ipv6_only
+  advertise_addrs: []               # Optional static advertise addresses
+  labels:
+    tier: "frontend"
   tags:
     - "nginx"
     - "frontend"
@@ -872,11 +1058,41 @@ state:
 
 # Security
 security:
+  # Authorization settings
+  authorization:
+    enabled: false                  # Enable authorization checks on commands
+    shared_secret: ""               # HMAC secret for command signing
+    allowed_principals: []          # Principals allowed to execute commands
+    require_signature: false        # Require cryptographic command signatures
+
+  # Command filtering
+  command_filter:
+    mode: "blocklist"               # allowlist (more secure) or blocklist
+    allowlist: []                   # Permitted commands (when mode: allowlist)
+    blocklist: []                   # Blocked commands (when mode: blocklist)
+    allow_builtins: true            # Allow shell builtins
+    max_arg_length: 65536           # 64KB max per argument
+    block_env_overrides: true       # Block dangerous env vars
+    blocked_env_vars:               # Environment variables that cannot be set
+      - "LD_PRELOAD"
+      - "LD_LIBRARY_PATH"
+      - "DYLD_INSERT_LIBRARIES"
+      - "PYTHONPATH"
+      - "RUBYLIB"
+      - "PERL5LIB"
+      - "NODE_PATH"
+    blocked_patterns:               # Regex patterns that block commands
+      - ';\s*rm\s+-rf\s+/'          # Dangerous rm commands
+      - '>\s*/dev/sd[a-z]'          # Writing to block devices
+      - 'mkfs\.'                    # Filesystem creation
+      - 'dd\s+.*of=/dev/'           # dd to devices
+    exempt_commands: []             # Commands that bypass blocked_patterns
+                                    # Use glob patterns, e.g., "mkfs.*", "/sbin/mkfs*"
+
+  # Legacy options (deprecated - use command_filter instead)
   sandbox: true                     # Sandbox command execution
   allowed_commands: []              # Command whitelist (empty = all)
-  blocked_commands:                 # Command blacklist
-    - "rm -rf /"
-    - "mkfs"
+  blocked_commands: []              # Command blacklist
   run_as_user: ""                   # Run as specific user
 
   # Sandboxing (Linux)

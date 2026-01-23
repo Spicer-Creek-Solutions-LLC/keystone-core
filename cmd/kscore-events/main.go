@@ -464,7 +464,7 @@ Examples:
 func runReplay(cmd *cobra.Command, opts *ReplayOptions) error {
 	if opts.DryRun {
 		fmt.Println("=== DRY RUN MODE ===")
-		fmt.Println("No events will be replayed.\n")
+		fmt.Println("No events will be replayed.")
 	}
 
 	fmt.Printf("Replay Configuration:\n")

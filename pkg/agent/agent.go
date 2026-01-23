@@ -36,6 +36,9 @@ type Agent struct {
 	metadataInterval  time.Duration
 	commandTimeout    time.Duration
 
+	// Security enforcement
+	security *SecurityEnforcer
+
 	// NATS subject management
 	subjects *natsmgr.SubjectBuilder
 	cluster  string
@@ -63,6 +66,8 @@ type AgentConfig struct {
 	CommandTimeout time.Duration
 	// Labels are key-value pairs for agent categorization and targeting
 	Labels map[string]string
+	// Security configuration for authorization and command filtering
+	Security *SecurityConfig
 }
 
 // NewAgent creates a new agent instance (legacy constructor)
@@ -93,6 +98,16 @@ func NewAgentWithConfig(natsManager *natsmgr.Manager, cfg *AgentConfig) (*Agent,
 		cluster = natsmgr.DefaultCluster
 	}
 
+	// Initialize security enforcer
+	securityConfig := cfg.Security
+	if securityConfig == nil {
+		securityConfig = DefaultSecurityConfig()
+	}
+	security, err := NewSecurityEnforcer(securityConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize security enforcer: %w", err)
+	}
+
 	// Collect initial metadata
 	metadata, err := CollectMetadata()
 	if err != nil {
@@ -113,6 +128,7 @@ func NewAgentWithConfig(natsManager *natsmgr.Manager, cfg *AgentConfig) (*Agent,
 		nats:              natsManager,
 		executor:          NewExecutor(),
 		metadata:          metadata,
+		security:          security,
 		heartbeatInterval: cfg.HeartbeatInterval,
 		metadataInterval:  cfg.MetadataInterval,
 		commandTimeout:    cfg.CommandTimeout,
@@ -348,6 +364,30 @@ func (a *Agent) handleCommandRequest(msg *nats.Msg) {
 	}
 
 	fmt.Printf("Received command: %s %v (ID: %s)\n", req.Command, req.Args, req.CommandId)
+
+	// Security: Extract principal and signature from NATS headers
+	principal := "unknown"
+	signature := ""
+	if msg.Header != nil {
+		if p := msg.Header.Get("X-Keystone-Principal"); p != "" {
+			principal = p
+		}
+		signature = msg.Header.Get("X-Keystone-Signature")
+	}
+
+	// Security: Check authorization
+	if err := a.security.AuthorizeCommand(principal, req.Command, signature); err != nil {
+		fmt.Printf("Authorization failed for command %s: %v\n", req.CommandId, err)
+		a.sendCommandError(msg, "authorization failed", err)
+		return
+	}
+
+	// Security: Validate command against filters
+	if err := a.security.ValidateCommand(req.Command, req.Args, req.Env, req.WorkingDir); err != nil {
+		fmt.Printf("Command validation failed for %s: %v\n", req.CommandId, err)
+		a.sendCommandError(msg, "command validation failed", err)
+		return
+	}
 
 	// Execute command
 	execReq := &ExecuteCommandRequest{

@@ -20,10 +20,13 @@ import (
 func createTestNATSManager(t *testing.T) *natsmgr.Manager {
 	t.Helper()
 
+	// Use a dynamic port to avoid conflicts with parallel tests
+	port := helpers.FreePort(t)
+
 	mgr, err := natsmgr.NewManager(&config.NATSConfig{
 		Mode: config.NATSModeEmbedded,
 		Embedded: config.NATSEmbeddedConfig{
-			Port:            4222,
+			Port:            port,
 			EnableJetStream: false,
 			MaxConnections:  100,
 		},

@@ -15,11 +15,12 @@ import (
 )
 
 func setupTestCommandDispatcher(t *testing.T) (*CommandDispatcher, *ConnectionManager, func()) {
-	// Setup NATS
+	// Setup NATS with dynamic port
+	port := helpers.FreePort(t)
 	natsCfg := &config.NATSConfig{
 		Mode: config.NATSModeEmbedded,
 		Embedded: config.NATSEmbeddedConfig{
-			Port:            4222,
+			Port:            port,
 			EnableJetStream: true,
 		},
 	}

@@ -776,3 +776,212 @@ func TestNetworkModule_UpdateIfupdownConfig_IPv6SLAAC(t *testing.T) {
 		t.Error("expected 'privext 2' for privacy extensions")
 	}
 }
+
+func TestIsValidMAC(t *testing.T) {
+	tests := []struct {
+		mac  string
+		want bool
+	}{
+		{"00:11:22:33:44:55", true},
+		{"00:11:22:33:44:55", true},
+		{"00-11-22-33-44-55", true},
+		{"0011.2233.4455", true},
+		{"aa:bb:cc:dd:ee:ff", true},
+		{"AA:BB:CC:DD:EE:FF", true},
+		{"", false},
+		{"not-a-mac", false},
+		{"00:11:22:33:44", false},    // too short
+		{"00:11:22:33:44:55:66", false}, // too long
+		{"gg:hh:ii:jj:kk:ll", false}, // invalid hex
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.mac, func(t *testing.T) {
+			got := isValidMAC(tt.mac)
+			if got != tt.want {
+				t.Errorf("isValidMAC(%q) = %v, want %v", tt.mac, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsValidWoLMode(t *testing.T) {
+	tests := []struct {
+		mode string
+		want bool
+	}{
+		{"magic", true},
+		{"unicast", true},
+		{"multicast", true},
+		{"broadcast", true},
+		{"arp", true},
+		{"off", true},
+		{"g", true},
+		{"u", true},
+		{"m", true},
+		{"b", true},
+		{"a", true},
+		{"d", true},
+		{"MAGIC", true},  // case insensitive
+		{"Magic", true},
+		{"G", true},
+		{"", false},
+		{"invalid", false},
+		{"on", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.mode, func(t *testing.T) {
+			got := isValidWoLMode(tt.mode)
+			if got != tt.want {
+				t.Errorf("isValidWoLMode(%q) = %v, want %v", tt.mode, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestWolModeToEthtool(t *testing.T) {
+	tests := []struct {
+		mode string
+		want string
+	}{
+		{"magic", "g"},
+		{"unicast", "u"},
+		{"multicast", "m"},
+		{"broadcast", "b"},
+		{"arp", "a"},
+		{"off", "d"},
+		{"MAGIC", "g"},  // case insensitive
+		{"g", "g"},      // already shorthand
+		{"d", "d"},
+		{"unknown", "unknown"}, // passthrough
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.mode, func(t *testing.T) {
+			got := wolModeToEthtool(tt.mode)
+			if got != tt.want {
+				t.Errorf("wolModeToEthtool(%q) = %q, want %q", tt.mode, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNetworkModule_ParseMACAndWoL(t *testing.T) {
+	m := NewNetworkModule()
+
+	tests := []struct {
+		name      string
+		decl      *StateDeclaration
+		wantMAC   string
+		wantWoL   string
+	}{
+		{
+			name: "config with MAC address",
+			decl: &StateDeclaration{
+				ID:     "eth0",
+				State:  "configured",
+				Module: "network",
+				Parameters: map[string]interface{}{
+					"address":     "192.168.1.100/24",
+					"mac_address": "00:11:22:33:44:55",
+				},
+			},
+			wantMAC: "00:11:22:33:44:55",
+		},
+		{
+			name: "config with Wake-on-LAN (wol)",
+			decl: &StateDeclaration{
+				ID:     "eth0",
+				State:  "configured",
+				Module: "network",
+				Parameters: map[string]interface{}{
+					"address": "192.168.1.100/24",
+					"wol":     "magic",
+				},
+			},
+			wantWoL: "magic",
+		},
+		{
+			name: "config with Wake-on-LAN (wake_on_lan)",
+			decl: &StateDeclaration{
+				ID:     "eth0",
+				State:  "configured",
+				Module: "network",
+				Parameters: map[string]interface{}{
+					"address":     "192.168.1.100/24",
+					"wake_on_lan": "g",
+				},
+			},
+			wantWoL: "g",
+		},
+		{
+			name: "config with both MAC and WoL",
+			decl: &StateDeclaration{
+				ID:     "eth0",
+				State:  "configured",
+				Module: "network",
+				Parameters: map[string]interface{}{
+					"address":     "192.168.1.100/24",
+					"mac_address": "aa:bb:cc:dd:ee:ff",
+					"wol":         "off",
+				},
+			},
+			wantMAC: "aa:bb:cc:dd:ee:ff",
+			wantWoL: "off",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config, err := m.parseNetworkConfig(tt.decl)
+			if err != nil {
+				t.Fatalf("parseNetworkConfig() error = %v", err)
+			}
+
+			if config.MACAddress != tt.wantMAC {
+				t.Errorf("MACAddress = %q, want %q", config.MACAddress, tt.wantMAC)
+			}
+			if config.WakeOnLAN != tt.wantWoL {
+				t.Errorf("WakeOnLAN = %q, want %q", config.WakeOnLAN, tt.wantWoL)
+			}
+		})
+	}
+}
+
+func TestNetworkModule_UpdateIfupdownConfig_WithMACAndWoL(t *testing.T) {
+	m := NewNetworkModule()
+
+	config := &NetworkConfig{
+		Interface:  "eth0",
+		Addresses:  []string{"192.168.1.100"},
+		Gateway:    "192.168.1.1",
+		MACAddress: "00:11:22:33:44:55",
+		WakeOnLAN:  "magic",
+	}
+
+	result := m.updateIfupdownConfig("", config, "192.168.1.100", "255.255.255.0", false)
+
+	if !networkTestContains(result, "hwaddress ether 00:11:22:33:44:55") {
+		t.Error("expected 'hwaddress ether 00:11:22:33:44:55' in result")
+	}
+	if !networkTestContains(result, "post-up ethtool -s eth0 wol g") {
+		t.Error("expected 'post-up ethtool -s eth0 wol g' in result")
+	}
+}
+
+func TestNetworkModule_UpdateIfupdownConfig_WoLOff(t *testing.T) {
+	m := NewNetworkModule()
+
+	config := &NetworkConfig{
+		Interface: "eth0",
+		Addresses: []string{"192.168.1.100"},
+		WakeOnLAN: "off",
+	}
+
+	result := m.updateIfupdownConfig("", config, "192.168.1.100", "255.255.255.0", false)
+
+	if !networkTestContains(result, "post-up ethtool -s eth0 wol d") {
+		t.Error("expected 'post-up ethtool -s eth0 wol d' for WoL off")
+	}
+}

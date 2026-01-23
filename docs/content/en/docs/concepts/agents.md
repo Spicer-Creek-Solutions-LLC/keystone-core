@@ -584,6 +584,60 @@ cache:
 
 ## Security
 
+### Command Security
+
+Agents enforce multiple layers of security for command execution:
+
+**Authorization:**
+- Principal-based access control (who can execute commands)
+- Optional HMAC-SHA256 command signing
+- Configurable allowed principals list
+
+**Command Filtering:**
+- Allowlist mode (only permitted commands run)
+- Blocklist mode (specific commands blocked)
+- Regex pattern blocking for dangerous command sequences
+- Exempt commands for legitimate operations (e.g., `mkfs.*` for disk provisioning)
+
+**Environment Protection:**
+- Blocks dangerous environment variables (LD_PRELOAD, DYLD_INSERT_LIBRARIES, etc.)
+- Argument length limits to prevent injection attacks
+- Working directory path traversal protection
+
+**Example Security Configuration:**
+```yaml
+security:
+  authorization:
+    enabled: true
+    require_signature: true
+    allowed_principals: ["admin", "ci-system"]
+
+  command_filter:
+    mode: "blocklist"
+    blocked_patterns:
+      - ';\s*rm\s+-rf\s+/'        # Shell injection
+      - 'mkfs\.'                   # Filesystem creation
+    exempt_commands:
+      - "mkfs.*"                   # Allow mkfs when needed
+    blocked_env_vars:
+      - "LD_PRELOAD"
+      - "DYLD_INSERT_LIBRARIES"
+```
+
+### Embedded NATS Security
+
+Agents can optionally run an embedded NATS server for edge deployments:
+
+**Security Requirements:**
+- Embedded NATS is **disabled by default**
+- TLS and authentication are **required** when binding to non-localhost
+- Must be explicitly enabled via configuration or CLI
+
+**Enable via CLI:**
+```bash
+kscore-agent config enable-embedded-nats --restart
+```
+
 ### Sandboxing
 
 Commands execute in sandboxed environments:

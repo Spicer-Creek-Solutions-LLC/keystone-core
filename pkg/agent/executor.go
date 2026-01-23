@@ -1,10 +1,9 @@
 package agent
 
 import (
-	"bufio"
+	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"os/exec"
 	"sync"
 	"time"
@@ -110,16 +109,10 @@ func (e *Executor) Execute(ctx context.Context, req *ExecuteCommandRequest, outp
 		}
 	}
 
-	// Get stdout and stderr pipes
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create stdout pipe: %w", err)
-	}
-
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create stderr pipe: %w", err)
-	}
+	// Use bytes.Buffer for output capture - simpler and avoids pipe race conditions
+	var stdoutBuf, stderrBuf bytes.Buffer
+	cmd.Stdout = &stdoutBuf
+	cmd.Stderr = &stderrBuf
 
 	// Start the command
 	if err := cmd.Start(); err != nil {
@@ -133,63 +126,9 @@ func (e *Executor) Execute(ctx context.Context, req *ExecuteCommandRequest, outp
 	e.runningCommands[req.CommandID] = cmd
 	e.mu.Unlock()
 
-	// Stream output
-	var wg sync.WaitGroup
-	var stdoutBuf, stderrBuf []byte
-	var stdoutMu, stderrMu sync.Mutex
-
-	// Stream stdout
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		scanner := bufio.NewScanner(stdout)
-		for scanner.Scan() {
-			data := scanner.Bytes()
-			dataCopy := make([]byte, len(data))
-			copy(dataCopy, data)
-
-			// Call output handler if provided
-			if outputHandler != nil {
-				outputHandler(req.CommandID, false, dataCopy)
-			}
-
-			// Store output
-			stdoutMu.Lock()
-			stdoutBuf = append(stdoutBuf, dataCopy...)
-			stdoutBuf = append(stdoutBuf, '\n')
-			stdoutMu.Unlock()
-		}
-	}()
-
-	// Stream stderr
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		scanner := bufio.NewScanner(stderr)
-		for scanner.Scan() {
-			data := scanner.Bytes()
-			dataCopy := make([]byte, len(data))
-			copy(dataCopy, data)
-
-			// Call output handler if provided
-			if outputHandler != nil {
-				outputHandler(req.CommandID, true, dataCopy)
-			}
-
-			// Store output
-			stderrMu.Lock()
-			stderrBuf = append(stderrBuf, dataCopy...)
-			stderrBuf = append(stderrBuf, '\n')
-			stderrMu.Unlock()
-		}
-	}()
-
 	// Wait for command to complete
-	err = cmd.Wait()
+	err := cmd.Wait()
 	result.EndTime = time.Now()
-
-	// Wait for output streaming to complete
-	wg.Wait()
 
 	// Remove from running commands
 	e.mu.Lock()
@@ -208,14 +147,29 @@ func (e *Executor) Execute(ctx context.Context, req *ExecuteCommandRequest, outp
 		result.ExitCode = 0
 	}
 
-	// Copy output buffers
-	stdoutMu.Lock()
-	result.Stdout = stdoutBuf
-	stdoutMu.Unlock()
+	// Get output from buffers
+	result.Stdout = stdoutBuf.Bytes()
+	result.Stderr = stderrBuf.Bytes()
 
-	stderrMu.Lock()
-	result.Stderr = stderrBuf
-	stderrMu.Unlock()
+	// Call output handler if provided
+	if outputHandler != nil {
+		if len(result.Stdout) > 0 {
+			lines := bytes.Split(result.Stdout, []byte{'\n'})
+			for _, line := range lines {
+				if len(line) > 0 {
+					outputHandler(req.CommandID, false, line)
+				}
+			}
+		}
+		if len(result.Stderr) > 0 {
+			lines := bytes.Split(result.Stderr, []byte{'\n'})
+			for _, line := range lines {
+				if len(line) > 0 {
+					outputHandler(req.CommandID, true, line)
+				}
+			}
+		}
+	}
 
 	return result, nil
 }
@@ -250,27 +204,3 @@ func (e *Executor) GetRunningCommands() []string {
 	return commandIDs
 }
 
-// streamPipe reads from a pipe and calls the handler for each chunk
-func streamPipe(reader io.Reader, commandID string, isStderr bool, handler OutputHandler) ([]byte, error) {
-	var output []byte
-	scanner := bufio.NewScanner(reader)
-
-	for scanner.Scan() {
-		line := scanner.Bytes()
-		lineCopy := make([]byte, len(line))
-		copy(lineCopy, line)
-
-		if handler != nil {
-			handler(commandID, isStderr, lineCopy)
-		}
-
-		output = append(output, lineCopy...)
-		output = append(output, '\n')
-	}
-
-	if err := scanner.Err(); err != nil {
-		return output, err
-	}
-
-	return output, nil
-}

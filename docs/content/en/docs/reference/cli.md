@@ -20,6 +20,7 @@ Keystone Core uses a Git-style plugin architecture for its CLI. The main command
 | `kscore-exec` | Plugin | Remote command execution |
 | `kscore-state` | Plugin | Declarative state management |
 | `kscore-monitor` | Plugin | Real-time TUI monitoring |
+| `kscore-agents` | Plugin | Agent management (list, tokens, tags) |
 | `kscore-module` | Plugin | Module management and development |
 | `kscore-blueprint` | Plugin | Blueprint lifecycle management |
 | `kscore-blueprint-publish` | Plugin | Blueprint publishing and signing |
@@ -40,6 +41,8 @@ Keystone Core uses a Git-style plugin architecture for its CLI. The main command
 | `kscore-telemetry-gateway` | Server | Telemetry aggregation gateway |
 | `kscore-agent` | Daemon | Agent daemon on managed nodes |
 | `kscore-server` | Daemon | Control plane server |
+| `kscore-loadtest` | Tool | Load testing harness |
+| `kscore-test` | Tool | Test runner for smoke/integration/e2e |
 
 ## kscorectl (Main CLI)
 
@@ -1228,7 +1231,7 @@ kscorectl module install <module[@version]> [modules...] [flags]
 - `--token string`: Authentication token (can also use KSCORE_REGISTRY_TOKEN)
 - `--username string`: Username for basic auth (can also use KSCORE_REGISTRY_USERNAME)
 - `--password string`: Password for basic auth (can also use KSCORE_REGISTRY_PASSWORD)
-- `--cache-dir string`: Module cache directory (default: ~/.kscore/modules)
+- `--cache-dir string`: Module cache directory (default: `KSCORE_CACHE_DIR` or `~/.kscore/modules`)
 - `--modules-dir string`: Modules installation directory (default: ./modules)
 - `--verify`: Verify module signatures
 - `--public-key string`: Public key for signature verification
@@ -1608,7 +1611,7 @@ kscorectl blueprint search [query] [flags]
 - `[query]`: Search query (optional, lists all if empty)
 
 **Flags**:
-- `--registry string`: Registry URL (default: configured registry)
+- `--registry string`: Registry URL (default: `KSCORE_BLUEPRINT_REGISTRY` or `https://blueprints.keystone-core.io`)
 - `--category string`: Filter by category
 - `--tags strings`: Filter by tags (comma-separated)
 - `--limit int`: Maximum results to show (default: 20)
@@ -1666,7 +1669,7 @@ kscorectl blueprint info <blueprint> [flags]
 - `<blueprint>`: Blueprint name (e.g., community/nginx)
 
 **Flags**:
-- `--registry string`: Registry URL
+- `--registry string`: Registry URL (default: `KSCORE_BLUEPRINT_REGISTRY` or `https://blueprints.keystone-core.io`)
 - `--version string`: Specific version (default: latest)
 - `--json`: Output as JSON
 
@@ -1719,7 +1722,7 @@ kscorectl blueprint install <blueprint[@version]>... [flags]
 - `<blueprint[@version]>`: One or more blueprints to install (version optional)
 
 **Flags**:
-- `--registry string`: Registry URL
+- `--registry string`: Registry URL (default: `KSCORE_BLUEPRINT_REGISTRY` or `https://blueprints.keystone-core.io`)
 - `--dir string`: Installation directory (default: ~/.kscore/blueprints)
 - `--verify`: Verify signature before installing (default: true)
 - `--force`: Overwrite if already installed
@@ -1928,7 +1931,7 @@ kscorectl blueprint-publish verify <blueprint[@version]|file> [flags]
 
 **Flags**:
 - `--key string`: Public key file for verification
-- `--registry string`: Registry URL
+- `--registry string`: Registry URL (default: `KSCORE_BLUEPRINT_REGISTRY` or `https://blueprints.keystone-core.io`)
 - `--signature string`: Signature file (for local verification)
 
 ### blueprint-publish versions
@@ -1940,7 +1943,7 @@ kscorectl blueprint-publish versions <blueprint> [flags]
 ```
 
 **Flags**:
-- `--registry string`: Registry URL
+- `--registry string`: Registry URL (default: `KSCORE_BLUEPRINT_REGISTRY` or `https://blueprints.keystone-core.io`)
 - `--all`: Include prerelease versions
 - `--limit int`: Maximum versions to show (default: 20)
 - `--json`: Output as JSON
@@ -4311,6 +4314,12 @@ KSCORE_API_KEY="<your-api-key>"
 KSCORE_CONFIG="/custom/config.yaml"
 KSCORE_OUTPUT_FORMAT="json"
 KSCORE_NO_COLOR="true"
+KSCORE_BLUEPRINT_REGISTRY="https://blueprints.example.com"
+KSCORE_REGISTRY="https://registry.example.com"
+KSCORE_REGISTRY_TOKEN="..."
+KSCORE_REGISTRY_USERNAME="user"
+KSCORE_REGISTRY_PASSWORD="pass"
+KSCORE_CACHE_DIR="/var/cache/kscore/modules"
 ```
 
 **Example**:
@@ -4348,6 +4357,158 @@ alias tam='kscorectl monitor'
 tae "uptime" --target "role:web"
 tas web-server.yaml
 tam
+```
+
+## kscore-agents (Agent Management Plugin)
+
+Manage agent inventory, tokens, tags, and status. Invoked via `kscorectl agent`.
+
+### Global Flags
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--server, -s` | Control plane gRPC address | `localhost:9090` |
+| `--output, -o` | Output format (table, json, yaml, wide) | `table` |
+| `--verbose, -v` | Verbose output | `false` |
+
+### agent list
+
+List registered agents with filters.
+
+```bash
+kscorectl agent list --status online --label role=web --limit 100
+kscorectl agent list --edge --show-compatibility
+```
+
+### agent show
+
+```bash
+kscorectl agent show <agent-id>
+```
+
+### agent delete
+
+```bash
+kscorectl agent delete <agent-id> [--force]
+```
+
+### agent quarantine / unquarantine
+
+```bash
+kscorectl agent quarantine <agent-id> --reason "Suspicious activity"
+kscorectl agent unquarantine <agent-id>
+```
+
+### agent status
+
+```bash
+kscorectl agent status
+kscorectl agent status <agent-id>
+```
+
+### agent tags (labels)
+
+```bash
+kscorectl agent tags set <agent-id> role=web env=prod
+kscorectl agent tags add <agent-id> monitoring=enabled
+kscorectl agent tags remove <agent-id> monitoring
+kscorectl agent tags show <agent-id>
+```
+
+### agent token
+
+```bash
+kscorectl agent token create --ttl 1h --max-uses 10
+kscorectl agent token list
+kscorectl agent token revoke <token-id>
+```
+
+### agent renew-svid
+
+```bash
+kscorectl agent renew-svid <agent-id> --force
+```
+
+## kscore-loadtest (Load Testing Tool)
+
+Run load test scenarios for registration, heartbeats, and command execution.
+
+### Global Flags
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--output, -o` | Output format (table, json, yaml) | `table` |
+| `--verbose, -v` | Verbose output | `false` |
+| `--audit-level` | Audit logging level | `all` |
+| `--audit-output` | Audit output backend | `auto` |
+
+### loadtest run
+
+```bash
+kscorectl loadtest run --agents 100 --scenario registration
+kscorectl loadtest run --agents 50 --scenario commands --commands-per-agent 10
+kscorectl loadtest run --agents 200 --scenario sustained --duration 5m --ramp-up 30s
+```
+
+### loadtest scenarios
+
+```bash
+kscorectl loadtest scenarios
+```
+
+### loadtest report
+
+```bash
+kscorectl loadtest report --file reports/loadtest/results.json
+```
+
+## kscore-test (Test Runner)
+
+Run smoke, integration, and suite-based tests against a deployment.
+
+### Global Flags
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--server, -s` | Control plane gRPC address | `localhost:9090` |
+| `--output, -o` | Output format (table, json, yaml) | `table` |
+| `--verbose, -v` | Verbose output | `false` |
+| `--audit-level` | Audit logging level | `all` |
+| `--audit-output` | Audit output backend | `auto` |
+
+### test smoke
+
+```bash
+kscorectl test smoke --target "role:web" --timeout 5m
+```
+
+### test integration
+
+```bash
+kscorectl test integration --suite recovery --target "role:control-plane"
+kscorectl test integration --suite basic,state --parallel 2
+```
+
+### test run
+
+```bash
+kscorectl test run --suite e2e --timeout 1h --parallel 4
+kscorectl test run --suite basic --dry-run
+```
+
+### test list / show / history
+
+```bash
+kscorectl test list
+kscorectl test show <test-id>
+kscorectl test history --limit 20
+```
+
+### test suite
+
+```bash
+kscorectl test suite list
+kscorectl test suite show <suite-name>
 ```
 
 ## kscore-agent (Agent Daemon)
@@ -4402,6 +4563,81 @@ kscore-agent service-status
                   Windows: C:\ProgramData\kscore\agent.yaml
 -h, --help        Show help
 ```
+
+### Agent Bootstrap (kscore-agent bootstrap)
+
+Bootstrap a Keystone Core deployment using the single-binary flow (Epic 27).
+
+```bash
+kscore-agent bootstrap --mode production --cluster-name prod --node-role control-plane
+kscore-agent bootstrap --config bootstrap.yaml --non-interactive
+```
+
+**Common Flags**:
+```
+--mode string                Deployment mode: demo, production, fullscale, custom
+--cluster-name string        Cluster name
+--node-role string           Node role: control-plane, agent, both
+--node-name string           Node name (defaults to hostname)
+--node-label string          Node labels (key=value, repeatable)
+--join string                Cluster endpoint to join
+--join-token string          Join token for authentication
+--storage-backend string     Storage backend: sqlite, postgres
+--nats-mode string           NATS mode: embedded, cluster, external, leaf
+--nats-urls strings          External NATS URLs
+--bind-address string        Address to bind services
+--advertise-address string   Address to advertise to cluster
+--generate-certs             Generate self-signed certificates
+--blueprints-dir string      Directory containing blueprints
+--apply-blueprint strings    Blueprints to apply after bootstrap
+--non-interactive            Run without interactive prompts
+```
+
+**Environment Overrides**:
+
+| Variable | Maps to |
+|----------|---------|
+| `KSCORE_BOOTSTRAP_MODE` | `--mode` |
+| `KSCORE_CLUSTER_NAME` | `--cluster-name` |
+| `KSCORE_NODE_ROLE` | `--node-role` |
+| `KSCORE_NODE_NAME` | `--node-name` |
+| `KSCORE_NODE_LABELS` | `--node-label` (comma-separated `k=v`) |
+| `KSCORE_JOIN_ENDPOINT` | `--join` |
+| `KSCORE_JOIN_TOKEN` | `--join-token` |
+| `KSCORE_STORAGE_BACKEND` | `--storage-backend` |
+| `KSCORE_NATS_MODE` | `--nats-mode` |
+| `KSCORE_NATS_URLS` | `--nats-urls` (comma-separated) |
+| `KSCORE_BIND_ADDRESS` | `--bind-address` |
+| `KSCORE_ADVERTISE_ADDRESS` | `--advertise-address` |
+| `KSCORE_POSTGRES_HOST` | `--postgres-host` |
+| `KSCORE_POSTGRES_PORT` | `--postgres-port` |
+| `KSCORE_POSTGRES_DATABASE` | `--postgres-database` |
+| `KSCORE_POSTGRES_USER` | `--postgres-user` |
+| `KSCORE_POSTGRES_PASSWORD` | `--postgres-password` |
+| `KSCORE_POSTGRES_SSLMODE` | `--postgres-sslmode` |
+| `KSCORE_GENERATE_CERTS` | `--generate-certs` |
+| `KSCORE_TLS_CERT_FILE` | `--tls-cert-file` |
+| `KSCORE_TLS_KEY_FILE` | `--tls-key-file` |
+| `KSCORE_TLS_CA_FILE` | `--tls-ca-file` |
+| `KSCORE_TLS_CSR_FILE` | `--tls-csr-file` |
+| `KSCORE_TLS_RENEWAL_COMMAND` | `--tls-renewal-command` |
+| `KSCORE_TLS_RENEWAL_SCRIPT` | `--tls-renewal-script` |
+| `KSCORE_NATS_CREDS_FILE` | `--nats-creds-file` |
+| `KSCORE_NATS_USER` | `--nats-user` |
+| `KSCORE_NATS_PASSWORD` | `--nats-password` |
+| `KSCORE_PACKAGE_CHANNEL` | `--package-channel` |
+| `KSCORE_PACKAGE_VERSION` | `--package-version` |
+| `KSCORE_MIGRATE_FROM_SQLITE` | `--migrate-from-sqlite` |
+| `KSCORE_MIGRATE_BATCH_SIZE` | `--migrate-batch-size` |
+| `KSCORE_MIGRATE_CONTINUE_ON_ERROR` | `--migrate-continue-on-error` |
+| `KSCORE_MIGRATE_SKIP_EXISTING` | `--migrate-skip-existing` |
+| `KSCORE_BLUEPRINTS_DIR` | `--blueprints-dir` |
+| `KSCORE_APPLY_BLUEPRINTS` | `--apply-blueprint` (comma-separated) |
+| `KSCORE_BLUEPRINT_PARAMS` | `--blueprint-param` |
+| `KSCORE_BLUEPRINT_FEATURES` | `--blueprint-feature` |
+| `KSCORE_BLUEPRINT_ENTRYPOINTS` | `--blueprint-entrypoint` |
+| `KSCORE_EXPORT_STATES_DIR` | `--export-states-dir` |
+| `KSCORE_BOOTSTRAP_NON_INTERACTIVE` | `--non-interactive` |
 
 ## kscore-server (Control Plane)
 

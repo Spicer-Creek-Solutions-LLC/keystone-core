@@ -60,7 +60,8 @@ type EmbeddedNATSConfig struct {
 	// Mode determines how embedded NATS operates
 	Mode EmbeddedNATSMode
 
-	// Host is the interface to bind to (default: "0.0.0.0")
+	// Host is the interface to bind to (default: "127.0.0.1" for security)
+	// Use "0.0.0.0" to allow external connections (requires TLS+auth)
 	Host string
 	// Port is the client connection port (default: 4222)
 	Port int
@@ -162,16 +163,26 @@ type LeafRemoteConfig struct {
 }
 
 // DefaultEmbeddedNATSConfig returns the default configuration
+// Security: When enabled, binds to all interfaces but requires TLS+auth
 func DefaultEmbeddedNATSConfig() *EmbeddedNATSConfig {
 	return &EmbeddedNATSConfig{
 		Mode:           EmbeddedNATSModeDisabled,
-		Host:           "0.0.0.0",
+		Host:           "0.0.0.0", // Listen on all interfaces (TLS+auth required)
 		Port:           4222,
 		MaxConnections: 100,
 		MaxPayload:     1024 * 1024,      // 1MB
 		MaxPending:     64 * 1024 * 1024, // 64MB
 		WriteDeadline:  10 * time.Second,
 	}
+}
+
+// isLocalhost returns true if the host is a loopback address
+func isLocalhost(host string) bool {
+	if host == "" || host == "localhost" || host == "127.0.0.1" || host == "::1" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 // Validate validates the configuration
@@ -194,6 +205,25 @@ func (c *EmbeddedNATSConfig) Validate() error {
 
 	if c.Mode == EmbeddedNATSModeLeaf && len(c.LeafRemotes) == 0 {
 		return errors.New("leaf mode requires at least one remote configuration")
+	}
+
+	// Security: Require TLS and authentication when binding to non-localhost
+	if !isLocalhost(c.Host) {
+		// Check TLS is configured
+		if c.TLSConfig == nil {
+			return errors.New("security: TLS is required when binding to non-localhost address (use host=127.0.0.1 for local-only access)")
+		}
+
+		// Check authentication is configured
+		if c.AuthConfig == nil {
+			return errors.New("security: authentication is required when binding to non-localhost address")
+		}
+
+		// Verify auth is not anonymous-only
+		if c.AuthConfig.AllowAnonymous && c.AuthConfig.Token == "" &&
+			len(c.AuthConfig.Users) == 0 && len(c.AuthConfig.NKeyUsers) == 0 {
+			return errors.New("security: anonymous-only access is not allowed when binding to non-localhost address")
+		}
 	}
 
 	// Validate TLS config if present

@@ -1392,6 +1392,158 @@ spec:
           key: postgres-password
 ```
 
+## Agent Command Security
+
+Agents enforce security policies on command execution to prevent unauthorized or dangerous operations.
+
+### Command Authorization
+
+Configure authorization to control who can execute commands on agents:
+
+```yaml
+# agent.yaml
+security:
+  authorization:
+    enabled: true                     # Enable authorization checks
+    shared_secret: "${COMMAND_SECRET}" # HMAC secret for signing
+    require_signature: true           # Require signed commands
+    allowed_principals:               # Principals allowed to execute
+      - "admin"
+      - "operator"
+      - "ci-system"
+```
+
+**How Authorization Works:**
+1. Control plane sends commands with `X-Keystone-Principal` header
+2. Agent validates principal against `allowed_principals` list
+3. If `require_signature` is true, validates HMAC signature in `X-Keystone-Signature` header
+4. Commands from unauthorized principals are rejected
+
+### Command Filtering
+
+Filter commands to prevent dangerous operations:
+
+```yaml
+# agent.yaml
+security:
+  command_filter:
+    mode: "blocklist"               # allowlist (strict) or blocklist (permissive)
+
+    # Blocklist mode: block specific commands
+    blocklist:
+      - "rm"
+      - "shutdown"
+      - "reboot"
+
+    # Blocked patterns (always applied regardless of mode)
+    blocked_patterns:
+      - ';\s*rm\s+-rf\s+/'          # Prevent shell injection: ; rm -rf /
+      - '>\s*/dev/sd[a-z]'          # Prevent writing to block devices
+      - 'mkfs\.'                    # Prevent filesystem creation
+      - 'dd\s+.*of=/dev/'           # Prevent dd to devices
+
+    # Exempt specific commands from blocked_patterns
+    # Use when legitimate operations need blocked commands
+    exempt_commands:
+      - "mkfs.*"                    # Allow mkfs for disk provisioning
+      - "/sbin/mkfs*"               # Allow full path mkfs
+      - "dd"                        # Allow dd for specific use cases
+```
+
+**Allowlist Mode (Most Secure):**
+```yaml
+security:
+  command_filter:
+    mode: "allowlist"
+    allowlist:
+      - "systemctl"
+      - "apt-get"
+      - "yum"
+      - "docker"
+      - "/usr/local/bin/*"          # Allow custom scripts
+```
+
+### Blocked Environment Variables
+
+Prevent library injection attacks by blocking dangerous environment variables:
+
+```yaml
+security:
+  command_filter:
+    block_env_overrides: true
+    blocked_env_vars:
+      - "LD_PRELOAD"                # Linux library preload
+      - "LD_LIBRARY_PATH"           # Linux library path
+      - "DYLD_INSERT_LIBRARIES"     # macOS library injection
+      - "PYTHONPATH"                # Python module injection
+      - "RUBYLIB"                   # Ruby module injection
+      - "PERL5LIB"                  # Perl module injection
+      - "NODE_PATH"                 # Node.js module injection
+```
+
+### Embedded NATS Security
+
+When running embedded NATS on agents, security is enforced:
+
+**Default Behavior:**
+- Embedded NATS is **disabled by default** (requires explicit configuration)
+- When enabled, binds to `0.0.0.0` (all interfaces)
+- TLS and authentication are **required** for non-localhost binding
+
+**Enable Embedded NATS via CLI:**
+```bash
+# Enable with TLS (required for external access)
+kscore-agent config enable-embedded-nats \
+  --host 0.0.0.0 \
+  --port 4222 \
+  --restart
+
+# Show current configuration
+kscore-agent config show
+
+# Disable and connect to external NATS
+kscore-agent config disable-embedded-nats \
+  --nats-url "nats://external-cluster:4222" \
+  --restart
+```
+
+**Secure Embedded NATS Configuration:**
+```yaml
+# agent.yaml
+nats:
+  mode: "embedded"
+  embedded:
+    host: "0.0.0.0"                 # External access
+    port: 4222
+    tls:                            # REQUIRED for non-localhost
+      cert_file: "/etc/kscore/nats.crt"
+      key_file: "/etc/kscore/nats.key"
+      ca_file: "/etc/kscore/ca.crt"
+      verify: true
+    auth:                           # REQUIRED for non-localhost
+      token: "${NATS_TOKEN}"
+```
+
+**Localhost-only Mode (Development):**
+```yaml
+# agent.yaml - no TLS/auth required for localhost
+nats:
+  mode: "embedded"
+  embedded:
+    host: "127.0.0.1"               # Localhost only - no TLS required
+    port: 4222
+```
+
+### Agent Security Checklist
+
+- [ ] **NATS mode explicitly configured** (no auto-default to embedded)
+- [ ] **TLS enabled** for embedded NATS with external access
+- [ ] **Authentication configured** for embedded NATS
+- [ ] **Command authorization enabled** in production
+- [ ] **Blocked patterns configured** for dangerous commands
+- [ ] **Environment variable blocking enabled**
+- [ ] **Exempt commands reviewed** for legitimate use cases
+
 ## Module Security
 
 Keystone Core's module system uses capability-based security to ensure modules cannot access system resources without explicit authorization.

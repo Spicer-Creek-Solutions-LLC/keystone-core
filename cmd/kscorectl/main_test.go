@@ -5,6 +5,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -110,19 +111,24 @@ func TestVersionCommandOutput(t *testing.T) {
 }
 
 func TestConfigValidateCommand(t *testing.T) {
+	tmpDir := t.TempDir()
 	tmpFile, err := os.CreateTemp("", "kscore-config-*.yaml")
 	if err != nil {
 		t.Fatalf("failed to create temp config: %v", err)
 	}
 	t.Cleanup(func() { _ = os.Remove(tmpFile.Name()) })
 
-	configData := []byte(`nats:
+	configData := []byte(fmt.Sprintf(`nats:
   mode: embedded
+  embedded:
+    storedir: %s/embedded
+  jetstream:
+    storedir: %s/jetstream
 storage:
   backend: sqlite
 auth:
   enabled: false
-`)
+`, tmpDir, tmpDir))
 
 	if _, err := tmpFile.Write(configData); err != nil {
 		t.Fatalf("failed to write config: %v", err)

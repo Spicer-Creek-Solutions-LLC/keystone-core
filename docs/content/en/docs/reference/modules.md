@@ -1358,6 +1358,19 @@ eth0_slaac:
   ipv6_privacy: true
 ```
 
+#### MAC Address Override and Wake-on-LAN
+
+```yaml
+eth0_wol:
+  module: network
+  state: configured
+  interface: eth0
+  address: 192.168.1.100/24
+  gateway: 192.168.1.1
+  mac_address: "02:42:ac:11:00:02"
+  wol: magic
+```
+
 ### Return Values
 
 ```yaml

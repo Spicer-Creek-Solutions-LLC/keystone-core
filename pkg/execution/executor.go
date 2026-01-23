@@ -1,10 +1,9 @@
 package execution
 
 import (
-	"bufio"
+	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"sync"
@@ -204,20 +203,10 @@ func (e *Executor) executeOnce(ctx context.Context, req *ExecuteRequest, outputH
 		cmd.Env = env
 	}
 
-	// Get stdout and stderr pipes
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		result.Error = err
-		result.EndTime = time.Now()
-		return result, fmt.Errorf("failed to create stdout pipe: %w", err)
-	}
-
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		result.Error = err
-		result.EndTime = time.Now()
-		return result, fmt.Errorf("failed to create stderr pipe: %w", err)
-	}
+	// Use bytes.Buffer for output capture - simpler and avoids pipe race conditions
+	var stdoutBuf, stderrBuf bytes.Buffer
+	cmd.Stdout = &stdoutBuf
+	cmd.Stderr = &stderrBuf
 
 	// Start the command
 	if err := cmd.Start(); err != nil {
@@ -234,37 +223,9 @@ func (e *Executor) executeOnce(ctx context.Context, req *ExecuteRequest, outputH
 	}
 	e.mu.Unlock()
 
-	// Stream output
-	var wg sync.WaitGroup
-	var stdoutBuf, stderrBuf []byte
-	var stdoutMu, stderrMu sync.Mutex
-
-	// Stream stdout
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		buf := streamOutput(stdout, req.CommandID, false, outputHandler)
-		stdoutMu.Lock()
-		stdoutBuf = buf
-		stdoutMu.Unlock()
-	}()
-
-	// Stream stderr
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		buf := streamOutput(stderr, req.CommandID, true, outputHandler)
-		stderrMu.Lock()
-		stderrBuf = buf
-		stderrMu.Unlock()
-	}()
-
 	// Wait for command to complete
 	err = cmd.Wait()
 	result.EndTime = time.Now()
-
-	// Wait for output streaming to complete
-	wg.Wait()
 
 	// Remove from running commands
 	e.mu.Lock()
@@ -283,9 +244,29 @@ func (e *Executor) executeOnce(ctx context.Context, req *ExecuteRequest, outputH
 		result.ExitCode = 0
 	}
 
-	// Copy output buffers
-	result.Stdout = stdoutBuf
-	result.Stderr = stderrBuf
+	// Get output from buffers
+	result.Stdout = stdoutBuf.Bytes()
+	result.Stderr = stderrBuf.Bytes()
+
+	// Call output handler if provided
+	if outputHandler != nil {
+		if len(result.Stdout) > 0 {
+			lines := bytes.Split(result.Stdout, []byte{'\n'})
+			for _, line := range lines {
+				if len(line) > 0 {
+					outputHandler(req.CommandID, false, line)
+				}
+			}
+		}
+		if len(result.Stderr) > 0 {
+			lines := bytes.Split(result.Stderr, []byte{'\n'})
+			for _, line := range lines {
+				if len(line) > 0 {
+					outputHandler(req.CommandID, true, line)
+				}
+			}
+		}
+	}
 
 	return result, err
 }
@@ -352,25 +333,3 @@ func (e *Executor) SetPolicy(policy *CommandPolicy) {
 	e.policy = policy
 }
 
-// streamOutput reads from a pipe and returns the buffered output
-func streamOutput(reader io.Reader, commandID string, isStderr bool, handler OutputHandler) []byte {
-	var output []byte
-	scanner := bufio.NewScanner(reader)
-
-	for scanner.Scan() {
-		data := scanner.Bytes()
-		dataCopy := make([]byte, len(data))
-		copy(dataCopy, data)
-
-		// Call output handler if provided
-		if handler != nil {
-			handler(commandID, isStderr, dataCopy)
-		}
-
-		// Store output
-		output = append(output, dataCopy...)
-		output = append(output, '\n')
-	}
-
-	return output
-}

@@ -30,7 +30,13 @@ This quick reference provides a consolidated view of all Keystone Core CLI comma
 | `kscorectl agent show <id>` | Show agent details | `kscorectl agent show web-01` |
 | `kscorectl agent delete <id>` | Delete agent | `kscorectl agent delete web-01` |
 | `kscorectl agent quarantine <id>` | Quarantine agent | `kscorectl agent quarantine web-01` |
+| `kscorectl agent unquarantine <id>` | Remove quarantine | `kscorectl agent unquarantine web-01` |
 | `kscorectl agent token create` | Create join token | `kscorectl agent token create --ttl 1h` |
+| `kscorectl agent token list` | List join tokens | `kscorectl agent token list` |
+| `kscorectl agent token revoke <id>` | Revoke join token | `kscorectl agent token revoke token-123` |
+| `kscorectl agent status [id]` | Agent status summary | `kscorectl agent status` |
+| `kscorectl agent tags set` | Replace agent tags | `kscorectl agent tags set web-01 role=web env=prod` |
+| `kscorectl agent renew-svid <id>` | Renew SPIFFE SVID | `kscorectl agent renew-svid web-01 --force` |
 
 ### API Key Management
 
@@ -175,6 +181,29 @@ not role:db                 # Negation
 | `module test` | Test module | `module test` |
 | `module publish` | Publish module | `module publish --registry reg.example.com` |
 | `module verify <name>` | Verify signature | `module verify stdlib/file` |
+
+---
+
+## Load Testing (kscore-loadtest)
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `loadtest run` | Run load test | `loadtest run --agents 100 --scenario registration` |
+| `loadtest scenarios` | List scenarios | `loadtest scenarios` |
+| `loadtest report` | Show report | `loadtest report --file reports/loadtest/results.json` |
+
+---
+
+## Test Runner (kscore-test)
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `test smoke` | Run smoke tests | `test smoke --target "role:web"` |
+| `test integration` | Run integration suites | `test integration --suite recovery` |
+| `test run` | Run suite | `test run --suite e2e --timeout 1h` |
+| `test list` | List test runs | `test list` |
+| `test show <id>` | Show test run | `test show test-123` |
+| `test suite list` | List suites | `test suite list` |
 
 ---
 
@@ -325,10 +354,20 @@ not role:db                 # Negation
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `bootstrap init` | Initialize cluster | `bootstrap init --seed seed.yaml` |
-| `bootstrap join <token>` | Join cluster | `bootstrap join TOKEN --server addr:port` |
+| `bootstrap seed` | Initialize cluster | `bootstrap seed --config seed.yaml` |
+| `bootstrap restore` | Restore from backup | `bootstrap restore --backup-path backup.tar.gz` |
+| `bootstrap import` | Import configuration | `bootstrap import --source /exports/config.yaml` |
 | `bootstrap status` | Bootstrap status | `bootstrap status` |
-| `bootstrap validate <file>` | Validate seed | `bootstrap validate seed.yaml` |
+| `bootstrap validate` | Validate config | `bootstrap validate --config seed.yaml` |
+| `bootstrap cleanup` | Clean up artifacts | `bootstrap cleanup --force` |
+
+---
+
+## Agent Bootstrap (kscore-agent)
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `kscore-agent bootstrap` | Guided bootstrap flow | `kscore-agent bootstrap --mode production --cluster-name prod` |
 
 ---
 
@@ -588,6 +627,12 @@ Most commands support output formatting:
 | `KSCORE_LOG_LEVEL` | Log level (debug, info, warn, error) |
 | `KSCORE_NO_COLOR` | Disable colored output |
 | `KSCORE_ALLOW_INSECURE_TLS` | Allow insecure TLS (dev only) |
+| `KSCORE_BLUEPRINT_REGISTRY` | Blueprint registry URL |
+| `KSCORE_REGISTRY` | Module registry URL |
+| `KSCORE_REGISTRY_TOKEN` | Module registry auth token |
+| `KSCORE_REGISTRY_USERNAME` | Module registry basic auth username |
+| `KSCORE_REGISTRY_PASSWORD` | Module registry basic auth password |
+| `KSCORE_CACHE_DIR` | Module cache directory |
 
 ---
 

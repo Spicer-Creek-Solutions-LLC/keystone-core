@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -953,9 +954,19 @@ func (r *SubjectRouter) RouteSubject(subject string) string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	// Check for explicit prefix routing
-	for prefix, cluster := range r.subjectPrefixes {
+	// Collect prefixes and sort by length (longest first) for most-specific matching
+	prefixes := make([]string, 0, len(r.subjectPrefixes))
+	for prefix := range r.subjectPrefixes {
+		prefixes = append(prefixes, prefix)
+	}
+	sort.Slice(prefixes, func(i, j int) bool {
+		return len(prefixes[i]) > len(prefixes[j])
+	})
+
+	// Check for explicit prefix routing (longest prefix first)
+	for _, prefix := range prefixes {
 		if len(subject) >= len(prefix) && subject[:len(prefix)] == prefix {
+			cluster := r.subjectPrefixes[prefix]
 			if route, ok := r.routes[cluster]; ok && route.Available {
 				return cluster
 			}

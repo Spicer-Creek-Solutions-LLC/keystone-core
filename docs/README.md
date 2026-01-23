@@ -38,6 +38,13 @@ This directory contains the source files for the Keystone Core documentation sit
    - Playwright for PDF generation
    - Build tools
 
+4. **Create Hugo module placeholders (Docsy submodule builds)**:
+   ```bash
+   cd docs/themes/docsy/scripts
+   node mkdirp-hugo-mod.js ../..
+   cd ../../../..
+   ```
+
 ### Building the Documentation
 
 The documentation site is configured to build to `build/docs/` (see `publishDir` in `hugo.toml`).
@@ -151,6 +158,14 @@ To customize the Docsy theme:
 
 - **Error**: Font Awesome or Bootstrap errors
   - **Fix**: Install npm dependencies in `themes/docsy/`
+
+- **Error**: `module "github.com/FortAwesome/Font-Awesome" not found`
+  - **Fix**: Create Docsy Hugo module placeholders:
+    ```bash
+    cd docs/themes/docsy/scripts
+    node mkdirp-hugo-mod.js ../..
+    cd ../../../..
+    ```
 
 ### Theme Not Appearing
 
