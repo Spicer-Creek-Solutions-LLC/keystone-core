@@ -112,7 +112,8 @@ This repository contains working implementations of **Epics 1-29**. The project 
     ├── 29-bootstrap-testing-infrastructure.md  # Bootstrap tests
     ├── 30-cli-ux-restructuring.md        # CLI UX restructuring
     ├── 31-nist-design-principles.md      # NIST design principles
-    └── 36-deep-secrets-management.md     # Deep secrets management integration
+    ├── 36-deep-secrets-management.md     # Deep secrets management integration
+    └── 37-enhanced-runbooks.md           # Enhanced runbook automation
 ```
 
 ## Architecture Overview
@@ -171,6 +172,7 @@ Implementation order:
 30. **Epic 30** (CLI UX Restructuring) - ✅ COMPLETE - Depends on Epic 1, 2, 3
 31. **Epic 31** (NIST Design Principles) - ✅ COMPLETE - Documentation only
 36. **Epic 36** (Deep Secrets Management) - PLANNED - Depends on Epic 1, 3, 4, 6, 17
+37. **Epic 37** (Enhanced Runbooks) - PLANNED - Depends on Epic 1, 2, 3, 4
 
 ### Future Epics (Not Yet Planned)
 
@@ -186,7 +188,6 @@ Implementation order:
 - **Agent Self-Update** - Secure binary distribution, staged rollouts
 - **Compliance Framework Presets** - CIS Benchmarks, SOC 2, HIPAA, PCI-DSS
 - **Network Discovery & Topology** - Automatic scanning, L2/L3 mapping
-- **Runbook Automation** - Multi-step orchestration, conditional branching
 - **Terraform Provider** - Terraform provider for Keystone Core resources
 - **ITSM Integration** - ServiceNow integration, change requests, CMDB sync
 
