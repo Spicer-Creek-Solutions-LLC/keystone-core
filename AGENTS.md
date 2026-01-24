@@ -92,8 +92,8 @@ See `docs/content/en/docs/contributing/state-machines.md` for full documentation
 
 ## Recent Updates
 
+- **Epic 39 COMPLETE**: State machine pattern refactoring finished with 15 components using explicit state machines and 150+ tests.
 - Added state machine library (`pkg/statemachine`) with generic, type-safe implementation for managing complex state transitions.
-- Created Epic 39 (State Machine Pattern Refactoring) covering systematic refactoring of components to use explicit state machines.
 - Added contributor documentation for state machine patterns at `docs/content/en/docs/contributing/state-machines.md`.
 - Expanded configuration reference coverage for control plane, auth, webhook, NATS, storage, and agent settings.
 - Documented module registry configuration and added CLI coverage for agent management, load testing, and test runner tools.
@@ -127,8 +127,9 @@ This repository contains working implementations of **Epics 1-29**. The project 
 - Standard deployment blueprints catalog
 - Single-binary bootstrap experience
 - Comprehensive test suite (>79% coverage across all core packages)
+- Explicit state machine patterns for 15 core components (150+ tests)
 
-**Current Status**: Epics 1-31 COMPLETE ✅
+**Current Status**: Epics 1-31, 39 COMPLETE ✅
 
 ## Repository Structure
 
@@ -234,6 +235,7 @@ Implementation order:
 36. **Epic 36** (Deep Secrets Management) - PLANNED - Depends on Epic 1, 3, 4, 6, 17
 37. **Epic 37** (Enhanced Runbooks) - PLANNED - Depends on Epic 1, 2, 3, 4
 38. **Epic 38** (Air-Gapped Deployments) - PLANNED - Depends on Epic 1, 9, 22, 23, 25
+39. **Epic 39** (State Machine Refactoring) - ✅ COMPLETE - Independent refactoring epic
 
 ### Future Epics (Not Yet Planned)
 
