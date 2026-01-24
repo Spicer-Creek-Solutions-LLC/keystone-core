@@ -173,6 +173,7 @@ This repository contains working implementations of **Epics 1-29**. The project 
     ├── 37-enhanced-runbooks.md           # Enhanced runbook automation
     ├── 38-air-gapped-deployments.md      # Air-gapped deployment support
     ├── 39-state-machine-refactoring.md   # State machine pattern refactoring
+    ├── 40-test-coverage-remediation.md   # Test coverage for untested packages
     └── future-web-ui-management-console.md  # Web UI (future, not scheduled)
 ```
 
@@ -236,6 +237,7 @@ Implementation order:
 37. **Epic 37** (Enhanced Runbooks) - PLANNED - Depends on Epic 1, 2, 3, 4
 38. **Epic 38** (Air-Gapped Deployments) - PLANNED - Depends on Epic 1, 9, 22, 23, 25
 39. **Epic 39** (State Machine Refactoring) - ✅ COMPLETE - Independent refactoring epic
+40. **Epic 40** (Test Coverage Remediation) - NOT STARTED - Add tests to 23 untested packages
 
 ### Future Epics (Not Yet Planned)
 
