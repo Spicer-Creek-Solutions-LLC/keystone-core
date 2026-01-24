@@ -43,10 +43,58 @@ Tests should follow existing patterns in the codebase:
 - Test both success and error paths
 - Include interface compliance tests (e.g., `var _ Interface = (*Type)(nil)`)
 
+### State Machine Pattern Guidelines
+
+Use the `pkg/statemachine` library for components with complex state transitions:
+
+**When to use state machines:**
+- Components with 3+ distinct states
+- State transitions that require validation
+- Lifecycle management (init, start, run, stop)
+- Workflows with sequential steps
+- Retry/recovery logic with phases
+
+**Implementation pattern:**
+```go
+// Define states and events as typed constants
+type ConnectionState string
+const (
+    StateDisconnected ConnectionState = "disconnected"
+    StateConnecting   ConnectionState = "connecting"
+    StateConnected    ConnectionState = "connected"
+)
+
+type ConnectionEvent string
+const (
+    EventConnect    ConnectionEvent = "connect"
+    EventConnected  ConnectionEvent = "connected"
+    EventDisconnect ConnectionEvent = "disconnect"
+)
+
+// Build machine with transitions and callbacks
+machine := statemachine.New[ConnectionState, ConnectionEvent](StateDisconnected).
+    AddTransition(StateDisconnected, EventConnect, StateConnecting).
+    AddTransition(StateConnecting, EventConnected, StateConnected).
+    WithHistory(100).
+    MustBuild()
+```
+
+**Required for state machine implementations:**
+- Document state diagram in code comments using Mermaid
+- Test all valid transitions
+- Test that invalid transitions are rejected
+- Use guards for conditional transitions
+- Use callbacks for side effects (logging, metrics, events)
+
+See `docs/content/en/docs/contributing/state-machines.md` for full documentation.
+
 ---
 
 ## Recent Updates
 
+- Added state machine library (`pkg/statemachine`) with generic, type-safe implementation for managing complex state transitions.
+- Created Epic 39 (State Machine Pattern Refactoring) covering systematic refactoring of components to use explicit state machines.
+- Added contributor documentation for state machine patterns at `docs/content/en/docs/contributing/state-machines.md`.
 - Expanded configuration reference coverage for control plane, auth, webhook, NATS, storage, and agent settings.
 - Documented module registry configuration and added CLI coverage for agent management, load testing, and test runner tools.
 - Aligned registry config documentation with CLI flags and added agent bootstrap env/flag reference plus blueprint registry/cache env variables.
@@ -123,6 +171,7 @@ This repository contains working implementations of **Epics 1-29**. The project 
     ├── 36-deep-secrets-management.md     # Deep secrets management integration
     ├── 37-enhanced-runbooks.md           # Enhanced runbook automation
     ├── 38-air-gapped-deployments.md      # Air-gapped deployment support
+    ├── 39-state-machine-refactoring.md   # State machine pattern refactoring
     └── future-web-ui-management-console.md  # Web UI (future, not scheduled)
 ```
 
