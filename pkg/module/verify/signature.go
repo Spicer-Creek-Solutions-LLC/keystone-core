@@ -14,7 +14,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/shawnbutts/keystone-core/pkg/signing"
+	"github.com/shawnbutts/keystone-core/internal/signing"
 )
 
 // DefaultSignatureVerifier implements SignatureVerifier using the shared signing package

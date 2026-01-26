@@ -16,11 +16,11 @@ import (
 
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
 	"github.com/shawnbutts/keystone-core/pkg/api/server"
-	"github.com/shawnbutts/keystone-core/pkg/config"
-	"github.com/shawnbutts/keystone-core/pkg/controlplane"
-	natsmgr "github.com/shawnbutts/keystone-core/pkg/nats"
-	"github.com/shawnbutts/keystone-core/pkg/state"
-	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
+	"github.com/shawnbutts/keystone-core/internal/config"
+	"github.com/shawnbutts/keystone-core/internal/controlplane"
+	natsmgr "github.com/shawnbutts/keystone-core/internal/nats"
+	"github.com/shawnbutts/keystone-core/internal/state"
+	"github.com/shawnbutts/keystone-core/internal/testing/helpers"
 )
 
 // testEnvironment holds all components for e2e testing

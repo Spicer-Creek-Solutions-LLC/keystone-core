@@ -11,8 +11,8 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
-	"github.com/shawnbutts/keystone-core/pkg/cli/output"
-	"github.com/shawnbutts/keystone-core/pkg/events"
+	"github.com/shawnbutts/keystone-core/internal/cli/output"
+	"github.com/shawnbutts/keystone-core/internal/events"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 

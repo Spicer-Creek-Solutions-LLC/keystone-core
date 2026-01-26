@@ -10,7 +10,7 @@ import (
 	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/client"
 	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/config"
 	monitorEvents "github.com/shawnbutts/keystone-core/cmd/kscore-monitor/events"
-	"github.com/shawnbutts/keystone-core/pkg/events"
+	"github.com/shawnbutts/keystone-core/internal/events"
 )
 
 // View represents the different views in the TUI

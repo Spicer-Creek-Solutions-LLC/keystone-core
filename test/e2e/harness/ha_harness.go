@@ -319,6 +319,15 @@ func (e *HAClusterEnvironment) IsServerHealthy(ctx context.Context, index int) b
 	return e.checkServerHealth(ctx, e.Servers[index].HTTPAddr) == nil
 }
 
+// WaitForServerHealthy waits for a specific server to be healthy.
+func (e *HAClusterEnvironment) WaitForServerHealthy(ctx context.Context, index int, timeout time.Duration) error {
+	if index < 0 || index >= len(e.Servers) {
+		return fmt.Errorf("invalid server index: %d", index)
+	}
+
+	return e.waitForServerHealthy(ctx, e.Servers[index].HTTPAddr, timeout)
+}
+
 // StopServer stops a specific server container
 func (e *HAClusterEnvironment) StopServer(ctx context.Context, index int) error {
 	if index < 0 || index >= len(e.Servers) {

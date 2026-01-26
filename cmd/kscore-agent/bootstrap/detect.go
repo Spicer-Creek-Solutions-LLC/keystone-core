@@ -6,8 +6,8 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/shawnbutts/keystone-core/pkg/netutil"
-	"github.com/shawnbutts/keystone-core/pkg/platform"
+	"github.com/shawnbutts/keystone-core/internal/netutil"
+	"github.com/shawnbutts/keystone-core/internal/platform"
 	"github.com/shirou/gopsutil/v3/disk"
 	"github.com/shirou/gopsutil/v3/mem"
 )

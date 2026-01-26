@@ -4,7 +4,7 @@
        docs-validate-drift docs-validate-sync docs-validate-all \
        release release-snapshot release-dry-run lint sdk-verify \
        security security-secrets security-vulns security-sast security-licenses security-sbom security-fuzz \
-       security-install-tools \
+       security-report security-install-tools \
        e2e-build e2e-test e2e-up e2e-down e2e-logs e2e-clean e2e-full e2e-perf e2e-scenarios \
        e2e-ha e2e-ha-up e2e-ha-down e2e-ha-logs \
        e2e-ipv6 e2e-ipv6-up e2e-ipv6-down e2e-ipv6-logs \
@@ -100,6 +100,7 @@ help:
 	@echo "  security-licenses  - Check dependency licenses"
 	@echo "  security-sbom      - Generate SBOM (CycloneDX + SPDX)"
 	@echo "  security-fuzz      - Run fuzz tests"
+	@echo "  security-report    - Run all scans and generate markdown report"
 	@echo "  security-install-tools - Install security scanning tools"
 	@echo ""
 	@echo "Release targets (requires goreleaser):"
@@ -505,6 +506,39 @@ lint:
 # Security Scanning
 # =============================================================================
 
+SECURITY_CONTAINER_ENGINE := $(CONTAINER_ENGINE)
+SECURITY_WORKDIR := /workspace
+SECURITY_CACHE_DIR ?= $(PWD)/.cache/security
+SECURITY_TIMEOUT ?= 10m
+SECURITY_GO_IMAGE := golang:1.25
+SECURITY_GITLEAKS_IMAGE := zricethezav/gitleaks:latest
+SECURITY_TRIVY_IMAGE := aquasec/trivy:latest
+SECURITY_GOSEC_IMAGE := securego/gosec:latest
+SECURITY_SEMGREP_IMAGE := semgrep/semgrep:latest
+SECURITY_SYFT_IMAGE := anchore/syft:latest
+SECURITY_GRYPE_IMAGE := anchore/grype:latest
+SECURITY_KICS_IMAGE := checkmarx/kics:latest
+SECURITY_HADOLINT_IMAGE := hadolint/hadolint:latest
+SECURITY_SCORECARD_IMAGE := gcr.io/openssf/scorecard:stable
+
+SECURITY_CONTAINER_RUN := $(SECURITY_CONTAINER_ENGINE) run --rm \
+	-v $(PWD):$(SECURITY_WORKDIR) \
+	-v $(SECURITY_CACHE_DIR)/go:/tmp/go \
+	-v $(SECURITY_CACHE_DIR)/gomod:/tmp/gomod \
+	-v $(SECURITY_CACHE_DIR)/gocache:/tmp/gocache \
+	-v $(SECURITY_CACHE_DIR)/trivy:/tmp/trivy \
+	-v $(SECURITY_CACHE_DIR)/semgrep:/tmp/semgrep \
+	-w $(SECURITY_WORKDIR)
+SECURITY_GO_ENV := -e GOPATH=/tmp/go -e GOMODCACHE=/tmp/gomod -e GOCACHE=/tmp/gocache \
+	-e PATH=/usr/local/go/bin:/tmp/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+SECURITY_GO_RUN := $(SECURITY_CONTAINER_RUN) $(SECURITY_GO_ENV) $(SECURITY_GO_IMAGE) sh -c
+
+security-container-check:
+	@if [ -z "$(SECURITY_CONTAINER_ENGINE)" ]; then \
+		echo "Error: Neither docker nor podman found in PATH"; \
+		exit 1; \
+	fi
+
 security-install-tools:
 	@echo "Installing security scanning tools..."
 	go install golang.org/x/vuln/cmd/govulncheck@latest
@@ -520,27 +554,37 @@ security-install-tools:
 	@echo ""
 	@echo "Go-based tools installed successfully"
 
-security: security-secrets security-vulns security-sast security-licenses
+security: security-container-check
+	@echo "=== Running security checks (timeout $(SECURITY_TIMEOUT) per target, if timeout is available) ==="
+	@$(call RUN_WITH_TIMEOUT,security-secrets)
+	@$(call RUN_WITH_TIMEOUT,security-vulns)
+	@$(call RUN_WITH_TIMEOUT,security-sast)
+	@$(call RUN_WITH_TIMEOUT,security-licenses)
 	@echo ""
 	@echo "=== All security checks complete ==="
 
-security-secrets:
-	@echo "=== Running secret detection (gitleaks) ==="
-	@if command -v gitleaks >/dev/null 2>&1; then \
-		gitleaks detect --source . --config .gitleaks.toml --verbose; \
+define RUN_WITH_TIMEOUT
+	@if command -v timeout >/dev/null; then \
+		timeout $(SECURITY_TIMEOUT) $(MAKE) --no-print-directory $(1); \
 	else \
-		echo "gitleaks not installed. Run: go install github.com/zricethezav/gitleaks/v8@latest"; \
-		exit 1; \
+		$(MAKE) --no-print-directory $(1); \
 	fi
+endef
 
-security-vulns:
+security-secrets: security-container-check
+	@echo "=== Running secret detection (gitleaks) ==="
+	@$(SECURITY_CONTAINER_RUN) $(SECURITY_GITLEAKS_IMAGE) \
+		detect --source $(SECURITY_WORKDIR) --config $(SECURITY_WORKDIR)/.gitleaks.toml --verbose
+
+security-vulns: security-container-check
 	@echo "=== Running vulnerability checks ==="
 	@echo ""
 	@echo "--- govulncheck ---"
 	@# Known unfixable k8s.io/kubernetes vulnerabilities (documented in SECURITY.md):
 	@# - GO-2025-3547: Race condition in kube-apiserver
 	@# - GO-2025-3521: GitRepo Volume local repository access
-	@if command -v govulncheck >/dev/null 2>&1; then \
+	@$(SECURITY_GO_RUN) 'set -e; \
+		go install golang.org/x/vuln/cmd/govulncheck@latest; \
 		govulncheck ./... 2>&1 | tee /tmp/govulncheck.out; \
 		if grep -q "No vulnerabilities found" /tmp/govulncheck.out; then \
 			echo "No vulnerabilities found"; \
@@ -554,26 +598,19 @@ security-vulns:
 				echo "ERROR: New vulnerabilities found that need attention"; \
 				exit 1; \
 			fi; \
-		fi; \
-	else \
-		echo "govulncheck not installed. Run: go install golang.org/x/vuln/cmd/govulncheck@latest"; \
-	fi
+		fi'
 	@echo ""
 	@echo "--- nancy (Sonatype OSS Index) ---"
-	@if command -v nancy >/dev/null 2>&1; then \
-		go list -json -deps ./... | nancy sleuth 2>&1 || echo "nancy check skipped (requires OSS Index API token for full results)"; \
-	else \
-		echo "nancy not installed. Run: go install github.com/sonatype-nexus-community/nancy@latest"; \
-	fi
+	@$(SECURITY_GO_RUN) 'set -e; \
+		go install github.com/sonatype-nexus-community/nancy@latest; \
+		go list -json -deps ./... | nancy sleuth 2>&1 || \
+		echo "nancy check skipped (requires OSS Index API token for full results)"'
 	@echo ""
 	@echo "--- trivy filesystem scan ---"
-	@if command -v trivy >/dev/null 2>&1; then \
-		trivy fs --severity HIGH,CRITICAL .; \
-	else \
-		echo "trivy not installed. See: https://aquasecurity.github.io/trivy/latest/getting-started/installation/"; \
-	fi
+	@$(SECURITY_CONTAINER_RUN) -e TRIVY_CACHE_DIR=/tmp/trivy $(SECURITY_TRIVY_IMAGE) \
+		fs --severity HIGH,CRITICAL $(SECURITY_WORKDIR)
 
-security-sast:
+security-sast: security-container-check
 	@echo "=== Running static analysis ==="
 	@echo ""
 	@echo "--- gosec ---"
@@ -582,53 +619,63 @@ security-sast:
 	@#   G115: Integer overflow false positives (bounded gRPC int32 conversions)
 	@#   G404: Weak random is acceptable for non-crypto uses (jitter)
 	@#   G101: False positives on variable names containing "key", "token", etc.
-	@if command -v gosec >/dev/null 2>&1; then \
-		gosec -severity high -exclude=G115,G404,G101 -exclude-dir=test -exclude-dir=modules ./...; \
-	else \
-		echo "gosec not installed. Run: go install github.com/securego/gosec/v2/cmd/gosec@latest"; \
-	fi
+	@$(SECURITY_CONTAINER_RUN) --entrypoint /bin/gosec $(SECURITY_GOSEC_IMAGE) \
+		-severity high -exclude=G115,G404,G101 -exclude-dir=test -exclude-dir=modules -exclude-dir=.cache ./...
 	@echo ""
 	@echo "--- semgrep ---"
-	@if command -v semgrep >/dev/null 2>&1; then \
-		semgrep scan --config auto --config p/golang --error; \
-	else \
-		echo "semgrep not installed. Run: pip install semgrep"; \
-	fi
+	@$(SECURITY_CONTAINER_ENGINE) run --rm -v $(PWD):/src -w /src -e SEMGREP_CACHE_DIR=/tmp/semgrep --entrypoint semgrep $(SECURITY_SEMGREP_IMAGE) \
+		scan --config auto --config p/golang --exclude .cache --error
 
-security-licenses:
+security-licenses: security-container-check
 	@echo "=== Checking dependency licenses ==="
-	@if command -v go-licenses >/dev/null 2>&1; then \
-		go-licenses check ./... 2>&1 || true; \
+	@# NOTE: modernc.org/mathutil is BSD-3-Clause but the module lacks a detectable LICENSE file; ignore to avoid false "unknown license".
+	@$(SECURITY_GO_RUN) 'set -e; \
+		go install github.com/google/go-licenses@latest; \
+		go-licenses check --ignore modernc.org/mathutil ./... 2>&1 || true; \
 		echo ""; \
 		echo "License report:"; \
-		go-licenses report ./... --template='{{range .}}{{.Name}}: {{.LicenseName}}{{"\n"}}{{end}}' 2>/dev/null | head -50; \
-	else \
-		echo "go-licenses not installed. Run: go install github.com/google/go-licenses@latest"; \
-	fi
+		go-licenses report --ignore modernc.org/mathutil ./... --template="{{range .}}{{.Name}}: {{.LicenseName}}{{\"\n\"}}{{end}}" 2>/dev/null | head -50'
 
-security-sbom:
+security-sbom: security-container-check
 	@echo "=== Generating SBOM ==="
 	@mkdir -p build
-	@if command -v syft >/dev/null 2>&1; then \
-		echo "Generating CycloneDX SBOM..."; \
-		syft . -o cyclonedx-json=build/sbom-cyclonedx.json; \
-		echo "Generating SPDX SBOM..."; \
-		syft . -o spdx-json=build/sbom-spdx.json; \
-		echo ""; \
-		echo "SBOMs generated:"; \
-		ls -la build/sbom-*.json; \
-	else \
-		echo "syft not installed. See: https://github.com/anchore/syft#installation"; \
-	fi
+	@echo "Generating CycloneDX SBOM..."
+	@$(SECURITY_CONTAINER_RUN) $(SECURITY_SYFT_IMAGE) \
+		. -o cyclonedx-json=build/sbom-cyclonedx.json
+	@echo "Generating SPDX SBOM..."
+	@$(SECURITY_CONTAINER_RUN) $(SECURITY_SYFT_IMAGE) \
+		. -o spdx-json=build/sbom-spdx.json
+	@echo ""
+	@echo "SBOMs generated:"
+	@ls -la build/sbom-*.json
 
-security-fuzz:
+security-fuzz: security-container-check
 	@echo "=== Running fuzz tests ==="
 	@echo "Note: Running for 30 seconds per test. For thorough testing, run longer locally."
-	@for fuzztest in $$(go test -list 'Fuzz.*' ./pkg/security/... 2>/dev/null | grep '^Fuzz'); do \
-		echo "Running $$fuzztest for 30 seconds..."; \
-		go test -fuzz="^$${fuzztest}$$" -fuzztime=30s ./pkg/security/... || true; \
-	done
+	@$(SECURITY_GO_RUN) 'set -e; \
+		for fuzztest in $$(go test -list "Fuzz.*" ./pkg/security/... 2>/dev/null | grep "^Fuzz"); do \
+			echo "Running $$fuzztest for 30 seconds..."; \
+			go test -fuzz="^$${fuzztest}$$" -fuzztime=30s ./pkg/security/... || true; \
+		done'
 	@echo "Fuzz testing complete"
+
+security-report: security-container-check
+	@echo "=== Generating security report ==="
+	@CONTAINER_ENGINE="$(SECURITY_CONTAINER_ENGINE)" \
+		SECURITY_CACHE_DIR="$(SECURITY_CACHE_DIR)" \
+		SECURITY_GO_IMAGE="$(SECURITY_GO_IMAGE)" \
+		SECURITY_GITLEAKS_IMAGE="$(SECURITY_GITLEAKS_IMAGE)" \
+		SECURITY_TRIVY_IMAGE="$(SECURITY_TRIVY_IMAGE)" \
+		SECURITY_GOSEC_IMAGE="$(SECURITY_GOSEC_IMAGE)" \
+		SECURITY_SEMGREP_IMAGE="$(SECURITY_SEMGREP_IMAGE)" \
+		SECURITY_GRYPE_IMAGE="$(SECURITY_GRYPE_IMAGE)" \
+		SECURITY_KICS_IMAGE="$(SECURITY_KICS_IMAGE)" \
+		SECURITY_HADOLINT_IMAGE="$(SECURITY_HADOLINT_IMAGE)" \
+		SECURITY_SCORECARD_IMAGE="$(SECURITY_SCORECARD_IMAGE)" \
+		./scripts/security-report.sh
+	@echo ""
+	@echo "Report generated: build/security/security-report.md"
+	@echo "Raw scan outputs: build/security/"
 
 # =============================================================================
 # SDK verification

@@ -8,7 +8,7 @@ import (
 	"net"
 	"strings"
 
-	"github.com/shawnbutts/keystone-core/pkg/netutil"
+	"github.com/shawnbutts/keystone-core/internal/netutil"
 )
 
 // ListenerConfig holds configuration for creating network listeners.

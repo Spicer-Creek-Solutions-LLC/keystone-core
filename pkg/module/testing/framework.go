@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/wait"
 )
 
 // Framework is the main module testing framework
@@ -333,8 +335,8 @@ type JUnitReporter struct {
 	OutputPath string
 }
 
-func (r *JUnitReporter) OnSuiteStart(name string) {}
-func (r *JUnitReporter) OnTestStart(name string)  {}
+func (r *JUnitReporter) OnSuiteStart(name string)          {}
+func (r *JUnitReporter) OnTestStart(name string)           {}
 func (r *JUnitReporter) OnTestComplete(result *TestResult) {}
 
 func (r *JUnitReporter) OnSuiteComplete(result *TestSuiteResult) {
@@ -380,8 +382,8 @@ type JSONReporter struct {
 	OutputPath string
 }
 
-func (r *JSONReporter) OnSuiteStart(name string) {}
-func (r *JSONReporter) OnTestStart(name string)  {}
+func (r *JSONReporter) OnSuiteStart(name string)          {}
+func (r *JSONReporter) OnTestStart(name string)           {}
 func (r *JSONReporter) OnTestComplete(result *TestResult) {}
 
 func (r *JSONReporter) OnSuiteComplete(result *TestSuiteResult) {
@@ -634,18 +636,21 @@ func (f *Framework) runTest(tc *TestCase) *TestResult {
 	}
 
 	// Run with timeout
-	done := make(chan error, 1)
+	done := make(chan struct{})
+	errCh := make(chan error, 1)
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				done <- fmt.Errorf("panic: %v", r)
+				errCh <- fmt.Errorf("panic: %v", r)
+				close(done)
 			}
 		}()
 
 		// Run setup
 		if tc.Setup != nil {
 			if err := tc.Setup(t); err != nil {
-				done <- fmt.Errorf("setup failed: %w", err)
+				errCh <- fmt.Errorf("setup failed: %w", err)
+				close(done)
 				return
 			}
 		}
@@ -660,11 +665,15 @@ func (f *Framework) runTest(tc *TestCase) *TestResult {
 			}
 		}
 
-		done <- err
+		errCh <- err
+		close(done)
 	}()
 
-	select {
-	case err := <-done:
+	if wait.ForSignal(done, timeout) {
+		tr.Status = TestStatusError
+		tr.Error = fmt.Sprintf("test timed out after %v", timeout)
+	} else {
+		err := <-errCh
 		if t.skipped {
 			tr.Status = TestStatusSkipped
 		} else if t.failed || err != nil {
@@ -677,9 +686,6 @@ func (f *Framework) runTest(tc *TestCase) *TestResult {
 		} else {
 			tr.Status = TestStatusPassed
 		}
-	case <-time.After(timeout):
-		tr.Status = TestStatusError
-		tr.Error = fmt.Sprintf("test timed out after %v", timeout)
 	}
 
 	tr.Duration = time.Since(t.startTime)

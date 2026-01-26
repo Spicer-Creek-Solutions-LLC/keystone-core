@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shawnbutts/keystone-core/pkg/cluster"
+	"github.com/shawnbutts/keystone-core/internal/cluster"
 )
 
 // mockMembershipManager implements the methods we need for testing

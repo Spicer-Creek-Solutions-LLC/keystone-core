@@ -221,6 +221,9 @@ machine := statemachine.New[State, Event](StateIdle).
     MustBuild()
 ```
 
+Callbacks execute outside the machine lock. Use the callback parameters (`from`, `to`, `event`) instead of reading the machine state to avoid ordering assumptions.
+Callback panics are recovered and reported via logs/metrics. For custom handling, configure an error handler on the builder.
+
 ### State Configuration Style
 
 For complex state machines, use the configuration style:
@@ -241,6 +244,16 @@ machine := statemachine.New[State, Event](StateIdle).
             Permit(EventFail, StateFailed).
             PermitReentry(EventRetry)  // Allows state to transition to itself
     }).
+    MustBuild()
+```
+
+### Ignoring Events
+
+Ignored events are treated as no-ops: no state change, callbacks, or history records.
+
+```go
+machine := statemachine.New[State, Event](StateIdle).
+    Ignore(StateIdle, EventRetry).
     MustBuild()
 ```
 
@@ -268,6 +281,22 @@ if machine.CanFire(EventStart) {
 // Available events from current state
 events := machine.AvailableEvents()
 ```
+
+### Error Handling and Metrics
+
+Use the error handler to capture transition errors and callback panics, and the metrics snapshot for visibility:
+
+```go
+machine := statemachine.New[State, Event](StateIdle).
+    WithErrorHandler(func(ctx context.Context, err error) {
+        // custom logging/metrics hooks
+    }).
+    MustBuild()
+
+metrics := machine.Metrics()
+```
+
+Concurrent transitions return `ErrConcurrentTransition` so callers can decide whether to retry.
 
 ### History Tracking
 

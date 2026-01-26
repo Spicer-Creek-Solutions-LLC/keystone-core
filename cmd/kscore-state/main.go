@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/shawnbutts/keystone-core/pkg/audit"
-	"github.com/shawnbutts/keystone-core/pkg/statemgmt"
+	"github.com/shawnbutts/keystone-core/internal/audit"
+	"github.com/shawnbutts/keystone-core/internal/statemgmt"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 

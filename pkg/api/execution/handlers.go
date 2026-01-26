@@ -11,8 +11,8 @@ import (
 	"time"
 
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
-	"github.com/shawnbutts/keystone-core/pkg/controlplane"
-	"github.com/shawnbutts/keystone-core/pkg/state"
+	"github.com/shawnbutts/keystone-core/internal/controlplane"
+	"github.com/shawnbutts/keystone-core/internal/state"
 )
 
 // Handler provides HTTP handlers for execution API endpoints.

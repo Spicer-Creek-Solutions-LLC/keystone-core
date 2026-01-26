@@ -93,8 +93,7 @@ func setupHACluster(t *testing.T) *harness.HAClusterEnvironment {
 		}
 	}
 
-	var err error
-	haTestEnv, err = harness.NewHACluster(cfg)
+	env, err := harness.NewHACluster(cfg)
 	if err != nil {
 		t.Fatalf("Failed to create HA cluster environment: %v", err)
 	}
@@ -102,14 +101,18 @@ func setupHACluster(t *testing.T) *harness.HAClusterEnvironment {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
-	if err := haTestEnv.Start(ctx, cfg); err != nil {
+	if err := env.Start(ctx, cfg); err != nil {
+		_ = env.Stop(ctx)
 		t.Fatalf("Failed to start HA cluster: %v", err)
 	}
 
 	// Wait for agents
-	if err := haTestEnv.WaitForAgents(ctx, 5, 120*time.Second); err != nil {
+	if err := env.WaitForAgents(ctx, 5, 120*time.Second); err != nil {
+		_ = env.Stop(ctx)
 		t.Fatalf("Failed waiting for agents: %v", err)
 	}
+
+	haTestEnv = env
 
 	// Register cleanup
 	t.Cleanup(func() {
@@ -588,12 +591,8 @@ func TestHACluster_RollingUpdate(t *testing.T) {
 			continue
 		}
 
-		// Wait for server to come back
-		time.Sleep(15 * time.Second)
-
-		// Verify server is healthy
-		if !env.IsServerHealthy(ctx, i) {
-			t.Errorf("%s did not become healthy after restart", env.Servers[i].Name)
+		if err := env.WaitForServerHealthy(ctx, i, 90*time.Second); err != nil {
+			t.Errorf("%s did not become healthy after restart: %v", env.Servers[i].Name, err)
 		}
 	}
 

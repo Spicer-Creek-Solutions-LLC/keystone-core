@@ -5,6 +5,7 @@ server:
   listenaddr: "[::]"
   grpcport: 8080
   httpport: 8081
+  allowinsecurenonloopback: true
 
 # NATS configuration - external cluster mode with IPv6 addresses
 nats:
@@ -14,11 +15,13 @@ nats:
   reconnectwait: 2s
   jetstream:
     enabled: true
+    storedir: "/var/lib/kscore/jetstream"
 
 # Storage configuration - PostgreSQL with IPv6 address
 storage:
   backend: postgresql
   postgresql:
+    # kics-scan ignore-line - Test fixture, not a production secret
     dsn: "postgres://kscore:kscore_e2e_password@[fd00:2::30]:5432/kscore?sslmode=disable"
     maxopenconns: 20
     maxidleconns: 10

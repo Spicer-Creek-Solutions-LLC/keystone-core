@@ -11,10 +11,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/nats-io/nats.go"
 
-	"github.com/shawnbutts/keystone-core/pkg/audit"
-	"github.com/shawnbutts/keystone-core/pkg/logging"
-	"github.com/shawnbutts/keystone-core/pkg/metrics"
-	"github.com/shawnbutts/keystone-core/pkg/tracing"
+	"github.com/shawnbutts/keystone-core/internal/audit"
+	"github.com/shawnbutts/keystone-core/internal/logging"
+	"github.com/shawnbutts/keystone-core/internal/metrics"
+	"github.com/shawnbutts/keystone-core/internal/tracing"
 )
 
 // LogMsg is a Bubble Tea message containing a log entry

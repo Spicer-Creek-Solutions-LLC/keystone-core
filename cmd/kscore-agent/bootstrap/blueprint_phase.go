@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/shawnbutts/keystone-core/pkg/blueprint"
-	"github.com/shawnbutts/keystone-core/pkg/statemgmt"
+	"github.com/shawnbutts/keystone-core/internal/blueprint"
+	"github.com/shawnbutts/keystone-core/internal/statemgmt"
 )
 
 const defaultBlueprintsDir = "/etc/kscore/blueprints"

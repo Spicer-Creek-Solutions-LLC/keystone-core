@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/shawnbutts/keystone-core/pkg/schedule"
+	"github.com/shawnbutts/keystone-core/internal/schedule"
 )
 
 func TestNewRootCmd(t *testing.T) {

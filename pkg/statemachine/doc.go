@@ -1,4 +1,5 @@
 // Package statemachine provides a generic, type-safe state machine implementation
+// NOTE: API/ABI is not finalized and may change without notice.
 // for managing complex state transitions in a predictable, testable way.
 //
 // # Overview
@@ -74,6 +75,9 @@
 //	    }).
 //	    Build()
 //
+// Callback panics are recovered and reported via logs/metrics. Use the builder
+// error handler to route errors to your own logging or telemetry.
+//
 // # History
 //
 // Enable history tracking for debugging:
@@ -92,6 +96,9 @@
 //
 // All operations on a Machine are thread-safe. The machine uses an internal
 // read-write mutex to protect state access and transitions.
+//
+// Concurrent transitions return ErrConcurrentTransition, allowing callers to
+// retry or ignore when needed.
 //
 // # Best Practices
 //

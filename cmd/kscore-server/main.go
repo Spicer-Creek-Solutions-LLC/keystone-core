@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -13,17 +14,17 @@ import (
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 
+	"github.com/shawnbutts/keystone-core/internal/config"
+	"github.com/shawnbutts/keystone-core/internal/controlplane"
+	"github.com/shawnbutts/keystone-core/internal/events"
+	"github.com/shawnbutts/keystone-core/internal/gitops/webhook"
+	"github.com/shawnbutts/keystone-core/internal/logging"
+	natsmgr "github.com/shawnbutts/keystone-core/internal/nats"
+	"github.com/shawnbutts/keystone-core/internal/policy"
+	"github.com/shawnbutts/keystone-core/internal/state"
 	"github.com/shawnbutts/keystone-core/pkg/api/auth"
 	"github.com/shawnbutts/keystone-core/pkg/api/server"
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
-	"github.com/shawnbutts/keystone-core/pkg/config"
-	"github.com/shawnbutts/keystone-core/pkg/controlplane"
-	"github.com/shawnbutts/keystone-core/pkg/events"
-	"github.com/shawnbutts/keystone-core/pkg/gitops/webhook"
-	"github.com/shawnbutts/keystone-core/pkg/logging"
-	natsmgr "github.com/shawnbutts/keystone-core/pkg/nats"
-	"github.com/shawnbutts/keystone-core/pkg/policy"
-	"github.com/shawnbutts/keystone-core/pkg/state"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
@@ -278,32 +279,35 @@ func runServer(cmd *cobra.Command, args []string) {
 
 	// Health endpoints
 	httpMux.HandleFunc("/health/live", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok"}`))
+		writeJSONResponse(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 	httpMux.HandleFunc("/health/ready", func(w http.ResponseWriter, r *http.Request) {
 		// Check if NATS is healthy
 		if err := natsManager.Health(); err != nil {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			w.Write([]byte(fmt.Sprintf(`{"status":"not ready","error":"%s"}`, err.Error())))
+			writeJSONResponse(w, http.StatusServiceUnavailable, map[string]string{
+				"status": "not ready",
+				"error":  err.Error(),
+			})
 			return
 		}
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ready"}`))
+		writeJSONResponse(w, http.StatusOK, map[string]string{"status": "ready"})
 	})
 	httpMux.HandleFunc("/health/status", func(w http.ResponseWriter, r *http.Request) {
 		total := connMgr.GetAgentCount()
 		online := connMgr.GetOnlineAgentCount()
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(fmt.Sprintf(`{"status":"ok","agents":{"total":%d,"online":%d}}`, total, online)))
+		writeJSONResponse(w, http.StatusOK, map[string]interface{}{
+			"status": "ok",
+			"agents": map[string]int{
+				"total":  total,
+				"online": online,
+			},
+		})
 	})
 
 	// Server status endpoint for monitor TUI and other tools
 	httpMux.HandleFunc("/api/status", func(w http.ResponseWriter, r *http.Request) {
-		statusJSON := buildServerStatusJSON(connMgr, startTime)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write(statusJSON)
+		status := buildServerStatusResponse(connMgr, startTime)
+		writeJSONResponse(w, http.StatusOK, status)
 	})
 
 	// Create HTTP listeners for each address
@@ -614,9 +618,9 @@ func (a *stateStoreAdapter) SaveAgent(ctx context.Context, agent *controlplane.S
 	return a.store.SaveAgent(ctx, record)
 }
 
-// buildServerStatusJSON returns server status as JSON bytes for the /api/status endpoint.
+// buildServerStatusResponse returns server status for the /api/status endpoint.
 // This provides version, uptime, memory, goroutines, and agent statistics.
-func buildServerStatusJSON(connMgr *controlplane.ConnectionManager, startTime time.Time) []byte {
+func buildServerStatusResponse(connMgr *controlplane.ConnectionManager, startTime time.Time) serverStatusResponse {
 	// Get memory stats
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
@@ -638,37 +642,55 @@ func buildServerStatusJSON(connMgr *controlplane.ConnectionManager, startTime ti
 	// Memory usage in MB
 	memoryMB := float64(memStats.Alloc) / 1024 / 1024
 
-	// Build JSON response
-	return []byte(fmt.Sprintf(`{
-  "version": "%s",
-  "git_commit": "%s",
-  "build_date": "%s",
-  "uptime_seconds": %d,
-  "started_at": "%s",
-  "agents": {
-    "total": %d,
-    "online": %d,
-    "offline": %d
-  },
-  "runtime": {
-    "goroutines": %d,
-    "memory_alloc_mb": %.2f,
-    "memory_sys_mb": %.2f,
-    "gc_runs": %d
-  },
-  "health": "healthy"
-}`,
-		info.Version,
-		info.GitCommit,
-		info.BuildDate,
-		uptimeSeconds,
-		startTime.UTC().Format(time.RFC3339),
-		totalAgents,
-		onlineAgents,
-		totalAgents-onlineAgents,
-		goroutines,
-		memoryMB,
-		float64(memStats.Sys)/1024/1024,
-		memStats.NumGC,
-	))
+	return serverStatusResponse{
+		Version:       info.Version,
+		GitCommit:     info.GitCommit,
+		BuildDate:     info.BuildDate,
+		UptimeSeconds: uptimeSeconds,
+		StartedAt:     startTime.UTC().Format(time.RFC3339),
+		Agents: serverStatusAgents{
+			Total:   totalAgents,
+			Online:  onlineAgents,
+			Offline: totalAgents - onlineAgents,
+		},
+		Runtime: serverStatusRuntime{
+			Goroutines:    goroutines,
+			MemoryAllocMB: memoryMB,
+			MemorySysMB:   float64(memStats.Sys) / 1024 / 1024,
+			GCRuns:        memStats.NumGC,
+		},
+		Health: "healthy",
+	}
+}
+
+type serverStatusResponse struct {
+	Version       string              `json:"version"`
+	GitCommit     string              `json:"git_commit"`
+	BuildDate     string              `json:"build_date"`
+	UptimeSeconds int64               `json:"uptime_seconds"`
+	StartedAt     string              `json:"started_at"`
+	Agents        serverStatusAgents  `json:"agents"`
+	Runtime       serverStatusRuntime `json:"runtime"`
+	Health        string              `json:"health"`
+}
+
+type serverStatusAgents struct {
+	Total   int `json:"total"`
+	Online  int `json:"online"`
+	Offline int `json:"offline"`
+}
+
+type serverStatusRuntime struct {
+	Goroutines    int     `json:"goroutines"`
+	MemoryAllocMB float64 `json:"memory_alloc_mb"`
+	MemorySysMB   float64 `json:"memory_sys_mb"`
+	GCRuns        uint32  `json:"gc_runs"`
+}
+
+func writeJSONResponse(w http.ResponseWriter, status int, payload interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
+		logger.Error("Failed to encode JSON response", logging.Error(err))
+	}
 }

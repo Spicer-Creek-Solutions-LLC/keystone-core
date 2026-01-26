@@ -10,8 +10,8 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
-	"github.com/shawnbutts/keystone-core/pkg/agent"
-	"github.com/shawnbutts/keystone-core/pkg/config"
+	"github.com/shawnbutts/keystone-core/internal/agent"
+	"github.com/shawnbutts/keystone-core/internal/config"
 )
 
 func newConfigCmd() *cobra.Command {

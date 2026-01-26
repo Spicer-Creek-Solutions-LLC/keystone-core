@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shawnbutts/keystone-core/pkg/events"
+	"github.com/shawnbutts/keystone-core/internal/events"
 )
 
 func TestViewConstants(t *testing.T) {

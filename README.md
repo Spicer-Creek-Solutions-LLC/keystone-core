@@ -386,6 +386,7 @@ hugo         # Build to docs/public/
 ### Future Epics
 
 - **0.1.0 Release Readiness** - Blueprint signing, version reset, docs audit, VM validation
+- **Advanced State Orchestration** - Statecharts, workflows, actors, event sourcing (see `epics/future-advanced-state-orchestration.md`)
 
 See `epics/` directory for detailed implementation plans.
 

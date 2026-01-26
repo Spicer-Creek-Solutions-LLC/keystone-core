@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shawnbutts/keystone-core/pkg/platform"
+	"github.com/shawnbutts/keystone-core/internal/platform"
 )
 
 func TestCheckpointManager_Initialize(t *testing.T) {

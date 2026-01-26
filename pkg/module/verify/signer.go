@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/shawnbutts/keystone-core/pkg/signing"
+	"github.com/shawnbutts/keystone-core/internal/signing"
 )
 
 // Signer signs module files

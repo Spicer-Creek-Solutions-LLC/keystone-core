@@ -12,13 +12,13 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
-	"github.com/shawnbutts/keystone-core/pkg/cli/auditutil"
-	"github.com/shawnbutts/keystone-core/pkg/cli/deprecation"
-	clierrors "github.com/shawnbutts/keystone-core/pkg/cli/errors"
-	"github.com/shawnbutts/keystone-core/pkg/cli/output"
-	"github.com/shawnbutts/keystone-core/pkg/gitops/promotion"
-	"github.com/shawnbutts/keystone-core/pkg/gitops/rollback"
-	"github.com/shawnbutts/keystone-core/pkg/gitops/verification"
+	"github.com/shawnbutts/keystone-core/internal/cli/auditutil"
+	"github.com/shawnbutts/keystone-core/internal/cli/deprecation"
+	clierrors "github.com/shawnbutts/keystone-core/internal/cli/errors"
+	"github.com/shawnbutts/keystone-core/internal/cli/output"
+	"github.com/shawnbutts/keystone-core/internal/gitops/promotion"
+	"github.com/shawnbutts/keystone-core/internal/gitops/rollback"
+	"github.com/shawnbutts/keystone-core/internal/gitops/verification"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 

@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shawnbutts/keystone-core/pkg/backup"
-	"github.com/shawnbutts/keystone-core/pkg/bootstrap"
-	"github.com/shawnbutts/keystone-core/pkg/selfmgmt"
-	"github.com/shawnbutts/keystone-core/pkg/upgrade"
+	"github.com/shawnbutts/keystone-core/internal/backup"
+	"github.com/shawnbutts/keystone-core/internal/bootstrap"
+	"github.com/shawnbutts/keystone-core/internal/selfmgmt"
+	"github.com/shawnbutts/keystone-core/internal/upgrade"
 )
 
 // =============================================================================

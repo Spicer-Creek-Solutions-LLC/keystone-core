@@ -9,6 +9,11 @@ services:
     volumes:
       - ./alerts:/etc/prometheus/alerts
       - prometheus-data:/prometheus
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -25,6 +30,7 @@ services:
     ports:
       - "3000:3000"
     environment:
+      # kics-scan ignore-line - Default password for local dev, not production
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_INSTALL_PLUGINS=grafana-piechart-panel
@@ -36,6 +42,11 @@ services:
       - ./provisioning/alerting:/etc/grafana/provisioning/alerting
       - ./dashboards:/etc/grafana/provisioning/dashboards/kscore
       - grafana-data:/var/lib/grafana
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
     depends_on:
       - prometheus
     restart: unless-stopped

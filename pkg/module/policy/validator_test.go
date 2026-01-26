@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	policypkg "github.com/shawnbutts/keystone-core/pkg/policy"
+	policypkg "github.com/shawnbutts/keystone-core/internal/policy"
 )
 
 func TestDefaultCapabilityPolicyConfig(t *testing.T) {

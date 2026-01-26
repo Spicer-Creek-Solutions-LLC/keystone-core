@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shawnbutts/keystone-core/pkg/config"
+	"github.com/shawnbutts/keystone-core/internal/config"
 )
 
 func TestRoleHierarchy(t *testing.T) {

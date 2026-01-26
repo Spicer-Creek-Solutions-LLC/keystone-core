@@ -9,7 +9,7 @@ import (
 
 	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/config"
 	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/ui"
-	"github.com/shawnbutts/keystone-core/pkg/cli/auditutil"
+	"github.com/shawnbutts/keystone-core/internal/cli/auditutil"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 	"github.com/spf13/cobra"
 )

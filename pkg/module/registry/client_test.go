@@ -415,6 +415,53 @@ func TestHTTPClient_RetryOnServerError(t *testing.T) {
 	}
 }
 
+func TestHTTPClient_RetryRespectsTimeout(t *testing.T) {
+	// Create temp module file
+	tmpDir, err := os.MkdirTemp("", "registry-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	modulePath := filepath.Join(tmpDir, "test-module.zip")
+	if err := os.WriteFile(modulePath, []byte("content"), 0644); err != nil {
+		t.Fatalf("failed to write test module: %v", err)
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	config := DefaultRegistryConfig(server.URL)
+	config.RetryAttempts = 3
+	config.RetryDelay = time.Second
+	config.Timeout = 50 * time.Millisecond
+
+	client, err := NewHTTPClient(config)
+	if err != nil {
+		t.Fatalf("NewHTTPClient failed: %v", err)
+	}
+
+	start := time.Now()
+	_, err = client.PublishModule(&PublishRequest{
+		ModulePath: modulePath,
+		Manifest: &manifest.Manifest{
+			Name:       "myorg/mymodule",
+			Version:    "1.0.0",
+			Type:       "starlark",
+			Entrypoint: "main.star",
+		},
+		Hash: "sha256:test",
+	})
+	if err == nil {
+		t.Fatal("expected error from timeout")
+	}
+	if time.Since(start) > 500*time.Millisecond {
+		t.Fatal("expected retry delay to be bounded by timeout")
+	}
+}
+
 func TestRegistryError_Error(t *testing.T) {
 	tests := []struct {
 		name     string

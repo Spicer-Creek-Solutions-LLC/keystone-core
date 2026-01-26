@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/shawnbutts/keystone-core/pkg/statemgmt"
+	"github.com/shawnbutts/keystone-core/internal/statemgmt"
 )
 
 func TestRootCmd(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shawnbutts/keystone-core/pkg/policy"
+	"github.com/shawnbutts/keystone-core/internal/policy"
 )
 
 func TestEvaluateRequestStructure(t *testing.T) {

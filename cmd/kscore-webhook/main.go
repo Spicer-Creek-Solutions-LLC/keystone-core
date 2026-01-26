@@ -9,9 +9,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/shawnbutts/keystone-core/pkg/cli/auditutil"
-	clierrors "github.com/shawnbutts/keystone-core/pkg/cli/errors"
-	"github.com/shawnbutts/keystone-core/pkg/cli/output"
+	"github.com/shawnbutts/keystone-core/internal/cli/auditutil"
+	clierrors "github.com/shawnbutts/keystone-core/internal/cli/errors"
+	"github.com/shawnbutts/keystone-core/internal/cli/output"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 

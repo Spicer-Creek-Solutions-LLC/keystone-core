@@ -1,4 +1,5 @@
 // Package module implements Keystone Core's secure, extensible module system.
+// NOTE: API/ABI is not finalized and may change without notice.
 //
 // The module package provides cryptographic verification, capability-based security,
 // dependency resolution, sandboxed execution (Starlark and WASM), registry integration,

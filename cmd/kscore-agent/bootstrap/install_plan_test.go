@@ -3,7 +3,7 @@ package bootstrap
 import (
 	"testing"
 
-	"github.com/shawnbutts/keystone-core/pkg/platform"
+	"github.com/shawnbutts/keystone-core/internal/platform"
 )
 
 func TestBuildPackagePlanAPT(t *testing.T) {

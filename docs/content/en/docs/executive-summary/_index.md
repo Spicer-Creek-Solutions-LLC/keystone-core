@@ -95,6 +95,7 @@ Counts are derived from repository-wide `*_test.go` scans (e.g., `rg -o "^func\\
 | **Agent Self-Update** | Secure binary distribution, staged rollouts, automatic rollback |
 | **Compliance Presets** | CIS Benchmarks, SOC 2, HIPAA, PCI-DSS policy packs |
 | **Network Discovery** | Automatic scanning, L2/L3 mapping, dependency visualization |
+| **Advanced State Orchestration** | Statecharts, workflows, actors, event sourcing, saga coordination |
 | **Runbook Automation** | Multi-step orchestration, conditional branching, approval gates |
 | **Disaster Recovery** | Full backup/restore, state export/import, cross-region failover |
 | **Secrets Management** | HashiCorp Vault, AWS Secrets Manager, Azure Key Vault, GCP Secret Manager |

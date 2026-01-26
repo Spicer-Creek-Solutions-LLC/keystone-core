@@ -13,7 +13,7 @@ import (
 	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/config"
 	monitorEvents "github.com/shawnbutts/keystone-core/cmd/kscore-monitor/events"
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
-	"github.com/shawnbutts/keystone-core/pkg/events"
+	"github.com/shawnbutts/keystone-core/internal/events"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 

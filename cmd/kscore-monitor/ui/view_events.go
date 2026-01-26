@@ -11,7 +11,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/config"
 	monitorEvents "github.com/shawnbutts/keystone-core/cmd/kscore-monitor/events"
-	"github.com/shawnbutts/keystone-core/pkg/events"
+	"github.com/shawnbutts/keystone-core/internal/events"
 )
 
 // EventsModel represents the events view

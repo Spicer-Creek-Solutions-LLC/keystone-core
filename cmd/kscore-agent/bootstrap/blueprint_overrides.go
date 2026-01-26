@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/shawnbutts/keystone-core/pkg/blueprint"
+	"github.com/shawnbutts/keystone-core/internal/blueprint"
 	"gopkg.in/yaml.v3"
 )
 

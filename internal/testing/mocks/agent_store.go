@@ -1,0 +1,75 @@
+package mocks
+
+import (
+	"context"
+	"strings"
+	"sync"
+
+	"github.com/shawnbutts/keystone-core/internal/controlplane"
+)
+
+// AgentStore is an in-memory mock for controlplane.AgentStore.
+type AgentStore struct {
+	mu      sync.RWMutex
+	agents  map[string]controlplane.StoredAgent
+	ListErr error
+	GetErr  error
+	SaveErr error
+}
+
+// NewAgentStore returns a new mock agent store.
+func NewAgentStore() *AgentStore {
+	return &AgentStore{
+		agents: make(map[string]controlplane.StoredAgent),
+	}
+}
+
+func (s *AgentStore) ListAgents(ctx context.Context, filter *controlplane.AgentFilter) ([]controlplane.StoredAgent, error) {
+	_ = ctx
+	if s.ListErr != nil {
+		return nil, s.ListErr
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var result []controlplane.StoredAgent
+	for _, agent := range s.agents {
+		if filter == nil || filter.Status == "" || strings.EqualFold(agent.Status, filter.Status) {
+			result = append(result, agent)
+		}
+	}
+	return result, nil
+}
+
+func (s *AgentStore) GetAgent(ctx context.Context, agentID string) (*controlplane.StoredAgent, error) {
+	_ = ctx
+	if s.GetErr != nil {
+		return nil, s.GetErr
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	agent, ok := s.agents[agentID]
+	if !ok {
+		return nil, nil
+	}
+	clone := agent
+	return &clone, nil
+}
+
+func (s *AgentStore) SaveAgent(ctx context.Context, agent *controlplane.StoredAgent) error {
+	_ = ctx
+	if s.SaveErr != nil {
+		return s.SaveErr
+	}
+	if agent == nil {
+		return nil
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.agents[agent.ID] = *agent
+	return nil
+}

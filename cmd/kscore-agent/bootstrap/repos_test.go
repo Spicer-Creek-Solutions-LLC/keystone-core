@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shawnbutts/keystone-core/pkg/platform"
+	"github.com/shawnbutts/keystone-core/internal/platform"
 )
 
 func TestBuildRepoPlanAPT(t *testing.T) {

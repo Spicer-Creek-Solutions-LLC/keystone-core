@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shawnbutts/keystone-core/pkg/cli/output"
+	"github.com/shawnbutts/keystone-core/internal/cli/output"
 )
 
 func buildKeyValueTable(pairs [][2]string) *output.Table {

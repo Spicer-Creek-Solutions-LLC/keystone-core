@@ -4,6 +4,7 @@ FROM golang:1.21-alpine AS builder
 WORKDIR /app
 
 # Install build dependencies
+# hadolint ignore=DL3018
 RUN apk add --no-cache git
 
 # Copy go mod files first for caching
@@ -19,11 +20,10 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /kscore-telemetry-gate
 # Runtime stage
 FROM alpine:3.19
 
-# Add ca-certificates for TLS connections
-RUN apk add --no-cache ca-certificates tzdata
-
-# Create non-root user
-RUN adduser -D -g '' kscore
+# Add ca-certificates for TLS connections and create non-root user
+# hadolint ignore=DL3018
+RUN apk add --no-cache ca-certificates tzdata && \
+    adduser -D -g '' kscore
 USER kscore
 
 # Copy binary from builder

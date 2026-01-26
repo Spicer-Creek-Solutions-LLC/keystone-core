@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/shawnbutts/keystone-core/pkg/statemgmt"
+	"github.com/shawnbutts/keystone-core/internal/statemgmt"
 )
 
 // Handler provides HTTP handlers for state API endpoints.

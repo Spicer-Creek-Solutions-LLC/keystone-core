@@ -15,8 +15,8 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/spf13/cobra"
 
-	"github.com/shawnbutts/keystone-core/pkg/cli/output"
-	"github.com/shawnbutts/keystone-core/pkg/files"
+	"github.com/shawnbutts/keystone-core/internal/cli/output"
+	"github.com/shawnbutts/keystone-core/internal/files"
 )
 
 // newFilesCmd creates the files command group.

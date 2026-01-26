@@ -4,7 +4,7 @@ This is a TODO list of work that still needs to be done outside any current epic
 
 ## Short-Term Priority (1-2 Releases)
 
-*No items currently pending.*
+- None currently.
 
 ---
 

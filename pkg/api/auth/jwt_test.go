@@ -14,7 +14,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
-	"github.com/shawnbutts/keystone-core/pkg/config"
+	"github.com/shawnbutts/keystone-core/internal/config"
 )
 
 func TestJWTAuthenticator_NewWithSecret(t *testing.T) {

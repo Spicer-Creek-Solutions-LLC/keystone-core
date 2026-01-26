@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/shawnbutts/keystone-core/pkg/agent"
+	"github.com/shawnbutts/keystone-core/internal/agent"
 )
 
 // newServiceInstallCmd creates the service install command

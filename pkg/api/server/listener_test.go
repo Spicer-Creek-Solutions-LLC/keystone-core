@@ -6,7 +6,7 @@ package server
 import (
 	"testing"
 
-	"github.com/shawnbutts/keystone-core/pkg/netutil"
+	"github.com/shawnbutts/keystone-core/internal/netutil"
 )
 
 func TestFormatListenAddress(t *testing.T) {

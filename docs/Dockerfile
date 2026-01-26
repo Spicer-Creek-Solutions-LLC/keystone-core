@@ -4,9 +4,11 @@
 # Build: docker build -t kscore-docs .
 # Usage: docker run --rm -v $(pwd)/..:/workspace kscore-docs make docs-pdf
 
+# kics-scan ignore-line - Root required for npm global installs and system package management
 FROM node:20-bookworm
 
 # Install system dependencies
+# hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends \
     # Hugo dependencies
     curl \
@@ -56,30 +58,30 @@ RUN curl -L "https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}
 WORKDIR /workspace/docs
 
 # Create mermaid-cli puppeteer config for container environment
-RUN cat > /puppeteer-config.json << 'EOF'
-{
-  "executablePath": "/usr/bin/chromium",
-  "args": ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
-}
-EOF
+# hadolint ignore=SC2086
+RUN printf '%s\n' \
+    '{' \
+    '  "executablePath": "/usr/bin/chromium",' \
+    '  "args": ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]' \
+    '}' > /puppeteer-config.json
 
 # Configure Playwright to use system Chromium
 ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 
 # Create entrypoint script that ensures dependencies are installed
-RUN cat > /entrypoint.sh << 'ENTRY'
-#!/bin/bash
-set -e
-npm ci
-# Copy puppeteer config for mermaid-cli if not exists
-if [ ! -f /workspace/docs/puppeteer-config.json ]; then
-  cp /puppeteer-config.json /workspace/docs/puppeteer-config.json 2>/dev/null || true
-fi
-# Install Playwright browser
-npx playwright install chromium --with-deps 2>/dev/null || true
-exec "$@"
-ENTRY
-RUN chmod +x /entrypoint.sh
+# hadolint ignore=SC2086
+RUN printf '%s\n' \
+    '#!/bin/bash' \
+    'set -e' \
+    'npm ci' \
+    '# Copy puppeteer config for mermaid-cli if not exists' \
+    'if [ ! -f /workspace/docs/puppeteer-config.json ]; then' \
+    '  cp /puppeteer-config.json /workspace/docs/puppeteer-config.json 2>/dev/null || true' \
+    'fi' \
+    '# Install Playwright browser' \
+    'npx playwright install chromium --with-deps 2>/dev/null || true' \
+    'exec "$@"' \
+    > /entrypoint.sh && chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]
 

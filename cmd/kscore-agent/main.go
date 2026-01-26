@@ -10,10 +10,10 @@ import (
 	"github.com/spf13/cobra"
 
 	agentbootstrap "github.com/shawnbutts/keystone-core/cmd/kscore-agent/bootstrap"
-	"github.com/shawnbutts/keystone-core/pkg/agent"
-	"github.com/shawnbutts/keystone-core/pkg/config"
-	"github.com/shawnbutts/keystone-core/pkg/logging"
-	natsmgr "github.com/shawnbutts/keystone-core/pkg/nats"
+	"github.com/shawnbutts/keystone-core/internal/agent"
+	"github.com/shawnbutts/keystone-core/internal/config"
+	"github.com/shawnbutts/keystone-core/internal/logging"
+	natsmgr "github.com/shawnbutts/keystone-core/internal/nats"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 

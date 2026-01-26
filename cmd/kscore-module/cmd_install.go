@@ -29,6 +29,8 @@ var (
 	installGlobal        bool
 )
 
+var maxModuleArchiveEntrySize = int64(256 * 1024 * 1024)
+
 var installCmd = &cobra.Command{
 	Use:   "install <module[@version]> [modules...]",
 	Short: "Install modules from a registry",
@@ -416,6 +418,11 @@ func extractModule(zipPath, moduleName, version, modulesDir string) error {
 			continue
 		}
 
+		if f.UncompressedSize64 > uint64(maxModuleArchiveEntrySize) {
+			fmt.Println("failed")
+			return fmt.Errorf("archive entry %s exceeds max size", f.Name)
+		}
+
 		// Determine target path
 		targetPath := filepath.Join(targetDir, f.Name)
 
@@ -444,7 +451,7 @@ func extractModule(zipPath, moduleName, version, modulesDir string) error {
 			return fmt.Errorf("failed to create file: %w", err)
 		}
 
-		_, err = io.Copy(dst, src)
+		_, err = io.CopyN(dst, src, int64(f.UncompressedSize64))
 		src.Close()
 		dst.Close()
 

@@ -5,8 +5,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	stdtesting "testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/internal/testing/helpers"
 )
 
 func TestDefaultConfig(t *stdtesting.T) {
@@ -206,18 +209,20 @@ func TestFramework_Run_Timeout(t *stdtesting.T) {
 	config.Timeout = 100 * time.Millisecond
 	f := NewFramework(config)
 	f.reporters = []Reporter{}
+	blockCh := make(chan struct{})
 
 	tests := []*TestCase{
 		{
 			Name: "test_timeout",
 			Run: func(t *T) error {
-				time.Sleep(500 * time.Millisecond)
+				<-blockCh
 				return nil
 			},
 		},
 	}
 
 	result := f.Run("test_suite", tests)
+	close(blockCh)
 
 	if result.Errors != 1 {
 		t.Errorf("Errors = %d, want 1", result.Errors)
@@ -566,12 +571,23 @@ func TestFramework_Run_Parallel(t *stdtesting.T) {
 	f := NewFramework(config)
 	f.reporters = []Reporter{}
 
+	var started int32
+	release := make(chan struct{})
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- helpers.WaitForTimeout(200*time.Millisecond, 5*time.Millisecond, func() (bool, error) {
+			return atomic.LoadInt32(&started) == 2, nil
+		})
+		close(release)
+	}()
+
 	tests := []*TestCase{
 		{
 			Name:     "test1",
 			Parallel: true,
 			Run: func(t *T) error {
-				time.Sleep(10 * time.Millisecond)
+				atomic.AddInt32(&started, 1)
+				<-release
 				return nil
 			},
 		},
@@ -579,13 +595,17 @@ func TestFramework_Run_Parallel(t *stdtesting.T) {
 			Name:     "test2",
 			Parallel: true,
 			Run: func(t *T) error {
-				time.Sleep(10 * time.Millisecond)
+				atomic.AddInt32(&started, 1)
+				<-release
 				return nil
 			},
 		},
 	}
 
 	result := f.Run("test_suite", tests)
+	if err := <-errCh; err != nil {
+		t.Fatalf("expected parallel start: %v", err)
+	}
 
 	if result.Total != 2 {
 		t.Errorf("Total = %d, want 2", result.Total)

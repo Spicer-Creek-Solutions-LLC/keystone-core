@@ -9,9 +9,9 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
-	"github.com/shawnbutts/keystone-core/pkg/controlplane"
-	"github.com/shawnbutts/keystone-core/pkg/policy"
-	"github.com/shawnbutts/keystone-core/pkg/state"
+	"github.com/shawnbutts/keystone-core/internal/controlplane"
+	"github.com/shawnbutts/keystone-core/internal/policy"
+	"github.com/shawnbutts/keystone-core/internal/state"
 )
 
 // parsePageToken decodes a page token to get the offset

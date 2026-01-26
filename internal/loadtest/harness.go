@@ -14,8 +14,8 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
-	"github.com/shawnbutts/keystone-core/pkg/config"
-	natsmgr "github.com/shawnbutts/keystone-core/pkg/nats"
+	"github.com/shawnbutts/keystone-core/internal/config"
+	natsmgr "github.com/shawnbutts/keystone-core/internal/nats"
 )
 
 // TestHarness provides the infrastructure for load tests.

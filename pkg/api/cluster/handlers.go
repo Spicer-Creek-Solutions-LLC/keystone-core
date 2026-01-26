@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/shawnbutts/keystone-core/pkg/cluster"
+	"github.com/shawnbutts/keystone-core/internal/cluster"
 )
 
 // Handler provides HTTP handlers for cluster API endpoints.

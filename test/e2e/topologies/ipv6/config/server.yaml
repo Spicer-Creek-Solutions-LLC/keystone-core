@@ -6,6 +6,7 @@ server:
   listenaddr: "::"
   grpcport: 8080
   httpport: 8081
+  allowinsecurenonloopback: true
   # IPv6-only mode
   address_family: ipv6_only
 

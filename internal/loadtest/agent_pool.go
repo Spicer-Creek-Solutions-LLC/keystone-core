@@ -14,7 +14,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
-	natsmgr "github.com/shawnbutts/keystone-core/pkg/nats"
+	natsmgr "github.com/shawnbutts/keystone-core/internal/nats"
 )
 
 // SimulatedAgent represents a simulated agent for load testing.

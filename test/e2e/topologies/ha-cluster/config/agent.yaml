@@ -7,6 +7,8 @@ nats:
   url: "nats://nats-1:4222,nats://nats-2:4222,nats://nats-3:4222"
   maxreconnects: 60
   reconnectwait: 2s
+  jetstream:
+    storedir: "/var/lib/kscore/jetstream"
 
 agent:
   # ID is overridden by KSCORE_AGENT_ID environment variable

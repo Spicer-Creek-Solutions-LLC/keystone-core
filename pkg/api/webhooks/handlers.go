@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/shawnbutts/keystone-core/pkg/gitops/webhook"
+	"github.com/shawnbutts/keystone-core/internal/gitops/webhook"
 )
 
 // Handler provides HTTP handlers for webhooks API endpoints.

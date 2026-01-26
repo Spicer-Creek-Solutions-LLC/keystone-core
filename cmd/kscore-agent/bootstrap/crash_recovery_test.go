@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shawnbutts/keystone-core/pkg/platform"
+	"github.com/shawnbutts/keystone-core/internal/platform"
 )
 
 // TestCrashRecovery_CorruptCheckpointFile tests handling of corrupted checkpoint files.

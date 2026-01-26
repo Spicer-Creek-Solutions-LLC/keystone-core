@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shawnbutts/keystone-core/pkg/statemgmt"
+	"github.com/shawnbutts/keystone-core/internal/statemgmt"
 )
 
 func TestHandleApply_MethodNotAllowed(t *testing.T) {

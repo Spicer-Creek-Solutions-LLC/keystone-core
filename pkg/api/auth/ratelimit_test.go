@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
+	"github.com/shawnbutts/keystone-core/internal/testing/helpers"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"

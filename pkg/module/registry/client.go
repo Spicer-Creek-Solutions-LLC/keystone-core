@@ -2,6 +2,7 @@ package registry
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 	"github.com/shawnbutts/keystone-core/pkg/module/manifest"
 	"github.com/shawnbutts/keystone-core/pkg/module/resolver"
 	"github.com/shawnbutts/keystone-core/pkg/module/verify"
+	"github.com/shawnbutts/keystone-core/pkg/wait"
 )
 
 // HTTPClient implements PublishableRegistry using HTTP
@@ -62,7 +64,10 @@ func (c *HTTPClient) ListVersions(moduleName string) ([]string, error) {
 	// Go-mod style: /<module>/@v/list
 	url := fmt.Sprintf("%s/%s/@v/list", c.config.URL, moduleName)
 
-	resp, err := c.doRequest("GET", url, nil, nil)
+	ctx, cancel := c.requestContext()
+	defer cancel()
+
+	resp, err := c.doRequest(ctx, "GET", url, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +108,10 @@ func (c *HTTPClient) GetModuleInfo(moduleName, version string) (*resolver.Module
 	// Go-mod style: /<module>/@v/<version>.info
 	url := fmt.Sprintf("%s/%s/@v/%s.info", c.config.URL, moduleName, version)
 
-	resp, err := c.doRequest("GET", url, nil, nil)
+	ctx, cancel := c.requestContext()
+	defer cancel()
+
+	resp, err := c.doRequest(ctx, "GET", url, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +142,10 @@ func (c *HTTPClient) GetModuleManifest(moduleName, version string) (*manifest.Ma
 	// Go-mod style: /<module>/@v/<version>.mod
 	url := fmt.Sprintf("%s/%s/@v/%s.mod", c.config.URL, moduleName, version)
 
-	resp, err := c.doRequest("GET", url, nil, nil)
+	ctx, cancel := c.requestContext()
+	defer cancel()
+
+	resp, err := c.doRequest(ctx, "GET", url, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +181,10 @@ func (c *HTTPClient) DownloadModule(moduleName, version, destPath string) error 
 	// Go-mod style: /<module>/@v/<version>.zip
 	url := fmt.Sprintf("%s/%s/@v/%s.zip", c.config.URL, moduleName, version)
 
-	resp, err := c.doRequest("GET", url, nil, nil)
+	ctx, cancel := c.requestContext()
+	defer cancel()
+
+	resp, err := c.doRequest(ctx, "GET", url, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -358,7 +372,10 @@ func (c *HTTPClient) PublishModule(req *PublishRequest) (*PublishResult, error) 
 func (c *HTTPClient) DeleteModule(moduleName, version string) error {
 	url := fmt.Sprintf("%s/%s/@v/%s", c.config.URL, moduleName, version)
 
-	resp, err := c.doRequest("DELETE", url, nil, nil)
+	ctx, cancel := c.requestContext()
+	defer cancel()
+
+	resp, err := c.doRequest(ctx, "DELETE", url, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -380,8 +397,8 @@ func (c *HTTPClient) DeleteModule(moduleName, version string) error {
 }
 
 // doRequest performs an HTTP request with authentication
-func (c *HTTPClient) doRequest(method, url string, headers map[string]string, body io.Reader) (*http.Response, error) {
-	req, err := http.NewRequest(method, url, body)
+func (c *HTTPClient) doRequest(ctx context.Context, method, url string, headers map[string]string, body io.Reader) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -413,6 +430,12 @@ func (c *HTTPClient) doRequest(method, url string, headers map[string]string, bo
 // doRequestWithRetry performs an HTTP request with retry logic
 func (c *HTTPClient) doRequestWithRetry(method, url string, headers map[string]string, body io.Reader) (*http.Response, error) {
 	var lastErr error
+	ctx := context.Background()
+	if c.config.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, c.config.Timeout)
+		defer cancel()
+	}
 
 	// Read body into buffer for retries
 	var bodyBytes []byte
@@ -435,10 +458,12 @@ func (c *HTTPClient) doRequestWithRetry(method, url string, headers map[string]s
 			bodyReader = bytes.NewReader(bodyBytes)
 		}
 
-		resp, err := c.doRequest(method, url, headers, bodyReader)
+		resp, err := c.doRequest(ctx, method, url, headers, bodyReader)
 		if err != nil {
 			lastErr = err
-			time.Sleep(c.config.RetryDelay)
+			if err := waitForRetry(ctx, c.config.RetryDelay); err != nil {
+				return nil, err
+			}
 			continue
 		}
 
@@ -451,7 +476,9 @@ func (c *HTTPClient) doRequestWithRetry(method, url string, headers map[string]s
 		if resp.StatusCode >= 500 || resp.StatusCode == 429 {
 			resp.Body.Close()
 			lastErr = fmt.Errorf("server returned %d", resp.StatusCode)
-			time.Sleep(c.config.RetryDelay * time.Duration(i+1)) // Exponential backoff
+			if err := waitForRetry(ctx, c.config.RetryDelay*time.Duration(i+1)); err != nil {
+				return nil, err
+			}
 			continue
 		}
 
@@ -459,6 +486,18 @@ func (c *HTTPClient) doRequestWithRetry(method, url string, headers map[string]s
 	}
 
 	return nil, fmt.Errorf("request failed after %d attempts: %w", attempts, lastErr)
+}
+
+func (c *HTTPClient) requestContext() (context.Context, context.CancelFunc) {
+	if c.config.Timeout > 0 {
+		return context.WithTimeout(context.Background(), c.config.Timeout)
+	}
+
+	return context.Background(), func() {}
+}
+
+func waitForRetry(ctx context.Context, delay time.Duration) error {
+	return wait.ForContext(ctx, delay)
 }
 
 // parseError parses an error response from the registry

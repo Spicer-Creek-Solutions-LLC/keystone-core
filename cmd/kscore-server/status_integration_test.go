@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shawnbutts/keystone-core/pkg/controlplane"
+	"github.com/shawnbutts/keystone-core/internal/controlplane"
 )
 
 func TestStatusEndpointIntegration(t *testing.T) {
@@ -16,14 +16,11 @@ func TestStatusEndpointIntegration(t *testing.T) {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health/live", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok"}`))
+		writeJSONResponse(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 	mux.HandleFunc("/api/status", func(w http.ResponseWriter, r *http.Request) {
-		statusJSON := buildServerStatusJSON(connMgr, startTime)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write(statusJSON)
+		status := buildServerStatusResponse(connMgr, startTime)
+		writeJSONResponse(w, http.StatusOK, status)
 	})
 
 	server := httptest.NewServer(mux)

@@ -2,15 +2,16 @@ package main
 
 import (
 	"fmt"
+	htmltemplate "html/template"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
-	"text/template"
+	texttemplate "text/template"
 
 	"github.com/spf13/cobra"
 
-	"github.com/shawnbutts/keystone-core/pkg/blueprint"
+	"github.com/shawnbutts/keystone-core/internal/blueprint"
 )
 
 var (
@@ -100,7 +101,7 @@ func generateMarkdownDocs(bp *blueprint.Blueprint, outputDir, basePath string) e
 	}
 	defer f.Close()
 
-	tmpl := template.Must(template.New("readme").Funcs(template.FuncMap{
+	tmpl := texttemplate.Must(texttemplate.New("readme").Funcs(texttemplate.FuncMap{
 		"join": strings.Join,
 	}).Parse(markdownTemplate))
 
@@ -144,7 +145,7 @@ func generateParametersDoc(bp *blueprint.Blueprint, outputPath string) error {
 	}
 	defer f.Close()
 
-	tmpl := template.Must(template.New("params").Parse(parametersTemplate))
+	tmpl := texttemplate.Must(texttemplate.New("params").Parse(parametersTemplate))
 	return tmpl.Execute(f, bp)
 }
 
@@ -155,7 +156,7 @@ func generateDependenciesDoc(bp *blueprint.Blueprint, outputPath string) error {
 	}
 	defer f.Close()
 
-	tmpl := template.Must(template.New("deps").Parse(dependenciesTemplate))
+	tmpl := texttemplate.Must(texttemplate.New("deps").Parse(dependenciesTemplate))
 	return tmpl.Execute(f, bp)
 }
 
@@ -167,7 +168,7 @@ func generateHTMLDocs(bp *blueprint.Blueprint, outputDir, basePath string) error
 	}
 	defer f.Close()
 
-	tmpl := template.Must(template.New("html").Funcs(template.FuncMap{
+	tmpl := htmltemplate.Must(htmltemplate.New("html").Funcs(htmltemplate.FuncMap{
 		"join": strings.Join,
 	}).Parse(htmlTemplate))
 

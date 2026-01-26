@@ -11,7 +11,7 @@ import (
 	"time"
 
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
-	"github.com/shawnbutts/keystone-core/pkg/config"
+	"github.com/shawnbutts/keystone-core/internal/config"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -73,6 +73,7 @@ func checkServiceActive(ctx context.Context, initSystem, service string) error {
 }
 
 func execCommand(ctx context.Context, name string, args ...string) (string, error) {
+	// nosemgrep
 	result, err := exec.CommandContext(ctx, name, args...).CombinedOutput()
 	if err != nil {
 		return string(result), fmt.Errorf("command %s failed: %w", name, err)

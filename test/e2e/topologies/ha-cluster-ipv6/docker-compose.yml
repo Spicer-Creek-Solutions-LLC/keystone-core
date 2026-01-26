@@ -214,6 +214,7 @@ services:
     hostname: postgres
     environment:
       - POSTGRES_USER=kscore
+      # kics-scan ignore-line - Test fixture, not a production secret
       - POSTGRES_PASSWORD=kscore_e2e_password
       - POSTGRES_DB=kscore
     volumes:

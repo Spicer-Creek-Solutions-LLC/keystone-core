@@ -1,6 +1,8 @@
 ARG VERSION=40
+# kics-scan ignore-line - Root user required for systemd test containers
 FROM fedora:${VERSION}
 
+# hadolint ignore=DL3041
 RUN dnf -y install systemd curl ca-certificates && \
     dnf clean all
 

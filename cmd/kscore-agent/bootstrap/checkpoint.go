@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shawnbutts/keystone-core/pkg/platform"
+	"github.com/shawnbutts/keystone-core/internal/platform"
 )
 
 const (

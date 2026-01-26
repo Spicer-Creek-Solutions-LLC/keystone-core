@@ -4,7 +4,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.ubuntu
+    # kics-scan ignore-line - Privileged mode required for systemd in container tests
     privileged: true
     volumes:
+      # kics-scan ignore-line - cgroup mount required for systemd in container tests
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
     command: ["/lib/systemd/systemd"]

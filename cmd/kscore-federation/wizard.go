@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/shawnbutts/keystone-core/pkg/identity/federation"
-	"github.com/shawnbutts/keystone-core/pkg/identity/federation/wizard"
+	"github.com/shawnbutts/keystone-core/internal/identity/federation"
+	"github.com/shawnbutts/keystone-core/internal/identity/federation/wizard"
 )
 
 var (

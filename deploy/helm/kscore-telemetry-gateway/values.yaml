@@ -1,4 +1,8 @@
 # Default values for kscore-telemetry-gateway
+#
+# kics-scan disable=487f4be7-3fd9-4506-a07a-eae252180c08,3e2d3b2f-c22a-4df1-9cc6-a7a0aebb0c99
+# Disabled: Generic Password, Generic Secret - This is a Helm values template
+# with empty string placeholders for secrets that are populated at deploy time.
 
 replicaCount: 1
 

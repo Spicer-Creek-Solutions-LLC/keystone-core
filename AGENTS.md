@@ -93,12 +93,48 @@ See `docs/content/en/docs/contributing/state-machines.md` for full documentation
 ## Recent Updates
 
 - **Epic 39 COMPLETE**: State machine pattern refactoring finished with 15 components using explicit state machines and 150+ tests.
+- `make security` now runs tooling in Docker/Podman containers (no local installs required).
 - Added state machine library (`pkg/statemachine`) with generic, type-safe implementation for managing complex state transitions.
 - Added contributor documentation for state machine patterns at `docs/content/en/docs/contributing/state-machines.md`.
 - Expanded configuration reference coverage for control plane, auth, webhook, NATS, storage, and agent settings.
 - Documented module registry configuration and added CLI coverage for agent management, load testing, and test runner tools.
 - Aligned registry config documentation with CLI flags and added agent bootstrap env/flag reference plus blueprint registry/cache env variables.
 - Added Docsy Hugo module placeholder setup steps for local docs builds.
+- Replaced time.Sleep usage in tests with deterministic waits and time adjustments to reduce flakiness.
+- Made retry/backoff delays cancelable in REST client, storage failover, and observability backend paths.
+- Made blueprint and module registry retries cancelable with timeout-bounded waits.
+- Swapped polling sleeps for tickers with cancellation in cluster fencing and bootstrap health checks.
+- Made identity rotation retry waits cancelable and added coverage for early-stop behavior.
+- Made Kafka consumer retries and leaf buffer publish retries cancelable.
+- Made syslog reconnect waits cancelable and unblocked by Close.
+- Made mirror sync retries and bandwidth limiting waits cancelable.
+- Made SPIRE client stream retry waits cancelable with context-aware timers.
+- Made transaction rollback retry waits cancelable and cancel-aware.
+- Replaced execution kill timeout and upgrade health waits with timers.
+- Refactored Windows service wait loops to timer-based polling with tests.
+- Replaced profiling sleeps with timer-based waits and added coverage.
+- Refactored SSH shell pacing waits to timer-based pauses with context handling.
+- Replaced Loki pusher retry sleeps with timer-based backoff waits.
+- Added shared wait utilities in pkg/wait and refactored recent timing helpers to use them.
+- Added polling helpers to pkg/wait with coverage.
+- Reused pkg/wait polling/duration helpers in test helper packages.
+- Exposed configurable TLS min version defaults/validation across core config, syslog, etcd, and gateway, with docs updated.
+- Aligned TLS min_version examples in NATS and security docs with TLS 1.3 defaults.
+- Hardened exec TLS skip-verify gating, server/registry JSON responses, and doc generator templates; tightened compose and Kubernetes security examples; cleared TODO list.
+- Refactored retry delay helpers to use pkg/wait across REST, registry, storage, events, and SPIRE clients.
+- Added stop-channel wait helpers in pkg/wait and refactored retry delays to use them.
+- Reused pkg/wait helpers for schedule stop waits and SPIRE/statemgmt retry delays.
+- Reused pkg/wait helpers in retry/backoff and upgrade scheduling waits.
+- Reused pkg/wait for schedule retry delays and upgrade batch delays.
+- Reused pkg/wait in audit waits, event delays, and REST adapter rate limiting.
+- Reused pkg/wait in backpressure and plugin resource loops; tightened drop strategy CAS.
+- Reused pkg/wait in transfer throttling, proxy shutdown waits, and NATS ordering retries.
+- Reused pkg/wait in upgrade manager/rollback delays and network failover retries.
+- Reused pkg/wait in gitops promotion/verification delays and event bridge backoff.
+- Reused pkg/wait in gateway log/metric/trace retry backoffs.
+- Reused pkg/wait in cluster shutdown waits and coordination retries.
+- Reused pkg/wait in module test timeouts.
+- Moved most implementation packages from pkg/ to internal/ and marked public pkg APIs as unstable.
 
 ## Repository Purpose
 
@@ -254,6 +290,7 @@ Implementation order:
 - **Agent Self-Update** - Secure binary distribution, staged rollouts
 - **Compliance Framework Presets** - CIS Benchmarks, SOC 2, HIPAA, PCI-DSS
 - **Network Discovery & Topology** - Automatic scanning, L2/L3 mapping
+- **Advanced State Orchestration** - Statecharts, workflows, actors, event sourcing - See `epics/future-advanced-state-orchestration.md`
 - **Terraform Provider** - Terraform provider for Keystone Core resources
 - **ITSM Integration** - ServiceNow integration, change requests, CMDB sync
 
@@ -453,3 +490,7 @@ When implementing Keystone Core, follow these principles:
    - Embedded NATS → External NATS cluster
    - SQLite → PostgreSQL
    - Both with automated migration tooling
+
+## Recent Updates
+
+- Default TLS minimum version set to 1.3 with per-component overrides (exec CLI, federation HTTP client, service mesh connection tests, and federation discovery).

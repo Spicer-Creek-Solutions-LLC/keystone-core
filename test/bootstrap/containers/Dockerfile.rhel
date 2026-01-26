@@ -1,6 +1,8 @@
 ARG BASE_IMAGE=rockylinux:9
+# kics-scan ignore-line - Root user required for systemd test containers
 FROM ${BASE_IMAGE}
 
+# hadolint ignore=DL3041
 RUN dnf -y install systemd curl-minimal ca-certificates && \
     dnf clean all
 

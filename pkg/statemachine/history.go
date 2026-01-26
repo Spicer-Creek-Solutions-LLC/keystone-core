@@ -57,13 +57,21 @@ func (h *History[S, E]) Record(from, to S, event E, duration time.Duration, meta
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
+	var metadataCopy map[string]any
+	if metadata != nil {
+		metadataCopy = make(map[string]any, len(metadata))
+		for key, value := range metadata {
+			metadataCopy[key] = value
+		}
+	}
+
 	h.records[h.position] = HistoryRecord[S, E]{
 		Timestamp: time.Now(),
 		From:      from,
 		To:        to,
 		Event:     event,
 		Duration:  duration,
-		Metadata:  metadata,
+		Metadata:  metadataCopy,
 	}
 
 	h.position = (h.position + 1) % h.maxSize

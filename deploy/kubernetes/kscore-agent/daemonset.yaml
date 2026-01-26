@@ -28,6 +28,11 @@ spec:
       hostNetwork: false
       hostPID: false
       dnsPolicy: ClusterFirst
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
       tolerations:
         # Run on all nodes including masters
         - operator: Exists
@@ -99,6 +104,7 @@ spec:
               mountPath: /var/lib/kscore/states
             - name: cache
               mountPath: /var/cache/kscore
+            # kics-scan ignore-block - Agent requires host filesystem access for state management
             - name: host-root
               mountPath: /host
               readOnly: false
@@ -112,6 +118,7 @@ spec:
           emptyDir: {}
         - name: cache
           emptyDir: {}
+        # kics-scan ignore-block - Agent requires host filesystem access for state management
         - name: host-root
           hostPath:
             path: /

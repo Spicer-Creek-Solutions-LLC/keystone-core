@@ -16,6 +16,10 @@ Security is critical for production Keystone Core deployments. This guide covers
 - **Audit**: Comprehensive audit logging for compliance
 - **Hardening**: OS and application-level security
 
+## Security Tooling
+
+Use `make security` to run the security checks with official tool containers (Docker or Podman required), so local installs are not needed.
+
 ## Authentication
 
 Keystone Core supports multiple authentication methods.
@@ -346,7 +350,7 @@ api:
     enabled: true
     cert_file: /etc/kscore/certs/server.crt
     key_file: /etc/kscore/certs/server.key
-    min_version: "TLS1.2"
+    min_version: "TLS1.3"
     cipher_suites:
       - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
       - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
@@ -585,7 +589,7 @@ webhooks:
     enabled: true
     cert_file: /etc/kscore/certs/webhook.crt
     key_file: /etc/kscore/certs/webhook.key
-    min_version: "TLS1.2"
+    min_version: "TLS1.3"
 ```
 
 **Let's Encrypt with automatic renewal:**
@@ -1292,7 +1296,7 @@ audit:
 
 api:
   tls:
-    min_version: "TLS1.2"
+    min_version: "TLS1.3"
 
 storage:
   encryption:

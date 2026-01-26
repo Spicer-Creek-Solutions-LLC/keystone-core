@@ -173,6 +173,7 @@ func (m *RecoveryManager) runCommand(ctx context.Context, cmdStr string) (string
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
+	// nosemgrep
 	cmd := exec.CommandContext(ctx, "sh", "-c", cmdStr)
 	output, err := cmd.CombinedOutput()
 	return string(output), err

@@ -8,6 +8,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/wait"
 )
 
 // Common errors.
@@ -82,16 +84,16 @@ func RestrictedLimits() *Limits {
 
 // Usage tracks resource usage.
 type Usage struct {
-	CPUTime       time.Duration `json:"cpuTime"`
-	WallTime      time.Duration `json:"wallTime"`
-	Memory        int64         `json:"memory"`
-	PeakMemory    int64         `json:"peakMemory"`
-	Goroutines    int           `json:"goroutines"`
-	OpenFiles     int64         `json:"openFiles"`
-	IOPS          int64         `json:"iops"`
-	NetworkConns  int64         `json:"networkConns"`
-	BytesRead     int64         `json:"bytesRead"`
-	BytesWritten  int64         `json:"bytesWritten"`
+	CPUTime      time.Duration `json:"cpuTime"`
+	WallTime     time.Duration `json:"wallTime"`
+	Memory       int64         `json:"memory"`
+	PeakMemory   int64         `json:"peakMemory"`
+	Goroutines   int           `json:"goroutines"`
+	OpenFiles    int64         `json:"openFiles"`
+	IOPS         int64         `json:"iops"`
+	NetworkConns int64         `json:"networkConns"`
+	BytesRead    int64         `json:"bytesRead"`
+	BytesWritten int64         `json:"bytesWritten"`
 }
 
 // Enforcer enforces resource limits.
@@ -525,8 +527,9 @@ func (p *Pool) Acquire(ctx context.Context, amount int64) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(time.Millisecond):
-			// Retry
+		}
+		if err := wait.ForContext(ctx, time.Millisecond); err != nil {
+			return err
 		}
 	}
 }

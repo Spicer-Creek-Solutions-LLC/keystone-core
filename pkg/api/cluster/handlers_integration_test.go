@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	clusterpkg "github.com/shawnbutts/keystone-core/pkg/cluster"
-	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
+	clusterpkg "github.com/shawnbutts/keystone-core/internal/cluster"
+	"github.com/shawnbutts/keystone-core/internal/testing/helpers"
 )
 
 func TestClusterStatusAndMembersIntegration(t *testing.T) {

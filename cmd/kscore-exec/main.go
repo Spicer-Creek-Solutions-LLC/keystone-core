@@ -15,8 +15,8 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 
+	"github.com/shawnbutts/keystone-core/internal/audit"
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
-	"github.com/shawnbutts/keystone-core/pkg/audit"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 
@@ -32,6 +32,7 @@ type Config struct {
 	TLSKey        string
 	TLSSkipVerify bool
 	TLSServerName string
+	TLSMinVersion string
 }
 
 func newRootCmd() *cobra.Command {
@@ -68,6 +69,7 @@ Examples:
 	rootCmd.PersistentFlags().StringVar(&cfg.TLSKey, "tls-key", "", "Path to client private key for mTLS authentication")
 	rootCmd.PersistentFlags().BoolVar(&cfg.TLSSkipVerify, "tls-skip-verify", false, "Skip TLS certificate verification (INSECURE - for development only)")
 	rootCmd.PersistentFlags().StringVar(&cfg.TLSServerName, "tls-server-name", "", "Server name for TLS verification (defaults to server host)")
+	rootCmd.PersistentFlags().StringVar(&cfg.TLSMinVersion, "tls-min-version", "1.3", "Minimum TLS version (1.2 or 1.3)")
 
 	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(newRunCmd(cfg))
@@ -144,14 +146,22 @@ func createClient(cfg *Config) (pb.ControlPlaneServiceClient, *grpc.ClientConn, 
 
 // buildTLSConfig builds a TLS configuration from the CLI flags
 func buildTLSConfig(cfg *Config) (*tls.Config, error) {
+	minVersion, err := parseTLSMinVersion(cfg.TLSMinVersion)
+	if err != nil {
+		return nil, err
+	}
+
 	tlsConfig := &tls.Config{
-		MinVersion: tls.VersionTLS12,
+		MinVersion: minVersion,
 	}
 
 	// Handle skip verify (with warning)
 	if cfg.TLSSkipVerify {
+		if os.Getenv("KSCORE_ALLOW_INSECURE_TLS") != "1" {
+			return nil, fmt.Errorf("TLS skip verify requires KSCORE_ALLOW_INSECURE_TLS=1 for development/testing only")
+		}
 		fmt.Fprintln(os.Stderr, "WARNING: TLS certificate verification is disabled. This is insecure and should only be used for development.")
-		tlsConfig.InsecureSkipVerify = true
+		tlsConfig.InsecureSkipVerify = true // #nosec G402 -- gated by KSCORE_ALLOW_INSECURE_TLS
 	}
 
 	// Set server name for verification
@@ -189,6 +199,17 @@ func buildTLSConfig(cfg *Config) (*tls.Config, error) {
 	return tlsConfig, nil
 }
 
+func parseTLSMinVersion(value string) (uint16, error) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "", "1.3", "tls1.3", "tls13":
+		return tls.VersionTLS13, nil
+	case "1.2", "tls1.2", "tls12":
+		return tls.VersionTLS12, nil
+	default:
+		return 0, fmt.Errorf("unsupported TLS minimum version: %s", value)
+	}
+}
+
 // RunOptions holds run command options
 type RunOptions struct {
 	Concurrency      int32
@@ -209,7 +230,7 @@ func newRunCmd(cfg *Config) *cobra.Command {
 	opts := &RunOptions{}
 
 	cmd := &cobra.Command{
-	Use:   "run <target-expression> -- <command> [args...]",
+		Use:   "run <target-expression> -- <command> [args...]",
 		Short: "Execute a command across multiple agents",
 		Long: `Execute a command across agents matching the target expression.
 

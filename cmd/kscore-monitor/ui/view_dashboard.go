@@ -9,7 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/client"
 	"github.com/shawnbutts/keystone-core/cmd/kscore-monitor/config"
-	"github.com/shawnbutts/keystone-core/pkg/events"
+	"github.com/shawnbutts/keystone-core/internal/events"
 )
 
 // DashboardModel represents the dashboard view

@@ -10,7 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/shawnbutts/keystone-core/pkg/blueprint"
+	"github.com/shawnbutts/keystone-core/internal/blueprint"
 )
 
 var (

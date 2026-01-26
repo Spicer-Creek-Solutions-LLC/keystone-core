@@ -3,6 +3,8 @@ package statemachine
 import (
 	"context"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/internal/logging"
 )
 
 // Builder provides a fluent interface for constructing state machines.
@@ -10,11 +12,14 @@ type Builder[S, E comparable] struct {
 	initialState S
 	hasInitial   bool
 	transitions  map[transitionKey[S, E]]*transition[S, E]
+	ignored      map[transitionKey[S, E]]struct{}
 	onEnter      map[S][]StateCallback[S]
 	onExit       map[S][]StateCallback[S]
 	onTransition []TransitionCallback[S, E]
 	historySize  int
 	name         string
+	logger       Logger
+	errorHandler ErrorHandler
 
 	// For chaining guard additions
 	lastTransitionKey *transitionKey[S, E]
@@ -26,6 +31,7 @@ func New[S, E comparable](initialState S) *Builder[S, E] {
 		initialState: initialState,
 		hasInitial:   true,
 		transitions:  make(map[transitionKey[S, E]]*transition[S, E]),
+		ignored:      make(map[transitionKey[S, E]]struct{}),
 		onEnter:      make(map[S][]StateCallback[S]),
 		onExit:       make(map[S][]StateCallback[S]),
 	}
@@ -43,9 +49,22 @@ func (b *Builder[S, E]) WithHistory(maxSize int) *Builder[S, E] {
 	return b
 }
 
+// WithLogger sets a logger for error and panic reporting.
+func (b *Builder[S, E]) WithLogger(logger Logger) *Builder[S, E] {
+	b.logger = logger
+	return b
+}
+
+// WithErrorHandler sets a handler for transition errors and callback panics.
+func (b *Builder[S, E]) WithErrorHandler(handler ErrorHandler) *Builder[S, E] {
+	b.errorHandler = handler
+	return b
+}
+
 // AddTransition defines a transition from one state to another via an event.
 func (b *Builder[S, E]) AddTransition(from S, event E, to S) *Builder[S, E] {
 	key := transitionKey[S, E]{from: from, event: event}
+	delete(b.ignored, key)
 	b.transitions[key] = &transition[S, E]{
 		from:  from,
 		event: event,
@@ -126,7 +145,11 @@ func (b *Builder[S, E]) PermitReentry(state S, event E) *Builder[S, E] {
 // Ignore defines that an event should be ignored (no-op) in a given state.
 // This is different from not having a transition: ignored events don't return errors.
 func (b *Builder[S, E]) Ignore(state S, event E) *Builder[S, E] {
-	return b.AddTransition(state, event, state)
+	key := transitionKey[S, E]{from: state, event: event}
+	delete(b.transitions, key)
+	b.ignored[key] = struct{}{}
+	b.lastTransitionKey = nil
+	return b
 }
 
 // Build creates the state machine from the builder configuration.
@@ -143,7 +166,20 @@ func (b *Builder[S, E]) Build() (*Machine[S, E], error) {
 		transitions:    make(map[transitionKey[S, E]]*transition[S, E]),
 		onEnter:        make(map[S][]StateCallback[S]),
 		onExit:         make(map[S][]StateCallback[S]),
+		ignored:        make(map[transitionKey[S, E]]struct{}),
 		name:           b.name,
+		logger:         b.logger,
+		errorHandler:   b.errorHandler,
+		metrics:        &MachineMetrics{},
+	}
+	if machine.logger == nil {
+		fields := []logging.Field{
+			{Key: "component", Value: "statemachine"},
+		}
+		if machine.name != "" {
+			fields = append(fields, logging.Field{Key: "machine", Value: machine.name})
+		}
+		machine.logger = logging.WithFields(fields...)
 	}
 
 	// Copy transitions
@@ -157,6 +193,9 @@ func (b *Builder[S, E]) Build() (*Machine[S, E], error) {
 		}
 		copy(t.guards, v.guards)
 		machine.transitions[k] = t
+	}
+	for k := range b.ignored {
+		machine.ignored[k] = struct{}{}
 	}
 
 	// Copy callbacks
@@ -225,7 +264,7 @@ func (c *StateConfiguration[S, E]) PermitReentry(event E) *StateConfiguration[S,
 
 // Ignore specifies that an event should be ignored in this state.
 func (c *StateConfiguration[S, E]) Ignore(event E) *StateConfiguration[S, E] {
-	c.builder.AddTransition(c.state, event, c.state)
+	c.builder.Ignore(c.state, event)
 	return c
 }
 

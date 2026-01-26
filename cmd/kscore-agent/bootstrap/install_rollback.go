@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/shawnbutts/keystone-core/pkg/platform"
+	"github.com/shawnbutts/keystone-core/internal/platform"
 )
 
 func installRollback(ctx context.Context, state *State) error {

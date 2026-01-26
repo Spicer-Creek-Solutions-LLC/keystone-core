@@ -5,6 +5,7 @@
 FROM golang:alpine AS builder
 
 # Install build dependencies
+# hadolint ignore=DL3018
 RUN apk add --no-cache git ca-certificates tzdata
 
 WORKDIR /src
@@ -25,15 +26,12 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 # Runtime stage
 FROM alpine:3.19
 
-# Install runtime dependencies and common tools for command execution
-RUN apk add --no-cache ca-certificates tzdata bash coreutils
-
-# Create non-root user
-RUN addgroup -g 1000 kscore && \
-    adduser -u 1000 -G kscore -D kscore
-
-# Create data directories
-RUN mkdir -p /var/lib/kscore /etc/kscore && \
+# Install runtime dependencies, create user and directories
+# hadolint ignore=DL3018
+RUN apk add --no-cache ca-certificates tzdata bash coreutils && \
+    addgroup -g 1000 kscore && \
+    adduser -u 1000 -G kscore -D kscore && \
+    mkdir -p /var/lib/kscore /etc/kscore && \
     chown -R kscore:kscore /var/lib/kscore /etc/kscore
 
 # Copy binary from builder

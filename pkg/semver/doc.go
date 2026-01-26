@@ -1,4 +1,5 @@
 // Package semver provides semantic versioning parsing, comparison, and constraint checking.
+// NOTE: API/ABI is not finalized and may change without notice.
 //
 // This package implements the Semantic Versioning 2.0.0 specification (https://semver.org)
 // with additional features for rich version comparison and constraint matching.

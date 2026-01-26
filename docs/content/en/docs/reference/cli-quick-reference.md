@@ -92,6 +92,7 @@ not role:db                 # Negation
 --env KEY=VALUE           # Set environment variable
 --user root               # Run as user
 --working-dir /app        # Working directory
+--tls --tls-min-version 1.3  # Enable TLS with minimum version
 ```
 
 ---
@@ -181,6 +182,8 @@ not role:db                 # Negation
 | `module test` | Test module | `module test` |
 | `module publish` | Publish module | `module publish --registry reg.example.com` |
 | `module verify <name>` | Verify signature | `module verify stdlib/file` |
+
+Note: module archive entries larger than 256 MB are rejected during install.
 
 ---
 
@@ -591,6 +594,8 @@ Configure remotes first with `rclone config`.
 | `blueprint rollback <id>` | Rollback | `blueprint rollback dep-123` |
 | `blueprint validate <name>` | Validate params | `blueprint validate production-cluster` |
 
+Note: blueprint archive entries larger than 256 MB are rejected during install.
+
 ---
 
 ## Audit & Compliance
@@ -626,7 +631,7 @@ Most commands support output formatting:
 | `KSCORE_CONFIG` | Config file path |
 | `KSCORE_LOG_LEVEL` | Log level (debug, info, warn, error) |
 | `KSCORE_NO_COLOR` | Disable colored output |
-| `KSCORE_ALLOW_INSECURE_TLS` | Allow insecure TLS (dev only) |
+| `KSCORE_ALLOW_INSECURE_TLS` | Allow insecure TLS (dev only, required for `--tls-skip-verify`) |
 | `KSCORE_BLUEPRINT_REGISTRY` | Blueprint registry URL |
 | `KSCORE_REGISTRY` | Module registry URL |
 | `KSCORE_REGISTRY_TOKEN` | Module registry auth token |

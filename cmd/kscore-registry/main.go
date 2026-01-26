@@ -2,6 +2,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,6 +13,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"text/template"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -24,6 +26,8 @@ import (
 )
 
 var version = "0.1.0"
+var versionListTemplate = template.Must(template.New("versions").Parse(`{{ range .}}{{ . }}
+{{ end }}`))
 
 // Config holds server configuration
 type Config struct {
@@ -59,16 +63,16 @@ type Server struct {
 
 // StoredModule represents module metadata stored on disk
 type StoredModule struct {
-	Name        string            `json:"name"`
-	Version     string            `json:"version"`
-	Hash        string            `json:"hash"`
-	PublishedAt time.Time         `json:"published_at"`
-	Size        int64             `json:"size"`
-	Description string            `json:"description,omitempty"`
+	Name         string            `json:"name"`
+	Version      string            `json:"version"`
+	Hash         string            `json:"hash"`
+	PublishedAt  time.Time         `json:"published_at"`
+	Size         int64             `json:"size"`
+	Description  string            `json:"description,omitempty"`
 	Dependencies map[string]string `json:"dependencies,omitempty"`
-	Signature   string            `json:"signature,omitempty"`
-	Tags        []string          `json:"tags,omitempty"`
-	ReleaseNotes string           `json:"release_notes,omitempty"`
+	Signature    string            `json:"signature,omitempty"`
+	Tags         []string          `json:"tags,omitempty"`
+	ReleaseNotes string            `json:"release_notes,omitempty"`
 }
 
 // NewServer creates a new registry server
@@ -211,9 +215,16 @@ func (s *Server) handleListVersions(w http.ResponseWriter, r *http.Request, modu
 	// Sort versions in descending order (newest first)
 	sort.Sort(sort.Reverse(sort.StringSlice(versions)))
 
+	var buf bytes.Buffer
+	if err := versionListTemplate.Execute(&buf, versions); err != nil {
+		s.writeError(w, http.StatusInternalServerError, registry.ErrCodeServerError,
+			fmt.Sprintf("Failed to render versions: %v", err))
+		return
+	}
+
 	w.Header().Set("Content-Type", "text/plain")
-	for _, v := range versions {
-		fmt.Fprintln(w, v)
+	if _, err := io.Copy(w, &buf); err != nil {
+		log.Printf("Failed to write version list: %v", err)
 	}
 }
 
@@ -265,7 +276,7 @@ func (s *Server) handleGetManifest(w http.ResponseWriter, r *http.Request, modul
 	defer s.mu.RUnlock()
 
 	manifestPath := filepath.Join(s.config.DataDir, moduleName, version, "module.yaml")
-	data, err := os.ReadFile(manifestPath)
+	f, err := os.Open(manifestPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			s.writeError(w, http.StatusNotFound, registry.ErrCodeVersionNotFound,
@@ -273,12 +284,20 @@ func (s *Server) handleGetManifest(w http.ResponseWriter, r *http.Request, modul
 			return
 		}
 		s.writeError(w, http.StatusInternalServerError, registry.ErrCodeServerError,
-			fmt.Sprintf("Failed to read manifest: %v", err))
+			fmt.Sprintf("Failed to open manifest: %v", err))
+		return
+	}
+	defer f.Close()
+
+	info, err := f.Stat()
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, registry.ErrCodeServerError,
+			fmt.Sprintf("Failed to stat manifest: %v", err))
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/x-yaml")
-	w.Write(data)
+	http.ServeContent(w, r, filepath.Base(manifestPath), info.ModTime(), f)
 }
 
 // handleDownload returns the module ZIP file

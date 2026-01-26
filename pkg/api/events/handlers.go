@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shawnbutts/keystone-core/pkg/events"
+	"github.com/shawnbutts/keystone-core/internal/events"
 )
 
 // Handler provides HTTP handlers for events API endpoints.

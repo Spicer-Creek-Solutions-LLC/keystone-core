@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
+	"github.com/shawnbutts/keystone-core/internal/testing/helpers"
 )
 
 // mockCapability is a test capability

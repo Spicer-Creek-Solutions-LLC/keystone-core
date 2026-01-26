@@ -15,10 +15,10 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
-	"github.com/shawnbutts/keystone-core/pkg/cli/auditutil"
-	"github.com/shawnbutts/keystone-core/pkg/cli/deprecation"
-	"github.com/shawnbutts/keystone-core/pkg/files"
-	"github.com/shawnbutts/keystone-core/pkg/files/backend"
+	"github.com/shawnbutts/keystone-core/internal/cli/auditutil"
+	"github.com/shawnbutts/keystone-core/internal/cli/deprecation"
+	"github.com/shawnbutts/keystone-core/internal/files"
+	"github.com/shawnbutts/keystone-core/internal/files/backend"
 )
 
 var (

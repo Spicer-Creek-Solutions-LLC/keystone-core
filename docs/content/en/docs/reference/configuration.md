@@ -36,6 +36,7 @@ api:
     cert_file: ""                   # TLS certificate file
     key_file: ""                    # TLS key file
     ca_file: ""                     # CA certificate for client auth
+    min_version: "1.3"              # Minimum TLS version (1.2 or 1.3)
   cors:
     enabled: true                   # Enable CORS
     allowed_origins: ["*"]          # Allowed origins
@@ -67,6 +68,7 @@ nats:
     cert_file: ""
     key_file: ""
     ca_file: ""
+    min_version: "1.3"              # Minimum TLS version (1.2 or 1.3)
   jetstream:
     enabled: true                   # Enable JetStream
     store_dir: "/var/lib/kscore/nats"
@@ -122,6 +124,7 @@ logging:
       cert: ""
       key: ""
       skip_verify: false
+      min_version: "1.3"            # Minimum TLS version (1.2 or 1.3)
 
 # Metrics
 metrics:
@@ -354,6 +357,7 @@ tls:
   key_file: ""
   ca_file: ""
   insecure_skip_verify: false       # Dev/test only
+  min_version: "1.3"                # Minimum TLS version (1.2 or 1.3)
 ```
 
 ### Cluster Configuration
@@ -378,6 +382,7 @@ cluster:
       cert_file: ""
       key_file: ""
       ca_file: ""
+      min_version: "1.3"            # Minimum TLS version (1.2 or 1.3)
 
   # Membership settings
   membership:
@@ -514,6 +519,7 @@ nats:
     cert_file: ""
     key_file: ""
     ca_file: ""
+    min_version: "1.3"              # Minimum TLS version (1.2 or 1.3)
   credentials_file: ""
   max_reconnects: -1
   reconnect_wait: "2s"

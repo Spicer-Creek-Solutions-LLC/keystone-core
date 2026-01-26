@@ -5,6 +5,8 @@ nats:
   url: "nats://[fd00:1::10]:4222"
   maxreconnects: 30
   reconnectwait: 2s
+  jetstream:
+    storedir: "/var/lib/kscore/jetstream"
 
 agent:
   id: "agent-ipv6-db-1"

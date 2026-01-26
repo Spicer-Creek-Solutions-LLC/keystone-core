@@ -6,6 +6,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/internal/testing/helpers"
 )
 
 func TestDefaultLimits(t *testing.T) {
@@ -272,7 +274,7 @@ func TestEnforcer_PeakMemory(t *testing.T) {
 	enforcer := NewEnforcer(limits)
 
 	enforcer.RecordMemory(1000)
-	enforcer.RecordMemory(500) // Total: 1500
+	enforcer.RecordMemory(500)   // Total: 1500
 	enforcer.ReleaseMemory(1000) // Total: 500
 
 	usage := enforcer.Usage()
@@ -323,8 +325,11 @@ func TestEnforcer_Monitor(t *testing.T) {
 
 	enforcer.Start(ctx)
 
-	// Wait for wall time to exceed
-	time.Sleep(200 * time.Millisecond)
+	if err := helpers.WaitForTimeout(500*time.Millisecond, 10*time.Millisecond, func() (bool, error) {
+		return enforcer.Violated() == ErrTimeoutExceeded, nil
+	}); err != nil {
+		t.Fatalf("expected wall time violation: %v", err)
+	}
 
 	enforcer.Stop()
 
@@ -514,7 +519,6 @@ func TestPool_Concurrent(t *testing.T) {
 			for j := 0; j < 100; j++ {
 				if pool.TryAcquire(10) {
 					atomic.AddInt64(&acquireCount, 1)
-					time.Sleep(time.Microsecond)
 					pool.Release(10)
 				}
 			}

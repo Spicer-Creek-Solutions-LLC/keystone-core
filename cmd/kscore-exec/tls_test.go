@@ -23,8 +23,8 @@ func TestBuildTLSConfig_NoTLS(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if tlsConfig.MinVersion != 0x0303 { // TLS 1.2
-		t.Errorf("expected MinVersion TLS 1.2, got %x", tlsConfig.MinVersion)
+	if tlsConfig.MinVersion != 0x0304 { // TLS 1.3
+		t.Errorf("expected MinVersion TLS 1.3, got %x", tlsConfig.MinVersion)
 	}
 
 	if tlsConfig.InsecureSkipVerify {
@@ -33,6 +33,7 @@ func TestBuildTLSConfig_NoTLS(t *testing.T) {
 }
 
 func TestBuildTLSConfig_SkipVerify(t *testing.T) {
+	t.Setenv("KSCORE_ALLOW_INSECURE_TLS", "1")
 	cfg := &Config{
 		TLSSkipVerify: true,
 	}
@@ -44,6 +45,43 @@ func TestBuildTLSConfig_SkipVerify(t *testing.T) {
 
 	if !tlsConfig.InsecureSkipVerify {
 		t.Error("InsecureSkipVerify should be true when TLSSkipVerify is set")
+	}
+}
+
+func TestBuildTLSConfig_SkipVerifyBlocked(t *testing.T) {
+	cfg := &Config{
+		TLSSkipVerify: true,
+	}
+
+	_, err := buildTLSConfig(cfg)
+	if err == nil {
+		t.Fatal("expected error when tls skip verify is set without KSCORE_ALLOW_INSECURE_TLS")
+	}
+}
+
+func TestBuildTLSConfig_MinVersionOverride(t *testing.T) {
+	cfg := &Config{
+		TLSMinVersion: "1.2",
+	}
+
+	tlsConfig, err := buildTLSConfig(cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if tlsConfig.MinVersion != 0x0303 { // TLS 1.2
+		t.Errorf("expected MinVersion TLS 1.2, got %x", tlsConfig.MinVersion)
+	}
+}
+
+func TestBuildTLSConfig_MinVersionInvalid(t *testing.T) {
+	cfg := &Config{
+		TLSMinVersion: "1.1",
+	}
+
+	_, err := buildTLSConfig(cfg)
+	if err == nil {
+		t.Fatal("expected error for unsupported TLS minimum version")
 	}
 }
 

@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/shawnbutts/keystone-core/pkg/policy"
+	"github.com/shawnbutts/keystone-core/internal/policy"
 )
 
 // Handler provides HTTP handlers for policy API endpoints.

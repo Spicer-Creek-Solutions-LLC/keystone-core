@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shawnbutts/keystone-core/pkg/config"
+	"github.com/shawnbutts/keystone-core/internal/config"
 )
 
 // Standard errors returned by authenticators.

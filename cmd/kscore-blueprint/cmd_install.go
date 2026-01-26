@@ -13,8 +13,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/shawnbutts/keystone-core/pkg/blueprint"
-	"github.com/shawnbutts/keystone-core/pkg/blueprint/registry"
+	"github.com/shawnbutts/keystone-core/internal/blueprint"
+	"github.com/shawnbutts/keystone-core/internal/blueprint/registry"
 )
 
 var (
@@ -25,6 +25,8 @@ var (
 	installDryRun   bool
 	installNoDeps   bool
 )
+
+var maxBlueprintArchiveEntrySize = int64(256 * 1024 * 1024)
 
 var installCmd = &cobra.Command{
 	Use:   "install <blueprint[@version]>...",
@@ -191,6 +193,10 @@ func extractBlueprint(data []byte, destDir string) error {
 			return fmt.Errorf("invalid file path in archive: %s", header.Name)
 		}
 
+		if header.Typeflag == tar.TypeReg && (header.Size < 0 || header.Size > maxBlueprintArchiveEntrySize) {
+			return fmt.Errorf("archive entry %s exceeds max size", header.Name)
+		}
+
 		switch header.Typeflag {
 		case tar.TypeDir:
 			if err := os.MkdirAll(target, os.FileMode(header.Mode)); err != nil {
@@ -205,7 +211,7 @@ func extractBlueprint(data []byte, destDir string) error {
 			if err != nil {
 				return err
 			}
-			if _, err := io.Copy(outFile, tr); err != nil {
+			if _, err := io.CopyN(outFile, tr, header.Size); err != nil {
 				outFile.Close()
 				return err
 			}

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shawnbutts/keystone-core/pkg/config"
+	"github.com/shawnbutts/keystone-core/internal/config"
 	"github.com/spf13/cobra"
 	"github.com/shawnbutts/keystone-core/pkg/plugin"
 	"github.com/shawnbutts/keystone-core/pkg/version"

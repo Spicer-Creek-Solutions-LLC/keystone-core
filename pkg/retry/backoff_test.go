@@ -3,18 +3,19 @@ package retry
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 )
 
 func TestExponentialBackoff_NextBackoff(t *testing.T) {
 	tests := []struct {
-		name       string
-		eb         *ExponentialBackoff
-		attempt    int
-		wantMin    time.Duration
-		wantMax    time.Duration
-		wantZero   bool
+		name     string
+		eb       *ExponentialBackoff
+		attempt  int
+		wantMin  time.Duration
+		wantMax  time.Duration
+		wantZero bool
 	}{
 		{
 			name: "first attempt",
@@ -267,13 +268,18 @@ func TestRetrier_Do_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	callCount := 0
+	started := make(chan struct{})
+	var once sync.Once
 	go func() {
-		time.Sleep(50 * time.Millisecond)
+		<-started
 		cancel()
 	}()
 
 	result := r.Do(ctx, func(ctx context.Context) error {
 		callCount++
+		once.Do(func() {
+			close(started)
+		})
 		return errors.New("error")
 	})
 
@@ -353,16 +359,16 @@ func TestCommandRetryConfig_ShouldRetryCommand(t *testing.T) {
 			want:      false,
 		},
 		{
-			name:     "network error with retry enabled",
-			config:   &CommandRetryConfig{RetryOnNetworkError: true},
-			err:      errors.New("connection refused"),
-			want:     true,
+			name:   "network error with retry enabled",
+			config: &CommandRetryConfig{RetryOnNetworkError: true},
+			err:    errors.New("connection refused"),
+			want:   true,
 		},
 		{
-			name:     "network error with retry disabled",
-			config:   &CommandRetryConfig{RetryOnNetworkError: false},
-			err:      errors.New("connection refused"),
-			want:     false,
+			name:   "network error with retry disabled",
+			config: &CommandRetryConfig{RetryOnNetworkError: false},
+			err:    errors.New("connection refused"),
+			want:   false,
 		},
 		{
 			name:     "failed command with retry enabled",
@@ -377,16 +383,16 @@ func TestCommandRetryConfig_ShouldRetryCommand(t *testing.T) {
 			want:     false,
 		},
 		{
-			name:               "failed command with specific retryable codes",
-			config:             &CommandRetryConfig{RetryOnFailure: true, RetryableExitCodes: []int32{1, 2}},
-			exitCode:           1,
-			want:               true,
+			name:     "failed command with specific retryable codes",
+			config:   &CommandRetryConfig{RetryOnFailure: true, RetryableExitCodes: []int32{1, 2}},
+			exitCode: 1,
+			want:     true,
 		},
 		{
-			name:               "failed command with non-matching retryable codes",
-			config:             &CommandRetryConfig{RetryOnFailure: true, RetryableExitCodes: []int32{1, 2}},
-			exitCode:           3,
-			want:               false,
+			name:     "failed command with non-matching retryable codes",
+			config:   &CommandRetryConfig{RetryOnFailure: true, RetryableExitCodes: []int32{1, 2}},
+			exitCode: 3,
+			want:     false,
 		},
 	}
 

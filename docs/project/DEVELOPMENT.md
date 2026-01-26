@@ -186,7 +186,14 @@ go test -race ./...
 
 # E2E tests (requires Docker)
 KSCORE_E2E_TESTS=1 make e2e-test
+
+# Security checks (runs tools in Docker/Podman containers)
+make security
 ```
+
+For HA and IPv6 E2E runs, both server and agent configs use `nats.jetstream.storedir: /var/lib/kscore/jetstream`,
+require the container filesystem to allow writes under `/var/lib/kscore`, and the servers set
+`server.allowinsecurenonloopback: true` because TLS is disabled in test environments.
 
 ### VM E2E Testing
 

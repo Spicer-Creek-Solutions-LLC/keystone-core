@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shawnbutts/keystone-core/pkg/gitops/rollback"
-	"github.com/shawnbutts/keystone-core/pkg/gitops/verification"
+	"github.com/shawnbutts/keystone-core/internal/gitops/rollback"
+	"github.com/shawnbutts/keystone-core/internal/gitops/verification"
 )
 
 // Handler provides HTTP handlers for GitOps API endpoints.

@@ -1,4 +1,5 @@
 // Package api provides gRPC and REST API endpoints for the Keystone Core control plane.
+// NOTE: API/ABI is not finalized and may change without notice.
 //
 // The api package implements handlers for agent management, remote command execution,
 // state management, policy enforcement, events, GitOps operations, and webhook handling.

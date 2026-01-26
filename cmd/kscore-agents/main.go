@@ -22,7 +22,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
-	"github.com/shawnbutts/keystone-core/pkg/cli/output"
+	"github.com/shawnbutts/keystone-core/internal/cli/output"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 

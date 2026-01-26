@@ -6,8 +6,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/shawnbutts/keystone-core/pkg/cli/auditutil"
-	"github.com/shawnbutts/keystone-core/pkg/state"
+	"github.com/shawnbutts/keystone-core/internal/cli/auditutil"
+	"github.com/shawnbutts/keystone-core/internal/state"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 	"github.com/spf13/cobra"
 )

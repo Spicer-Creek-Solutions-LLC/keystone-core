@@ -11,7 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/shawnbutts/keystone-core/pkg/cli/output"
+	"github.com/shawnbutts/keystone-core/internal/cli/output"
 )
 
 // newCacheCmd creates the cache command group.

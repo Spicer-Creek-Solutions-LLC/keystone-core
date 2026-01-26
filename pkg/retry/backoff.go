@@ -1,4 +1,5 @@
 // Package retry provides retry utilities with configurable backoff strategies.
+// NOTE: API/ABI is not finalized and may change without notice.
 // It is designed for handling transient failures in distributed systems,
 // particularly for command execution timeouts and network failures.
 package retry
@@ -11,6 +12,8 @@ import (
 	"math/rand"
 	"sync"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/wait"
 )
 
 // Strategy defines a backoff strategy
@@ -289,12 +292,9 @@ func (r *Retrier) Do(ctx context.Context, fn func(ctx context.Context) error) Re
 		}
 
 		// Wait for backoff or context cancellation
-		select {
-		case <-ctx.Done():
-			result.LastErr = ctx.Err()
+		if err := wait.ForContext(ctx, backoff); err != nil {
+			result.LastErr = err
 			return result
-		case <-time.After(backoff):
-			// Continue to next attempt
 		}
 	}
 }
@@ -333,12 +333,9 @@ func DoWithValue[T any](ctx context.Context, r *Retrier, fn func(ctx context.Con
 		}
 
 		// Wait for backoff or context cancellation
-		select {
-		case <-ctx.Done():
-			result.LastErr = ctx.Err()
+		if err := wait.ForContext(ctx, backoff); err != nil {
+			result.LastErr = err
 			return value, result
-		case <-time.After(backoff):
-			// Continue to next attempt
 		}
 	}
 }

@@ -11,7 +11,7 @@ import (
 
 	"github.com/shawnbutts/keystone-core/pkg/api/server"
 	pb "github.com/shawnbutts/keystone-core/pkg/api/v1"
-	"github.com/shawnbutts/keystone-core/pkg/testing/helpers"
+	"github.com/shawnbutts/keystone-core/internal/testing/helpers"
 )
 
 func TestControlPlaneGRPC_AgentLifecycle(t *testing.T) {

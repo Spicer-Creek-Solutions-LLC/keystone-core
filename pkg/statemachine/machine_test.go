@@ -3,10 +3,14 @@ package statemachine
 import (
 	"context"
 	"errors"
+	"io"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/internal/logging"
+	"github.com/shawnbutts/keystone-core/internal/testing/helpers"
 )
 
 // Test state and event types
@@ -100,6 +104,41 @@ func TestInvalidTransition(t *testing.T) {
 	}
 }
 
+func TestCallbackPanicRecovery(t *testing.T) {
+	errCh := make(chan error, 1)
+	logger := logging.NewLogger(logging.Config{
+		Name:    "statemachine-test",
+		Level:   logging.LevelError,
+		Outputs: []logging.Output{logging.NewWriterOutput(io.Discard)},
+	})
+
+	machine := New[TestState, TestEvent](StateIdle).
+		AddTransition(StateIdle, EventConnect, StateConnecting).
+		OnEnter(StateConnecting, func(ctx context.Context, state TestState, from TestState) {
+			panic("boom")
+		}).
+		WithLogger(logger).
+		WithErrorHandler(func(ctx context.Context, err error) {
+			errCh <- err
+		}).
+		MustBuild()
+
+	if err := machine.Fire(EventConnect); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	select {
+	case <-errCh:
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("expected panic error handler to be called")
+	}
+
+	metrics := machine.Metrics()
+	if metrics.CallbackPanics != 1 {
+		t.Errorf("expected 1 callback panic, got %d", metrics.CallbackPanics)
+	}
+}
+
 func TestGuardConditions(t *testing.T) {
 	canConnect := true
 
@@ -129,6 +168,48 @@ func TestGuardConditions(t *testing.T) {
 
 	if !errors.Is(err, ErrGuardFailed) {
 		t.Error("expected ErrGuardFailed")
+	}
+}
+
+func TestConcurrentTransitionError(t *testing.T) {
+	var machine *Machine[TestState, TestEvent]
+	ready := make(chan struct{}, 2)
+	release := make(chan struct{})
+
+	machine = New[TestState, TestEvent](StateIdle).
+		AddTransition(StateIdle, EventConnect, StateConnecting).
+		WithGuard(func(ctx context.Context, from TestState, event TestEvent) bool {
+			ready <- struct{}{}
+			<-release
+			return true
+		}).
+		MustBuild()
+
+	errs := make(chan error, 2)
+	go func() { errs <- machine.Fire(EventConnect) }()
+	go func() { errs <- machine.Fire(EventConnect) }()
+
+	<-ready
+	<-ready
+	close(release)
+
+	err1 := <-errs
+	err2 := <-errs
+
+	if (err1 == nil) == (err2 == nil) {
+		t.Fatalf("expected one success and one error, got err1=%v err2=%v", err1, err2)
+	}
+
+	if err1 != nil && !errors.Is(err1, ErrConcurrentTransition) {
+		t.Fatalf("expected ErrConcurrentTransition, got %v", err1)
+	}
+	if err2 != nil && !errors.Is(err2, ErrConcurrentTransition) {
+		t.Fatalf("expected ErrConcurrentTransition, got %v", err2)
+	}
+
+	metrics := machine.Metrics()
+	if metrics.ConcurrentTransitions != 1 {
+		t.Errorf("expected 1 concurrent transition, got %d", metrics.ConcurrentTransitions)
 	}
 }
 
@@ -232,6 +313,42 @@ func TestCallbacks(t *testing.T) {
 	if transFrom != StateIdle || transTo != StateConnecting || transEvent != EventConnect {
 		t.Errorf("OnTransition received wrong params: from=%v to=%v event=%v",
 			transFrom, transTo, transEvent)
+	}
+}
+
+func TestCallbacksCanAccessState(t *testing.T) {
+	var machine *Machine[TestState, TestEvent]
+	machine = New[TestState, TestEvent](StateIdle).
+		AddTransition(StateIdle, EventConnect, StateConnecting).
+		OnEnter(StateConnecting, func(ctx context.Context, state TestState, from TestState) {
+			_ = machine.State()
+		}).
+		MustBuild()
+
+	done := make(chan struct{})
+	go func() {
+		_ = machine.Fire(EventConnect)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(1 * time.Second):
+		t.Fatal("expected Fire to complete without deadlock")
+	}
+}
+
+func TestGuardCanAccessState(t *testing.T) {
+	var machine *Machine[TestState, TestEvent]
+	machine = New[TestState, TestEvent](StateIdle).
+		AddTransition(StateIdle, EventConnect, StateConnecting).
+		WithGuard(func(ctx context.Context, from TestState, event TestEvent) bool {
+			return machine.State() == StateIdle
+		}).
+		MustBuild()
+
+	if err := machine.Fire(EventConnect); err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
@@ -658,6 +775,57 @@ func TestTransitionsFrom(t *testing.T) {
 	}
 }
 
+func TestIgnoreNoOp(t *testing.T) {
+	enterCount := 0
+	exitCount := 0
+	transitionCount := 0
+
+	machine := New[TestState, TestEvent](StateIdle).
+		AddTransition(StateIdle, EventConnect, StateConnecting).
+		Ignore(StateIdle, EventRetry).
+		OnEnter(StateIdle, func(ctx context.Context, state, from TestState) {
+			enterCount++
+		}).
+		OnExit(StateIdle, func(ctx context.Context, state, to TestState) {
+			exitCount++
+		}).
+		OnTransition(func(ctx context.Context, from, to TestState, event TestEvent) {
+			transitionCount++
+		}).
+		WithHistory(10).
+		MustBuild()
+
+	if !machine.CanFire(EventRetry) {
+		t.Fatal("expected ignored event to be fireable")
+	}
+
+	err := machine.Fire(EventRetry)
+	if err != nil {
+		t.Fatalf("unexpected error firing ignored event: %v", err)
+	}
+
+	if machine.State() != StateIdle {
+		t.Fatalf("expected state to remain idle, got %v", machine.State())
+	}
+
+	if enterCount != 0 || exitCount != 0 || transitionCount != 0 {
+		t.Fatalf("ignored event should not trigger callbacks")
+	}
+
+	if machine.History().Size() != 0 {
+		t.Fatal("ignored event should not be recorded in history")
+	}
+
+	events := machine.AvailableEvents()
+	eventSet := make(map[TestEvent]bool)
+	for _, e := range events {
+		eventSet[e] = true
+	}
+	if !eventSet[EventRetry] {
+		t.Fatal("expected ignored event to be available")
+	}
+}
+
 func TestFireWithMetadata(t *testing.T) {
 	machine := New[TestState, TestEvent](StateIdle).
 		AddTransition(StateIdle, EventConnect, StateConnecting).
@@ -686,6 +854,11 @@ func TestFireWithMetadata(t *testing.T) {
 	if latest.Metadata["requestID"] != "12345" {
 		t.Error("metadata not recorded")
 	}
+
+	metadata["reason"] = "changed"
+	if latest.Metadata["reason"] != "user requested" {
+		t.Error("metadata should be copied to history")
+	}
 }
 
 func TestStateDuration(t *testing.T) {
@@ -693,8 +866,11 @@ func TestStateDuration(t *testing.T) {
 		AddTransition(StateIdle, EventConnect, StateConnecting).
 		MustBuild()
 
-	// Wait a bit
-	time.Sleep(10 * time.Millisecond)
+	if err := helpers.WaitForTimeout(100*time.Millisecond, 2*time.Millisecond, func() (bool, error) {
+		return machine.StateDuration() >= 10*time.Millisecond, nil
+	}); err != nil {
+		t.Fatalf("expected state duration to advance: %v", err)
+	}
 
 	duration := machine.StateDuration()
 	if duration < 10*time.Millisecond {

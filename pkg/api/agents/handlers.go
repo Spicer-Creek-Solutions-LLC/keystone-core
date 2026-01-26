@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shawnbutts/keystone-core/pkg/controlplane"
+	"github.com/shawnbutts/keystone-core/internal/controlplane"
 )
 
 // Handler provides HTTP handlers for agent API endpoints.

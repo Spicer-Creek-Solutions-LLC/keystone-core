@@ -1,3 +1,5 @@
+// Package version exposes build and version metadata for Keystone Core.
+// NOTE: API/ABI is not finalized and may change without notice.
 package version
 
 import "fmt"

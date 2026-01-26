@@ -6,7 +6,7 @@ import (
 	"sort"
 	"time"
 
-	policypkg "github.com/shawnbutts/keystone-core/pkg/policy"
+	policypkg "github.com/shawnbutts/keystone-core/internal/policy"
 )
 
 // NewModulePolicyEngine creates a new module policy engine

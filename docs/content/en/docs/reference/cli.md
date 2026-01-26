@@ -148,6 +148,8 @@ kscorectl exec run <command> --target <target-expression>
 - `--timeout duration`: Request timeout (default: 5m)
 - `--audit-level string`: Audit logging level (all, errors, none)
 - `--audit-output string`: Audit output backend (auto, syslog, journald, stderr, none)
+- `--tls-min-version string`: Minimum TLS version (1.2 or 1.3, default: 1.3)
+- `--tls-skip-verify`: Skip TLS certificate verification (requires `KSCORE_ALLOW_INSECURE_TLS=1`, dev only)
 
 **Flags**:
 - `--concurrency int`: Number of concurrent executions (default: 10)
@@ -1222,6 +1224,8 @@ kscorectl module publish my-module-1.0.0.zip --signature my-module-1.0.0.zip.sig
 
 Install modules from a registry.
 
+Module archive entries larger than 256 MB are rejected to protect against decompression bombs.
+
 ```bash
 kscorectl module install <module[@version]> [modules...] [flags]
 ```
@@ -1713,6 +1717,8 @@ Install: kscorectl blueprint install community/nginx@2.1.0
 ### blueprint install
 
 Install blueprints from a registry.
+
+Blueprint archive entries larger than 256 MB are rejected to protect against decompression bombs.
 
 ```bash
 kscorectl blueprint install <blueprint[@version]>... [flags]

@@ -38,7 +38,7 @@ server:
       key: /etc/kscore/server.key
       ca: /etc/kscore/ca.crt
       verify: true
-      min_version: "1.2"
+      min_version: "1.3"
 
     # Leaf node hub configuration
     leaf:

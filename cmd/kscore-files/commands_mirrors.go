@@ -8,9 +8,9 @@ import (
 	"text/tabwriter"
 	"time"
 
-	clierrors "github.com/shawnbutts/keystone-core/pkg/cli/errors"
-	"github.com/shawnbutts/keystone-core/pkg/cli/output"
-	"github.com/shawnbutts/keystone-core/pkg/files/mirror"
+	clierrors "github.com/shawnbutts/keystone-core/internal/cli/errors"
+	"github.com/shawnbutts/keystone-core/internal/cli/output"
+	"github.com/shawnbutts/keystone-core/internal/files/mirror"
 	"github.com/spf13/cobra"
 )
 

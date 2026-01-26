@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shawnbutts/keystone-core/pkg/logging"
-	"github.com/shawnbutts/keystone-core/pkg/metrics"
+	"github.com/shawnbutts/keystone-core/internal/logging"
+	"github.com/shawnbutts/keystone-core/internal/metrics"
 )
 
 func TestDefaultTelemetryConfig(t *testing.T) {

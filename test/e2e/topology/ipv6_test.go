@@ -84,8 +84,7 @@ func setupIPv6Environment(t *testing.T) {
 		}
 	}
 
-	var err error
-	ipv6TestEnv, err = harness.New(cfg)
+	env, err := harness.New(cfg)
 	if err != nil {
 		t.Fatalf("Failed to create IPv6 test environment: %v", err)
 	}
@@ -93,9 +92,12 @@ func setupIPv6Environment(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	if err := ipv6TestEnv.Start(ctx, cfg); err != nil {
+	if err := env.Start(ctx, cfg); err != nil {
+		_ = env.Stop(ctx)
 		t.Fatalf("Failed to start IPv6 test environment: %v", err)
 	}
+
+	ipv6TestEnv = env
 
 	// Register cleanup
 	t.Cleanup(func() {

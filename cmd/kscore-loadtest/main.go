@@ -11,8 +11,8 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/shawnbutts/keystone-core/internal/loadtest"
-	"github.com/shawnbutts/keystone-core/pkg/cli/auditutil"
-	"github.com/shawnbutts/keystone-core/pkg/cli/output"
+	"github.com/shawnbutts/keystone-core/internal/cli/auditutil"
+	"github.com/shawnbutts/keystone-core/internal/cli/output"
 	"github.com/shawnbutts/keystone-core/pkg/version"
 )
 

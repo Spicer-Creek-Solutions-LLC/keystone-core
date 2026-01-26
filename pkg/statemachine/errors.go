@@ -16,6 +16,9 @@ var (
 	// ErrMachineClosed is returned when attempting to use a closed state machine.
 	ErrMachineClosed = errors.New("state machine is closed")
 
+	// ErrConcurrentTransition is returned when another transition completed first.
+	ErrConcurrentTransition = errors.New("concurrent transition detected")
+
 	// ErrNoInitialState is returned when building a machine without an initial state.
 	ErrNoInitialState = errors.New("no initial state specified")
 
