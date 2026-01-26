@@ -1490,6 +1490,452 @@ vlan_office:
 
 ---
 
+## WiFi Module
+
+Manage wireless network connections and profiles.
+
+### States
+
+- `connected` - Actively connected to this WiFi network
+- `configured` - Network profile stored but not necessarily connected
+- `absent` - Remove network profile
+
+### Parameters
+
+**ssid** (string, required)
+- WiFi network name
+- Maximum 32 characters
+- Example: `"Office WiFi"`
+
+**security** (string, optional)
+- Security mode: `wpa2-psk`, `wpa3`, `wep`, `open`
+- Aliases: `wpa2` → `wpa2-psk`, `none` → `open`
+- Default: `wpa2-psk`
+- Example: `"wpa2-psk"`
+
+**password** (string, conditional)
+- WiFi password
+- Required for `wpa2-psk`, `wpa3`, and `wep` security modes
+- WPA: 8-63 characters
+- WEP: 5 or 13 characters (40-bit or 104-bit)
+- Example: `"{{ vault.wifi_password }}"`
+
+**interface** (string, optional)
+- WiFi interface name
+- Default: auto-detected or `wlan0` (Linux), `en0` (macOS), `Wi-Fi` (Windows)
+- Example: `"wlan0"`
+
+**priority** (int, optional)
+- Network priority for auto-connection (0-100)
+- Higher values = higher priority
+- Default: `0`
+- Example: `100`
+
+**hidden** (bool, optional)
+- Whether the network SSID is hidden
+- Default: `false`
+- Example: `true`
+
+**auto_connect** (bool, optional)
+- Whether to auto-connect to this network
+- Default: `true`
+- Example: `false`
+
+**bssid** (string, optional)
+- Specific access point BSSID/MAC address
+- Example: `"00:11:22:33:44:55"`
+
+**name** (string, optional)
+- Connection/profile name (defaults to SSID)
+- Example: `"Work Network"`
+
+### Platform Support
+
+| Platform | Backend | Support |
+|----------|---------|---------|
+| Linux | NetworkManager (nmcli) | Full |
+| Linux | wpa_supplicant | Full |
+| macOS | networksetup | Full |
+| Windows | netsh wlan | Full |
+
+### Examples
+
+#### Basic WPA2 Network
+
+```yaml
+office_wifi:
+  module: wifi
+  state: connected
+  ssid: "Office WiFi"
+  security: wpa2-psk
+  password: "{{ vault.wifi_password }}"
+```
+
+#### Open Network (Guest)
+
+```yaml
+guest_network:
+  module: wifi
+  state: configured
+  ssid: "Guest Network"
+  security: open
+```
+
+#### Hidden Network with Priority
+
+```yaml
+secure_wifi:
+  module: wifi
+  state: connected
+  ssid: "Hidden Secure Network"
+  security: wpa3
+  password: "{{ vault.secure_wifi_password }}"
+  hidden: true
+  priority: 100
+  auto_connect: true
+```
+
+#### Remove Network Profile
+
+```yaml
+old_network:
+  module: wifi
+  state: absent
+  ssid: "Old Network"
+```
+
+#### Specific Interface
+
+```yaml
+secondary_wifi:
+  module: wifi
+  state: connected
+  ssid: "Secondary Network"
+  security: wpa2-psk
+  password: "mypassword"
+  interface: wlan1
+```
+
+---
+
+## 802.1X Module (dot1x)
+
+Configure 802.1X authentication for wired and wireless network access control.
+
+### States
+
+- `enabled` - 802.1X authentication is active on the interface
+- `disabled` - 802.1X authentication is removed/disabled
+
+### Parameters
+
+**interface** (string, required)
+- Network interface for 802.1X authentication
+- Example: `"eth0"`, `"en0"`
+
+**eap_method** (string, required for enabled state)
+- EAP authentication method: `tls`, `ttls`, `peap`
+- Alias: `eap`
+- Example: `"tls"`
+
+**identity** (string, required for enabled state)
+- User identity/username for authentication
+- Example: `"user@example.com"`
+
+**password** (string, conditional)
+- Password for EAP-TTLS and EAP-PEAP methods
+- Required when `eap_method` is `ttls` or `peap`
+- Example: `"{{ vault.radius_password }}"`
+
+**client_cert** (string, conditional)
+- Path to client certificate for EAP-TLS
+- Required when `eap_method` is `tls`
+- Example: `"/etc/pki/client.crt"`
+
+**client_key** (string, conditional)
+- Path to client private key for EAP-TLS
+- Required when `eap_method` is `tls`
+- Example: `"/etc/pki/client.key"`
+
+**ca_cert** (string, optional)
+- Path to CA certificate for server validation
+- Recommended for all methods
+- Example: `"/etc/pki/ca.crt"`
+
+**phase2** (string, optional)
+- Inner authentication method for TTLS/PEAP: `mschapv2`, `pap`, `chap`, `md5`, `gtc`
+- Alias: `inner_auth`
+- Default: `mschapv2`
+- Example: `"mschapv2"`
+
+**anonymous** (string, optional)
+- Anonymous identity for outer authentication (privacy)
+- Alias: `anonymous_identity`
+- Example: `"anonymous@example.com"`
+
+**name** (string, optional)
+- Connection/profile name (defaults to `dot1x-<interface>`)
+- Example: `"corporate-auth"`
+
+### Platform Support
+
+| Platform | Backend | Support |
+|----------|---------|---------|
+| Linux | NetworkManager (nmcli) | Full |
+| Linux | wpa_supplicant | Full |
+| Windows | netsh lan (dot3svc) | Full |
+| macOS | Configuration Profiles | Full |
+
+### Examples
+
+#### EAP-TLS with Certificates
+
+```yaml
+wired_tls_auth:
+  module: dot1x
+  state: enabled
+  interface: eth0
+  eap_method: tls
+  identity: "user@example.com"
+  client_cert: /etc/pki/tls/certs/client.crt
+  client_key: /etc/pki/tls/private/client.key
+  ca_cert: /etc/pki/tls/certs/ca.crt
+```
+
+#### EAP-PEAP with Password
+
+```yaml
+wired_peap_auth:
+  module: dot1x
+  state: enabled
+  interface: eth0
+  eap_method: peap
+  identity: "jdoe"
+  password: "{{ vault.radius_password }}"
+  phase2: mschapv2
+  ca_cert: /etc/ssl/certs/corporate-ca.pem
+```
+
+#### EAP-TTLS with Anonymous Identity
+
+```yaml
+secure_wired:
+  module: dot1x
+  state: enabled
+  interface: eth0
+  eap_method: ttls
+  identity: "user@corp.example.com"
+  password: "{{ vault.network_password }}"
+  phase2: pap
+  anonymous: "anonymous@corp.example.com"
+  ca_cert: /etc/ssl/certs/radius-ca.pem
+```
+
+#### Disable 802.1X
+
+```yaml
+remove_auth:
+  module: dot1x
+  state: disabled
+  interface: eth0
+```
+
+---
+
+## Link Module
+
+Configure network interface link settings including speed, duplex, auto-negotiation, MTU, and Wake-on-LAN.
+
+### States
+
+- `configured` - Apply specific link settings
+- `default` - Reset to auto-negotiation
+
+### Parameters
+
+**interface** (string, required)
+- Network interface name (can use declaration ID)
+- Example: `"eth0"`, `"enp0s3"`
+
+**speed** (int, optional)
+- Link speed in Mbps: 10, 100, 1000, 2500, 5000, 10000, 25000, 40000, 100000
+- Example: `1000`
+
+**duplex** (string, optional)
+- Duplex mode: `full`, `half`
+- Example: `"full"`
+
+**autoneg** (bool, optional)
+- Enable/disable auto-negotiation
+- Alias: `auto_negotiation`
+- Example: `false`
+
+**mtu** (int, optional)
+- Maximum Transmission Unit (68-65535)
+- Example: `9000` (jumbo frames)
+
+**wol** (string, optional)
+- Wake-on-LAN mode: `disabled`, `magic`, `unicast`, `multicast`, `broadcast`, `arp`
+- Alias: `wake_on_lan`
+- Example: `"magic"`
+
+### Platform Support
+
+| Platform | Backend | Support |
+|----------|---------|---------|
+| Linux | ethtool | Full |
+| macOS | ifconfig/networksetup | Partial (speed/duplex/MTU) |
+| Windows | netsh/PowerShell | Full |
+
+### Examples
+
+#### Force 1 Gbps Full Duplex
+
+```yaml
+eth0:
+  module: link
+  state: configured
+  speed: 1000
+  duplex: full
+  autoneg: false
+```
+
+#### Jumbo Frames (MTU 9000)
+
+```yaml
+storage_nic:
+  module: link
+  state: configured
+  interface: eth1
+  mtu: 9000
+```
+
+#### Enable Wake-on-LAN
+
+```yaml
+server_nic:
+  module: link
+  state: configured
+  interface: eth0
+  wol: magic
+```
+
+#### Force 100 Mbps for Legacy Device
+
+```yaml
+legacy_switch_port:
+  module: link
+  state: configured
+  interface: eth2
+  speed: 100
+  duplex: full
+  autoneg: false
+```
+
+#### Reset to Auto-Negotiation
+
+```yaml
+eth0:
+  module: link
+  state: default
+```
+
+#### Combined Settings
+
+```yaml
+high_perf_nic:
+  module: link
+  state: configured
+  interface: enp0s25
+  speed: 10000
+  duplex: full
+  autoneg: false
+  mtu: 9000
+  wol: disabled
+```
+
+---
+
+## Promiscuous Mode Module (promisc)
+
+Enable or disable promiscuous mode on network interfaces for packet capture, bridging, or IDS/IPS systems.
+
+### States
+
+- `enabled` - Promiscuous mode is active
+- `disabled` - Promiscuous mode is disabled (normal operation)
+
+### Parameters
+
+**interface** (string, required)
+- Network interface name (can use declaration ID)
+- Example: `"eth0"`, `"enp0s3"`
+
+**allmulti** (bool, optional, Linux only)
+- Also enable/disable all-multicast mode
+- Alias: `all_multicast`
+- Default: `false`
+- Example: `true`
+
+### Platform Support
+
+| Platform | Backend | Support |
+|----------|---------|---------|
+| Linux | ip link | Full (promisc + allmulti) |
+| macOS | ifconfig | Full |
+| FreeBSD | ifconfig | Full |
+| Windows | PowerShell | Partial (adapter-dependent) |
+
+### Security Considerations
+
+Promiscuous mode allows the interface to receive all packets on the network segment, not just those addressed to it. This is useful for:
+
+- **Packet capture**: Network troubleshooting with tcpdump/Wireshark
+- **Bridging**: Software bridges need to see all traffic
+- **IDS/IPS**: Intrusion detection systems monitoring traffic
+- **Network monitoring**: Traffic analysis tools
+
+**Warning**: Enabling promiscuous mode on production interfaces may have security implications. Ensure proper authorization and audit logging.
+
+### Examples
+
+#### Enable Promiscuous Mode
+
+```yaml
+eth0:
+  module: promisc
+  state: enabled
+```
+
+#### Enable with All-Multicast (Linux)
+
+```yaml
+monitor_interface:
+  module: promisc
+  state: enabled
+  interface: eth1
+  allmulti: true
+```
+
+#### Disable Promiscuous Mode
+
+```yaml
+eth0:
+  module: promisc
+  state: disabled
+```
+
+#### Named Monitor Interface
+
+```yaml
+ids_capture:
+  module: promisc
+  state: enabled
+  interface: enp0s25
+```
+
+---
+
 ## Bond Module
 
 Create and manage network bonding/teaming for link aggregation.
@@ -3573,9 +4019,7 @@ tls_secret:
       MIICxjCCAa6gAwIBAgIJAJ...
       -----END CERTIFICATE-----
     tls.key: |
-      -----BEGIN PRIVATE KEY-----
-      MIIEvgIBADANBgkqhkiG9w...
-      -----END PRIVATE KEY-----
+      REDACTED_PRIVATE_KEY_MATERIAL
 ```
 
 #### Create Docker Registry Secret
@@ -3625,9 +4069,7 @@ ssh_key:
   type: kubernetes.io/ssh-auth
   string_data:
     ssh-privatekey: |
-      -----BEGIN OPENSSH PRIVATE KEY-----
-      b3BlbnNzaC1rZXktdjEA...
-      -----END OPENSSH PRIVATE KEY-----
+      REDACTED_SSH_PRIVATE_KEY
 ```
 
 #### Update Secret Data
