@@ -132,8 +132,19 @@
   - NotificationManager for multi-notifier dispatch
   - Integration tests for complete rotation workflows
 
+### Completed Recently
+- [x] Phase 3, Week 12: Rotation CLI and API
+  - kscore-secrets CLI plugin with rotation, schedule, and policy commands
+  - Rotation commands: list, show, start, status, history, trigger, rollback, pause, resume, cancel
+  - Schedule commands: list, show, create, enable, disable, delete
+  - Policy commands: list, show, create, delete
+  - Dry-run mode for rotation start command
+  - Multiple output formats (table, json, yaml)
+  - Strategy normalization (accepts both blue-green and blue_green)
+  - Comprehensive E2E tests for rotation system
+
 ### In Progress
-- [ ] Phase 3, Week 12: Rotation CLI and API
+- [ ] Phase 4, Week 13: Agent Secret Client
 
 ## Success Criteria
 
@@ -1229,13 +1240,13 @@ kscorectl secrets leases expiring --within 1h
 - [x] Add rotation notifications (Slack, PagerDuty)
 - [x] Write integration tests for rotation workflows
 
-#### Week 12: Rotation CLI and API
-- [ ] Implement `kscorectl secrets rotate` commands
-- [ ] Add rotation dry-run mode
-- [ ] Create rotation status and history views
-- [ ] Implement manual rollback command
-- [ ] Add rotation policy management commands
-- [ ] Write end-to-end rotation tests
+#### Week 12: Rotation CLI and API ✅
+- [x] Implement `kscorectl secrets rotate` commands
+- [x] Add rotation dry-run mode
+- [x] Create rotation status and history views
+- [x] Implement manual rollback command
+- [x] Add rotation policy management commands
+- [x] Write end-to-end rotation tests
 
 ### Phase 4: Agent Integration and Brokering (Weeks 13-16)
 
