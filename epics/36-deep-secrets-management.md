@@ -144,7 +144,7 @@
   - Comprehensive E2E tests for rotation system
 
 ### In Progress
-- [ ] Phase 4, Week 13: Agent Secret Client
+- [ ] Phase 4, Week 14: Secret Injection
 
 ## Success Criteria
 
@@ -1250,13 +1250,13 @@ kscorectl secrets leases expiring --within 1h
 
 ### Phase 4: Agent Integration and Brokering (Weeks 13-16)
 
-#### Week 13: Agent Secret Client
-- [ ] Implement agent-side secret client
-- [ ] Add SPIFFE-based authentication to broker
-- [ ] Create agent secret cache (memory and encrypted disk)
-- [ ] Implement automatic secret refresh on lease expiration
-- [ ] Add secret request batching for efficiency
-- [ ] Write unit tests for agent client
+#### Week 13: Agent Secret Client ✅
+- [x] Implement agent-side secret client
+- [x] Add SPIFFE-based authentication to broker
+- [x] Create agent secret cache (memory and encrypted disk)
+- [x] Implement automatic secret refresh on lease expiration
+- [x] Add secret request batching for efficiency
+- [x] Write unit tests for agent client
 
 #### Week 14: Secret Injection - Files and Environment
 - [ ] Implement file-based secret injection
