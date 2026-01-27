@@ -566,6 +566,13 @@ type RotationConfig struct {
 	// BatchDelay is the delay between batches.
 	BatchDelay time.Duration `json:"batch_delay,omitempty"`
 
+	// CanaryPercentage is the percentage of targets to update first (for canary strategy).
+	// Default is 10% if not specified.
+	CanaryPercentage int `json:"canary_percentage,omitempty"`
+
+	// CanaryDelay is how long to wait after canary verification before proceeding.
+	CanaryDelay time.Duration `json:"canary_delay,omitempty"`
+
 	// HealthCheck defines health check configuration for verification.
 	HealthCheck *HealthCheckConfig `json:"health_check,omitempty"`
 
@@ -584,16 +591,20 @@ type HealthCheckConfig struct {
 	// Type is the type of health check (http, tcp, exec).
 	Type string `json:"type"`
 
-	// Endpoint is the health check endpoint (for http type).
+	// Endpoint is the health check endpoint (for http/tcp type).
 	Endpoint string `json:"endpoint,omitempty"`
 
 	// ExpectedStatus is the expected HTTP status code.
 	ExpectedStatus int `json:"expected_status,omitempty"`
 
+	// Command is the command to execute (for exec type).
+	// Supports placeholders: {target_id}, {target_name}, {agent_id}
+	Command string `json:"command,omitempty"`
+
 	// Timeout is the health check timeout.
 	Timeout time.Duration `json:"timeout,omitempty"`
 
-	// Interval is the interval between health checks.
+	// Interval is the interval between retries.
 	Interval time.Duration `json:"interval,omitempty"`
 
 	// Retries is the number of retries before considering unhealthy.

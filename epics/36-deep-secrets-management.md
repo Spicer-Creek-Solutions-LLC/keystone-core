@@ -108,9 +108,20 @@
   - Callback hooks for lease lifecycle events
   - Stats reporting across backend types
   - Comprehensive tests with 70+ test cases
+- [x] Phase 3, Week 10: Rotation Orchestrator - Core
+  - ManagedRotation with 7-state machine (Pending, InProgress, Verifying, Completed, Failed, RolledBack, Cancelled)
+  - BlueGreenStrategy for atomic all-at-once updates
+  - RollingStrategy for batched updates with configurable delay
+  - RotationOrchestrator for managing concurrent rotations
+  - RotationCallbacks for state change notifications
+  - Event publishing for rotation state transitions
+  - Health check verification during rotation
+  - Automatic rollback on failure (configurable)
+  - Cancel support from any active state
+  - Comprehensive tests for state machine transitions
 
 ### In Progress
-- [ ] Phase 3, Week 10: Transit Encryption Service
+- [ ] Phase 3, Week 11: Rotation Orchestrator - Advanced
 
 ## Success Criteria
 
@@ -1191,12 +1202,12 @@ kscorectl secrets leases expiring --within 1h
 - [ ] Write unit tests for lease manager
 
 #### Week 10: Rotation Orchestrator - Core
-- [ ] Design rotation workflow engine
-- [ ] Implement blue-green rotation strategy
-- [ ] Implement rolling rotation strategy
-- [ ] Create rotation state machine
-- [ ] Add rotation event publishing
-- [ ] Write unit tests for rotation strategies
+- [x] Design rotation workflow engine
+- [x] Implement blue-green rotation strategy
+- [x] Implement rolling rotation strategy
+- [x] Create rotation state machine
+- [x] Add rotation event publishing
+- [x] Write unit tests for rotation strategies
 
 #### Week 11: Rotation Orchestrator - Advanced
 - [ ] Implement canary rotation strategy

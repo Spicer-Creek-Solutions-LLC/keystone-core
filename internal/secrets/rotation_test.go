@@ -2,7 +2,10 @@ package secrets
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -844,6 +847,102 @@ func TestRotationWithAutoRollback(t *testing.T) {
 	mu.Unlock()
 }
 
+// TestRollbackExecution tests that rollback actually executes the strategy rollback.
+func TestRollbackExecution(t *testing.T) {
+	t.Run("TargetsAreRolledBack", func(t *testing.T) {
+		var rollbackCompleteCalled bool
+		var rolledBackSucceeded, rolledBackFailed int
+		var mu sync.Mutex
+
+		callbacks := &RotationCallbacks{
+			OnRollbackComplete: func(r *ManagedRotation, succeeded, failed int) {
+				mu.Lock()
+				rollbackCompleteCalled = true
+				rolledBackSucceeded = succeeded
+				rolledBackFailed = failed
+				mu.Unlock()
+			},
+		}
+
+		targets := createTestTargets(5)
+		config := &RotationConfig{
+			Strategy: RotationStrategyBlueGreen,
+		}
+
+		rotation := NewManagedRotation("rot-rollback", "vault/secret/db", config, targets, callbacks)
+		rotation.SetStrategy(&BlueGreenStrategy{})
+
+		_ = rotation.Start()
+
+		// Simulate targets being updated
+		for _, t := range targets {
+			t.Status = TargetStatusUpdated
+		}
+
+		// Trigger failure and then rollback
+		_ = rotation.Fail(fmt.Errorf("simulated failure"))
+		_ = rotation.Rollback()
+
+		// Wait for rollback to execute
+		time.Sleep(100 * time.Millisecond)
+
+		mu.Lock()
+		defer mu.Unlock()
+
+		if !rollbackCompleteCalled {
+			t.Error("expected OnRollbackComplete to be called")
+		}
+		if rolledBackSucceeded != 5 {
+			t.Errorf("expected 5 successful rollbacks, got %d", rolledBackSucceeded)
+		}
+		if rolledBackFailed != 0 {
+			t.Errorf("expected 0 failed rollbacks, got %d", rolledBackFailed)
+		}
+
+		// Verify targets are marked as rolled back
+		for i, target := range targets {
+			if target.Status != TargetStatusRolled {
+				t.Errorf("target %d not rolled back, status: %s", i, target.Status)
+			}
+		}
+	})
+
+	t.Run("AutoRollbackOnVerificationFailure", func(t *testing.T) {
+		var rollbackCalled bool
+		var mu sync.Mutex
+
+		callbacks := &RotationCallbacks{
+			OnRollback: func(r *ManagedRotation) {
+				mu.Lock()
+				rollbackCalled = true
+				mu.Unlock()
+			},
+		}
+
+		targets := createTestTargets(3)
+		config := &RotationConfig{
+			Strategy:          RotationStrategyBlueGreen,
+			RollbackOnFailure: true,
+		}
+
+		rotation := NewManagedRotation("rot-verify-fail", "vault/secret/db", config, targets, callbacks)
+
+		_ = rotation.Start()
+		_ = rotation.MarkBatchComplete(1, 3, 0)
+		_ = rotation.MarkVerificationFailed(fmt.Errorf("health check failed"))
+
+		// Wait for auto-rollback
+		time.Sleep(100 * time.Millisecond)
+
+		mu.Lock()
+		defer mu.Unlock()
+
+		if !rollbackCalled {
+			t.Error("expected auto-rollback after verification failure")
+		}
+	})
+}
+
 // TestRotationFailureThreshold tests failure threshold handling.
 func TestRotationFailureThreshold(t *testing.T) {
 	broker := NewSecretBroker(&BrokerConfig{})
@@ -1075,3 +1174,585 @@ func (p *testEventPublisher) Publish(ctx context.Context, event *RotationStateEv
 }
 
 var _ RotationEventPublisher = (*testEventPublisher)(nil)
+
+// TestCanaryStrategy tests the canary rotation strategy.
+func TestCanaryStrategy(t *testing.T) {
+	t.Run("Name", func(t *testing.T) {
+		strategy := &CanaryStrategy{}
+		if strategy.Name() != RotationStrategyCanary {
+			t.Errorf("expected strategy name canary, got %s", strategy.Name())
+		}
+	})
+
+	t.Run("CanarySize_DefaultPercentage", func(t *testing.T) {
+		strategy := &CanaryStrategy{}
+		config := &RotationConfig{Strategy: RotationStrategyCanary}
+
+		// 10 targets, default 10% = 1
+		size := strategy.BatchSize(config, 10)
+		if size != 1 {
+			t.Errorf("expected canary size 1, got %d", size)
+		}
+
+		// 100 targets, default 10% = 10
+		size = strategy.BatchSize(config, 100)
+		if size != 10 {
+			t.Errorf("expected canary size 10, got %d", size)
+		}
+	})
+
+	t.Run("CanarySize_CustomPercentage", func(t *testing.T) {
+		strategy := &CanaryStrategy{}
+		config := &RotationConfig{
+			Strategy:         RotationStrategyCanary,
+			CanaryPercentage: 25,
+		}
+
+		// 100 targets, 25% = 25
+		size := strategy.BatchSize(config, 100)
+		if size != 25 {
+			t.Errorf("expected canary size 25, got %d", size)
+		}
+	})
+
+	t.Run("CanarySize_MinimumOne", func(t *testing.T) {
+		strategy := &CanaryStrategy{}
+		config := &RotationConfig{
+			Strategy:         RotationStrategyCanary,
+			CanaryPercentage: 5,
+		}
+
+		// 5 targets, 5% would be 0, but minimum is 1
+		size := strategy.BatchSize(config, 5)
+		if size != 1 {
+			t.Errorf("expected minimum canary size 1, got %d", size)
+		}
+	})
+
+	t.Run("BatchDelay_CanaryPhase", func(t *testing.T) {
+		strategy := &CanaryStrategy{isCanaryBatch: false}
+		config := &RotationConfig{Strategy: RotationStrategyCanary}
+
+		// During canary phase, no delay
+		delay := strategy.BatchDelay(config)
+		if delay != 0 {
+			t.Errorf("expected no delay during canary phase, got %v", delay)
+		}
+	})
+
+	t.Run("BatchDelay_MainPhase_Default", func(t *testing.T) {
+		strategy := &CanaryStrategy{isCanaryBatch: true}
+		config := &RotationConfig{Strategy: RotationStrategyCanary}
+
+		// After canary, default 30s delay
+		delay := strategy.BatchDelay(config)
+		if delay != 30*time.Second {
+			t.Errorf("expected 30s delay after canary, got %v", delay)
+		}
+	})
+
+	t.Run("BatchDelay_MainPhase_Custom", func(t *testing.T) {
+		strategy := &CanaryStrategy{isCanaryBatch: true}
+		config := &RotationConfig{
+			Strategy:    RotationStrategyCanary,
+			CanaryDelay: 60 * time.Second,
+		}
+
+		delay := strategy.BatchDelay(config)
+		if delay != 60*time.Second {
+			t.Errorf("expected 60s custom delay, got %v", delay)
+		}
+	})
+
+	t.Run("Execute", func(t *testing.T) {
+		strategy := &CanaryStrategy{}
+		targets := createTestTargets(10)
+		config := &RotationConfig{Strategy: RotationStrategyCanary}
+		rotation := NewManagedRotation("test", "path", config, targets, nil)
+		_ = rotation.Start()
+
+		// Execute canary batch (first call)
+		canaryTargets := targets[:1] // First target
+		err := strategy.Execute(context.Background(), rotation, canaryTargets)
+		if err != nil {
+			t.Fatalf("canary execute failed: %v", err)
+		}
+
+		// Verify canary target was updated
+		if canaryTargets[0].Status != TargetStatusUpdated {
+			t.Errorf("expected canary target updated, got %s", canaryTargets[0].Status)
+		}
+
+		// Strategy should now be in main phase
+		if !strategy.isCanaryBatch {
+			t.Error("expected strategy to be in main phase after canary execution")
+		}
+	})
+
+	t.Run("BatchSize_AfterCanary", func(t *testing.T) {
+		strategy := &CanaryStrategy{isCanaryBatch: true}
+		config := &RotationConfig{
+			Strategy:         RotationStrategyCanary,
+			CanaryPercentage: 20,
+		}
+
+		// 10 targets, 20% canary = 2, remaining = 8
+		size := strategy.BatchSize(config, 10)
+		if size != 8 {
+			t.Errorf("expected main batch size 8, got %d", size)
+		}
+	})
+}
+
+// TestCanaryStrategyOrchestrator tests canary strategy through the orchestrator.
+func TestCanaryStrategyOrchestrator(t *testing.T) {
+	broker := NewSecretBroker(&BrokerConfig{})
+	orchestrator := NewRotationOrchestrator(broker)
+
+	targets := createTestTargets(10)
+	config := &RotationConfig{
+		Strategy:         RotationStrategyCanary,
+		CanaryPercentage: 20,
+		CanaryDelay:      10 * time.Millisecond, // Short delay for testing
+	}
+
+	rotation, err := orchestrator.StartRotation(
+		context.Background(),
+		"rot-canary",
+		"vault/secret/db",
+		config,
+		targets,
+	)
+	if err != nil {
+		t.Fatalf("failed to start rotation: %v", err)
+	}
+
+	// Wait for completion
+	timeout := time.After(5 * time.Second)
+	for !rotation.IsTerminal() {
+		select {
+		case <-timeout:
+			t.Fatal("rotation timed out")
+		default:
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+
+	if !rotation.IsComplete() {
+		t.Errorf("expected rotation to complete, got state %s, error: %v",
+			rotation.State(), rotation.Error())
+	}
+
+	// Verify all targets were updated
+	for i, target := range targets {
+		if target.Status != TargetStatusVerified {
+			t.Errorf("target %d not verified, status: %s", i, target.Status)
+		}
+	}
+}
+
+// Integration tests for complete rotation workflows
+
+// TestIntegrationRotationWorkflow tests a complete rotation workflow.
+func TestIntegrationRotationWorkflow(t *testing.T) {
+	t.Run("FullBlueGreenWorkflow", func(t *testing.T) {
+		broker := NewSecretBroker(&BrokerConfig{})
+		orchestrator := NewRotationOrchestrator(broker)
+
+		var events []NotificationEvent
+		var mu sync.Mutex
+
+		callbacks := &RotationCallbacks{
+			OnStateChange: func(r *ManagedRotation, from, to RotationState) {
+				mu.Lock()
+				switch to {
+				case RotationStateInProgress:
+					events = append(events, NotificationEventStart)
+				case RotationStateCompleted:
+					events = append(events, NotificationEventComplete)
+				case RotationStateFailed:
+					events = append(events, NotificationEventFailed)
+				}
+				mu.Unlock()
+			},
+		}
+		orchestrator.SetCallbacks(callbacks)
+
+		targets := createTestTargets(10)
+		config := &RotationConfig{
+			Strategy: RotationStrategyBlueGreen,
+		}
+
+		rotation, err := orchestrator.StartRotation(
+			context.Background(),
+			"integration-test-1",
+			"vault/secret/database",
+			config,
+			targets,
+		)
+		if err != nil {
+			t.Fatalf("failed to start rotation: %v", err)
+		}
+
+		// Wait for completion
+		timeout := time.After(10 * time.Second)
+		for !rotation.IsTerminal() {
+			select {
+			case <-timeout:
+				t.Fatal("rotation timed out")
+			default:
+				time.Sleep(50 * time.Millisecond)
+			}
+		}
+
+		if !rotation.IsComplete() {
+			t.Errorf("expected completed, got %s", rotation.State())
+		}
+
+		mu.Lock()
+		defer mu.Unlock()
+
+		// Verify event sequence
+		if len(events) < 2 {
+			t.Errorf("expected at least 2 events, got %d", len(events))
+		}
+		if events[0] != NotificationEventStart {
+			t.Errorf("first event should be start, got %s", events[0])
+		}
+		if events[len(events)-1] != NotificationEventComplete {
+			t.Errorf("last event should be complete, got %s", events[len(events)-1])
+		}
+	})
+
+	t.Run("FullRollingWorkflow", func(t *testing.T) {
+		broker := NewSecretBroker(&BrokerConfig{})
+		orchestrator := NewRotationOrchestrator(broker)
+
+		var batchesCompleted int
+		var mu sync.Mutex
+
+		callbacks := &RotationCallbacks{
+			OnBatchComplete: func(r *ManagedRotation, batch, succeeded, failed int) {
+				mu.Lock()
+				batchesCompleted++
+				mu.Unlock()
+			},
+		}
+		orchestrator.SetCallbacks(callbacks)
+
+		targets := createTestTargets(20)
+		config := &RotationConfig{
+			Strategy:   RotationStrategyRolling,
+			BatchSize:  5,
+			BatchDelay: 10 * time.Millisecond,
+		}
+
+		rotation, err := orchestrator.StartRotation(
+			context.Background(),
+			"integration-rolling",
+			"vault/secret/api-key",
+			config,
+			targets,
+		)
+		if err != nil {
+			t.Fatalf("failed to start rotation: %v", err)
+		}
+
+		timeout := time.After(10 * time.Second)
+		for !rotation.IsTerminal() {
+			select {
+			case <-timeout:
+				t.Fatal("rotation timed out")
+			default:
+				time.Sleep(50 * time.Millisecond)
+			}
+		}
+
+		if !rotation.IsComplete() {
+			t.Errorf("expected completed, got %s: %v", rotation.State(), rotation.Error())
+		}
+
+		mu.Lock()
+		defer mu.Unlock()
+
+		// 20 targets / 5 batch size = 4 batches
+		if batchesCompleted != 4 {
+			t.Errorf("expected 4 batches, got %d", batchesCompleted)
+		}
+	})
+
+	t.Run("CanaryWithRollback", func(t *testing.T) {
+		broker := NewSecretBroker(&BrokerConfig{})
+		orchestrator := NewRotationOrchestrator(broker)
+
+		targets := createTestTargets(10)
+		config := &RotationConfig{
+			Strategy:          RotationStrategyCanary,
+			CanaryPercentage:  10,
+			CanaryDelay:       10 * time.Millisecond,
+			RollbackOnFailure: true,
+		}
+
+		rotation, err := orchestrator.StartRotation(
+			context.Background(),
+			"integration-canary",
+			"vault/secret/canary-test",
+			config,
+			targets,
+		)
+		if err != nil {
+			t.Fatalf("failed to start rotation: %v", err)
+		}
+
+		timeout := time.After(10 * time.Second)
+		for !rotation.IsTerminal() {
+			select {
+			case <-timeout:
+				t.Fatal("rotation timed out")
+			default:
+				time.Sleep(50 * time.Millisecond)
+			}
+		}
+
+		if !rotation.IsComplete() {
+			t.Errorf("expected completed, got %s: %v", rotation.State(), rotation.Error())
+		}
+	})
+}
+
+// TestIntegrationScheduledRotation tests scheduled rotation integration.
+func TestIntegrationScheduledRotation(t *testing.T) {
+	t.Run("ScheduledExecution", func(t *testing.T) {
+		broker := NewSecretBroker(&BrokerConfig{})
+		orchestrator := NewRotationOrchestrator(broker)
+		scheduler := NewRotationScheduler(orchestrator)
+
+		var executed bool
+		var result *RotationResult
+		var mu sync.Mutex
+
+		scheduler.SetCallbacks(
+			func(s *ScheduledRotation) {
+				mu.Lock()
+				executed = true
+				mu.Unlock()
+			},
+			func(s *ScheduledRotation, r *RotationResult) {
+				mu.Lock()
+				result = r
+				mu.Unlock()
+			},
+		)
+
+		schedule := &ScheduledRotation{
+			ID:         "scheduled-test",
+			SecretPath: "vault/secret/scheduled",
+			Schedule:   "* * * * *", // Every minute
+			Enabled:    true,
+			Config:     &RotationConfig{Strategy: RotationStrategyBlueGreen},
+			Targets:    createTestTargets(5),
+		}
+
+		err := scheduler.AddSchedule(schedule)
+		if err != nil {
+			t.Fatalf("failed to add schedule: %v", err)
+		}
+
+		err = scheduler.Start()
+		if err != nil {
+			t.Fatalf("failed to start scheduler: %v", err)
+		}
+		defer scheduler.Stop()
+
+		// Trigger immediately
+		err = scheduler.TriggerNow("scheduled-test")
+		if err != nil {
+			t.Fatalf("failed to trigger: %v", err)
+		}
+
+		// Wait for completion
+		timeout := time.After(5 * time.Second)
+		for {
+			mu.Lock()
+			done := result != nil
+			mu.Unlock()
+
+			if done {
+				break
+			}
+
+			select {
+			case <-timeout:
+				t.Fatal("scheduled rotation timed out")
+			default:
+				time.Sleep(50 * time.Millisecond)
+			}
+		}
+
+		mu.Lock()
+		defer mu.Unlock()
+
+		if !executed {
+			t.Error("rotation was not executed")
+		}
+		if result == nil {
+			t.Fatal("result is nil")
+		}
+		if !result.Success {
+			t.Errorf("rotation failed: %s", result.Error)
+		}
+	})
+}
+
+// TestIntegrationNotifications tests notification integration.
+func TestIntegrationNotifications(t *testing.T) {
+	t.Run("NotifyOnStateChanges", func(t *testing.T) {
+		var notifications []*Notification
+		var mu sync.Mutex
+
+		// Create a test notifier that captures notifications
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var msg SlackMessage
+			_ = json.NewDecoder(r.Body).Decode(&msg)
+
+			mu.Lock()
+			notifications = append(notifications, &Notification{
+				Message: msg.Attachments[0].Title,
+			})
+			mu.Unlock()
+
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer server.Close()
+
+		broker := NewSecretBroker(&BrokerConfig{})
+		orchestrator := NewRotationOrchestrator(broker)
+
+		notificationManager := NewNotificationManager()
+		notificationManager.AddNotifier(NewSlackNotifier(server.URL))
+
+		callbacks := &RotationCallbacks{
+			OnStateChange: func(r *ManagedRotation, from, to RotationState) {
+				var event NotificationEvent
+				var message string
+
+				switch to {
+				case RotationStateInProgress:
+					event = NotificationEventStart
+					message = "Rotation started"
+				case RotationStateCompleted:
+					event = NotificationEventComplete
+					message = "Rotation completed"
+				case RotationStateFailed:
+					event = NotificationEventFailed
+					message = "Rotation failed"
+				default:
+					return
+				}
+
+				notification := CreateNotification(r, event, message)
+				notificationManager.NotifyAsync(context.Background(), notification)
+			},
+		}
+		orchestrator.SetCallbacks(callbacks)
+
+		targets := createTestTargets(5)
+		config := &RotationConfig{Strategy: RotationStrategyBlueGreen}
+
+		rotation, _ := orchestrator.StartRotation(
+			context.Background(),
+			"notify-test",
+			"vault/secret/notify",
+			config,
+			targets,
+		)
+
+		// Wait for completion
+		timeout := time.After(5 * time.Second)
+		for !rotation.IsTerminal() {
+			select {
+			case <-timeout:
+				t.Fatal("rotation timed out")
+			default:
+				time.Sleep(50 * time.Millisecond)
+			}
+		}
+
+		// Give async notifications time to complete
+		time.Sleep(100 * time.Millisecond)
+
+		mu.Lock()
+		defer mu.Unlock()
+
+		if len(notifications) < 2 {
+			t.Errorf("expected at least 2 notifications, got %d", len(notifications))
+		}
+	})
+}
+
+// TestIntegrationHealthChecks tests health check integration.
+func TestIntegrationHealthChecks(t *testing.T) {
+	t.Run("HealthyTargets", func(t *testing.T) {
+		// Create a healthy endpoint
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer server.Close()
+
+		broker := NewSecretBroker(&BrokerConfig{})
+		orchestrator := NewRotationOrchestrator(broker)
+
+		targets := make([]*RotationTarget, 3)
+		for i := 0; i < 3; i++ {
+			targets[i] = &RotationTarget{
+				ID:       fmt.Sprintf("target-%d", i),
+				Name:     fmt.Sprintf("Target %d", i),
+				Endpoint: server.URL,
+				Status:   TargetStatusPending,
+			}
+		}
+
+		config := &RotationConfig{
+			Strategy: RotationStrategyBlueGreen,
+			HealthCheck: &HealthCheckConfig{
+				Type:     "http",
+				Endpoint: server.URL,
+				Timeout:  5 * time.Second,
+				Retries:  2,
+				Interval: 100 * time.Millisecond,
+			},
+		}
+
+		rotation, err := orchestrator.StartRotation(
+			context.Background(),
+			"health-check-test",
+			"vault/secret/health",
+			config,
+			targets,
+		)
+		if err != nil {
+			t.Fatalf("failed to start rotation: %v", err)
+		}
+
+		timeout := time.After(10 * time.Second)
+		for !rotation.IsTerminal() {
+			select {
+			case <-timeout:
+				t.Fatal("rotation timed out")
+			default:
+				time.Sleep(50 * time.Millisecond)
+			}
+		}
+
+		if !rotation.IsComplete() {
+			t.Errorf("expected completed, got %s: %v", rotation.State(), rotation.Error())
+		}
+
+		// Verify all targets are verified
+		for i, target := range targets {
+			if target.Status != TargetStatusVerified {
+				t.Errorf("target %d not verified: %s", i, target.Status)
+			}
+		}
+	})
+}

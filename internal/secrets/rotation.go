@@ -458,11 +458,57 @@ func (mr *ManagedRotation) onEnterFailed(from RotationState) {
 func (mr *ManagedRotation) onEnterRolledBack(from RotationState) {
 	mr.mu.Lock()
 	mr.Rotation.State = RotationStateRolledBack
-	mr.Progress.Message = "Rotation rolled back"
+	mr.Progress.Message = "Rolling back..."
 	mr.mu.Unlock()
 
 	if mr.callbacks != nil && mr.callbacks.OnRollback != nil {
 		mr.callbacks.OnRollback(mr)
+	}
+
+	// Execute strategy rollback if strategy is set
+	if mr.strategy != nil {
+		// Get targets that need rollback (updated, verified, or failed during verification)
+		mr.mu.RLock()
+		targetsToRollback := make([]*RotationTarget, 0)
+		for _, t := range mr.Targets {
+			if t.Status == TargetStatusUpdated || t.Status == TargetStatusVerified || t.Status == TargetStatusFailed {
+				targetsToRollback = append(targetsToRollback, t)
+			}
+		}
+		mr.mu.RUnlock()
+
+		if len(targetsToRollback) > 0 {
+			// Execute rollback in background
+			go func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+				defer cancel()
+
+				err := mr.strategy.Rollback(ctx, mr, targetsToRollback)
+
+				// Count rollback results
+				succeeded := 0
+				failed := 0
+				for _, t := range targetsToRollback {
+					if t.Status == TargetStatusRolled {
+						succeeded++
+					} else {
+						failed++
+					}
+				}
+
+				mr.mu.Lock()
+				if err != nil {
+					mr.Progress.Message = fmt.Sprintf("Rollback completed with errors: %v", err)
+				} else {
+					mr.Progress.Message = fmt.Sprintf("Rollback completed: %d succeeded, %d failed", succeeded, failed)
+				}
+				mr.mu.Unlock()
+
+				if mr.callbacks != nil && mr.callbacks.OnRollbackComplete != nil {
+					mr.callbacks.OnRollbackComplete(mr, succeeded, failed)
+				}
+			}()
+		}
 	}
 
 	if mr.callbacks != nil && mr.callbacks.OnStateChange != nil {
@@ -780,6 +826,7 @@ func NewRotationOrchestrator(broker *SecretBroker) *RotationOrchestrator {
 	// Register default strategies
 	ro.RegisterStrategy(&BlueGreenStrategy{})
 	ro.RegisterStrategy(&RollingStrategy{})
+	ro.RegisterStrategy(&CanaryStrategy{})
 
 	return ro
 }
@@ -1073,6 +1120,7 @@ func (s *BlueGreenStrategy) Verify(ctx context.Context, rotation *ManagedRotatio
 		return nil
 	}
 
+	registry := NewHealthCheckRegistry()
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var errors []error
@@ -1086,23 +1134,14 @@ func (s *BlueGreenStrategy) Verify(ctx context.Context, rotation *ManagedRotatio
 		go func(t *RotationTarget) {
 			defer wg.Done()
 
-			// Perform health check with retries
-			healthy := false
+			result, err := registry.CheckTarget(ctx, t, config.HealthCheck)
+
+			healthy := result != nil && result.Healthy
 			var lastErr error
-
-			for attempt := 0; attempt <= config.HealthCheck.Retries; attempt++ {
-				// Simulate health check
-				// In real implementation, this would make HTTP/TCP/exec calls
-				healthy = true
-				lastErr = nil
-
-				if healthy {
-					break
-				}
-
-				if attempt < config.HealthCheck.Retries {
-					time.Sleep(config.HealthCheck.Interval)
-				}
+			if err != nil {
+				lastErr = err
+			} else if result != nil && result.Error != "" {
+				lastErr = fmt.Errorf("%s", result.Error)
 			}
 
 			rotation.MarkHealthCheckResult(t.ID, healthy, lastErr)
@@ -1248,8 +1287,124 @@ func (s *RollingStrategy) Rollback(ctx context.Context, rotation *ManagedRotatio
 	return bg.Rollback(ctx, rotation, targets)
 }
 
+// CanaryStrategy implements the canary rotation strategy.
+// A small percentage of targets are updated first, verified, and then the rest follow.
+type CanaryStrategy struct {
+	// isCanaryBatch tracks whether we're in the canary phase
+	isCanaryBatch bool
+}
+
+// Name returns the strategy name.
+func (s *CanaryStrategy) Name() RotationStrategy {
+	return RotationStrategyCanary
+}
+
+// BatchSize returns the batch size based on canary phase.
+func (s *CanaryStrategy) BatchSize(config *RotationConfig, totalTargets int) int {
+	if s.isCanaryBatch {
+		// Return remaining targets after canary
+		canarySize := s.canarySize(config, totalTargets)
+		return totalTargets - canarySize
+	}
+	// First batch is the canary batch
+	return s.canarySize(config, totalTargets)
+}
+
+// canarySize calculates the number of canary targets.
+func (s *CanaryStrategy) canarySize(config *RotationConfig, totalTargets int) int {
+	percentage := config.CanaryPercentage
+	if percentage <= 0 {
+		percentage = 10 // Default 10%
+	}
+	if percentage > 100 {
+		percentage = 100
+	}
+
+	size := (totalTargets * percentage) / 100
+	if size < 1 {
+		return 1 // Minimum 1 canary
+	}
+	return size
+}
+
+// BatchDelay returns the delay after canary verification.
+func (s *CanaryStrategy) BatchDelay(config *RotationConfig) time.Duration {
+	if s.isCanaryBatch {
+		// After canary execution, wait the canary delay before proceeding to main batch
+		if config.CanaryDelay > 0 {
+			return config.CanaryDelay
+		}
+		return 30 * time.Second // Default 30s observation window
+	}
+	// No delay before canary batch
+	return 0
+}
+
+// Execute updates targets in the current batch.
+func (s *CanaryStrategy) Execute(ctx context.Context, rotation *ManagedRotation, targets []*RotationTarget) error {
+	for _, target := range targets {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		target.Status = TargetStatusUpdating
+
+		// In real implementation, this would push the secret to the target
+		target.UpdatedAt = time.Now()
+		target.Status = TargetStatusUpdated
+
+		// Update progress
+		mr := rotation
+		mr.mu.RLock()
+		updated := mr.Progress.UpdatedTargets
+		failed := mr.Progress.FailedTargets
+		total := mr.Progress.TotalTargets
+		mr.mu.RUnlock()
+
+		batchUpdated := 0
+		for _, t := range targets {
+			if t.Status == TargetStatusUpdated {
+				batchUpdated++
+			}
+		}
+
+		phase := "canary"
+		if s.isCanaryBatch {
+			phase = "main"
+		}
+
+		rotation.MarkBatchProgress(
+			updated+batchUpdated,
+			failed,
+			fmt.Sprintf("[%s] Updated %d/%d targets", phase, updated+batchUpdated, total),
+		)
+	}
+
+	// After executing canary batch, mark that we've moved past canary phase
+	if !s.isCanaryBatch {
+		s.isCanaryBatch = true
+	}
+
+	return nil
+}
+
+// Verify verifies targets after update.
+func (s *CanaryStrategy) Verify(ctx context.Context, rotation *ManagedRotation, targets []*RotationTarget) error {
+	bg := &BlueGreenStrategy{}
+	return bg.Verify(ctx, rotation, targets)
+}
+
+// Rollback reverts targets to the previous version.
+func (s *CanaryStrategy) Rollback(ctx context.Context, rotation *ManagedRotation, targets []*RotationTarget) error {
+	bg := &BlueGreenStrategy{}
+	return bg.Rollback(ctx, rotation, targets)
+}
+
 // Ensure strategies implement the interface.
 var (
 	_ RotationStrategyExecutor = (*BlueGreenStrategy)(nil)
 	_ RotationStrategyExecutor = (*RollingStrategy)(nil)
+	_ RotationStrategyExecutor = (*CanaryStrategy)(nil)
 )
