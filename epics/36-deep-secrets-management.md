@@ -18,7 +18,7 @@
 
 ## Status
 
-**IN PROGRESS** - Phase 4, Week 15 complete
+**IN PROGRESS** - Phase 5, Week 17 complete
 
 ### Completed
 - [x] Phase 1, Week 1: Core Secret Broker Architecture
@@ -150,9 +150,25 @@
   - CSI driver for secret volumes
   - Mutating admission webhook
   - Comprehensive tests (30+ test cases)
+- [x] Phase 4, Week 16: Credential Brokering Polish
+  - Connection pooling with min/max, idle/lifetime expiry
+  - Rate limiting (token bucket) with global/per-client/per-path limits
+  - Prometheus metrics with latency percentiles
+  - Health endpoints (liveness, readiness, detailed)
+  - Broker wrappers (PooledBackend, RateLimitedBroker, MetricsBroker)
+  - Benchmarks and concurrent access tests
+- [x] Phase 5, Week 17: HSM/KMS Integration - Cloud KMS
+  - AWS KMS provider with key wrapping, data key generation, signing
+  - Azure Key Vault HSM provider with wrap/unwrap, encrypt/decrypt
+  - GCP Cloud KMS provider with symmetric and asymmetric key support
+  - Key hierarchy management with master/DEK structure
+  - HKDF-based key derivation for purpose-specific keys
+  - KMS-backed secret cache with envelope encryption
+  - Multi-tier cache (L1 in-memory + L2 KMS-encrypted)
+  - Comprehensive tests (25+ test cases)
 
 ### In Progress
-- [ ] Phase 4, Week 16: Credential Brokering Polish
+- [ ] Phase 5, Week 18: HSM/KMS Integration - Hardware HSM
 
 ## Success Criteria
 
@@ -1282,23 +1298,23 @@ kscorectl secrets leases expiring --within 1h
 - [x] Implement pod mutation webhook
 - [x] Write Kubernetes integration tests
 
-#### Week 16: Credential Brokering Polish
-- [ ] Add connection pooling for backend connections
-- [ ] Implement request rate limiting
-- [ ] Create broker metrics and dashboards
-- [ ] Add broker health endpoints
-- [ ] Performance optimization and benchmarking
-- [ ] Write comprehensive end-to-end tests
+#### Week 16: Credential Brokering Polish ✅
+- [x] Add connection pooling for backend connections
+- [x] Implement request rate limiting
+- [x] Create broker metrics and dashboards
+- [x] Add broker health endpoints
+- [x] Performance optimization and benchmarking
+- [x] Write comprehensive end-to-end tests
 
 ### Phase 5: HSM/KMS and Advanced Features (Weeks 17-20)
 
 #### Week 17: HSM/KMS Integration - Cloud KMS
-- [ ] Implement AWS KMS key wrapping
-- [ ] Implement Azure Key Vault HSM integration
-- [ ] Implement GCP Cloud KMS integration
-- [ ] Create key hierarchy management
-- [ ] Add KMS-based cache encryption
-- [ ] Write integration tests for each KMS
+- [x] Implement AWS KMS key wrapping
+- [x] Implement Azure Key Vault HSM integration
+- [x] Implement GCP Cloud KMS integration
+- [x] Create key hierarchy management
+- [x] Add KMS-based cache encryption
+- [x] Write integration tests for each KMS
 
 #### Week 18: HSM/KMS Integration - Hardware HSM
 - [ ] Implement PKCS#11 interface
