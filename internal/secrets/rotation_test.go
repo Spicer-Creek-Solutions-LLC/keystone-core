@@ -1756,3 +1756,590 @@ func TestIntegrationHealthChecks(t *testing.T) {
 		}
 	})
 }
+
+// =============================================================================
+// End-to-End Tests
+// =============================================================================
+
+// TestE2ECompleteRotationLifecycle tests a complete rotation from start to finish.
+func TestE2ECompleteRotationLifecycle(t *testing.T) {
+	t.Run("RollingStrategy", func(t *testing.T) {
+		broker := NewSecretBroker(&BrokerConfig{})
+		orchestrator := NewRotationOrchestrator(broker)
+
+		var stateTransitions []RotationState
+		var mu sync.Mutex
+
+		orchestrator.SetCallbacks(&RotationCallbacks{
+			OnStateChange: func(r *ManagedRotation, from, to RotationState) {
+				mu.Lock()
+				stateTransitions = append(stateTransitions, to)
+				mu.Unlock()
+			},
+		})
+
+		targets := createTestTargets(6)
+		config := &RotationConfig{
+			Strategy:   RotationStrategyRolling,
+			BatchSize:  2,
+			BatchDelay: 10 * time.Millisecond,
+		}
+
+		rotation, err := orchestrator.StartRotation(
+			context.Background(),
+			"e2e-rolling",
+			"vault/secret/e2e/rolling",
+			config,
+			targets,
+		)
+		if err != nil {
+			t.Fatalf("failed to start: %v", err)
+		}
+
+		waitForRotation(t, rotation, 10*time.Second)
+
+		if !rotation.IsComplete() {
+			t.Errorf("expected completed, got %s: %v", rotation.State(), rotation.Error())
+		}
+
+		mu.Lock()
+		defer mu.Unlock()
+
+		// Verify we went through expected states
+		if len(stateTransitions) == 0 {
+			t.Error("expected state transitions")
+		}
+
+		// Verify all targets updated (at least the number we started with)
+		progress := rotation.GetProgress()
+		if progress.UpdatedTargets < 6 {
+			t.Errorf("expected at least 6 updated, got %d", progress.UpdatedTargets)
+		}
+	})
+
+	t.Run("BlueGreenStrategy", func(t *testing.T) {
+		broker := NewSecretBroker(&BrokerConfig{})
+		orchestrator := NewRotationOrchestrator(broker)
+
+		targets := createTestTargets(4)
+		config := &RotationConfig{
+			Strategy: RotationStrategyBlueGreen,
+		}
+
+		rotation, err := orchestrator.StartRotation(
+			context.Background(),
+			"e2e-bluegreen",
+			"vault/secret/e2e/bluegreen",
+			config,
+			targets,
+		)
+		if err != nil {
+			t.Fatalf("failed to start: %v", err)
+		}
+
+		waitForRotation(t, rotation, 10*time.Second)
+
+		if !rotation.IsComplete() {
+			t.Errorf("expected completed, got %s: %v", rotation.State(), rotation.Error())
+		}
+
+		// Verify completion - blue-green updates all targets
+		progress := rotation.GetProgress()
+		if progress.Percentage < 100 {
+			t.Errorf("expected 100%% completion, got %d%%", progress.Percentage)
+		}
+	})
+
+	t.Run("CanaryStrategy", func(t *testing.T) {
+		broker := NewSecretBroker(&BrokerConfig{})
+		orchestrator := NewRotationOrchestrator(broker)
+
+		targets := createTestTargets(10)
+		config := &RotationConfig{
+			Strategy:         RotationStrategyCanary,
+			CanaryPercentage: 20, // 2 targets for canary
+			CanaryDelay:      10 * time.Millisecond,
+		}
+
+		rotation, err := orchestrator.StartRotation(
+			context.Background(),
+			"e2e-canary",
+			"vault/secret/e2e/canary",
+			config,
+			targets,
+		)
+		if err != nil {
+			t.Fatalf("failed to start: %v", err)
+		}
+
+		waitForRotation(t, rotation, 10*time.Second)
+
+		if !rotation.IsComplete() {
+			t.Errorf("expected completed, got %s: %v", rotation.State(), rotation.Error())
+		}
+
+		// Verify completion
+		progress := rotation.GetProgress()
+		if progress.Percentage < 100 {
+			t.Errorf("expected 100%% completion, got %d%%", progress.Percentage)
+		}
+	})
+}
+
+// TestE2EScheduledRotation tests scheduled rotation setup.
+func TestE2EScheduledRotation(t *testing.T) {
+	t.Run("ScheduleSetup", func(t *testing.T) {
+		broker := NewSecretBroker(&BrokerConfig{})
+		orchestrator := NewRotationOrchestrator(broker)
+		scheduler := NewRotationScheduler(orchestrator)
+
+		schedule := &ScheduledRotation{
+			ID:         "sched-e2e",
+			SecretPath: "vault/secret/e2e/scheduled",
+			Schedule:   "*/5 * * * *", // Every 5 minutes
+			Enabled:    true,
+			Config:     &RotationConfig{Strategy: RotationStrategyRolling},
+			Targets:    createTestTargets(3),
+		}
+
+		err := scheduler.AddSchedule(schedule)
+		if err != nil {
+			t.Fatalf("failed to add schedule: %v", err)
+		}
+
+		// Verify schedule was added
+		retrieved, ok := scheduler.GetSchedule("sched-e2e")
+		if !ok {
+			t.Error("schedule not found after adding")
+		}
+		if retrieved.SecretPath != "vault/secret/e2e/scheduled" {
+			t.Errorf("wrong secret path: %s", retrieved.SecretPath)
+		}
+		if !retrieved.Enabled {
+			t.Error("schedule should be enabled")
+		}
+	})
+
+	t.Run("ScheduleEnableDisable", func(t *testing.T) {
+		broker := NewSecretBroker(&BrokerConfig{})
+		orchestrator := NewRotationOrchestrator(broker)
+		scheduler := NewRotationScheduler(orchestrator)
+
+		schedule := &ScheduledRotation{
+			ID:         "sched-toggle",
+			SecretPath: "vault/secret/e2e/toggle",
+			Schedule:   "0 * * * *",
+			Enabled:    true,
+			Config:     &RotationConfig{Strategy: RotationStrategyRolling},
+			Targets:    createTestTargets(3),
+		}
+
+		_ = scheduler.AddSchedule(schedule)
+
+		// Disable
+		err := scheduler.DisableSchedule("sched-toggle")
+		if err != nil {
+			t.Fatalf("failed to disable: %v", err)
+		}
+
+		s, _ := scheduler.GetSchedule("sched-toggle")
+		if s.Enabled {
+			t.Error("schedule should be disabled")
+		}
+
+		// Enable
+		err = scheduler.EnableSchedule("sched-toggle")
+		if err != nil {
+			t.Fatalf("failed to enable: %v", err)
+		}
+
+		s, _ = scheduler.GetSchedule("sched-toggle")
+		if !s.Enabled {
+			t.Error("schedule should be enabled")
+		}
+	})
+
+	t.Run("SchedulerStartStop", func(t *testing.T) {
+		broker := NewSecretBroker(&BrokerConfig{})
+		orchestrator := NewRotationOrchestrator(broker)
+		scheduler := NewRotationScheduler(orchestrator)
+
+		if scheduler.IsRunning() {
+			t.Error("scheduler should not be running initially")
+		}
+
+		err := scheduler.Start()
+		if err != nil {
+			t.Fatalf("failed to start: %v", err)
+		}
+
+		if !scheduler.IsRunning() {
+			t.Error("scheduler should be running after start")
+		}
+
+		scheduler.Stop()
+		time.Sleep(50 * time.Millisecond)
+
+		if scheduler.IsRunning() {
+			t.Error("scheduler should not be running after stop")
+		}
+	})
+}
+
+// TestE2EFailureAndRollback tests failure handling and rollback.
+func TestE2EFailureAndRollback(t *testing.T) {
+	t.Run("RollbackInitiation", func(t *testing.T) {
+		rotation := createTestRotation(5)
+		_ = rotation.Start()
+
+		// Mark some progress
+		rotation.MarkBatchProgress(2, 0, "Testing")
+
+		// Force a failure
+		err := rotation.Fail(fmt.Errorf("test failure"))
+		if err != nil {
+			t.Fatalf("failed to mark failure: %v", err)
+		}
+
+		if rotation.State() != RotationStateFailed {
+			t.Errorf("expected failed state, got %s", rotation.State())
+		}
+
+		// Try to initiate rollback
+		err = rotation.Rollback()
+		if err != nil {
+			t.Fatalf("failed to initiate rollback: %v", err)
+		}
+
+		if rotation.State() != RotationStateRolledBack && rotation.State() != RotationStateFailed {
+			t.Errorf("expected rolled_back or failed state, got %s", rotation.State())
+		}
+	})
+
+	t.Run("RollbackConfigOption", func(t *testing.T) {
+		targets := createTestTargets(5)
+		config := &RotationConfig{
+			Strategy:          RotationStrategyRolling,
+			BatchSize:         1,
+			RollbackOnFailure: true,
+			FailureThreshold:  50, // 50% threshold
+		}
+
+		rotation := NewManagedRotation("rollback-test", "vault/secret/rollback", config, targets, nil)
+
+		// Verify config
+		if !config.RollbackOnFailure {
+			t.Error("rollback on failure should be enabled")
+		}
+		if config.FailureThreshold != 50 {
+			t.Errorf("expected 50%% threshold, got %.0f%%", config.FailureThreshold)
+		}
+
+		// Verify rotation was created
+		if rotation.State() != RotationStatePending {
+			t.Errorf("expected pending state, got %s", rotation.State())
+		}
+	})
+
+	t.Run("ManualRollbackFromFailed", func(t *testing.T) {
+		rotation := createTestRotation(5)
+		_ = rotation.Start()
+		_ = rotation.Fail(fmt.Errorf("forced failure"))
+
+		if rotation.State() != RotationStateFailed {
+			t.Fatalf("expected failed state, got %s", rotation.State())
+		}
+
+		err := rotation.Rollback()
+		if err != nil {
+			t.Fatalf("rollback should be possible from failed state: %v", err)
+		}
+	})
+}
+
+// TestE2EConcurrentRotations tests running multiple rotations concurrently.
+func TestE2EConcurrentRotations(t *testing.T) {
+	t.Run("MultipleRotationsTracked", func(t *testing.T) {
+		broker := NewSecretBroker(&BrokerConfig{})
+		orchestrator := NewRotationOrchestrator(broker)
+
+		numRotations := 3
+		rotations := make([]*ManagedRotation, numRotations)
+
+		for i := 0; i < numRotations; i++ {
+			targets := createTestTargets(2)
+			config := &RotationConfig{
+				Strategy: RotationStrategyBlueGreen,
+			}
+
+			rotation, err := orchestrator.StartRotation(
+				context.Background(),
+				fmt.Sprintf("e2e-concurrent-%d", i),
+				fmt.Sprintf("vault/secret/e2e/concurrent/%d", i),
+				config,
+				targets,
+			)
+			if err != nil {
+				t.Fatalf("failed to start rotation %d: %v", i, err)
+			}
+			rotations[i] = rotation
+		}
+
+		// Verify all rotations are tracked
+		activeRotations := orchestrator.ListRotations()
+		if len(activeRotations) != numRotations {
+			t.Errorf("expected %d rotations tracked, got %d", numRotations, len(activeRotations))
+		}
+
+		// Wait for all to complete
+		for i, rotation := range rotations {
+			waitForRotation(t, rotation, 10*time.Second)
+			if !rotation.IsComplete() {
+				t.Errorf("rotation %d not completed: %s", i, rotation.State())
+			}
+		}
+	})
+
+	t.Run("GetRotationByID", func(t *testing.T) {
+		broker := NewSecretBroker(&BrokerConfig{})
+		orchestrator := NewRotationOrchestrator(broker)
+
+		targets := createTestTargets(2)
+		config := &RotationConfig{
+			Strategy: RotationStrategyBlueGreen,
+		}
+
+		rotation, err := orchestrator.StartRotation(
+			context.Background(),
+			"get-by-id-test",
+			"vault/secret/e2e/getbyid",
+			config,
+			targets,
+		)
+		if err != nil {
+			t.Fatalf("failed to start: %v", err)
+		}
+
+		// Get by ID
+		retrieved, ok := orchestrator.GetRotation("get-by-id-test")
+		if !ok {
+			t.Error("rotation not found by ID")
+		}
+		if retrieved != rotation {
+			t.Error("retrieved rotation doesn't match")
+		}
+
+		waitForRotation(t, rotation, 5*time.Second)
+	})
+}
+
+// TestE2ERotationWithHealthChecks tests rotation with health check verification.
+func TestE2ERotationWithHealthChecks(t *testing.T) {
+	t.Run("HTTPHealthChecks", func(t *testing.T) {
+		var requestCount int32
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			atomic.AddInt32(&requestCount, 1)
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"status":"healthy"}`))
+		}))
+		defer server.Close()
+
+		broker := NewSecretBroker(&BrokerConfig{})
+		orchestrator := NewRotationOrchestrator(broker)
+
+		targets := make([]*RotationTarget, 3)
+		for i := 0; i < 3; i++ {
+			targets[i] = &RotationTarget{
+				ID:       fmt.Sprintf("target-%d", i),
+				Name:     fmt.Sprintf("Target %d", i),
+				Endpoint: server.URL,
+				Status:   TargetStatusPending,
+			}
+		}
+
+		config := &RotationConfig{
+			Strategy: RotationStrategyBlueGreen,
+			HealthCheck: &HealthCheckConfig{
+				Type:     "http",
+				Endpoint: server.URL,
+				Timeout:  5 * time.Second,
+				Retries:  2,
+				Interval: 50 * time.Millisecond,
+			},
+		}
+
+		rotation, err := orchestrator.StartRotation(
+			context.Background(),
+			"e2e-health-http",
+			"vault/secret/e2e/health/http",
+			config,
+			targets,
+		)
+		if err != nil {
+			t.Fatalf("failed to start: %v", err)
+		}
+
+		waitForRotation(t, rotation, 10*time.Second)
+
+		if !rotation.IsComplete() {
+			t.Errorf("expected completed, got %s: %v", rotation.State(), rotation.Error())
+		}
+
+		// Health checks should have been called
+		if atomic.LoadInt32(&requestCount) == 0 {
+			t.Error("expected health check requests")
+		}
+	})
+
+	t.Run("FailedHealthCheck", func(t *testing.T) {
+		// Server that returns unhealthy
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusServiceUnavailable)
+		}))
+		defer server.Close()
+
+		broker := NewSecretBroker(&BrokerConfig{})
+		orchestrator := NewRotationOrchestrator(broker)
+
+		targets := make([]*RotationTarget, 3)
+		for i := 0; i < 3; i++ {
+			targets[i] = &RotationTarget{
+				ID:       fmt.Sprintf("target-%d", i),
+				Name:     fmt.Sprintf("Target %d", i),
+				Endpoint: server.URL,
+				Status:   TargetStatusPending,
+			}
+		}
+
+		config := &RotationConfig{
+			Strategy:          RotationStrategyBlueGreen,
+			RollbackOnFailure: true,
+			HealthCheck: &HealthCheckConfig{
+				Type:     "http",
+				Endpoint: server.URL,
+				Timeout:  1 * time.Second,
+				Retries:  1,
+				Interval: 50 * time.Millisecond,
+			},
+		}
+
+		rotation, err := orchestrator.StartRotation(
+			context.Background(),
+			"e2e-health-fail",
+			"vault/secret/e2e/health/fail",
+			config,
+			targets,
+		)
+		if err != nil {
+			t.Fatalf("failed to start: %v", err)
+		}
+
+		waitForRotation(t, rotation, 10*time.Second)
+
+		// Should fail or rollback due to failed health checks
+		state := rotation.State()
+		if state != RotationStateFailed && state != RotationStateRolledBack {
+			t.Errorf("expected failed or rolled_back state, got %s", state)
+		}
+	})
+}
+
+// TestE2ENotificationIntegration tests notifications during rotation.
+func TestE2ENotificationIntegration(t *testing.T) {
+	t.Run("AllNotificationEvents", func(t *testing.T) {
+		var notifications []Notification
+		var mu sync.Mutex
+
+		notificationServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var msg SlackMessage
+			_ = json.NewDecoder(r.Body).Decode(&msg)
+
+			mu.Lock()
+			if len(msg.Attachments) > 0 {
+				notifications = append(notifications, Notification{
+					Message: msg.Attachments[0].Title,
+				})
+			}
+			mu.Unlock()
+
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer notificationServer.Close()
+
+		broker := NewSecretBroker(&BrokerConfig{})
+		orchestrator := NewRotationOrchestrator(broker)
+
+		notificationManager := NewNotificationManager()
+		notificationManager.AddNotifier(NewSlackNotifier(notificationServer.URL))
+
+		orchestrator.SetCallbacks(&RotationCallbacks{
+			OnStateChange: func(r *ManagedRotation, from, to RotationState) {
+				var event NotificationEvent
+				var message string
+
+				switch to {
+				case RotationStateInProgress:
+					event = NotificationEventStart
+					message = "Rotation started"
+				case RotationStateCompleted:
+					event = NotificationEventComplete
+					message = "Rotation completed"
+				case RotationStateFailed:
+					event = NotificationEventFailed
+					message = "Rotation failed"
+				default:
+					return
+				}
+
+				notification := CreateNotification(r, event, message)
+				notificationManager.NotifyAsync(context.Background(), notification)
+			},
+		})
+
+		targets := createTestTargets(3)
+		config := &RotationConfig{Strategy: RotationStrategyBlueGreen}
+
+		rotation, err := orchestrator.StartRotation(
+			context.Background(),
+			"e2e-notify",
+			"vault/secret/e2e/notify",
+			config,
+			targets,
+		)
+		if err != nil {
+			t.Fatalf("failed to start: %v", err)
+		}
+
+		waitForRotation(t, rotation, 10*time.Second)
+
+		// Allow async notifications to complete
+		time.Sleep(200 * time.Millisecond)
+
+		mu.Lock()
+		defer mu.Unlock()
+
+		// Should have at least start and complete notifications
+		if len(notifications) < 2 {
+			t.Errorf("expected at least 2 notifications, got %d", len(notifications))
+		}
+	})
+}
+
+// =============================================================================
+// Test Helpers
+// =============================================================================
+
+func waitForRotation(t *testing.T, rotation *ManagedRotation, timeout time.Duration) {
+	t.Helper()
+
+	deadline := time.After(timeout)
+	for !rotation.IsTerminal() {
+		select {
+		case <-deadline:
+			t.Fatalf("rotation timed out in state %s", rotation.State())
+		default:
+			time.Sleep(50 * time.Millisecond)
+		}
+	}
+}

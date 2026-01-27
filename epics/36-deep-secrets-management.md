@@ -119,9 +119,21 @@
   - Automatic rollback on failure (configurable)
   - Cancel support from any active state
   - Comprehensive tests for state machine transitions
+- [x] Phase 3, Week 11: Rotation Orchestrator - Advanced
+  - CanaryStrategy with configurable percentage and observation window
+  - HealthChecker interface with HTTP, TCP, and exec implementations
+  - HealthCheckRegistry for managing checker types with retries
+  - Integrated health checks in verification phase
+  - Enhanced automatic rollback with full strategy execution
+  - RotationScheduler with cron expression support
+  - Full cron parsing (wildcards, ranges, lists, steps)
+  - SlackNotifier for webhook notifications
+  - PagerDutyNotifier for alerting integration
+  - NotificationManager for multi-notifier dispatch
+  - Integration tests for complete rotation workflows
 
 ### In Progress
-- [ ] Phase 3, Week 11: Rotation Orchestrator - Advanced
+- [ ] Phase 3, Week 12: Rotation CLI and API
 
 ## Success Criteria
 
@@ -1210,12 +1222,12 @@ kscorectl secrets leases expiring --within 1h
 - [x] Write unit tests for rotation strategies
 
 #### Week 11: Rotation Orchestrator - Advanced
-- [ ] Implement canary rotation strategy
-- [ ] Add health check integration for verification
-- [ ] Implement automatic rollback on failure
-- [ ] Create rotation scheduling (cron-like)
-- [ ] Add rotation notifications (Slack, PagerDuty)
-- [ ] Write integration tests for rotation workflows
+- [x] Implement canary rotation strategy
+- [x] Add health check integration for verification
+- [x] Implement automatic rollback on failure
+- [x] Create rotation scheduling (cron-like)
+- [x] Add rotation notifications (Slack, PagerDuty)
+- [x] Write integration tests for rotation workflows
 
 #### Week 12: Rotation CLI and API
 - [ ] Implement `kscorectl secrets rotate` commands
