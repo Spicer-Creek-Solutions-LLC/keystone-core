@@ -9,6 +9,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/statemachine"
 )
 
 // HSMSessionConfig contains configuration for HSM session management.
@@ -53,6 +55,18 @@ func DefaultHSMSessionConfig() *HSMSessionConfig {
 }
 
 // HSMSessionState represents the state of an HSM session.
+//
+// State Diagram (Mermaid):
+//
+//	stateDiagram-v2
+//	    [*] --> Idle
+//	    Idle --> Active: acquire
+//	    Active --> Idle: release
+//	    Active --> Invalid: error
+//	    Idle --> Closed: close
+//	    Active --> Closed: close
+//	    Invalid --> Closed: close
+//	    Closed --> [*]
 type HSMSessionState int
 
 const (
@@ -77,16 +91,72 @@ func (s HSMSessionState) String() string {
 	}
 }
 
+// HSMSessionEvent represents events that trigger session state transitions.
+type HSMSessionEvent string
+
+const (
+	// HSMSessionEventAcquire acquires a session from the pool.
+	HSMSessionEventAcquire HSMSessionEvent = "acquire"
+
+	// HSMSessionEventRelease returns a session to the pool.
+	HSMSessionEventRelease HSMSessionEvent = "release"
+
+	// HSMSessionEventError marks a session as invalid due to an error.
+	HSMSessionEventError HSMSessionEvent = "error"
+
+	// HSMSessionEventClose closes a session permanently.
+	HSMSessionEventClose HSMSessionEvent = "close"
+)
+
 // HSMPooledSession wraps an HSM session with pool metadata.
 type HSMPooledSession struct {
 	Session    *Session
 	Pool       *HSMSessionPool
 	State      HSMSessionState
+	machine    *statemachine.Machine[HSMSessionState, HSMSessionEvent]
 	CreatedAt  time.Time
 	LastUsedAt time.Time
 	UseCount   uint64
 	Errors     uint32
 	element    *list.Element
+}
+
+// buildSessionStateMachine creates a state machine for a pooled session.
+func buildSessionStateMachine(session *HSMPooledSession) *statemachine.Machine[HSMSessionState, HSMSessionEvent] {
+	builder := statemachine.New[HSMSessionState, HSMSessionEvent](HSMSessionStateIdle).
+		WithHistory(15).
+		WithName("hsm-session")
+
+	// Idle -> Active (acquire)
+	builder.AddTransition(HSMSessionStateIdle, HSMSessionEventAcquire, HSMSessionStateActive)
+
+	// Active -> Idle (release)
+	builder.AddTransition(HSMSessionStateActive, HSMSessionEventRelease, HSMSessionStateIdle)
+
+	// Active -> Invalid (error)
+	builder.AddTransition(HSMSessionStateActive, HSMSessionEventError, HSMSessionStateInvalid)
+
+	// Any state -> Closed
+	builder.AddTransition(HSMSessionStateIdle, HSMSessionEventClose, HSMSessionStateClosed)
+	builder.AddTransition(HSMSessionStateActive, HSMSessionEventClose, HSMSessionStateClosed)
+	builder.AddTransition(HSMSessionStateInvalid, HSMSessionEventClose, HSMSessionStateClosed)
+
+	// State entry callbacks
+	builder.OnEnter(HSMSessionStateActive, func(_ context.Context, _ HSMSessionState, _ HSMSessionState) {
+		session.LastUsedAt = time.Now()
+		session.UseCount++
+	})
+
+	builder.OnEnter(HSMSessionStateInvalid, func(_ context.Context, _ HSMSessionState, _ HSMSessionState) {
+		atomic.AddUint32(&session.Errors, 1)
+	})
+
+	// Global transition callback to sync State field
+	builder.OnTransition(func(_ context.Context, _, to HSMSessionState, _ HSMSessionEvent) {
+		session.State = to
+	})
+
+	return builder.MustBuild()
 }
 
 // IsValid checks if the session is still valid.
@@ -115,8 +185,17 @@ func (s *HSMPooledSession) Release() {
 
 // Invalidate marks the session as invalid.
 func (s *HSMPooledSession) Invalidate() {
-	s.State = HSMSessionStateInvalid
-	atomic.AddUint32(&s.Errors, 1)
+	_ = s.machine.Fire(HSMSessionEventError)
+}
+
+// SessionState returns the current state from the state machine.
+func (s *HSMPooledSession) SessionState() HSMSessionState {
+	return s.machine.State()
+}
+
+// History returns the session state transition history.
+func (s *HSMPooledSession) History() *statemachine.History[HSMSessionState, HSMSessionEvent] {
+	return s.machine.History()
 }
 
 // HSMSessionPool manages a pool of HSM sessions.
@@ -231,11 +310,10 @@ func (p *HSMSessionPool) tryAcquire(ctx context.Context) (*HSMPooledSession, err
 	for e := p.sessions.Front(); e != nil; e = e.Next() {
 		session := e.Value.(*HSMPooledSession)
 		if session.State == HSMSessionStateIdle && session.IsValid() {
-			session.State = HSMSessionStateActive
-			session.LastUsedAt = time.Now()
-			session.UseCount++
-			atomic.AddInt32(&p.activeCount, 1)
-			return session, nil
+			if err := session.machine.Fire(HSMSessionEventAcquire); err == nil {
+				atomic.AddInt32(&p.activeCount, 1)
+				return session, nil
+			}
 		}
 	}
 
@@ -244,8 +322,9 @@ func (p *HSMSessionPool) tryAcquire(ctx context.Context) (*HSMPooledSession, err
 		if err != nil {
 			return nil, err
 		}
-		session.State = HSMSessionStateActive
-		session.UseCount++
+		if err := session.machine.Fire(HSMSessionEventAcquire); err != nil {
+			return nil, fmt.Errorf("failed to acquire new session: %w", err)
+		}
 		atomic.AddInt32(&p.activeCount, 1)
 		return session, nil
 	}
@@ -284,6 +363,7 @@ func (p *HSMSessionPool) createSessionLocked(ctx context.Context) (*HSMPooledSes
 		CreatedAt:  time.Now(),
 		LastUsedAt: time.Now(),
 	}
+	pooledSession.machine = buildSessionStateMachine(pooledSession)
 
 	pooledSession.element = p.sessions.PushBack(pooledSession)
 	p.sessionMap[session.Handle] = pooledSession
@@ -309,7 +389,11 @@ func (p *HSMSessionPool) releaseSession(session *HSMPooledSession) {
 		return
 	}
 
-	session.State = HSMSessionStateIdle
+	// Transition to idle via state machine
+	if err := session.machine.Fire(HSMSessionEventRelease); err != nil {
+		p.closeSessionLocked(context.Background(), session)
+		return
+	}
 	p.sessions.MoveToFront(session.element)
 
 	p.stats.mu.Lock()
@@ -323,7 +407,8 @@ func (p *HSMSessionPool) closeSessionLocked(ctx context.Context, session *HSMPoo
 		return
 	}
 
-	session.State = HSMSessionStateClosed
+	// Transition to closed via state machine
+	_ = session.machine.Fire(HSMSessionEventClose)
 	p.iface.CloseSession(ctx, session.Session.Handle)
 
 	if session.element != nil {

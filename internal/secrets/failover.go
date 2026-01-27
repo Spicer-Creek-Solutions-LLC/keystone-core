@@ -5,6 +5,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/statemachine"
 )
 
 // HealthState represents the health state of a backend.
@@ -35,6 +37,45 @@ func (s HealthState) String() string {
 	}
 }
 
+// HealthEvent represents events that trigger health state transitions.
+//
+// State Diagram (Mermaid):
+//
+//	stateDiagram-v2
+//	    [*] --> Unknown
+//	    Unknown --> Healthy: check_success (threshold met)
+//	    Unknown --> Unhealthy: check_failure (threshold met)
+//	    Healthy --> Degraded: check_failure
+//	    Healthy --> Healthy: check_success
+//	    Degraded --> Healthy: check_success (threshold met)
+//	    Degraded --> Unhealthy: check_failure (threshold met)
+//	    Unhealthy --> Degraded: check_success
+//	    Unhealthy --> Unhealthy: check_failure
+type HealthEvent string
+
+const (
+	// HealthEventCheckSuccess records a successful health check.
+	HealthEventCheckSuccess HealthEvent = "check_success"
+
+	// HealthEventCheckFailure records a failed health check.
+	HealthEventCheckFailure HealthEvent = "check_failure"
+)
+
+// HealthMonitorCallbacks defines callbacks for health state transitions.
+type HealthMonitorCallbacks struct {
+	// OnStateChange is called when a backend's health state changes.
+	OnStateChange func(backendName string, from, to HealthState)
+
+	// OnHealthy is called when a backend becomes healthy.
+	OnHealthy func(backendName string)
+
+	// OnUnhealthy is called when a backend becomes unhealthy.
+	OnUnhealthy func(backendName string)
+
+	// OnDegraded is called when a backend becomes degraded.
+	OnDegraded func(backendName string)
+}
+
 // CircuitState represents the state of the circuit breaker.
 type CircuitState int32
 
@@ -61,6 +102,34 @@ func (s CircuitState) String() string {
 	}
 }
 
+// CircuitEvent represents events that trigger circuit breaker state transitions.
+//
+// State Diagram (Mermaid):
+//
+//	stateDiagram-v2
+//	    [*] --> Closed
+//	    Closed --> Open: failure_threshold
+//	    Open --> HalfOpen: timeout
+//	    HalfOpen --> Closed: success_threshold
+//	    HalfOpen --> Open: failure
+//	    Closed --> Closed: success
+//	    Closed --> Closed: failure_below_threshold
+type CircuitEvent string
+
+const (
+	// CircuitEventFailure records a failed request.
+	CircuitEventFailure CircuitEvent = "failure"
+
+	// CircuitEventSuccess records a successful request.
+	CircuitEventSuccess CircuitEvent = "success"
+
+	// CircuitEventTimeout triggers transition from open to half-open.
+	CircuitEventTimeout CircuitEvent = "timeout"
+
+	// CircuitEventReset resets the circuit to closed state.
+	CircuitEventReset CircuitEvent = "reset"
+)
+
 // CircuitBreakerConfig configures the circuit breaker.
 type CircuitBreakerConfig struct {
 	// FailureThreshold is the number of failures before opening the circuit.
@@ -86,37 +155,151 @@ func DefaultCircuitBreakerConfig() *CircuitBreakerConfig {
 	}
 }
 
+// CircuitBreakerCallbacks defines callbacks for circuit breaker state transitions.
+type CircuitBreakerCallbacks struct {
+	// OnStateChange is called when the circuit state changes.
+	OnStateChange func(from, to CircuitState)
+
+	// OnOpen is called when the circuit opens due to failures.
+	OnOpen func(failureCount int)
+
+	// OnClose is called when the circuit closes after recovery.
+	OnClose func()
+
+	// OnHalfOpen is called when the circuit enters half-open state.
+	OnHalfOpen func()
+}
+
 // CircuitBreaker implements the circuit breaker pattern for a backend.
 type CircuitBreaker struct {
 	config *CircuitBreakerConfig
 
-	state           atomic.Int32
+	// machine is the state machine managing transitions.
+	machine *statemachine.Machine[CircuitState, CircuitEvent]
+
+	// counters track failure/success counts
 	failureCount    atomic.Int32
 	successCount    atomic.Int32
 	halfOpenCount   atomic.Int32
 	lastFailureTime atomic.Int64
-	lastStateChange atomic.Int64
+
+	// callbacks for state change notifications
+	callbacks *CircuitBreakerCallbacks
 
 	mu sync.RWMutex
 }
 
 // NewCircuitBreaker creates a new circuit breaker.
 func NewCircuitBreaker(config *CircuitBreakerConfig) *CircuitBreaker {
+	return NewCircuitBreakerWithCallbacks(config, nil)
+}
+
+// NewCircuitBreakerWithCallbacks creates a new circuit breaker with callbacks.
+func NewCircuitBreakerWithCallbacks(config *CircuitBreakerConfig, callbacks *CircuitBreakerCallbacks) *CircuitBreaker {
 	if config == nil {
 		config = DefaultCircuitBreakerConfig()
 	}
 
 	cb := &CircuitBreaker{
-		config: config,
+		config:    config,
+		callbacks: callbacks,
 	}
-	cb.state.Store(int32(CircuitStateClosed))
-	cb.lastStateChange.Store(time.Now().UnixNano())
+	cb.machine = cb.buildStateMachine()
 	return cb
+}
+
+// buildStateMachine creates the circuit breaker state machine.
+func (cb *CircuitBreaker) buildStateMachine() *statemachine.Machine[CircuitState, CircuitEvent] {
+	builder := statemachine.New[CircuitState, CircuitEvent](CircuitStateClosed).
+		WithHistory(25).
+		WithName("circuit-breaker")
+
+	// Closed -> Open: failure threshold reached
+	builder.AddTransition(CircuitStateClosed, CircuitEventFailure, CircuitStateOpen).
+		WithGuard(func(_ context.Context, _ CircuitState, _ CircuitEvent) bool {
+			return int(cb.failureCount.Load()) >= cb.config.FailureThreshold
+		})
+
+	// Closed stays Closed on failure below threshold (ignore the event)
+	builder.Ignore(CircuitStateClosed, CircuitEventSuccess)
+
+	// Open -> HalfOpen: timeout elapsed
+	builder.AddTransition(CircuitStateOpen, CircuitEventTimeout, CircuitStateHalfOpen)
+
+	// HalfOpen -> Closed: success threshold reached
+	builder.AddTransition(CircuitStateHalfOpen, CircuitEventSuccess, CircuitStateClosed).
+		WithGuard(func(_ context.Context, _ CircuitState, _ CircuitEvent) bool {
+			return int(cb.successCount.Load()) >= cb.config.SuccessThreshold
+		})
+
+	// HalfOpen -> Open: any failure
+	builder.AddTransition(CircuitStateHalfOpen, CircuitEventFailure, CircuitStateOpen)
+
+	// Reset transitions - can reset from any state
+	builder.AddTransition(CircuitStateClosed, CircuitEventReset, CircuitStateClosed)
+	builder.AddTransition(CircuitStateOpen, CircuitEventReset, CircuitStateClosed)
+	builder.AddTransition(CircuitStateHalfOpen, CircuitEventReset, CircuitStateClosed)
+
+	// Callbacks for state entry
+	builder.OnEnter(CircuitStateClosed, func(_ context.Context, _ CircuitState, from CircuitState) {
+		cb.onEnterClosed(from)
+	})
+
+	builder.OnEnter(CircuitStateOpen, func(_ context.Context, _ CircuitState, from CircuitState) {
+		cb.onEnterOpen(from)
+	})
+
+	builder.OnEnter(CircuitStateHalfOpen, func(_ context.Context, _ CircuitState, from CircuitState) {
+		cb.onEnterHalfOpen(from)
+	})
+
+	// Global transition callback
+	builder.OnTransition(func(_ context.Context, from, to CircuitState, _ CircuitEvent) {
+		if cb.callbacks != nil && cb.callbacks.OnStateChange != nil && from != to {
+			cb.callbacks.OnStateChange(from, to)
+		}
+	})
+
+	return builder.MustBuild()
+}
+
+// onEnterClosed is called when entering the Closed state.
+func (cb *CircuitBreaker) onEnterClosed(from CircuitState) {
+	cb.failureCount.Store(0)
+	cb.successCount.Store(0)
+	cb.halfOpenCount.Store(0)
+
+	if cb.callbacks != nil && cb.callbacks.OnClose != nil && from != CircuitStateClosed {
+		cb.callbacks.OnClose()
+	}
+}
+
+// onEnterOpen is called when entering the Open state.
+func (cb *CircuitBreaker) onEnterOpen(from CircuitState) {
+	failCount := int(cb.failureCount.Load())
+	cb.failureCount.Store(0)
+	cb.successCount.Store(0)
+	cb.halfOpenCount.Store(0)
+
+	if cb.callbacks != nil && cb.callbacks.OnOpen != nil {
+		cb.callbacks.OnOpen(failCount)
+	}
+}
+
+// onEnterHalfOpen is called when entering the HalfOpen state.
+func (cb *CircuitBreaker) onEnterHalfOpen(from CircuitState) {
+	cb.failureCount.Store(0)
+	cb.successCount.Store(0)
+	cb.halfOpenCount.Store(0)
+
+	if cb.callbacks != nil && cb.callbacks.OnHalfOpen != nil {
+		cb.callbacks.OnHalfOpen()
+	}
 }
 
 // State returns the current circuit state.
 func (cb *CircuitBreaker) State() CircuitState {
-	return CircuitState(cb.state.Load())
+	return cb.machine.State()
 }
 
 // AllowRequest returns true if a request should be allowed.
@@ -131,8 +314,10 @@ func (cb *CircuitBreaker) AllowRequest() bool {
 		// Check if we should transition to half-open
 		lastFailure := time.Unix(0, cb.lastFailureTime.Load())
 		if time.Since(lastFailure) >= cb.config.OpenDuration {
-			cb.transitionTo(CircuitStateHalfOpen)
-			return cb.tryHalfOpen()
+			// Try to transition to half-open via state machine
+			if err := cb.machine.Fire(CircuitEventTimeout); err == nil {
+				return cb.tryHalfOpen()
+			}
 		}
 		return false
 
@@ -156,12 +341,14 @@ func (cb *CircuitBreaker) RecordSuccess() {
 
 	switch state {
 	case CircuitStateClosed:
+		// Reset failure count on success in closed state
 		cb.failureCount.Store(0)
 
 	case CircuitStateHalfOpen:
 		count := cb.successCount.Add(1)
 		if int(count) >= cb.config.SuccessThreshold {
-			cb.transitionTo(CircuitStateClosed)
+			// Try to transition to closed via state machine
+			_ = cb.machine.Fire(CircuitEventSuccess)
 		}
 	}
 }
@@ -175,36 +362,19 @@ func (cb *CircuitBreaker) RecordFailure() {
 	case CircuitStateClosed:
 		count := cb.failureCount.Add(1)
 		if int(count) >= cb.config.FailureThreshold {
-			cb.transitionTo(CircuitStateOpen)
+			// Try to transition to open via state machine
+			_ = cb.machine.Fire(CircuitEventFailure)
 		}
 
 	case CircuitStateHalfOpen:
-		cb.transitionTo(CircuitStateOpen)
+		// Any failure in half-open goes back to open
+		_ = cb.machine.Fire(CircuitEventFailure)
 	}
-}
-
-// transitionTo transitions to a new state.
-func (cb *CircuitBreaker) transitionTo(newState CircuitState) {
-	cb.mu.Lock()
-	defer cb.mu.Unlock()
-
-	oldState := CircuitState(cb.state.Load())
-	if oldState == newState {
-		return
-	}
-
-	cb.state.Store(int32(newState))
-	cb.lastStateChange.Store(time.Now().UnixNano())
-
-	// Reset counters on state change
-	cb.failureCount.Store(0)
-	cb.successCount.Store(0)
-	cb.halfOpenCount.Store(0)
 }
 
 // Reset resets the circuit breaker to closed state.
 func (cb *CircuitBreaker) Reset() {
-	cb.transitionTo(CircuitStateClosed)
+	_ = cb.machine.Fire(CircuitEventReset)
 }
 
 // Stats returns circuit breaker statistics.
@@ -214,8 +384,18 @@ func (cb *CircuitBreaker) Stats() *CircuitBreakerStats {
 		FailureCount:    int(cb.failureCount.Load()),
 		SuccessCount:    int(cb.successCount.Load()),
 		LastFailureTime: time.Unix(0, cb.lastFailureTime.Load()),
-		LastStateChange: time.Unix(0, cb.lastStateChange.Load()),
+		LastStateChange: cb.machine.StateEnteredAt(),
 	}
+}
+
+// History returns the state transition history.
+func (cb *CircuitBreaker) History() *statemachine.History[CircuitState, CircuitEvent] {
+	return cb.machine.History()
+}
+
+// CanTransition returns true if the given event can trigger a transition.
+func (cb *CircuitBreaker) CanTransition(event CircuitEvent) bool {
+	return cb.machine.CanFire(event)
 }
 
 // CircuitBreakerStats contains circuit breaker statistics.
@@ -236,6 +416,9 @@ type HealthMonitor struct {
 
 	// config is the health monitor configuration.
 	config *HealthMonitorConfig
+
+	// callbacks for state change notifications.
+	callbacks *HealthMonitorCallbacks
 
 	// stopCh signals the monitor to stop.
 	stopCh chan struct{}
@@ -278,8 +461,14 @@ type BackendHealth struct {
 	// Backend is the backend being monitored.
 	Backend SecretBackend
 
+	// name is the backend name for callbacks.
+	name string
+
 	// State is the current health state.
 	State HealthState
+
+	// machine is the state machine managing health transitions.
+	machine *statemachine.Machine[HealthState, HealthEvent]
 
 	// CircuitBreaker is the circuit breaker for this backend.
 	CircuitBreaker *CircuitBreaker
@@ -304,19 +493,125 @@ type BackendHealth struct {
 
 	// LastError is the last error encountered.
 	LastError error
+
+	// config holds the health monitor configuration.
+	config *HealthMonitorConfig
+
+	// callbacks for state change notifications.
+	callbacks *HealthMonitorCallbacks
+
+	mu sync.RWMutex
 }
 
 // NewHealthMonitor creates a new health monitor.
 func NewHealthMonitor(config *HealthMonitorConfig) *HealthMonitor {
+	return NewHealthMonitorWithCallbacks(config, nil)
+}
+
+// NewHealthMonitorWithCallbacks creates a new health monitor with callbacks.
+func NewHealthMonitorWithCallbacks(config *HealthMonitorConfig, callbacks *HealthMonitorCallbacks) *HealthMonitor {
 	if config == nil {
 		config = DefaultHealthMonitorConfig()
 	}
 
 	return &HealthMonitor{
-		backends: make(map[string]*BackendHealth),
-		config:   config,
-		stopCh:   make(chan struct{}),
+		backends:  make(map[string]*BackendHealth),
+		config:    config,
+		callbacks: callbacks,
+		stopCh:    make(chan struct{}),
 	}
+}
+
+// buildHealthStateMachine creates a health state machine for a backend.
+func (hm *HealthMonitor) buildHealthStateMachine(health *BackendHealth) *statemachine.Machine[HealthState, HealthEvent] {
+	builder := statemachine.New[HealthState, HealthEvent](HealthStateUnknown).
+		WithHistory(25).
+		WithName("health-" + health.name)
+
+	// Unknown -> Healthy: consecutive successes meet threshold
+	builder.AddTransition(HealthStateUnknown, HealthEventCheckSuccess, HealthStateHealthy).
+		WithGuard(func(_ context.Context, _ HealthState, _ HealthEvent) bool {
+			health.mu.RLock()
+			defer health.mu.RUnlock()
+			return health.ConsecutiveSuccesses >= hm.config.HealthyThreshold
+		})
+
+	// Unknown -> Unhealthy: consecutive failures meet threshold
+	builder.AddTransition(HealthStateUnknown, HealthEventCheckFailure, HealthStateUnhealthy).
+		WithGuard(func(_ context.Context, _ HealthState, _ HealthEvent) bool {
+			health.mu.RLock()
+			defer health.mu.RUnlock()
+			return health.ConsecutiveFailures >= hm.config.UnhealthyThreshold
+		})
+
+	// Healthy -> Degraded: first failure after healthy
+	builder.AddTransition(HealthStateHealthy, HealthEventCheckFailure, HealthStateDegraded)
+
+	// Healthy stays Healthy on success (ignore)
+	builder.Ignore(HealthStateHealthy, HealthEventCheckSuccess)
+
+	// Degraded -> Healthy: consecutive successes meet threshold
+	builder.AddTransition(HealthStateDegraded, HealthEventCheckSuccess, HealthStateHealthy).
+		WithGuard(func(_ context.Context, _ HealthState, _ HealthEvent) bool {
+			health.mu.RLock()
+			defer health.mu.RUnlock()
+			return health.ConsecutiveSuccesses >= hm.config.HealthyThreshold
+		})
+
+	// Degraded -> Unhealthy: consecutive failures meet threshold
+	builder.AddTransition(HealthStateDegraded, HealthEventCheckFailure, HealthStateUnhealthy).
+		WithGuard(func(_ context.Context, _ HealthState, _ HealthEvent) bool {
+			health.mu.RLock()
+			defer health.mu.RUnlock()
+			return health.ConsecutiveFailures >= hm.config.UnhealthyThreshold
+		})
+
+	// Unhealthy -> Degraded: first success after unhealthy
+	builder.AddTransition(HealthStateUnhealthy, HealthEventCheckSuccess, HealthStateDegraded)
+
+	// Unhealthy stays Unhealthy on failure (ignore)
+	builder.Ignore(HealthStateUnhealthy, HealthEventCheckFailure)
+
+	// State entry callbacks
+	builder.OnEnter(HealthStateHealthy, func(_ context.Context, _ HealthState, from HealthState) {
+		health.mu.Lock()
+		health.State = HealthStateHealthy
+		health.LastHealthy = time.Now()
+		health.mu.Unlock()
+
+		if hm.callbacks != nil && hm.callbacks.OnHealthy != nil && from != HealthStateHealthy {
+			hm.callbacks.OnHealthy(health.name)
+		}
+	})
+
+	builder.OnEnter(HealthStateDegraded, func(_ context.Context, _ HealthState, from HealthState) {
+		health.mu.Lock()
+		health.State = HealthStateDegraded
+		health.mu.Unlock()
+
+		if hm.callbacks != nil && hm.callbacks.OnDegraded != nil && from != HealthStateDegraded {
+			hm.callbacks.OnDegraded(health.name)
+		}
+	})
+
+	builder.OnEnter(HealthStateUnhealthy, func(_ context.Context, _ HealthState, from HealthState) {
+		health.mu.Lock()
+		health.State = HealthStateUnhealthy
+		health.mu.Unlock()
+
+		if hm.callbacks != nil && hm.callbacks.OnUnhealthy != nil && from != HealthStateUnhealthy {
+			hm.callbacks.OnUnhealthy(health.name)
+		}
+	})
+
+	// Global transition callback
+	builder.OnTransition(func(_ context.Context, from, to HealthState, _ HealthEvent) {
+		if hm.callbacks != nil && hm.callbacks.OnStateChange != nil && from != to {
+			hm.callbacks.OnStateChange(health.name, from, to)
+		}
+	})
+
+	return builder.MustBuild()
 }
 
 // Register registers a backend for health monitoring.
@@ -324,11 +619,16 @@ func (hm *HealthMonitor) Register(name string, backend SecretBackend) {
 	hm.mu.Lock()
 	defer hm.mu.Unlock()
 
-	hm.backends[name] = &BackendHealth{
+	health := &BackendHealth{
 		Backend:        backend,
+		name:           name,
 		State:          HealthStateUnknown,
 		CircuitBreaker: NewCircuitBreaker(hm.config.CircuitBreaker),
+		config:         hm.config,
+		callbacks:      hm.callbacks,
 	}
+	health.machine = hm.buildHealthStateMachine(health)
+	hm.backends[name] = health
 }
 
 // Unregister removes a backend from health monitoring.
@@ -480,9 +780,7 @@ func (hm *HealthMonitor) checkBackend(ctx context.Context, name string, health *
 
 	healthy := health.Backend.Healthy(checkCtx)
 
-	hm.mu.Lock()
-	defer hm.mu.Unlock()
-
+	health.mu.Lock()
 	health.LastCheck = time.Now()
 	health.TotalChecks++
 
@@ -491,20 +789,18 @@ func (hm *HealthMonitor) checkBackend(ctx context.Context, name string, health *
 		health.ConsecutiveFailures = 0
 		health.LastHealthy = time.Now()
 		health.LastError = nil
-
-		if health.ConsecutiveSuccesses >= hm.config.HealthyThreshold {
-			health.State = HealthStateHealthy
-		}
 	} else {
 		health.ConsecutiveFailures++
 		health.ConsecutiveSuccesses = 0
 		health.TotalFailures++
+	}
+	health.mu.Unlock()
 
-		if health.ConsecutiveFailures >= hm.config.UnhealthyThreshold {
-			health.State = HealthStateUnhealthy
-		} else if health.State == HealthStateHealthy {
-			health.State = HealthStateDegraded
-		}
+	// Fire state machine event (callbacks will update State)
+	if healthy {
+		_ = health.machine.Fire(HealthEventCheckSuccess)
+	} else {
+		_ = health.machine.Fire(HealthEventCheckFailure)
 	}
 }
 

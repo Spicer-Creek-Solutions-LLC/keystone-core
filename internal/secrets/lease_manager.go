@@ -5,7 +5,127 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/statemachine"
 )
+
+// LeaseTransitionEvent represents events that trigger lease state transitions.
+//
+// State Diagram (Mermaid):
+//
+//	stateDiagram-v2
+//	    [*] --> Pending
+//	    Pending --> Active: activate
+//	    Active --> Renewing: renew_start
+//	    Renewing --> Active: renew_success
+//	    Renewing --> Active: renew_failed (revert)
+//	    Active --> Expired: expire
+//	    Renewing --> Expired: expire
+//	    Active --> Revoked: revoke
+//	    Renewing --> Revoked: revoke
+type LeaseTransitionEvent string
+
+const (
+	// LeaseTransitionEventActivate activates a pending lease.
+	LeaseTransitionEventActivate LeaseTransitionEvent = "activate"
+
+	// LeaseTransitionEventRenewStart starts a renewal operation.
+	LeaseTransitionEventRenewStart LeaseTransitionEvent = "renew_start"
+
+	// LeaseTransitionEventRenewSuccess completes a successful renewal.
+	LeaseTransitionEventRenewSuccess LeaseTransitionEvent = "renew_success"
+
+	// LeaseTransitionEventRenewFailed reverts state after failed renewal.
+	LeaseTransitionEventRenewFailed LeaseTransitionEvent = "renew_failed"
+
+	// LeaseTransitionEventExpire marks a lease as expired.
+	LeaseTransitionEventExpire LeaseTransitionEvent = "expire"
+
+	// LeaseTransitionEventRevoke revokes a lease.
+	LeaseTransitionEventRevoke LeaseTransitionEvent = "revoke"
+)
+
+// leaseStateMachine is a shared state machine for validating lease transitions.
+var leaseStateMachine = buildLeaseStateMachine()
+
+// buildLeaseStateMachine creates a state machine for validating lease transitions.
+func buildLeaseStateMachine() *statemachine.Machine[LeaseState, LeaseTransitionEvent] {
+	builder := statemachine.New[LeaseState, LeaseTransitionEvent](LeaseStatePending).
+		WithName("lease-validator")
+
+	// Pending -> Active (on activate)
+	builder.AddTransition(LeaseStatePending, LeaseTransitionEventActivate, LeaseStateActive)
+
+	// Active -> Renewing (on renew_start)
+	builder.AddTransition(LeaseStateActive, LeaseTransitionEventRenewStart, LeaseStateRenewing)
+
+	// Renewing -> Active (on renew_success or renew_failed)
+	builder.AddTransition(LeaseStateRenewing, LeaseTransitionEventRenewSuccess, LeaseStateActive)
+	builder.AddTransition(LeaseStateRenewing, LeaseTransitionEventRenewFailed, LeaseStateActive)
+
+	// Active/Renewing -> Expired (on expire)
+	builder.AddTransition(LeaseStateActive, LeaseTransitionEventExpire, LeaseStateExpired)
+	builder.AddTransition(LeaseStateRenewing, LeaseTransitionEventExpire, LeaseStateExpired)
+
+	// Active/Renewing -> Revoked (on revoke)
+	builder.AddTransition(LeaseStateActive, LeaseTransitionEventRevoke, LeaseStateRevoked)
+	builder.AddTransition(LeaseStateRenewing, LeaseTransitionEventRevoke, LeaseStateRevoked)
+
+	// Ignore events on terminal states
+	builder.Ignore(LeaseStateExpired, LeaseTransitionEventExpire)
+	builder.Ignore(LeaseStateExpired, LeaseTransitionEventRevoke)
+	builder.Ignore(LeaseStateRevoked, LeaseTransitionEventRevoke)
+	builder.Ignore(LeaseStateRevoked, LeaseTransitionEventExpire)
+
+	return builder.MustBuild()
+}
+
+// CanTransitionLease checks if a lease can transition from its current state via an event.
+func CanTransitionLease(from LeaseState, event LeaseTransitionEvent) bool {
+	// Use the NextLeaseState function to check if a transition is valid
+	_, ok := NextLeaseState(from, event)
+	if ok {
+		return true
+	}
+
+	// Also allow ignored events on terminal states
+	if from == LeaseStateExpired || from == LeaseStateRevoked {
+		// These events are ignored (no-op) on terminal states
+		switch event {
+		case LeaseTransitionEventExpire, LeaseTransitionEventRevoke:
+			return true
+		}
+	}
+
+	return false
+}
+
+// NextLeaseState returns the target state for a lease transition.
+func NextLeaseState(from LeaseState, event LeaseTransitionEvent) (LeaseState, bool) {
+	transitions := map[LeaseState]map[LeaseTransitionEvent]LeaseState{
+		LeaseStatePending: {
+			LeaseTransitionEventActivate: LeaseStateActive,
+		},
+		LeaseStateActive: {
+			LeaseTransitionEventRenewStart: LeaseStateRenewing,
+			LeaseTransitionEventExpire:     LeaseStateExpired,
+			LeaseTransitionEventRevoke:     LeaseStateRevoked,
+		},
+		LeaseStateRenewing: {
+			LeaseTransitionEventRenewSuccess: LeaseStateActive,
+			LeaseTransitionEventRenewFailed:  LeaseStateActive,
+			LeaseTransitionEventExpire:       LeaseStateExpired,
+			LeaseTransitionEventRevoke:       LeaseStateRevoked,
+		},
+	}
+
+	if stateTransitions, ok := transitions[from]; ok {
+		if target, ok := stateTransitions[event]; ok {
+			return target, true
+		}
+	}
+	return from, false
+}
 
 // PersistentLeaseManager provides a database-backed implementation of LeaseManager.
 type PersistentLeaseManager struct {
@@ -168,8 +288,15 @@ func (m *PersistentLeaseManager) Track(ctx context.Context, lease *Lease) error 
 		return fmt.Errorf("lease ID is required")
 	}
 
-	// Set initial state
-	lease.State = LeaseStateActive
+	// Set initial state using state machine transition
+	if lease.State == "" {
+		lease.State = LeaseStatePending
+	}
+	if lease.State == LeaseStatePending {
+		if newState, ok := NextLeaseState(lease.State, LeaseTransitionEventActivate); ok {
+			lease.State = newState
+		}
+	}
 	if lease.IssuedAt.IsZero() {
 		lease.IssuedAt = time.Now()
 	}
@@ -179,7 +306,7 @@ func (m *PersistentLeaseManager) Track(ctx context.Context, lease *Lease) error 
 		return fmt.Errorf("failed to track lease: %w", err)
 	}
 
-	m.logLeaseEvent(ctx, lease, AuditActionLeaseCreate, nil)
+	m.logLeaseTransitionEvent(ctx, lease, AuditActionLeaseCreate, nil)
 	return nil
 }
 
@@ -232,8 +359,10 @@ func (m *PersistentLeaseManager) Renew(ctx context.Context, leaseID string, incr
 	}
 
 	if lease.IsExpired() {
-		// Update state to expired
-		lease.State = LeaseStateExpired
+		// Transition to expired using state machine
+		if newState, ok := NextLeaseState(lease.State, LeaseTransitionEventExpire); ok {
+			lease.State = newState
+		}
 		_ = m.store.Update(ctx, lease)
 		return nil, ErrLeaseExpired
 	}
@@ -247,9 +376,15 @@ func (m *PersistentLeaseManager) Renew(ctx context.Context, leaseID string, incr
 		return nil, fmt.Errorf("%w: %s", ErrBackendNotFound, lease.Backend)
 	}
 
-	// Mark as renewing
-	oldState := lease.State
-	lease.State = LeaseStateRenewing
+	// Validate transition to renewing
+	if !CanTransitionLease(lease.State, LeaseTransitionEventRenewStart) {
+		return nil, fmt.Errorf("cannot start renewal from state %s", lease.State)
+	}
+
+	// Mark as renewing using state machine
+	if newState, ok := NextLeaseState(lease.State, LeaseTransitionEventRenewStart); ok {
+		lease.State = newState
+	}
 	if err := m.store.Update(ctx, lease); err != nil {
 		return nil, err
 	}
@@ -257,15 +392,17 @@ func (m *PersistentLeaseManager) Renew(ctx context.Context, leaseID string, incr
 	// Renew at backend
 	renewedLease, err := backend.RenewLease(ctx, leaseID, increment)
 	if err != nil {
-		// Revert state
-		lease.State = oldState
+		// Revert state using state machine (RenewFailed returns to Active)
+		if newState, ok := NextLeaseState(lease.State, LeaseTransitionEventRenewFailed); ok {
+			lease.State = newState
+		}
 		_ = m.store.Update(ctx, lease)
 
 		m.stats.mu.Lock()
 		m.stats.FailedRenewals++
 		m.stats.mu.Unlock()
 
-		m.logLeaseEvent(ctx, lease, AuditActionLeaseRenewFailed, err)
+		m.logLeaseTransitionEvent(ctx, lease, AuditActionLeaseRenewFailed, err)
 
 		if m.callbacks != nil && m.callbacks.OnRenewFailed != nil {
 			m.callbacks.OnRenewFailed(ctx, lease, err)
@@ -274,8 +411,10 @@ func (m *PersistentLeaseManager) Renew(ctx context.Context, leaseID string, incr
 		return nil, err
 	}
 
-	// Update tracked lease
-	lease.State = LeaseStateActive
+	// Update tracked lease using state machine transition
+	if newState, ok := NextLeaseState(lease.State, LeaseTransitionEventRenewSuccess); ok {
+		lease.State = newState
+	}
 	lease.TTL = renewedLease.TTL
 	lease.ExpiresAt = renewedLease.ExpiresAt
 	lease.LastRenewal = time.Now()
@@ -289,7 +428,7 @@ func (m *PersistentLeaseManager) Renew(ctx context.Context, leaseID string, incr
 	m.stats.TotalRenewals++
 	m.stats.mu.Unlock()
 
-	m.logLeaseEvent(ctx, lease, AuditActionLeaseRenew, nil)
+	m.logLeaseTransitionEvent(ctx, lease, AuditActionLeaseRenew, nil)
 
 	if m.callbacks != nil && m.callbacks.OnRenew != nil {
 		m.callbacks.OnRenew(ctx, lease)
@@ -305,7 +444,10 @@ func (m *PersistentLeaseManager) Revoke(ctx context.Context, leaseID string) err
 		return err
 	}
 
-	lease.State = LeaseStateRevoked
+	// Transition to revoked using state machine
+	if newState, ok := NextLeaseState(lease.State, LeaseTransitionEventRevoke); ok {
+		lease.State = newState
+	}
 	if err := m.store.Update(ctx, lease); err != nil {
 		return err
 	}
@@ -314,7 +456,7 @@ func (m *PersistentLeaseManager) Revoke(ctx context.Context, leaseID string) err
 	m.stats.TotalRevokes++
 	m.stats.mu.Unlock()
 
-	m.logLeaseEvent(ctx, lease, AuditActionLeaseRevoke, nil)
+	m.logLeaseTransitionEvent(ctx, lease, AuditActionLeaseRevoke, nil)
 
 	if m.callbacks != nil && m.callbacks.OnRevoke != nil {
 		m.callbacks.OnRevoke(ctx, lease)
@@ -583,8 +725,8 @@ func (m *PersistentLeaseManager) cleanup() {
 	}
 }
 
-// logLeaseEvent logs a lease event.
-func (m *PersistentLeaseManager) logLeaseEvent(ctx context.Context, lease *Lease, action string, err error) {
+// logLeaseTransitionEvent logs a lease event.
+func (m *PersistentLeaseManager) logLeaseTransitionEvent(ctx context.Context, lease *Lease, action string, err error) {
 	m.mu.RLock()
 	logger := m.auditLogger
 	m.mu.RUnlock()

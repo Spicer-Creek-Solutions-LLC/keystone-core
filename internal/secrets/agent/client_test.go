@@ -859,3 +859,166 @@ func BenchmarkDiskCacheGet(b *testing.B) {
 		cache.Get("bench/disk")
 	}
 }
+
+// =============================================================================
+// Client State Machine Tests
+// =============================================================================
+
+func TestClientStateMachine_InitialState(t *testing.T) {
+	client, err := NewClient(&ClientConfig{
+		AgentID: "test-agent",
+	})
+	if err != nil {
+		t.Fatalf("failed to create client: %v", err)
+	}
+	defer client.Close()
+
+	if client.State() != ClientStateDisconnected {
+		t.Errorf("initial state = %v, want %v", client.State(), ClientStateDisconnected)
+	}
+}
+
+func TestClientStateMachine_CanTransition(t *testing.T) {
+	client, err := NewClient(&ClientConfig{
+		AgentID: "test-agent",
+	})
+	if err != nil {
+		t.Fatalf("failed to create client: %v", err)
+	}
+	defer client.Close()
+
+	// From Disconnected, can connect
+	if !client.CanTransition(ClientEventConnect) {
+		t.Error("should be able to connect from disconnected")
+	}
+
+	// From Disconnected, can close
+	if !client.CanTransition(ClientEventClose) {
+		t.Error("should be able to close from disconnected")
+	}
+
+	// From Disconnected, cannot fire connected event
+	if client.CanTransition(ClientEventConnected) {
+		t.Error("should not be able to fire connected from disconnected")
+	}
+}
+
+func TestClientStateMachine_CloseFromDisconnected(t *testing.T) {
+	client, err := NewClient(&ClientConfig{
+		AgentID: "test-agent",
+	})
+	if err != nil {
+		t.Fatalf("failed to create client: %v", err)
+	}
+
+	if err := client.Close(); err != nil {
+		t.Errorf("Close() from disconnected failed: %v", err)
+	}
+
+	if client.State() != ClientStateClosed {
+		t.Errorf("state after close = %v, want %v", client.State(), ClientStateClosed)
+	}
+}
+
+func TestClientStateMachine_CannotConnectWhenClosed(t *testing.T) {
+	client, err := NewClient(&ClientConfig{
+		AgentID: "test-agent",
+	})
+	if err != nil {
+		t.Fatalf("failed to create client: %v", err)
+	}
+
+	client.Close()
+
+	err = client.Connect(nil)
+	if err == nil {
+		t.Error("expected error when connecting closed client")
+	}
+}
+
+func TestClientStateMachine_DoubleCloseIsIdempotent(t *testing.T) {
+	client, err := NewClient(&ClientConfig{
+		AgentID: "test-agent",
+	})
+	if err != nil {
+		t.Fatalf("failed to create client: %v", err)
+	}
+
+	if err := client.Close(); err != nil {
+		t.Errorf("first Close() failed: %v", err)
+	}
+
+	if err := client.Close(); err != nil {
+		t.Errorf("second Close() should be idempotent: %v", err)
+	}
+}
+
+func TestClientStateMachine_History(t *testing.T) {
+	client, err := NewClient(&ClientConfig{
+		AgentID: "test-agent",
+	})
+	if err != nil {
+		t.Fatalf("failed to create client: %v", err)
+	}
+
+	client.Close()
+
+	history := client.History()
+	if history == nil {
+		t.Fatal("history should not be nil")
+	}
+
+	entries := history.All()
+	if len(entries) < 1 {
+		t.Errorf("expected at least 1 history entry, got %d", len(entries))
+	}
+}
+
+func TestClientStateMachine_StateChangeCallback(t *testing.T) {
+	client, err := NewClient(&ClientConfig{
+		AgentID: "test-agent",
+	})
+	if err != nil {
+		t.Fatalf("failed to create client: %v", err)
+	}
+
+	callbackCalled := make(chan bool, 1)
+	client.SetStateChangeCallback(func(old, new ClientState) {
+		if old == ClientStateDisconnected && new == ClientStateClosed {
+			callbackCalled <- true
+		}
+	})
+
+	client.Close()
+
+	select {
+	case <-callbackCalled:
+		// Success
+	case <-time.After(100 * time.Millisecond):
+		t.Error("state change callback was not called")
+	}
+}
+
+func TestClientEventConstants(t *testing.T) {
+	events := []ClientEvent{
+		ClientEventConnect,
+		ClientEventConnected,
+		ClientEventConnectFailed,
+		ClientEventDisconnect,
+		ClientEventClose,
+	}
+
+	for _, e := range events {
+		if e == "" {
+			t.Error("event should not be empty")
+		}
+	}
+
+	seen := make(map[ClientEvent]bool)
+	for _, e := range events {
+		if seen[e] {
+			t.Errorf("duplicate event: %s", e)
+		}
+		seen[e] = true
+	}
+}

@@ -18,9 +18,23 @@ import (
 	"time"
 
 	"github.com/shawnbutts/keystone-core/internal/secrets"
+	"github.com/shawnbutts/keystone-core/pkg/statemachine"
 )
 
 // ClientState represents the state of the secret client.
+//
+// State Diagram (Mermaid):
+//
+//	stateDiagram-v2
+//	    [*] --> Disconnected
+//	    Disconnected --> Connecting: connect
+//	    Connecting --> Connected: connected
+//	    Connecting --> Disconnected: connect_failed
+//	    Connected --> Disconnected: disconnect
+//	    Disconnected --> Closed: close
+//	    Connecting --> Closed: close
+//	    Connected --> Closed: close
+//	    Closed --> [*]
 type ClientState string
 
 const (
@@ -28,6 +42,26 @@ const (
 	ClientStateConnecting   ClientState = "connecting"
 	ClientStateConnected    ClientState = "connected"
 	ClientStateClosed       ClientState = "closed"
+)
+
+// ClientEvent represents events that trigger client state transitions.
+type ClientEvent string
+
+const (
+	// ClientEventConnect initiates a connection attempt.
+	ClientEventConnect ClientEvent = "connect"
+
+	// ClientEventConnected indicates successful connection.
+	ClientEventConnected ClientEvent = "connected"
+
+	// ClientEventConnectFailed indicates connection attempt failed.
+	ClientEventConnectFailed ClientEvent = "connect_failed"
+
+	// ClientEventDisconnect indicates connection was lost.
+	ClientEventDisconnect ClientEvent = "disconnect"
+
+	// ClientEventClose permanently closes the client.
+	ClientEventClose ClientEvent = "close"
 )
 
 // ClientConfig holds configuration for the agent secret client.
@@ -121,8 +155,10 @@ type BatchConfig struct {
 type Client struct {
 	config *ClientConfig
 
-	mu    sync.RWMutex
-	state ClientState
+	mu sync.RWMutex
+
+	// machine is the state machine managing client state transitions.
+	machine *statemachine.Machine[ClientState, ClientEvent]
 
 	// Cache
 	memoryCache *MemoryCache
@@ -138,9 +174,9 @@ type Client struct {
 	broker SecretBrokerClient
 
 	// Callbacks
-	onStateChange func(oldState, newState ClientState)
+	onStateChange   func(oldState, newState ClientState)
 	onSecretRefresh func(path string, secret *secrets.Secret)
-	onError func(err error)
+	onError         func(err error)
 
 	// Background workers
 	ctx    context.Context
@@ -260,10 +296,12 @@ func NewClient(config *ClientConfig) (*Client, error) {
 
 	c := &Client{
 		config: config,
-		state:  ClientStateDisconnected,
 		ctx:    ctx,
 		cancel: cancel,
 	}
+
+	// Build the state machine
+	c.machine = c.buildStateMachine()
 
 	// Initialize memory cache
 	if config.CacheConfig.Enabled && config.CacheConfig.MemoryEnabled {
@@ -291,6 +329,59 @@ func NewClient(config *ClientConfig) (*Client, error) {
 	}
 
 	return c, nil
+}
+
+// buildStateMachine creates the client state machine.
+func (c *Client) buildStateMachine() *statemachine.Machine[ClientState, ClientEvent] {
+	builder := statemachine.New[ClientState, ClientEvent](ClientStateDisconnected).
+		WithHistory(25).
+		WithName("secret-client")
+
+	// Disconnected -> Connecting
+	builder.AddTransition(ClientStateDisconnected, ClientEventConnect, ClientStateConnecting)
+
+	// Connecting -> Connected
+	builder.AddTransition(ClientStateConnecting, ClientEventConnected, ClientStateConnected)
+
+	// Connecting -> Disconnected (on failure)
+	builder.AddTransition(ClientStateConnecting, ClientEventConnectFailed, ClientStateDisconnected)
+
+	// Connected -> Disconnected
+	builder.AddTransition(ClientStateConnected, ClientEventDisconnect, ClientStateDisconnected)
+
+	// Any state -> Closed
+	builder.AddTransition(ClientStateDisconnected, ClientEventClose, ClientStateClosed)
+	builder.AddTransition(ClientStateConnecting, ClientEventClose, ClientStateClosed)
+	builder.AddTransition(ClientStateConnected, ClientEventClose, ClientStateClosed)
+
+	// State entry callbacks
+	builder.OnEnter(ClientStateConnected, func(_ context.Context, _ ClientState, _ ClientState) {
+		c.mu.Lock()
+		c.stats.ConnectSuccesses++
+		c.stats.LastConnectTime = time.Now()
+		c.mu.Unlock()
+	})
+
+	builder.OnEnter(ClientStateDisconnected, func(_ context.Context, _ ClientState, from ClientState) {
+		if from == ClientStateConnecting {
+			c.mu.Lock()
+			c.stats.ConnectFailures++
+			c.mu.Unlock()
+		}
+	})
+
+	// Global transition callback for onStateChange
+	builder.OnTransition(func(_ context.Context, from, to ClientState, _ ClientEvent) {
+		c.mu.RLock()
+		cb := c.onStateChange
+		c.mu.RUnlock()
+
+		if cb != nil && from != to {
+			go cb(from, to)
+		}
+	})
+
+	return builder.MustBuild()
 }
 
 // SetBrokerClient sets the broker client implementation.
@@ -323,24 +414,26 @@ func (c *Client) SetErrorCallback(cb func(err error)) {
 
 // Connect establishes a connection to the secrets broker.
 func (c *Client) Connect(ctx context.Context) error {
-	c.mu.Lock()
-	if c.state == ClientStateClosed {
-		c.mu.Unlock()
+	// Check if already closed or connected
+	state := c.machine.State()
+	if state == ClientStateClosed {
 		return fmt.Errorf("client is closed")
 	}
-	if c.state == ClientStateConnected {
-		c.mu.Unlock()
+	if state == ClientStateConnected {
 		return nil
 	}
-	c.setState(ClientStateConnecting)
+
+	// Transition to connecting
+	if err := c.machine.Fire(ClientEventConnect); err != nil {
+		return fmt.Errorf("cannot connect from state %s: %w", state, err)
+	}
+
+	c.mu.Lock()
 	c.stats.ConnectAttempts++
 	c.mu.Unlock()
 
 	if c.broker == nil {
-		c.mu.Lock()
-		c.setState(ClientStateDisconnected)
-		c.stats.ConnectFailures++
-		c.mu.Unlock()
+		_ = c.machine.Fire(ClientEventConnectFailed)
 		return fmt.Errorf("broker client not set")
 	}
 
@@ -348,18 +441,14 @@ func (c *Client) Connect(ctx context.Context) error {
 	defer cancel()
 
 	if err := c.broker.Connect(connectCtx); err != nil {
-		c.mu.Lock()
-		c.setState(ClientStateDisconnected)
-		c.stats.ConnectFailures++
-		c.mu.Unlock()
+		_ = c.machine.Fire(ClientEventConnectFailed)
 		return fmt.Errorf("failed to connect to broker: %w", err)
 	}
 
-	c.mu.Lock()
-	c.setState(ClientStateConnected)
-	c.stats.ConnectSuccesses++
-	c.stats.LastConnectTime = time.Now()
-	c.mu.Unlock()
+	// Transition to connected (stats updated in callback)
+	if err := c.machine.Fire(ClientEventConnected); err != nil {
+		return fmt.Errorf("failed to complete connection: %w", err)
+	}
 
 	// Start background workers
 	c.startWorkers()
@@ -369,13 +458,15 @@ func (c *Client) Connect(ctx context.Context) error {
 
 // Close closes the client and releases resources.
 func (c *Client) Close() error {
-	c.mu.Lock()
-	if c.state == ClientStateClosed {
-		c.mu.Unlock()
+	// Check if already closed
+	if c.machine.State() == ClientStateClosed {
 		return nil
 	}
-	c.setState(ClientStateClosed)
-	c.mu.Unlock()
+
+	// Transition to closed
+	if err := c.machine.Fire(ClientEventClose); err != nil {
+		return fmt.Errorf("failed to close: %w", err)
+	}
 
 	// Cancel background workers
 	c.cancel()
@@ -396,9 +487,7 @@ func (c *Client) Close() error {
 
 // State returns the current client state.
 func (c *Client) State() ClientState {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.state
+	return c.machine.State()
 }
 
 // Stats returns the current client statistics.
@@ -408,14 +497,14 @@ func (c *Client) Stats() ClientStats {
 	return c.stats
 }
 
-// setState changes the client state and invokes callback.
-func (c *Client) setState(newState ClientState) {
-	oldState := c.state
-	c.state = newState
+// History returns the state transition history.
+func (c *Client) History() *statemachine.History[ClientState, ClientEvent] {
+	return c.machine.History()
+}
 
-	if c.onStateChange != nil && oldState != newState {
-		go c.onStateChange(oldState, newState)
-	}
+// CanTransition returns true if the given event can trigger a transition.
+func (c *Client) CanTransition(event ClientEvent) bool {
+	return c.machine.CanFire(event)
 }
 
 // startWorkers starts background workers.
@@ -564,11 +653,7 @@ func (c *Client) GetBatchWithOptions(ctx context.Context, reqs []*SecretRequest)
 
 // List lists secrets under a path prefix.
 func (c *Client) List(ctx context.Context, prefix string) ([]string, error) {
-	c.mu.RLock()
-	state := c.state
-	c.mu.RUnlock()
-
-	if state != ClientStateConnected {
+	if c.machine.State() != ClientStateConnected {
 		return nil, fmt.Errorf("client not connected")
 	}
 
@@ -580,11 +665,7 @@ func (c *Client) List(ctx context.Context, prefix string) ([]string, error) {
 
 // RenewLease renews a lease for a dynamic secret.
 func (c *Client) RenewLease(ctx context.Context, leaseID string, increment time.Duration) (*secrets.Lease, error) {
-	c.mu.RLock()
-	state := c.state
-	c.mu.RUnlock()
-
-	if state != ClientStateConnected {
+	if c.machine.State() != ClientStateConnected {
 		return nil, fmt.Errorf("client not connected")
 	}
 
@@ -616,11 +697,7 @@ func (c *Client) InvalidateAll() {
 
 // fetchFromBroker fetches a secret from the broker.
 func (c *Client) fetchFromBroker(ctx context.Context, req *SecretRequest) (*secrets.Secret, error) {
-	c.mu.RLock()
-	state := c.state
-	c.mu.RUnlock()
-
-	if state != ClientStateConnected {
+	if c.machine.State() != ClientStateConnected {
 		return nil, fmt.Errorf("client not connected")
 	}
 
@@ -645,11 +722,7 @@ func (c *Client) fetchFromBroker(ctx context.Context, req *SecretRequest) (*secr
 
 // fetchBatchFromBroker fetches multiple secrets from the broker.
 func (c *Client) fetchBatchFromBroker(ctx context.Context, reqs []*SecretRequest) (map[string]*secrets.Secret, error) {
-	c.mu.RLock()
-	state := c.state
-	c.mu.RUnlock()
-
-	if state != ClientStateConnected {
+	if c.machine.State() != ClientStateConnected {
 		return nil, fmt.Errorf("client not connected")
 	}
 

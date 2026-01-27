@@ -9,6 +9,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/shawnbutts/keystone-core/pkg/statemachine"
 )
 
 // LoadBalancingStrategy defines how requests are distributed across HSMs.
@@ -73,6 +75,17 @@ func DefaultHSMClusterConfig() *HSMClusterConfig {
 }
 
 // HSMNodeState represents the state of an HSM node.
+//
+// State Diagram (Mermaid):
+//
+//	stateDiagram-v2
+//	    [*] --> Healthy
+//	    Healthy --> Degraded: degrade
+//	    Healthy --> CircuitOpen: circuit_trip
+//	    Degraded --> Healthy: success
+//	    Degraded --> CircuitOpen: circuit_trip
+//	    CircuitOpen --> Degraded: recovery_attempt (after timeout)
+//	    CircuitOpen --> Healthy: success
 type HSMNodeState int
 
 const (
@@ -97,54 +110,147 @@ func (s HSMNodeState) String() string {
 	}
 }
 
+// HSMNodeEvent represents events that trigger node state transitions.
+type HSMNodeEvent string
+
+const (
+	// HSMNodeEventSuccess records a successful request.
+	HSMNodeEventSuccess HSMNodeEvent = "success"
+
+	// HSMNodeEventDegrade transitions to degraded state (failures >= threshold/2).
+	HSMNodeEventDegrade HSMNodeEvent = "degrade"
+
+	// HSMNodeEventCircuitTrip opens the circuit (failures >= threshold).
+	HSMNodeEventCircuitTrip HSMNodeEvent = "circuit_trip"
+
+	// HSMNodeEventRecoveryAttempt attempts to recover from circuit open.
+	HSMNodeEventRecoveryAttempt HSMNodeEvent = "recovery_attempt"
+)
+
 // HSMNode represents a single HSM in a cluster.
 type HSMNode struct {
-	Name     string        `json:"name"`
-	Provider Provider      `json:"-"`
-	Weight   int           `json:"weight,omitempty"`
-	Priority int           `json:"priority,omitempty"`
+	Name     string   `json:"name"`
+	Provider Provider `json:"-"`
+	Weight   int      `json:"weight,omitempty"`
+	Priority int      `json:"priority,omitempty"`
 
-	mu                 sync.RWMutex
-	state              HSMNodeState
-	consecutiveFailures int
+	mu                   sync.RWMutex
+	state                HSMNodeState
+	machine              *statemachine.Machine[HSMNodeState, HSMNodeEvent]
+	consecutiveFailures  int
 	consecutiveSuccesses int
-	lastFailure        time.Time
-	lastSuccess        time.Time
-	circuitOpenedAt    time.Time
-	activeConnections  int32
-	totalRequests      uint64
-	totalErrors        uint64
-	avgLatency         time.Duration
-	latencySum         time.Duration
-	latencyCount       uint64
+	lastFailure          time.Time
+	lastSuccess          time.Time
+	circuitOpenedAt      time.Time
+	activeConnections    int32
+	totalRequests        uint64
+	totalErrors          uint64
+	avgLatency           time.Duration
+	latencySum           time.Duration
+	latencyCount         uint64
+
+	// failoverThreshold is stored for guard evaluation
+	failoverThreshold int
+	// circuitTimeout is stored for recovery timing
+	circuitTimeout time.Duration
 }
 
 // NewHSMNode creates a new HSM node.
 func NewHSMNode(name string, provider Provider, weight, priority int) *HSMNode {
+	return NewHSMNodeWithThresholds(name, provider, weight, priority, 3, 60*time.Second)
+}
+
+// NewHSMNodeWithThresholds creates a new HSM node with custom thresholds.
+func NewHSMNodeWithThresholds(name string, provider Provider, weight, priority, failoverThreshold int, circuitTimeout time.Duration) *HSMNode {
 	if weight <= 0 {
 		weight = 1
 	}
-	return &HSMNode{
-		Name:     name,
-		Provider: provider,
-		Weight:   weight,
-		Priority: priority,
-		state:    HSMNodeStateHealthy,
+	if failoverThreshold <= 0 {
+		failoverThreshold = 3
 	}
+	if circuitTimeout <= 0 {
+		circuitTimeout = 60 * time.Second
+	}
+
+	n := &HSMNode{
+		Name:              name,
+		Provider:          provider,
+		Weight:            weight,
+		Priority:          priority,
+		state:             HSMNodeStateHealthy,
+		failoverThreshold: failoverThreshold,
+		circuitTimeout:    circuitTimeout,
+	}
+	n.machine = n.buildStateMachine()
+	return n
+}
+
+// buildStateMachine creates the node state machine.
+func (n *HSMNode) buildStateMachine() *statemachine.Machine[HSMNodeState, HSMNodeEvent] {
+	builder := statemachine.New[HSMNodeState, HSMNodeEvent](HSMNodeStateHealthy).
+		WithHistory(25).
+		WithName("hsm-node-" + n.Name)
+
+	// Healthy -> Degraded (on degrade event)
+	builder.AddTransition(HSMNodeStateHealthy, HSMNodeEventDegrade, HSMNodeStateDegraded)
+
+	// Healthy -> CircuitOpen (on circuit trip)
+	builder.AddTransition(HSMNodeStateHealthy, HSMNodeEventCircuitTrip, HSMNodeStateCircuitOpen)
+
+	// Healthy stays Healthy on success
+	builder.Ignore(HSMNodeStateHealthy, HSMNodeEventSuccess)
+
+	// Degraded -> Healthy (on success)
+	builder.AddTransition(HSMNodeStateDegraded, HSMNodeEventSuccess, HSMNodeStateHealthy)
+
+	// Degraded -> CircuitOpen (on circuit trip)
+	builder.AddTransition(HSMNodeStateDegraded, HSMNodeEventCircuitTrip, HSMNodeStateCircuitOpen)
+
+	// Degraded stays Degraded on degrade (already degraded)
+	builder.Ignore(HSMNodeStateDegraded, HSMNodeEventDegrade)
+
+	// CircuitOpen -> Degraded (on recovery attempt after timeout)
+	builder.AddTransition(HSMNodeStateCircuitOpen, HSMNodeEventRecoveryAttempt, HSMNodeStateDegraded).
+		WithGuard(func(_ context.Context, _ HSMNodeState, _ HSMNodeEvent) bool {
+			return time.Since(n.circuitOpenedAt) >= n.circuitTimeout
+		})
+
+	// CircuitOpen -> Healthy (on success)
+	builder.AddTransition(HSMNodeStateCircuitOpen, HSMNodeEventSuccess, HSMNodeStateHealthy)
+
+	// CircuitOpen ignores degrade/trip (already open)
+	builder.Ignore(HSMNodeStateCircuitOpen, HSMNodeEventDegrade)
+	builder.Ignore(HSMNodeStateCircuitOpen, HSMNodeEventCircuitTrip)
+
+	// State entry callbacks
+	builder.OnEnter(HSMNodeStateCircuitOpen, func(_ context.Context, _ HSMNodeState, from HSMNodeState) {
+		if from != HSMNodeStateCircuitOpen {
+			n.circuitOpenedAt = time.Now()
+		}
+	})
+
+	// Global transition callback to sync state field
+	builder.OnTransition(func(_ context.Context, _, to HSMNodeState, _ HSMNodeEvent) {
+		n.state = to
+	})
+
+	return builder.MustBuild()
 }
 
 // State returns the current node state.
 func (n *HSMNode) State() HSMNodeState {
-	n.mu.RLock()
-	defer n.mu.RUnlock()
-	return n.state
+	return n.machine.State()
+}
+
+// History returns the node state transition history.
+func (n *HSMNode) History() *statemachine.History[HSMNodeState, HSMNodeEvent] {
+	return n.machine.History()
 }
 
 // IsAvailable returns true if the node can accept requests.
 func (n *HSMNode) IsAvailable() bool {
-	n.mu.RLock()
-	defer n.mu.RUnlock()
-	return n.state == HSMNodeStateHealthy || n.state == HSMNodeStateDegraded
+	state := n.machine.State()
+	return state == HSMNodeStateHealthy || state == HSMNodeStateDegraded
 }
 
 // ActiveConnections returns the number of active connections.
@@ -155,8 +261,6 @@ func (n *HSMNode) ActiveConnections() int32 {
 // RecordSuccess records a successful request.
 func (n *HSMNode) RecordSuccess(latency time.Duration) {
 	n.mu.Lock()
-	defer n.mu.Unlock()
-
 	n.lastSuccess = time.Now()
 	n.consecutiveSuccesses++
 	n.consecutiveFailures = 0
@@ -164,49 +268,55 @@ func (n *HSMNode) RecordSuccess(latency time.Duration) {
 
 	n.latencySum += latency
 	n.latencyCount++
-	n.avgLatency = n.latencySum / time.Duration(n.latencyCount)
-
-	if n.state == HSMNodeStateDegraded || n.state == HSMNodeStateCircuitOpen {
-		n.state = HSMNodeStateHealthy
+	if n.latencyCount > 0 {
+		n.avgLatency = n.latencySum / time.Duration(n.latencyCount)
 	}
+	n.mu.Unlock()
+
+	// Fire success event (may transition to Healthy from Degraded/CircuitOpen)
+	_ = n.machine.Fire(HSMNodeEventSuccess)
 }
 
 // RecordFailure records a failed request.
 func (n *HSMNode) RecordFailure(threshold int, circuitTimeout time.Duration) {
 	n.mu.Lock()
-	defer n.mu.Unlock()
-
 	n.lastFailure = time.Now()
 	n.consecutiveFailures++
 	n.consecutiveSuccesses = 0
 	n.totalErrors++
 	n.totalRequests++
 
-	if n.consecutiveFailures >= threshold {
-		if n.state != HSMNodeStateCircuitOpen {
-			n.state = HSMNodeStateCircuitOpen
-			n.circuitOpenedAt = time.Now()
-		}
-	} else if n.consecutiveFailures >= threshold/2 {
-		n.state = HSMNodeStateDegraded
+	// Update thresholds if different (for dynamic config)
+	n.failoverThreshold = threshold
+	n.circuitTimeout = circuitTimeout
+
+	// Determine which event to fire based on failure count
+	failures := n.consecutiveFailures
+	n.mu.Unlock()
+
+	// Fire appropriate event based on failure count
+	if failures >= threshold {
+		_ = n.machine.Fire(HSMNodeEventCircuitTrip)
+	} else if failures >= threshold/2 {
+		_ = n.machine.Fire(HSMNodeEventDegrade)
 	}
 }
 
 // TryRecovery attempts to recover a node from circuit open state.
 func (n *HSMNode) TryRecovery(circuitTimeout time.Duration) bool {
+	// Update timeout if different (for dynamic config)
 	n.mu.Lock()
-	defer n.mu.Unlock()
+	n.circuitTimeout = circuitTimeout
+	n.mu.Unlock()
 
-	if n.state != HSMNodeStateCircuitOpen {
+	// Check if not in circuit open - already available
+	if n.machine.State() != HSMNodeStateCircuitOpen {
 		return true
 	}
 
-	if time.Since(n.circuitOpenedAt) < circuitTimeout {
-		return false
-	}
-
-	n.state = HSMNodeStateDegraded
-	return true
+	// Fire recovery attempt - guard will check timeout
+	err := n.machine.Fire(HSMNodeEventRecoveryAttempt)
+	return err == nil
 }
 
 // Stats returns node statistics.
@@ -216,7 +326,7 @@ func (n *HSMNode) Stats() HSMNodeStats {
 
 	return HSMNodeStats{
 		Name:                 n.Name,
-		State:                n.state.String(),
+		State:                n.machine.State().String(),
 		TotalRequests:        n.totalRequests,
 		TotalErrors:          n.totalErrors,
 		ConsecutiveFailures:  n.consecutiveFailures,

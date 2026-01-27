@@ -972,3 +972,197 @@ func (m *MockProvider) UnwrapKey(ctx context.Context, req *UnwrapKeyRequest) (*U
 func (m *MockProvider) Close() error {
 	return nil
 }
+
+func TestHSMNode_StateMachine_InitialState(t *testing.T) {
+	mockProvider := &MockProvider{name: "test"}
+	node := NewHSMNode("test", mockProvider, 1, 0)
+
+	if node.State() != HSMNodeStateHealthy {
+		t.Errorf("Expected initial state healthy, got %v", node.State())
+	}
+
+	if !node.IsAvailable() {
+		t.Error("Node should be available initially")
+	}
+}
+
+func TestHSMNode_StateMachine_TransitionToDegraded(t *testing.T) {
+	mockProvider := &MockProvider{name: "test"}
+	node := NewHSMNodeWithThresholds("test", mockProvider, 1, 0, 4, 100*time.Millisecond)
+
+	// First failure - should stay healthy (1 < 4/2)
+	node.RecordFailure(4, 100*time.Millisecond)
+	if node.State() != HSMNodeStateHealthy {
+		t.Errorf("Expected healthy after 1 failure, got %v", node.State())
+	}
+
+	// Second failure - should move to degraded (2 >= 4/2 but < 4)
+	node.RecordFailure(4, 100*time.Millisecond)
+	if node.State() != HSMNodeStateDegraded {
+		t.Errorf("Expected degraded after 2 failures, got %v", node.State())
+	}
+
+	if !node.IsAvailable() {
+		t.Error("Node should still be available in degraded state")
+	}
+}
+
+func TestHSMNode_StateMachine_TransitionToCircuitOpen(t *testing.T) {
+	mockProvider := &MockProvider{name: "test"}
+	node := NewHSMNodeWithThresholds("test", mockProvider, 1, 0, 3, 100*time.Millisecond)
+
+	// Add failures to reach threshold
+	for i := 0; i < 3; i++ {
+		node.RecordFailure(3, 100*time.Millisecond)
+	}
+
+	if node.State() != HSMNodeStateCircuitOpen {
+		t.Errorf("Expected circuit_open after 3 failures, got %v", node.State())
+	}
+
+	if node.IsAvailable() {
+		t.Error("Node should not be available when circuit is open")
+	}
+}
+
+func TestHSMNode_StateMachine_RecoveryFromDegraded(t *testing.T) {
+	mockProvider := &MockProvider{name: "test"}
+	node := NewHSMNodeWithThresholds("test", mockProvider, 1, 0, 4, 100*time.Millisecond)
+
+	// Move to degraded
+	node.RecordFailure(4, 100*time.Millisecond)
+	node.RecordFailure(4, 100*time.Millisecond)
+	if node.State() != HSMNodeStateDegraded {
+		t.Fatalf("Expected degraded, got %v", node.State())
+	}
+
+	// Success should return to healthy
+	node.RecordSuccess(10 * time.Millisecond)
+	if node.State() != HSMNodeStateHealthy {
+		t.Errorf("Expected healthy after success, got %v", node.State())
+	}
+}
+
+func TestHSMNode_StateMachine_RecoveryFromCircuitOpen(t *testing.T) {
+	mockProvider := &MockProvider{name: "test"}
+	node := NewHSMNodeWithThresholds("test", mockProvider, 1, 0, 2, 50*time.Millisecond)
+
+	// Open the circuit
+	node.RecordFailure(2, 50*time.Millisecond)
+	node.RecordFailure(2, 50*time.Millisecond)
+	if node.State() != HSMNodeStateCircuitOpen {
+		t.Fatalf("Expected circuit_open, got %v", node.State())
+	}
+
+	// Immediate recovery should fail (timeout not elapsed)
+	if node.TryRecovery(50 * time.Millisecond) {
+		t.Error("Recovery should fail before timeout")
+	}
+
+	// Wait for timeout
+	time.Sleep(60 * time.Millisecond)
+
+	// Recovery should succeed now
+	if !node.TryRecovery(50 * time.Millisecond) {
+		t.Error("Recovery should succeed after timeout")
+	}
+
+	if node.State() != HSMNodeStateDegraded {
+		t.Errorf("Expected degraded after recovery, got %v", node.State())
+	}
+}
+
+func TestHSMNode_StateMachine_SuccessInCircuitOpen(t *testing.T) {
+	mockProvider := &MockProvider{name: "test"}
+	node := NewHSMNodeWithThresholds("test", mockProvider, 1, 0, 2, 50*time.Millisecond)
+
+	// Open the circuit
+	node.RecordFailure(2, 50*time.Millisecond)
+	node.RecordFailure(2, 50*time.Millisecond)
+	if node.State() != HSMNodeStateCircuitOpen {
+		t.Fatalf("Expected circuit_open, got %v", node.State())
+	}
+
+	// A success during circuit open should return to healthy (probe success)
+	node.RecordSuccess(10 * time.Millisecond)
+	if node.State() != HSMNodeStateHealthy {
+		t.Errorf("Expected healthy after success in circuit open, got %v", node.State())
+	}
+}
+
+func TestHSMNode_StateMachine_History(t *testing.T) {
+	mockProvider := &MockProvider{name: "test"}
+	node := NewHSMNodeWithThresholds("test", mockProvider, 1, 0, 4, 100*time.Millisecond)
+
+	// Generate some transitions
+	node.RecordFailure(4, 100*time.Millisecond)
+	node.RecordFailure(4, 100*time.Millisecond) // -> Degraded
+	node.RecordSuccess(10 * time.Millisecond)   // -> Healthy
+	node.RecordFailure(4, 100*time.Millisecond)
+	node.RecordFailure(4, 100*time.Millisecond) // -> Degraded
+
+	history := node.History()
+	if history == nil {
+		t.Fatal("History should not be nil")
+	}
+
+	entries := history.All()
+	if len(entries) < 2 {
+		t.Errorf("Expected at least 2 history entries, got %d", len(entries))
+	}
+}
+
+func TestHSMNode_StateMachine_ConcurrentAccess(t *testing.T) {
+	mockProvider := &MockProvider{name: "test"}
+	node := NewHSMNodeWithThresholds("test", mockProvider, 1, 0, 10, 100*time.Millisecond)
+
+	var wg sync.WaitGroup
+	for i := 0; i < 20; i++ {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			node.RecordSuccess(10 * time.Millisecond)
+		}()
+		go func() {
+			defer wg.Done()
+			node.RecordFailure(10, 100*time.Millisecond)
+		}()
+	}
+
+	wg.Wait()
+
+	// Should not panic and state should be valid
+	state := node.State()
+	validStates := []HSMNodeState{
+		HSMNodeStateHealthy,
+		HSMNodeStateDegraded,
+		HSMNodeStateCircuitOpen,
+	}
+
+	valid := false
+	for _, s := range validStates {
+		if state == s {
+			valid = true
+			break
+		}
+	}
+
+	if !valid {
+		t.Errorf("Invalid state after concurrent access: %v", state)
+	}
+}
+
+func TestHSMNode_StateMachine_TryRecoveryNotCircuitOpen(t *testing.T) {
+	mockProvider := &MockProvider{name: "test"}
+	node := NewHSMNode("test", mockProvider, 1, 0)
+
+	// TryRecovery when healthy should return true (already available)
+	if !node.TryRecovery(100 * time.Millisecond) {
+		t.Error("TryRecovery should return true when not in circuit open")
+	}
+
+	// State should still be healthy
+	if node.State() != HSMNodeStateHealthy {
+		t.Errorf("Expected healthy, got %v", node.State())
+	}
+}

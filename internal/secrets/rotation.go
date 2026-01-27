@@ -147,6 +147,19 @@ type RotationTarget struct {
 }
 
 // TargetStatus represents the status of a rotation target.
+//
+// State Diagram (Mermaid):
+//
+//	stateDiagram-v2
+//	    [*] --> Pending
+//	    Pending --> Updating: start_update
+//	    Updating --> Updated: update_success
+//	    Updating --> Failed: update_failed
+//	    Updated --> Verified: verify_success
+//	    Updated --> Failed: verify_failed
+//	    Updated --> RolledBack: rollback
+//	    Verified --> RolledBack: rollback
+//	    Failed --> RolledBack: rollback
 type TargetStatus string
 
 const (
@@ -157,6 +170,76 @@ const (
 	TargetStatusFailed   TargetStatus = "failed"
 	TargetStatusRolled   TargetStatus = "rolled_back"
 )
+
+// TargetEvent represents events that trigger target status transitions.
+type TargetEvent string
+
+const (
+	// TargetEventStartUpdate starts the update process.
+	TargetEventStartUpdate TargetEvent = "start_update"
+
+	// TargetEventUpdateSuccess marks the update as successful.
+	TargetEventUpdateSuccess TargetEvent = "update_success"
+
+	// TargetEventUpdateFailed marks the update as failed.
+	TargetEventUpdateFailed TargetEvent = "update_failed"
+
+	// TargetEventVerifySuccess marks verification as successful.
+	TargetEventVerifySuccess TargetEvent = "verify_success"
+
+	// TargetEventVerifyFailed marks verification as failed.
+	TargetEventVerifyFailed TargetEvent = "verify_failed"
+
+	// TargetEventRollback triggers a rollback.
+	TargetEventRollback TargetEvent = "rollback"
+)
+
+// targetTransitions defines valid state transitions for rotation targets.
+var targetTransitions = map[TargetStatus]map[TargetEvent]TargetStatus{
+	TargetStatusPending: {
+		TargetEventStartUpdate: TargetStatusUpdating,
+	},
+	TargetStatusUpdating: {
+		TargetEventUpdateSuccess: TargetStatusUpdated,
+		TargetEventUpdateFailed:  TargetStatusFailed,
+	},
+	TargetStatusUpdated: {
+		TargetEventVerifySuccess: TargetStatusVerified,
+		TargetEventVerifyFailed:  TargetStatusFailed,
+		TargetEventRollback:      TargetStatusRolled,
+	},
+	TargetStatusVerified: {
+		TargetEventRollback: TargetStatusRolled,
+	},
+	TargetStatusFailed: {
+		TargetEventRollback: TargetStatusRolled,
+	},
+}
+
+// NextTargetStatus returns the target status after applying an event.
+func NextTargetStatus(from TargetStatus, event TargetEvent) (TargetStatus, bool) {
+	if transitions, ok := targetTransitions[from]; ok {
+		if target, ok := transitions[event]; ok {
+			return target, true
+		}
+	}
+	return from, false
+}
+
+// CanTransitionTarget checks if a target can transition via an event.
+func CanTransitionTarget(from TargetStatus, event TargetEvent) bool {
+	_, ok := NextTargetStatus(from, event)
+	return ok
+}
+
+// TransitionTarget applies an event to a rotation target, returning true if successful.
+func (t *RotationTarget) TransitionTarget(event TargetEvent) bool {
+	if newStatus, ok := NextTargetStatus(t.Status, event); ok {
+		t.Status = newStatus
+		return true
+	}
+	return false
+}
 
 // ManagedRotation wraps a rotation operation with an explicit state machine.
 type ManagedRotation struct {
@@ -1075,7 +1158,7 @@ func (s *BlueGreenStrategy) Execute(ctx context.Context, rotation *ManagedRotati
 	var firstErr error
 
 	for _, target := range targets {
-		target.Status = TargetStatusUpdating
+		target.TransitionTarget(TargetEventStartUpdate)
 	}
 
 	for _, target := range targets {
@@ -1086,7 +1169,7 @@ func (s *BlueGreenStrategy) Execute(ctx context.Context, rotation *ManagedRotati
 			// Simulate target update
 			// In real implementation, this would push the secret to the target
 			t.UpdatedAt = time.Now()
-			t.Status = TargetStatusUpdated
+			t.TransitionTarget(TargetEventUpdateSuccess)
 
 			mu.Lock()
 			if firstErr == nil {
@@ -1114,7 +1197,7 @@ func (s *BlueGreenStrategy) Verify(ctx context.Context, rotation *ManagedRotatio
 		// No health check configured, mark all as verified
 		for _, t := range targets {
 			if t.Status == TargetStatusUpdated {
-				t.Status = TargetStatusVerified
+				t.TransitionTarget(TargetEventVerifySuccess)
 			}
 		}
 		return nil
@@ -1148,9 +1231,9 @@ func (s *BlueGreenStrategy) Verify(ctx context.Context, rotation *ManagedRotatio
 
 			mu.Lock()
 			if healthy {
-				t.Status = TargetStatusVerified
+				t.TransitionTarget(TargetEventVerifySuccess)
 			} else {
-				t.Status = TargetStatusFailed
+				t.TransitionTarget(TargetEventVerifyFailed)
 				t.Error = lastErr.Error()
 				errors = append(errors, fmt.Errorf("target %s health check failed: %w", t.ID, lastErr))
 			}
@@ -1174,7 +1257,7 @@ func (s *BlueGreenStrategy) Rollback(ctx context.Context, rotation *ManagedRotat
 	var mu sync.Mutex
 
 	for _, target := range targets {
-		if target.Status != TargetStatusUpdated && target.Status != TargetStatusVerified && target.Status != TargetStatusFailed {
+		if !CanTransitionTarget(target.Status, TargetEventRollback) {
 			continue
 		}
 
@@ -1184,7 +1267,7 @@ func (s *BlueGreenStrategy) Rollback(ctx context.Context, rotation *ManagedRotat
 
 			// Simulate rollback
 			// In real implementation, this would push the old secret back
-			t.Status = TargetStatusRolled
+			t.TransitionTarget(TargetEventRollback)
 
 			mu.Lock()
 			succeeded++
@@ -1240,12 +1323,12 @@ func (s *RollingStrategy) Execute(ctx context.Context, rotation *ManagedRotation
 		default:
 		}
 
-		target.Status = TargetStatusUpdating
+		target.TransitionTarget(TargetEventStartUpdate)
 
 		// Simulate target update
 		// In real implementation, this would push the secret to the target
 		target.UpdatedAt = time.Now()
-		target.Status = TargetStatusUpdated
+		target.TransitionTarget(TargetEventUpdateSuccess)
 
 		// Update progress
 		mr := rotation
@@ -1349,11 +1432,11 @@ func (s *CanaryStrategy) Execute(ctx context.Context, rotation *ManagedRotation,
 		default:
 		}
 
-		target.Status = TargetStatusUpdating
+		target.TransitionTarget(TargetEventStartUpdate)
 
 		// In real implementation, this would push the secret to the target
 		target.UpdatedAt = time.Now()
-		target.Status = TargetStatusUpdated
+		target.TransitionTarget(TargetEventUpdateSuccess)
 
 		// Update progress
 		mr := rotation

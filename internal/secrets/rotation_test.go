@@ -2327,6 +2327,139 @@ func TestE2ENotificationIntegration(t *testing.T) {
 }
 
 // =============================================================================
+// TargetStatus State Machine Tests
+// =============================================================================
+
+func TestTargetStatusStateMachine(t *testing.T) {
+	t.Run("NextTargetStatus", func(t *testing.T) {
+		tests := []struct {
+			name         string
+			from         TargetStatus
+			event        TargetEvent
+			expectedNext TargetStatus
+			expectedOK   bool
+		}{
+			{"Pending->Updating", TargetStatusPending, TargetEventStartUpdate, TargetStatusUpdating, true},
+			{"Updating->Updated", TargetStatusUpdating, TargetEventUpdateSuccess, TargetStatusUpdated, true},
+			{"Updating->Failed", TargetStatusUpdating, TargetEventUpdateFailed, TargetStatusFailed, true},
+			{"Updated->Verified", TargetStatusUpdated, TargetEventVerifySuccess, TargetStatusVerified, true},
+			{"Updated->Failed", TargetStatusUpdated, TargetEventVerifyFailed, TargetStatusFailed, true},
+			{"Updated->RolledBack", TargetStatusUpdated, TargetEventRollback, TargetStatusRolled, true},
+			{"Verified->RolledBack", TargetStatusVerified, TargetEventRollback, TargetStatusRolled, true},
+			{"Failed->RolledBack", TargetStatusFailed, TargetEventRollback, TargetStatusRolled, true},
+			{"Pending->Verified (invalid)", TargetStatusPending, TargetEventVerifySuccess, TargetStatusPending, false},
+			{"RolledBack->Updated (invalid)", TargetStatusRolled, TargetEventUpdateSuccess, TargetStatusRolled, false},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				next, ok := NextTargetStatus(tt.from, tt.event)
+				if next != tt.expectedNext || ok != tt.expectedOK {
+					t.Errorf("NextTargetStatus(%s, %s) = (%s, %v), want (%s, %v)",
+						tt.from, tt.event, next, ok, tt.expectedNext, tt.expectedOK)
+				}
+			})
+		}
+	})
+
+	t.Run("CanTransitionTarget", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			from     TargetStatus
+			event    TargetEvent
+			expected bool
+		}{
+			{"Pending can start update", TargetStatusPending, TargetEventStartUpdate, true},
+			{"Pending cannot verify", TargetStatusPending, TargetEventVerifySuccess, false},
+			{"Updating can succeed", TargetStatusUpdating, TargetEventUpdateSuccess, true},
+			{"Updating can fail", TargetStatusUpdating, TargetEventUpdateFailed, true},
+			{"Updating cannot rollback", TargetStatusUpdating, TargetEventRollback, false},
+			{"Updated can be verified", TargetStatusUpdated, TargetEventVerifySuccess, true},
+			{"Updated can be rolled back", TargetStatusUpdated, TargetEventRollback, true},
+			{"Verified can be rolled back", TargetStatusVerified, TargetEventRollback, true},
+			{"Failed can be rolled back", TargetStatusFailed, TargetEventRollback, true},
+			{"RolledBack is terminal", TargetStatusRolled, TargetEventStartUpdate, false},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				result := CanTransitionTarget(tt.from, tt.event)
+				if result != tt.expected {
+					t.Errorf("CanTransitionTarget(%s, %s) = %v, want %v", tt.from, tt.event, result, tt.expected)
+				}
+			})
+		}
+	})
+
+	t.Run("TransitionTarget", func(t *testing.T) {
+		target := &RotationTarget{
+			ID:     "test-target",
+			Name:   "Test Target",
+			Status: TargetStatusPending,
+		}
+
+		// Valid transition: Pending -> Updating
+		if !target.TransitionTarget(TargetEventStartUpdate) {
+			t.Error("Expected transition Pending->Updating to succeed")
+		}
+		if target.Status != TargetStatusUpdating {
+			t.Errorf("Expected status Updating, got %s", target.Status)
+		}
+
+		// Valid transition: Updating -> Updated
+		if !target.TransitionTarget(TargetEventUpdateSuccess) {
+			t.Error("Expected transition Updating->Updated to succeed")
+		}
+		if target.Status != TargetStatusUpdated {
+			t.Errorf("Expected status Updated, got %s", target.Status)
+		}
+
+		// Valid transition: Updated -> Verified
+		if !target.TransitionTarget(TargetEventVerifySuccess) {
+			t.Error("Expected transition Updated->Verified to succeed")
+		}
+		if target.Status != TargetStatusVerified {
+			t.Errorf("Expected status Verified, got %s", target.Status)
+		}
+
+		// Valid transition: Verified -> RolledBack
+		if !target.TransitionTarget(TargetEventRollback) {
+			t.Error("Expected transition Verified->RolledBack to succeed")
+		}
+		if target.Status != TargetStatusRolled {
+			t.Errorf("Expected status RolledBack, got %s", target.Status)
+		}
+
+		// Invalid transition: RolledBack is terminal
+		if target.TransitionTarget(TargetEventStartUpdate) {
+			t.Error("Expected transition from RolledBack to fail")
+		}
+	})
+
+	t.Run("FailurePath", func(t *testing.T) {
+		target := &RotationTarget{
+			ID:     "fail-target",
+			Status: TargetStatusPending,
+		}
+
+		target.TransitionTarget(TargetEventStartUpdate)
+		target.TransitionTarget(TargetEventUpdateFailed)
+
+		if target.Status != TargetStatusFailed {
+			t.Errorf("Expected status Failed, got %s", target.Status)
+		}
+
+		// Can still rollback from Failed
+		if !target.TransitionTarget(TargetEventRollback) {
+			t.Error("Expected rollback from Failed to succeed")
+		}
+		if target.Status != TargetStatusRolled {
+			t.Errorf("Expected status RolledBack, got %s", target.Status)
+		}
+	})
+}
+
+// =============================================================================
 // Test Helpers
 // =============================================================================
 

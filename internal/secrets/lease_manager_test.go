@@ -1605,3 +1605,150 @@ func TestContextCancellation(t *testing.T) {
 		t.Log("List returned without context error")
 	}
 }
+
+// TestLeaseStateMachine tests the lease state machine transitions.
+func TestLeaseStateMachine(t *testing.T) {
+	t.Run("CanTransitionLease", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			from     LeaseState
+			event    LeaseTransitionEvent
+			expected bool
+		}{
+			{"Pending->Active", LeaseStatePending, LeaseTransitionEventActivate, true},
+			{"Active->Renewing", LeaseStateActive, LeaseTransitionEventRenewStart, true},
+			{"Active->Expired", LeaseStateActive, LeaseTransitionEventExpire, true},
+			{"Active->Revoked", LeaseStateActive, LeaseTransitionEventRevoke, true},
+			{"Renewing->Active (success)", LeaseStateRenewing, LeaseTransitionEventRenewSuccess, true},
+			{"Renewing->Active (failed)", LeaseStateRenewing, LeaseTransitionEventRenewFailed, true},
+			{"Renewing->Expired", LeaseStateRenewing, LeaseTransitionEventExpire, true},
+			{"Renewing->Revoked", LeaseStateRenewing, LeaseTransitionEventRevoke, true},
+			{"Expired->Revoked (invalid)", LeaseStateExpired, LeaseTransitionEventRevoke, true}, // Ignored, not an error
+			{"Revoked->Expired (invalid)", LeaseStateRevoked, LeaseTransitionEventExpire, true}, // Ignored, not an error
+			{"Pending->Renewing (invalid)", LeaseStatePending, LeaseTransitionEventRenewStart, false},
+			{"Expired->Renewing (invalid)", LeaseStateExpired, LeaseTransitionEventRenewStart, false},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				result := CanTransitionLease(tt.from, tt.event)
+				if result != tt.expected {
+					t.Errorf("CanTransitionLease(%s, %s) = %v, want %v", tt.from, tt.event, result, tt.expected)
+				}
+			})
+		}
+	})
+
+	t.Run("NextLeaseState", func(t *testing.T) {
+		tests := []struct {
+			name         string
+			from         LeaseState
+			event        LeaseTransitionEvent
+			expectedNext LeaseState
+			expectedOK   bool
+		}{
+			{"Pending->Active", LeaseStatePending, LeaseTransitionEventActivate, LeaseStateActive, true},
+			{"Active->Renewing", LeaseStateActive, LeaseTransitionEventRenewStart, LeaseStateRenewing, true},
+			{"Active->Expired", LeaseStateActive, LeaseTransitionEventExpire, LeaseStateExpired, true},
+			{"Active->Revoked", LeaseStateActive, LeaseTransitionEventRevoke, LeaseStateRevoked, true},
+			{"Renewing->Active (success)", LeaseStateRenewing, LeaseTransitionEventRenewSuccess, LeaseStateActive, true},
+			{"Renewing->Active (failed)", LeaseStateRenewing, LeaseTransitionEventRenewFailed, LeaseStateActive, true},
+			{"Pending->Renewing (invalid)", LeaseStatePending, LeaseTransitionEventRenewStart, LeaseStatePending, false},
+			{"Expired->Active (invalid)", LeaseStateExpired, LeaseTransitionEventActivate, LeaseStateExpired, false},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				next, ok := NextLeaseState(tt.from, tt.event)
+				if next != tt.expectedNext || ok != tt.expectedOK {
+					t.Errorf("NextLeaseState(%s, %s) = (%s, %v), want (%s, %v)",
+						tt.from, tt.event, next, ok, tt.expectedNext, tt.expectedOK)
+				}
+			})
+		}
+	})
+
+	t.Run("TrackUsesStateMachine", func(t *testing.T) {
+		store := createTestStore(t)
+		defer store.Close()
+
+		config := &PersistentLeaseManagerConfig{
+			Store: store,
+		}
+
+		manager, err := NewPersistentLeaseManager(config)
+		if err != nil {
+			t.Fatalf("failed to create manager: %v", err)
+		}
+
+		ctx := context.Background()
+		lease := &Lease{
+			ID:         "state-machine-test-1",
+			SecretPath: "test/path",
+			Backend:    BackendTypeVault,
+			TTL:        time.Hour,
+			ExpiresAt:  time.Now().Add(time.Hour),
+			Renewable:  true,
+		}
+
+		err = manager.Track(ctx, lease)
+		if err != nil {
+			t.Fatalf("failed to track lease: %v", err)
+		}
+
+		// Verify lease is in Active state (transitioned from Pending)
+		retrieved, err := manager.Get(ctx, lease.ID)
+		if err != nil {
+			t.Fatalf("failed to get lease: %v", err)
+		}
+
+		if retrieved.State != LeaseStateActive {
+			t.Errorf("expected state %s, got %s", LeaseStateActive, retrieved.State)
+		}
+	})
+
+	t.Run("RevokeUsesStateMachine", func(t *testing.T) {
+		store := createTestStore(t)
+		defer store.Close()
+
+		config := &PersistentLeaseManagerConfig{
+			Store: store,
+		}
+
+		manager, err := NewPersistentLeaseManager(config)
+		if err != nil {
+			t.Fatalf("failed to create manager: %v", err)
+		}
+
+		ctx := context.Background()
+		lease := &Lease{
+			ID:         "revoke-state-machine-test",
+			SecretPath: "test/path",
+			Backend:    BackendTypeVault,
+			State:      LeaseStateActive,
+			TTL:        time.Hour,
+			ExpiresAt:  time.Now().Add(time.Hour),
+			Renewable:  true,
+		}
+
+		err = store.Create(ctx, lease)
+		if err != nil {
+			t.Fatalf("failed to create lease: %v", err)
+		}
+
+		err = manager.Revoke(ctx, lease.ID)
+		if err != nil {
+			t.Fatalf("failed to revoke lease: %v", err)
+		}
+
+		// Verify lease is in Revoked state
+		retrieved, err := manager.Get(ctx, lease.ID)
+		if err != nil {
+			t.Fatalf("failed to get lease: %v", err)
+		}
+
+		if retrieved.State != LeaseStateRevoked {
+			t.Errorf("expected state %s, got %s", LeaseStateRevoked, retrieved.State)
+		}
+	})
+}

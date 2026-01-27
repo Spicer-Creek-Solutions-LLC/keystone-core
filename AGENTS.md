@@ -80,11 +80,13 @@ machine := statemachine.New[ConnectionState, ConnectionEvent](StateDisconnected)
 ```
 
 **Required for state machine implementations:**
-- Document state diagram in code comments using Mermaid
+- Document state diagram in markdown documentation (not in code comments) using Mermaid
 - Test all valid transitions
 - Test that invalid transitions are rejected
 - Use guards for conditional transitions
 - Use callbacks for side effects (logging, metrics, events)
+
+**Note:** Mermaid diagrams should only be placed in markdown files (`.md`), not in code comments. Code comments should use plain text descriptions of states and transitions.
 
 See `docs/content/en/docs/contributing/state-machines.md` for full documentation.
 
