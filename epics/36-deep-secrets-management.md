@@ -144,7 +144,7 @@
   - Comprehensive E2E tests for rotation system
 
 ### In Progress
-- [ ] Phase 4, Week 14: Secret Injection
+- [ ] Phase 4, Week 15: Kubernetes Integration
 
 ## Success Criteria
 
@@ -1258,13 +1258,13 @@ kscorectl secrets leases expiring --within 1h
 - [x] Add secret request batching for efficiency
 - [x] Write unit tests for agent client
 
-#### Week 14: Secret Injection - Files and Environment
-- [ ] Implement file-based secret injection
-- [ ] Add atomic file updates with signal notification
-- [ ] Create environment variable injection
-- [ ] Support binary secrets (certificates, keys)
-- [ ] Implement secret templates (consul-template style)
-- [ ] Write integration tests for injection patterns
+#### Week 14: Secret Injection - Files and Environment ✅
+- [x] Implement file-based secret injection
+- [x] Add atomic file updates with signal notification
+- [x] Create environment variable injection
+- [x] Support binary secrets (certificates, keys)
+- [x] Implement secret templates (consul-template style)
+- [x] Write integration tests for injection patterns
 
 #### Week 15: Secret Injection - Kubernetes Integration
 - [ ] Implement sidecar injector for Kubernetes
