@@ -94,8 +94,13 @@ See `docs/content/en/docs/contributing/state-machines.md` for full documentation
 
 ## Recent Updates
 
-- **Epic 37 Phase 2 COMPLETE**: Conditional logic and branching with expression evaluator (comparison, logical, string, value functions), if/switch handlers for conditional branching, loop/parallel handlers for iteration, and sub-runbook execution with recursion tracking.
-- **Epic 37 Phase 1 COMPLETE**: Core runbook engine implementation with YAML-based runbook definitions, execution engine with state machines, 6 step handlers (command, API, notification, wait, noop, fail), SQLite storage, and Go template-based variable system with 130+ tests.
+- **Epic 37 COMPLETE**: Enhanced runbook automation system fully implemented across 6 phases (24 weeks):
+  - Phase 1: Core engine with YAML definitions, execution engine, 6 step handlers, SQLite storage
+  - Phase 2: Conditional logic with expression evaluator, if/switch/loop/parallel handlers
+  - Phase 3: Human-in-the-loop approvals with multi-approver support, escalation, notifications
+  - Phase 4: Advanced step handlers (state, deploy, rollback, script, plugin)
+  - Phase 5: Triggers (event, schedule, webhook) and ITSM integration (PagerDuty, Opsgenie, ServiceNow)
+  - Phase 6: Execution management (pause/resume/retry/skip), audit logging, metrics, performance benchmarks, documentation
 - **Epic 36 Week 22**: Release preparation - added KMS benchmarks, integration tests for real backends, migration guide, and changelog entry.
 - **Epic 39 COMPLETE**: State machine pattern refactoring finished with 15 components using explicit state machines and 150+ tests.
 - `make security` now runs tooling in Docker/Podman containers (no local installs required).
@@ -169,9 +174,9 @@ This repository contains working implementations of **Epics 1-29**. The project 
 - Single-binary bootstrap experience
 - Comprehensive test suite (>79% coverage across all core packages)
 - Explicit state machine patterns for 15 core components (150+ tests)
-- Runbook automation engine with YAML definitions, execution engine, and variable system (Phase 1)
+- Full runbook automation system with triggers, approvals, ITSM integration, audit logging
 
-**Current Status**: Epics 1-32, 36, 39-40 COMPLETE ✅ | Epic 37 Phase 1 COMPLETE ✅
+**Current Status**: Epics 1-32, 36-37, 39-40 COMPLETE ✅
 
 ## Repository Structure
 
@@ -277,7 +282,7 @@ Implementation order:
 31. **Epic 31** (NIST Design Principles) - ✅ COMPLETE - Documentation only
 32. **Epic 32** (Advanced Networking) - ✅ COMPLETE - WiFi, 802.1X, link settings, promiscuous mode
 36. **Epic 36** (Deep Secrets Management) - ✅ COMPLETE - Depends on Epic 1, 3, 4, 6, 17
-37. **Epic 37** (Enhanced Runbooks) - IN PROGRESS (Phase 1 Complete) - Depends on Epic 1, 2, 3, 4
+37. **Epic 37** (Enhanced Runbooks) - ✅ COMPLETE - Depends on Epic 1, 2, 3, 4
 38. **Epic 38** (Air-Gapped Deployments) - PLANNED - Depends on Epic 1, 9, 22, 23, 25
 39. **Epic 39** (State Machine Refactoring) - ✅ COMPLETE - Independent refactoring epic
 40. **Epic 40** (Test Coverage Remediation) - ✅ COMPLETE - Add tests to 23 untested packages
