@@ -168,7 +168,7 @@ This repository contains working implementations of **Epics 1-29**. The project 
 - Comprehensive test suite (>79% coverage across all core packages)
 - Explicit state machine patterns for 15 core components (150+ tests)
 
-**Current Status**: Epics 1-32, 39-40 COMPLETE ✅
+**Current Status**: Epics 1-32, 36, 39-40 COMPLETE ✅
 
 ## Repository Structure
 
@@ -273,7 +273,7 @@ Implementation order:
 30. **Epic 30** (CLI UX Restructuring) - ✅ COMPLETE - Depends on Epic 1, 2, 3
 31. **Epic 31** (NIST Design Principles) - ✅ COMPLETE - Documentation only
 32. **Epic 32** (Advanced Networking) - ✅ COMPLETE - WiFi, 802.1X, link settings, promiscuous mode
-36. **Epic 36** (Deep Secrets Management) - IN PROGRESS (Week 22/24) - Depends on Epic 1, 3, 4, 6, 17
+36. **Epic 36** (Deep Secrets Management) - ✅ COMPLETE - Depends on Epic 1, 3, 4, 6, 17
 37. **Epic 37** (Enhanced Runbooks) - PLANNED - Depends on Epic 1, 2, 3, 4
 38. **Epic 38** (Air-Gapped Deployments) - PLANNED - Depends on Epic 1, 9, 22, 23, 25
 39. **Epic 39** (State Machine Refactoring) - ✅ COMPLETE - Independent refactoring epic
