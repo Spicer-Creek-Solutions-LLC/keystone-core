@@ -8,6 +8,7 @@ This section contains auto-generated documentation for Keystone Core plugin modu
 
 ## Available Modules
 
+- [DNS Records](dns/) - Manage DNS records across multiple providers
 - [Standard Library Modules](stdlib/) - Built-in YAML, XML, JSON, and encoding modules
 - [Resource Management](resources/) - Module resource limits and usage tracking
 

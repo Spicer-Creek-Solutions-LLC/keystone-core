@@ -33,6 +33,13 @@ require (
 	github.com/gosnmp/gosnmp v1.43.1
 	github.com/hashicorp/mdns v1.0.5
 	github.com/lib/pq v1.10.9
+	github.com/libdns/azure v0.5.0
+	github.com/libdns/cloudflare v0.2.2
+	github.com/libdns/digitalocean v0.0.0-20250606071607-dfa7af5c2e31
+	github.com/libdns/googleclouddns v1.2.0
+	github.com/libdns/hetzner v1.0.0
+	github.com/libdns/libdns v1.1.1
+	github.com/libdns/route53 v1.6.0
 	github.com/masterzen/winrm v0.0.0-20250927112105-5f8e6c707321
 	github.com/nats-io/nats-server/v2 v2.12.3
 	github.com/nats-io/nats.go v1.48.0
@@ -87,6 +94,7 @@ require (
 	cloud.google.com/go/longrunning v0.7.0 // indirect
 	dario.cat/mergo v1.0.2 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.2 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dns/armdns v1.2.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/internal v1.2.0 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
@@ -109,6 +117,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.4 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.4 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.17 // indirect
+	github.com/aws/aws-sdk-go-v2/service/route53 v1.58.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/signin v1.0.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.30.9 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.13 // indirect
@@ -137,6 +146,7 @@ require (
 	github.com/cyphar/filepath-securejoin v0.4.1 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
+	github.com/digitalocean/godo v1.148.0 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/dlclark/regexp2 v1.11.5 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect

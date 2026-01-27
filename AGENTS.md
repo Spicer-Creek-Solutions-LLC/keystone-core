@@ -94,6 +94,14 @@ See `docs/content/en/docs/contributing/state-machines.md` for full documentation
 
 ## Recent Updates
 
+- **Epic 41 COMPLETE**: DNS Provider Management:
+  - Week 1-2: Core DNS package (`internal/dns/`) with types, diff logic, provider registry, sync engine
+  - Week 3-4: DNS state module for statemgmt integration, mock provider for testing
+  - Week 5-6: Observability with metrics collection and audit logging
+  - Week 7-8: Documentation and real provider implementations
+  - Supports A, AAAA, CNAME, TXT, MX, SRV, CAA, NS, ALIAS, PTR record types
+  - Real providers: Cloudflare, Route53, Google Cloud DNS, Azure DNS, DigitalOcean, DNSMadeEasy, Hetzner
+  - libdns adapter for easy provider integration
 - **Epic 37 COMPLETE**: Enhanced runbook automation system fully implemented across 6 phases (24 weeks):
   - Phase 1: Core engine with YAML definitions, execution engine, 6 step handlers, SQLite storage
   - Phase 2: Conditional logic with expression evaluator, if/switch/loop/parallel handlers
@@ -285,7 +293,7 @@ Implementation order:
 37. **Epic 37** (Enhanced Runbooks) - ✅ COMPLETE - Depends on Epic 1, 2, 3, 4
 39. **Epic 39** (State Machine Refactoring) - ✅ COMPLETE - Independent refactoring epic
 40. **Epic 40** (Test Coverage Remediation) - ✅ COMPLETE - Add tests to 23 untested packages
-41. **Epic 41** (DNS Provider Management) - PLANNED - Depends on Epic 3, 6, 9 - State-based DNS records via libdns; initial providers: Cloudflare, Route 53, Google Cloud DNS, Azure DNS, Akamai Edge DNS, Oracle Dyn, UltraDNS, NS1, DigitalOcean DNS, DNSMadeEasy
+41. **Epic 41** (DNS Provider Management) - ✅ COMPLETE - Depends on Epic 3, 6, 9 - State-based DNS records via libdns; providers: Cloudflare, Route 53, Google Cloud DNS, Azure DNS, DigitalOcean DNS, Hetzner DNS
 
 ### Future Epics (Not Yet Planned)
 

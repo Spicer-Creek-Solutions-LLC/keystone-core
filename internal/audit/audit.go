@@ -45,6 +45,10 @@ const (
 	ActionAuthAttempt      AuditAction = "auth_attempt"
 	ActionConfigChanged    AuditAction = "config_changed"
 	ActionSecretsAccessed  AuditAction = "secrets_accessed"
+	ActionDNSRecordCreated AuditAction = "dns_record_created"
+	ActionDNSRecordUpdated AuditAction = "dns_record_updated"
+	ActionDNSRecordDeleted AuditAction = "dns_record_deleted"
+	ActionDNSSyncCompleted AuditAction = "dns_sync_completed"
 )
 
 // AuditResult represents the outcome of an action

@@ -64,7 +64,7 @@ Each state declaration has:
 
 ## State Modules
 
-Keystone Core includes 94 built-in modules across 20+ categories. This section highlights the core modules; see the full [Module Reference](/docs/reference/modules/) for the complete list.
+Keystone Core includes 95 built-in modules across 20+ categories. This section highlights the core modules; see the full [Module Reference](/docs/reference/modules/) for the complete list.
 
 ### 1. File Module
 
@@ -332,6 +332,45 @@ app_container:
   ports:
     - "8080:8080"
 ```
+
+### 11. DNS Records Module
+
+Manages DNS records across multiple providers (Cloudflare, Route53, Google Cloud DNS, Azure DNS, and more):
+
+**States**:
+- `present`: Ensure specified records exist (additive)
+- `synced`: Ensure zone matches exactly (removes extra records)
+- `absent`: Ensure specified records do not exist
+
+**Example**:
+```yaml
+web_records:
+  module: dns_records
+  state: present
+  provider: cloudflare
+  zone: example.com
+  credentials:
+    secret_ref: secret://dns/cloudflare
+  records:
+    - type: A
+      name: www
+      value: 203.0.113.10
+      ttl: 300
+    - type: CNAME
+      name: api
+      value: api.internal.example.com.
+      ttl: 600
+```
+
+**Supported Record Types**: A, AAAA, CNAME, TXT, MX, SRV, CAA, NS, ALIAS, PTR
+
+**Parameters**:
+- `provider`: DNS provider name (required)
+- `zone`: DNS zone/domain (required)
+- `credentials`: Provider credentials (secret_ref or inline)
+- `records`: List of DNS records to manage
+
+See [DNS Records Module Reference](/docs/reference/modules/dns/) for provider-specific configuration and full documentation.
 
 ## Requisites (Dependencies)
 
