@@ -549,6 +549,7 @@ const (
 	RotationStateCompleted  RotationState = "completed"
 	RotationStateFailed     RotationState = "failed"
 	RotationStateRolledBack RotationState = "rolled_back"
+	RotationStateCancelled  RotationState = "cancelled"
 )
 
 // RotationConfig defines configuration for secret rotation.

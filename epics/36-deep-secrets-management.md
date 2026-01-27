@@ -18,7 +18,7 @@
 
 ## Status
 
-**IN PROGRESS** - Phase 2, Week 8 complete
+**IN PROGRESS** - Phase 3, Week 9 complete
 
 ### Completed
 - [x] Phase 1, Week 1: Core Secret Broker Architecture
@@ -96,9 +96,21 @@
   - Multi-backend routing tests
   - Performance benchmarks (<50ms latency verified, ~22M ops/sec throughput)
   - Unit tests with full coverage
+- [x] Phase 3, Week 9: Lease Manager Implementation
+  - SQLite-based lease storage with WAL mode
+  - Full CRUD operations with filtering (state, backend, path, agent, expiry)
+  - Bulk update/delete operations
+  - Lease event audit history table
+  - PersistentLeaseManager with background renewal scheduler
+  - Configurable renewal strategies (eager, lazy, on-demand)
+  - Automatic expiration detection and cleanup
+  - Bulk renew/revoke operations with concurrency control
+  - Callback hooks for lease lifecycle events
+  - Stats reporting across backend types
+  - Comprehensive tests with 70+ test cases
 
 ### In Progress
-- [ ] Phase 3, Week 9: Lease Manager Implementation
+- [ ] Phase 3, Week 10: Transit Encryption Service
 
 ## Success Criteria
 
