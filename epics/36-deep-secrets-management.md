@@ -18,7 +18,7 @@
 
 ## Status
 
-**IN PROGRESS** - Phase 5, Week 20 complete
+**IN PROGRESS** - Phase 6, Week 21 complete
 
 ### Completed
 - [x] Phase 1, Week 1: Core Secret Broker Architecture
@@ -171,6 +171,13 @@
 - None
 
 ### Completed
+- [x] Phase 6, Week 21: Documentation
+  - Secrets management concept guide with architecture overview
+  - Backend setup guides for Vault, AWS, Azure, GCP
+  - Rotation strategies documentation (blue-green, rolling, canary)
+  - Security considerations guide with threat model and compliance
+  - Troubleshooting guide for common issues
+  - API reference for broker, lease manager, rotation, transit
 - [x] Phase 5, Week 20: Security Hardening and Audit
   - SecureBuffer with automatic memory zeroing
   - Secure constant-time comparison functions

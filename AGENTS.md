@@ -269,7 +269,7 @@ Implementation order:
 30. **Epic 30** (CLI UX Restructuring) - ✅ COMPLETE - Depends on Epic 1, 2, 3
 31. **Epic 31** (NIST Design Principles) - ✅ COMPLETE - Documentation only
 32. **Epic 32** (Advanced Networking) - ✅ COMPLETE - WiFi, 802.1X, link settings, promiscuous mode
-36. **Epic 36** (Deep Secrets Management) - IN PROGRESS (Week 20/24) - Depends on Epic 1, 3, 4, 6, 17
+36. **Epic 36** (Deep Secrets Management) - IN PROGRESS (Week 21/24) - Depends on Epic 1, 3, 4, 6, 17
 37. **Epic 37** (Enhanced Runbooks) - PLANNED - Depends on Epic 1, 2, 3, 4
 38. **Epic 38** (Air-Gapped Deployments) - PLANNED - Depends on Epic 1, 9, 22, 23, 25
 39. **Epic 39** (State Machine Refactoring) - ✅ COMPLETE - Independent refactoring epic
