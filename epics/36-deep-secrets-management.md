@@ -18,7 +18,7 @@
 
 ## Status
 
-**IN PROGRESS** - Phase 3, Week 9 complete
+**IN PROGRESS** - Phase 4, Week 15 complete
 
 ### Completed
 - [x] Phase 1, Week 1: Core Secret Broker Architecture
@@ -133,18 +133,26 @@
   - Integration tests for complete rotation workflows
 
 ### Completed Recently
-- [x] Phase 3, Week 12: Rotation CLI and API
-  - kscore-secrets CLI plugin with rotation, schedule, and policy commands
-  - Rotation commands: list, show, start, status, history, trigger, rollback, pause, resume, cancel
-  - Schedule commands: list, show, create, enable, disable, delete
-  - Policy commands: list, show, create, delete
-  - Dry-run mode for rotation start command
-  - Multiple output formats (table, json, yaml)
-  - Strategy normalization (accepts both blue-green and blue_green)
-  - Comprehensive E2E tests for rotation system
+- [x] Phase 4, Week 13: Agent Secret Client
+  - Agent-side secret client with caching
+  - SPIFFE authentication integration
+  - Refresh scheduler with configurable intervals
+  - Request batcher for efficient backend queries
+- [x] Phase 4, Week 14: Secret Injection - Files and Environment
+  - File-based secret injection with atomic writes
+  - Signal notification (SIGHUP, SIGUSR1)
+  - Environment variable injection with sanitization
+  - Template injection (consul-template style)
+- [x] Phase 4, Week 15: Kubernetes Integration
+  - Sidecar injector for continuous secret sync
+  - Init container for pre-start secrets
+  - Secret synchronization controller
+  - CSI driver for secret volumes
+  - Mutating admission webhook
+  - Comprehensive tests (30+ test cases)
 
 ### In Progress
-- [ ] Phase 4, Week 15: Kubernetes Integration
+- [ ] Phase 4, Week 16: Credential Brokering Polish
 
 ## Success Criteria
 
@@ -1266,13 +1274,13 @@ kscorectl secrets leases expiring --within 1h
 - [x] Implement secret templates (consul-template style)
 - [x] Write integration tests for injection patterns
 
-#### Week 15: Secret Injection - Kubernetes Integration
-- [ ] Implement sidecar injector for Kubernetes
-- [ ] Create init container for pre-start secrets
-- [ ] Support Kubernetes secrets synchronization
-- [ ] Add CSI driver for secret volumes
-- [ ] Implement pod mutation webhook
-- [ ] Write Kubernetes integration tests
+#### Week 15: Secret Injection - Kubernetes Integration ✅
+- [x] Implement sidecar injector for Kubernetes
+- [x] Create init container for pre-start secrets
+- [x] Support Kubernetes secrets synchronization
+- [x] Add CSI driver for secret volumes
+- [x] Implement pod mutation webhook
+- [x] Write Kubernetes integration tests
 
 #### Week 16: Credential Brokering Polish
 - [ ] Add connection pooling for backend connections
