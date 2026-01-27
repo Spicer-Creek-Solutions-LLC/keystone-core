@@ -168,7 +168,24 @@
   - Comprehensive tests (25+ test cases)
 
 ### In Progress
-- [ ] Phase 5, Week 18: HSM/KMS Integration - Hardware HSM
+- [ ] Phase 5, Week 20: Security Hardening and Audit
+
+### Completed
+- [x] Phase 5, Week 19: Advanced Transit Features
+  - Convergent encryption for searchable encrypted data
+  - Batch encrypt/decrypt with parallel processing
+  - Data key generation for envelope encryption
+  - HMAC operations (SHA-256, SHA-384, SHA-512)
+  - Key export/import with optional wrapping
+  - Performance benchmarks for all operations
+- [x] Phase 5, Week 18: HSM/KMS Integration - Hardware HSM
+  - PKCS#11 interface with pure-Go abstraction (no CGO)
+  - Thales Luna HSM provider (lunacm CLI + KMIP support)
+  - AWS CloudHSM provider with CLI integration
+  - HSM session management with pooling and recovery
+  - HSM cluster failover with load balancing strategies
+  - Circuit breaker pattern for failed nodes
+  - Comprehensive HSM tests with mock interface
 
 ## Success Criteria
 
@@ -1317,20 +1334,20 @@ kscorectl secrets leases expiring --within 1h
 - [x] Write integration tests for each KMS
 
 #### Week 18: HSM/KMS Integration - Hardware HSM
-- [ ] Implement PKCS#11 interface
-- [ ] Support Thales Luna HSM
-- [ ] Support AWS CloudHSM
-- [ ] Create HSM session management
-- [ ] Implement HSM failover and load balancing
-- [ ] Write HSM integration tests (requires hardware)
+- [x] Implement PKCS#11 interface
+- [x] Support Thales Luna HSM
+- [x] Support AWS CloudHSM
+- [x] Create HSM session management
+- [x] Implement HSM failover and load balancing
+- [x] Write HSM integration tests (requires hardware)
 
 #### Week 19: Advanced Transit Features
-- [ ] Implement convergent encryption
-- [ ] Add batch encrypt/decrypt operations
-- [ ] Create data key generation (envelope encryption)
-- [ ] Implement HMAC operations
-- [ ] Add key export (for backup, where allowed)
-- [ ] Write performance benchmarks for transit
+- [x] Implement convergent encryption
+- [x] Add batch encrypt/decrypt operations
+- [x] Create data key generation (envelope encryption)
+- [x] Implement HMAC operations
+- [x] Add key export (for backup, where allowed)
+- [x] Write performance benchmarks for transit
 
 #### Week 20: Security Hardening and Audit
 - [ ] Security audit of all secret handling code

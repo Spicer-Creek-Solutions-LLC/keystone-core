@@ -13,9 +13,12 @@ import (
 type ProviderType string
 
 const (
-	ProviderTypeAWS   ProviderType = "aws_kms"
-	ProviderTypeAzure ProviderType = "azure_keyvault"
-	ProviderTypeGCP   ProviderType = "gcp_cloudkms"
+	ProviderTypeAWS        ProviderType = "aws_kms"
+	ProviderTypeAzure      ProviderType = "azure_keyvault"
+	ProviderTypeGCP        ProviderType = "gcp_cloudkms"
+	ProviderTypePKCS11     ProviderType = "pkcs11"
+	ProviderTypeThalesLuna ProviderType = "thales_luna"
+	ProviderTypeCloudHSM   ProviderType = "aws_cloudhsm"
 )
 
 // String returns the string representation of the provider type.
@@ -26,7 +29,8 @@ func (p ProviderType) String() string {
 // Valid returns true if the provider type is valid.
 func (p ProviderType) Valid() bool {
 	switch p {
-	case ProviderTypeAWS, ProviderTypeAzure, ProviderTypeGCP:
+	case ProviderTypeAWS, ProviderTypeAzure, ProviderTypeGCP,
+		ProviderTypePKCS11, ProviderTypeThalesLuna, ProviderTypeCloudHSM:
 		return true
 	default:
 		return false
