@@ -9,6 +9,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 All development to date. No releases have been made yet.
 
+### Epic 36: Deep Secrets Management Integration
+
+Enterprise-grade secrets management with multi-backend support, intelligent routing, and automated rotation.
+
+- **Unified Secrets Broker**
+  - Abstract interface over multiple backends (Vault, AWS, Azure, GCP)
+  - Intelligent routing based on secret paths and policies
+  - Connection pooling and health monitoring
+  - Automatic failover between backends
+
+- **Lease Management**
+  - Automatic lease tracking and renewal
+  - Configurable renewal strategies (eager, lazy, on-demand)
+  - Grace periods for renewal failures
+  - Lease revocation on workload termination
+
+- **Multi-Backend Support**
+  - HashiCorp Vault (KV, Transit, Database engines)
+  - AWS Secrets Manager and Parameter Store
+  - Azure Key Vault
+  - GCP Secret Manager
+  - Kubernetes Secrets (external-secrets pattern)
+
+- **Automated Rotation**
+  - Blue-green rotation strategy (zero-downtime)
+  - Rolling rotation for gradual updates
+  - Canary rotation for risk reduction
+  - Pre/post-rotation hooks and verification
+  - Automatic rollback on verification failure
+
+- **Transit Encryption (Encryption-as-a-Service)**
+  - Client-side encryption without key exposure
+  - Key versioning for seamless rotation
+  - Convergent encryption for tokenization
+  - Batch operations for high throughput
+  - HMAC signing and verification
+
+- **KMS Integration**
+  - AWS KMS, Azure Key Vault, GCP Cloud KMS
+  - Hardware Security Module (HSM) support
+  - CloudHSM and Thales Luna integration
+  - PKCS#11 interface for generic HSM support
+  - Key hierarchy management with derived keys
+  - HSM cluster failover with automatic recovery
+
+- **Security Hardening**
+  - Secure memory management (SecureBuffer, SecureZero)
+  - Log masking for sensitive data
+  - Anomaly detection for secret access patterns
+  - Compliance reporting (SOC2, PCI-DSS, HIPAA, GDPR)
+  - Penetration testing framework
+
+- **Agent Integration**
+  - Automatic secret injection (env vars, files, templates)
+  - Secret refresh without restart
+  - Health checks for secret availability
+  - Workload-scoped access policies
+
+- **Comprehensive Documentation**
+  - User guide for secrets management concepts
+  - Backend-specific setup guides
+  - Rotation strategies documentation
+  - Security best practices guide
+  - Troubleshooting guide
+  - Complete API reference
+  - Migration guide from legacy systems
+
 ### Epic 31: NIST 800-53 Design Principles
 
 Internal project policies, design philosophies, and architectural guardrails inspired by NIST 800-53.

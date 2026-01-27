@@ -92,6 +92,7 @@ See `docs/content/en/docs/contributing/state-machines.md` for full documentation
 
 ## Recent Updates
 
+- **Epic 36 Week 22**: Release preparation - added KMS benchmarks, integration tests for real backends, migration guide, and changelog entry.
 - **Epic 39 COMPLETE**: State machine pattern refactoring finished with 15 components using explicit state machines and 150+ tests.
 - `make security` now runs tooling in Docker/Podman containers (no local installs required).
 - Added state machine library (`pkg/statemachine`) with generic, type-safe implementation for managing complex state transitions.
@@ -210,6 +211,7 @@ This repository contains working implementations of **Epics 1-29**. The project 
     ├── 38-air-gapped-deployments.md      # Air-gapped deployment support
     ├── 39-state-machine-refactoring.md   # State machine pattern refactoring
     ├── 40-test-coverage-remediation.md   # Test coverage for untested packages
+    ├── 41-dns-provider-management.md    # DNS record management via provider APIs
     └── future-web-ui-management-console.md  # Web UI (future, not scheduled)
 ```
 
@@ -269,11 +271,12 @@ Implementation order:
 30. **Epic 30** (CLI UX Restructuring) - ✅ COMPLETE - Depends on Epic 1, 2, 3
 31. **Epic 31** (NIST Design Principles) - ✅ COMPLETE - Documentation only
 32. **Epic 32** (Advanced Networking) - ✅ COMPLETE - WiFi, 802.1X, link settings, promiscuous mode
-36. **Epic 36** (Deep Secrets Management) - IN PROGRESS (Week 21/24) - Depends on Epic 1, 3, 4, 6, 17
+36. **Epic 36** (Deep Secrets Management) - IN PROGRESS (Week 22/24) - Depends on Epic 1, 3, 4, 6, 17
 37. **Epic 37** (Enhanced Runbooks) - PLANNED - Depends on Epic 1, 2, 3, 4
 38. **Epic 38** (Air-Gapped Deployments) - PLANNED - Depends on Epic 1, 9, 22, 23, 25
 39. **Epic 39** (State Machine Refactoring) - ✅ COMPLETE - Independent refactoring epic
 40. **Epic 40** (Test Coverage Remediation) - ✅ COMPLETE - Add tests to 23 untested packages
+41. **Epic 41** (DNS Provider Management) - PLANNED - Depends on Epic 3, 6, 9 - State-based DNS records via libdns; initial providers: Cloudflare, Route 53, Google Cloud DNS, Azure DNS, Akamai Edge DNS, Oracle Dyn, UltraDNS, NS1, DigitalOcean DNS, DNSMadeEasy
 
 ### Future Epics (Not Yet Planned)
 
