@@ -524,7 +524,7 @@ kscorectl agent list --filter "status:online"
 
 **2. Download New Version:**
 ```bash
-wget https://github.com/shawnbutts/keystone-core/releases/download/v1.1.0/kscore-server-linux-amd64
+wget https://github.com/shawnbutts/keystone-core/releases/download/v0.2.0/kscore-server-linux-amd64
 chmod +x kscore-server-linux-amd64
 ```
 
@@ -612,7 +612,7 @@ kscorectl cluster status
 ```bash
 # Update image tag
 kubectl set image deployment/kscore-server \
-  kscore-server=keystonecore/server:v1.1.0 \
+  kscore-server=keystonecore/server:v0.2.0 \
   -n kscore
 
 # Watch rollout
@@ -627,7 +627,7 @@ kubectl get pods -n kscore
 # Update chart values
 helm upgrade keystonecore keystonecore/kscore \
   --namespace kscore \
-  --set server.image.tag=v1.1.0 \
+  --set server.image.tag=v0.2.0 \
   --reuse-values
 
 # Rollback if needed
@@ -657,7 +657,7 @@ agent_binary:
   module: file
   state: present
   path: /usr/local/bin/kscore-agent
-  source: https://releases.keystonecore.io/v1.1.0/kscore-agent-linux-amd64
+  source: https://releases.keystonecore.io/v0.2.0/kscore-agent-linux-amd64
   mode: "0755"
 
 agent_restart:

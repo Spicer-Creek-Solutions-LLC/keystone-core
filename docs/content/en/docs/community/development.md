@@ -163,11 +163,11 @@ go build -o build/bin/kscore-agent ./cmd/kscore-agent
 
 ```bash
 # Version is injected at build time
-make build VERSION=v0.6.0 COMMIT=$(git rev-parse HEAD)
+make build VERSION=v0.1.0 COMMIT=$(git rev-parse HEAD)
 
 # Check version
 ./build/bin/kscore-server version
-# kscore-server v0.6.0 (commit: abc123def)
+# kscore-server v0.1.0 (commit: abc123def)
 ```
 
 ### Cross-Compilation
@@ -795,8 +795,8 @@ go install github.com/goreleaser/goreleaser/v2@latest
 
 ```bash
 # Create a release tag
-git tag -a v0.6.0 -m "Release v0.6.0"
-git push origin v0.6.0
+git tag -a v0.1.0 -m "Release v0.1.0"
+git push origin v0.1.0
 
 # Release builds are automated via GitHub Actions
 ```

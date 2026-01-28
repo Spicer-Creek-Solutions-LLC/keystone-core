@@ -94,6 +94,11 @@ See `docs/content/en/docs/contributing/state-machines.md` for full documentation
 
 ## Recent Updates
 
+- **Epic 100 IN PROGRESS**: 0.1.0 Release Readiness:
+  - Phase 1 (Registry + Signing): Added official blueprint validation tests, verified signing infrastructure
+  - Phase 2 (Version Normalization): COMPLETE - All 14 kscore/* blueprints at 0.1.0, docs updated
+  - Phase 3 (Repository Generation): COMPLETE - `kscore-repo-gen` utility generates DNF, APT, Windows, blueprint, and module repositories to `build/repos/`
+  - Remaining: Phase 4 (Release Documentation), Phase 5 (VM Bootstrap Validation)
 - **Epic 41 COMPLETE**: DNS Provider Management:
   - Week 1-2: Core DNS package (`internal/dns/`) with types, diff logic, provider registry, sync engine
   - Week 3-4: DNS state module for statemgmt integration, mock provider for testing
@@ -293,11 +298,14 @@ Implementation order:
 37. **Epic 37** (Enhanced Runbooks) - ✅ COMPLETE - Depends on Epic 1, 2, 3, 4
 39. **Epic 39** (State Machine Refactoring) - ✅ COMPLETE - Independent refactoring epic
 40. **Epic 40** (Test Coverage Remediation) - ✅ COMPLETE - Add tests to 23 untested packages
-41. **Epic 41** (DNS Provider Management) - ✅ COMPLETE - Depends on Epic 3, 6, 9 - State-based DNS records via libdns; providers: Cloudflare, Route 53, Google Cloud DNS, Azure DNS, DigitalOcean DNS, Hetzner DNS
+41. **Epic 41** (DNS Provider Management) - ✅ COMPLETE - Depends on Epic 3, 6, 9 - State-based DNS records via libdns; providers: Cloudflare, Route 53, Google Cloud DNS, Azure DNS, DigitalOcean DNS, DNSMadeEasy, Hetzner DNS
+
+### In Progress
+
+100. **Epic 100** (0.1.0 Release Readiness) - IN PROGRESS - Blueprint signing, version reset, docs audit, VM validation
 
 ### Future Epics (Not Yet Planned)
 
-- **0.1.0 Release Readiness** - Blueprint signing, version reset, docs audit, VM validation
 - **Epic 38: Air-Gapped Deployments** - USB/ISO bootstrap, offline registries, upgrade packages, data diodes (deferred until release infrastructure is established)
 - **Release & Distribution** - Release automation, package repos, artifact signing
 - **Multi-Tenancy** - Namespace isolation, per-tenant RBAC/quotas, SSO integration

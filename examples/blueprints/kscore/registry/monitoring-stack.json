@@ -1,9 +1,9 @@
 {
   "name": "kscore/monitoring-stack",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Production-ready monitoring stack with Prometheus, Grafana, Node Exporter, and Alertmanager.",
   "registry": "https://registry.keystonecore.io",
-  "package_url": "https://registry.keystonecore.io/blueprints/kscore/monitoring-stack/1.0.0",
+  "package_url": "https://registry.keystonecore.io/blueprints/kscore/monitoring-stack/0.1.0",
   "docs_url": "https://registry.keystonecore.io/blueprints/kscore/monitoring-stack",
   "source_path": "examples/blueprints/kscore/monitoring-stack",
   "categories": [

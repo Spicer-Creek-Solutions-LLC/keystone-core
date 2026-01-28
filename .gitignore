@@ -89,3 +89,6 @@ SESSION-SUMMARY*.md
 *_SESSION*.md
 .claude-session-context.md
 tools/moddoc/moddoc
+
+# Build cache
+.cache/

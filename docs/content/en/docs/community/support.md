@@ -53,7 +53,7 @@ GitHub Discussions is the primary community support channel:
 [List approaches you've attempted]
 
 ### Environment
-- Keystone Core version: v0.9.0
+- Keystone Core version: v0.1.0
 - OS: Ubuntu 22.04
 - Deployment: Single-node with embedded NATS
 
@@ -170,7 +170,7 @@ Found a bug? Report it on GitHub:
 ## Bug: State apply fails with "module not found" for service module
 
 ### Environment
-- Keystone Core: v0.9.0
+- Keystone Core: v0.1.0
 - OS: CentOS 8
 - Deployment: Single-node, embedded NATS
 

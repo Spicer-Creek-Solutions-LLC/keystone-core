@@ -10,6 +10,7 @@
        e2e-ipv6 e2e-ipv6-up e2e-ipv6-down e2e-ipv6-logs \
        e2e-ha-ipv6 e2e-ha-ipv6-up e2e-ha-ipv6-down e2e-ha-ipv6-logs \
        e2e-allinone e2e-all-topologies \
+       repos repo-gen repos-dnf repos-apt repos-windows repos-blueprints repos-modules \
        server agent cli exec state monitor policy gitops cluster migrate module registry identity gateway schedule loadtest
 
 # Version information
@@ -50,7 +51,8 @@ BINARIES := \
 	kscore-audit:kscore-audit \
 	kscore-webhook:kscore-webhook \
 	kscore-schedule:kscore-schedule \
-	kscore-loadtest:kscore-loadtest
+	kscore-loadtest:kscore-loadtest \
+	kscore-repo-gen:kscore-repo-gen
 
 # Extract just the binary names for .PHONY
 BINARY_NAMES := $(foreach b,$(BINARIES),$(firstword $(subst :, ,$(b))))
@@ -107,6 +109,14 @@ help:
 	@echo "  release            - Create a release (requires GITHUB_TOKEN)"
 	@echo "  release-snapshot   - Create a snapshot release (no publish)"
 	@echo "  release-dry-run    - Dry run release (validate config)"
+	@echo ""
+	@echo "Repository generation targets (output: build/repos/):"
+	@echo "  repos              - Generate all distribution repositories"
+	@echo "  repos-dnf          - Generate DNF/YUM repository (RPM packages)"
+	@echo "  repos-apt          - Generate APT repository (DEB packages)"
+	@echo "  repos-windows      - Generate Windows repository (MSI/ZIP)"
+	@echo "  repos-blueprints   - Generate blueprint registry"
+	@echo "  repos-modules      - Generate module registry"
 	@echo ""
 	@echo "Documentation targets (output: build/docs/ and build/pdfs/):"
 	@echo "  docs               - Build Hugo documentation site → build/docs/"
@@ -311,6 +321,34 @@ clean:
 	rm -rf modules/sdk/cpp/examples/*/build/
 	# E2E test reports
 	rm -rf test/e2e/performance/reports/
+
+# =============================================================================
+# Repository Generation
+# =============================================================================
+
+repos: repo-gen
+	@echo "Generating distribution repositories..."
+	$(NATIVE_BIN_DIR)/kscore-repo-gen all --version $(VERSION) --output build/repos
+
+repo-gen:
+	@echo "Building kscore-repo-gen..."
+	@mkdir -p $(NATIVE_BIN_DIR)
+	go build -ldflags "$(LDFLAGS)" -o $(NATIVE_BIN_DIR)/kscore-repo-gen ./cmd/kscore-repo-gen
+
+repos-dnf: repo-gen
+	$(NATIVE_BIN_DIR)/kscore-repo-gen dnf --version $(VERSION) --output build/repos/dnf
+
+repos-apt: repo-gen
+	$(NATIVE_BIN_DIR)/kscore-repo-gen apt --version $(VERSION) --output build/repos/apt
+
+repos-windows: repo-gen
+	$(NATIVE_BIN_DIR)/kscore-repo-gen windows --version $(VERSION) --output build/repos/windows
+
+repos-blueprints: repo-gen
+	$(NATIVE_BIN_DIR)/kscore-repo-gen blueprints --output build/repos/blueprints
+
+repos-modules: repo-gen
+	$(NATIVE_BIN_DIR)/kscore-repo-gen modules --output build/repos/modules
 
 install-tools:
 	@echo "Installing protoc plugins..."

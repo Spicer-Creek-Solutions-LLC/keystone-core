@@ -5,7 +5,7 @@ apiVersion: blueprints.kscore.io/v1
 kind: Blueprint
 metadata:
   name: monitoring-stack
-  version: 1.0.0
+  version: 0.1.0
   description: |
     Production-ready monitoring stack with Prometheus for metrics collection,
     Grafana for visualization, Node Exporter for system metrics, and Alertmanager

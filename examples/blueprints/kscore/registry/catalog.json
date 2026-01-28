@@ -34,7 +34,7 @@
     },
     {
       "name": "kscore/monitoring-stack",
-      "version": "1.0.0",
+      "version": "0.1.0",
       "manifest": "registry/monitoring-stack.json",
       "description": "Production-ready monitoring stack with Prometheus, Grafana, Node Exporter, and Alertmanager."
     },
@@ -46,7 +46,7 @@
     },
     {
       "name": "kscore/security-baseline",
-      "version": "1.0.0",
+      "version": "0.1.0",
       "manifest": "registry/security-baseline.json",
       "description": "Security hardening blueprint implementing industry best practices."
     },

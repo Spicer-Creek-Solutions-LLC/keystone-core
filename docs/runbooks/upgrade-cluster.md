@@ -30,18 +30,18 @@ kscorectl version
 kscorectl upgrade check
 
 # 3. Verify compatibility
-kscorectl upgrade check --target 1.6.0
+kscorectl upgrade check --target 0.2.0
 
 # 4. Review release notes
-# Visit: https://docs.keystone.io/releases/1.6.0
+# Visit: https://docs.keystone.io/releases/0.2.0
 
 # 5. Verify cluster health
 kscorectl cluster health
 
 # 6. Create backup
 kscore-cluster-backup create \
-  --dest /backup/pre-upgrade-1.6.0 \
-  --label "pre-upgrade-1.6.0"
+  --dest /backup/pre-upgrade-0.2.0 \
+  --label "pre-upgrade-0.2.0"
 ```
 
 ## Procedure
@@ -68,10 +68,10 @@ curl -s http://localhost:9090/api/v1/query?query=histogram_quantile(0.99,rate(ks
 
 ```bash
 # Generate and review upgrade plan
-kscorectl upgrade plan --target 1.6.0
+kscorectl upgrade plan --target 0.2.0
 
 # Example output:
-# Upgrade Plan: 1.5.0 -> 1.6.0
+# Upgrade Plan: 1.5.0 -> 0.2.0
 # Strategy: rolling
 # Estimated duration: 45 minutes
 #
@@ -94,17 +94,17 @@ kscorectl upgrade plan --target 1.6.0
 # Rollback: Automatic on failure
 
 # Save plan for reference
-kscorectl upgrade plan --target 1.6.0 --output /tmp/upgrade-plan.yaml
+kscorectl upgrade plan --target 0.2.0 --output /tmp/upgrade-plan.yaml
 ```
 
 ### Step 3: Execute Upgrade
 
 ```bash
 # Start upgrade
-kscorectl upgrade execute --target 1.6.0
+kscorectl upgrade execute --target 0.2.0
 
 # Or with specific options
-kscorectl upgrade execute --target 1.6.0 \
+kscorectl upgrade execute --target 0.2.0 \
   --strategy rolling \
   --max-unavailable 1 \
   --backup-before \
@@ -136,14 +136,14 @@ kscorectl upgrade status
 
 # Verify version
 kscorectl version
-# Expected: Version: 1.6.0
+# Expected: Version: 0.2.0
 
 # Verify cluster health
 kscorectl cluster health
 # Expected: Status: healthy
 
 # Verify all agents upgraded
-kscorectl upgrade agents --report | grep -c "1.6.0"
+kscorectl upgrade agents --report | grep -c "0.2.0"
 
 # Compare metrics to baseline
 curl -s http://localhost:9090/api/v1/query?query=rate(kscore_api_errors_total[5m])
@@ -157,21 +157,21 @@ kscore-test smoke
 
 ```bash
 # If agents are upgraded separately
-kscorectl upgrade agents --target 1.6.0
+kscorectl upgrade agents --target 0.2.0
 
 # Monitor agent upgrade
 kscorectl upgrade agents --status
 
 # Verify all agents upgraded
-kscorectl agent list --show-version | grep -v "1.6.0"
+kscorectl agent list --show-version | grep -v "0.2.0"
 # Should be empty
 ```
 
 ## Verification Checklist
 
-- [ ] Server version is 1.6.0
+- [ ] Server version is 0.2.0
 - [ ] All cluster nodes healthy
-- [ ] All agents on 1.6.0
+- [ ] All agents on 0.2.0
 - [ ] Error rate at baseline
 - [ ] Latency at baseline
 - [ ] All smoke tests pass
@@ -224,7 +224,7 @@ kscorectl upgrade status --watch
 ### Rolling Upgrade (Default)
 
 ```bash
-kscorectl upgrade execute --target 1.6.0 --strategy rolling
+kscorectl upgrade execute --target 0.2.0 --strategy rolling
 
 # Options:
 # --max-unavailable 1     # Max nodes down at once
@@ -237,7 +237,7 @@ Best for: Most upgrades, minimal disruption
 ### Canary Upgrade
 
 ```bash
-kscorectl upgrade execute --target 1.6.0 --strategy canary
+kscorectl upgrade execute --target 0.2.0 --strategy canary
 
 # Options:
 # --canary-percentage 10  # Initial percentage
@@ -250,7 +250,7 @@ Best for: Major version upgrades, new features
 ### Blue-Green Upgrade
 
 ```bash
-kscorectl upgrade execute --target 1.6.0 --strategy blue-green
+kscorectl upgrade execute --target 0.2.0 --strategy blue-green
 
 # Options:
 # --keep-old              # Keep old version for quick rollback
@@ -264,11 +264,11 @@ Check upgrade path compatibility:
 
 ```bash
 # Direct upgrade possible?
-kscorectl upgrade check --from 1.4.0 --to 1.6.0
+kscorectl upgrade check --from 1.4.0 --to 0.2.0
 
 # If not, find required path
-kscorectl upgrade path --from 1.4.0 --to 1.6.0
-# Output: 1.4.0 -> 1.5.0 -> 1.6.0
+kscorectl upgrade path --from 1.4.0 --to 0.2.0
+# Output: 1.4.0 -> 1.5.0 -> 0.2.0
 ```
 
 ## Appendix: Troubleshooting
