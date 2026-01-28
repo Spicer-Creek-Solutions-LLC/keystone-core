@@ -106,8 +106,12 @@ Prepare Keystone Core for the 0.1.0 project announcement by completing final rel
 - ✅ Added `make repos` target and related targets (repos-dnf, repos-apt, repos-windows, repos-blueprints, repos-modules)
 - ✅ All 14 official blueprints included in generated registry
 
-### Phase 4: Release Documentation (NOT STARTED)
-- Pending: Release notes, compatibility docs, announcement copy
+### Phase 4: Release Documentation (COMPLETE)
+- ✅ CHANGELOG.md updated with 0.1.0 release notes
+- ✅ Compatibility documentation updated with correct dates (0.1.x release: 2026-01-28)
+- ✅ Release notes page created (docs/content/en/docs/community/release-notes.md)
+- ✅ Release checklist created (docs/content/en/docs/community/release-checklist.md)
+- ✅ Announcement copy drafted (docs/content/en/docs/community/announcement-0.1.0.md)
 
 ### Phase 5: VM Bootstrap Validation (NOT STARTED)
 - Pending: VM test inventory, scenario execution, findings documentation
@@ -117,6 +121,6 @@ Prepare Keystone Core for the 0.1.0 project announcement by completing final rel
 - [x] Blueprint registry signing infrastructure verified
 - [x] Version references normalized to 0.1.0
 - [x] Repository generation utility complete
-- [ ] Documentation audit complete
+- [x] Documentation audit complete
 - [ ] VM bootstrap validation complete
 - [ ] Release checklist approved

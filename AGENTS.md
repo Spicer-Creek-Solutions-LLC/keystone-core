@@ -95,10 +95,11 @@ See `docs/content/en/docs/contributing/state-machines.md` for full documentation
 ## Recent Updates
 
 - **Epic 100 IN PROGRESS**: 0.1.0 Release Readiness:
-  - Phase 1 (Registry + Signing): Added official blueprint validation tests, verified signing infrastructure
+  - Phase 1 (Registry + Signing): COMPLETE - Official blueprint validation tests, signing infrastructure verified
   - Phase 2 (Version Normalization): COMPLETE - All 14 kscore/* blueprints at 0.1.0, docs updated
   - Phase 3 (Repository Generation): COMPLETE - `kscore-repo-gen` utility generates DNF, APT, Windows, blueprint, and module repositories to `build/repos/`
-  - Remaining: Phase 4 (Release Documentation), Phase 5 (VM Bootstrap Validation)
+  - Phase 4 (Release Documentation): COMPLETE - CHANGELOG, release notes, compatibility docs, release checklist, announcement draft
+  - Remaining: Phase 5 (VM Bootstrap Validation)
 - **Epic 41 COMPLETE**: DNS Provider Management:
   - Week 1-2: Core DNS package (`internal/dns/`) with types, diff logic, provider registry, sync engine
   - Week 3-4: DNS state module for statemgmt integration, mock provider for testing

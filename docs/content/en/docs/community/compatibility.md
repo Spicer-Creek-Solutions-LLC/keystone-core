@@ -343,10 +343,10 @@ This matrix shows compatibility between components across supported versions.
 
 | Version | Release Date | Active Support | Security Support | End of Life |
 |---------|--------------|----------------|------------------|-------------|
-| 0.1.x | 2024-01-15 | Ended | 2025-01-15 | 2025-01-15 |
-| 0.2.x | 2024-07-15 | Ended | 2025-07-15 | 2025-07-15 |
-| 0.3.x | 2025-01-15 | Active | 2026-01-15 | 2026-01-15 |
-| 0.4.x | 2025-07-15 | Active | 2026-07-15 | 2026-07-15 |
+| 0.1.x | 2026-01-28 | Active | 2027-01-28 | 2027-07-28 |
+| 0.2.x | 2026-07 (planned) | — | — | — |
+| 0.3.x | 2027-01 (planned) | — | — | — |
+| 0.4.x | 2027-07 (planned) | — | — | — |
 
 ### Support Levels
 
@@ -363,11 +363,11 @@ This matrix shows compatibility between components across supported versions.
 kscorectl version --all
 
 # Output:
-# Control Plane: 0.4.1
-# CLI: 0.4.0
-# Database Schema: 42
-# NATS Protocol: 2
-# API Version: v2
+# Control Plane: 0.1.0
+# CLI: 0.1.0
+# Database Schema: 1
+# NATS Protocol: 1
+# API Version: v1
 
 # Check compatibility
 kscorectl compatibility check
@@ -375,7 +375,7 @@ kscorectl compatibility check
 # Output:
 # ✅ CLI compatible with control plane
 # ✅ Database schema up to date
-# ⚠️ 3 agents running older version (0.3.x)
+# ✅ All agents running compatible versions
 # ✅ NATS server version compatible
 
 # Check agent compatibility
@@ -383,9 +383,9 @@ kscorectl agent list --show-compatibility
 
 # Output:
 # AGENT          VERSION   COMPATIBLE   FEATURES
-# agent-001      0.4.0     ✅ Full       All
-# agent-002      0.3.5     ⚠️ Limited    Missing: blueprints-v2
-# agent-003      0.2.8     ❌ Upgrade    Required: 0.3.x+
+# agent-001      0.1.0     ✅ Full       All
+# agent-002      0.1.0     ✅ Full       All
+# agent-003      0.1.0     ✅ Full       All
 ```
 
 ### Programmatic Check

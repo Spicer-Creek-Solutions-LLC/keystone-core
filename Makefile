@@ -326,9 +326,16 @@ clean:
 # Repository Generation
 # =============================================================================
 
+# DIST_DIR is the goreleaser output directory containing packages
+DIST_DIR ?= dist
+
 repos: repo-gen
-	@echo "Generating distribution repositories..."
-	$(NATIVE_BIN_DIR)/kscore-repo-gen all --version $(VERSION) --output build/repos
+	@echo "Generating distribution repositories from $(DIST_DIR)..."
+	@if [ ! -d "$(DIST_DIR)" ]; then \
+		echo "Error: dist directory not found. Run 'make release-snapshot' first."; \
+		exit 1; \
+	fi
+	$(NATIVE_BIN_DIR)/kscore-repo-gen all --version $(VERSION) --dist $(DIST_DIR) --output build/repos
 
 repo-gen:
 	@echo "Building kscore-repo-gen..."
@@ -336,19 +343,27 @@ repo-gen:
 	go build -ldflags "$(LDFLAGS)" -o $(NATIVE_BIN_DIR)/kscore-repo-gen ./cmd/kscore-repo-gen
 
 repos-dnf: repo-gen
-	$(NATIVE_BIN_DIR)/kscore-repo-gen dnf --version $(VERSION) --output build/repos/dnf
+	$(NATIVE_BIN_DIR)/kscore-repo-gen dnf --version $(VERSION) --dist $(DIST_DIR) --output build/repos/dnf
 
 repos-apt: repo-gen
-	$(NATIVE_BIN_DIR)/kscore-repo-gen apt --version $(VERSION) --output build/repos/apt
+	$(NATIVE_BIN_DIR)/kscore-repo-gen apt --version $(VERSION) --dist $(DIST_DIR) --output build/repos/apt
 
 repos-windows: repo-gen
-	$(NATIVE_BIN_DIR)/kscore-repo-gen windows --version $(VERSION) --output build/repos/windows
+	$(NATIVE_BIN_DIR)/kscore-repo-gen windows --version $(VERSION) --dist $(DIST_DIR) --output build/repos/windows
 
 repos-blueprints: repo-gen
 	$(NATIVE_BIN_DIR)/kscore-repo-gen blueprints --output build/repos/blueprints
 
 repos-modules: repo-gen
 	$(NATIVE_BIN_DIR)/kscore-repo-gen modules --output build/repos/modules
+
+# Goreleaser binary (can be overridden: make GORELEASER=/path/to/goreleaser release-packages)
+GORELEASER ?= $(shell which goreleaser 2>/dev/null || echo "$(HOME)/go/bin/goreleaser")
+
+# Build packages with goreleaser (snapshot for testing, no publish)
+release-packages:
+	@echo "Building packages with goreleaser..."
+	$(GORELEASER) release --snapshot --clean
 
 install-tools:
 	@echo "Installing protoc plugins..."

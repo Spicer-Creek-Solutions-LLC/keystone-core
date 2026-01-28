@@ -22,10 +22,11 @@ import (
 )
 
 var (
-	version     string
-	outputDir   string
-	binariesDir string
-	gpgKeyID    string
+	version      string
+	outputDir    string
+	distDir      string
+	binariesDir  string
+	gpgKeyID     string
 	signPackages bool
 )
 
@@ -49,7 +50,8 @@ by any static file server (nginx, Apache, S3, CDN, etc.).`,
 	// Global flags
 	rootCmd.PersistentFlags().StringVarP(&version, "version", "v", "", "Version string (e.g., 0.1.0)")
 	rootCmd.PersistentFlags().StringVarP(&outputDir, "output", "o", "build/repos", "Output directory")
-	rootCmd.PersistentFlags().StringVar(&binariesDir, "binaries", "build/bin", "Directory containing built binaries")
+	rootCmd.PersistentFlags().StringVarP(&distDir, "dist", "d", "dist", "Goreleaser output directory containing packages")
+	rootCmd.PersistentFlags().StringVar(&binariesDir, "binaries", "build/bin", "Directory containing built binaries (legacy)")
 	rootCmd.PersistentFlags().StringVar(&gpgKeyID, "gpg-key", "", "GPG key ID for signing")
 	rootCmd.PersistentFlags().BoolVar(&signPackages, "sign", false, "Sign packages and metadata")
 
@@ -75,6 +77,7 @@ func allCmd() *cobra.Command {
 			config := &repogen.Config{
 				Version:      version,
 				OutputDir:    outputDir,
+				DistDir:      distDir,
 				BinariesDir:  binariesDir,
 				GPGKeyID:     gpgKeyID,
 				SignPackages: signPackages,
@@ -95,6 +98,7 @@ func dnfCmd() *cobra.Command {
 			config := &repogen.Config{
 				Version:      version,
 				OutputDir:    outputDir,
+				DistDir:      distDir,
 				BinariesDir:  binariesDir,
 				GPGKeyID:     gpgKeyID,
 				SignPackages: signPackages,
@@ -115,6 +119,7 @@ func aptCmd() *cobra.Command {
 			config := &repogen.Config{
 				Version:      version,
 				OutputDir:    outputDir,
+				DistDir:      distDir,
 				BinariesDir:  binariesDir,
 				GPGKeyID:     gpgKeyID,
 				SignPackages: signPackages,
@@ -130,11 +135,12 @@ func windowsCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "windows",
 		Short: "Generate Windows repository",
-		Long:  "Generate Windows package repository with MSI/ZIP packages",
+		Long:  "Generate Windows package repository with ZIP packages",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			config := &repogen.Config{
 				Version:      version,
 				OutputDir:    outputDir,
+				DistDir:      distDir,
 				BinariesDir:  binariesDir,
 				GPGKeyID:     gpgKeyID,
 				SignPackages: signPackages,
@@ -155,6 +161,7 @@ func blueprintsCmd() *cobra.Command {
 			config := &repogen.Config{
 				Version:      version,
 				OutputDir:    outputDir,
+				DistDir:      distDir,
 				BinariesDir:  binariesDir,
 				GPGKeyID:     gpgKeyID,
 				SignPackages: signPackages,
@@ -179,6 +186,7 @@ func modulesCmd() *cobra.Command {
 			config := &repogen.Config{
 				Version:      version,
 				OutputDir:    outputDir,
+				DistDir:      distDir,
 				BinariesDir:  binariesDir,
 				GPGKeyID:     gpgKeyID,
 				SignPackages: signPackages,

@@ -49,7 +49,11 @@ type Config struct {
 	// OutputDir is the base output directory for all repositories
 	OutputDir string
 
-	// BinariesDir is the directory containing built binaries
+	// DistDir is the goreleaser output directory containing packages
+	// Defaults to "dist" if not specified
+	DistDir string
+
+	// BinariesDir is the directory containing built binaries (legacy, use DistDir)
 	BinariesDir string
 
 	// GPGKeyID is the GPG key ID for signing packages and metadata
