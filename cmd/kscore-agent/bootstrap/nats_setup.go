@@ -17,8 +17,30 @@ func setupNATS(cfg *BootstrapConfig, output io.Writer, verbose bool) error {
 			return fmt.Errorf("nats creds file not found: %w", err)
 		}
 	}
+
+	// Create NATS store directories for embedded modes
+	mode := strings.ToLower(cfg.NATSMode)
+	if mode == "" || mode == "embedded" || mode == "cluster" || mode == "leaf" {
+		if err := ensureNATSDirectories(output, verbose); err != nil {
+			return err
+		}
+	}
+
 	if verbose {
 		fmt.Fprintln(output, "nats configuration validated")
+	}
+	return nil
+}
+
+func ensureNATSDirectories(output io.Writer, verbose bool) error {
+	dirs := []string{natsStoreDir, jetstreamStoreDir}
+	for _, dir := range dirs {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return fmt.Errorf("create nats directory %s: %w", dir, err)
+		}
+		if verbose {
+			fmt.Fprintf(output, "created nats directory %s\n", dir)
+		}
 	}
 	return nil
 }

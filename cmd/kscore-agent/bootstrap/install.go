@@ -56,14 +56,24 @@ func installPhase(ctx context.Context, state *State) error {
 		Packages:       append([]string(nil), packages...),
 	}
 	state.InstallArtifacts = artifacts
-	created, err := applyRepoPlan(ctx, plan.RepoPlan, state.Output, state.Verbose)
-	if err != nil {
-		return err
-	}
-	artifacts.CreatedFiles = append(artifacts.CreatedFiles, created...)
 
-	if err := runCommands(ctx, plan.Commands, state.Output, state.Verbose); err != nil {
-		return err
+	var created []string
+
+	// Skip repo setup and package installation if packages are pre-installed
+	if state.BootstrapConfig.SkipRepoSetup {
+		if state.Verbose {
+			fmt.Fprintln(state.Output, "skipping repository setup (--skip-repo-setup)")
+		}
+	} else {
+		created, err = applyRepoPlan(ctx, plan.RepoPlan, state.Output, state.Verbose)
+		if err != nil {
+			return err
+		}
+		artifacts.CreatedFiles = append(artifacts.CreatedFiles, created...)
+
+		if err = runCommands(ctx, plan.Commands, state.Output, state.Verbose); err != nil {
+			return err
+		}
 	}
 
 	if state.BootstrapConfig.GenerateCerts {

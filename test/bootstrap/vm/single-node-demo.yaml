@@ -16,11 +16,11 @@ ssh:
   clean_nodes: true  # Reset node state before testing
   nodes:
     - name: demo
-      host: 192.168.1.100      # <-- UPDATE: Your VM IP address
+      host: ${KSCORE_VM_HOST}      # <-- UPDATE: Your VM IP address
       port: 22
-      user: root               # <-- UPDATE: SSH user (root or sudo user)
-      key_file: ~/.ssh/id_rsa  # <-- UPDATE: Path to SSH private key
-      os: ubuntu-22.04         # ubuntu-22.04, debian-12, rocky-9, etc.
+      user: test               # <-- UPDATE: SSH user (root or sudo user)
+      key_file: ~/.ssh/id_ed25519  # <-- UPDATE: Path to SSH private key
+      os: ubuntu-24.04         # ubuntu-22.04, debian-12, rocky-9, etc.
       role: both               # Runs both control-plane and agent
 
 # Test scenarios to run

@@ -3,11 +3,19 @@ package scenarios
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/shawnbutts/keystone-core/test/bootstrap/vm"
+)
+
+// Environment variables for test configuration
+const (
+	// KSCORE_REPO_URL sets the package repository URL (default: http://localhost:8080/repos)
+	// This must be reachable from the VM, e.g., http://${KSCORE_VM_HOST}:8080/repos
+	envRepoURL = "KSCORE_REPO_URL"
 )
 
 // TestDemoSingleNodeBootstrap tests the complete single-node demo bootstrap workflow.
@@ -83,8 +91,11 @@ func testDemoHealth(t *testing.T, provider vm.Provider, cfg *vm.Config) {
 	// Check embedded NATS is running
 	checkPortOpen(t, ctx, node, 4222, "NATS")
 
-	// Check API port is listening
-	checkPortOpen(t, ctx, node, 8443, "API")
+	// Check HTTP health API port is listening
+	checkPortOpen(t, ctx, node, 8080, "HTTP API")
+
+	// Check gRPC API port is listening
+	checkPortOpen(t, ctx, node, 9090, "gRPC API")
 }
 
 // testDemoAPI verifies that API endpoints respond correctly.
@@ -102,14 +113,9 @@ func testDemoAPI(t *testing.T, provider vm.Provider, cfg *vm.Config) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	// Check health endpoint
-	checkAPIEndpoint(t, ctx, node, "/health", 200)
-
-	// Check version endpoint
-	checkAPIEndpoint(t, ctx, node, "/api/v1/version", 200)
-
-	// Check agents endpoint (should return empty list initially)
-	checkAPIEndpoint(t, ctx, node, "/api/v1/agents", 200)
+	// Check HTTP health endpoints (runs on port 8080)
+	checkHTTPEndpoint(t, ctx, node, 8080, "/health/live", 200)
+	checkHTTPEndpoint(t, ctx, node, 8080, "/health/ready", 200)
 }
 
 type osInfo struct {
@@ -151,12 +157,62 @@ func detectOS(t *testing.T, ctx context.Context, node *vm.Node) osInfo {
 	return info
 }
 
+// sudo wraps a command with sudo if the user is not root
+func sudo(node *vm.Node, cmd string) string {
+	if node.User == "root" {
+		return cmd
+	}
+	return "sudo " + cmd
+}
+
+// sudoPrefix returns "sudo" or "" depending on user
+func sudoPrefix(node *vm.Node) string {
+	if node.User == "root" {
+		return ""
+	}
+	return "sudo"
+}
+
+// execShell runs a shell command on the node. Since SSH already runs commands
+// through a shell, we pass the command directly as a single string.
+func execShell(ctx context.Context, node *vm.Node, cmd string) (*vm.ExecResult, error) {
+	return node.Exec(ctx, cmd)
+}
+
+// ubuntuCodename maps Ubuntu version to codename
+func ubuntuCodename(version string) string {
+	switch {
+	case strings.HasPrefix(version, "24.04"):
+		return "noble"
+	case strings.HasPrefix(version, "22.04"):
+		return "jammy"
+	case strings.HasPrefix(version, "20.04"):
+		return "focal"
+	default:
+		return "jammy" // fallback
+	}
+}
+
+// debianCodename maps Debian version to codename
+func debianCodename(version string) string {
+	switch {
+	case strings.HasPrefix(version, "13"):
+		return "trixie"
+	case strings.HasPrefix(version, "12"):
+		return "bookworm"
+	case strings.HasPrefix(version, "11"):
+		return "bullseye"
+	default:
+		return "bookworm" // fallback
+	}
+}
+
 func cleanPreviousInstall(t *testing.T, ctx context.Context, node *vm.Node, info osInfo) {
 	t.Helper()
 	t.Log("Cleaning previous installation...")
 
 	// Stop services if running
-	_, _ = node.Exec(ctx, "systemctl", "stop", "kscore-server", "kscore-agent")
+	_, _ = execShell(ctx, node, sudo(node, "systemctl stop kscore-server kscore-agent 2>/dev/null || true"))
 
 	// Remove packages
 	var removeCmd string
@@ -169,37 +225,59 @@ func cleanPreviousInstall(t *testing.T, ctx context.Context, node *vm.Node, info
 		removeCmd = "zypper remove -y kscore-server kscore-agent kscore-cli 2>/dev/null || true"
 	}
 
-	if _, err := node.Exec(ctx, "sh", "-c", removeCmd); err != nil {
+	if _, err := execShell(ctx, node, sudo(node, removeCmd)); err != nil {
 		t.Logf("Warning: failed to remove previous packages: %v", err)
 	}
 
 	// Clean state directories
-	_, _ = node.Exec(ctx, "rm", "-rf", "/var/lib/kscore", "/etc/kscore")
+	_, _ = execShell(ctx, node, sudo(node, "rm -rf /var/lib/kscore /etc/kscore"))
 }
 
 func configureRepo(t *testing.T, ctx context.Context, node *vm.Node, info osInfo) {
 	t.Helper()
 	t.Logf("Configuring %s repository...", info.pkgManager)
 
-	// For now, we'll use the local repository served via HTTP
-	// In a real deployment, this would point to packages.keystonecore.io
-	repoURL := "http://localhost:8080/repos"
+	// Get repo URL from environment or use default
+	// NOTE: localhost won't work - use host IP reachable from VM
+	repoURL := os.Getenv(envRepoURL)
+	if repoURL == "" {
+		repoURL = "http://localhost:8080/repos"
+		t.Logf("WARNING: Using default repo URL %s - set KSCORE_REPO_URL to your host's IP", repoURL)
+	}
+	t.Logf("Using repository URL: %s", repoURL)
 
 	switch info.pkgManager {
 	case "apt":
-		// Add APT repository
-		distro := "jammy" // Default to Ubuntu 22.04
+		// Add APT repository - map version to codename
+		distro := ubuntuCodename(info.version)
 		if info.name == "debian" {
-			distro = "bookworm"
+			distro = debianCodename(info.version)
+		}
+		t.Logf("Using distro codename: %s", distro)
+
+		// allow-insecure=yes is needed because the test repo lacks GPG signing
+		repoLine := fmt.Sprintf("deb [trusted=yes allow-insecure=yes] %s/apt %s main", repoURL, distro)
+		cmd := fmt.Sprintf("echo '%s' | %s tee /etc/apt/sources.list.d/keystonecore.list > /dev/null", repoLine, sudoPrefix(node))
+		result, err := execShell(ctx, node, cmd)
+		if err != nil {
+			t.Fatalf("failed to configure apt repo: %v\nOutput: %s", err, result.Stdout)
 		}
 
-		repoLine := fmt.Sprintf("deb [trusted=yes] %s/apt %s main", repoURL, distro)
-		cmd := fmt.Sprintf("echo '%s' > /etc/apt/sources.list.d/keystonecore.list", repoLine)
-		if _, err := node.Exec(ctx, "sh", "-c", cmd); err != nil {
-			t.Fatalf("failed to configure apt repo: %v", err)
+		// Verify the repo file was created
+		result, err = execShell(ctx, node, "cat /etc/apt/sources.list.d/keystonecore.list")
+		if err != nil {
+			t.Fatalf("failed to read repo file: %v", err)
 		}
+		t.Logf("Repo file contents: %s", result.Stdout)
 
-		if result, err := node.Exec(ctx, "apt-get", "update"); err != nil {
+		// Test if repo URL is reachable
+		testURL := fmt.Sprintf("%s/apt/dists/%s/Release", repoURL, distro)
+		result, err = execShell(ctx, node, fmt.Sprintf("curl -sI %s | head -1", testURL))
+		t.Logf("Repository connectivity test (%s): %s", testURL, strings.TrimSpace(result.Stdout))
+
+		result, err = execShell(ctx, node, sudo(node, "apt-get update 2>&1"))
+		t.Logf("apt-get update output:\n%s", result.Stdout)
+		if err != nil {
 			t.Fatalf("failed to update apt cache: %v\n%s", err, result.Stdout)
 		}
 
@@ -217,16 +295,18 @@ enabled=1
 gpgcheck=0
 `, repoURL, version)
 
-		cmd := fmt.Sprintf("cat > /etc/yum.repos.d/keystonecore.repo << 'EOF'\n%sEOF", repoContent)
-		if _, err := node.Exec(ctx, "sh", "-c", cmd); err != nil {
-			t.Fatalf("failed to configure dnf repo: %v", err)
+		cmd := fmt.Sprintf("cat << 'EOF' | %s tee /etc/yum.repos.d/keystonecore.repo > /dev/null\n%sEOF", sudoPrefix(node), repoContent)
+		result, err := execShell(ctx, node, cmd)
+		if err != nil {
+			t.Fatalf("failed to configure dnf repo: %v\nOutput: %s", err, result.Stdout)
 		}
 
 	case "zypper":
 		// Add Zypper repository
-		cmd := fmt.Sprintf("zypper ar -G %s/dnf/el9/x86_64 keystonecore 2>/dev/null || true", repoURL)
-		if _, err := node.Exec(ctx, "sh", "-c", cmd); err != nil {
-			t.Fatalf("failed to configure zypper repo: %v", err)
+		cmd := sudo(node, fmt.Sprintf("zypper ar -G %s/dnf/el9/x86_64 keystonecore 2>/dev/null || true", repoURL))
+		result, err := execShell(ctx, node, cmd)
+		if err != nil {
+			t.Fatalf("failed to configure zypper repo: %v\nOutput: %s", err, result.Stdout)
 		}
 	}
 }
@@ -238,14 +318,16 @@ func installPackages(t *testing.T, ctx context.Context, node *vm.Node, info osIn
 	var installCmd string
 	switch info.pkgManager {
 	case "apt":
-		installCmd = "DEBIAN_FRONTEND=noninteractive apt-get install -y kscore-server kscore-agent kscore-cli"
+		// Use --reinstall to force update even if version number is the same
+		installCmd = "DEBIAN_FRONTEND=noninteractive apt-get install --reinstall -y kscore-server kscore-agent kscore-cli"
 	case "dnf":
-		installCmd = "dnf install -y kscore-server kscore-agent kscore-cli"
+		// Use reinstall to force update
+		installCmd = "dnf reinstall -y kscore-server kscore-agent kscore-cli || dnf install -y kscore-server kscore-agent kscore-cli"
 	case "zypper":
-		installCmd = "zypper install -y kscore-server kscore-agent kscore-cli"
+		installCmd = "zypper install -y --force kscore-server kscore-agent kscore-cli"
 	}
 
-	result, err := node.Exec(ctx, "sh", "-c", installCmd)
+	result, err := execShell(ctx, node, sudo(node, installCmd))
 	if err != nil {
 		t.Fatalf("failed to install packages: %v\nOutput: %s", err, result.Stdout)
 	}
@@ -257,13 +339,27 @@ func bootstrapDemo(t *testing.T, ctx context.Context, node *vm.Node) {
 	t.Helper()
 	t.Log("Running demo bootstrap...")
 
-	// Run the bootstrap command
-	result, err := node.Exec(ctx, "kscore-agent", "bootstrap",
-		"--mode", "demo",
-		"--non-interactive",
-	)
+	// Run the bootstrap command with --skip-repo-setup since packages are already installed
+	result, err := execShell(ctx, node, sudo(node, "kscore-agent bootstrap --mode demo --non-interactive --skip-repo-setup"))
 	if err != nil {
-		t.Fatalf("bootstrap failed: %v\nOutput: %s", err, result.Stdout)
+		// Capture diagnostics on failure
+		t.Logf("Bootstrap output:\n%s", result.Stdout)
+
+		// Get service status
+		status, _ := execShell(ctx, node, sudo(node, "systemctl status kscore-server.service 2>&1 || true"))
+		t.Logf("kscore-server status:\n%s", status.Stdout)
+
+		// Get journal logs
+		journal, _ := execShell(ctx, node, sudo(node, "journalctl -xeu kscore-server.service --no-pager -n 50 2>&1 || true"))
+		t.Logf("kscore-server journal:\n%s", journal.Stdout)
+
+		// Get bootstrap diagnostics if available
+		diag, _ := execShell(ctx, node, "ls -t /var/log/kscore/kscore-bootstrap-diagnostics-*.log 2>/dev/null | head -1 | xargs cat 2>/dev/null || true")
+		if diag.Stdout != "" {
+			t.Logf("Bootstrap diagnostics:\n%s", diag.Stdout)
+		}
+
+		t.Fatalf("bootstrap failed: %v", err)
 	}
 
 	t.Logf("Bootstrap output:\n%s", result.Stdout)
@@ -289,7 +385,7 @@ func checkPortOpen(t *testing.T, ctx context.Context, node *vm.Node, port int, n
 	t.Helper()
 
 	cmd := fmt.Sprintf("ss -tlnp | grep :%d || netstat -tlnp | grep :%d", port, port)
-	result, err := node.Exec(ctx, "sh", "-c", cmd)
+	result, err := execShell(ctx, node, cmd)
 	if err != nil || result.Stdout == "" {
 		t.Fatalf("port %d (%s) is not listening", port, name)
 	}
@@ -297,20 +393,20 @@ func checkPortOpen(t *testing.T, ctx context.Context, node *vm.Node, port int, n
 	t.Logf("Port %d (%s) is listening", port, name)
 }
 
-func checkAPIEndpoint(t *testing.T, ctx context.Context, node *vm.Node, path string, expectedStatus int) {
+func checkHTTPEndpoint(t *testing.T, ctx context.Context, node *vm.Node, port int, path string, expectedStatus int) {
 	t.Helper()
 
-	// Use curl to check API endpoint
-	cmd := fmt.Sprintf("curl -sk -o /dev/null -w '%%{http_code}' https://localhost:8443%s", path)
-	result, err := node.Exec(ctx, "sh", "-c", cmd)
+	// Use curl to check HTTP endpoint
+	cmd := fmt.Sprintf("curl -s -o /dev/null -w '%%{http_code}' http://localhost:%d%s", port, path)
+	result, err := execShell(ctx, node, cmd)
 	if err != nil {
-		t.Fatalf("failed to check API endpoint %s: %v", path, err)
+		t.Fatalf("failed to check HTTP endpoint %s on port %d: %v", path, port, err)
 	}
 
 	statusCode := strings.TrimSpace(result.Stdout)
 	if statusCode != fmt.Sprintf("%d", expectedStatus) {
-		t.Fatalf("API endpoint %s returned %s, expected %d", path, statusCode, expectedStatus)
+		t.Fatalf("HTTP endpoint %s on port %d returned %s, expected %d", path, port, statusCode, expectedStatus)
 	}
 
-	t.Logf("API endpoint %s returned %s", path, statusCode)
+	t.Logf("HTTP endpoint %s on port %d returned %s", path, port, statusCode)
 }

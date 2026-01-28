@@ -110,7 +110,7 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-Type=notify
+Type=simple
 ExecStart=%s --config %s
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure

@@ -1024,7 +1024,13 @@ test-vm-demo:
 	@echo "  1. Edit test/bootstrap/vm/single-node-demo.yaml with your VM IP/credentials"
 	@echo "  2. Ensure your VM is accessible via SSH"
 	@echo "  3. Start a local repo server: make repo-server (in another terminal)"
+	@echo "  4. Set KSCORE_REPO_URL to your host IP (e.g., http://${KSCORE_VM_HOST}:8080/repos)"
 	@echo ""
+	@if [ -z "$$KSCORE_REPO_URL" ]; then \
+		echo "WARNING: KSCORE_REPO_URL not set. The VM must be able to reach your repo server."; \
+		echo "Example: KSCORE_REPO_URL=http://${KSCORE_VM_HOST}:8080/repos make test-vm-demo"; \
+		echo ""; \
+	fi
 	KSCORE_VM_TESTS=1 KSCORE_VM_CONFIG=test/bootstrap/vm/single-node-demo.yaml \
 		go test -v -timeout 30m ./test/bootstrap/vm/scenarios/... -run TestDemoSingleNodeBootstrap
 

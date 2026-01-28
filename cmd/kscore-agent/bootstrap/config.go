@@ -50,6 +50,7 @@ type BootstrapConfig struct {
 	MigrateBatchSize       int                               `yaml:"migrate_batch_size,omitempty"`
 	MigrateContinueOnError bool                              `yaml:"migrate_continue_on_error,omitempty"`
 	MigrateSkipExisting    bool                              `yaml:"migrate_skip_existing,omitempty"`
+	SkipRepoSetup          bool                              `yaml:"skip_repo_setup,omitempty"`
 	BlueprintsDir          string                            `yaml:"blueprints_dir,omitempty"`
 	ApplyBlueprints        []string                          `yaml:"apply_blueprints,omitempty"`
 	BlueprintParams        map[string]map[string]interface{} `yaml:"blueprint_params,omitempty"`

@@ -1,6 +1,8 @@
 package bootstrap
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -8,8 +10,10 @@ import (
 )
 
 const (
-	serverConfigPath = "/etc/kscore/server.yaml"
-	agentConfigPath  = "/etc/kscore/agent.yaml"
+	serverConfigPath  = "/etc/kscore/server.yaml"
+	agentConfigPath   = "/etc/kscore/agent.yaml"
+	natsStoreDir      = "/var/lib/kscore/nats"
+	jetstreamStoreDir = "/var/lib/kscore/jetstream"
 )
 
 func buildServerConfig(cfg *BootstrapConfig) ([]byte, error) {
@@ -17,6 +21,7 @@ func buildServerConfig(cfg *BootstrapConfig) ([]byte, error) {
 		"server":  buildServerSection(cfg),
 		"nats":    buildNATSSection(cfg, true),
 		"storage": buildStorageSection(cfg),
+		"auth":    buildAuthSection(cfg),
 	}
 
 	if tls := buildTLSSection(cfg); len(tls) > 0 {
@@ -69,12 +74,15 @@ func buildNATSSection(cfg *BootstrapConfig, forServer bool) map[string]any {
 	case "embedded", "cluster":
 		if forServer {
 			nats["mode"] = "embedded"
-			embedded := map[string]any{}
+			embedded := map[string]any{
+				"storedir": natsStoreDir,
+			}
 			if cfg.BindAddress != "" {
 				embedded["host"] = cfg.BindAddress
 			}
-			if len(embedded) > 0 {
-				nats["embedded"] = embedded
+			nats["embedded"] = embedded
+			nats["jetstream"] = map[string]any{
+				"storedir": jetstreamStoreDir,
 			}
 		} else {
 			nats["mode"] = "external"
@@ -82,15 +90,18 @@ func buildNATSSection(cfg *BootstrapConfig, forServer bool) map[string]any {
 		}
 	case "leaf":
 		nats["mode"] = "leaf"
-		embedded := map[string]any{}
+		embedded := map[string]any{
+			"storedir": natsStoreDir,
+		}
 		if cfg.BindAddress != "" {
 			embedded["host"] = cfg.BindAddress
 		}
 		if len(cfg.NATSURLs) > 0 {
 			embedded["leafnodeurls"] = cfg.NATSURLs
 		}
-		if len(embedded) > 0 {
-			nats["embedded"] = embedded
+		nats["embedded"] = embedded
+		nats["jetstream"] = map[string]any{
+			"storedir": jetstreamStoreDir,
 		}
 	case "external":
 		nats["mode"] = "external"
@@ -98,6 +109,12 @@ func buildNATSSection(cfg *BootstrapConfig, forServer bool) map[string]any {
 	default:
 		if forServer {
 			nats["mode"] = "embedded"
+			nats["embedded"] = map[string]any{
+				"storedir": natsStoreDir,
+			}
+			nats["jetstream"] = map[string]any{
+				"storedir": jetstreamStoreDir,
+			}
 		} else {
 			nats["mode"] = "external"
 			nats["url"] = defaultNATSURL(cfg)
@@ -171,4 +188,38 @@ func buildPostgresDSN(cfg *BootstrapConfig) string {
 		cfg.PostgresDatabase,
 		sslMode,
 	)
+}
+
+func buildAuthSection(cfg *BootstrapConfig) map[string]any {
+	auth := map[string]any{}
+
+	// Demo mode disables auth for easy testing/evaluation
+	mode := strings.ToLower(cfg.Mode)
+	if mode == "demo" {
+		auth["enabled"] = false
+		return auth
+	}
+
+	// Production modes require auth - generate a bootstrap API key
+	auth["enabled"] = true
+	auth["type"] = "apikey"
+	auth["apikey"] = map[string]any{
+		"keys": map[string]any{
+			generateAPIKey(): map[string]any{
+				"name": "bootstrap-admin",
+				"role": "admin",
+			},
+		},
+	}
+
+	return auth
+}
+
+func generateAPIKey() string {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		// Fallback to a fixed key if random fails (should not happen)
+		return "ks-bootstrap-fallback-key-please-change"
+	}
+	return "ks-" + hex.EncodeToString(b)
 }

@@ -20,6 +20,7 @@ type Options struct {
 	DryRun                  bool
 	Verbose                 bool
 	NonInteractive          bool
+	SkipRepoSetup           bool
 	Mode                    string
 	ConfigPath              string
 	OutputConfig            string
@@ -293,6 +294,7 @@ This command is the entry point for Epic 27's single-binary bootstrap.`,
 				MigrateBatchSize:       opts.MigrateBatchSize,
 				MigrateContinueOnError: opts.MigrateContinueOnError,
 				MigrateSkipExisting:    opts.MigrateSkipExisting,
+				SkipRepoSetup:          opts.SkipRepoSetup,
 				BlueprintsDir:          opts.BlueprintsDir,
 				ApplyBlueprints:        opts.ApplyBlueprints,
 				BlueprintParams:        opts.BlueprintParams,
@@ -411,6 +413,7 @@ This command is the entry point for Epic 27's single-binary bootstrap.`,
 					MigrateBatchSize:       selected.MigrateBatchSize,
 					MigrateContinueOnError: selected.MigrateContinueOnError,
 					MigrateSkipExisting:    selected.MigrateSkipExisting,
+					SkipRepoSetup:          opts.SkipRepoSetup,
 					BlueprintsDir:          selected.BlueprintsDir,
 					ApplyBlueprints:        selected.ApplyBlueprints,
 					BlueprintParams:        selected.BlueprintParams,
@@ -566,6 +569,7 @@ This command is the entry point for Epic 27's single-binary bootstrap.`,
 	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", false, "Show planned actions without making changes")
 	cmd.Flags().BoolVar(&opts.Verbose, "verbose", false, "Enable verbose output")
 	cmd.Flags().BoolVar(&opts.NonInteractive, "non-interactive", false, "Run without interactive prompts")
+	cmd.Flags().BoolVar(&opts.SkipRepoSetup, "skip-repo-setup", false, "Skip package repository configuration (use when packages are pre-installed)")
 	cmd.Flags().StringVar(&opts.ConfigPath, "config", "", "Path to bootstrap configuration file")
 	cmd.Flags().StringVar(&opts.OutputConfig, "config-file", "", "Write bootstrap configuration to file")
 	cmd.Flags().StringVar(&opts.ClusterName, "cluster-name", "", "Cluster name")
