@@ -142,7 +142,7 @@ type ReactorMetrics struct {
 	ExecutionsThrottled uint64
 
 	// Per-reactor metrics
-	mu            sync.RWMutex
+	mu             sync.RWMutex
 	reactorMetrics map[string]*ReactorExecutionMetrics
 }
 
@@ -372,7 +372,7 @@ func (e *ReactorEngine) ProcessEvent(event *Event) error {
 		matchedCount++
 
 		// Track matched event
-		e.metrics.mu.RLock()
+		e.metrics.mu.RLock() // nosemgrep: trailofbits.go.missing-runlock-on-rwmutex.missing-runlock-on-rwmutex -- explicit RUnlock before return
 		metrics := e.metrics.reactorMetrics[reactor.ID]
 		e.metrics.mu.RUnlock()
 		atomic.AddUint64(&metrics.EventsMatched, 1)
@@ -431,7 +431,7 @@ func (e *ReactorEngine) executeReactor(ctx context.Context, reactor *Reactor, ev
 				e.metrics.mu.RUnlock()
 				atomic.AddUint64(&metrics.Throttled, 1)
 				atomic.AddUint64(&e.metrics.ExecutionsThrottled, 1)
-				return nil
+				return nil // nosemgrep: trailofbits.go.missing-runlock-on-rwmutex.missing-runlock-on-rwmutex -- RUnlock occurs immediately after metrics snapshot
 			}
 			exec.throttleLock.Unlock()
 		}
@@ -633,13 +633,13 @@ func (e *ReactorEngine) emitReactorEvent(reactor *Reactor, triggerEvent *Event, 
 	}
 
 	data := map[string]interface{}{
-		"reactor_id":        reactor.ID,
-		"reactor_name":      reactor.Name,
-		"trigger_event_id":  triggerEvent.ID,
+		"reactor_id":         reactor.ID,
+		"reactor_name":       reactor.Name,
+		"trigger_event_id":   triggerEvent.ID,
 		"trigger_event_type": string(triggerEvent.Type),
-		"success":           success,
-		"duration_ms":       duration.Milliseconds(),
-		"action_count":      len(reactor.Actions),
+		"success":            success,
+		"duration_ms":        duration.Milliseconds(),
+		"action_count":       len(reactor.Actions),
 	}
 
 	if err != nil {
@@ -669,12 +669,12 @@ func (e *ReactorEngine) emitActionEvent(reactor *Reactor, action Action, index i
 	}
 
 	data := map[string]interface{}{
-		"reactor_id":        reactor.ID,
-		"action_name":       action.Name(),
-		"action_type":       action.Type(),
-		"action_index":      index,
-		"trigger_event_id":  triggerEvent.ID,
-		"success":           err == nil,
+		"reactor_id":       reactor.ID,
+		"action_name":      action.Name(),
+		"action_type":      action.Type(),
+		"action_index":     index,
+		"trigger_event_id": triggerEvent.ID,
+		"success":          err == nil,
 	}
 
 	if err != nil {
@@ -758,12 +758,12 @@ func (e *ReactorEngine) GetMetrics() *ReactorMetrics {
 	defer e.metrics.mu.RUnlock()
 
 	snapshot := &ReactorMetrics{
-		EventsEvaluated:      atomic.LoadUint64(&e.metrics.EventsEvaluated),
-		ExecutionsTriggered:  atomic.LoadUint64(&e.metrics.ExecutionsTriggered),
-		ExecutionsSucceeded:  atomic.LoadUint64(&e.metrics.ExecutionsSucceeded),
-		ExecutionsFailed:     atomic.LoadUint64(&e.metrics.ExecutionsFailed),
-		ExecutionsThrottled:  atomic.LoadUint64(&e.metrics.ExecutionsThrottled),
-		reactorMetrics:       make(map[string]*ReactorExecutionMetrics),
+		EventsEvaluated:     atomic.LoadUint64(&e.metrics.EventsEvaluated),
+		ExecutionsTriggered: atomic.LoadUint64(&e.metrics.ExecutionsTriggered),
+		ExecutionsSucceeded: atomic.LoadUint64(&e.metrics.ExecutionsSucceeded),
+		ExecutionsFailed:    atomic.LoadUint64(&e.metrics.ExecutionsFailed),
+		ExecutionsThrottled: atomic.LoadUint64(&e.metrics.ExecutionsThrottled),
+		reactorMetrics:      make(map[string]*ReactorExecutionMetrics),
 	}
 
 	// Copy reactor metrics

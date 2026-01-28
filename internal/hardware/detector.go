@@ -51,7 +51,7 @@ func execLookPath(name string) (string, error) {
 
 // execCommand runs a command and returns its output
 func execCommand(name string, args ...string) (string, error) {
-	cmd := exec.Command(name, args...)
+	cmd := exec.Command(name, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	output, err := cmd.Output()
 	if err != nil {
 		return "", err

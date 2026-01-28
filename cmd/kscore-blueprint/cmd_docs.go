@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	texttemplate "text/template"
+	texttemplate "text/template" // nosemgrep: go.lang.security.audit.xss.import-text-template.import-text-template -- template renders markdown/text files, not HTML responses
 
 	"github.com/spf13/cobra"
 

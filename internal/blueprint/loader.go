@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"text/template"
+	"text/template" // nosemgrep: go.lang.security.audit.xss.import-text-template.import-text-template -- templates render YAML/text configs, not HTML responses
 
 	"gopkg.in/yaml.v3"
 )

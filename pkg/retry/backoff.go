@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"math/rand"
+	"math/rand" // nosemgrep: go.lang.security.audit.crypto.math_random.math-random-used -- jitter does not require crypto randomness
 	"sync"
 	"time"
 
@@ -92,7 +92,7 @@ func (eb *ExponentialBackoff) NextBackoff(attempt int) time.Duration {
 	if eb.Jitter && eb.JitterFactor > 0 {
 		jitter := interval * eb.JitterFactor
 		// Random jitter between -jitter and +jitter
-		interval = interval + (rand.Float64()*2-1)*jitter
+		interval = interval + (rand.Float64()*2-1)*jitter // nosemgrep: go.lang.security.audit.crypto.math_random.math-random-used -- jitter does not require crypto randomness
 	}
 
 	return time.Duration(interval)

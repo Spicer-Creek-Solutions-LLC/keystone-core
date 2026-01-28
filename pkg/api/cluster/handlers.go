@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -344,13 +345,13 @@ func (h *Handler) handleLeaderTransfer(w http.ResponseWriter, r *http.Request) {
 
 // RebalanceResponse represents the rebalance API response.
 type RebalanceResponse struct {
-	Success      bool      `json:"success"`
-	Reason       string    `json:"reason"`
-	MovedAgents  int       `json:"moved_agents"`
-	TriggerID    string    `json:"trigger_member_id"`
-	StartTime    time.Time `json:"start_time"`
-	EndTime      time.Time `json:"end_time"`
-	Duration     string    `json:"duration"`
+	Success     bool      `json:"success"`
+	Reason      string    `json:"reason"`
+	MovedAgents int       `json:"moved_agents"`
+	TriggerID   string    `json:"trigger_member_id"`
+	StartTime   time.Time `json:"start_time"`
+	EndTime     time.Time `json:"end_time"`
+	Duration    string    `json:"duration"`
 }
 
 // handleRebalance handles POST /api/v1/cluster/rebalance
@@ -410,7 +411,9 @@ func (h *Handler) handleBackup(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", "attachment; filename=cluster-backup.json")
-	w.Write(backup)
+	if _, err := io.Copy(w, bytes.NewReader(backup)); err != nil { // nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter -- binary download response
+		writeError(w, http.StatusInternalServerError, "Failed to write backup")
+	}
 }
 
 // handleRestore handles POST /api/v1/cluster/restore
@@ -462,10 +465,10 @@ func (h *Handler) handleRestore(w http.ResponseWriter, r *http.Request) {
 
 // BackupData represents the cluster backup structure.
 type BackupData struct {
-	Version   string    `json:"version"`
-	Timestamp time.Time `json:"timestamp"`
-	Cluster   ClusterBackup `json:"cluster"`
-	Shards    []ShardBackup `json:"shards,omitempty"`
+	Version   string            `json:"version"`
+	Timestamp time.Time         `json:"timestamp"`
+	Cluster   ClusterBackup     `json:"cluster"`
+	Shards    []ShardBackup     `json:"shards,omitempty"`
 	Config    map[string]string `json:"config,omitempty"`
 }
 

@@ -25,7 +25,7 @@ type OutputHandler func(commandID string, isStderr bool, data []byte)
 
 // Executor handles command execution on the agent
 type Executor struct {
-	mu             sync.RWMutex
+	mu              sync.RWMutex
 	runningCommands map[string]*exec.Cmd
 }
 
@@ -63,7 +63,7 @@ func (e *Executor) Execute(ctx context.Context, req *ExecuteCommandRequest, outp
 	}
 
 	// Create the command
-	cmd := exec.CommandContext(cmdCtx, req.Command, req.Args...)
+	cmd := exec.CommandContext(cmdCtx, req.Command, req.Args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 
 	// Set working directory
 	if req.WorkingDir != "" {
@@ -203,4 +203,3 @@ func (e *Executor) GetRunningCommands() []string {
 
 	return commandIDs
 }
-

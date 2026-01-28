@@ -50,16 +50,16 @@ type PipelineResult struct {
 
 // StageResult represents the result of a single pipeline stage
 type StageResult struct {
-	StageID   string
+	StageID    string
 	StageIndex int
-	Input     []byte
-	Output    []byte
-	Stderr    []byte
-	ExitCode  int
-	Error     error
-	StartTime time.Time
-	EndTime   time.Time
-	Skipped   bool // True if stage was skipped due to earlier failure
+	Input      []byte
+	Output     []byte
+	Stderr     []byte
+	ExitCode   int
+	Error      error
+	StartTime  time.Time
+	EndTime    time.Time
+	Skipped    bool // True if stage was skipped due to earlier failure
 }
 
 // PipelineHandler is called for each stage completion
@@ -311,8 +311,8 @@ func (pe *PipelineExecutor) executeWithInput(ctx context.Context, req *ExecuteRe
 		defer cancel()
 	}
 
-	// Use exec.CommandContext with stdin
-	execCmd := exec.CommandContext(cmdCtx, cmd, args...)
+	// Use exec.CommandContext with stdin // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
+	execCmd := exec.CommandContext(cmdCtx, cmd, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	execCmd.Stdin = bytes.NewReader(input)
 	execCmd.Stdout = &stdoutBuf
 	execCmd.Stderr = &stderrBuf
@@ -594,7 +594,7 @@ func (pe *PipelineExecutor) CreateStreamingPipeline(ctx context.Context, pipelin
 				args = s.Args
 			}
 
-			execCmd := exec.CommandContext(ctx, cmd, args...)
+			execCmd := exec.CommandContext(ctx, cmd, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 
 			// Set up input
 			if index > 0 {

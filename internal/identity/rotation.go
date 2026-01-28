@@ -5,7 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"math"
-	"math/rand"
+	"math/rand" // nosemgrep: go.lang.security.audit.crypto.math_random.math-random-used -- jitter does not require crypto randomness
 	"sync"
 	"sync/atomic"
 	"time"
@@ -526,7 +526,7 @@ func (m *SVIDRotationManager) calculateRetryDelay(attempt int) time.Duration {
 
 	// Add jitter
 	if m.config.JitterFraction > 0 {
-		jitter := time.Duration(float64(delay) * m.config.JitterFraction * (rand.Float64()*2 - 1))
+		jitter := time.Duration(float64(delay) * m.config.JitterFraction * (rand.Float64()*2 - 1)) // nosemgrep: go.lang.security.audit.crypto.math_random.math-random-used -- jitter does not require crypto randomness
 		delay += jitter
 		if delay < 0 {
 			delay = m.config.InitialRetryDelay

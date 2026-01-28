@@ -626,11 +626,11 @@ func (r *SQLiteDeviceRegistry) UpdateStatus(ctx context.Context, deviceID string
 		args = []interface{}{string(status), message, now, deviceID}
 	}
 
-	query := fmt.Sprintf(`
-		UPDATE proxied_devices SET
-			status = ?, status_message = ?, updated_at = ?%s
-		WHERE id = ?
-	`, lastSeenUpdate)
+	setClauses := []string{"status = ?", "status_message = ?", "updated_at = ?"}
+	if lastSeenUpdate != "" {
+		setClauses = append(setClauses, "last_seen = ?")
+	}
+	query := "UPDATE proxied_devices SET " + strings.Join(setClauses, ", ") + " WHERE id = ?" // nosemgrep: go.lang.security.audit.database.string-formatted-query.string-formatted-query -- setClauses built from fixed column map with bound args
 
 	result, err := r.db.ExecContext(ctx, query, args...)
 	if err != nil {

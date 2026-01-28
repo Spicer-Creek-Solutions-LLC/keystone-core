@@ -8,7 +8,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"math/rand"
+	"math/rand" // nosemgrep: go.lang.security.audit.crypto.math_random.math-random-used -- jitter does not require crypto randomness
 	"net"
 	"sync"
 	"time"
@@ -544,7 +544,7 @@ func (c *Client) calculateRetryDelay(attempt int, config *RetryConfig) time.Dura
 	// Add jitter
 	if config.Jitter > 0 {
 		jitterAmount := float64(delay) * config.Jitter
-		delay = time.Duration(float64(delay) + (rand.Float64()*2-1)*jitterAmount)
+		delay = time.Duration(float64(delay) + (rand.Float64()*2-1)*jitterAmount) // nosemgrep: go.lang.security.audit.crypto.math_random.math-random-used -- jitter does not require crypto randomness
 	}
 
 	return delay

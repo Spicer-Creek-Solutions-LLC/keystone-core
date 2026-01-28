@@ -544,7 +544,7 @@ func ExtractBlueprint(archive []byte, destDir string) error {
 				return fmt.Errorf("failed to create file: %w", err)
 			}
 
-			if _, err := io.Copy(file, tr); err != nil {
+			if _, err := io.CopyN(file, tr, header.Size); err != nil {
 				file.Close()
 				return fmt.Errorf("failed to write file: %w", err)
 			}

@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-All development to date. No releases have been made yet.
+No changes yet.
+
+## [0.1.0] - 2026-01-28
+
+**Initial Release** - First public release of Keystone Core.
+
+This release represents the culmination of 41 completed epics spanning core infrastructure,
+remote execution, state management, event-driven automation, GitOps integration, policy
+enforcement, observability, and comprehensive documentation.
 
 ### Epic 36: Deep Secrets Management Integration
 

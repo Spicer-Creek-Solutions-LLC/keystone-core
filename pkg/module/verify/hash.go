@@ -129,7 +129,7 @@ func (v *DefaultHashVerifier) computeZipHash(zipPath string) (string, error) {
 			return "", fmt.Errorf("failed to open file in zip: %w", err)
 		}
 
-		if _, err := io.Copy(hasher, rc); err != nil {
+		if _, err := io.CopyN(hasher, rc, int64(file.UncompressedSize64)); err != nil {
 			rc.Close()
 			return "", fmt.Errorf("failed to hash file content: %w", err)
 		}

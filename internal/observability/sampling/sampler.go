@@ -4,7 +4,7 @@ package sampling
 import (
 	"context"
 	"hash/fnv"
-	"math/rand"
+	"math/rand" // nosemgrep: go.lang.security.audit.crypto.math_random.math-random-used -- sampling does not require crypto randomness
 	"sync"
 	"sync/atomic"
 	"time"
@@ -71,15 +71,15 @@ type Span struct {
 
 // Config configures sampling behavior.
 type Config struct {
-	Strategy        Strategy `json:"strategy"`
-	SampleRate      float64  `json:"sampleRate"`      // 0.0-1.0
-	RateLimit       float64  `json:"rateLimit"`       // samples per second
-	ErrorSampleRate float64  `json:"errorSampleRate"` // rate for errors
+	Strategy        Strategy      `json:"strategy"`
+	SampleRate      float64       `json:"sampleRate"`      // 0.0-1.0
+	RateLimit       float64       `json:"rateLimit"`       // samples per second
+	ErrorSampleRate float64       `json:"errorSampleRate"` // rate for errors
 	SlowThreshold   time.Duration `json:"slowThreshold"`
-	SlowSampleRate  float64  `json:"slowSampleRate"` // rate for slow requests
-	MinSampleRate   float64  `json:"minSampleRate"`  // minimum for adaptive
-	MaxSampleRate   float64  `json:"maxSampleRate"`  // maximum for adaptive
-	TargetRate      float64  `json:"targetRate"`     // target samples/second for adaptive
+	SlowSampleRate  float64       `json:"slowSampleRate"` // rate for slow requests
+	MinSampleRate   float64       `json:"minSampleRate"`  // minimum for adaptive
+	MaxSampleRate   float64       `json:"maxSampleRate"`  // maximum for adaptive
+	TargetRate      float64       `json:"targetRate"`     // target samples/second for adaptive
 }
 
 // DefaultConfig returns a default configuration.
@@ -95,6 +95,10 @@ func DefaultConfig() *Config {
 		MaxSampleRate:   1.0,
 		TargetRate:      100,
 	}
+}
+
+func shouldSample(rate float64) bool {
+	return rand.Float64() < rate // nosemgrep: go.lang.security.audit.crypto.math_random.math-random-used -- sampling does not require crypto randomness
 }
 
 // Sampler makes sampling decisions.
@@ -178,7 +182,7 @@ func (s *ProbabilisticSampler) ShouldSample(ctx context.Context, span *Span) Dec
 	}
 
 	// Fall back to random
-	if rand.Float64() < s.rate {
+	if shouldSample(s.rate) {
 		return DecisionRecordAndSample
 	}
 	return DecisionDrop
@@ -191,10 +195,10 @@ func (s *ProbabilisticSampler) Description() string {
 
 // RateLimitingSampler limits the sample rate.
 type RateLimitingSampler struct {
-	rate      float64
-	tokens    float64
-	lastTick  time.Time
-	mu        sync.Mutex
+	rate     float64
+	tokens   float64
+	lastTick time.Time
+	mu       sync.Mutex
 }
 
 // NewRateLimitingSampler creates a new rate limiting sampler.
@@ -236,14 +240,14 @@ func (s *RateLimitingSampler) Description() string {
 
 // AdaptiveSampler adjusts sampling based on conditions.
 type AdaptiveSampler struct {
-	config       *Config
-	currentRate  float64
-	sampleCount  int64 // atomic
-	totalCount   int64 // atomic
-	errorCount   int64 // atomic
-	slowCount    int64 // atomic
-	lastAdjust   time.Time
-	mu           sync.RWMutex
+	config      *Config
+	currentRate float64
+	sampleCount int64 // atomic
+	totalCount  int64 // atomic
+	errorCount  int64 // atomic
+	slowCount   int64 // atomic
+	lastAdjust  time.Time
+	mu          sync.RWMutex
 }
 
 // NewAdaptiveSampler creates a new adaptive sampler.
@@ -266,7 +270,7 @@ func (s *AdaptiveSampler) ShouldSample(ctx context.Context, span *Span) Decision
 	// Always sample errors at high rate
 	if span.IsError {
 		atomic.AddInt64(&s.errorCount, 1)
-		if rand.Float64() < s.config.ErrorSampleRate {
+		if shouldSample(s.config.ErrorSampleRate) {
 			atomic.AddInt64(&s.sampleCount, 1)
 			return DecisionRecordAndSample
 		}
@@ -275,7 +279,7 @@ func (s *AdaptiveSampler) ShouldSample(ctx context.Context, span *Span) Decision
 	// Sample slow requests at higher rate
 	if span.Duration > 0 && span.Duration > s.config.SlowThreshold {
 		atomic.AddInt64(&s.slowCount, 1)
-		if rand.Float64() < s.config.SlowSampleRate {
+		if shouldSample(s.config.SlowSampleRate) {
 			atomic.AddInt64(&s.sampleCount, 1)
 			return DecisionRecordAndSample
 		}
@@ -286,7 +290,7 @@ func (s *AdaptiveSampler) ShouldSample(ctx context.Context, span *Span) Decision
 	rate := s.currentRate
 	s.mu.RUnlock()
 
-	if rand.Float64() < rate {
+	if shouldSample(rate) {
 		atomic.AddInt64(&s.sampleCount, 1)
 		return DecisionRecordAndSample
 	}
@@ -401,7 +405,7 @@ func (s *PrioritySampler) ShouldSample(ctx context.Context, span *Span) Decision
 		rate = 0.1 // Default
 	}
 
-	if rand.Float64() < rate {
+	if shouldSample(rate) {
 		return DecisionRecordAndSample
 	}
 	return DecisionDrop
@@ -414,20 +418,20 @@ func (s *PrioritySampler) Description() string {
 
 // ParentBasedSampler follows parent sampling decision.
 type ParentBasedSampler struct {
-	root             Sampler
-	remoteParentSampled   Sampler
+	root                   Sampler
+	remoteParentSampled    Sampler
 	remoteParentNotSampled Sampler
-	localParentSampled    Sampler
-	localParentNotSampled Sampler
+	localParentSampled     Sampler
+	localParentNotSampled  Sampler
 }
 
 // ParentBasedConfig configures the parent-based sampler.
 type ParentBasedConfig struct {
-	Root                  Sampler
-	RemoteParentSampled   Sampler
+	Root                   Sampler
+	RemoteParentSampled    Sampler
 	RemoteParentNotSampled Sampler
-	LocalParentSampled    Sampler
-	LocalParentNotSampled Sampler
+	LocalParentSampled     Sampler
+	LocalParentNotSampled  Sampler
 }
 
 // NewParentBasedSampler creates a new parent-based sampler.
@@ -438,11 +442,11 @@ func NewParentBasedSampler(config *ParentBasedConfig) *ParentBasedSampler {
 	}
 
 	return &ParentBasedSampler{
-		root:                  root,
-		remoteParentSampled:   config.RemoteParentSampled,
+		root:                   root,
+		remoteParentSampled:    config.RemoteParentSampled,
 		remoteParentNotSampled: config.RemoteParentNotSampled,
-		localParentSampled:    config.LocalParentSampled,
-		localParentNotSampled: config.LocalParentNotSampled,
+		localParentSampled:     config.LocalParentSampled,
+		localParentNotSampled:  config.LocalParentNotSampled,
 	}
 }
 
@@ -565,7 +569,7 @@ func NewErrorBiasSampler(baseSampler Sampler, errorRate float64) *ErrorBiasSampl
 
 // ShouldSample biases sampling toward errors.
 func (s *ErrorBiasSampler) ShouldSample(ctx context.Context, span *Span) Decision {
-	if span.IsError && rand.Float64() < s.errorRate {
+	if span.IsError && shouldSample(s.errorRate) {
 		return DecisionRecordAndSample
 	}
 	return s.baseSampler.ShouldSample(ctx, span)

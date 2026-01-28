@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -255,7 +256,7 @@ type SQLiteLifecycleTracker struct {
 	config *LifecycleTrackerConfig
 
 	// Metrics
-	trackedCount  uint64
+	trackedCount    uint64
 	transitionCount uint64
 
 	// Cleanup control
@@ -397,27 +398,25 @@ func (t *SQLiteLifecycleTracker) Track(ctx context.Context, transition *Lifecycl
 
 	// Update or insert lifecycle record
 	if exists {
+		setClauses := []string{"current_state = ?", "updated_at = ?"}
+		args := []interface{}{transition.ToState, transition.Timestamp}
+
 		// Update processing attempts if retrying
-		processingUpdate := ""
 		if transition.ToState == LifecycleStateRetrying || transition.ToState == LifecycleStateProcessing {
-			processingUpdate = ", processing_attempts = processing_attempts + 1"
+			setClauses = append(setClauses, "processing_attempts = processing_attempts + 1")
 		}
 
 		// Update error if failed
-		errorUpdate := ""
 		if transition.ToState == LifecycleStateFailed {
 			if errMsg, ok := transition.Details["error"].(string); ok {
-				errorUpdate = fmt.Sprintf(", last_error = '%s'", errMsg)
+				setClauses = append(setClauses, "last_error = ?")
+				args = append(args, errMsg)
 			}
 		}
 
-		query := fmt.Sprintf(`
-			UPDATE event_lifecycles
-			SET current_state = ?, updated_at = ?%s%s
-			WHERE event_id = ?
-		`, processingUpdate, errorUpdate)
-
-		_, err = tx.ExecContext(ctx, query, transition.ToState, transition.Timestamp, transition.EventID)
+		query := "UPDATE event_lifecycles SET " + strings.Join(setClauses, ", ") + " WHERE event_id = ?"
+		args = append(args, transition.EventID)
+		_, err = tx.ExecContext(ctx, query, args...)
 	} else {
 		// Get event type from details if available
 		eventType := ""
@@ -531,7 +530,7 @@ func (t *SQLiteLifecycleTracker) Query(ctx context.Context, query *LifecycleQuer
 	whereClause, args := t.buildWhereClause(query)
 
 	// Count total
-	countQuery := "SELECT COUNT(*) FROM event_lifecycles" + whereClause
+	countQuery := "SELECT COUNT(*) FROM event_lifecycles" + whereClause // nosemgrep: go.lang.security.audit.database.string-formatted-query.string-formatted-query -- whereClause built from whitelisted fields with placeholders; args are bound separately
 	var totalCount int64
 	if err := t.db.QueryRowContext(ctx, countQuery, args...).Scan(&totalCount); err != nil {
 		return nil, fmt.Errorf("failed to count lifecycles: %w", err)
@@ -559,13 +558,14 @@ func (t *SQLiteLifecycleTracker) Query(ctx context.Context, query *LifecycleQuer
 		limit = 100
 	}
 	offset := query.Offset
-	orderClause += fmt.Sprintf(" LIMIT %d OFFSET %d", limit, offset)
+	orderClause += " LIMIT ? OFFSET ?"
 
 	// Query lifecycles
 	selectQuery := `
 		SELECT event_id, event_type, current_state, created_at, updated_at, processing_attempts, last_error
 		FROM event_lifecycles` + whereClause + orderClause
 
+	args = append(args, limit, offset)
 	rows, err := t.db.QueryContext(ctx, selectQuery, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query lifecycles: %w", err)

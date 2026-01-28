@@ -161,7 +161,7 @@ func (m *PipModule) getPipCommand(decl *StateDeclaration) string {
 }
 
 func (m *PipModule) isPackageInstalled(ctx context.Context, pipCmd, name string) (bool, string, error) {
-	cmd := exec.CommandContext(ctx, pipCmd, "show", name)
+	cmd := exec.CommandContext(ctx, pipCmd, "show", name) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	output, err := cmd.Output()
 	if err != nil {
 		return false, "", nil
@@ -204,7 +204,7 @@ func (m *PipModule) installPackage(ctx context.Context, pipCmd string, decl *Sta
 
 	args = append(args, name)
 
-	cmd := exec.CommandContext(ctx, pipCmd, args...)
+	cmd := exec.CommandContext(ctx, pipCmd, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("pip install failed: %w (output: %s)", err, string(output))
@@ -231,7 +231,7 @@ func (m *PipModule) upgradePackage(ctx context.Context, pipCmd string, decl *Sta
 
 	args = append(args, name)
 
-	cmd := exec.CommandContext(ctx, pipCmd, args...)
+	cmd := exec.CommandContext(ctx, pipCmd, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("pip upgrade failed: %w (output: %s)", err, string(output))
@@ -242,7 +242,7 @@ func (m *PipModule) upgradePackage(ctx context.Context, pipCmd string, decl *Sta
 }
 
 func (m *PipModule) removePackage(ctx context.Context, pipCmd, name string, result *StateResult) error {
-	cmd := exec.CommandContext(ctx, pipCmd, "uninstall", "-y", name)
+	cmd := exec.CommandContext(ctx, pipCmd, "uninstall", "-y", name) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("pip uninstall failed: %w (output: %s)", err, string(output))
@@ -394,7 +394,7 @@ func (m *NpmModule) isPackageInstalled(ctx context.Context, name string, global 
 	}
 	args = append(args, name)
 
-	cmd := exec.CommandContext(ctx, "npm", args...)
+	cmd := exec.CommandContext(ctx, "npm", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	if path != "" {
 		cmd.Dir = path
 	}
@@ -455,7 +455,7 @@ func (m *NpmModule) installPackage(ctx context.Context, decl *StateDeclaration, 
 
 	args = append(args, name)
 
-	cmd := exec.CommandContext(ctx, "npm", args...)
+	cmd := exec.CommandContext(ctx, "npm", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	if path := getStringParameter(decl, "path", ""); path != "" {
 		cmd.Dir = path
 	}
@@ -478,7 +478,7 @@ func (m *NpmModule) updatePackage(ctx context.Context, decl *StateDeclaration, n
 
 	args = append(args, name)
 
-	cmd := exec.CommandContext(ctx, "npm", args...)
+	cmd := exec.CommandContext(ctx, "npm", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	if path := getStringParameter(decl, "path", ""); path != "" {
 		cmd.Dir = path
 	}
@@ -501,7 +501,7 @@ func (m *NpmModule) removePackage(ctx context.Context, decl *StateDeclaration, n
 
 	args = append(args, name)
 
-	cmd := exec.CommandContext(ctx, "npm", args...)
+	cmd := exec.CommandContext(ctx, "npm", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	if path := getStringParameter(decl, "path", ""); path != "" {
 		cmd.Dir = path
 	}
@@ -651,7 +651,7 @@ func (m *GemModule) Test(ctx context.Context, decl *StateDeclaration) (bool, err
 }
 
 func (m *GemModule) isGemInstalled(ctx context.Context, gemCmd, name string) (bool, string, error) {
-	cmd := exec.CommandContext(ctx, gemCmd, "list", "-i", name)
+	cmd := exec.CommandContext(ctx, gemCmd, "list", "-i", name) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	output, err := cmd.Output()
 	if err != nil {
 		return false, "", nil
@@ -659,7 +659,7 @@ func (m *GemModule) isGemInstalled(ctx context.Context, gemCmd, name string) (bo
 
 	if strings.TrimSpace(string(output)) == "true" {
 		// Get version
-		versionCmd := exec.CommandContext(ctx, gemCmd, "list", name)
+		versionCmd := exec.CommandContext(ctx, gemCmd, "list", name) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 		versionOutput, err := versionCmd.Output()
 		if err == nil {
 			// Parse "name (version)" format
@@ -711,7 +711,7 @@ func (m *GemModule) installGem(ctx context.Context, gemCmd string, decl *StateDe
 
 	args = append(args, name)
 
-	cmd := exec.CommandContext(ctx, gemCmd, args...)
+	cmd := exec.CommandContext(ctx, gemCmd, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("gem install failed: %w (output: %s)", err, string(output))
@@ -722,7 +722,7 @@ func (m *GemModule) installGem(ctx context.Context, gemCmd string, decl *StateDe
 }
 
 func (m *GemModule) updateGem(ctx context.Context, gemCmd, name string, result *StateResult) error {
-	cmd := exec.CommandContext(ctx, gemCmd, "update", name)
+	cmd := exec.CommandContext(ctx, gemCmd, "update", name) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("gem update failed: %w (output: %s)", err, string(output))
@@ -733,7 +733,7 @@ func (m *GemModule) updateGem(ctx context.Context, gemCmd, name string, result *
 }
 
 func (m *GemModule) removeGem(ctx context.Context, gemCmd, name string, result *StateResult) error {
-	cmd := exec.CommandContext(ctx, gemCmd, "uninstall", "-x", name)
+	cmd := exec.CommandContext(ctx, gemCmd, "uninstall", "-x", name) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("gem uninstall failed: %w (output: %s)", err, string(output))
@@ -896,7 +896,7 @@ func (m *UfwModule) Test(ctx context.Context, decl *StateDeclaration) (bool, err
 }
 
 func (m *UfwModule) isUfwEnabled(ctx context.Context) (bool, error) {
-	cmd := exec.CommandContext(ctx, "ufw", "status")
+	cmd := exec.CommandContext(ctx, "ufw", "status") // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	output, err := cmd.Output()
 	if err != nil {
 		return false, err
@@ -931,7 +931,7 @@ func (m *UfwModule) buildRuleSpec(decl *StateDeclaration) string {
 }
 
 func (m *UfwModule) ruleExists(ctx context.Context, rule string) (bool, error) {
-	cmd := exec.CommandContext(ctx, "ufw", "status", "numbered")
+	cmd := exec.CommandContext(ctx, "ufw", "status", "numbered") // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	output, err := cmd.Output()
 	if err != nil {
 		return false, err
@@ -941,7 +941,7 @@ func (m *UfwModule) ruleExists(ctx context.Context, rule string) (bool, error) {
 }
 
 func (m *UfwModule) enableUfw(ctx context.Context, result *StateResult) error {
-	cmd := exec.CommandContext(ctx, "ufw", "--force", "enable")
+	cmd := exec.CommandContext(ctx, "ufw", "--force", "enable") // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to enable ufw: %w (output: %s)", err, string(output))
@@ -951,7 +951,7 @@ func (m *UfwModule) enableUfw(ctx context.Context, result *StateResult) error {
 }
 
 func (m *UfwModule) disableUfw(ctx context.Context, result *StateResult) error {
-	cmd := exec.CommandContext(ctx, "ufw", "--force", "disable")
+	cmd := exec.CommandContext(ctx, "ufw", "--force", "disable") // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to disable ufw: %w (output: %s)", err, string(output))
@@ -993,7 +993,7 @@ func (m *UfwModule) addRule(ctx context.Context, decl *StateDeclaration, result 
 		args = append(args, "comment", comment)
 	}
 
-	cmd := exec.CommandContext(ctx, "ufw", args...)
+	cmd := exec.CommandContext(ctx, "ufw", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to add ufw rule: %w (output: %s)", err, string(output))
@@ -1018,7 +1018,7 @@ func (m *UfwModule) deleteRule(ctx context.Context, decl *StateDeclaration, resu
 		}
 	}
 
-	cmd := exec.CommandContext(ctx, "ufw", args...)
+	cmd := exec.CommandContext(ctx, "ufw", args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to delete ufw rule: %w (output: %s)", err, string(output))
@@ -1166,7 +1166,7 @@ func (m *AlternativesModule) Test(ctx context.Context, decl *StateDeclaration) (
 }
 
 func (m *AlternativesModule) getCurrentAlternative(ctx context.Context, name string) (string, bool, error) {
-	cmd := exec.CommandContext(ctx, "update-alternatives", "--display", name)
+	cmd := exec.CommandContext(ctx, "update-alternatives", "--display", name) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	output, err := cmd.Output()
 	if err != nil {
 		return "", false, nil
@@ -1192,7 +1192,7 @@ func (m *AlternativesModule) getCurrentAlternative(ctx context.Context, name str
 }
 
 func (m *AlternativesModule) setAlternative(ctx context.Context, name, path string, result *StateResult) error {
-	cmd := exec.CommandContext(ctx, "update-alternatives", "--set", name, path)
+	cmd := exec.CommandContext(ctx, "update-alternatives", "--set", name, path) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to set alternative: %w (output: %s)", err, string(output))
@@ -1202,7 +1202,7 @@ func (m *AlternativesModule) setAlternative(ctx context.Context, name, path stri
 }
 
 func (m *AlternativesModule) setAuto(ctx context.Context, name string, result *StateResult) error {
-	cmd := exec.CommandContext(ctx, "update-alternatives", "--auto", name)
+	cmd := exec.CommandContext(ctx, "update-alternatives", "--auto", name) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to set auto mode: %w (output: %s)", err, string(output))

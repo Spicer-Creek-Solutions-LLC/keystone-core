@@ -273,14 +273,21 @@ func (m *MirrorServer) handleGetBlueprint(w http.ResponseWriter, r *http.Request
 
 	bpPath := filepath.Join(m.config.StorageDir, parts[0], parts[1], version, "blueprint.yaml")
 
-	data, err := os.ReadFile(bpPath)
+	file, err := os.Open(bpPath)
 	if err != nil {
 		http.Error(w, "Failed to read blueprint", http.StatusInternalServerError)
 		return
 	}
+	defer file.Close()
+
+	info, err := file.Stat()
+	if err != nil {
+		http.Error(w, "Failed to stat blueprint", http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/x-yaml")
-	w.Write(data)
+	http.ServeContent(w, r, filepath.Base(bpPath), info.ModTime(), file)
 }
 
 // handlePutBlueprint stores a blueprint

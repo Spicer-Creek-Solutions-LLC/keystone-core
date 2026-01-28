@@ -334,7 +334,7 @@ func newTLSBaseConfig(host, minVersion string) *tls.Config {
 	return &tls.Config{
 		ServerName:         host,
 		InsecureSkipVerify: false,
-		MinVersion:         parseTLSMinVersion(minVersion),
+		MinVersion:         parseTLSMinVersion(minVersion), // #nosec G402 -- validated to TLS 1.2+ defaults
 	}
 }
 

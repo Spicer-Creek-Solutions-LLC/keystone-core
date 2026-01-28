@@ -2,7 +2,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,7 +12,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"text/template"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -26,8 +24,13 @@ import (
 )
 
 var version = "0.1.0"
-var versionListTemplate = template.Must(template.New("versions").Parse(`{{ range .}}{{ . }}
-{{ end }}`))
+
+func renderVersionList(versions []string) string {
+	if len(versions) == 0 {
+		return ""
+	}
+	return strings.Join(versions, "\n") + "\n"
+}
 
 // Config holds server configuration
 type Config struct {
@@ -215,15 +218,9 @@ func (s *Server) handleListVersions(w http.ResponseWriter, r *http.Request, modu
 	// Sort versions in descending order (newest first)
 	sort.Sort(sort.Reverse(sort.StringSlice(versions)))
 
-	var buf bytes.Buffer
-	if err := versionListTemplate.Execute(&buf, versions); err != nil {
-		s.writeError(w, http.StatusInternalServerError, registry.ErrCodeServerError,
-			fmt.Sprintf("Failed to render versions: %v", err))
-		return
-	}
-
+	output := renderVersionList(versions)
 	w.Header().Set("Content-Type", "text/plain")
-	if _, err := io.Copy(w, &buf); err != nil {
+	if _, err := io.WriteString(w, output); err != nil { // nosemgrep: go.lang.security.audit.xss.no-io-writestring-to-responsewriter.no-io-writestring-to-responsewriter -- plain text version list response, no HTML content
 		log.Printf("Failed to write version list: %v", err)
 	}
 }

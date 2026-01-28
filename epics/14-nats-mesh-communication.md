@@ -171,7 +171,7 @@ flowchart LR
 |----------|----------|-------------|
 | Direct TCP | `nats://host:4222` | Standard NATS connection |
 | TLS | `tls://host:4222` | Encrypted NATS |
-| WebSocket | `ws://host:80`, `wss://host:443` | WS transport |
+| WebSocket | `wss://host:443` | WS transport |
 | Leaf Node | `leaf://host:7422` | Hierarchical connection |
 | Gateway | (cluster config) | Supercluster connection |
 
@@ -455,7 +455,7 @@ flowchart LR
 
 **T2.1: NATS URL Configuration**
 - Support multiple NATS URLs in config
-- Parse URL schemes (nats://, tls://, ws://, wss://)
+- Parse URL schemes (nats://, tls://, wss://)
 - Support URL with credentials (nats://user:pass@host)
 - Support URL with token (nats://host?token=xxx)
 - Configuration validation

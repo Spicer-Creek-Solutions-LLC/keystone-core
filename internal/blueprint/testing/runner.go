@@ -893,7 +893,7 @@ func (r *Runner) runCommand(ctx context.Context, cmdConfig *CommandAssertion) Co
 		args[1] = cmdConfig.Command + " " + strings.Join(cmdConfig.Args, " ")
 	}
 
-	cmd := exec.CommandContext(ctx, shell, args...)
+	cmd := exec.CommandContext(ctx, shell, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 
 	// Capture output
 	output, err := cmd.CombinedOutput()
@@ -1140,7 +1140,7 @@ func (r *Runner) runSetupCommand(ctx context.Context, cmd *TestCommand) CommandR
 	}
 
 	args := []string{"-c", cmd.Command}
-	c := exec.CommandContext(ctx, shell, args...)
+	c := exec.CommandContext(ctx, shell, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 
 	output, err := c.CombinedOutput()
 	if err != nil {

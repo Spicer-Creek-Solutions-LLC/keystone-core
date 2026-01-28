@@ -3,6 +3,8 @@ package mirror
 
 import (
 	"fmt"
+	"io"
+	"log"
 	"net/http"
 	"sort"
 	"strings"
@@ -21,12 +23,12 @@ type MirrorMetrics struct {
 	mirrorHealth map[string]map[string]MirrorState
 
 	// Operation counts
-	readOperations    map[string]int64 // by group
-	writeOperations   map[string]int64 // by group
-	readBytes         map[string]int64 // by group
-	writeBytes        map[string]int64 // by group
-	readErrors        map[string]int64 // by group
-	writeErrors       map[string]int64 // by group
+	readOperations  map[string]int64 // by group
+	writeOperations map[string]int64 // by group
+	readBytes       map[string]int64 // by group
+	writeBytes      map[string]int64 // by group
+	readErrors      map[string]int64 // by group
+	writeErrors     map[string]int64 // by group
 
 	// Sync metrics
 	syncOperationsTotal     map[string]int64   // by group
@@ -343,7 +345,9 @@ func (m *MirrorMetrics) writeHistogram(sb *strings.Builder, name, help string, b
 func (m *MirrorMetrics) MetricsHandler() func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
-		w.Write([]byte(m.Export()))
+		if _, err := io.WriteString(w, m.Export()); err != nil { // nosemgrep: go.lang.security.audit.xss.no-io-writestring-to-responsewriter.no-io-writestring-to-responsewriter -- Prometheus text format, not HTML
+			log.Printf("failed to write metrics: %v", err)
+		}
 	}
 }
 

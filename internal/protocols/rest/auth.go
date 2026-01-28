@@ -154,7 +154,7 @@ func (a *APIKeyAuth) Authenticate(req *http.Request) error {
 		q.Set(a.key, a.value)
 		req.URL.RawQuery = q.Encode()
 	case APIKeyCookie:
-		req.AddCookie(&http.Cookie{Name: a.key, Value: a.value})
+		req.AddCookie(&http.Cookie{Name: a.key, Value: a.value, Secure: true, HttpOnly: true})
 	default:
 		req.Header.Set(a.key, a.value)
 	}

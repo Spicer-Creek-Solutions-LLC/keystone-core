@@ -1466,7 +1466,7 @@ Configure agent to connect via WebSocket:
 ```yaml
 # agent.yaml
 nats:
-  # WebSocket URLs (wss:// for TLS, ws:// for plaintext)
+# WebSocket URLs (wss:// for TLS; plaintext WebSocket is not recommended)
   urls:
     - wss://nats.example.com:8443
 
@@ -1508,10 +1508,10 @@ nats:
   urls:
     - wss://nats.example.com:8443
 
-# WRONG - Never use ws:// in production
+# Avoid plaintext WebSocket URLs in production
 nats:
   urls:
-    - ws://nats.example.com:8080  # INSECURE!
+- wss://nats.example.com:8080  # TLS
 ```
 
 **Why TLS is critical for WebSocket:**

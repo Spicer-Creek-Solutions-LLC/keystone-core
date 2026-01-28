@@ -6,7 +6,9 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -171,13 +173,17 @@ func NewFederation(config *FederationConfig, store ClusterStore, localID string)
 		minVersion = parseTLSMinVersion(config.TLSConfig.MinVersion)
 	}
 
-	tlsConfig := &tls.Config{
+	tlsConfig := &tls.Config{ // #nosec G402 -- minVersion is restricted to TLS 1.2+ by parseTLSMinVersion // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.bypass-tls-verification.bypass-tls-verification -- InsecureSkipVerify only allowed with KSCORE_ALLOW_INSECURE_TLS=1 for dev/test
 		MinVersion: minVersion,
 	}
 
 	if config.TLSConfig != nil && config.TLSConfig.SkipVerify {
-		// #nosec G402 -- SkipVerify is user-configured for dev/test federation setups.
-		tlsConfig.InsecureSkipVerify = true
+		if os.Getenv("KSCORE_ALLOW_INSECURE_TLS") != "1" {
+			log.Printf("WARNING: federation TLS skip-verify ignored. Set KSCORE_ALLOW_INSECURE_TLS=1 for development/testing only.")
+		} else {
+			// #nosec G402 -- SkipVerify is user-configured for dev/test federation setups.
+			tlsConfig.InsecureSkipVerify = true // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.bypass-tls-verification.bypass-tls-verification -- gated by KSCORE_ALLOW_INSECURE_TLS
+		}
 	}
 
 	httpClient.Transport = &http.Transport{

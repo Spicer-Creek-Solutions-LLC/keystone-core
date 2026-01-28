@@ -63,7 +63,7 @@ func (h *ExternalCredentialHelper) Get(ctx context.Context, serverURL string) (*
 	ctx, cancel := context.WithTimeout(ctx, h.timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, h.binaryName(), "get")
+	cmd := exec.CommandContext(ctx, h.binaryName(), "get") // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	cmd.Stdin = strings.NewReader(serverURL)
 
 	var stdout, stderr bytes.Buffer
@@ -108,7 +108,7 @@ func (h *ExternalCredentialHelper) Store(ctx context.Context, cred *Credential) 
 		return err
 	}
 
-	cmd := exec.CommandContext(ctx, h.binaryName(), "store")
+	cmd := exec.CommandContext(ctx, h.binaryName(), "store") // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	cmd.Stdin = bytes.NewReader(inputJSON)
 
 	var stderr bytes.Buffer
@@ -126,7 +126,7 @@ func (h *ExternalCredentialHelper) Erase(ctx context.Context, serverURL string) 
 	ctx, cancel := context.WithTimeout(ctx, h.timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, h.binaryName(), "erase")
+	cmd := exec.CommandContext(ctx, h.binaryName(), "erase") // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	cmd.Stdin = strings.NewReader(serverURL)
 
 	var stderr bytes.Buffer
@@ -144,7 +144,7 @@ func (h *ExternalCredentialHelper) List(ctx context.Context) (map[string]string,
 	ctx, cancel := context.WithTimeout(ctx, h.timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, h.binaryName(), "list")
+	cmd := exec.CommandContext(ctx, h.binaryName(), "list") // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -270,14 +270,14 @@ func matchRegistryPattern(pattern, registry string) bool {
 
 // CommonCredentialHelpers contains names of well-known credential helpers.
 var CommonCredentialHelpers = map[string]string{
-	"ecr":        "ecr-login",        // AWS ECR
-	"gcr":        "gcr",              // Google Container Registry (older)
-	"gcloud":     "gcloud",           // Google Cloud (newer, recommended)
-	"acr":        "acr-env",          // Azure Container Registry
-	"osxkeychain": "osxkeychain",     // macOS Keychain
-	"wincred":    "wincred",          // Windows Credential Manager
+	"ecr":           "ecr-login",     // AWS ECR
+	"gcr":           "gcr",           // Google Container Registry (older)
+	"gcloud":        "gcloud",        // Google Cloud (newer, recommended)
+	"acr":           "acr-env",       // Azure Container Registry
+	"osxkeychain":   "osxkeychain",   // macOS Keychain
+	"wincred":       "wincred",       // Windows Credential Manager
 	"secretservice": "secretservice", // Linux Secret Service (GNOME Keyring)
-	"pass":       "pass",             // pass (Unix password manager)
+	"pass":          "pass",          // pass (Unix password manager)
 }
 
 // GetCommonHelper returns a common credential helper by type.

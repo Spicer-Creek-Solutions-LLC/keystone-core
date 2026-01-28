@@ -1,7 +1,7 @@
 package main
 
 import (
-	"crypto/md5"
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,20 +11,20 @@ import (
 
 // SyncReport contains documentation sync analysis
 type SyncReport struct {
-	ReadmeVsDocsIssues  []SyncIssue `json:"readme_vs_docs"`
-	ClaudeMdVsDocsIssues []SyncIssue `json:"claudemd_vs_docs"`
-	DesignVsDocsIssues  []SyncIssue `json:"design_vs_docs"`
-	VersionMismatches   []VersionMismatch `json:"version_mismatches"`
-	FeatureListDrift    []FeatureDrift `json:"feature_list_drift"`
+	ReadmeVsDocsIssues   []SyncIssue       `json:"readme_vs_docs"`
+	ClaudeMdVsDocsIssues []SyncIssue       `json:"claudemd_vs_docs"`
+	DesignVsDocsIssues   []SyncIssue       `json:"design_vs_docs"`
+	VersionMismatches    []VersionMismatch `json:"version_mismatches"`
+	FeatureListDrift     []FeatureDrift    `json:"feature_list_drift"`
 }
 
 // SyncIssue represents a synchronization issue between files
 type SyncIssue struct {
-	SourceFile   string `json:"source_file"`
-	TargetFile   string `json:"target_file"`
-	Section      string `json:"section"`
-	IssueType    string `json:"issue_type"` // missing, outdated, different
-	Description  string `json:"description"`
+	SourceFile  string `json:"source_file"`
+	TargetFile  string `json:"target_file"`
+	Section     string `json:"section"`
+	IssueType   string `json:"issue_type"` // missing, outdated, different
+	Description string `json:"description"`
 }
 
 // VersionMismatch represents version number inconsistencies
@@ -88,10 +88,10 @@ func checkReadmeVsDocs(rootDir string, report *SyncReport, verbose bool) {
 
 	// Check that key sections exist in both places
 	keySections := []struct {
-		name       string
+		name         string
 		readmeMarker string
-		docsPath   string
-		docsMarker string
+		docsPath     string
+		docsMarker   string
 	}{
 		{"Features", "## Features", overviewPath, "## Key Features"},
 		{"Installation", "## Installation", installPath, "## Installation"},
@@ -307,9 +307,9 @@ func normalizeContent(content string) string {
 }
 
 func significantlyDifferent(a, b string) bool {
-	// Compare MD5 hashes of normalized content
-	hashA := fmt.Sprintf("%x", md5.Sum([]byte(a)))
-	hashB := fmt.Sprintf("%x", md5.Sum([]byte(b)))
+	// Compare SHA256 hashes of normalized content
+	hashA := fmt.Sprintf("%x", sha256.Sum256([]byte(a)))
+	hashB := fmt.Sprintf("%x", sha256.Sum256([]byte(b)))
 
 	// If lengths differ by more than 50%, consider different
 	if len(a) > 0 && len(b) > 0 {

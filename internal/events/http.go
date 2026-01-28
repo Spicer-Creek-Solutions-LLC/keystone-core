@@ -287,12 +287,16 @@ func (r *HTTPReceiver) handleBatch(w http.ResponseWriter, req *http.Request) {
 	r.lastEvent = time.Now()
 
 	if failed > 0 {
-		w.WriteHeader(http.StatusPartialContent)
-		w.Write([]byte(fmt.Sprintf(`{"status":"partial","accepted":%d,"failed":%d}`,
-			len(events)-failed, failed)))
+		writeJSONResponse(w, http.StatusPartialContent, map[string]interface{}{
+			"status":   "partial",
+			"accepted": len(events) - failed,
+			"failed":   failed,
+		})
 	} else {
-		w.WriteHeader(http.StatusAccepted)
-		w.Write([]byte(fmt.Sprintf(`{"status":"accepted","count":%d}`, len(events))))
+		writeJSONResponse(w, http.StatusAccepted, map[string]interface{}{
+			"status": "accepted",
+			"count":  len(events),
+		})
 	}
 }
 
@@ -308,9 +312,7 @@ func (r *HTTPReceiver) handleHealth(w http.ResponseWriter, req *http.Request) {
 		status = "healthy"
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf(`{"status":"%s"}`, status)))
+	writeJSONResponse(w, http.StatusOK, map[string]string{"status": status})
 }
 
 // handleMetrics handles metrics endpoint
@@ -328,6 +330,14 @@ func (r *HTTPReceiver) handleMetrics(w http.ResponseWriter, req *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(metrics)
+}
+
+func writeJSONResponse(w http.ResponseWriter, status int, payload interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
 }
 
 // verifySignature verifies HMAC signature
@@ -351,9 +361,9 @@ func (r *HTTPReceiver) verifySignature(req *http.Request, body []byte) bool {
 
 // HTTPSender sends events via HTTP POST
 type HTTPSender struct {
-	url        string
-	secret     string
-	httpClient *http.Client
+	url            string
+	secret         string
+	httpClient     *http.Client
 	useCloudEvents bool
 }
 

@@ -286,7 +286,7 @@ func (c *GatewayTLSConfig) Validate() error {
 	// Validate TLS version if provided
 	if c.MinVersion != "" {
 		switch c.MinVersion {
-		case "1.0", "1.1", "1.2", "1.3":
+		case "1.2", "1.3":
 			// Valid versions
 		default:
 			return fmt.Errorf("invalid minimum TLS version: %s", c.MinVersion)
@@ -306,7 +306,7 @@ func (c *GatewayTLSConfig) ToTLSConfig() (*tls.Config, error) {
 		return nil, nil
 	}
 
-	tlsConfig := &tls.Config{
+	tlsConfig := &tls.Config{ // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.bypass-tls-verification.bypass-tls-verification -- InsecureSkipVerify only allowed with KSCORE_ALLOW_INSECURE_TLS=1 for dev/test
 		MinVersion: tls.VersionTLS12,
 	}
 
@@ -317,16 +317,12 @@ func (c *GatewayTLSConfig) ToTLSConfig() (*tls.Config, error) {
 				"Set KSCORE_ALLOW_INSECURE_TLS=1 to override for development/testing only")
 		}
 		log.Printf("WARNING: NATS Gateway TLS InsecureSkipVerify is enabled - this allows man-in-the-middle attacks")
-		tlsConfig.InsecureSkipVerify = true
+		tlsConfig.InsecureSkipVerify = true // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.bypass-tls-verification.bypass-tls-verification -- gated by KSCORE_ALLOW_INSECURE_TLS
 	}
 
 	// Set minimum version
 	if c.MinVersion != "" {
 		switch c.MinVersion {
-		case "1.0":
-			tlsConfig.MinVersion = tls.VersionTLS10
-		case "1.1":
-			tlsConfig.MinVersion = tls.VersionTLS11
 		case "1.2":
 			tlsConfig.MinVersion = tls.VersionTLS12
 		case "1.3":
@@ -1719,11 +1715,11 @@ func DefaultFailoverConfig() *FailoverConfig {
 
 // FailoverManager manages supercluster failover
 type FailoverManager struct {
-	config         *FailoverConfig
-	localCluster   string
-	healthMonitor  *GatewayHealthMonitor
-	agentManager   *CrossClusterAgentManager
-	router         *SubjectRouter
+	config        *FailoverConfig
+	localCluster  string
+	healthMonitor *GatewayHealthMonitor
+	agentManager  *CrossClusterAgentManager
+	router        *SubjectRouter
 
 	// state is the current failover state
 	state atomic.Int32
@@ -2039,23 +2035,23 @@ func (m *FailoverManager) GetStatus() *FailoverStatus {
 	defer m.mu.RUnlock()
 
 	return &FailoverStatus{
-		State:            m.State(),
-		LocalCluster:     m.localCluster,
-		ActiveCluster:    m.activeCluster,
-		FailedOverTo:     m.failedOverTo,
-		FailoverTime:     m.failoverTime,
-		IsFailedOver:     m.State() == FailoverStateFailedOver,
-		HealthyGateways:  m.healthMonitor.GetHealthyGateways(),
+		State:           m.State(),
+		LocalCluster:    m.localCluster,
+		ActiveCluster:   m.activeCluster,
+		FailedOverTo:    m.failedOverTo,
+		FailoverTime:    m.failoverTime,
+		IsFailedOver:    m.State() == FailoverStateFailedOver,
+		HealthyGateways: m.healthMonitor.GetHealthyGateways(),
 	}
 }
 
 // FailoverStatus contains the current failover status
 type FailoverStatus struct {
-	State            FailoverState
-	LocalCluster     string
-	ActiveCluster    string
-	FailedOverTo     string
-	FailoverTime     time.Time
-	IsFailedOver     bool
-	HealthyGateways  []string
+	State           FailoverState
+	LocalCluster    string
+	ActiveCluster   string
+	FailedOverTo    string
+	FailoverTime    time.Time
+	IsFailedOver    bool
+	HealthyGateways []string
 }

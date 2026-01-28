@@ -449,7 +449,7 @@ func (c *NATSConfig) validateExternalMode() error {
 		return &NATSConfigError{
 			Field:   "url",
 			Message: fmt.Sprintf("invalid NATS URL: %s", err),
-			Hint:    "Use format: nats://host:port, tls://host:port, ws://host:port, or wss://host:port",
+			Hint:    "Use format: nats://host:port, tls://host:port, or ws(s)://host:port",
 		}
 	}
 
@@ -627,9 +627,9 @@ func validateSingleNATSURL(urlStr string) error {
 	case "nats", "tls", "ws", "wss":
 		// Valid NATS schemes
 	case "":
-		return fmt.Errorf("URL scheme is required (nats://, tls://, ws://, or wss://)")
+		return fmt.Errorf("URL scheme is required (nats://, tls://, or ws(s)://)")
 	default:
-		return fmt.Errorf("unsupported URL scheme %q (use nats://, tls://, ws://, or wss://)", parsed.Scheme)
+		return fmt.Errorf("unsupported URL scheme %q (use nats://, tls://, or ws(s)://)", parsed.Scheme)
 	}
 
 	// Check host
@@ -652,9 +652,9 @@ func validateNATSLeafURL(urlStr string) error {
 	case "nats", "nats-leaf", "tls", "ws", "wss":
 		// Valid leaf node schemes
 	case "":
-		return fmt.Errorf("URL scheme is required (nats-leaf://, nats://, tls://, ws://, or wss://)")
+		return fmt.Errorf("URL scheme is required (nats-leaf://, nats://, tls://, or ws(s)://)")
 	default:
-		return fmt.Errorf("unsupported URL scheme %q (use nats-leaf://, nats://, tls://, ws://, or wss://)", parsed.Scheme)
+		return fmt.Errorf("unsupported URL scheme %q (use nats-leaf://, nats://, tls://, or ws(s)://)", parsed.Scheme)
 	}
 
 	// Check host

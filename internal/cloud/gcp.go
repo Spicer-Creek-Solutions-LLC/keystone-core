@@ -15,10 +15,10 @@ const (
 	gcpMetadataBaseURL = "http://metadata.google.internal/computeMetadata/v1"
 
 	// Cloud Functions environment variables
-	gcpFunctionTargetEnv = "FUNCTION_TARGET"
-	gcpFunctionNameEnv   = "K_SERVICE"       // Cloud Run uses K_SERVICE
-	gcpFunctionRevisionEnv = "K_REVISION"    // Cloud Run revision
-	gcpFunctionConfigEnv = "K_CONFIGURATION" // Cloud Run configuration
+	gcpFunctionTargetEnv   = "FUNCTION_TARGET"
+	gcpFunctionNameEnv     = "K_SERVICE"       // Cloud Run uses K_SERVICE
+	gcpFunctionRevisionEnv = "K_REVISION"      // Cloud Run revision
+	gcpFunctionConfigEnv   = "K_CONFIGURATION" // Cloud Run configuration
 )
 
 // GCPDetector detects GCP environments
@@ -137,7 +137,7 @@ func (d *GCPDetector) isGKE() bool {
 
 // isComputeEngine checks if running on GCP Compute Engine
 func (d *GCPDetector) isComputeEngine() bool {
-	req, err := http.NewRequest("GET", gcpMetadataBaseURL, nil)
+	req, err := http.NewRequest("GET", gcpMetadataBaseURL, nil) // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.http-customized-request.http-customized-request -- GCP metadata uses link-local HTTP
 	if err != nil {
 		return false
 	}
@@ -324,7 +324,7 @@ func (d *GCPDetector) collectCloudFunctionsMetadata(metadata *Metadata) error {
 
 // getMetadata gets a metadata value from GCP metadata service
 func (d *GCPDetector) getMetadata(path string) (string, error) {
-	req, err := http.NewRequest("GET", gcpMetadataBaseURL+path, nil)
+	req, err := http.NewRequest("GET", gcpMetadataBaseURL+path, nil) // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.http-customized-request.http-customized-request -- GCP metadata uses link-local HTTP
 	if err != nil {
 		return "", err
 	}
@@ -352,7 +352,7 @@ func (d *GCPDetector) getMetadata(path string) (string, error) {
 
 // getInstanceAttributes gets instance attributes (labels)
 func (d *GCPDetector) getInstanceAttributes() (map[string]string, error) {
-	req, err := http.NewRequest("GET", gcpMetadataBaseURL+"/instance/attributes/?recursive=true", nil)
+	req, err := http.NewRequest("GET", gcpMetadataBaseURL+"/instance/attributes/?recursive=true", nil) // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.http-customized-request.http-customized-request -- GCP metadata uses link-local HTTP
 	if err != nil {
 		return nil, err
 	}

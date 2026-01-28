@@ -69,9 +69,9 @@ type HostKeyVerifier struct {
 // NewHostKeyVerifier creates a new host key verifier with the specified mode.
 func NewHostKeyVerifier(mode HostKeyCheckMode) *HostKeyVerifier {
 	return &HostKeyVerifier{
-		Mode:                 mode,
-		StoreLearnedKeys:     true,
-		learnedKeys:          make(map[string]ssh.PublicKey),
+		Mode:             mode,
+		StoreLearnedKeys: true,
+		learnedKeys:      make(map[string]ssh.PublicKey),
 	}
 }
 
@@ -462,5 +462,10 @@ func DefaultHostKeyVerifier() *HostKeyVerifier {
 // This is INSECURE and should only be used for testing.
 // Deprecated: Use NewHostKeyVerifier with HostKeyCheckNo mode instead.
 func InsecureIgnoreHostKey() ssh.HostKeyCallback {
-	return ssh.InsecureIgnoreHostKey()
+	if os.Getenv("KSCORE_ALLOW_INSECURE_TLS") != "1" {
+		return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+			return fmt.Errorf("insecure host key verification blocked; set KSCORE_ALLOW_INSECURE_TLS=1 for development/testing only")
+		}
+	}
+	return ssh.InsecureIgnoreHostKey() // nosemgrep: go.lang.security.audit.crypto.insecure_ssh.avoid-ssh-insecure-ignore-host-key -- gated by KSCORE_ALLOW_INSECURE_TLS
 }

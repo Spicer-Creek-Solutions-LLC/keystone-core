@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -22,14 +24,14 @@ type AgentProvider interface {
 
 // Server provides the visualization HTTP/WebSocket server
 type Server struct {
-	config        *VisualizationConfig
-	provider      AgentProvider
-	server        *http.Server
-	upgrader      websocket.Upgrader
-	clients       map[*websocket.Conn]bool
-	clientsMu     sync.RWMutex
-	broadcast     chan TopologyUpdate
-	stopCh        chan struct{}
+	config    *VisualizationConfig
+	provider  AgentProvider
+	server    *http.Server
+	upgrader  websocket.Upgrader
+	clients   map[*websocket.Conn]bool
+	clientsMu sync.RWMutex
+	broadcast chan TopologyUpdate
+	stopCh    chan struct{}
 }
 
 // NewServer creates a new visualization server
@@ -43,7 +45,15 @@ func NewServer(config *VisualizationConfig, provider AgentProvider) *Server {
 		provider: provider,
 		upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
-				return true // Allow all origins in development
+				origin := r.Header.Get("Origin")
+				if origin == "" {
+					return true
+				}
+				parsed, err := url.Parse(origin)
+				if err != nil {
+					return false
+				}
+				return strings.EqualFold(parsed.Host, r.Host)
 			},
 		},
 		clients:   make(map[*websocket.Conn]bool),
@@ -191,7 +201,7 @@ func (s *Server) handleGraph(w http.ResponseWriter, r *http.Request) {
 
 // handleWebSocket handles WebSocket connections for real-time updates
 func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
-	conn, err := s.upgrader.Upgrade(w, r, nil)
+	conn, err := s.upgrader.Upgrade(w, r, nil) // nosemgrep: go.gorilla.security.audit.websocket-missing-origin-check.websocket-missing-origin-check -- CheckOrigin enforces same-host policy in NewServer
 	if err != nil {
 		return
 	}

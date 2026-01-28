@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
+	"math/rand" // nosemgrep: go.lang.security.audit.crypto.math_random.math-random-used -- jitter/sampling do not require crypto randomness
 	"net/http"
 	"sort"
 	"strconv"
@@ -47,8 +47,8 @@ type Entry struct {
 
 // Stream represents a Loki log stream.
 type Stream struct {
-	Labels  map[string]string `json:"stream"`
-	Values  [][2]string       `json:"values"`
+	Labels map[string]string `json:"stream"`
+	Values [][2]string       `json:"values"`
 }
 
 // PushRequest represents a Loki push request.
@@ -89,41 +89,41 @@ func DefaultConfig() *Config {
 
 // Pusher pushes logs to Loki.
 type Pusher struct {
-	config     *Config
-	client     *http.Client
-	entries    chan *Entry
-	batch      []*Entry
-	batchMu    sync.Mutex
-	stopCh     chan struct{}
-	doneCh     chan struct{}
-	running    bool
-	mu         sync.RWMutex
-	listeners  []PushEventListener
-	stats      *Stats
+	config    *Config
+	client    *http.Client
+	entries   chan *Entry
+	batch     []*Entry
+	batchMu   sync.Mutex
+	stopCh    chan struct{}
+	doneCh    chan struct{}
+	running   bool
+	mu        sync.RWMutex
+	listeners []PushEventListener
+	stats     *Stats
 }
 
 // Stats contains pusher statistics.
 type Stats struct {
-	EntriesPushed    int64     `json:"entriesPushed"`
-	EntriesDropped   int64     `json:"entriesDropped"`
-	BytesPushed      int64     `json:"bytesPushed"`
-	PushCount        int64     `json:"pushCount"`
-	PushErrors       int64     `json:"pushErrors"`
-	LastPushTime     time.Time `json:"lastPushTime"`
-	LastPushError    string    `json:"lastPushError,omitempty"`
+	EntriesPushed     int64     `json:"entriesPushed"`
+	EntriesDropped    int64     `json:"entriesDropped"`
+	BytesPushed       int64     `json:"bytesPushed"`
+	PushCount         int64     `json:"pushCount"`
+	PushErrors        int64     `json:"pushErrors"`
+	LastPushTime      time.Time `json:"lastPushTime"`
+	LastPushError     string    `json:"lastPushError,omitempty"`
 	LastPushErrorTime time.Time `json:"lastPushErrorTime,omitempty"`
-	mu               sync.RWMutex
+	mu                sync.RWMutex
 }
 
 // PushEvent represents a push event.
 type PushEvent struct {
-	Type      string    `json:"type"`
-	EntryCount int      `json:"entryCount"`
-	ByteCount int       `json:"byteCount"`
-	Success   bool      `json:"success"`
-	Error     string    `json:"error,omitempty"`
-	Timestamp time.Time `json:"timestamp"`
-	Duration  time.Duration `json:"duration"`
+	Type       string        `json:"type"`
+	EntryCount int           `json:"entryCount"`
+	ByteCount  int           `json:"byteCount"`
+	Success    bool          `json:"success"`
+	Error      string        `json:"error,omitempty"`
+	Timestamp  time.Time     `json:"timestamp"`
+	Duration   time.Duration `json:"duration"`
 }
 
 // PushEventListener is called when push events occur.
@@ -151,7 +151,7 @@ func NewPusher(config *Config) *Pusher {
 	}
 
 	return &Pusher{
-		config:  config,
+		config: config,
 		client: &http.Client{
 			Timeout: config.Timeout,
 		},
@@ -454,7 +454,7 @@ func (p *Pusher) calculateBackoff(attempt int) time.Duration {
 	}
 
 	// Add jitter (0-25%)
-	jitter := time.Duration(rand.Int63n(int64(delay / 4)))
+	jitter := time.Duration(rand.Int63n(int64(delay / 4))) // nosemgrep: go.lang.security.audit.crypto.math_random.math-random-used -- jitter does not require crypto randomness
 	return delay + jitter
 }
 
@@ -715,7 +715,7 @@ func NewSamplingPusher(pusher *Pusher, sampleRate float64) *SamplingPusher {
 
 // Push pushes an entry based on sample rate.
 func (sp *SamplingPusher) Push(entry *Entry) error {
-	if rand.Float64() > sp.sampleRate {
+	if rand.Float64() > sp.sampleRate { // nosemgrep: go.lang.security.audit.crypto.math_random.math-random-used -- sampling does not require crypto randomness
 		return nil
 	}
 	return sp.pusher.Push(entry)

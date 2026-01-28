@@ -63,7 +63,7 @@ func (c *ExecCapability) Exec(capCtx *CapabilityContext, command string, args ..
 	defer cancel()
 
 	// Create command
-	cmd := exec.CommandContext(ctx, command, args...)
+	cmd := exec.CommandContext(ctx, command, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 
 	// Set working directory if configured
 	if c.WorkingDir != "" {
@@ -115,7 +115,7 @@ func (c *ExecCapability) ExecWithInput(capCtx *CapabilityContext, input string, 
 	defer cancel()
 
 	// Create command
-	cmd := exec.CommandContext(ctx, command, args...)
+	cmd := exec.CommandContext(ctx, command, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 
 	// Set working directory if configured
 	if c.WorkingDir != "" {

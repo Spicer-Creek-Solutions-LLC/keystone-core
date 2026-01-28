@@ -5,6 +5,7 @@ package compression
 import (
 	"bytes"
 	"compress/gzip"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -114,9 +115,9 @@ func DefaultConfig() *Config {
 
 // Compressor provides compression and decompression functionality
 type Compressor struct {
-	config    *Config
-	gzipPool  sync.Pool
-	bufPool   sync.Pool
+	config   *Config
+	gzipPool sync.Pool
+	bufPool  sync.Pool
 }
 
 // NewCompressor creates a new compressor with the given configuration
@@ -206,11 +207,11 @@ func (c *Compressor) ShouldCompress(size int64, contentType string) bool {
 func (c *Compressor) Compress(data []byte) (*Result, error) {
 	if len(data) == 0 {
 		return &Result{
-			Data:        data,
-			Algorithm:   AlgorithmNone,
-			OriginalSize: 0,
+			Data:           data,
+			Algorithm:      AlgorithmNone,
+			OriginalSize:   0,
 			CompressedSize: 0,
-			Ratio:       1.0,
+			Ratio:          1.0,
 		}, nil
 	}
 
@@ -366,8 +367,20 @@ func (c *Compressor) decompressGzip(data []byte) ([]byte, error) {
 	buf.Reset()
 	defer c.bufPool.Put(buf)
 
-	if _, err := io.Copy(buf, r); err != nil {
+	maxSize := c.config.MaxSize
+	if maxSize <= 0 {
+		maxSize = int64(len(data)) * 100
+		if maxSize == 0 {
+			maxSize = 1 << 20
+		}
+	}
+
+	n, err := io.CopyN(buf, r, maxSize+1)
+	if err != nil && !errors.Is(err, io.EOF) {
 		return nil, fmt.Errorf("gzip decompress failed: %w", err)
+	}
+	if n > maxSize {
+		return nil, fmt.Errorf("gzip decompressed data exceeds max size %d bytes", maxSize)
 	}
 
 	result := make([]byte, buf.Len())
@@ -428,22 +441,22 @@ type Result struct {
 
 // Stats tracks compression statistics
 type Stats struct {
-	mu               sync.Mutex
-	TotalCompressed  int64
+	mu                sync.Mutex
+	TotalCompressed   int64
 	TotalDecompressed int64
-	BytesSaved       int64
-	CompressionOps   int64
-	DecompressionOps int64
-	ByAlgorithm      map[Algorithm]*AlgorithmStats
+	BytesSaved        int64
+	CompressionOps    int64
+	DecompressionOps  int64
+	ByAlgorithm       map[Algorithm]*AlgorithmStats
 }
 
 // AlgorithmStats tracks stats for a specific algorithm
 type AlgorithmStats struct {
-	Operations     int64
-	BytesIn        int64
-	BytesOut       int64
-	TotalRatio     float64
-	AverageRatio   float64
+	Operations   int64
+	BytesIn      int64
+	BytesOut     int64
+	TotalRatio   float64
+	AverageRatio float64
 }
 
 // NewStats creates a new stats tracker

@@ -99,6 +99,7 @@ func (a *Adapter) Connect(ctx context.Context, device *proxy.ProxiedDevice, cred
 	// Create HTTP client
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
+			MinVersion:         tls.VersionTLS12,
 			InsecureSkipVerify: a.config.InsecureSkipVerify,
 		},
 	}

@@ -183,7 +183,7 @@ func (c *WebSocketTLSConfig) Validate() error {
 
 // ToTLSConfig converts to a standard tls.Config
 func (c *WebSocketTLSConfig) ToTLSConfig() (*tls.Config, error) {
-	tlsConfig := &tls.Config{
+	tlsConfig := &tls.Config{ // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.bypass-tls-verification.bypass-tls-verification -- InsecureSkipVerify only allowed with KSCORE_ALLOW_INSECURE_TLS=1 for dev/test
 		MinVersion: tls.VersionTLS12,
 	}
 
@@ -221,7 +221,7 @@ func (c *WebSocketTLSConfig) ToTLSConfig() (*tls.Config, error) {
 				"Set KSCORE_ALLOW_INSECURE_TLS=1 to override for development/testing only")
 		}
 		log.Printf("WARNING: NATS WebSocket TLS InsecureSkipVerify is enabled - this allows man-in-the-middle attacks")
-		tlsConfig.InsecureSkipVerify = true
+		tlsConfig.InsecureSkipVerify = true // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.bypass-tls-verification.bypass-tls-verification -- gated by KSCORE_ALLOW_INSECURE_TLS
 	}
 	tlsConfig.ClientAuth = c.ClientAuth
 
@@ -767,7 +767,7 @@ func (c *WebSocketServerConfig) ToNATSWebsocket() *server.WebsocketOpts {
 
 	// TLS configuration
 	if c.TLS != nil && !c.NoTLS {
-		tlsConfig := &tls.Config{
+		tlsConfig := &tls.Config{ // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.bypass-tls-verification.bypass-tls-verification -- InsecureSkipVerify only allowed with KSCORE_ALLOW_INSECURE_TLS=1 for dev/test
 			MinVersion: tls.VersionTLS12,
 		}
 
@@ -790,7 +790,7 @@ func (c *WebSocketServerConfig) ToNATSWebsocket() *server.WebsocketOpts {
 			}
 		}
 
-		tlsConfig.InsecureSkipVerify = c.TLS.InsecureSkipVerify
+		tlsConfig.InsecureSkipVerify = c.TLS.InsecureSkipVerify // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.bypass-tls-verification.bypass-tls-verification -- configuration guarded by Validate/KSCORE_ALLOW_INSECURE_TLS
 		ws.TLSConfig = tlsConfig
 	} else {
 		ws.NoTLS = true

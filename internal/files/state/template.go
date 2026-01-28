@@ -8,7 +8,7 @@ import (
 	"io"
 	"os"
 	"strings"
-	"text/template"
+	"text/template" // nosemgrep: go.lang.security.audit.xss.import-text-template.import-text-template -- templates render plain state files, not HTML responses
 )
 
 // TemplateRenderer renders templates with variable substitution.

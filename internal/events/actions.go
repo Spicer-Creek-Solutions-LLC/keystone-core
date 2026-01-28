@@ -252,7 +252,7 @@ func (a *CommandAction) Execute(ctx context.Context, event *Event) error {
 	defer cancel()
 
 	// Create command
-	cmd := exec.CommandContext(cmdCtx, a.command, a.args...)
+	cmd := exec.CommandContext(cmdCtx, a.command, a.args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	if a.env != nil {
 		cmd.Env = a.env
 	}

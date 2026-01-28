@@ -1,8 +1,10 @@
 package metrics
 
 import (
-	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
+	"log"
 	"net/http"
 	"sort"
 	"strings"
@@ -298,10 +300,9 @@ func (h *HealthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}
 
-	buf := new(bytes.Buffer)
-	fmt.Fprintf(buf, `{"status":"%s","agents":%d,"series":%d,"timestamp":"%s"}`,
-		response.Status, response.Agents, response.Series, response.Timestamp.Format(time.RFC3339))
-	w.Write(buf.Bytes())
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("failed to write health response: %v", err)
+	}
 }
 
 // ReadyHandler provides readiness check endpoint.
@@ -321,9 +322,13 @@ func (h *ReadyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if stats.MessagesReceived > 0 || stats.LastError == nil {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("ready"))
+		if _, err := io.WriteString(w, "ready"); err != nil { // nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter -- plain text readiness response
+			log.Printf("failed to write readiness response: %v", err)
+		}
 	} else {
 		w.WriteHeader(http.StatusServiceUnavailable)
-		w.Write([]byte("not ready"))
+		if _, err := io.WriteString(w, "not ready"); err != nil { // nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter -- plain text readiness response
+			log.Printf("failed to write readiness response: %v", err)
+		}
 	}
 }

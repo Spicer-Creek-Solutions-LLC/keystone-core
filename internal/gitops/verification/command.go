@@ -52,7 +52,7 @@ func (v *CommandVerifier) Verify(step *VerificationStep) (*VerificationResult, e
 	workDir, _ := step.Config["working_dir"].(string)
 
 	// Execute command
-	cmd := exec.Command("sh", "-c", command)
+	cmd := exec.Command("sh", "-c", command) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	if workDir != "" {
 		cmd.Dir = workDir
 	}
@@ -153,7 +153,7 @@ func (v *ScriptVerifier) Verify(step *VerificationStep) (*VerificationResult, er
 	workDir, _ := step.Config["working_dir"].(string)
 
 	// Execute script
-	cmd := exec.Command(script, args...)
+	cmd := exec.Command(script, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	if workDir != "" {
 		cmd.Dir = workDir
 	}

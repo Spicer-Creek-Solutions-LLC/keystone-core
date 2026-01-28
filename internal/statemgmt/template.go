@@ -7,7 +7,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
-	"text/template"
+	"text/template" // nosemgrep: go.lang.security.audit.xss.import-text-template.import-text-template -- templates render state files, not HTML responses
 )
 
 // TemplateContext holds data for template rendering
@@ -58,14 +58,14 @@ func (r *TemplateRenderer) Render(templateStr string, ctx *TemplateContext) (str
 func getTemplateFunctions() template.FuncMap {
 	return template.FuncMap{
 		// String functions
-		"upper":    strings.ToUpper,
-		"lower":    strings.ToLower,
-		"title":    strings.Title,
-		"trim":     strings.TrimSpace,
-		"split":    strings.Split,
-		"join":     strings.Join,
-		"replace":  strings.ReplaceAll,
-		"contains": strings.Contains,
+		"upper":     strings.ToUpper,
+		"lower":     strings.ToLower,
+		"title":     strings.Title,
+		"trim":      strings.TrimSpace,
+		"split":     strings.Split,
+		"join":      strings.Join,
+		"replace":   strings.ReplaceAll,
+		"contains":  strings.Contains,
 		"hasPrefix": strings.HasPrefix,
 		"hasSuffix": strings.HasSuffix,
 

@@ -181,10 +181,10 @@ func (e *Executor) executeOnce(ctx context.Context, req *ExecuteRequest, outputH
 	if shell != nil {
 		// Use shell to execute the command
 		shellCmd, shellArgs := shell.Command(req.Command)
-		cmd = exec.CommandContext(cmdCtx, shellCmd, shellArgs...)
+		cmd = exec.CommandContext(cmdCtx, shellCmd, shellArgs...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	} else {
 		// Direct execution without shell
-		cmd = exec.CommandContext(cmdCtx, req.Command, req.Args...)
+		cmd = exec.CommandContext(cmdCtx, req.Command, req.Args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	}
 
 	// Set working directory

@@ -156,7 +156,7 @@ func runCommands(ctx context.Context, commands []CommandPlan, output io.Writer, 
 		if verbose {
 			fmt.Fprintf(output, "running: %s %s\n", cmd.Name, strings.Join(cmd.Args, " "))
 		}
-		// nosemgrep
+		// nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- bootstrap install runs predefined commands from validated plans
 		result, err := exec.CommandContext(ctx, cmd.Name, cmd.Args...).CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("command %s failed: %w (output: %s)", cmd.Name, err, strings.TrimSpace(string(result)))

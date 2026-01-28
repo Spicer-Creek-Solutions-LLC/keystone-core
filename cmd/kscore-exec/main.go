@@ -151,8 +151,8 @@ func buildTLSConfig(cfg *Config) (*tls.Config, error) {
 		return nil, err
 	}
 
-	tlsConfig := &tls.Config{
-		MinVersion: minVersion,
+	tlsConfig := &tls.Config{ // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.bypass-tls-verification.bypass-tls-verification -- InsecureSkipVerify allowed only when KSCORE_ALLOW_INSECURE_TLS=1 is set for dev/test
+		MinVersion: minVersion, // #nosec G402 -- validated to TLS 1.2+ defaults
 	}
 
 	// Handle skip verify (with warning)

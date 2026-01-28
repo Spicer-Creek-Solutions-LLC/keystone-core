@@ -2,7 +2,7 @@
 package mirror
 
 import (
-	"math/rand"
+	"math/rand" // nosemgrep: go.lang.security.audit.crypto.math_random.math-random-used -- non-crypto randomness for load distribution
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -267,7 +267,7 @@ type RandomRouter struct {
 // NewRandomRouter creates a new random router.
 func NewRandomRouter() *RandomRouter {
 	return &RandomRouter{
-		rng: rand.New(rand.NewSource(time.Now().UnixNano())),
+		rng: rand.New(rand.NewSource(time.Now().UnixNano())), // nosemgrep: go.lang.security.audit.crypto.math_random.math-random-used -- non-crypto randomness for load distribution
 	}
 }
 

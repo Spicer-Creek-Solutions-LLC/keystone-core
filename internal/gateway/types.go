@@ -486,7 +486,7 @@ func validateNATSURL(u string) error {
 	case "nats", "tls", "ws", "wss":
 		// Valid schemes
 	case "":
-		return fmt.Errorf("URL scheme is required (nats://, tls://, ws://, or wss://)")
+		return fmt.Errorf("URL scheme is required (nats://, tls://, ws(s)://)")
 	default:
 		return fmt.Errorf("unsupported URL scheme %q (expected nats, tls, ws, or wss)", parsed.Scheme)
 	}

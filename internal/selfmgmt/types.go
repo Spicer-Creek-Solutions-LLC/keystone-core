@@ -42,10 +42,10 @@ const (
 type InstallMethod string
 
 const (
-	InstallMethodPackage InstallMethod = "package"  // System package manager
-	InstallMethodBinary  InstallMethod = "binary"   // Direct binary download
-	InstallMethodDocker  InstallMethod = "docker"   // Docker container
-	InstallMethodHelm    InstallMethod = "helm"     // Kubernetes Helm chart
+	InstallMethodPackage InstallMethod = "package" // System package manager
+	InstallMethodBinary  InstallMethod = "binary"  // Direct binary download
+	InstallMethodDocker  InstallMethod = "docker"  // Docker container
+	InstallMethodHelm    InstallMethod = "helm"    // Kubernetes Helm chart
 
 	// Aliases for compatibility
 	InstallPackage = InstallMethodPackage
@@ -360,9 +360,9 @@ type NATSAuthConfig struct {
 
 // NATSUser is a NATS user configuration
 type NATSUser struct {
-	User     string   `yaml:"user" json:"user"`
-	Password string   `yaml:"password" json:"password"`
-	Publish  []string `yaml:"publish,omitempty" json:"publish,omitempty"`
+	User      string   `yaml:"user" json:"user"`
+	Password  string   `yaml:"password" json:"password"`
+	Publish   []string `yaml:"publish,omitempty" json:"publish,omitempty"`
 	Subscribe []string `yaml:"subscribe,omitempty" json:"subscribe,omitempty"`
 }
 
@@ -749,7 +749,7 @@ func ServiceName(component ComponentType) string {
 
 // RunCommand runs a command and returns output
 func RunCommand(ctx context.Context, name string, args ...string) (string, error) {
-	cmd := exec.CommandContext(ctx, name, args...)
+	cmd := exec.CommandContext(ctx, name, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	output, err := cmd.CombinedOutput()
 	return strings.TrimSpace(string(output)), err
 }

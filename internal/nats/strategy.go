@@ -227,7 +227,7 @@ func (s *TLSStrategy) ConfigureOptions(endpoint *Endpoint, config *EndpointConfi
 }
 
 func (s *TLSStrategy) buildTLSConfig(config *EndpointConfig) (*tls.Config, error) {
-	tlsConfig := &tls.Config{
+	tlsConfig := &tls.Config{ // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.bypass-tls-verification.bypass-tls-verification -- InsecureSkipVerify only allowed with KSCORE_ALLOW_INSECURE_TLS=1 for dev/test
 		MinVersion: tls.VersionTLS12,
 	}
 
@@ -277,7 +277,7 @@ func (s *TLSStrategy) buildTLSConfig(config *EndpointConfig) (*tls.Config, error
 				"Set KSCORE_ALLOW_INSECURE_TLS=1 to override for development/testing only")
 		}
 		log.Printf("WARNING: NATS TLS InsecureSkipVerify is enabled - this allows man-in-the-middle attacks")
-		tlsConfig.InsecureSkipVerify = true
+		tlsConfig.InsecureSkipVerify = true // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.bypass-tls-verification.bypass-tls-verification -- gated by KSCORE_ALLOW_INSECURE_TLS
 	}
 
 	// Server name override

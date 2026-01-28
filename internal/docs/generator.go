@@ -14,7 +14,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"text/template"
+	"text/template" // nosemgrep: go.lang.security.audit.xss.import-text-template.import-text-template -- documentation templates render markdown/text, not HTML responses
 	"time"
 )
 
@@ -39,23 +39,23 @@ type ModuleInfo struct {
 
 // TypeInfo contains information about a type.
 type TypeInfo struct {
-	Name        string        `json:"name"`
-	Kind        string        `json:"kind"` // struct, interface, alias
-	Description string        `json:"description"`
-	Fields      []FieldInfo   `json:"fields,omitempty"`
-	Methods     []MethodInfo  `json:"methods,omitempty"`
-	Implements  []string      `json:"implements,omitempty"`
-	Source      string        `json:"source,omitempty"`
+	Name        string       `json:"name"`
+	Kind        string       `json:"kind"` // struct, interface, alias
+	Description string       `json:"description"`
+	Fields      []FieldInfo  `json:"fields,omitempty"`
+	Methods     []MethodInfo `json:"methods,omitempty"`
+	Implements  []string     `json:"implements,omitempty"`
+	Source      string       `json:"source,omitempty"`
 }
 
 // FieldInfo contains information about a struct field.
 type FieldInfo struct {
-	Name        string   `json:"name"`
-	Type        string   `json:"type"`
-	Tag         string   `json:"tag,omitempty"`
-	Description string   `json:"description"`
-	Required    bool     `json:"required,omitempty"`
-	Deprecated  bool     `json:"deprecated,omitempty"`
+	Name        string `json:"name"`
+	Type        string `json:"type"`
+	Tag         string `json:"tag,omitempty"`
+	Description string `json:"description"`
+	Required    bool   `json:"required,omitempty"`
+	Deprecated  bool   `json:"deprecated,omitempty"`
 }
 
 // MethodInfo contains information about a method.
@@ -708,10 +708,10 @@ func (g *Generator) GenerateString(info *ModuleInfo) (string, error) {
 
 // DocIndex represents an index of all module documentation.
 type DocIndex struct {
-	Title       string       `json:"title"`
-	Description string       `json:"description"`
-	Modules     []DocEntry   `json:"modules"`
-	Generated   time.Time    `json:"generated"`
+	Title       string     `json:"title"`
+	Description string     `json:"description"`
+	Modules     []DocEntry `json:"modules"`
+	Generated   time.Time  `json:"generated"`
 }
 
 // DocEntry represents an entry in the documentation index.
@@ -738,8 +738,8 @@ func NewIndexGenerator(config *GeneratorConfig) *IndexGenerator {
 // GenerateIndex generates an index from multiple modules.
 func (ig *IndexGenerator) GenerateIndex(modules []*ModuleInfo) *DocIndex {
 	index := &DocIndex{
-		Title:       ig.config.Title,
-		Generated:   time.Now(),
+		Title:     ig.config.Title,
+		Generated: time.Now(),
 	}
 
 	for _, mod := range modules {
@@ -847,14 +847,14 @@ type APIDoc struct {
 
 // EndpointDoc documents an API endpoint.
 type EndpointDoc struct {
-	Method      string           `json:"method"`
-	Path        string           `json:"path"`
-	Description string           `json:"description"`
-	Parameters  []APIParam       `json:"parameters,omitempty"`
-	RequestBody *APIBody         `json:"requestBody,omitempty"`
-	Responses   []APIResponse    `json:"responses,omitempty"`
-	Tags        []string         `json:"tags,omitempty"`
-	Deprecated  bool             `json:"deprecated,omitempty"`
+	Method      string        `json:"method"`
+	Path        string        `json:"path"`
+	Description string        `json:"description"`
+	Parameters  []APIParam    `json:"parameters,omitempty"`
+	RequestBody *APIBody      `json:"requestBody,omitempty"`
+	Responses   []APIResponse `json:"responses,omitempty"`
+	Tags        []string      `json:"tags,omitempty"`
+	Deprecated  bool          `json:"deprecated,omitempty"`
 }
 
 // APIParam documents an API parameter.

@@ -129,7 +129,7 @@ func NewClient(config *ClientConfig) *Client {
 			insecureTLSWarningOnce.Do(func() {
 				log.Printf("WARNING: TLS certificate verification is disabled. This is insecure and should only be used for testing.")
 			})
-			transport.TLSClientConfig = &tls.Config{
+			transport.TLSClientConfig = &tls.Config{ // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.bypass-tls-verification.bypass-tls-verification -- InsecureSkipVerify only allowed with KSCORE_ALLOW_INSECURE_TLS=1 for dev/test
 				MinVersion:         tls.VersionTLS12,
 				InsecureSkipVerify: true, // #nosec G402 -- gated by KSCORE_ALLOW_INSECURE_TLS env var
 			}

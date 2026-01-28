@@ -319,7 +319,7 @@ Real-time topology updates via WebSocket.
 #### Connection
 
 ```javascript
-const ws = new WebSocket('ws://localhost:8080/ws/topology');
+const ws = new WebSocket('wss://localhost:8080/ws/topology');
 
 ws.onopen = () => {
     console.log('Connected to topology stream');
@@ -498,7 +498,7 @@ function TopologyView() {
             .then(data => setTopology(data));
 
         // WebSocket for live updates
-        const ws = new WebSocket('ws://localhost:8080/ws/topology');
+        const ws = new WebSocket('wss://localhost:8080/ws/topology');
 
         ws.onmessage = (event) => {
             const update = JSON.parse(event.data);

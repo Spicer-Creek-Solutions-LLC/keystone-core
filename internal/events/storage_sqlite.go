@@ -285,7 +285,7 @@ func (s *SQLiteEventStore) Query(ctx context.Context, query *EventQuery) (*Event
 	}
 
 	// Get total count
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM events %s", whereClause)
+	countQuery := "SELECT COUNT(*) FROM events " + whereClause // nosemgrep: go.lang.security.audit.database.string-formatted-query.string-formatted-query -- whereClause built from whitelisted fields with placeholders; args are bound separately
 	var totalCount int64
 	err := s.db.QueryRowContext(ctx, countQuery, args...).Scan(&totalCount)
 	if err != nil {
@@ -297,19 +297,31 @@ func (s *SQLiteEventStore) Query(ctx context.Context, query *EventQuery) (*Event
 	if sortBy == "" {
 		sortBy = "time"
 	}
-	sortOrder := query.SortOrder
-	if sortOrder == "" {
+	sortOrder := strings.ToLower(query.SortOrder)
+	if sortOrder != "asc" {
 		sortOrder = "desc"
 	}
 
+	validSortColumns := map[string]string{
+		"time":           "time",
+		"type":           "type",
+		"source":         "source",
+		"severity":       "severity",
+		"correlation_id": "correlation_id",
+		"subject":        "subject",
+		"id":             "id",
+	}
+	if column, ok := validSortColumns[sortBy]; ok {
+		sortBy = column
+	} else {
+		sortBy = "time"
+	}
+
 	// Get events
-	dataQuery := fmt.Sprintf(`
+	dataQuery := `
 		SELECT id, type, source, severity, correlation_id, subject, time, tags, data
 		FROM events
-		%s
-		ORDER BY %s %s
-		LIMIT ? OFFSET ?
-	`, whereClause, sortBy, strings.ToUpper(sortOrder))
+	` + whereClause + " ORDER BY " + sortBy + " " + strings.ToUpper(sortOrder) + " LIMIT ? OFFSET ?"
 
 	args = append(args, query.Limit, query.Offset)
 
@@ -402,7 +414,7 @@ func (s *SQLiteEventStore) Count(ctx context.Context, query *EventQuery) (int64,
 		whereClause = "WHERE " + strings.Join(conditions, " AND ")
 	}
 
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM events %s", whereClause)
+	countQuery := "SELECT COUNT(*) FROM events " + whereClause // nosemgrep: go.lang.security.audit.database.string-formatted-query.string-formatted-query -- whereClause built from whitelisted fields with placeholders; args are bound separately
 	var count int64
 	err := s.db.QueryRowContext(ctx, countQuery, args...).Scan(&count)
 	if err != nil {
@@ -441,7 +453,7 @@ func (s *SQLiteEventStore) DeleteBatch(ctx context.Context, ids []string) error 
 		args[i] = id
 	}
 
-	query := fmt.Sprintf("DELETE FROM events WHERE id IN (%s)", strings.Join(placeholders, ","))
+	query := "DELETE FROM events WHERE id IN (" + strings.Join(placeholders, ",") + ")" // nosemgrep: go.lang.security.audit.database.string-formatted-query.string-formatted-query -- placeholders are generated for bound args only
 	_, err := s.db.ExecContext(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("failed to delete events: %w", err)
@@ -518,7 +530,7 @@ func (s *SQLiteEventStore) ApplyRetention(ctx context.Context, policy *Retention
 				args[i] = sev
 			}
 
-			query := fmt.Sprintf("DELETE FROM events WHERE severity IN (%s)", strings.Join(placeholders, ","))
+			query := "DELETE FROM events WHERE severity IN (" + strings.Join(placeholders, ",") + ")" // nosemgrep: go.lang.security.audit.database.string-formatted-query.string-formatted-query -- placeholders are generated for bound args only
 			result, err := s.db.ExecContext(ctx, query, args...)
 			if err != nil {
 				return totalDeleted, fmt.Errorf("failed to delete low severity events: %w", err)

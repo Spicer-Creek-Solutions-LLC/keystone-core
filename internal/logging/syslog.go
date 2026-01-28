@@ -292,8 +292,8 @@ func (s *SyslogOutput) buildTLSConfig() (*tls.Config, error) {
 		return nil, err
 	}
 
-	tlsConfig := &tls.Config{
-		MinVersion: minVersion,
+	tlsConfig := &tls.Config{ // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.bypass-tls-verification.bypass-tls-verification -- InsecureSkipVerify only allowed with KSCORE_ALLOW_INSECURE_TLS=1 for dev/test
+		MinVersion: minVersion, // #nosec G402 -- validated to TLS 1.2+ defaults
 		ServerName: s.config.TLS.ServerName,
 	}
 
@@ -304,7 +304,7 @@ func (s *SyslogOutput) buildTLSConfig() (*tls.Config, error) {
 				"Set KSCORE_ALLOW_INSECURE_TLS=1 to override for development/testing only")
 		}
 		log.Printf("WARNING: Syslog TLS InsecureSkipVerify is enabled - this allows man-in-the-middle attacks")
-		tlsConfig.InsecureSkipVerify = true
+		tlsConfig.InsecureSkipVerify = true // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.bypass-tls-verification.bypass-tls-verification -- gated by KSCORE_ALLOW_INSECURE_TLS
 	}
 
 	// Load CA certificate

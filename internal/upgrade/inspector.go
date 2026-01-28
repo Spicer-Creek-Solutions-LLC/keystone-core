@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shawnbutts/keystone-core/pkg/version"
 	"github.com/nats-io/nats.go"
+	"github.com/shawnbutts/keystone-core/pkg/version"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
@@ -259,7 +259,7 @@ func (i *BinaryInspector) SetVersionArg(arg string) {
 
 // GetVersion runs the binary with --version and parses the output.
 func (i *BinaryInspector) GetVersion(ctx context.Context) (Version, error) {
-	cmd := exec.CommandContext(ctx, i.binaryPath, i.versionArg)
+	cmd := exec.CommandContext(ctx, i.binaryPath, i.versionArg) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	output, err := cmd.Output()
 	if err != nil {
 		return Version{}, fmt.Errorf("running %s %s: %w", i.binaryPath, i.versionArg, err)

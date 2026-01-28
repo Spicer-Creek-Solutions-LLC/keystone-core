@@ -700,7 +700,7 @@ func (bi *BundleInstaller) extractTar(r io.Reader, destDir string) error {
 			if err != nil {
 				return err
 			}
-			if _, err := io.Copy(outFile, tr); err != nil {
+			if _, err := io.CopyN(outFile, tr, header.Size); err != nil {
 				outFile.Close()
 				return err
 			}

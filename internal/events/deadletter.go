@@ -239,9 +239,9 @@ type SQLiteDeadLetterQueue struct {
 	wg     sync.WaitGroup
 
 	// Alert state
-	alertMu        sync.Mutex
-	lastAlertTime  time.Time
-	alertCooldown  time.Duration
+	alertMu       sync.Mutex
+	lastAlertTime time.Time
+	alertCooldown time.Duration
 
 	// Retry handler
 	retryHandler DeadLetterRetryHandler
@@ -397,7 +397,7 @@ func (dlq *SQLiteDeadLetterQueue) Query(ctx context.Context, query *DeadLetterQu
 	whereClause, args := dlq.buildWhereClause(query)
 
 	// Count total
-	countQuery := "SELECT COUNT(*) FROM dead_letter_entries" + whereClause
+	countQuery := "SELECT COUNT(*) FROM dead_letter_entries" + whereClause // nosemgrep: go.lang.security.audit.database.string-formatted-query.string-formatted-query -- whereClause built from vetted fields with placeholders; args are bound separately
 	var totalCount int64
 	if err := dlq.db.QueryRowContext(ctx, countQuery, args...).Scan(&totalCount); err != nil {
 		return nil, fmt.Errorf("failed to count entries: %w", err)
@@ -425,7 +425,7 @@ func (dlq *SQLiteDeadLetterQueue) Query(ctx context.Context, query *DeadLetterQu
 		limit = 100
 	}
 	offset := query.Offset
-	orderClause += fmt.Sprintf(" LIMIT %d OFFSET %d", limit, offset)
+	orderClause += " LIMIT ? OFFSET ?"
 
 	// Query entries
 	selectQuery := `
@@ -434,6 +434,7 @@ func (dlq *SQLiteDeadLetterQueue) Query(ctx context.Context, query *DeadLetterQu
 			status, metadata_json
 		FROM dead_letter_entries` + whereClause + orderClause
 
+	args = append(args, limit, offset)
 	rows, err := dlq.db.QueryContext(ctx, selectQuery, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query entries: %w", err)
@@ -611,7 +612,7 @@ func (dlq *SQLiteDeadLetterQueue) Purge(ctx context.Context, maxAge time.Duratio
 // Count returns the number of entries matching the query
 func (dlq *SQLiteDeadLetterQueue) Count(ctx context.Context, query *DeadLetterQuery) (int64, error) {
 	whereClause, args := dlq.buildWhereClause(query)
-	countQuery := "SELECT COUNT(*) FROM dead_letter_entries" + whereClause
+	countQuery := "SELECT COUNT(*) FROM dead_letter_entries" + whereClause // nosemgrep: go.lang.security.audit.database.string-formatted-query.string-formatted-query -- whereClause built from vetted fields with placeholders; args are bound separately
 
 	var count int64
 	if err := dlq.db.QueryRowContext(ctx, countQuery, args...).Scan(&count); err != nil {

@@ -13,7 +13,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"text/template"
+	"text/template" // nosemgrep: go.lang.security.audit.xss.import-text-template.import-text-template -- documentation templates render markdown/text, not HTML responses
 )
 
 // ModuleDocGenerator generates documentation for Keystone modules from Go source code

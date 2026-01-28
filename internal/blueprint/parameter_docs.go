@@ -5,7 +5,7 @@ import (
 	"io"
 	"sort"
 	"strings"
-	"text/template"
+	"text/template" // nosemgrep: go.lang.security.audit.xss.import-text-template.import-text-template -- markdown docs generation, not HTML responses
 )
 
 // DocFormat represents the output format for parameter documentation.

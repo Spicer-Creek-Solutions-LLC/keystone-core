@@ -33,7 +33,8 @@ func NewOCIClient(config *OCIRegistryConfig) (*OCIClient, error) {
 				"Set KSCORE_ALLOW_INSECURE_TLS=1 to override for development/testing only")
 		}
 		log.Printf("WARNING: OCI registry client InsecureSkipVerify is enabled - this allows man-in-the-middle attacks")
-		transport.TLSClientConfig = &tls.Config{MinVersion: tls.VersionTLS12, InsecureSkipVerify: true} // #nosec G402 -- gated by KSCORE_ALLOW_INSECURE_TLS
+		transport.TLSClientConfig = &tls.Config{MinVersion: tls.VersionTLS12, InsecureSkipVerify: true} // #nosec G402 -- gated by KSCORE_ALLOW_INSECURE_TLS // nosemgrep: problem-based-packs.insecure-transport.go-stdlib.bypass-tls-verification.bypass-tls-verification -- InsecureSkipVerify only allowed with KSCORE_ALLOW_INSECURE_TLS=1 for dev/test
+		// nosemgrep: problem-based-packs.insecure-transport.go-stdlib.bypass-tls-verification.bypass-tls-verification -- gated by KSCORE_ALLOW_INSECURE_TLS
 	}
 
 	client := &http.Client{
@@ -258,10 +259,10 @@ func (c *OCIClient) Push(req *OCIPushRequest) (*OCIPushResult, error) {
 		},
 		Layers: layers,
 		Annotations: map[string]string{
-			"org.opencontainers.image.created":     time.Now().Format(time.RFC3339),
-			"org.opencontainers.image.version":     req.Version,
-			"io.kscore.module.name":                req.ModuleName,
-			"io.kscore.module.version":             req.Version,
+			"org.opencontainers.image.created": time.Now().Format(time.RFC3339),
+			"org.opencontainers.image.version": req.Version,
+			"io.kscore.module.name":            req.ModuleName,
+			"io.kscore.module.version":         req.Version,
 		},
 	}
 

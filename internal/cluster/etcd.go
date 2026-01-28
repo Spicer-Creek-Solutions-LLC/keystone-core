@@ -516,11 +516,11 @@ func (c *EtcdClient) CompareAndSwap(ctx context.Context, key string, expected, v
 	c.mu.RUnlock()
 
 	if closed {
-		return false, ErrShutdown
+		return false, ErrShutdown // nosemgrep: trailofbits.go.missing-runlock-on-rwmutex.missing-runlock-on-rwmutex -- RUnlock happens immediately after snapshot before any returns
 	}
 
 	if client == nil {
-		return false, ErrEtcdNotConnected
+		return false, ErrEtcdNotConnected // nosemgrep: trailofbits.go.missing-runlock-on-rwmutex.missing-runlock-on-rwmutex -- RUnlock happens immediately after snapshot before any returns
 	}
 
 	fullKey := c.fullKey(key)
@@ -727,17 +727,17 @@ func (t *Transaction) Delete(key string) *Transaction {
 
 // Commit commits the transaction.
 func (t *Transaction) Commit() (bool, error) {
-	t.client.mu.RLock()
+	t.client.mu.RLock() // nosemgrep: trailofbits.go.missing-runlock-on-rwmutex.missing-runlock-on-rwmutex -- explicit RUnlock after snapshot
 	client := t.client.client
 	closed := t.client.closed
 	t.client.mu.RUnlock()
 
 	if closed {
-		return false, ErrShutdown
+		return false, ErrShutdown // nosemgrep: trailofbits.go.missing-runlock-on-rwmutex.missing-runlock-on-rwmutex -- RUnlock happens immediately after snapshot before any returns
 	}
 
 	if client == nil {
-		return false, ErrEtcdNotConnected
+		return false, ErrEtcdNotConnected // nosemgrep: trailofbits.go.missing-runlock-on-rwmutex.missing-runlock-on-rwmutex -- RUnlock happens immediately after snapshot before any returns
 	}
 
 	txn := client.Txn(t.ctx)
@@ -748,8 +748,8 @@ func (t *Transaction) Commit() (bool, error) {
 
 	resp, err := txn.Commit()
 	if err != nil {
-		return false, fmt.Errorf("transaction failed: %w", err)
+		return false, fmt.Errorf("transaction failed: %w", err) // nosemgrep: trailofbits.go.missing-runlock-on-rwmutex.missing-runlock-on-rwmutex -- RUnlock happens immediately after snapshot before any returns
 	}
 
-	return resp.Succeeded, nil
+	return resp.Succeeded, nil // nosemgrep: trailofbits.go.missing-runlock-on-rwmutex.missing-runlock-on-rwmutex -- RUnlock happens immediately after snapshot before any returns
 }

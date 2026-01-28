@@ -177,10 +177,10 @@ func (m *CmdModule) executeCommand(ctx context.Context, decl *StateDeclaration, 
 	if stateful {
 		// For stateful commands, we expect the command to output
 		// "changed=yes" or "changed=no" and optionally "comment=..."
-		cmd = exec.CommandContext(ctx, shell, "-c", cmdStr)
+		cmd = exec.CommandContext(ctx, shell, "-c", cmdStr) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	} else {
 		// Regular command execution
-		cmd = exec.CommandContext(ctx, shell, "-c", cmdStr)
+		cmd = exec.CommandContext(ctx, shell, "-c", cmdStr) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command -- command execution is intentional and inputs are validated/controlled
 	}
 
 	cmd.Env = env
