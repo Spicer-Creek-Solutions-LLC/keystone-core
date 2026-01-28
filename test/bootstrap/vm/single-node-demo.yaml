@@ -1,0 +1,36 @@
+# Single-node demo test configuration
+#
+# This tests the simplest deployment: one VM running both server and agent.
+#
+# Requirements:
+#   - 1 VM with SSH access
+#   - 2GB+ RAM, 2+ CPUs recommended
+#   - Ubuntu 22.04, Debian 12, Rocky 9, or any supported OS
+#
+# Usage:
+#   KSCORE_VM_CONFIG=test/bootstrap/vm/single-node-demo.yaml make test-vm-demo
+
+vm_provider: ssh
+
+ssh:
+  clean_nodes: true  # Reset node state before testing
+  nodes:
+    - name: demo
+      host: 192.168.1.100      # <-- UPDATE: Your VM IP address
+      port: 22
+      user: root               # <-- UPDATE: SSH user (root or sudo user)
+      key_file: ~/.ssh/id_rsa  # <-- UPDATE: Path to SSH private key
+      os: ubuntu-22.04         # ubuntu-22.04, debian-12, rocky-9, etc.
+      role: both               # Runs both control-plane and agent
+
+# Test scenarios to run
+scenarios:
+  - name: demo-bootstrap
+    description: Bootstrap single node in demo mode
+    timeout: 10m
+  - name: demo-health
+    description: Verify services are healthy
+    timeout: 2m
+  - name: demo-api
+    description: Verify API endpoints respond
+    timeout: 2m

@@ -10,6 +10,7 @@
        e2e-ipv6 e2e-ipv6-up e2e-ipv6-down e2e-ipv6-logs \
        e2e-ha-ipv6 e2e-ha-ipv6-up e2e-ha-ipv6-down e2e-ha-ipv6-logs \
        e2e-allinone e2e-all-topologies \
+       test-vm test-vm-demo test-vm-smoke repo-server \
        repos repo-gen repos-dnf repos-apt repos-windows repos-blueprints repos-modules \
        server agent cli exec state monitor policy gitops cluster migrate module registry identity gateway schedule loadtest
 
@@ -172,6 +173,12 @@ help:
 	@echo "  e2e-ha-ipv6-up     - Start HA IPv6 test environment"
 	@echo "  e2e-ha-ipv6-down   - Stop HA IPv6 test environment"
 	@echo "  e2e-ha-ipv6-logs   - Show logs from HA IPv6 containers"
+	@echo ""
+	@echo "VM Bootstrap testing targets (requires SSH-accessible VM):"
+	@echo "  test-vm            - Run all VM bootstrap tests"
+	@echo "  test-vm-demo       - Run single-node demo test (edit single-node-demo.yaml first)"
+	@echo "  test-vm-smoke      - Verify VM config without running tests"
+	@echo "  repo-server        - Start local HTTP server for package repos"
 	@echo ""
 
 deps:
@@ -989,3 +996,45 @@ e2e-ha-ipv6: e2e-build
 	KSCORE_E2E_TESTS=1 KSCORE_TOPOLOGY=ha-cluster-ipv6 KSCORE_SKIP_BUILD=1 KSCORE_ROOT=$(shell pwd) go test -v -timeout 30m ./test/e2e/topology/... -run "HAClusterIPv6"
 	@echo "HA cluster IPv6 E2E tests complete"
 	$(HA_IPV6_COMPOSE) down -v --remove-orphans
+
+# =============================================================================
+# VM Bootstrap Testing targets
+# =============================================================================
+
+# VM testing requires:
+#   1. A VM accessible via SSH
+#   2. KSCORE_VM_TESTS=1 environment variable
+#   3. KSCORE_VM_CONFIG pointing to a config file (optional, defaults to test/bootstrap/vm/config.yaml)
+#
+# For single-node demo testing:
+#   1. Edit test/bootstrap/vm/single-node-demo.yaml with your VM details
+#   2. Run: make test-vm-demo
+
+.PHONY: test-vm test-vm-demo test-vm-smoke repo-server
+
+test-vm:
+	@echo "Running VM bootstrap tests..."
+	@echo "Note: Requires KSCORE_VM_TESTS=1 and configured VM(s)"
+	KSCORE_VM_TESTS=1 go test -v -timeout 2h ./test/bootstrap/vm/scenarios/...
+
+test-vm-demo:
+	@echo "Running single-node demo VM bootstrap test..."
+	@echo ""
+	@echo "Prerequisites:"
+	@echo "  1. Edit test/bootstrap/vm/single-node-demo.yaml with your VM IP/credentials"
+	@echo "  2. Ensure your VM is accessible via SSH"
+	@echo "  3. Start a local repo server: make repo-server (in another terminal)"
+	@echo ""
+	KSCORE_VM_TESTS=1 KSCORE_VM_CONFIG=test/bootstrap/vm/single-node-demo.yaml \
+		go test -v -timeout 30m ./test/bootstrap/vm/scenarios/... -run TestDemoSingleNodeBootstrap
+
+test-vm-smoke:
+	@echo "Running VM smoke test (verifies config only)..."
+	KSCORE_VM_TESTS=1 go test -v -timeout 5m ./test/bootstrap/vm/scenarios/... -run TestVMSmokeConfig
+
+# Serve the generated repositories locally for VM testing
+repo-server:
+	@echo "Starting local repository server..."
+	@echo "Serving build/repos/ at http://localhost:8080/repos/"
+	@echo "Press Ctrl+C to stop"
+	@cd build && python3 -m http.server 8080

@@ -113,8 +113,16 @@ Prepare Keystone Core for the 0.1.0 project announcement by completing final rel
 - ✅ Release checklist created (docs/content/en/docs/community/release-checklist.md)
 - ✅ Announcement copy drafted (docs/content/en/docs/community/announcement-0.1.0.md)
 
-### Phase 5: VM Bootstrap Validation (NOT STARTED)
-- Pending: VM test inventory, scenario execution, findings documentation
+### Phase 5: VM Bootstrap Validation (IN PROGRESS)
+- ✅ Single-node demo test config template (`test/bootstrap/vm/single-node-demo.yaml`)
+- ✅ Single-node demo test scenarios (`test/bootstrap/vm/scenarios/demo_single_node_test.go`)
+  - `testDemoBootstrap`: Installs packages and runs bootstrap
+  - `testDemoHealth`: Verifies systemd services and ports
+  - `testDemoAPI`: Verifies API endpoints respond
+- ✅ Makefile targets: `test-vm`, `test-vm-demo`, `test-vm-smoke`, `repo-server`
+- ✅ Support for Ubuntu, Debian, Rocky/RHEL, openSUSE via SSH provider
+- ⏳ Pending: Execute tests on actual VMs and document findings
+- ⏳ Pending: Multi-node cluster test execution (using config.yaml template)
 
 ## Definition of Done
 
