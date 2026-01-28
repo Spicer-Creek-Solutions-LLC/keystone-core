@@ -10,10 +10,10 @@ import (
 )
 
 const (
-	serverConfigPath  = "/etc/kscore/server.yaml"
-	agentConfigPath   = "/etc/kscore/agent.yaml"
-	natsStoreDir      = "/var/lib/kscore/nats"
-	jetstreamStoreDir = "/var/lib/kscore/jetstream"
+	serverConfigPath  = "/etc/keystone-core/server.yaml"
+	agentConfigPath   = "/etc/keystone-core/agent.yaml"
+	natsStoreDir      = "/var/lib/keystone-core/nats"
+	jetstreamStoreDir = "/var/lib/keystone-core/jetstream"
 )
 
 func buildServerConfig(cfg *BootstrapConfig) ([]byte, error) {
@@ -35,6 +35,10 @@ func buildAgentConfig(cfg *BootstrapConfig) ([]byte, error) {
 	config := map[string]any{
 		"nats":  buildNATSSection(cfg, false),
 		"agent": buildAgentSection(cfg),
+		// Disable local auth - agents authenticate to control plane via NATS credentials or mTLS
+		"auth": map[string]any{
+			"enabled": false,
+		},
 	}
 
 	if tls := buildTLSSection(cfg); len(tls) > 0 {
@@ -46,9 +50,13 @@ func buildAgentConfig(cfg *BootstrapConfig) ([]byte, error) {
 
 func buildServerSection(cfg *BootstrapConfig) map[string]any {
 	server := map[string]any{}
-	if cfg.BindAddress != "" {
-		server["listenaddr"] = cfg.BindAddress
+	bindAddr := cfg.BindAddress
+	if bindAddr == "" {
+		bindAddr = "127.0.0.1"
 	}
+	// Use httplisten and grpclisten which are the documented "host:port" format fields
+	server["httplisten"] = fmt.Sprintf("%s:8080", bindAddr)
+	server["grpclisten"] = fmt.Sprintf("%s:9090", bindAddr)
 	return server
 }
 
@@ -85,8 +93,18 @@ func buildNATSSection(cfg *BootstrapConfig, forServer bool) map[string]any {
 				"storedir": jetstreamStoreDir,
 			}
 		} else {
+			// For agents: use external mode to connect to control plane
 			nats["mode"] = "external"
-			nats["url"] = defaultNATSURL(cfg)
+			// Use explicitly provided URLs if available (e.g., agent joining control-plane)
+			if len(cfg.NATSURLs) > 0 {
+				nats["url"] = strings.Join(cfg.NATSURLs, ",")
+			} else {
+				nats["url"] = defaultNATSURL(cfg)
+			}
+			// Disable local JetStream - agent uses control plane's NATS JetStream
+			nats["jetstream"] = map[string]any{
+				"enabled": false,
+			}
 		}
 	case "leaf":
 		nats["mode"] = "leaf"
@@ -106,6 +124,10 @@ func buildNATSSection(cfg *BootstrapConfig, forServer bool) map[string]any {
 	case "external":
 		nats["mode"] = "external"
 		nats["url"] = strings.Join(cfg.NATSURLs, ",")
+		// Disable local JetStream - use external NATS's JetStream
+		nats["jetstream"] = map[string]any{
+			"enabled": false,
+		}
 	default:
 		if forServer {
 			nats["mode"] = "embedded"
@@ -116,8 +138,17 @@ func buildNATSSection(cfg *BootstrapConfig, forServer bool) map[string]any {
 				"storedir": jetstreamStoreDir,
 			}
 		} else {
+			// For agents: use external mode to connect to control plane
 			nats["mode"] = "external"
-			nats["url"] = defaultNATSURL(cfg)
+			if len(cfg.NATSURLs) > 0 {
+				nats["url"] = strings.Join(cfg.NATSURLs, ",")
+			} else {
+				nats["url"] = defaultNATSURL(cfg)
+			}
+			// Disable local JetStream - agent uses control plane's NATS JetStream
+			nats["jetstream"] = map[string]any{
+				"enabled": false,
+			}
 		}
 	}
 

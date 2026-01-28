@@ -104,7 +104,7 @@ func renderCompletionReport(cfg *BootstrapConfig) string {
 	if requiresAgent(cfg) {
 		builder.WriteString("- check agent logs: journalctl -u kscore-agent -n 50\n")
 	}
-	builder.WriteString("- review configs in /etc/kscore\n")
+	builder.WriteString("- review configs in /etc/keystone-core\n")
 	if len(cfg.ApplyBlueprints) > 0 {
 		builder.WriteString("- review applied blueprints in your state system\n")
 	}
@@ -122,14 +122,37 @@ func requiresAgent(cfg *BootstrapConfig) bool {
 func checkAPIConnectivity(ctx context.Context, cfg *BootstrapConfig) error {
 	host := resolveDialHost(cfg.BindAddress, cfg.Advertise)
 	grpcAddr := net.JoinHostPort(host, strconv.Itoa(config.DefaultGRPCPort))
-	if err := checkTCP(ctx, grpcAddr); err != nil {
+	// Retry connection with backoff since server may still be starting
+	if err := checkTCPWithRetry(ctx, grpcAddr, 10, 500*time.Millisecond); err != nil {
 		return fmt.Errorf("grpc api check failed for %s: %w", grpcAddr, err)
 	}
 	httpAddr := net.JoinHostPort(host, strconv.Itoa(config.DefaultHTTPPort))
-	if err := checkTCP(ctx, httpAddr); err != nil {
+	if err := checkTCPWithRetry(ctx, httpAddr, 10, 500*time.Millisecond); err != nil {
 		return fmt.Errorf("http api check failed for %s: %w", httpAddr, err)
 	}
 	return nil
+}
+
+func checkTCPWithRetry(ctx context.Context, address string, maxRetries int, initialDelay time.Duration) error {
+	var lastErr error
+	delay := initialDelay
+	for i := 0; i < maxRetries; i++ {
+		if err := checkTCP(ctx, address); err == nil {
+			return nil
+		} else {
+			lastErr = err
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(delay):
+			delay = delay * 3 / 2 // 50% increase each retry
+			if delay > 3*time.Second {
+				delay = 3 * time.Second
+			}
+		}
+	}
+	return lastErr
 }
 
 func checkNATSConnectivity(ctx context.Context, cfg *BootstrapConfig) error {
@@ -190,6 +213,10 @@ func checkPostgresConnectivity(ctx context.Context, cfg *BootstrapConfig) error 
 	if !strings.EqualFold(cfg.Storage, "postgres") {
 		return nil
 	}
+	// Agent-only nodes don't need postgres - they connect to the control plane via NATS
+	if strings.EqualFold(cfg.NodeRole, "agent") {
+		return nil
+	}
 	address, err := resolvePostgresAddress(cfg)
 	if err != nil {
 		return err
@@ -201,7 +228,8 @@ func checkPostgresConnectivity(ctx context.Context, cfg *BootstrapConfig) error 
 }
 
 func resolveNATSAddresses(cfg *BootstrapConfig) ([]string, error) {
-	if strings.EqualFold(cfg.NATSMode, "external") && len(cfg.NATSURLs) > 0 {
+	// If explicit NATS URLs are provided, use them (for external, leaf, or agent connecting to control-plane)
+	if len(cfg.NATSURLs) > 0 {
 		addresses := make([]string, 0, len(cfg.NATSURLs))
 		for _, raw := range cfg.NATSURLs {
 			addr, err := parseNATSURL(raw)
@@ -212,6 +240,7 @@ func resolveNATSAddresses(cfg *BootstrapConfig) ([]string, error) {
 		}
 		return addresses, nil
 	}
+	// For embedded/cluster modes without explicit URLs, connect to local NATS
 	host := resolveDialHost(cfg.BindAddress, cfg.Advertise)
 	return []string{net.JoinHostPort(host, "4222")}, nil
 }
@@ -238,7 +267,19 @@ func shouldCheckClusterMembership(cfg *BootstrapConfig) bool {
 	if !requiresServer(cfg) {
 		return false
 	}
-	return cfg.HAEnabled || strings.EqualFold(cfg.NATSMode, "cluster")
+	// Only check cluster membership when explicitly in HA mode.
+	// For initial single-node control-plane bootstrap, there's no cluster yet
+	// to verify membership against - the node IS the initial cluster.
+	// NATS cluster mode just means the embedded NATS supports clustering,
+	// not that we're joining an existing cluster.
+	if cfg.HAEnabled {
+		return true
+	}
+	// If joining an existing cluster, verify membership after join
+	if cfg.Join != "" {
+		return true
+	}
+	return false
 }
 
 func parseNATSURL(raw string) (string, error) {

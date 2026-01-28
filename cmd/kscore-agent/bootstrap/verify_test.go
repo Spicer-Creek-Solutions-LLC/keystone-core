@@ -160,12 +160,24 @@ func TestShouldCheckClusterMembership(t *testing.T) {
 		t.Fatal("expected HA control-plane to check membership")
 	}
 
+	// Single control-plane with NATS cluster mode (initial bootstrap) should NOT check
+	// membership - there's no cluster yet to verify against
 	cfg = &BootstrapConfig{
 		NodeRole: "control-plane",
 		NATSMode: "cluster",
 	}
+	if shouldCheckClusterMembership(cfg) {
+		t.Fatal("expected single control-plane with cluster mode to skip membership checks")
+	}
+
+	// Control-plane joining existing cluster should check membership
+	cfg = &BootstrapConfig{
+		NodeRole: "control-plane",
+		NATSMode: "cluster",
+		Join:     "https://existing-cluster:8080",
+	}
 	if !shouldCheckClusterMembership(cfg) {
-		t.Fatal("expected cluster nats mode to check membership")
+		t.Fatal("expected control-plane joining cluster to check membership")
 	}
 }
 

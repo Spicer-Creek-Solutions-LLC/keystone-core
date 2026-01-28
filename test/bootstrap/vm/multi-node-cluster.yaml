@@ -1,0 +1,52 @@
+# Multi-node cluster test configuration
+#
+# This tests a production-like deployment: control-plane + agent join flow.
+#
+# Requirements:
+#   - 2 VMs with SSH access and network connectivity between them
+#   - cp1: 2GB+ RAM, 2+ CPUs (control-plane)
+#   - agent1: 1GB+ RAM, 1+ CPU (agent)
+#   - Both must reach repo server (KSCORE_REPO_URL)
+#
+# Usage:
+#   KSCORE_VM_TESTS=1 KSCORE_VM_CONFIG=test/bootstrap/vm/multi-node-cluster.yaml \
+#     KSCORE_REPO_URL=http://${KSCORE_VM_HOST}:8080/repos \
+#     go test -v ./test/bootstrap/vm/scenarios -run TestMultiNodeCluster
+
+vm_provider: ssh
+
+ssh:
+  clean_nodes: true  # Reset node state before testing
+  nodes:
+    # Control plane node - runs kscore-server and kscore-agent
+    - name: kscp1
+      host: ${KSCORE_VM_HOST}      # <-- UPDATE: Control plane VM IP
+      port: 22
+      user: test                # <-- UPDATE: SSH user
+      key_file: ~/.ssh/id_ed25519
+      os: ubuntu-24.04
+      role: control-plane       # or "both" to also run agent on cp
+
+    # Agent node - joins the control plane
+    - name: ksagent1
+      host: ${KSCORE_VM_HOST}      # <-- UPDATE: Agent VM IP
+      port: 22
+      user: test                # <-- UPDATE: SSH user
+      key_file: ~/.ssh/id_ed25519
+      os: ubuntu-24.04          # Can be different OS (rocky-9, debian-12, etc.)
+      role: agent
+
+# Test scenarios
+scenarios:
+  - name: cluster-bootstrap
+    description: Bootstrap control-plane and agent nodes
+    timeout: 15m
+  - name: cluster-health
+    description: Verify all services are healthy
+    timeout: 2m
+  - name: agent-registration
+    description: Verify agent registered with control-plane
+    timeout: 2m
+  - name: cluster-exec
+    description: Test remote execution from cp to agent
+    timeout: 2m

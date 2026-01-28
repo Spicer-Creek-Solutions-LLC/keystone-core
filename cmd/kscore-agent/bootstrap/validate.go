@@ -74,7 +74,10 @@ func validateBootstrapConfig(cfg *BootstrapConfig) error {
 		return fmt.Errorf("invalid NATS mode %q", cfg.NATSMode)
 	}
 
-	if strings.EqualFold(cfg.Storage, "postgres") {
+	// Storage validation only applies to control-plane or both roles.
+	// Agent-only nodes don't run a database - they connect to the control plane via NATS.
+	needsStorage := strings.EqualFold(cfg.NodeRole, "control-plane") || strings.EqualFold(cfg.NodeRole, "both")
+	if needsStorage && strings.EqualFold(cfg.Storage, "postgres") {
 		if cfg.PostgresHost == "" || cfg.PostgresDatabase == "" || cfg.PostgresUser == "" {
 			return fmt.Errorf("postgres host, database, and user are required")
 		}

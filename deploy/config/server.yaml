@@ -3,10 +3,10 @@
 
 # Server settings
 server:
-  # HTTP API listen address
-  listen_address: "0.0.0.0:8080"
-  # gRPC API listen address
-  grpc_address: "0.0.0.0:50051"
+  # HTTP API listen address in host:port format
+  httplisten: "127.0.0.1:8080"
+  # gRPC API listen address in host:port format
+  grpclisten: "127.0.0.1:9090"
 
 # NATS message bus configuration
 nats:

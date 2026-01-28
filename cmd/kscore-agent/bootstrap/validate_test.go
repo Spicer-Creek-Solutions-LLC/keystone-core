@@ -49,9 +49,11 @@ func TestValidateBootstrapConfigErrors(t *testing.T) {
 		t.Fatal("expected error for invalid NATS mode")
 	}
 
+	// Postgres validation applies to control-plane and both roles
 	cfg = &BootstrapConfig{
 		Mode:        "production",
 		ClusterName: "keystone",
+		NodeRole:    "control-plane",
 		Storage:     "postgres",
 	}
 	if err := validateBootstrapConfig(cfg); err == nil {
@@ -61,6 +63,7 @@ func TestValidateBootstrapConfigErrors(t *testing.T) {
 	cfg = &BootstrapConfig{
 		Mode:             "production",
 		ClusterName:      "keystone",
+		NodeRole:         "control-plane",
 		Storage:          "postgres",
 		PostgresHost:     "db.example.com",
 		PostgresPort:     5432,
@@ -70,6 +73,19 @@ func TestValidateBootstrapConfigErrors(t *testing.T) {
 	}
 	if err := validateBootstrapConfig(cfg); err == nil {
 		t.Fatal("expected error for invalid postgres ssl mode")
+	}
+
+	// Agent-only nodes don't need postgres config even with postgres storage set
+	cfg = &BootstrapConfig{
+		Mode:        "production",
+		ClusterName: "keystone",
+		NodeRole:    "agent",
+		Storage:     "postgres",
+		NATSMode:    "external",
+		NATSURLs:    []string{"nats://control-plane:4222"},
+	}
+	if err := validateBootstrapConfig(cfg); err != nil {
+		t.Fatalf("expected agent with postgres storage to pass validation: %v", err)
 	}
 
 	cfg = &BootstrapConfig{

@@ -5,6 +5,8 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"os/user"
+	"strconv"
 	"strings"
 )
 
@@ -33,13 +35,49 @@ func setupNATS(cfg *BootstrapConfig, output io.Writer, verbose bool) error {
 }
 
 func ensureNATSDirectories(output io.Writer, verbose bool) error {
-	dirs := []string{natsStoreDir, jetstreamStoreDir}
+	// NATS creates a "jetstream" subdirectory inside natsStoreDir regardless of
+	// the jetstream.storedir config setting. We must create this subdirectory
+	// with kscore ownership so the server (running as kscore user) can write to it.
+	natsJetstreamSubdir := natsStoreDir + "/jetstream"
+	dirs := []string{natsStoreDir, jetstreamStoreDir, natsJetstreamSubdir}
+
+	// Lookup kscore user for ownership
+	kscoreUser, err := user.Lookup("kscore")
+	if err != nil {
+		// If kscore user doesn't exist, create directories without chown
+		// This allows bootstrap to work in environments without the user
+		if verbose {
+			fmt.Fprintf(output, "kscore user not found, creating directories without chown: %v\n", err)
+		}
+		for _, dir := range dirs {
+			if err := os.MkdirAll(dir, 0o755); err != nil {
+				return fmt.Errorf("create nats directory %s: %w", dir, err)
+			}
+			if verbose {
+				fmt.Fprintf(output, "created nats directory %s\n", dir)
+			}
+		}
+		return nil
+	}
+
+	uid, err := strconv.Atoi(kscoreUser.Uid)
+	if err != nil {
+		return fmt.Errorf("parse kscore uid: %w", err)
+	}
+	gid, err := strconv.Atoi(kscoreUser.Gid)
+	if err != nil {
+		return fmt.Errorf("parse kscore gid: %w", err)
+	}
+
 	for _, dir := range dirs {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return fmt.Errorf("create nats directory %s: %w", dir, err)
 		}
+		if err := os.Chown(dir, uid, gid); err != nil {
+			return fmt.Errorf("chown nats directory %s: %w", dir, err)
+		}
 		if verbose {
-			fmt.Fprintf(output, "created nats directory %s\n", dir)
+			fmt.Fprintf(output, "created nats directory %s (owner: kscore)\n", dir)
 		}
 	}
 	return nil
