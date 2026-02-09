@@ -15,8 +15,8 @@ Each TODO item includes a `Resolution:` line to indicate how it should be addres
 
 ### API Documentation Gaps
 
-- [x] **Secrets API reference docs have no matching REST/gRPC implementation** *(Moved to Epic 101)*
-  - See `epics/101-secrets-api-implementation.md` for full implementation plan
+- [x] **Secrets API reference docs have no matching REST/gRPC implementation** *(Moved to Epic 43)*
+  - See `epics/43-secrets-api-implementation.md` for full implementation plan
   - Covers REST handlers, gRPC service, public client package, CLI wiring
 
 - [x] **Agent metrics REST endpoint documented but not implemented** ✓ FIXED

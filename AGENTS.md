@@ -168,12 +168,8 @@ See `docs/content/en/docs/contributing/state-machines.md` for full documentation
   - T7.2: Protocol providers — SSH (password/key), SNMP (v2c/v3), REST (basic/bearer/apikey/oauth2), Certificate (gNMI TLS)
   - T7.3: Policy engine with age-based evaluation, cron scheduling via secrets.ParseCron, automatic rotation of due credentials
   - Package: `internal/credentials/rotation/` with 16 files, 165+ tests passing with race detector
-- **Epic 100 IN PROGRESS**: 0.1.0 Release Readiness:
-  - Phase 1 (Registry + Signing): COMPLETE - Official blueprint validation tests, signing infrastructure verified
-  - Phase 2 (Version Normalization): COMPLETE - All 14 kscore/* blueprints at 0.1.0, docs updated
-  - Phase 3 (Repository Generation): COMPLETE - `kscore-repo-gen` utility generates DNF, APT, Windows, blueprint, and module repositories to `build/repos/`
-  - Phase 4 (Release Documentation): COMPLETE - CHANGELOG, release notes, compatibility docs, release checklist, announcement draft
-  - Remaining: Phase 5 (VM Bootstrap Validation)
+- **Epic 100 DEFERRED**: 0.1.0 Release Readiness (moved to future epics):
+  - Phases 1-4 complete (signing, versions, repo gen, docs); Phase 5 (VM validation) remaining
 - **Epic 41 COMPLETE**: DNS Provider Management:
   - Week 1-2: Core DNS package (`internal/dns/`) with types, diff logic, provider registry, sync engine
   - Week 3-4: DNS state module for statemgmt integration, mock provider for testing
@@ -264,7 +260,7 @@ This repository contains working implementations of **Epics 1-29**. The project 
 - Explicit state machine patterns for 15 core components (150+ tests)
 - Full runbook automation system with triggers, approvals, ITSM integration, audit logging
 
-**Current Status**: Epics 1-32, 36-37, 39-42 COMPLETE ✅
+**Current Status**: Epics 1-32, 36-37, 39-42 COMPLETE ✅ | Epic 43 PLANNED
 
 ## Repository Structure
 
@@ -311,7 +307,8 @@ This repository contains working implementations of **Epics 1-29**. The project 
     ├── 40-test-coverage-remediation.md   # Test coverage for untested packages
     ├── 41-dns-provider-management.md    # DNS record management via provider APIs
     ├── 42-network-protocol-expansion.md # Network protocol expansion (NETCONF, RESTCONF, gNMI, Telnet)
-    ├── 101-secrets-api-implementation.md # Secrets REST/gRPC API layer
+    ├── 43-secrets-api-implementation.md   # Secrets REST/gRPC API layer
+    ├── 100-release-readiness-0.1.0.md     # 0.1.0 release readiness (future)
     ├── future-mcp-server.md               # MCP server for AI-assisted operations (future)
     └── future-web-ui-management-console.md  # Web UI (future, not scheduled)
 ```
@@ -379,15 +376,13 @@ Implementation order:
 41. **Epic 41** (DNS Provider Management) - ✅ COMPLETE - Depends on Epic 3, 6, 9 - State-based DNS records via libdns; providers: Cloudflare, Route 53, Google Cloud DNS, Azure DNS, DigitalOcean DNS, DNSMadeEasy, Hetzner DNS
 42. **Epic 42** (Network Protocol Expansion) - ✅ COMPLETE - NETCONF, RESTCONF, Telnet, gNMI adapters + 25 vendor drivers + credential rotation + NETCONF/vendor state modules + documentation
 
-### In Progress
-
-100. **Epic 100** (0.1.0 Release Readiness) - IN PROGRESS - Blueprint signing, version reset, docs audit, VM validation
-
 ### Planned
 
-101. **Epic 101** (Secrets API Implementation) - NOT STARTED - REST handlers, gRPC service, public client package, CLI wiring for `internal/secrets/`
+43. **Epic 43** (Secrets API Implementation) - NOT STARTED - REST handlers, gRPC service, public client package, CLI wiring for `internal/secrets/`
 
 ### Future Epics (Not Yet Planned)
+
+- **Epic 100: 0.1.0 Release Readiness** - Blueprint signing, version reset, docs audit, VM validation - See `epics/100-release-readiness-0.1.0.md`
 
 - **Epic 38: Air-Gapped Deployments** - USB/ISO bootstrap, offline registries, upgrade packages, data diodes (deferred until release infrastructure is established)
 - **Release & Distribution** - Release automation, package repos, artifact signing
