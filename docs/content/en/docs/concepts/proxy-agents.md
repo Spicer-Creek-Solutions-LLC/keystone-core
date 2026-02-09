@@ -1061,3 +1061,7 @@ kscorectl proxy device config show device-id
 - Explore [State Management](/docs/concepts/state-management/) for declarative configuration
 - See [Events](/docs/concepts/events/) for event-driven automation with proxied devices
 - Review [Observability](/docs/concepts/observability/) for monitoring proxied devices
+- See the [Proxy State Modules Reference]({{< relref "../reference/proxy-state-modules.md" >}}) for all available modules
+- Follow the [Vendor Configuration Guide]({{< relref "../operations/vendor-configuration.md" >}}) for vendor-specific setup
+- Check the [Protocol Compatibility Matrix]({{< relref "../reference/compatibility-matrix.md" >}}) for protocol support
+- Consult [Proxy Agent Troubleshooting]({{< relref "../operations/troubleshooting-proxy.md" >}}) for common issues

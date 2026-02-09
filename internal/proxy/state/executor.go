@@ -292,6 +292,19 @@ func (e *ProxyStateExecutor) registerDefaultModules() {
 	e.modules.Register("alliedtelesis_awplus_config", NewAlliedTelesisAWPlusConfigModule())
 	e.modules.Register("ciena_saos_config", NewCienaSAOSConfigModule())
 
+	// NETCONF state modules
+	e.modules.Register("netconf_interface", NewNetconfInterfaceModule())
+	e.modules.Register("netconf_vlan", NewNetconfVLANModule())
+	e.modules.Register("netconf_routing", NewNetconfRoutingModule())
+	e.modules.Register("netconf_acl", NewNetconfACLModule())
+
+	// Vendor-specific state modules
+	e.modules.Register("fortios_policy", NewFortiOSPolicyModule())
+	e.modules.Register("panos_rule", NewPANOSRuleModule())
+	e.modules.Register("bigip_pool", NewBigIPPoolModule())
+	e.modules.Register("bigip_virtual", NewBigIPVirtualModule())
+	e.modules.Register("checkpoint_rule", NewCheckpointRuleModule())
+
 	// WinRM modules
 	e.modules.Register("winrm_file", NewWinRMFileModule())
 	e.modules.Register("winrm_service", NewWinRMServiceModule())

@@ -284,8 +284,26 @@ kscorectl proxy exec router-01 --protocol netconf "unlock candidate"
 kscorectl proxy exec router-01 --protocol netconf "copy-config running startup"
 ```
 
+## NETCONF State Modules
+
+NETCONF state modules provide idempotent, declarative configuration management using OpenConfig YANG models over NETCONF. Each module implements the lock/edit/validate/commit/unlock workflow on the candidate datastore.
+
+| Module | OpenConfig Model | Description |
+|--------|-----------------|-------------|
+| `netconf_interface` | `openconfig-interfaces` | Interface configuration (IP, MTU, admin state) |
+| `netconf_vlan` | `openconfig-vlan` | VLAN management (create, name, state) |
+| `netconf_routing` | `openconfig-network-instance` | Static routes with VRF support |
+| `netconf_acl` | `openconfig-acl` | IPv4/IPv6 access control lists |
+
+These modules work with any NETCONF-capable device that supports the corresponding OpenConfig models, including Cisco IOS-XE, Juniper JUNOS, Arista EOS, Nokia SR OS, and others.
+
+See the [Proxy State Modules Reference]({{< relref "proxy-state-modules.md" >}}) for parameter details and examples.
+
 ## See Also
 
+- [Proxy State Modules Reference]({{< relref "proxy-state-modules.md" >}}) - Complete module reference including NETCONF modules
+- [Protocol Compatibility Matrix]({{< relref "compatibility-matrix.md" >}}) - NETCONF capability matrix by vendor
+- [Vendor Configuration Guide]({{< relref "../operations/vendor-configuration.md" >}}) - NETCONF device setup
 - [RESTCONF Protocol Reference]({{< relref "restconf.md" >}}) - HTTP-based protocol for YANG data
 - [gNMI Protocol Reference]({{< relref "gnmi.md" >}}) - gRPC-based streaming telemetry and configuration
 - [Telnet Protocol Reference]({{< relref "telnet.md" >}}) - Legacy CLI access for network devices

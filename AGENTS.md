@@ -158,6 +158,11 @@ See `docs/content/en/docs/contributing/state-machines.md` for full documentation
   - 9 VendorType constants, 9 vendor adapters with full test suites, 9 state modules, 9 discovery profiles
   - Total vendor drivers: 25 (up from 16)
   - 44 unit tests passing with race detector, documentation at `docs/content/en/docs/reference/gnmi.md`
+- **Epic 42 Phase 8 COMPLETE**: State Modules and Documentation:
+  - T8.1: NETCONF state modules (`netconf_interface`, `netconf_vlan`, `netconf_routing`, `netconf_acl`) using OpenConfig YANG models with candidate datastore lock/edit/validate/commit/unlock workflow
+  - T8.2: Vendor state modules (`fortios_policy`, `panos_rule`, `bigip_pool`, `bigip_virtual`, `checkpoint_rule`) using vendor REST/XML APIs
+  - T8.3: Documentation — proxy state modules reference, vendor configuration guide, protocol compatibility matrix, proxy troubleshooting guide
+  - 9 new module registrations in executor, 108+ tests passing with race detector
 - **Epic 42 Phase 7 COMPLETE**: Credential Rotation Framework:
   - T7.1: Core rotation engine with state machine (Pending → Validating → Generating → Applying → Verifying → Storing → Cleanup → Completed), rollback on failure
   - T7.2: Protocol providers — SSH (password/key), SNMP (v2c/v3), REST (basic/bearer/apikey/oauth2), Certificate (gNMI TLS)
@@ -259,7 +264,7 @@ This repository contains working implementations of **Epics 1-29**. The project 
 - Explicit state machine patterns for 15 core components (150+ tests)
 - Full runbook automation system with triggers, approvals, ITSM integration, audit logging
 
-**Current Status**: Epics 1-32, 36-37, 39-40 COMPLETE ✅
+**Current Status**: Epics 1-32, 36-37, 39-42 COMPLETE ✅
 
 ## Repository Structure
 
@@ -370,7 +375,7 @@ Implementation order:
 39. **Epic 39** (State Machine Refactoring) - ✅ COMPLETE - Independent refactoring epic
 40. **Epic 40** (Test Coverage Remediation) - ✅ COMPLETE - Add tests to 23 untested packages
 41. **Epic 41** (DNS Provider Management) - ✅ COMPLETE - Depends on Epic 3, 6, 9 - State-based DNS records via libdns; providers: Cloudflare, Route 53, Google Cloud DNS, Azure DNS, DigitalOcean DNS, DNSMadeEasy, Hetzner DNS
-42. **Epic 42** (Network Protocol Expansion) - IN PROGRESS - Phases 1-7 COMPLETE: NETCONF, RESTCONF, Telnet, gNMI adapters + 25 vendor drivers + credential rotation framework
+42. **Epic 42** (Network Protocol Expansion) - ✅ COMPLETE - NETCONF, RESTCONF, Telnet, gNMI adapters + 25 vendor drivers + credential rotation + NETCONF/vendor state modules + documentation
 
 ### In Progress
 

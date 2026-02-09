@@ -804,10 +804,41 @@ credential_rotation:
       auto_rotate: true
 ```
 
+## NETCONF State Modules
+
+In addition to CLI-based config modules, NETCONF state modules provide OpenConfig YANG-based configuration management for NETCONF-capable devices. These modules use the candidate datastore with a lock/edit/validate/commit/unlock workflow.
+
+| Module | Description | OpenConfig Model |
+|--------|-------------|-----------------|
+| `netconf_interface` | Interface management | `openconfig-interfaces` |
+| `netconf_vlan` | VLAN management | `openconfig-vlan` |
+| `netconf_routing` | Static route management | `openconfig-network-instance` |
+| `netconf_acl` | Access control lists | `openconfig-acl` |
+
+See the [Proxy State Modules Reference]({{< relref "proxy-state-modules.md" >}}) for parameter details.
+
+## Vendor-Specific State Modules
+
+Higher-level state modules for vendor REST/XML APIs provide idempotent management of vendor-specific features like firewall policies, load balancer pools, and security rules.
+
+| Module | Vendor | API |
+|--------|--------|-----|
+| `fortios_policy` | Fortinet FortiOS 6.0+ | REST API |
+| `panos_rule` | Palo Alto PAN-OS 8.0+ | XML API |
+| `bigip_pool` | F5 BIG-IP 12.0+ | iControl REST |
+| `bigip_virtual` | F5 BIG-IP 12.0+ | iControl REST |
+| `checkpoint_rule` | Check Point R80+ | Web Services API |
+
+See the [Vendor Configuration Guide]({{< relref "../operations/vendor-configuration.md" >}}) for setup instructions and examples.
+
 ## See Also
 
 - [Proxy Agents]({{< relref "../concepts/proxy-agents.md" >}})
 - [Proxy Agent Operations]({{< relref "../operations/proxy-agents.md" >}})
+- [Proxy State Modules Reference]({{< relref "proxy-state-modules.md" >}})
+- [Protocol Compatibility Matrix]({{< relref "compatibility-matrix.md" >}})
+- [Vendor Configuration Guide]({{< relref "../operations/vendor-configuration.md" >}})
+- [Proxy Agent Troubleshooting]({{< relref "../operations/troubleshooting-proxy.md" >}})
 - [NETCONF Protocol Reference]({{< relref "netconf.md" >}})
 - [RESTCONF Protocol Reference]({{< relref "restconf.md" >}})
 - [gNMI Protocol Reference]({{< relref "gnmi.md" >}})
