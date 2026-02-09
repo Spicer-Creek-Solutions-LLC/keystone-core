@@ -1035,8 +1035,8 @@ kscorectl git-sync conflicts list
 # Accept Git version
 kscorectl git-sync conflicts resolve nginx.yaml --accept-git
 
-# Keep runtime version and update Git
-kscorectl git-sync conflicts resolve nginx.yaml --keep-runtime --push
+# Keep runtime version
+kscorectl git-sync conflicts resolve nginx.yaml --keep-runtime
 ```
 
 #### Strategy: Manual
@@ -1314,7 +1314,7 @@ kscorectl git-sync lock <file-path> --reason "Manual maintenance"
 kscorectl git-sync unlock <file-path>
 
 # View lock status
-kscorectl git-sync locks list
+kscorectl git-sync locks
 ```
 
 #### Conflict Metrics

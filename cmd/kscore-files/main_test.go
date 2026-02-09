@@ -504,6 +504,170 @@ func TestCacheNewTypes(t *testing.T) {
 	})
 }
 
+func TestCreateBackendFilesystem(t *testing.T) {
+	dir := t.TempDir()
+	b, err := createBackend(BackendConfig{
+		Name:     "local",
+		Type:     "filesystem",
+		RootPath: dir,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if b == nil {
+		t.Fatal("expected backend to not be nil")
+	}
+}
+
+func TestCreateBackendLocalAlias(t *testing.T) {
+	dir := t.TempDir()
+	b, err := createBackend(BackendConfig{
+		Name:     "local-alias",
+		Type:     "local",
+		RootPath: dir,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if b == nil {
+		t.Fatal("expected backend to not be nil")
+	}
+}
+
+func TestCreateBackendS3(t *testing.T) {
+	b, err := createBackend(BackendConfig{
+		Name:   "s3-store",
+		Type:   "s3",
+		Bucket: "my-bucket",
+		Region: "us-east-1",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if b == nil {
+		t.Fatal("expected backend to not be nil")
+	}
+}
+
+func TestCreateBackendGCS(t *testing.T) {
+	b, err := createBackend(BackendConfig{
+		Name:    "gcs-store",
+		Type:    "gcs",
+		Bucket:  "my-gcs-bucket",
+		Project: "my-project",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if b == nil {
+		t.Fatal("expected backend to not be nil")
+	}
+}
+
+func TestCreateBackendAzure(t *testing.T) {
+	b, err := createBackend(BackendConfig{
+		Name:        "azure-store",
+		Type:        "azure",
+		Container:   "my-container",
+		AccountName: "myaccount",
+		AccountKey:  "dGVzdGtleQ==",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if b == nil {
+		t.Fatal("expected backend to not be nil")
+	}
+}
+
+func TestCreateBackendGit(t *testing.T) {
+	dir := t.TempDir()
+	b, err := createBackend(BackendConfig{
+		Name:      "git-store",
+		Type:      "git",
+		URL:       "https://github.com/example/repo.git",
+		LocalPath: dir,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if b == nil {
+		t.Fatal("expected backend to not be nil")
+	}
+}
+
+func TestCreateBackendNATS(t *testing.T) {
+	b, err := createBackend(BackendConfig{
+		Name:       "nats-store",
+		Type:       "nats",
+		BucketName: "files",
+		Endpoint:   "nats://localhost:4222",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if b == nil {
+		t.Fatal("expected backend to not be nil")
+	}
+}
+
+func TestCreateBackendNATSObjectStoreAlias(t *testing.T) {
+	b, err := createBackend(BackendConfig{
+		Name:       "nats-store-2",
+		Type:       "nats-object-store",
+		BucketName: "files",
+		Endpoint:   "nats://localhost:4222",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if b == nil {
+		t.Fatal("expected backend to not be nil")
+	}
+}
+
+func TestCreateBackendUnsupportedType(t *testing.T) {
+	_, err := createBackend(BackendConfig{
+		Name: "bad",
+		Type: "redis",
+	})
+	if err == nil {
+		t.Fatal("expected error for unsupported backend type")
+	}
+	if !strings.Contains(err.Error(), "unsupported backend type") {
+		t.Errorf("expected error to mention 'unsupported backend type', got: %v", err)
+	}
+}
+
+func TestCreateBackendSupportedTypes(t *testing.T) {
+	types := []string{"filesystem", "local", "s3", "gcs", "azure", "git", "nats", "nats-object-store"}
+	for _, typ := range types {
+		bc := BackendConfig{
+			Name:       "test-" + typ,
+			Type:       typ,
+			RootPath:   t.TempDir(),
+			Bucket:     "test-bucket",
+			Region:     "us-east-1",
+			Project:    "test-project",
+			Container:  "test-container",
+			AccountName: "testaccount",
+			AccountKey: "dGVzdA==",
+			URL:        "https://example.com/repo.git",
+			LocalPath:  t.TempDir(),
+			BucketName: "test",
+			Endpoint:   "nats://localhost:4222",
+		}
+		b, err := createBackend(bc)
+		if err != nil {
+			t.Errorf("createBackend(%q) failed: %v", typ, err)
+			continue
+		}
+		if b == nil {
+			t.Errorf("createBackend(%q) returned nil backend", typ)
+		}
+	}
+}
+
 // findSubcommand finds a subcommand by name
 func findSubcommand(cmd *cobra.Command, name string) *cobra.Command {
 	for _, sub := range cmd.Commands() {

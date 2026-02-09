@@ -324,6 +324,144 @@ kscorectl maintenance cleanup --older-than 30d --dry-run
 - `--older-than string`: Delete data older than this duration (e.g., 7d, 30d) (default: 30d)
 - `--dry-run`: Show what would be deleted without actually deleting
 
+### kscorectl auth
+
+Authentication and session management.
+
+#### auth login
+
+Authenticate with the control plane.
+
+```bash
+kscorectl auth login --username admin
+kscorectl auth login --api-key kscore_xxxx
+```
+
+**Flags**:
+
+- `--username string`: Username for authentication
+- `--api-key string`: API key for authentication
+
+#### auth revoke-all
+
+Revoke all active API keys. This is a security incident response action.
+
+```bash
+kscorectl auth revoke-all --force
+```
+
+**Flags**:
+
+- `--force, -f`: Skip confirmation prompt
+
+#### auth sessions
+
+Manage active authentication sessions.
+
+```bash
+# List active sessions
+kscorectl auth sessions list
+
+# Invalidate all sessions
+kscorectl auth sessions invalidate
+```
+
+#### auth rotate-signing-key
+
+Rotate the JWT signing key. Existing tokens remain valid until expiry.
+
+```bash
+kscorectl auth rotate-signing-key
+kscorectl auth rotate-signing-key --force
+```
+
+**Flags**:
+
+- `--force, -f`: Skip confirmation prompt
+
+#### auth key revoke
+
+Revoke a specific authentication key.
+
+```bash
+kscorectl auth key revoke <key-id>
+```
+
+### kscorectl config set
+
+Set a runtime configuration value on the control plane using dot notation.
+
+```bash
+kscorectl config set server.workers 16
+kscorectl config set database.sqlite.cache_size 10000
+kscorectl config set nats.consumer_workers 8
+```
+
+### kscorectl config show
+
+Display the current runtime configuration.
+
+```bash
+kscorectl config show
+kscorectl config show --include-defaults
+```
+
+**Flags**:
+
+- `--include-defaults`: Include default values in output
+
+### kscorectl db
+
+Database maintenance operations.
+
+#### db compact
+
+Compact the database to reclaim unused space. Runs VACUUM for SQLite, VACUUM ANALYZE for PostgreSQL.
+
+```bash
+kscorectl db compact
+kscorectl db compact --dry-run
+```
+
+**Flags**:
+
+- `--dry-run`: Show what would be done without executing
+
+#### db rotate-credentials
+
+Rotate database access credentials. The control plane will reconnect with new credentials.
+
+```bash
+kscorectl db rotate-credentials
+kscorectl db rotate-credentials --force
+```
+
+**Flags**:
+
+- `--force, -f`: Skip confirmation prompt
+
+### kscorectl diagnostics
+
+System diagnostics collection.
+
+#### diagnostics collect
+
+Collect system diagnostics into a directory for troubleshooting.
+
+```bash
+kscorectl diagnostics collect
+kscorectl diagnostics collect --output-dir /tmp/diag
+kscorectl diagnostics collect --include-logs --since 24h
+kscorectl diagnostics collect --include-logs --include-config --since 7d
+```
+
+**Flags**:
+
+- `--output-dir string`: Output directory (default: kscore-diagnostics-\<timestamp\>)
+- `--include-logs`: Include recent log files
+- `--include-config`: Include sanitized configuration
+- `--since string`: How far back to collect logs (e.g., 1h, 24h, 7d) (default: 1h)
+
 ## kscore-exec (Remote Execution)
 
 Execute commands on remote agents.

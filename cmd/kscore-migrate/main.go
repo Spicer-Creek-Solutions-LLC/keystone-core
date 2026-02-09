@@ -409,13 +409,14 @@ func runVerify(cmd *cobra.Command, args []string) error {
 }
 
 func runVerifyChecks(system, srcDir, tgtDB string) []verifyCheckResult {
-	var results []verifyCheckResult
-
-	results = append(results, checkSourceReadable(system, srcDir))
-	results = append(results, checkStateDefinitions(system, srcDir))
-	results = append(results, checkAgentMappings(system, srcDir, tgtDB))
-	results = append(results, checkVariablesPreserved(system, srcDir))
-	results = append(results, checkEventSubscriptions(system, srcDir))
+	results := make([]verifyCheckResult, 0, 5)
+	results = append(results,
+		checkSourceReadable(system, srcDir),
+		checkStateDefinitions(system, srcDir),
+		checkAgentMappings(system, srcDir, tgtDB),
+		checkVariablesPreserved(system, srcDir),
+		checkEventSubscriptions(system, srcDir),
+	)
 
 	return results
 }
@@ -506,7 +507,10 @@ func checkStateDefinitions(system, srcDir string) verifyCheckResult {
 
 	var found int
 	filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
 			return nil
 		}
 		ext := filepath.Ext(path)
@@ -656,7 +660,10 @@ func checkVariablesPreserved(system, srcDir string) verifyCheckResult {
 
 	var count int
 	filepath.Walk(varDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
 			return nil
 		}
 		count++

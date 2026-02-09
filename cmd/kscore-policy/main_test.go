@@ -297,7 +297,7 @@ func TestEvalCommandFlags(t *testing.T) {
 
 	dryRunFlag := evalCmd.Flags().Lookup("dry-run")
 	if dryRunFlag == nil {
-		t.Error("expected --dry-run flag on eval command")
+		t.Fatal("expected --dry-run flag on eval command")
 	}
 	if dryRunFlag.DefValue != "false" {
 		t.Errorf("expected dry-run default to be 'false', got %s", dryRunFlag.DefValue)
@@ -305,7 +305,7 @@ func TestEvalCommandFlags(t *testing.T) {
 
 	verboseFlag := evalCmd.Flags().Lookup("verbose")
 	if verboseFlag == nil {
-		t.Error("expected --verbose flag on eval command")
+		t.Fatal("expected --verbose flag on eval command")
 	}
 	if verboseFlag.DefValue != "false" {
 		t.Errorf("expected verbose default to be 'false', got %s", verboseFlag.DefValue)
@@ -641,7 +641,7 @@ func TestRemediateCommandFlags(t *testing.T) {
 
 	dryRunFlag := remediateCmd.Flags().Lookup("dry-run")
 	if dryRunFlag == nil {
-		t.Error("expected --dry-run flag on remediate command")
+		t.Fatal("expected --dry-run flag on remediate command")
 	}
 	if dryRunFlag.DefValue != "false" {
 		t.Errorf("expected dry-run default to be 'false', got %s", dryRunFlag.DefValue)
@@ -649,7 +649,7 @@ func TestRemediateCommandFlags(t *testing.T) {
 
 	forceFlag := remediateCmd.Flags().Lookup("force")
 	if forceFlag == nil {
-		t.Error("expected --force flag on remediate command")
+		t.Fatal("expected --force flag on remediate command")
 	}
 	if forceFlag.DefValue != "false" {
 		t.Errorf("expected force default to be 'false', got %s", forceFlag.DefValue)

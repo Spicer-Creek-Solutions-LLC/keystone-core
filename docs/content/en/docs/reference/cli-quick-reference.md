@@ -20,7 +20,6 @@ This quick reference provides a consolidated view of all Keystone Core CLI comma
 | `kscorectl version` | Show version info | `kscorectl version --short` |
 | `kscorectl help [cmd]` | Get help | `kscorectl help exec run` |
 | `kscorectl completion <shell>` | Generate completions | `kscorectl completion bash` |
-| `kscorectl config validate` | Validate config file | `kscorectl config validate -c server.yaml` |
 
 ### Agent Management
 
@@ -52,6 +51,38 @@ This quick reference provides a consolidated view of all Keystone Core CLI comma
 |---------|-------------|---------|
 | `kscorectl health` | Check system health | `kscorectl health` |
 | `kscorectl health check` | Full health check | `kscorectl health check --full` |
+
+### Authentication
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `kscorectl auth login` | Authenticate | `kscorectl auth login --username admin` |
+| `kscorectl auth revoke-all` | Revoke all API keys | `kscorectl auth revoke-all --force` |
+| `kscorectl auth sessions list` | List active sessions | `kscorectl auth sessions list` |
+| `kscorectl auth sessions invalidate` | Invalidate sessions | `kscorectl auth sessions invalidate` |
+| `kscorectl auth rotate-signing-key` | Rotate JWT key | `kscorectl auth rotate-signing-key --force` |
+| `kscorectl auth key revoke <id>` | Revoke auth key | `kscorectl auth key revoke key-abc123` |
+
+### Configuration
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `kscorectl config validate` | Validate config file | `kscorectl config validate -c server.yaml` |
+| `kscorectl config set <key> <val>` | Set runtime config | `kscorectl config set server.workers 16` |
+| `kscorectl config show` | Show current config | `kscorectl config show --include-defaults` |
+
+### Database
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `kscorectl db compact` | Compact database | `kscorectl db compact --dry-run` |
+| `kscorectl db rotate-credentials` | Rotate DB credentials | `kscorectl db rotate-credentials --force` |
+
+### Diagnostics
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `kscorectl diagnostics collect` | Collect diagnostics | `kscorectl diagnostics collect --include-logs --since 24h` |
 
 ---
 

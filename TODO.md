@@ -84,22 +84,25 @@ Each TODO item includes a `Resolution:` line to indicate how it should be addres
 
 ### File Backends Reference Drift
 
-- [ ] **File backends config schema and supported types don’t match implementation**
-  - Resolution: code
-  - `docs/content/en/docs/reference/file-backends.md` documents a single `backend:` block and types `local`, `s3`, `gcs`, `azure`, `git`, `nats`
-  - `cmd/kscore-files/main.go` expects `backends:` list and only wires `filesystem` backend in `createBackend`
-  - Update docs or wire remaining backend types and schema aliases (`local` → `filesystem`, `nats` → `nats-object-store`)
+- [x] **File backends config schema and supported types don't match implementation** *(DONE)*
+  - Resolution: both
+  - Wired all 6 backend types in `createBackend()`: `filesystem`/`local`, `s3`, `gcs`, `azure`, `git`, `nats`/`nats-object-store`
+  - Extended `BackendConfig` with cloud-specific fields matching internal backend configs
+  - Fixed docs to use `backends:` array format with flat fields matching code struct
+  - Fixed field name mismatches (`project_id`→`project`, `account`→`account_name`, `access_key`→`account_key`, `bucket`→`bucket_name` for NATS)
+  - Added 10 tests for `createBackend()` covering all types and aliases
 
 ### Concepts Documentation CLI Drift
 
 - [x] **Events concept documents subcommands not implemented** *(DONE)*
   - Added `analyze`, `subscribers`, `storage-stats`, `prune`, and `archive` subcommands to `cmd/kscore-events/main.go`
 
-- [ ] **GitOps concept references `git-sync` CLI that does not exist**
-  - Resolution: code - substantial functionality gap
-  - `docs/content/en/docs/concepts/gitops.md` documents extensive `git-sync` CLI: conflicts (list/show/diff/resolve/resolve-all), locks (lock/unlock/list), history, audit, status, trigger
-  - Only `kscorectl gitops repo sync <name>` exists; conflict resolution, locking, and audit features need implementation
-  - Note: Cannot simply remove docs - conflict resolution is core GitOps workflow content
+- [x] **GitOps concept references `git-sync` CLI that does not exist** *(DONE)*
+  - Resolution: code
+  - Added `git-sync` subcommand group to `cmd/kscore-gitops/main.go` with 13 commands:
+    status, trigger, force, conflicts (list/show/diff/resolve/resolve-all), lock, unlock, locks, history, audit
+  - Fixed docs to match CLI syntax (`locks list` → `locks`, removed unsupported `--push` flag)
+  - Added 26 tests covering all subcommands, flags, error cases, and output formats
 
 - [x] **Edge concept references `kscorectl cache`, `kscorectl sync`, and `kscorectl connection`** *(DONE - cache commands)*
   - Added `cache invalidate/verify/show/refresh/set-ttl/history` subcommands to `cmd/kscore-files`
@@ -144,7 +147,7 @@ Each TODO item includes a `Resolution:` line to indicate how it should be addres
 
 ### Runbooks and Community Documentation CLI Drift
 
-- [ ] **Runbooks reference missing auth/debug/config/db/diagnostics commands**
+- [x] **Runbooks reference missing auth/debug/config/db/diagnostics commands** *(Done: added `auth` (login, revoke-all, sessions, rotate-signing-key, key), `config set`/`config show`, `db` (compact, rotate-credentials), `diagnostics` (collect) command groups to kscorectl with 30+ tests)*
   - Resolution: code
   - `docs/runbooks/bootstrap-new-cluster.md`, `docs/runbooks/performance-degradation.md`, `docs/runbooks/security-incident.md`, `docs/runbooks/disaster-recovery.md` use `kscorectl auth ...`, `kscorectl debug ...`, `kscorectl config set ...`, `kscorectl db compact/rotate-credentials`, `kscorectl diagnostics collect`
   - None of these command groups exist in `cmd/kscorectl/main.go`
@@ -551,12 +554,7 @@ Each TODO item includes a `Resolution:` line to indicate how it should be addres
   - Update docs or implement command
   - Reference: `docs/content/en/docs/operations/deployment.md`, `cmd/kscore-state/main.go`
 
-- [ ] **File backends reference does not match kscore-files config schema**
-  - Resolution: both
-  - Docs use a single `backend:` block with `type: local|s3|gcs|azure|git|nats`, and backend-specific keys like `root`, `temp_dir`
-  - `kscore-files` expects `backends: []` with `name/type/paths/root_path/read_only` and only supports `filesystem` in `createBackend`
-  - Update reference docs or align config parsing
-  - Reference: `docs/content/en/docs/reference/file-backends.md`, `cmd/kscore-files/main.go`, `internal/files/backend/*`
+- [x] **File backends reference does not match kscore-files config schema** *(DONE — see line 87)*
 
 - [ ] **Secrets operations docs reference non-existent kscore-secrets subcommands**
   - Resolution: code
@@ -788,14 +786,7 @@ Each TODO item includes a `Resolution:` line to indicate how it should be addres
   - Update docs or wire configuration into proxy agent
   - Reference: `docs/content/en/docs/reference/configuration.md`, `internal/proxy/config.go`, `internal/proxy/discovery/*`
 
-- [ ] **Fix file backend option names in docs**
-  - Resolution: both
-  - Docs use `gcs.project_id` but code expects `gcs.project`
-  - Docs use `azure.account` and `azure.access_key`; code expects `account_name` and `account_key`
-  - Docs use `nats.bucket` and `nats.storage`; code expects `bucket_name` and has no `storage` option
-  - Docs use `git.auth` block with `sync_interval/auto_commit/commit_author`; code expects `username/password`, `auto_pull`, `pull_interval`, and `ssh_key_file`
-  - Docs describe backend interface methods `Read/Write/Hash`, but code uses `Get/Put/Stat` etc.
-  - Reference: `docs/content/en/docs/reference/file-backends.md`, `internal/files/backend/*.go`
+- [x] **Fix file backend option names in docs** *(DONE — see line 87)*
 
 - [ ] **HTTP file backend is declared but not implemented or documented**
   - Resolution: code

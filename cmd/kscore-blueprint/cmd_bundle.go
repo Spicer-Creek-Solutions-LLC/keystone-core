@@ -7,9 +7,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,7 +17,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/shawnbutts/keystone-core/internal/blueprint"
 	"github.com/shawnbutts/keystone-core/internal/blueprint/registry"
 )
 
@@ -416,7 +415,7 @@ func bundleInstallExecute(cmd *cobra.Command, args []string) error {
 
 	for {
 		header, err := tr.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -498,65 +497,3 @@ func bundleInstallExecute(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// findDependencies walks the installed blueprints to find dependencies.
-// This is used by bundle create when resolving from local installations.
-func findDependencies(basePath, blueprintName string) ([]string, error) {
-	var deps []string
-
-	manifestPath := filepath.Join(basePath, blueprintName, "blueprint.yaml")
-	bp, err := blueprint.ParseManifestFile(manifestPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if bp.Dependencies != nil {
-		deps = append(deps, bp.Dependencies.Requires...)
-		deps = append(deps, bp.Dependencies.RequiresBefore...)
-	}
-
-	// Recursively resolve
-	seen := map[string]bool{blueprintName: true}
-	queue := make([]string, len(deps))
-	copy(queue, deps)
-
-	var allDeps []string
-	for len(queue) > 0 {
-		dep := queue[0]
-		queue = queue[1:]
-
-		depName, _ := parseReference(dep)
-		if seen[depName] {
-			continue
-		}
-		seen[depName] = true
-		allDeps = append(allDeps, dep)
-
-		depManifestPath := filepath.Join(basePath, depName, "blueprint.yaml")
-		depBp, err := blueprint.ParseManifestFile(depManifestPath)
-		if err != nil {
-			continue
-		}
-
-		if depBp.Dependencies != nil {
-			queue = append(queue, depBp.Dependencies.Requires...)
-			queue = append(queue, depBp.Dependencies.RequiresBefore...)
-		}
-	}
-
-	return allDeps, nil
-}
-
-// listBundleArchives lists blueprint archives in a directory (for local bundle creation).
-func listBundleArchives(dir string) ([]string, error) {
-	var archives []string
-	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if !d.IsDir() && strings.HasSuffix(d.Name(), ".tar.gz") {
-			archives = append(archives, path)
-		}
-		return nil
-	})
-	return archives, err
-}

@@ -1148,11 +1148,11 @@ func buildCompiledOutput(stateFile *statemgmt.StateFile, vars *statemgmt.Vars, f
 	states := map[string]interface{}{}
 	for module, declarations := range stateFile.States {
 		declList := make([]map[string]interface{}, 0, len(declarations))
-		for _, decl := range declarations {
+		for i := range declarations {
 			d := map[string]interface{}{
-				"id":         decl.ID,
-				"state":      decl.State,
-				"parameters": decl.Parameters,
+				"id":         declarations[i].ID,
+				"state":      declarations[i].State,
+				"parameters": declarations[i].Parameters,
 			}
 			declList = append(declList, d)
 		}

@@ -107,6 +107,39 @@ type BackendConfig struct {
 	RootPath string   `yaml:"root_path,omitempty"`
 	Paths    []string `yaml:"paths,omitempty"`
 	ReadOnly bool     `yaml:"read_only,omitempty"`
+
+	// S3 backend options
+	Bucket         string `yaml:"bucket,omitempty"`
+	Region         string `yaml:"region,omitempty"`
+	Endpoint       string `yaml:"endpoint,omitempty"`
+	AccessKeyID    string `yaml:"access_key_id,omitempty"`
+	SecretAccessKey string `yaml:"secret_access_key,omitempty"`
+	Profile        string `yaml:"profile,omitempty"`
+	UsePathStyle   bool   `yaml:"use_path_style,omitempty"`
+	Prefix         string `yaml:"prefix,omitempty"`
+
+	// GCS backend options
+	Project         string `yaml:"project,omitempty"`
+	CredentialsFile string `yaml:"credentials_file,omitempty"`
+
+	// Azure backend options
+	Container        string `yaml:"container,omitempty"`
+	AccountName      string `yaml:"account_name,omitempty"`
+	AccountKey       string `yaml:"account_key,omitempty"`
+	ConnectionString string `yaml:"connection_string,omitempty"`
+
+	// Git backend options
+	URL        string        `yaml:"url,omitempty"`
+	Branch     string        `yaml:"branch,omitempty"`
+	LocalPath  string        `yaml:"local_path,omitempty"`
+	SSHKeyFile string        `yaml:"ssh_key_file,omitempty"`
+	Username   string        `yaml:"username,omitempty"`
+	Password   string        `yaml:"password,omitempty"`
+	AutoPull   bool          `yaml:"auto_pull,omitempty"`
+	PullInterval time.Duration `yaml:"pull_interval,omitempty"`
+
+	// NATS object store backend options
+	BucketName string `yaml:"bucket_name,omitempty"`
 }
 
 func newServeCommand() *cobra.Command {
@@ -162,10 +195,10 @@ func runServe(cmd *cobra.Command, args []string) error {
 	}
 
 	// Add backends
-	for _, bc := range config.Backends {
-		b, err := createBackend(bc)
+	for i := range config.Backends {
+		b, err := createBackend(config.Backends[i])
 		if err != nil {
-			return fmt.Errorf("failed to create backend %s: %w", bc.Name, err)
+			return fmt.Errorf("failed to create backend %s: %w", config.Backends[i].Name, err)
 		}
 		server.AddBackend(b)
 	}
@@ -233,20 +266,77 @@ func loadConfig() (*ServerConfig, error) {
 }
 
 func createBackend(bc BackendConfig) (backend.Backend, error) {
+	base := backend.Config{
+		Name:     bc.Name,
+		Type:     backend.Type(bc.Type),
+		Paths:    bc.Paths,
+		ReadOnly: bc.ReadOnly,
+	}
+
 	switch bc.Type {
-	case "filesystem":
+	case "filesystem", "local":
+		base.Type = backend.TypeFilesystem
 		return backend.NewFilesystemBackend(&backend.FilesystemConfig{
-			Config: backend.Config{
-				Name:     bc.Name,
-				Type:     backend.TypeFilesystem,
-				Paths:    bc.Paths,
-				ReadOnly: bc.ReadOnly,
-			},
+			Config:     base,
 			Root:       bc.RootPath,
 			CreateDirs: true,
 		})
+
+	case "s3":
+		return backend.NewS3Backend(&backend.S3Config{
+			Config:         base,
+			Bucket:         bc.Bucket,
+			Region:         bc.Region,
+			Endpoint:       bc.Endpoint,
+			AccessKeyID:    bc.AccessKeyID,
+			SecretAccessKey: bc.SecretAccessKey,
+			Profile:        bc.Profile,
+			UsePathStyle:   bc.UsePathStyle,
+			Prefix:         bc.Prefix,
+		})
+
+	case "gcs":
+		return backend.NewGCSBackend(&backend.GCSConfig{
+			Config:          base,
+			Bucket:          bc.Bucket,
+			Project:         bc.Project,
+			CredentialsFile: bc.CredentialsFile,
+			Prefix:          bc.Prefix,
+		})
+
+	case "azure":
+		return backend.NewAzureBackend(&backend.AzureConfig{
+			Config:           base,
+			Container:        bc.Container,
+			AccountName:      bc.AccountName,
+			AccountKey:       bc.AccountKey,
+			ConnectionString: bc.ConnectionString,
+			Prefix:           bc.Prefix,
+		})
+
+	case "git":
+		return backend.NewGitBackend(&backend.GitConfig{
+			Config:       base,
+			URL:          bc.URL,
+			Branch:       bc.Branch,
+			LocalPath:    bc.LocalPath,
+			SSHKeyFile:   bc.SSHKeyFile,
+			Username:     bc.Username,
+			Password:     bc.Password,
+			AutoPull:     bc.AutoPull,
+			PullInterval: bc.PullInterval,
+		})
+
+	case "nats", "nats-object-store":
+		base.Type = backend.TypeNATSObject
+		return backend.NewNATSBackend(&backend.NATSConfig{
+			Config:     base,
+			BucketName: bc.BucketName,
+			URL:        bc.Endpoint,
+		})
+
 	default:
-		return nil, fmt.Errorf("unsupported backend type: %s", bc.Type)
+		return nil, fmt.Errorf("unsupported backend type: %s (supported: filesystem, s3, gcs, azure, git, nats)", bc.Type)
 	}
 }
 

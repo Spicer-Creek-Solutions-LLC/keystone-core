@@ -1942,7 +1942,8 @@ func exportExecute(cmd *cobra.Command, args []string, cfg *Config, opts *ExportO
 	case "csv":
 		var sb strings.Builder
 		sb.WriteString("job_id,target,command,status,created_at,completed_at,duration_ms,total,successful,failed\n")
-		for _, ej := range exported {
+		for i := range exported {
+			ej := &exported[i]
 			sb.WriteString(fmt.Sprintf("%s,%s,%s,%s,%s,%s,%d,%d,%d,%d\n",
 				ej.JobID, csvEscape(ej.Target), csvEscape(ej.Command),
 				ej.Status, ej.CreatedAt, ej.CompletedAt,
@@ -1955,7 +1956,7 @@ func exportExecute(cmd *cobra.Command, args []string, cfg *Config, opts *ExportO
 
 	// Write output
 	if opts.Output != "" {
-		if err := os.WriteFile(opts.Output, output, 0o644); err != nil {
+		if err := os.WriteFile(opts.Output, output, 0o600); err != nil {
 			return fmt.Errorf("failed to write output file: %w", err)
 		}
 		fmt.Fprintf(cmd.ErrOrStderr(), "Exported %d job(s) to %s\n", len(exported), opts.Output)

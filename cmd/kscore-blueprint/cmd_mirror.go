@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -402,11 +403,12 @@ func init() {
 func mirrorImportExecute(_ *cobra.Command, args []string) error {
 	// Determine input source
 	var inputPath string
-	if len(args) > 0 {
+	switch {
+	case len(args) > 0:
 		inputPath = args[0]
-	} else if mirrorImportInput != "" {
+	case mirrorImportInput != "":
 		inputPath = mirrorImportInput
-	} else {
+	default:
 		return fmt.Errorf("specify a bundle file as an argument or --input directory")
 	}
 
@@ -510,7 +512,7 @@ func importFromBundle(bundlePath, targetDir string) error {
 
 	for {
 		header, err := tr.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {

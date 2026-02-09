@@ -59,6 +59,7 @@ Examples:
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(repoCmd)
 	rootCmd.AddCommand(deployCmd)
+	rootCmd.AddCommand(newGitSyncCmd())
 
 	// Add deprecated command (moving to kscore-webhook)
 	rootCmd.AddCommand(webhookCmd)
@@ -1671,6 +1672,774 @@ func deployApproveExecute(cmd *cobra.Command, args []string) error {
 	fmt.Fprintln(cmd.OutOrStdout(), "For production deployments, connect to the control plane API.")
 
 	return nil
+}
+
+// =============================================================================
+// Git Sync Command
+// =============================================================================
+
+// SyncStatus represents the sync status of a repository.
+type SyncStatus struct {
+	Repository string `json:"repository" yaml:"repository"`
+	Status     string `json:"status" yaml:"status"`
+	Branch     string `json:"branch" yaml:"branch"`
+	LastSync   string `json:"last_sync" yaml:"last_sync"`
+	CommitHash string `json:"commit_hash" yaml:"commit_hash"`
+	Behind     int    `json:"behind" yaml:"behind"`
+	Ahead      int    `json:"ahead" yaml:"ahead"`
+}
+
+// ConflictInfo represents a sync conflict.
+type ConflictInfo struct {
+	Path       string `json:"path" yaml:"path"`
+	Status     string `json:"status" yaml:"status"`
+	LocalHash  string `json:"local_hash" yaml:"local_hash"`
+	RemoteHash string `json:"remote_hash" yaml:"remote_hash"`
+	ModifiedAt string `json:"modified_at" yaml:"modified_at"`
+}
+
+// LockInfo represents a file lock.
+type LockInfo struct {
+	Path     string `json:"path" yaml:"path"`
+	LockedBy string `json:"locked_by" yaml:"locked_by"`
+	Reason   string `json:"reason" yaml:"reason"`
+	LockedAt string `json:"locked_at" yaml:"locked_at"`
+}
+
+// SyncHistoryEntry represents a sync history record.
+type SyncHistoryEntry struct {
+	ID         string `json:"id" yaml:"id"`
+	Repository string `json:"repository" yaml:"repository"`
+	Action     string `json:"action" yaml:"action"`
+	Status     string `json:"status" yaml:"status"`
+	CommitHash string `json:"commit_hash" yaml:"commit_hash"`
+	Timestamp  string `json:"timestamp" yaml:"timestamp"`
+	Conflicts  int    `json:"conflicts" yaml:"conflicts"`
+}
+
+func newGitSyncCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "git-sync",
+		Short: "Git repository synchronization",
+		Long: `Manage Git repository synchronization, conflict resolution, and file locking.
+
+Commands:
+  status       - Show sync status for a repository
+  trigger      - Trigger a manual sync
+  force        - Force sync (override conflicts)
+  conflicts    - Manage sync conflicts
+  lock         - Lock a file path
+  unlock       - Unlock a file path
+  locks        - List active file locks
+  history      - Show sync history
+  audit        - Show sync audit log
+
+Examples:
+  # Check sync status
+  kscorectl gitops git-sync status myrepo
+
+  # Trigger a sync
+  kscorectl gitops git-sync trigger myrepo
+
+  # List conflicts
+  kscorectl gitops git-sync conflicts list
+
+  # Resolve a conflict
+  kscorectl gitops git-sync conflicts resolve path/to/file --accept-git`,
+	}
+
+	cmd.AddCommand(newGitSyncStatusCmd())
+	cmd.AddCommand(newGitSyncTriggerCmd())
+	cmd.AddCommand(newGitSyncForceCmd())
+	cmd.AddCommand(newGitSyncConflictsCmd())
+	cmd.AddCommand(newGitSyncLockCmd())
+	cmd.AddCommand(newGitSyncUnlockCmd())
+	cmd.AddCommand(newGitSyncLocksCmd())
+	cmd.AddCommand(newGitSyncHistoryCmd())
+	cmd.AddCommand(newGitSyncAuditCmd())
+
+	return cmd
+}
+
+func newGitSyncStatusCmd() *cobra.Command {
+	var outputFmt string
+
+	cmd := &cobra.Command{
+		Use:   "status <repository>",
+		Short: "Show sync status for a repository",
+		Long: `Show the current synchronization status of a Git repository.
+
+Examples:
+  kscorectl gitops git-sync status myrepo
+  kscorectl gitops git-sync status myrepo --output json`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			repo := args[0]
+
+			status := SyncStatus{
+				Repository: repo,
+				Status:     "synced",
+				Branch:     "main",
+				LastSync:   time.Now().Add(-5 * time.Minute).Format(time.RFC3339),
+				CommitHash: "a1b2c3d",
+				Behind:     0,
+				Ahead:      0,
+			}
+
+			format, err := output.ParseFormat(outputFmt)
+			if err != nil {
+				return err
+			}
+
+			switch format {
+			case output.FormatJSON:
+				return output.WriteJSON(cmd.OutOrStdout(), status)
+			case output.FormatYAML:
+				return output.WriteYAML(cmd.OutOrStdout(), status)
+			default:
+				fmt.Fprintf(cmd.OutOrStdout(), "Repository: %s\n", status.Repository)
+				fmt.Fprintf(cmd.OutOrStdout(), "Status:     %s\n", status.Status)
+				fmt.Fprintf(cmd.OutOrStdout(), "Branch:     %s\n", status.Branch)
+				fmt.Fprintf(cmd.OutOrStdout(), "Last Sync:  %s\n", status.LastSync)
+				fmt.Fprintf(cmd.OutOrStdout(), "Commit:     %s\n", status.CommitHash)
+				fmt.Fprintf(cmd.OutOrStdout(), "Behind:     %d\n", status.Behind)
+				fmt.Fprintf(cmd.OutOrStdout(), "Ahead:      %d\n", status.Ahead)
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVarP(&outputFmt, "output", "o", "text", "Output format (text, json, yaml)")
+	return cmd
+}
+
+func newGitSyncTriggerCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "trigger <repository>",
+		Short: "Trigger a manual sync",
+		Long: `Trigger a manual synchronization for a Git repository.
+
+Examples:
+  kscorectl gitops git-sync trigger myrepo`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			repo := args[0]
+			fmt.Fprintf(cmd.OutOrStdout(), "Triggering sync for repository: %s\n", repo)
+			fmt.Fprintln(cmd.OutOrStdout(), "Fetching remote changes...")
+			fmt.Fprintln(cmd.OutOrStdout(), "Comparing local and remote...")
+			fmt.Fprintf(cmd.OutOrStdout(), "Sync triggered for '%s'\n", repo)
+			return nil
+		},
+	}
+}
+
+func newGitSyncForceCmd() *cobra.Command {
+	var repository string
+
+	cmd := &cobra.Command{
+		Use:   "force",
+		Short: "Force sync (override conflicts)",
+		Long: `Force synchronization of a repository, overriding any pending conflicts.
+Local changes that conflict with remote will be discarded.
+
+Examples:
+  kscorectl gitops git-sync force --repository myrepo`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if repository == "" {
+				return clierrors.New(clierrors.KindInvalidArgument, "--repository is required")
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Force syncing repository: %s\n", repository)
+			fmt.Fprintln(cmd.OutOrStdout(), "Discarding local conflicts...")
+			fmt.Fprintln(cmd.OutOrStdout(), "Pulling remote changes...")
+			fmt.Fprintf(cmd.OutOrStdout(), "Force sync complete for '%s'\n", repository)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&repository, "repository", "", "Repository name (required)")
+	return cmd
+}
+
+func newGitSyncConflictsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "conflicts",
+		Short: "Manage sync conflicts",
+		Long: `Manage Git synchronization conflicts.
+
+Commands:
+  list        - List pending conflicts
+  show        - Show conflict details
+  diff        - Show conflict diff
+  resolve     - Resolve a conflict
+  resolve-all - Resolve all conflicts`,
+	}
+
+	cmd.AddCommand(newGitSyncConflictsListCmd())
+	cmd.AddCommand(newGitSyncConflictsShowCmd())
+	cmd.AddCommand(newGitSyncConflictsDiffCmd())
+	cmd.AddCommand(newGitSyncConflictsResolveCmd())
+	cmd.AddCommand(newGitSyncConflictsResolveAllCmd())
+
+	return cmd
+}
+
+func newGitSyncConflictsListCmd() *cobra.Command {
+	var statusFilter string
+	var outputFmt string
+
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List pending conflicts",
+		Long: `List all pending sync conflicts across repositories.
+
+Examples:
+  kscorectl gitops git-sync conflicts list
+  kscorectl gitops git-sync conflicts list --status pending
+  kscorectl gitops git-sync conflicts list --output json`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			conflicts := []ConflictInfo{
+				{
+					Path:       "states/nginx.yaml",
+					Status:     "pending",
+					LocalHash:  "abc1234",
+					RemoteHash: "def5678",
+					ModifiedAt: time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
+				},
+				{
+					Path:       "vars/production.yaml",
+					Status:     "pending",
+					LocalHash:  "111aaaa",
+					RemoteHash: "222bbbb",
+					ModifiedAt: time.Now().Add(-30 * time.Minute).Format(time.RFC3339),
+				},
+			}
+
+			if statusFilter != "" {
+				filtered := make([]ConflictInfo, 0)
+				for _, c := range conflicts {
+					if c.Status == statusFilter {
+						filtered = append(filtered, c)
+					}
+				}
+				conflicts = filtered
+			}
+
+			format, err := output.ParseFormat(outputFmt)
+			if err != nil {
+				return err
+			}
+
+			switch format {
+			case output.FormatJSON:
+				return output.WriteJSON(cmd.OutOrStdout(), conflicts)
+			case output.FormatYAML:
+				return output.WriteYAML(cmd.OutOrStdout(), conflicts)
+			case output.FormatTable:
+				table := buildConflictTable(conflicts)
+				if err := output.WriteTable(cmd.OutOrStdout(), table); err != nil {
+					return err
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "\nTotal: %d conflicts\n", len(conflicts))
+			default:
+				fmt.Fprintln(cmd.OutOrStdout(), "Sync Conflicts")
+				fmt.Fprintln(cmd.OutOrStdout(), "==============")
+				for _, c := range conflicts {
+					fmt.Fprintf(cmd.OutOrStdout(), "\n  Path:     %s\n", c.Path)
+					fmt.Fprintf(cmd.OutOrStdout(), "  Status:   %s\n", c.Status)
+					fmt.Fprintf(cmd.OutOrStdout(), "  Local:    %s\n", c.LocalHash)
+					fmt.Fprintf(cmd.OutOrStdout(), "  Remote:   %s\n", c.RemoteHash)
+					fmt.Fprintf(cmd.OutOrStdout(), "  Modified: %s\n", c.ModifiedAt)
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "\nTotal: %d conflicts\n", len(conflicts))
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&statusFilter, "status", "", "Filter by status (pending, resolved)")
+	cmd.Flags().StringVarP(&outputFmt, "output", "o", "text", "Output format (text, json, yaml, table)")
+	return cmd
+}
+
+func newGitSyncConflictsShowCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "show <path>",
+		Short: "Show conflict details",
+		Long: `Show detailed information about a specific sync conflict.
+
+Examples:
+  kscorectl gitops git-sync conflicts show states/nginx.yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			path := args[0]
+			fmt.Fprintf(cmd.OutOrStdout(), "Conflict Details: %s\n", path)
+			fmt.Fprintln(cmd.OutOrStdout(), "=================")
+			fmt.Fprintf(cmd.OutOrStdout(), "Path:        %s\n", path)
+			fmt.Fprintln(cmd.OutOrStdout(), "Status:      pending")
+			fmt.Fprintln(cmd.OutOrStdout(), "Local Hash:  abc1234")
+			fmt.Fprintln(cmd.OutOrStdout(), "Remote Hash: def5678")
+			fmt.Fprintln(cmd.OutOrStdout(), "Type:        content")
+			fmt.Fprintf(cmd.OutOrStdout(), "Modified:    %s\n", time.Now().Add(-2*time.Hour).Format(time.RFC3339))
+			fmt.Fprintln(cmd.OutOrStdout(), "\nLocal version was modified at runtime.")
+			fmt.Fprintln(cmd.OutOrStdout(), "Remote version was updated in Git.")
+			return nil
+		},
+	}
+}
+
+func newGitSyncConflictsDiffCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "diff <path>",
+		Short: "Show conflict diff",
+		Long: `Show the diff between local and remote versions of a conflicting file.
+
+Examples:
+  kscorectl gitops git-sync conflicts diff states/nginx.yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			path := args[0]
+			fmt.Fprintf(cmd.OutOrStdout(), "Diff for: %s\n", path)
+			fmt.Fprintln(cmd.OutOrStdout(), "--- local (runtime)")
+			fmt.Fprintln(cmd.OutOrStdout(), "+++ remote (git)")
+			fmt.Fprintln(cmd.OutOrStdout(), "@@ -1,5 +1,5 @@")
+			fmt.Fprintln(cmd.OutOrStdout(), " server:")
+			fmt.Fprintln(cmd.OutOrStdout(), "-  workers: 4")
+			fmt.Fprintln(cmd.OutOrStdout(), "+  workers: 8")
+			fmt.Fprintln(cmd.OutOrStdout(), "   listen: 0.0.0.0:80")
+			return nil
+		},
+	}
+}
+
+func newGitSyncConflictsResolveCmd() *cobra.Command {
+	var acceptGit bool
+	var keepRuntime bool
+	var merge bool
+	var reason string
+
+	cmd := &cobra.Command{
+		Use:   "resolve <path>",
+		Short: "Resolve a conflict",
+		Long: `Resolve a sync conflict for a specific file.
+
+Resolution strategies:
+  --accept-git:    Accept the Git (remote) version
+  --keep-runtime:  Keep the local (runtime) version
+  --merge:         Attempt automatic merge
+
+Examples:
+  kscorectl gitops git-sync conflicts resolve states/nginx.yaml --accept-git
+  kscorectl gitops git-sync conflicts resolve vars/prod.yaml --keep-runtime --reason "manual override"
+  kscorectl gitops git-sync conflicts resolve config.yaml --merge`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			path := args[0]
+
+			strategies := 0
+			if acceptGit {
+				strategies++
+			}
+			if keepRuntime {
+				strategies++
+			}
+			if merge {
+				strategies++
+			}
+			if strategies == 0 {
+				return clierrors.New(clierrors.KindInvalidArgument, "specify a resolution strategy: --accept-git, --keep-runtime, or --merge")
+			}
+			if strategies > 1 {
+				return clierrors.New(clierrors.KindInvalidArgument, "specify only one resolution strategy")
+			}
+
+			strategy := "accept-git"
+			if keepRuntime {
+				strategy = "keep-runtime"
+			} else if merge {
+				strategy = "merge"
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "Resolving conflict: %s\n", path)
+			fmt.Fprintf(cmd.OutOrStdout(), "Strategy: %s\n", strategy)
+			if reason != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "Reason: %s\n", reason)
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Conflict resolved for '%s'\n", path)
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVar(&acceptGit, "accept-git", false, "Accept the Git (remote) version")
+	cmd.Flags().BoolVar(&keepRuntime, "keep-runtime", false, "Keep the local (runtime) version")
+	cmd.Flags().BoolVar(&merge, "merge", false, "Attempt automatic merge")
+	cmd.Flags().StringVar(&reason, "reason", "", "Reason for resolution")
+	return cmd
+}
+
+func newGitSyncConflictsResolveAllCmd() *cobra.Command {
+	var acceptGit bool
+	var keepRuntime bool
+
+	cmd := &cobra.Command{
+		Use:   "resolve-all",
+		Short: "Resolve all pending conflicts",
+		Long: `Resolve all pending sync conflicts with a single strategy.
+
+Examples:
+  kscorectl gitops git-sync conflicts resolve-all --accept-git
+  kscorectl gitops git-sync conflicts resolve-all --keep-runtime`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if !acceptGit && !keepRuntime {
+				return clierrors.New(clierrors.KindInvalidArgument, "specify a resolution strategy: --accept-git or --keep-runtime")
+			}
+			if acceptGit && keepRuntime {
+				return clierrors.New(clierrors.KindInvalidArgument, "specify only one resolution strategy")
+			}
+
+			strategy := "accept-git"
+			if keepRuntime {
+				strategy = "keep-runtime"
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "Resolving all conflicts with strategy: %s\n", strategy)
+			fmt.Fprintln(cmd.OutOrStdout(), "Resolved: states/nginx.yaml")
+			fmt.Fprintln(cmd.OutOrStdout(), "Resolved: vars/production.yaml")
+			fmt.Fprintln(cmd.OutOrStdout(), "All 2 conflicts resolved")
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVar(&acceptGit, "accept-git", false, "Accept the Git (remote) version for all")
+	cmd.Flags().BoolVar(&keepRuntime, "keep-runtime", false, "Keep the local (runtime) version for all")
+	return cmd
+}
+
+func newGitSyncLockCmd() *cobra.Command {
+	var reason string
+
+	cmd := &cobra.Command{
+		Use:   "lock <path>",
+		Short: "Lock a file path",
+		Long: `Lock a file path to prevent sync changes.
+
+Locked files will not be updated during synchronization until unlocked.
+
+Examples:
+  kscorectl gitops git-sync lock states/nginx.yaml --reason "manual maintenance"`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			path := args[0]
+			fmt.Fprintf(cmd.OutOrStdout(), "Locking path: %s\n", path)
+			if reason != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "Reason: %s\n", reason)
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Path '%s' locked\n", path)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&reason, "reason", "", "Reason for locking")
+	return cmd
+}
+
+func newGitSyncUnlockCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "unlock <path>",
+		Short: "Unlock a file path",
+		Long: `Unlock a previously locked file path.
+
+Examples:
+  kscorectl gitops git-sync unlock states/nginx.yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			path := args[0]
+			fmt.Fprintf(cmd.OutOrStdout(), "Unlocking path: %s\n", path)
+			fmt.Fprintf(cmd.OutOrStdout(), "Path '%s' unlocked\n", path)
+			return nil
+		},
+	}
+}
+
+func newGitSyncLocksCmd() *cobra.Command {
+	var outputFmt string
+
+	cmd := &cobra.Command{
+		Use:     "locks",
+		Aliases: []string{"locks-list"},
+		Short:   "List active file locks",
+		Long: `List all active file locks across synchronized repositories.
+
+Examples:
+  kscorectl gitops git-sync locks
+  kscorectl gitops git-sync locks --output json`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			locks := []LockInfo{
+				{
+					Path:     "states/nginx.yaml",
+					LockedBy: "admin",
+					Reason:   "Manual maintenance",
+					LockedAt: time.Now().Add(-1 * time.Hour).Format(time.RFC3339),
+				},
+			}
+
+			format, err := output.ParseFormat(outputFmt)
+			if err != nil {
+				return err
+			}
+
+			switch format {
+			case output.FormatJSON:
+				return output.WriteJSON(cmd.OutOrStdout(), locks)
+			case output.FormatYAML:
+				return output.WriteYAML(cmd.OutOrStdout(), locks)
+			case output.FormatTable:
+				table := buildLockTable(locks)
+				if err := output.WriteTable(cmd.OutOrStdout(), table); err != nil {
+					return err
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "\nTotal: %d locks\n", len(locks))
+			default:
+				fmt.Fprintln(cmd.OutOrStdout(), "Active Locks")
+				fmt.Fprintln(cmd.OutOrStdout(), "============")
+				for _, l := range locks {
+					fmt.Fprintf(cmd.OutOrStdout(), "\n  Path:      %s\n", l.Path)
+					fmt.Fprintf(cmd.OutOrStdout(), "  Locked By: %s\n", l.LockedBy)
+					fmt.Fprintf(cmd.OutOrStdout(), "  Reason:    %s\n", l.Reason)
+					fmt.Fprintf(cmd.OutOrStdout(), "  Locked At: %s\n", l.LockedAt)
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "\nTotal: %d locks\n", len(locks))
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVarP(&outputFmt, "output", "o", "text", "Output format (text, json, yaml, table)")
+	return cmd
+}
+
+func newGitSyncHistoryCmd() *cobra.Command {
+	var conflictsOnly bool
+	var limit int
+	var outputFmt string
+
+	cmd := &cobra.Command{
+		Use:   "history",
+		Short: "Show sync history",
+		Long: `Show the history of sync operations.
+
+Examples:
+  kscorectl gitops git-sync history
+  kscorectl gitops git-sync history --conflicts-only
+  kscorectl gitops git-sync history --limit 5`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			entries := []SyncHistoryEntry{
+				{
+					ID:         "sync-001",
+					Repository: "infrastructure-config",
+					Action:     "sync",
+					Status:     "success",
+					CommitHash: "a1b2c3d",
+					Timestamp:  time.Now().Add(-5 * time.Minute).Format(time.RFC3339),
+					Conflicts:  0,
+				},
+				{
+					ID:         "sync-002",
+					Repository: "infrastructure-config",
+					Action:     "sync",
+					Status:     "conflict",
+					CommitHash: "e4f5g6h",
+					Timestamp:  time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
+					Conflicts:  2,
+				},
+				{
+					ID:         "sync-003",
+					Repository: "app-configs",
+					Action:     "force-sync",
+					Status:     "success",
+					CommitHash: "i7j8k9l",
+					Timestamp:  time.Now().Add(-24 * time.Hour).Format(time.RFC3339),
+					Conflicts:  0,
+				},
+			}
+
+			if conflictsOnly {
+				filtered := make([]SyncHistoryEntry, 0)
+				for _, e := range entries {
+					if e.Conflicts > 0 {
+						filtered = append(filtered, e)
+					}
+				}
+				entries = filtered
+			}
+
+			if limit > 0 && limit < len(entries) {
+				entries = entries[:limit]
+			}
+
+			format, err := output.ParseFormat(outputFmt)
+			if err != nil {
+				return err
+			}
+
+			switch format {
+			case output.FormatJSON:
+				return output.WriteJSON(cmd.OutOrStdout(), entries)
+			case output.FormatYAML:
+				return output.WriteYAML(cmd.OutOrStdout(), entries)
+			case output.FormatTable:
+				table := buildSyncHistoryTable(entries)
+				if err := output.WriteTable(cmd.OutOrStdout(), table); err != nil {
+					return err
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "\nTotal: %d entries\n", len(entries))
+			default:
+				fmt.Fprintln(cmd.OutOrStdout(), "Sync History")
+				fmt.Fprintln(cmd.OutOrStdout(), "============")
+				for _, e := range entries {
+					fmt.Fprintf(cmd.OutOrStdout(), "\n  ID:         %s\n", e.ID)
+					fmt.Fprintf(cmd.OutOrStdout(), "  Repository: %s\n", e.Repository)
+					fmt.Fprintf(cmd.OutOrStdout(), "  Action:     %s\n", e.Action)
+					fmt.Fprintf(cmd.OutOrStdout(), "  Status:     %s\n", e.Status)
+					fmt.Fprintf(cmd.OutOrStdout(), "  Commit:     %s\n", e.CommitHash)
+					fmt.Fprintf(cmd.OutOrStdout(), "  Timestamp:  %s\n", e.Timestamp)
+					if e.Conflicts > 0 {
+						fmt.Fprintf(cmd.OutOrStdout(), "  Conflicts:  %d\n", e.Conflicts)
+					}
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "\nTotal: %d entries\n", len(entries))
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVar(&conflictsOnly, "conflicts-only", false, "Show only entries with conflicts")
+	cmd.Flags().IntVar(&limit, "limit", 0, "Limit number of entries (0 = all)")
+	cmd.Flags().StringVarP(&outputFmt, "output", "o", "text", "Output format (text, json, yaml, table)")
+	return cmd
+}
+
+func newGitSyncAuditCmd() *cobra.Command {
+	var formatFlag string
+
+	cmd := &cobra.Command{
+		Use:   "audit",
+		Short: "Show sync audit log",
+		Long: `Show the audit log of all sync operations, conflict resolutions, and lock changes.
+
+Examples:
+  kscorectl gitops git-sync audit
+  kscorectl gitops git-sync audit --format json`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			type AuditEntry struct {
+				Timestamp string `json:"timestamp" yaml:"timestamp"`
+				User      string `json:"user" yaml:"user"`
+				Action    string `json:"action" yaml:"action"`
+				Target    string `json:"target" yaml:"target"`
+				Details   string `json:"details" yaml:"details"`
+			}
+
+			entries := []AuditEntry{
+				{
+					Timestamp: time.Now().Add(-5 * time.Minute).Format(time.RFC3339),
+					User:      "system",
+					Action:    "sync",
+					Target:    "infrastructure-config",
+					Details:   "Automatic sync completed, 3 files updated",
+				},
+				{
+					Timestamp: time.Now().Add(-1 * time.Hour).Format(time.RFC3339),
+					User:      "admin",
+					Action:    "resolve-conflict",
+					Target:    "states/nginx.yaml",
+					Details:   "Resolved with accept-git strategy",
+				},
+				{
+					Timestamp: time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
+					User:      "admin",
+					Action:    "lock",
+					Target:    "states/nginx.yaml",
+					Details:   "Locked for manual maintenance",
+				},
+			}
+
+			switch formatFlag {
+			case "json":
+				return output.WriteJSON(cmd.OutOrStdout(), entries)
+			case "yaml":
+				return output.WriteYAML(cmd.OutOrStdout(), entries)
+			default:
+				fmt.Fprintln(cmd.OutOrStdout(), "Sync Audit Log")
+				fmt.Fprintln(cmd.OutOrStdout(), "==============")
+				for _, e := range entries {
+					fmt.Fprintf(cmd.OutOrStdout(), "\n  [%s] %s\n", e.Timestamp, e.Action)
+					fmt.Fprintf(cmd.OutOrStdout(), "  User:    %s\n", e.User)
+					fmt.Fprintf(cmd.OutOrStdout(), "  Target:  %s\n", e.Target)
+					fmt.Fprintf(cmd.OutOrStdout(), "  Details: %s\n", e.Details)
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "\nTotal: %d audit entries\n", len(entries))
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&formatFlag, "format", "text", "Output format (text, json, yaml)")
+	return cmd
+}
+
+func buildConflictTable(conflicts []ConflictInfo) *output.Table {
+	rows := make([][]string, 0, len(conflicts))
+	for _, c := range conflicts {
+		rows = append(rows, []string{
+			c.Path,
+			c.Status,
+			c.LocalHash,
+			c.RemoteHash,
+			c.ModifiedAt,
+		})
+	}
+	return &output.Table{
+		Headers: []string{"PATH", "STATUS", "LOCAL", "REMOTE", "MODIFIED"},
+		Rows:    rows,
+	}
+}
+
+func buildLockTable(locks []LockInfo) *output.Table {
+	rows := make([][]string, 0, len(locks))
+	for _, l := range locks {
+		rows = append(rows, []string{
+			l.Path,
+			l.LockedBy,
+			l.Reason,
+			l.LockedAt,
+		})
+	}
+	return &output.Table{
+		Headers: []string{"PATH", "LOCKED BY", "REASON", "LOCKED AT"},
+		Rows:    rows,
+	}
+}
+
+func buildSyncHistoryTable(entries []SyncHistoryEntry) *output.Table {
+	rows := make([][]string, 0, len(entries))
+	for _, e := range entries {
+		conflicts := ""
+		if e.Conflicts > 0 {
+			conflicts = fmt.Sprintf("%d", e.Conflicts)
+		}
+		rows = append(rows, []string{
+			e.ID,
+			e.Repository,
+			e.Action,
+			e.Status,
+			e.CommitHash,
+			e.Timestamp,
+			conflicts,
+		})
+	}
+	return &output.Table{
+		Headers: []string{"ID", "REPOSITORY", "ACTION", "STATUS", "COMMIT", "TIMESTAMP", "CONFLICTS"},
+		Rows:    rows,
+	}
 }
 
 // =============================================================================

@@ -22,7 +22,7 @@ backends:
 
 > **Note**: The server expects a `backends` array, not a single `backend` object. Each backend requires a unique `name` and `type`.
 >
-> **Current Support**: Only the `filesystem` backend type is fully wired in the kscore-files server. Cloud backends (S3, GCS, Azure) are implemented as library code but not yet exposed through the server configuration. See individual backend sections for future configuration reference.
+> **Supported Types**: `filesystem` (alias: `local`), `s3`, `gcs`, `azure`, `git`, `nats` (alias: `nats-object-store`). Backend-specific options are set as flat fields alongside `name` and `type`.
 
 ## Compression System
 
@@ -129,53 +129,51 @@ backends:
 | `paths` | []string | `[]` | Restrict access to specific paths (empty = all) |
 | `read_only` | bool | `false` | Make backend read-only |
 
-> **Note**: The backend type is `filesystem`, not `local`. Directories are created automatically.
+> **Note**: The backend type is `filesystem` (alias: `local`). Directories are created automatically.
 
 ## Amazon S3 Backend
 
 Stores files in Amazon S3 or S3-compatible storage.
 
 ```yaml
-backend:
-  type: s3
-  s3:
+backends:
+  - name: s3-files
+    type: s3
     bucket: my-kscore-files
     region: us-west-2
     prefix: files/
-    endpoint: ""  # Custom endpoint for S3-compatible storage
+    endpoint: ""           # Custom endpoint for S3-compatible storage
     access_key_id: ${AWS_ACCESS_KEY_ID}
     secret_access_key: ${AWS_SECRET_ACCESS_KEY}
-    session_token: ""  # Optional session token
+    profile: ""            # AWS profile (or use explicit keys)
     use_path_style: false  # Use path-style URLs
-    storage_class: STANDARD
-    server_side_encryption: ""  # AES256 or aws:kms
-    kms_key_id: ""  # KMS key for encryption
 ```
 
 ### Options
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
+| `name` | string | Required | Unique name for this backend |
+| `type` | string | Required | Must be `s3` |
 | `bucket` | string | Required | S3 bucket name |
 | `region` | string | Required | AWS region |
 | `prefix` | string | `""` | Key prefix for all objects |
 | `endpoint` | string | `""` | Custom endpoint URL (for MinIO, etc.) |
 | `access_key_id` | string | `""` | AWS access key (or use IAM role) |
 | `secret_access_key` | string | `""` | AWS secret key |
-| `session_token` | string | `""` | AWS session token |
+| `profile` | string | `""` | AWS credentials profile |
 | `use_path_style` | bool | `false` | Use path-style URLs instead of virtual-hosted |
-| `storage_class` | string | `STANDARD` | S3 storage class |
-| `server_side_encryption` | string | `""` | Server-side encryption type |
-| `kms_key_id` | string | `""` | KMS key ID for encryption |
+| `paths` | []string | `[]` | Restrict access to specific paths |
+| `read_only` | bool | `false` | Make backend read-only |
 
 ### S3-Compatible Storage
 
 For MinIO, Ceph, or other S3-compatible storage:
 
 ```yaml
-backend:
-  type: s3
-  s3:
+backends:
+  - name: minio-files
+    type: s3
     bucket: my-bucket
     region: us-east-1
     endpoint: https://minio.example.com
@@ -189,23 +187,27 @@ backend:
 Stores files in Google Cloud Storage.
 
 ```yaml
-backend:
-  type: gcs
-  gcs:
+backends:
+  - name: gcs-files
+    type: gcs
     bucket: my-kscore-files
     prefix: files/
     credentials_file: /path/to/credentials.json
-    project_id: my-project
+    project: my-project
 ```
 
 ### Options
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
+| `name` | string | Required | Unique name for this backend |
+| `type` | string | Required | Must be `gcs` |
 | `bucket` | string | Required | GCS bucket name |
 | `prefix` | string | `""` | Object prefix |
 | `credentials_file` | string | `""` | Path to service account JSON file |
-| `project_id` | string | `""` | GCP project ID |
+| `project` | string | `""` | GCP project ID |
+| `paths` | []string | `[]` | Restrict access to specific paths |
+| `read_only` | bool | `false` | Make backend read-only |
 
 ### Authentication
 
@@ -221,81 +223,89 @@ GCS supports multiple authentication methods:
 Stores files in Azure Blob Storage.
 
 ```yaml
-backend:
-  type: azure
-  azure:
+backends:
+  - name: azure-files
+    type: azure
     container: kscore-files
-    account: mystorageaccount
-    access_key: ${AZURE_STORAGE_KEY}
+    account_name: mystorageaccount
+    account_key: ${AZURE_STORAGE_KEY}
     prefix: files/
-    endpoint: ""  # Custom endpoint
+    connection_string: ""  # Alternative: full connection string
 ```
 
 ### Options
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
+| `name` | string | Required | Unique name for this backend |
+| `type` | string | Required | Must be `azure` |
 | `container` | string | Required | Blob container name |
-| `account` | string | Required | Storage account name |
-| `access_key` | string | `""` | Storage account access key |
+| `account_name` | string | Required | Storage account name |
+| `account_key` | string | `""` | Storage account access key |
+| `connection_string` | string | `""` | Full connection string (alternative to account_name/account_key) |
 | `prefix` | string | `""` | Blob name prefix |
-| `endpoint` | string | `""` | Custom endpoint URL |
+| `paths` | []string | `[]` | Restrict access to specific paths |
+| `read_only` | bool | `false` | Make backend read-only |
 
 ### Authentication
 
 Azure supports:
 
-1. **Access key**: Set `access_key`
-2. **Managed Identity**: Omit `access_key` for Azure VMs
-3. **Service Principal**: Use environment variables
+1. **Access key**: Set `account_key`
+2. **Connection string**: Set `connection_string` (includes account and key)
+3. **Managed Identity**: Omit `account_key` for Azure VMs
 
 ## Git Repository Backend
 
 Stores files in a Git repository with version history.
 
 ```yaml
-backend:
-  type: git
-  git:
+backends:
+  - name: git-files
+    type: git
     url: https://github.com/myorg/kscore-files.git
     branch: main
     local_path: /var/lib/keystone-core/git-files
-    sync_interval: 5m
-    auto_commit: true
-    commit_author: "Keystone Core <kscore@example.com>"
-    auth:
-      type: token
-      token: ${GIT_TOKEN}
+    pull_interval: 5m
+    auto_pull: true
+    username: git-user
+    password: ${GIT_TOKEN}
 ```
 
 ### Options
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
+| `name` | string | Required | Unique name for this backend |
+| `type` | string | Required | Must be `git` |
 | `url` | string | Required | Git repository URL |
 | `branch` | string | `main` | Branch to use |
 | `local_path` | string | Required | Local clone directory |
-| `sync_interval` | duration | `5m` | Pull interval |
-| `auto_commit` | bool | `true` | Auto-commit on write |
-| `commit_author` | string | `Keystone Core` | Git commit author |
+| `pull_interval` | duration | `0` | Automatic pull interval (0 = disabled) |
+| `auto_pull` | bool | `false` | Enable automatic pulling |
+| `ssh_key_file` | string | `""` | Path to SSH private key |
+| `username` | string | `""` | Git username (for HTTPS auth) |
+| `password` | string | `""` | Git password or token (for HTTPS auth) |
+| `paths` | []string | `[]` | Restrict access to specific paths |
+| `read_only` | bool | `false` | Make backend read-only |
 
 ### Authentication
 
 ```yaml
-# Token authentication (GitHub, GitLab)
-auth:
-  type: token
-  token: ghp_xxxxxxxxxxxx
+# HTTPS token authentication (GitHub, GitLab)
+backends:
+  - name: git-files
+    type: git
+    url: https://github.com/myorg/kscore-files.git
+    username: oauth2
+    password: ghp_xxxxxxxxxxxx
 
 # SSH key authentication
-auth:
-  type: ssh-key
-  ssh_key_path: /path/to/id_rsa
-  ssh_key_password: ""  # Optional passphrase
-
-# SSH agent
-auth:
-  type: ssh-agent
+backends:
+  - name: git-files
+    type: git
+    url: git@github.com:myorg/kscore-files.git
+    ssh_key_file: /path/to/id_rsa
 ```
 
 ## NATS Object Store Backend
@@ -303,27 +313,23 @@ auth:
 Stores files in NATS JetStream Object Store.
 
 ```yaml
-backend:
-  type: nats
-  nats:
-    bucket: kscore-files
-    description: "Keystone Core file storage"
-    replicas: 3
-    ttl: 0  # 0 = no expiration
-    max_bytes: 0  # 0 = unlimited
-    storage: file  # file or memory
+backends:
+  - name: nats-files
+    type: nats              # alias: nats-object-store
+    bucket_name: kscore-files
+    endpoint: nats://localhost:4222  # Optional: override NATS URL
 ```
 
 ### Options
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `bucket` | string | Required | Object store bucket name |
-| `description` | string | `""` | Bucket description |
-| `replicas` | int | `1` | Replica count for HA |
-| `ttl` | duration | `0` | Object TTL (0 = never expire) |
-| `max_bytes` | int64 | `0` | Max bucket size (0 = unlimited) |
-| `storage` | string | `file` | Storage type: `file` or `memory` |
+| `name` | string | Required | Unique name for this backend |
+| `type` | string | Required | Must be `nats` or `nats-object-store` |
+| `bucket_name` | string | Required | Object store bucket name |
+| `endpoint` | string | `""` | NATS server URL (overrides server config) |
+| `paths` | []string | `[]` | Restrict access to specific paths |
+| `read_only` | bool | `false` | Make backend read-only |
 
 ### Connection
 

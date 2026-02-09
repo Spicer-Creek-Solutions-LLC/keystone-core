@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"sync"
 	"time"
@@ -316,7 +317,7 @@ func runNATSTest(cmd *cobra.Command, verbose bool) error {
 	return nil
 }
 
-func testPubSub(conn *nats.Conn, verbose bool) (bool, string) {
+func testPubSub(conn *nats.Conn, verbose bool) (ok bool, detail string) {
 	subject := "_kscore.diag.test." + nats.NewInbox()
 	received := make(chan []byte, 1)
 
@@ -343,7 +344,7 @@ func testPubSub(conn *nats.Conn, verbose bool) (bool, string) {
 
 	select {
 	case msg := <-received:
-		if string(msg) != string(payload) {
+		if !bytes.Equal(msg, payload) {
 			return false, fmt.Sprintf("payload mismatch: got %q, want %q", msg, payload)
 		}
 		if verbose {
@@ -355,7 +356,7 @@ func testPubSub(conn *nats.Conn, verbose bool) (bool, string) {
 	}
 }
 
-func testJetStream(conn *nats.Conn, verbose bool) (bool, string) {
+func testJetStream(conn *nats.Conn, verbose bool) (ok bool, detail string) {
 	js, err := conn.JetStream()
 	if err != nil {
 		return false, fmt.Sprintf("JetStream context error: %v", err)
@@ -376,7 +377,7 @@ func testJetStream(conn *nats.Conn, verbose bool) (bool, string) {
 	}
 
 	// Clean up stream on exit
-	defer js.DeleteStream(streamName)
+	defer func() { _ = js.DeleteStream(streamName) }()
 
 	// Publish
 	_, err = js.Publish(subject, []byte("jetstream-diag-test"))
@@ -406,7 +407,7 @@ func testJetStream(conn *nats.Conn, verbose bool) (bool, string) {
 	return true, ""
 }
 
-func testLatency(conn *nats.Conn, verbose bool) (bool, string) {
+func testLatency(conn *nats.Conn, verbose bool) (ok bool, detail string) {
 	const pingCount = 5
 	var (
 		mu                             sync.Mutex

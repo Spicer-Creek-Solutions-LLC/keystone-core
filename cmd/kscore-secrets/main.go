@@ -112,7 +112,7 @@ func newVersionCmd() *cobra.Command {
 // =============================================================================
 
 func newGetCmd() *cobra.Command {
-	var version int
+	var ver int
 	var field string
 
 	cmd := &cobra.Command{
@@ -137,18 +137,18 @@ Examples:
   kscorectl secrets get vault/secret/database/prod -o json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGet(cmd, args[0], version, field)
+			return runGet(cmd, args[0], ver, field)
 		},
 	}
 
-	cmd.Flags().IntVar(&version, "version", 0, "Secret version (0 = latest)")
+	cmd.Flags().IntVar(&ver, "version", 0, "Secret version (0 = latest)")
 	cmd.Flags().StringVar(&field, "field", "", "Extract a specific field from the secret")
 
 	return cmd
 }
 
-func runGet(cmd *cobra.Command, path string, version int, field string) error {
-	s := generateSampleSecret(path, version)
+func runGet(cmd *cobra.Command, path string, ver int, field string) error {
+	s := generateSampleSecret(path, ver)
 
 	if field != "" {
 		found := false
@@ -193,8 +193,8 @@ func runGet(cmd *cobra.Command, path string, version int, field string) error {
 	return nil
 }
 
-func generateSampleSecret(path string, version int) *secretDisplay {
-	v := version
+func generateSampleSecret(path string, ver int) *secretDisplay {
+	v := ver
 	if v == 0 {
 		v = 3
 	}
@@ -1622,7 +1622,7 @@ Examples:
 	return cmd
 }
 
-func runDynamicGet(cmd *cobra.Command, path string, ttl string) error {
+func runDynamicGet(cmd *cobra.Command, path, ttl string) error {
 	leaseID := fmt.Sprintf("lease-%s", randomID(8))
 	result := &dynamicSecretResult{
 		LeaseID:   leaseID,
@@ -1757,7 +1757,7 @@ Examples:
 	return cmd
 }
 
-func runLeasesList(cmd *cobra.Command, backend string, state string) error {
+func runLeasesList(cmd *cobra.Command, backend, state string) error {
 	items := generateSampleLeases()
 
 	if backend != "" {
@@ -1922,7 +1922,7 @@ Examples:
 	return cmd
 }
 
-func runEncrypt(cmd *cobra.Command, plaintext string, key string, transitContext string) error {
+func runEncrypt(cmd *cobra.Command, plaintext, key, transitContext string) error {
 	encoded := base64.StdEncoding.EncodeToString([]byte(plaintext))
 	ciphertext := fmt.Sprintf("vault:v1:%s", encoded)
 
@@ -1980,7 +1980,7 @@ Examples:
 	return cmd
 }
 
-func runDecrypt(cmd *cobra.Command, ciphertext string, key string, transitContext string) error {
+func runDecrypt(cmd *cobra.Command, ciphertext, key, transitContext string) error {
 	result := &transitResult{
 		KeyName:    key,
 		Operation:  "decrypt",
@@ -2036,9 +2036,9 @@ Examples:
 	return cmd
 }
 
-func runRewrap(cmd *cobra.Command, ciphertext string, key string) error {
+func runRewrap(cmd *cobra.Command, ciphertext, key string) error {
 	parts := strings.SplitN(ciphertext, ":", 3)
-	payload := ""
+	var payload string
 	if len(parts) == 3 {
 		payload = parts[2]
 	} else {
@@ -2099,7 +2099,7 @@ Examples:
 	return cmd
 }
 
-func runTemplate(cmd *cobra.Command, templateFile string, outputPath string, dryRun bool) error {
+func runTemplate(cmd *cobra.Command, templateFile, outputPath string, dryRun bool) error {
 	refs := []templateSecretRef{
 		{Path: "vault/secret/database/prod", Field: "password", Line: 5},
 		{Path: "vault/secret/database/prod", Field: "username", Line: 6},

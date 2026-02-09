@@ -241,3 +241,507 @@ func TestMultipleExecutions(t *testing.T) {
 		}
 	}
 }
+
+// findSubcommand traverses a command tree to find a nested subcommand by name path.
+func findSubcommand(root *cobra.Command, names ...string) *cobra.Command {
+	cmd := root
+	for _, name := range names {
+		found := false
+		for _, sub := range cmd.Commands() {
+			if sub.Name() == name {
+				cmd = sub
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil
+		}
+	}
+	return cmd
+}
+
+func TestRootHasNewCommandGroups(t *testing.T) {
+	cmd := newRootCmd()
+
+	for _, name := range []string{"auth", "db", "diagnostics"} {
+		sub := findSubcommand(cmd, name)
+		if sub == nil {
+			t.Errorf("expected %q subcommand on root", name)
+		}
+	}
+}
+
+// --- Auth command tests ---
+
+func TestAuthSubcommands(t *testing.T) {
+	cmd := newRootCmd()
+	auth := findSubcommand(cmd, "auth")
+	if auth == nil {
+		t.Fatal("auth command not found")
+	}
+
+	expected := []string{"login", "revoke-all", "sessions", "rotate-signing-key", "key"}
+	for _, name := range expected {
+		if findSubcommand(auth, name) == nil {
+			t.Errorf("expected auth subcommand %q", name)
+		}
+	}
+}
+
+func TestAuthLoginRequiresCredential(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{"auth", "login"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when no credential provided")
+	}
+	if !strings.Contains(err.Error(), "--username") && !strings.Contains(err.Error(), "--api-key") {
+		t.Errorf("expected error about --username or --api-key, got: %v", err)
+	}
+}
+
+func TestAuthLoginWithUsername(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"auth", "login", "--username", "admin"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Authenticated as: admin") {
+		t.Errorf("expected authentication message, got: %s", output)
+	}
+}
+
+func TestAuthLoginWithAPIKey(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"auth", "login", "--api-key", "kscore_test123"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Authenticated with API key") {
+		t.Errorf("expected API key auth message, got: %s", output)
+	}
+}
+
+func TestAuthRevokeAllForce(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"auth", "revoke-all", "--force"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "All API keys have been revoked") {
+		t.Errorf("expected revocation message, got: %s", output)
+	}
+}
+
+func TestAuthSessionsList(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"auth", "sessions", "list"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Active Sessions") {
+		t.Errorf("expected sessions header, got: %s", output)
+	}
+}
+
+func TestAuthSessionsInvalidate(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"auth", "sessions", "invalidate"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "All sessions invalidated") {
+		t.Errorf("expected invalidation message, got: %s", output)
+	}
+}
+
+func TestAuthRotateSigningKeyForce(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"auth", "rotate-signing-key", "--force"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "JWT signing key rotated") {
+		t.Errorf("expected rotation message, got: %s", output)
+	}
+}
+
+func TestAuthKeyRevoke(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"auth", "key", "revoke", "key-abc123"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "key-abc123") {
+		t.Errorf("expected key ID in output, got: %s", output)
+	}
+}
+
+func TestAuthKeyRevokeRequiresArg(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{"auth", "key", "revoke"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when no key-id provided")
+	}
+}
+
+// --- Config set/show tests ---
+
+func TestConfigSetRequiresTwoArgs(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{"config", "set"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when no args provided to config set")
+	}
+}
+
+func TestConfigSetOneArg(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{"config", "set", "only-key"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when only one arg provided")
+	}
+}
+
+func TestConfigSetSuccess(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"config", "set", "server.workers", "16"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Set server.workers = 16") {
+		t.Errorf("expected set confirmation, got: %s", output)
+	}
+}
+
+func TestConfigShow(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"config", "show"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Configuration") {
+		t.Errorf("expected config output, got: %s", output)
+	}
+}
+
+func TestConfigShowIncludeDefaults(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"config", "show", "--include-defaults"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should succeed and produce some output
+	output := buf.String()
+	if output == "" {
+		t.Error("expected some output from config show --include-defaults")
+	}
+}
+
+// --- DB command tests ---
+
+func TestDBSubcommands(t *testing.T) {
+	cmd := newRootCmd()
+	db := findSubcommand(cmd, "db")
+	if db == nil {
+		t.Fatal("db command not found")
+	}
+
+	for _, name := range []string{"compact", "rotate-credentials"} {
+		if findSubcommand(db, name) == nil {
+			t.Errorf("expected db subcommand %q", name)
+		}
+	}
+}
+
+func TestDBCompact(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"db", "compact"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Database compacted") {
+		t.Errorf("expected compaction message, got: %s", output)
+	}
+}
+
+func TestDBCompactDryRun(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"db", "compact", "--dry-run"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "[dry-run]") {
+		t.Errorf("expected dry-run prefix, got: %s", output)
+	}
+}
+
+func TestDBRotateCredentialsForce(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"db", "rotate-credentials", "--force"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Database credentials rotated") {
+		t.Errorf("expected rotation message, got: %s", output)
+	}
+}
+
+// --- Diagnostics command tests ---
+
+func TestDiagnosticsSubcommands(t *testing.T) {
+	cmd := newRootCmd()
+	diag := findSubcommand(cmd, "diagnostics")
+	if diag == nil {
+		t.Fatal("diagnostics command not found")
+	}
+
+	if findSubcommand(diag, "collect") == nil {
+		t.Error("expected diagnostics collect subcommand")
+	}
+}
+
+func TestDiagnosticsCollect(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"diagnostics", "collect"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Collecting diagnostics") {
+		t.Errorf("expected diagnostics collection message, got: %s", output)
+	}
+	if !strings.Contains(output, "Diagnostics collected") {
+		t.Errorf("expected completion message, got: %s", output)
+	}
+}
+
+func TestDiagnosticsCollectWithOutputDir(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"diagnostics", "collect", "--output-dir", "/tmp/mydiag"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "/tmp/mydiag") {
+		t.Errorf("expected custom output dir in output, got: %s", output)
+	}
+}
+
+func TestDiagnosticsCollectWithLogs(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"diagnostics", "collect", "--include-logs", "--since", "24h"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Collecting logs") {
+		t.Errorf("expected log collection message, got: %s", output)
+	}
+	if !strings.Contains(output, "24h") {
+		t.Errorf("expected since duration in output, got: %s", output)
+	}
+}
+
+func TestDiagnosticsCollectWithConfig(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"diagnostics", "collect", "--include-config"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Collecting sanitized configuration") {
+		t.Errorf("expected config collection message, got: %s", output)
+	}
+}
+
+func TestDiagnosticsCollectAllFlags(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"diagnostics", "collect", "--output-dir", "/tmp/all", "--include-logs", "--include-config", "--since", "7d"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "/tmp/all") {
+		t.Errorf("expected output dir, got: %s", output)
+	}
+	if !strings.Contains(output, "Collecting logs") {
+		t.Errorf("expected log message, got: %s", output)
+	}
+	if !strings.Contains(output, "Collecting sanitized configuration") {
+		t.Errorf("expected config message, got: %s", output)
+	}
+}
+
+func TestAuthHelp(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"auth", "--help"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "login") {
+		t.Errorf("expected help to list login subcommand, got: %s", output)
+	}
+}
+
+func TestDBHelp(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"db", "--help"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "compact") {
+		t.Errorf("expected help to list compact subcommand, got: %s", output)
+	}
+}
+
+func TestDiagnosticsHelp(t *testing.T) {
+	cmd := newRootCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"diagnostics", "--help"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "collect") {
+		t.Errorf("expected help to list collect subcommand, got: %s", output)
+	}
+}
